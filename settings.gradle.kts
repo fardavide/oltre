@@ -34,6 +34,7 @@ plugins {
 
 include(":core")
 include(":sim")
+include(":client:colony:presentation")
 include(":client:design")
 include(":client:shell")
 include(":server")

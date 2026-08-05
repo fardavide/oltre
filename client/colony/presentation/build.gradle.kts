@@ -12,19 +12,11 @@ kotlin {
     jvmToolchain(21)
 
     jvm("desktop")
-
-    listOf(
-        iosArm64(),
-        iosSimulatorArm64(),
-    ).forEach { iosTarget ->
-        iosTarget.binaries.framework {
-            baseName = "OltreClient"
-            isStatic = true
-        }
-    }
+    iosArm64()
+    iosSimulatorArm64()
 
     android {
-        namespace = "dev.fardavide.oltre.client"
+        namespace = "dev.fardavide.oltre.client.colony.presentation"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
         minSdk = libs.versions.android.minSdk.get().toInt()
 
@@ -36,22 +28,15 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            implementation(projects.client.colony.presentation)
             implementation(projects.client.design)
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
-            implementation(libs.compose.components.resources)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        val desktopMain by getting {
-            dependencies {
-                implementation(compose.desktop.currentOs)
-            }
         }
         val desktopTest by getting {
             dependencies {
@@ -60,11 +45,5 @@ kotlin {
                 implementation(libs.roborazzi.compose.desktop)
             }
         }
-    }
-}
-
-compose.desktop {
-    application {
-        mainClass = "dev.fardavide.oltre.client.MainKt"
     }
 }
