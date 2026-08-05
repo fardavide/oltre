@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +38,10 @@ fun App(modifier: Modifier = Modifier) {
                 }
             }
             val uiState = advance(initial, from = start, to = now).toColonyUiState()
-            ResourceRail(uiState = uiState)
+            ResourceRail(
+                uiState = uiState,
+                modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+            )
         }
     }
 }
