@@ -44,8 +44,10 @@ classloader clashes.
 
 Davide's correction during kickstart (2026-08-05), applying the `fardavide/Aura` shape: a locked
 top-level layout does not license a monolith. `:client:shell` (composition root + entry points),
-`:client:design` (theme), and one module per feature as features land. Rejected: a single
-`:client` module refactored "later".
+`:client:design` (theme), and one *directory* per feature holding layer modules —
+`:client:<feature>:presentation`, plus `:domain` / `:data` only where required (second
+correction, same day: a feature is a directory of layer modules, not a single module).
+Rejected: a single `:client` module refactored "later", and single-module features.
 
 ## Test doubles via per-module Gradle test fixtures, not a doubles module
 

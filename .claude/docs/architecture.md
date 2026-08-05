@@ -8,7 +8,9 @@ sim           JVM CLI. Headless balancing harness; fast-forwards weeks in ms. Ne
 client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, Android):
   :client:shell    Composition root + entry points (desktop main, iOS framework)
   :client:design   Theme / design tokens (palette from docs/ui-mockup.html)
-  :client:<feature>  One module per feature as features land — never a monolith
+  :client:<feature>:<layer>  One directory per feature, holding layer modules (presentation,
+                             plus domain / data only where the feature requires them) — never
+                             a monolithic feature module
 server        JVM + Ktor. Compiling stub until multiplayer starts.
 iosApp/       Xcode wrapper around the client framework (pending, arrives with the iOS slice)
 androidApp    Thin Android app module wrapping :client:shell (pending, when Android delivery matters)
