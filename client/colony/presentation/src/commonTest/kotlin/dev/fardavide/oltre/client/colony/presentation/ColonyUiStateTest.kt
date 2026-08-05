@@ -11,7 +11,7 @@ class ColonyUiStateTest {
     @Test
     fun `metal stock is formatted with thousands separators`() {
         // given
-        val state = GameState(resources = Resources.of(metal = 482_910), buildings = Buildings.initial())
+        val state = GameState(resources = Resources.of(metal = 482_910), buildings = Buildings.initial(), buildQueue = null, eventLog = emptyList())
 
         // when
         val uiState = state.toColonyUiState()
@@ -23,7 +23,7 @@ class ColonyUiStateTest {
     @Test
     fun `metal production rate is formatted as an hourly delta`() {
         // given
-        val state = GameState(resources = Resources.of(metal = 0), buildings = Buildings.initial())
+        val state = GameState(resources = Resources.of(metal = 0), buildings = Buildings.initial(), buildQueue = null, eventLog = emptyList())
 
         // when
         val uiState = state.toColonyUiState()

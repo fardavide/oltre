@@ -8,6 +8,15 @@ data class Resources internal constructor(
     internal val crystalFine: Long,
     internal val deuteriumFine: Long,
 ) {
+    fun covers(other: Resources): Boolean =
+        metalFine >= other.metalFine && crystalFine >= other.crystalFine && deuteriumFine >= other.deuteriumFine
+
+    operator fun minus(other: Resources): Resources = Resources(
+        metalFine = metalFine - other.metalFine,
+        crystalFine = crystalFine - other.crystalFine,
+        deuteriumFine = deuteriumFine - other.deuteriumFine,
+    )
+
     val metal: Long get() = metalFine / FINE_PER_UNIT
     val crystal: Long get() = crystalFine / FINE_PER_UNIT
     val deuterium: Long get() = deuteriumFine / FINE_PER_UNIT
