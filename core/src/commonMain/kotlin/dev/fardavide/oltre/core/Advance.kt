@@ -7,11 +7,11 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
     return state.copy(
         resources = state.resources.copy(
             metalFine = state.resources.metalFine +
-                PlaceholderBalance.METAL_PRODUCTION_PER_HOUR * elapsedMilliseconds,
+                PlaceholderBalance.metalProductionPerHour(state.buildings.metalMine) * elapsedMilliseconds,
             crystalFine = state.resources.crystalFine +
-                PlaceholderBalance.CRYSTAL_PRODUCTION_PER_HOUR * elapsedMilliseconds,
+                PlaceholderBalance.crystalProductionPerHour(state.buildings.crystalMine) * elapsedMilliseconds,
             deuteriumFine = state.resources.deuteriumFine +
-                PlaceholderBalance.DEUTERIUM_PRODUCTION_PER_HOUR * elapsedMilliseconds,
+                PlaceholderBalance.deuteriumProductionPerHour(state.buildings.deuteriumSynthesizer) * elapsedMilliseconds,
         ),
     )
 }

@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
@@ -48,6 +49,65 @@ class AdvanceTest {
         // then
         val expected = state.resources.deuterium + PlaceholderBalance.DEUTERIUM_PRODUCTION_PER_HOUR
         assertEquals(expected, result.resources.deuterium)
+    }
+
+    @Test
+    fun `metal production grows with the metal mine level`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val initial = GameState.initial()
+        val upgraded = initial.copy(
+            buildings = initial.buildings.copy(metalMine = BuildingLevel(2)),
+        )
+
+        // when
+        val producedAtLevel1 = advance(initial, from = start, to = start + 1.hours).resources.metal
+        val producedAtLevel2 = advance(upgraded, from = start, to = start + 1.hours).resources.metal
+
+        // then
+        assertEquals(PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)), producedAtLevel1)
+        assertEquals(PlaceholderBalance.metalProductionPerHour(BuildingLevel(2)), producedAtLevel2)
+        assertTrue(producedAtLevel2 > producedAtLevel1, "level 2 must out-produce level 1")
+    }
+
+    @Test
+    fun `crystal production grows with the crystal mine level`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val initial = GameState.initial()
+        val upgraded = initial.copy(
+            buildings = initial.buildings.copy(crystalMine = BuildingLevel(3)),
+        )
+
+        // when
+        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.crystal
+
+        // then
+        assertEquals(PlaceholderBalance.crystalProductionPerHour(BuildingLevel(3)), produced)
+        assertTrue(
+            produced > advance(initial, from = start, to = start + 1.hours).resources.crystal,
+            "level 3 must out-produce level 1",
+        )
+    }
+
+    @Test
+    fun `deuterium production grows with the deuterium synthesizer level`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val initial = GameState.initial()
+        val upgraded = initial.copy(
+            buildings = initial.buildings.copy(deuteriumSynthesizer = BuildingLevel(4)),
+        )
+
+        // when
+        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.deuterium
+
+        // then
+        assertEquals(PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(4)), produced)
+        assertTrue(
+            produced > advance(initial, from = start, to = start + 1.hours).resources.deuterium,
+            "level 4 must out-produce level 1",
+        )
     }
 
     @Test
