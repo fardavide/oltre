@@ -9,6 +9,7 @@ targets:
     type: application
     platform: iOS
     sources: [iosApp]
+    # Asset catalogue holds the app icon; regenerate it with `python3 art/icon/generate.py`.
     info:
       path: iosApp/Info.plist
       properties:
@@ -24,6 +25,7 @@ targets:
         PRODUCT_NAME: Oltre
         MARKETING_VERSION: 0.0.3
         CURRENT_PROJECT_VERSION: 2
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         DEVELOPMENT_TEAM: A7Q83J6LR4
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: 1

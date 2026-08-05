@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		71F697B4B6634B6260E7409B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F543015C899423D4B01CEB2E /* Assets.xcassets */; };
 		DD674A415655224EFBB82B11 /* OltreApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2314491A35DC08A59D540B0F /* OltreApp.swift */; };
 		DDE70563ECFD85E11271281F /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE8509E5A49E4A5CAAEB3ADB /* ContentView.swift */; };
 /* End PBXBuildFile section */
@@ -16,12 +17,14 @@
 		9AD47CECFBBA31832EDED00A /* Oltre.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oltre.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C117AD187833E2513BD2F553 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CE8509E5A49E4A5CAAEB3ADB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		F543015C899423D4B01CEB2E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		1DB4B685CAEE8BEFEBBAEF94 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				F543015C899423D4B01CEB2E /* Assets.xcassets */,
 				CE8509E5A49E4A5CAAEB3ADB /* ContentView.swift */,
 				C117AD187833E2513BD2F553 /* Info.plist */,
 				2314491A35DC08A59D540B0F /* OltreApp.swift */,
@@ -54,6 +57,7 @@
 			buildPhases = (
 				5099623FC2AB679BC1AFC9F5 /* Compile Kotlin Framework */,
 				D3271ADA7C1169D6A9CB6F9F /* Sources */,
+				73E3AA156E524F7737789AA1 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -99,6 +103,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		73E3AA156E524F7737789AA1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				71F697B4B6634B6260E7409B /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		5099623FC2AB679BC1AFC9F5 /* Compile Kotlin Framework */ = {
