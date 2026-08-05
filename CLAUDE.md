@@ -50,6 +50,11 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
 no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.
 
+**Merging to `main` publishes.** Xcode Cloud archives every `main` commit and ships it to
+TestFlight (internal testers); GitHub Actions is the only gate. The iOS project is generated —
+edit `iosApp/project.yml`, run `xcodegen generate` in `iosApp/`, and commit the project *and*
+its shared scheme. Never hand-edit `project.pbxproj`. See `.claude/docs/decisions.md`.
+
 ## Sanctioned tooling
 
 Builds and tests go through the Gradle wrapper (`./gradlew`) only. If it fails, the failure is

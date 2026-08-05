@@ -88,3 +88,52 @@ merges only, linear history, no deletion/force-push, `bypass_actors: []` — nob
 included, can route around a red check. `required_approving_review_count` is 0 because a solo
 owner cannot approve their own PR. Payload committed at `.github/rulesets/protect-main.json`,
 applied as ruleset id 20464541.
+
+## iOS delivery: Xcode Cloud archive-only → TestFlight internal testing
+
+Same shape as `fardavide/Aura`, adapted for KMP. A **branch-change start condition on `main`**
+runs an **archive action with Deployment Preparation = "TestFlight (Internal Testing Only)"**;
+every squash merge lands a build on TestFlight. Xcode Cloud runs **no test actions** — GitHub
+Actions is the gate and `main` is PR-protected, so archives only ever see verified commits.
+
+Xcode Cloud beat GitHub Actions + fastlane because it **manages signing itself**: no
+distribution certificate, no provisioning profile, no App Store Connect API key, nothing in
+GitHub secrets and no yearly cert-expiry chore. The cost is that a workflow is **server-side
+state** — it lives on the App Store Connect app record, not in this repo, so it cannot be
+code-reviewed or restored from git (only the ASC API `/v1/ciWorkflows` can read or edit it).
+
+**Internal testing only, deliberately.** Apple requires a *clean* build for any workflow with an
+external-tester post-action, which discards the cached derived data a Kotlin/Native build most
+depends on. Internal testing has no such requirement and also skips Beta App Review.
+
+What this repo must therefore carry, and why each would otherwise be silent:
+
+- `iosApp/iosApp.xcodeproj` **and its shared scheme**, both committed. Xcode Cloud reads the
+  product list from shared schemes (`xcodebuild -describeAllArchivableProducts`) and requires a
+  project that is "continuously present" — a project generated at build time is unsupported.
+  XcodeGen emits a scheme *only* when `project.yml` declares a `schemes:` block; it declared
+  none, so the project exposed zero products.
+- A **1024px opaque app icon** in an asset catalog. Missing icon or an alpha channel is a hard
+  upload reject (ITMS-90022 / ITMS-90713 / ITMS-90717), not a warning.
+- **`ITSAppUsesNonExemptEncryption`**, or every build sits in "Missing Compliance" and reaches
+  no tester until answered by hand.
+- **`iosApp/ci_scripts/`** (Xcode Cloud looks for it next to the `.xcodeproj`, not at the repo
+  root). Xcode Cloud's environment ships macOS + Xcode + Homebrew and **no JDK**, so the
+  "Compile Kotlin Framework" phase would fail with *Unable to locate a Java Runtime* (exit 65).
+  `ci_post_clone.sh` installs `openjdk@21` via Homebrew — Apple's documented mechanism, and
+  `sudo` is unavailable so the keg-only JDK can never be registered with `/usr/libexec/java_home`.
+  Nothing a build script exports survives into the `xcodebuild` phase, so the build phase in
+  `project.yml` resolves `JAVA_HOME` itself rather than relying on a workflow environment
+  variable set in the App Store Connect UI (which would be one more piece of invisible
+  server-side state).
+
+Rejected: installing the JDK into `$CI_DERIVED_DATA_PATH` with a marker file to ride Xcode
+Cloud's cache — the common KMP recipe. Apple documents unconditionally that "Xcode Cloud deletes
+any files a custom build script creates", and the trick survives only through an undocumented
+interaction with derived-data caching. Paying ~1 minute of `brew install` per build buys a
+mechanism Apple actually supports.
+
+**Cost watch.** 25 compute hours/month come with the developer membership. A Kotlin/Native
+release link plus the archive is the expensive part, and `~/.konan` (~1.8 GB) is re-downloaded on
+every cold machine. If hours run short, the first lever is pointing `KONAN_DATA_DIR` at derived
+data — accepting the same undocumented caching the JDK install deliberately avoids.

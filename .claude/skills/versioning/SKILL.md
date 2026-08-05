@@ -25,7 +25,21 @@ milestones — minor bumps resume when he says so.
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
   A bump with a stale changelog is a defect.
 - After the squash merge: `git tag v<version> && git push origin v<version>`.
-- iOS: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` live in `iosApp/project.yml` (single
-  `settings.base` block) — bump both there and run `xcodegen generate` in `iosApp/`; never edit
-  the generated `project.pbxproj` by hand. `CURRENT_PROJECT_VERSION` is monotonic, +1 every
-  bump. When an Android app module lands, also bump its `versionCode` and record the path here.
+- iOS: bump `MARKETING_VERSION` in `iosApp/project.yml` (single `settings.base` block) to match
+  the new `oltre` version, then run `xcodegen generate` in `iosApp/` and commit the regenerated
+  project **and its shared scheme**; never edit `project.pbxproj` by hand. A `MARKETING_VERSION`
+  that drifts from `oltre` ships a build labelled with the wrong version — treat it as part of
+  the bump, not a follow-up.
+- **Do not touch `CURRENT_PROJECT_VERSION`.** It is a placeholder; the shipped build number is
+  Xcode Cloud's own run number, written into the project by
+  `iosApp/ci_scripts/ci_pre_xcodebuild.sh` at build time. Bumping it by hand achieves nothing and
+  invites a duplicate — App Store Connect refuses a build number that repeats within a release
+  train (all builds sharing one `MARKETING_VERSION`).
+- When an Android app module lands, also bump its `versionCode` and record the path here.
+
+## Merging to `main` publishes
+
+Every squash merge to `main` triggers an Xcode Cloud archive that lands on TestFlight (internal
+testers) — see `.claude/docs/decisions.md`. So a merge is a release, not just a merge: the
+changelog entry and `MARKETING_VERSION` must be correct **before** the PR goes green, because the
+build ships the moment it merges. A build cannot be un-published; the fix is always a new build.
