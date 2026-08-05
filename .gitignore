@@ -29,3 +29,6 @@ DerivedData/
 # Claude Code
 .claude/settings.local.json
 .claude/worktrees/
+
+# Python (icon generator)
+__pycache__/

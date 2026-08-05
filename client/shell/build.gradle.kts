@@ -66,5 +66,22 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "dev.fardavide.oltre.client.MainKt"
+
+        // Icons are generated from the SVG masters by `python3 art/icon/generate.py` —
+        // regenerate rather than editing them.
+        nativeDistributions {
+            packageName = "Oltre"
+
+            macOS {
+                bundleID = "dev.fardavide.oltre"
+                iconFile.set(project.file("icons/oltre.icns"))
+            }
+            windows {
+                iconFile.set(project.file("icons/oltre.ico"))
+            }
+            linux {
+                iconFile.set(project.file("icons/oltre.png"))
+            }
+        }
     }
 }

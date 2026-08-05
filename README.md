@@ -41,6 +41,17 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 
 iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
 
+## Icon
+
+The app icon is an SVG master; every platform asset is generated from it and committed.
+
+```bash
+python3 art/icon/generate.py
+```
+
+Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PNGs. See
+[art/icon/README.md](art/icon/README.md).
+
 ## Docs
 
 - [docs/ui-mockup.html](docs/ui-mockup.html) — UI design brief: Colony + Galaxy screens at iPhone size.
@@ -48,6 +59,13 @@ iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.4 — 2026-08-06
+
+- **Oltre has a face.** The app ships an icon — a planet's lit limb with a single trajectory
+  rising past it into empty space — on iPhone, macOS, Windows and Linux. The artwork is an SVG
+  master in `art/icon/`; every platform asset regenerates from it. Android's launcher assets are
+  generated and staged, ready for the app module when it lands.
 
 ### 0.0.3 — 2026-08-05
 
