@@ -11,11 +11,14 @@ Updated: 2026-08-05
   jobs change.
 - **`protect-main` ruleset** — active, verified with `gh ruleset check main`.
 - **AI harness** — CLAUDE.md, `.claude/docs/`, project skills, permissions.
+- **0.0.2 walking skeleton** — `core` advance with metal accrual (fine-unit stock, composability
+  property test), `:client:colony:presentation` with the resource rail + first Roborazzi
+  baseline, shell ticking the clock at the boundary, sim fast-forward scenario.
 
 ## Next
 
-- Walking skeleton (Phase 6): one vertical slice end-to-end TDD — first `core` rules with the
-  `advance` composability property test, thinnest Colony screen slice, first Roborazzi baseline.
+- Decompose v1 into vertical slices and record the roadmap here: 3 resources, 6 buildings,
+  4 ship types, 1 research branch, procgen galaxy, 3 AI empires, notifications, JSON save.
 
 ## Pending / not yet set up
 

@@ -8,10 +8,10 @@ data class Resources internal constructor(
 ) {
     val metal: Long get() = metalFine / FINE_PER_UNIT
 
-    internal companion object {
+    companion object {
         // Milliseconds per hour: fine units accrued per metal-per-hour of production per ms.
         internal const val FINE_PER_UNIT: Long = 3_600_000
 
-        internal fun of(metal: Long): Resources = Resources(metalFine = metal * FINE_PER_UNIT)
+        fun of(metal: Long): Resources = Resources(metalFine = metal * FINE_PER_UNIT)
     }
 }

@@ -49,6 +49,14 @@ iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
 
 ## Changelog
 
+### 0.0.2 — 2026-08-05
+
+- **The Colony resource rail is alive: metal accrues in real time while the app is open.**
+  First vertical slice through every layer — the pure simulation core (guarded by the
+  advance-composability property test), the Colony feature module rendering the rail, the
+  desktop shell ticking the clock at the boundary, and the sim harness fast-forwarding a week
+  in milliseconds. First screenshot baseline committed.
+
 ### 0.0.1 — 2026-08-05
 
 - Initial project scaffold: KMP monorepo (core, sim, client, server), CI, branch ruleset.
