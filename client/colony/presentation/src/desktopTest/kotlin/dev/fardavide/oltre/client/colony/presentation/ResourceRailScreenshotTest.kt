@@ -20,7 +20,11 @@ class ResourceRailScreenshotTest {
                     ResourceRail(
                         uiState = ColonyUiState(
                             metal = "482,910",
-                            metalRatePerHour = "+3,600/h",
+                            metalRatePerHour = "+12,400/h",
+                            crystal = "198,340",
+                            crystalRatePerHour = "+6,180/h",
+                            deuterium = "74,120",
+                            deuteriumRatePerHour = "+900/h",
                         ),
                     )
                 }

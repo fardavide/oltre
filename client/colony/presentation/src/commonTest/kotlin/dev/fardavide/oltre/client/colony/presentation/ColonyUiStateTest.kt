@@ -41,4 +41,24 @@ class ColonyUiStateTest {
         // then
         assertEquals("+7,200/h", uiState.metalRatePerHour)
     }
+
+    @Test
+    fun `all three resources appear with stock and rate`() {
+        // given
+        val state = GameState(
+            resources = Resources.of(metal = 1_000, crystal = 2_000, deuterium = 3_000),
+            buildings = Buildings.initial(),
+            buildQueue = null,
+            eventLog = emptyList(),
+        )
+
+        // when
+        val uiState = state.toColonyUiState()
+
+        // then
+        assertEquals("2,000", uiState.crystal)
+        assertEquals("+1,800/h", uiState.crystalRatePerHour)
+        assertEquals("3,000", uiState.deuterium)
+        assertEquals("+900/h", uiState.deuteriumRatePerHour)
+    }
 }
