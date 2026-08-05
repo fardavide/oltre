@@ -60,6 +60,13 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.4 — 2026-08-06
+
+- **Oltre has a face.** The app ships an icon — a planet's lit limb with a single trajectory
+  rising past it into empty space — on iPhone, macOS, Windows and Linux. The artwork is an SVG
+  master in `art/icon/`; every platform asset regenerates from it. Android's launcher assets are
+  generated and staged, ready for the app module when it lands.
+
 ### 0.0.3 — 2026-08-05
 
 - **The economy is real: six buildings, a build queue, and energy.** All three resources accrue
