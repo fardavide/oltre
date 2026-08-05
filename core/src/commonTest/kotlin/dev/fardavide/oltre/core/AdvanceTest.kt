@@ -23,6 +23,34 @@ class AdvanceTest {
     }
 
     @Test
+    fun `advancing one hour accrues crystal at the hourly production rate`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial()
+
+        // when
+        val result = advance(state, from = start, to = start + 1.hours)
+
+        // then
+        val expected = state.resources.crystal + PlaceholderBalance.CRYSTAL_PRODUCTION_PER_HOUR
+        assertEquals(expected, result.resources.crystal)
+    }
+
+    @Test
+    fun `advancing one hour accrues deuterium at the hourly production rate`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial()
+
+        // when
+        val result = advance(state, from = start, to = start + 1.hours)
+
+        // then
+        val expected = state.resources.deuterium + PlaceholderBalance.DEUTERIUM_PRODUCTION_PER_HOUR
+        assertEquals(expected, result.resources.deuterium)
+    }
+
+    @Test
     fun `advancing in one span equals advancing through any intermediate instant`() {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
