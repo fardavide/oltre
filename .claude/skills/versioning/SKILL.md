@@ -16,10 +16,10 @@ The root `build.gradle.kts` propagates it to every module.
 |---|---|---|
 | Patch `0.0.X` | Bug fixes, corrections with user-visible effect | Agent, by default |
 | Minor `0.X.0` | A feature slice lands | Agent, when the slice completes |
+| Major `X.0.0` | A big milestone | **Davide only — never propose, never apply** |
 
 **Standing override (Davide, 2026-08-05): bump only PATCH for now**, even for feature
 milestones — minor bumps resume when he says so.
-| Major `X.0.0` | A big milestone | **Davide only — never propose, never apply** |
 
 - Every bump carries a `## Changelog` entry in `README.md`, same PR, newest first, heading
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
