@@ -41,6 +41,17 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 
 iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
 
+## Icon
+
+The app icon is an SVG master; every platform asset is generated from it and committed.
+
+```bash
+python3 art/icon/generate.py
+```
+
+Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PNGs. See
+[art/icon/README.md](art/icon/README.md).
+
 ## Docs
 
 - [docs/ui-mockup.html](docs/ui-mockup.html) — UI design brief: Colony + Galaxy screens at iPhone size.
