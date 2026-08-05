@@ -64,12 +64,31 @@ object PlaceholderBalance {
             metal = 75L shl (toLevel.value - 1),
             crystal = 30L shl (toLevel.value - 1),
         )
+        BuildingType.ROBOTICS_FACTORY -> Resources.of(
+            metal = 400L shl (toLevel.value - 1),
+            crystal = 120L shl (toLevel.value - 1),
+            deuterium = 200L shl (toLevel.value - 1),
+        )
+        BuildingType.NANITE_FACTORY -> Resources.of(
+            metal = 1_000_000L shl (toLevel.value - 1),
+            crystal = 500_000L shl (toLevel.value - 1),
+            deuterium = 100_000L shl (toLevel.value - 1),
+        )
     }
 
-    fun upgradeDuration(building: BuildingType, toLevel: BuildingLevel): Duration = when (building) {
-        BuildingType.METAL_MINE -> (10 * toLevel.value).minutes
-        BuildingType.CRYSTAL_MINE -> (12 * toLevel.value).minutes
-        BuildingType.DEUTERIUM_SYNTHESIZER -> (20 * toLevel.value).minutes
-        BuildingType.SOLAR_PLANT -> (8 * toLevel.value).minutes
+    fun upgradeDuration(
+        building: BuildingType,
+        toLevel: BuildingLevel,
+        roboticsFactory: BuildingLevel,
+    ): Duration {
+        val base = when (building) {
+            BuildingType.METAL_MINE -> (10 * toLevel.value).minutes
+            BuildingType.CRYSTAL_MINE -> (12 * toLevel.value).minutes
+            BuildingType.DEUTERIUM_SYNTHESIZER -> (20 * toLevel.value).minutes
+            BuildingType.SOLAR_PLANT -> (8 * toLevel.value).minutes
+            BuildingType.ROBOTICS_FACTORY -> (30 * toLevel.value).minutes
+            BuildingType.NANITE_FACTORY -> (120 * toLevel.value).minutes
+        }
+        return base / (1 + roboticsFactory.value)
     }
 }

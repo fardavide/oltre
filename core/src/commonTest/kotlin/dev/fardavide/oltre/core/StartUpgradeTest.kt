@@ -24,7 +24,7 @@ class StartUpgradeTest {
         val started = assertIs<StartUpgradeResult.Started>(result)
         assertEquals(7, started.state.resources.metal)
         assertEquals(5, started.state.resources.crystal)
-        val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel)
+        val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel, BuildingLevel(0))
         assertEquals(
             BuildJob(building = BuildingType.METAL_MINE, toLevel = toLevel, completesAt = expectedCompletion),
             started.state.buildQueue,
@@ -101,5 +101,53 @@ class StartUpgradeTest {
         // then
         assertEquals(BuildingLevel(2), after.buildings.deuteriumSynthesizer)
         assertEquals(BuildingLevel(1), after.buildings.metalMine)
+    }
+
+    @Test
+    fun `the robotics factory shortens build durations`() {
+        // given
+        val now = Instant.fromEpochMilliseconds(0)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
+        val slow = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+        val fast = slow.copy(
+            buildings = slow.buildings.copy(roboticsFactory = BuildingLevel(2)),
+        )
+
+        // when
+        val slowJob = checkNotNull(
+            assertIs<StartUpgradeResult.Started>(startUpgrade(slow, BuildingType.METAL_MINE, at = now)).state.buildQueue,
+        )
+        val fastJob = checkNotNull(
+            assertIs<StartUpgradeResult.Started>(startUpgrade(fast, BuildingType.METAL_MINE, at = now)).state.buildQueue,
+        )
+
+        // then
+        val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
+        assertEquals(now + base, slowJob.completesAt)
+        assertEquals(now + base / 3, fastJob.completesAt)
+    }
+
+    @Test
+    fun `the nanite factory is locked until robotics reaches level 10`() {
+        // given
+        val now = Instant.fromEpochMilliseconds(0)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.NANITE_FACTORY, BuildingLevel(1))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
+        )
+
+        // when / then
+        assertIs<StartUpgradeResult.RequirementsNotMet>(
+            startUpgrade(funded, BuildingType.NANITE_FACTORY, at = now),
+        )
+
+        val unlocked = funded.copy(
+            buildings = funded.buildings.copy(roboticsFactory = BuildingLevel(10)),
+        )
+        assertIs<StartUpgradeResult.Started>(
+            startUpgrade(unlocked, BuildingType.NANITE_FACTORY, at = now),
+        )
     }
 }

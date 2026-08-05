@@ -10,12 +10,16 @@ data class Buildings(
     val crystalMine: BuildingLevel,
     val deuteriumSynthesizer: BuildingLevel,
     val solarPlant: BuildingLevel,
+    val roboticsFactory: BuildingLevel,
+    val naniteFactory: BuildingLevel,
 ) {
     fun withLevel(building: BuildingType, level: BuildingLevel): Buildings = when (building) {
         BuildingType.METAL_MINE -> copy(metalMine = level)
         BuildingType.CRYSTAL_MINE -> copy(crystalMine = level)
         BuildingType.DEUTERIUM_SYNTHESIZER -> copy(deuteriumSynthesizer = level)
         BuildingType.SOLAR_PLANT -> copy(solarPlant = level)
+        BuildingType.ROBOTICS_FACTORY -> copy(roboticsFactory = level)
+        BuildingType.NANITE_FACTORY -> copy(naniteFactory = level)
     }
 
     companion object {
@@ -24,6 +28,8 @@ data class Buildings(
             crystalMine = BuildingLevel(1),
             deuteriumSynthesizer = BuildingLevel(1),
             solarPlant = BuildingLevel(1),
+            roboticsFactory = BuildingLevel(0),
+            naniteFactory = BuildingLevel(0),
         )
     }
 }

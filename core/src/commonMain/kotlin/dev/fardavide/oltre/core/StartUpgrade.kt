@@ -7,6 +7,8 @@ enum class BuildingType {
     CRYSTAL_MINE,
     DEUTERIUM_SYNTHESIZER,
     SOLAR_PLANT,
+    ROBOTICS_FACTORY,
+    NANITE_FACTORY,
 }
 
 data class BuildJob(
@@ -19,15 +21,22 @@ sealed interface StartUpgradeResult {
     data class Started(val state: GameState) : StartUpgradeResult
     data object QueueBusy : StartUpgradeResult
     data object InsufficientResources : StartUpgradeResult
+    data object RequirementsNotMet : StartUpgradeResult
 }
 
 fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUpgradeResult {
     if (state.buildQueue != null) return StartUpgradeResult.QueueBusy
+    // Nanite requires Robotics 10 (mockup rule); the research half of the gate arrives in M4.
+    if (building == BuildingType.NANITE_FACTORY && state.buildings.roboticsFactory.value < 10) {
+        return StartUpgradeResult.RequirementsNotMet
+    }
     val toLevel = when (building) {
         BuildingType.METAL_MINE -> BuildingLevel(state.buildings.metalMine.value + 1)
         BuildingType.CRYSTAL_MINE -> BuildingLevel(state.buildings.crystalMine.value + 1)
         BuildingType.DEUTERIUM_SYNTHESIZER -> BuildingLevel(state.buildings.deuteriumSynthesizer.value + 1)
         BuildingType.SOLAR_PLANT -> BuildingLevel(state.buildings.solarPlant.value + 1)
+        BuildingType.ROBOTICS_FACTORY -> BuildingLevel(state.buildings.roboticsFactory.value + 1)
+        BuildingType.NANITE_FACTORY -> BuildingLevel(state.buildings.naniteFactory.value + 1)
     }
     val cost = PlaceholderBalance.upgradeCost(building, toLevel)
     if (!state.resources.covers(cost)) return StartUpgradeResult.InsufficientResources
@@ -37,7 +46,7 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
             buildQueue = BuildJob(
                 building = building,
                 toLevel = toLevel,
-                completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel),
+                completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
             ),
         ),
     )
