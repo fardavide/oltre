@@ -26,7 +26,9 @@ large procedurally generated galaxy, 3 AI empires, local notifications, JSON sna
 2. **`core` never reads the clock.** Time enters as a parameter:
    `fun advance(state: GameState, from: Instant, to: Instant): GameState`.
    The most important rule in the codebase — it makes the simulation deterministic, testable,
-   fast-forwardable, and reusable unchanged on the server.
+   fast-forwardable, and reusable unchanged on the server. (`Instant` is the stdlib
+   `kotlin.time.Instant` — no third-party dependency needed. Signatures here record design
+   intent; once code exists, the code is authoritative.)
 3. **Randomness is explicitly seeded:** `fun resolve(a: Fleet, b: Fleet, seed: Long): BattleReport`.
    Same inputs, same output, always.
 4. **State changes are an append-only event log**, not in-place mutation.
