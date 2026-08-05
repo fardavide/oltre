@@ -1,4 +1,6 @@
 # Xcode project spec — regenerate iosApp.xcodeproj with `xcodegen generate` (run in iosApp/).
+# The generated project AND its shared scheme are committed: Xcode Cloud requires a project that
+# is "continuously present" in the repository and reads its product list from shared schemes.
 name: iosApp
 options:
   bundleIdPrefix: dev.fardavide
@@ -18,12 +20,17 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Compose iOS refuses to start without this (ProMotion frame-rate cap opt-out).
         CADisableMinimumFrameDurationOnPhone: true
+        # Declares the app uses no non-exempt encryption. Without this key every TestFlight
+        # build lands in "Missing Compliance" and reaches no tester until answered by hand.
+        ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fardavide.oltre
         PRODUCT_NAME: Oltre
         MARKETING_VERSION: 0.0.4
+        # Placeholder only. The shipped build number comes from $CI_BUILD_NUMBER, written in
+        # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .claude/skills/versioning.
         CURRENT_PROJECT_VERSION: 3
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         DEVELOPMENT_TEAM: A7Q83J6LR4
@@ -32,10 +39,51 @@ targets:
         SWIFT_VERSION: 5.9
         FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../client/shell/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
         OTHER_LDFLAGS: $(inherited) -framework OltreClient
+        # The Kotlin framework is produced by a Gradle daemon, which a sandboxed script phase
+        # cannot write; leaving this YES fails embedAndSignAppleFrameworkForXcode.
         ENABLE_USER_SCRIPT_SANDBOXING: NO
     preBuildScripts:
       - name: Compile Kotlin Framework
+        # Resolves a JVM before delegating to Gradle. Xcode build phases inherit neither the
+        # login shell's PATH nor anything exported by ci_post_clone.sh, so on Xcode Cloud —
+        # which ships no JDK — an unqualified `./gradlew` dies with "Unable to locate a Java
+        # Runtime" (exit 65). Locally the first branch hits and this is a no-op.
         script: |
+          set -euo pipefail
+          if [ -z "${JAVA_HOME:-}" ]; then
+            for candidate in \
+              "$(/usr/libexec/java_home -v 21 2>/dev/null || true)" \
+              "$(/usr/libexec/java_home 2>/dev/null || true)" \
+              /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+              /usr/local/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+            do
+              if [ -n "$candidate" ] && [ -x "$candidate/bin/java" ]; then
+                export JAVA_HOME="$candidate"
+                break
+              fi
+            done
+          fi
+          if [ -z "${JAVA_HOME:-}" ]; then
+            echo "error: no JDK found. On Xcode Cloud iosApp/ci_scripts/ci_post_clone.sh installs one." >&2
+            exit 1
+          fi
+          echo "note: building the Kotlin framework with JAVA_HOME=$JAVA_HOME"
+          export PATH="$JAVA_HOME/bin:$PATH"
           cd "$SRCROOT/.."
           ./gradlew :client:shell:embedAndSignAppleFrameworkForXcode
         basedOnDependencyAnalysis: false
+schemes:
+  Oltre:
+    build:
+      targets:
+        Oltre: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    # Xcode Cloud lists a product only if a shared scheme exposes an archivable target
+    # (`xcodebuild -describeAllArchivableProducts`), and archives Release.
+    archive:
+      config: Release
