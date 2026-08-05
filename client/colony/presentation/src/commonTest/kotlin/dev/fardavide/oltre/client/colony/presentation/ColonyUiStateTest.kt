@@ -69,7 +69,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `facility rows expose level, cost and affordability`() {
+    fun `facility rows expose level cost and affordability`() {
         // given plenty of metal but no crystal
         val state = GameState(
             resources = Resources.of(metal = 1_000_000),
