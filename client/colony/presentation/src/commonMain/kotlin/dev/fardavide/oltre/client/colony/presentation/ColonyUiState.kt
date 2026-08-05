@@ -10,7 +10,7 @@ data class ColonyUiState(
 
 fun GameState.toColonyUiState(): ColonyUiState = ColonyUiState(
     metal = resources.metal.groupedByThousands(),
-    metalRatePerHour = "+${PlaceholderBalance.METAL_PRODUCTION_PER_HOUR.groupedByThousands()}/h",
+    metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings).groupedByThousands()}/h",
 )
 
 private fun Long.groupedByThousands(): String =

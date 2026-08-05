@@ -49,6 +49,15 @@ iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
 
 ## Changelog
 
+### 0.0.3 — 2026-08-05
+
+- **The economy is real: six buildings, a build queue, and energy.** All three resources accrue
+  from their mine levels; upgrades cost exponentially more per level, take time, and complete
+  through the simulation as logged events; the Robotics Factory speeds construction and the
+  Nanite Factory unlocks at Robotics 10; mines slow down proportionally when the Solar Plant
+  can't feed them; storage caps at 10M per resource (placeholder). The sim harness
+  fast-forwards a week of greedy play in milliseconds.
+
 ### 0.0.2 — 2026-08-05
 
 - **The Colony resource rail is alive: metal accrues in real time while the app is open.**

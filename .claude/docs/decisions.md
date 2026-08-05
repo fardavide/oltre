@@ -71,6 +71,16 @@ Kickstart default: this is a Claude-only personal project today, so the `.ai/` +
 real migration recorded here. The kickoff prompt file was deleted from `docs/` in favour of the
 distilled `.claude/docs/brief.md` — the Notion page remains the design source of truth.
 
+## v1 buildings are the mockup six; energy is a simple scaling mechanic
+
+Settled with Davide at M2 start (2026-08-05). Buildings: Metal Mine, Crystal Mine, Deuterium
+Synthesizer, Solar Plant, Robotics Factory, Nanite Factory — exactly the six the UI mockup
+shows. Rejected: swapping Nanite Factory for an upgradeable Storage Depot. Energy exists in v1:
+mines consume it, Solar Plant produces it, and on a deficit production scales down
+proportionally. It is not a fourth resource on the rail — a warning state instead, per the
+anti-overwhelm principle. Rejected: no-energy v1 (loses the mine-vs-plant build tension that
+makes early upgrade ordering a real decision).
+
 ## `protect-main` ruleset, active, no bypass
 
 Standard kickstart shape (as `fardavide/Aura`): PRs only, all four CI checks required, squash

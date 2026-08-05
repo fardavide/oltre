@@ -22,8 +22,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fardavide.oltre
         PRODUCT_NAME: Oltre
-        MARKETING_VERSION: 0.0.2
-        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: 0.0.3
+        CURRENT_PROJECT_VERSION: 2
         DEVELOPMENT_TEAM: A7Q83J6LR4
         CODE_SIGN_STYLE: Automatic
         TARGETED_DEVICE_FAMILY: 1
