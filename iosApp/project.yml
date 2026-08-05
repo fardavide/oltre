@@ -13,6 +13,8 @@ targets:
       path: iosApp/Info.plist
       properties:
         CFBundleDisplayName: Oltre
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         # Compose iOS refuses to start without this (ProMotion frame-rate cap opt-out).
         CADisableMinimumFrameDurationOnPhone: true
         UILaunchScreen: {}

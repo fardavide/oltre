@@ -14,6 +14,9 @@ Updated: 2026-08-05
 - **0.0.2 walking skeleton** — `core` advance with metal accrual (fine-unit stock, composability
   property test), `:client:colony:presentation` with the resource rail + first Roborazzi
   baseline, shell ticking the clock at the boundary, sim fast-forward scenario.
+- **iOS delivery proven** — `iosApp/` xcodegen wrapper; runs on the iPhone 17 Pro simulator and
+  installed+launched on Davide's physical iPhone 16 Pro (signing, provisioning, Developer Mode
+  all exercised).
 
 ## Next
 
@@ -22,7 +25,6 @@ Updated: 2026-08-05
 
 ## Pending / not yet set up
 
-- `iosApp/` Xcode wrapper — arrives with the iOS wiring slice.
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters.
 - v1 slice breakdown (3 resources, 6 buildings, 4 ship types, 1 research branch, procgen galaxy,
   3 AI empires, notifications, JSON save) — to be decomposed and recorded **here** when feature

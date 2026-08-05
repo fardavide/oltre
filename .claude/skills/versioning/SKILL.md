@@ -22,7 +22,7 @@ The root `build.gradle.kts` propagates it to every module.
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
   A bump with a stale changelog is a defect.
 - After the squash merge: `git tag v<version> && git push origin v<version>`.
-- Build numbers: none exist yet. When `iosApp/` lands, also bump `CURRENT_PROJECT_VERSION` in
-  `iosApp/*.xcodeproj/project.pbxproj` (every configuration, not just Debug); when an Android
-  app module lands, also bump its `versionCode`. Both are monotonic — update this skill with
-  exact paths when those files exist.
+- iOS: `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` live in `iosApp/project.yml` (single
+  `settings.base` block) — bump both there and run `xcodegen generate` in `iosApp/`; never edit
+  the generated `project.pbxproj` by hand. `CURRENT_PROJECT_VERSION` is monotonic, +1 every
+  bump. When an Android app module lands, also bump its `versionCode` and record the path here.
