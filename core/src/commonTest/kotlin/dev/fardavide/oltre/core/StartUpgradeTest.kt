@@ -62,4 +62,44 @@ class StartUpgradeTest {
         // then
         assertIs<StartUpgradeResult.InsufficientResources>(result)
     }
+
+    @Test
+    fun `upgrading the crystal mine levels the crystal mine and only it`() {
+        // given
+        val now = Instant.fromEpochMilliseconds(0)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.CRYSTAL_MINE, BuildingLevel(2))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+        val started = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(funded, BuildingType.CRYSTAL_MINE, at = now),
+        ).state
+
+        // when
+        val after = advance(started, from = now, to = checkNotNull(started.buildQueue).completesAt)
+
+        // then
+        assertEquals(BuildingLevel(2), after.buildings.crystalMine)
+        assertEquals(BuildingLevel(1), after.buildings.metalMine)
+    }
+
+    @Test
+    fun `upgrading the deuterium synthesizer levels it and only it`() {
+        // given
+        val now = Instant.fromEpochMilliseconds(0)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(2))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+        val started = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(funded, BuildingType.DEUTERIUM_SYNTHESIZER, at = now),
+        ).state
+
+        // when
+        val after = advance(started, from = now, to = checkNotNull(started.buildQueue).completesAt)
+
+        // then
+        assertEquals(BuildingLevel(2), after.buildings.deuteriumSynthesizer)
+        assertEquals(BuildingLevel(1), after.buildings.metalMine)
+    }
 }

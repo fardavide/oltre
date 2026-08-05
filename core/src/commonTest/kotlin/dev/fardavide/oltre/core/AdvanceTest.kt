@@ -75,8 +75,10 @@ class AdvanceTest {
         // given
         val start = Instant.fromEpochMilliseconds(0)
         val initial = GameState.initial()
+        // Solar plant raised so the scenario stays energy-sufficient: this test isolates
+        // the level->production relation, EnergyTest owns the scaling behaviour.
         val upgraded = initial.copy(
-            buildings = initial.buildings.copy(crystalMine = BuildingLevel(3)),
+            buildings = initial.buildings.copy(crystalMine = BuildingLevel(3), solarPlant = BuildingLevel(2)),
         )
 
         // when
@@ -96,7 +98,7 @@ class AdvanceTest {
         val start = Instant.fromEpochMilliseconds(0)
         val initial = GameState.initial()
         val upgraded = initial.copy(
-            buildings = initial.buildings.copy(deuteriumSynthesizer = BuildingLevel(4)),
+            buildings = initial.buildings.copy(deuteriumSynthesizer = BuildingLevel(4), solarPlant = BuildingLevel(3)),
         )
 
         // when

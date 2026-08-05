@@ -4,6 +4,9 @@ import kotlin.time.Instant
 
 enum class BuildingType {
     METAL_MINE,
+    CRYSTAL_MINE,
+    DEUTERIUM_SYNTHESIZER,
+    SOLAR_PLANT,
 }
 
 data class BuildJob(
@@ -22,6 +25,9 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
     if (state.buildQueue != null) return StartUpgradeResult.QueueBusy
     val toLevel = when (building) {
         BuildingType.METAL_MINE -> BuildingLevel(state.buildings.metalMine.value + 1)
+        BuildingType.CRYSTAL_MINE -> BuildingLevel(state.buildings.crystalMine.value + 1)
+        BuildingType.DEUTERIUM_SYNTHESIZER -> BuildingLevel(state.buildings.deuteriumSynthesizer.value + 1)
+        BuildingType.SOLAR_PLANT -> BuildingLevel(state.buildings.solarPlant.value + 1)
     }
     val cost = PlaceholderBalance.upgradeCost(building, toLevel)
     if (!state.resources.covers(cost)) return StartUpgradeResult.InsufficientResources

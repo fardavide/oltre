@@ -29,11 +29,11 @@ private fun accrue(state: GameState, from: Instant, to: Instant): GameState {
     return state.copy(
         resources = state.resources.copy(
             metalFine = state.resources.metalFine +
-                PlaceholderBalance.metalProductionPerHour(state.buildings.metalMine) * elapsedMilliseconds,
+                PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings) * elapsedMilliseconds,
             crystalFine = state.resources.crystalFine +
-                PlaceholderBalance.crystalProductionPerHour(state.buildings.crystalMine) * elapsedMilliseconds,
+                PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings) * elapsedMilliseconds,
             deuteriumFine = state.resources.deuteriumFine +
-                PlaceholderBalance.deuteriumProductionPerHour(state.buildings.deuteriumSynthesizer) * elapsedMilliseconds,
+                PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings) * elapsedMilliseconds,
         ),
     )
 }

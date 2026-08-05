@@ -20,15 +20,56 @@ object PlaceholderBalance {
     fun deuteriumProductionPerHour(level: BuildingLevel): Long =
         DEUTERIUM_PRODUCTION_PER_HOUR * level.value
 
+    // Energy: mines consume, the solar plant produces; on deficit every mine's effective
+    // hourly rate is scaled by produced/consumed using integer division. The scaled rate is
+    // itself the rule (an integer per level configuration), so accrual stays exact and the
+    // composability property is untouched.
+    fun energyProduction(buildings: Buildings): Long = 50L * buildings.solarPlant.value
+
+    fun energyConsumption(buildings: Buildings): Long =
+        10L * buildings.metalMine.value +
+            10L * buildings.crystalMine.value +
+            20L * buildings.deuteriumSynthesizer.value
+
+    fun effectiveMetalProductionPerHour(buildings: Buildings): Long =
+        scaleByEnergy(metalProductionPerHour(buildings.metalMine), buildings)
+
+    fun effectiveCrystalProductionPerHour(buildings: Buildings): Long =
+        scaleByEnergy(crystalProductionPerHour(buildings.crystalMine), buildings)
+
+    fun effectiveDeuteriumProductionPerHour(buildings: Buildings): Long =
+        scaleByEnergy(deuteriumProductionPerHour(buildings.deuteriumSynthesizer), buildings)
+
+    private fun scaleByEnergy(fullRate: Long, buildings: Buildings): Long {
+        val produced = energyProduction(buildings)
+        val consumed = energyConsumption(buildings)
+        return if (produced >= consumed) fullRate else fullRate * produced / consumed
+    }
+
     // Exponential placeholder curves: cost doubles per level, duration grows linearly.
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources = when (building) {
         BuildingType.METAL_MINE -> Resources.of(
             metal = 60L shl (toLevel.value - 1),
             crystal = 15L shl (toLevel.value - 1),
         )
+        BuildingType.CRYSTAL_MINE -> Resources.of(
+            metal = 48L shl (toLevel.value - 1),
+            crystal = 24L shl (toLevel.value - 1),
+        )
+        BuildingType.DEUTERIUM_SYNTHESIZER -> Resources.of(
+            metal = 225L shl (toLevel.value - 1),
+            crystal = 75L shl (toLevel.value - 1),
+        )
+        BuildingType.SOLAR_PLANT -> Resources.of(
+            metal = 75L shl (toLevel.value - 1),
+            crystal = 30L shl (toLevel.value - 1),
+        )
     }
 
     fun upgradeDuration(building: BuildingType, toLevel: BuildingLevel): Duration = when (building) {
         BuildingType.METAL_MINE -> (10 * toLevel.value).minutes
+        BuildingType.CRYSTAL_MINE -> (12 * toLevel.value).minutes
+        BuildingType.DEUTERIUM_SYNTHESIZER -> (20 * toLevel.value).minutes
+        BuildingType.SOLAR_PLANT -> (8 * toLevel.value).minutes
     }
 }
