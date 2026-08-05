@@ -18,8 +18,11 @@ when_to_use: >
   when the visual change is intended, and say so in the PR.
 - On CI failure, the diff images upload as the `roborazzi-diffs` artifact — read the diff, don't
   guess.
-- macOS-vs-Linux rendering drift: if verification fails on CI over anti-aliasing-level
-  differences while local verify passes, set a perceptual tolerance
-  (`RoborazziOptions.CompareOptions(resultValidator = ThresholdValidator(...))`) on the affected
-  test rather than re-recording per-platform baselines. Record the chosen threshold here once
-  one exists.
+- **Never use platform font families** (`FontFamily.Monospace`, default sans) in any composable
+  a screenshot covers: macOS and Linux resolve them to different typefaces, and baselines
+  recorded locally fail on CI with glyph-level diffs no honest threshold absorbs (learned on the
+  very first baseline, 2026-08-05). Use the bundled family from `:client:design` (`oltreMono()`,
+  JetBrains Mono, OFL) — bundle further weights/families there when needed.
+- Residual anti-aliasing drift between macOS recording and Linux CI is absorbed by
+  `ThresholdValidator(0.01f)` in `RoborazziOptions.CompareOptions`, set per screenshot test.
+  Raise it only with a CI diff image as evidence, never speculatively.

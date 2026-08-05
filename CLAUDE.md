@@ -48,7 +48,7 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 - Sim harness: `./gradlew :sim:run`
 
 All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
-no bypass). TDD per the global `tdd` skill: failing test first, always.
+no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.
 
 ## Sanctioned tooling
 

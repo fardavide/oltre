@@ -30,6 +30,7 @@ kotlin {
             implementation(libs.compose.foundation)
             api(libs.compose.material3)
             implementation(libs.compose.ui)
+            implementation(libs.compose.components.resources)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
