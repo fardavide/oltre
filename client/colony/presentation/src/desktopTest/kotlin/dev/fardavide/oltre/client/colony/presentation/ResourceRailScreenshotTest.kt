@@ -25,6 +25,7 @@ class ResourceRailScreenshotTest {
                             crystalRatePerHour = "+6,180/h",
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
+                            facilities = emptyList(),
                         ),
                     )
                 }
