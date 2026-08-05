@@ -26,14 +26,24 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
 
 private fun accrue(state: GameState, from: Instant, to: Instant): GameState {
     val elapsedMilliseconds = (to - from).inWholeMilliseconds
+    val capFine = PlaceholderBalance.STORAGE_CAPACITY * Resources.FINE_PER_UNIT
     return state.copy(
         resources = state.resources.copy(
-            metalFine = state.resources.metalFine +
-                PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings) * elapsedMilliseconds,
-            crystalFine = state.resources.crystalFine +
-                PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings) * elapsedMilliseconds,
-            deuteriumFine = state.resources.deuteriumFine +
-                PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings) * elapsedMilliseconds,
+            metalFine = minOf(
+                capFine,
+                state.resources.metalFine +
+                    PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings) * elapsedMilliseconds,
+            ),
+            crystalFine = minOf(
+                capFine,
+                state.resources.crystalFine +
+                    PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings) * elapsedMilliseconds,
+            ),
+            deuteriumFine = minOf(
+                capFine,
+                state.resources.deuteriumFine +
+                    PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings) * elapsedMilliseconds,
+            ),
         ),
     )
 }

@@ -45,4 +45,38 @@ class EnergyTest {
         assertEquals(expected, metalAfterHour)
         assertTrue(metalAfterHour < fullRate, "starved mine must under-produce")
     }
+
+    @Test
+    fun `resources stop accruing at the storage cap`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val cap = PlaceholderBalance.STORAGE_CAPACITY
+        val nearlyFull = GameState.initial().copy(
+            resources = Resources.of(metal = cap - 1),
+        )
+
+        // when
+        val after = advance(nearlyFull, from = start, to = start + 24.hours)
+
+        // then
+        assertEquals(cap, after.resources.metal)
+    }
+
+    @Test
+    fun `capping preserves composability across splits`() {
+        // given
+        val start = Instant.fromEpochMilliseconds(0)
+        val cap = PlaceholderBalance.STORAGE_CAPACITY
+        val nearlyFull = GameState.initial().copy(
+            resources = Resources.of(metal = cap - 1),
+        )
+        val t2 = start + 24.hours
+        val oneShot = advance(nearlyFull, from = start, to = t2)
+
+        // when
+        val stepped = advance(advance(nearlyFull, from = start, to = start + 7.hours), from = start + 7.hours, to = t2)
+
+        // then
+        assertEquals(oneShot, stepped)
+    }
 }

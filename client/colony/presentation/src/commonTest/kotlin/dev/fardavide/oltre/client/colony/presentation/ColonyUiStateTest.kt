@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
@@ -21,14 +22,23 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `metal production rate is formatted as an hourly delta`() {
+    fun `metal production rate reflects the effective rate of the current buildings`() {
         // given
-        val state = GameState(resources = Resources.of(metal = 0), buildings = Buildings.initial(), buildQueue = null, eventLog = emptyList())
+        val buildings = Buildings.initial().copy(
+            metalMine = BuildingLevel(2),
+            solarPlant = BuildingLevel(2),
+        )
+        val state = GameState(
+            resources = Resources.of(metal = 0),
+            buildings = buildings,
+            buildQueue = null,
+            eventLog = emptyList(),
+        )
 
         // when
         val uiState = state.toColonyUiState()
 
         // then
-        assertEquals("+3,600/h", uiState.metalRatePerHour)
+        assertEquals("+7,200/h", uiState.metalRatePerHour)
     }
 }

@@ -6,6 +6,10 @@ import kotlin.time.Duration.Companion.minutes
 // PLACEHOLDER balance numbers — every value here is provisional until decided on the Notion
 // page or by Davide. This object is the single place placeholders live; never scatter literals.
 object PlaceholderBalance {
+    // Flat placeholder cap per resource, in whole units. The rule that raises it (storage
+    // building? mine-level-scaled?) is an open design question for Davide.
+    const val STORAGE_CAPACITY: Long = 250_000
+
     const val METAL_PRODUCTION_PER_HOUR: Long = 3_600
     const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 1_800
     const val DEUTERIUM_PRODUCTION_PER_HOUR: Long = 900
