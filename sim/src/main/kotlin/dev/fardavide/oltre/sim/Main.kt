@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.sim
 
+import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
@@ -9,8 +10,9 @@ import dev.fardavide.oltre.core.startUpgrade
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-// Headless balancing harness. Never ships. Fast-forwards a week of a greedy strategy that
-// always upgrades the cheapest available mine, hour by hour.
+// Headless balancing harness. Never ships. Fast-forwards a week of a greedy strategy that,
+// once per simulated hour, starts the mine-or-plant upgrade with the lowest combined
+// metal+crystal cost among those it can afford right now.
 fun main() {
     val start = Instant.fromEpochMilliseconds(0)
     var state = GameState.initial()
@@ -22,11 +24,19 @@ fun main() {
         now = next
 
         if (state.buildQueue == null) {
-            val cheapest = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
-                .minBy { PlaceholderBalance.upgradeCost(it, nextLevelOf(state, it)).metal }
-            when (val result = startUpgrade(state, cheapest, at = now)) {
-                is StartUpgradeResult.Started -> state = result.state
-                else -> Unit // save up and retry next hour
+            val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
+            val affordable = candidates
+                .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
+                .filter { (_, cost) -> state.resources.covers(cost) }
+                .minByOrNull { (_, cost) -> cost.metal + cost.crystal }
+            if (affordable != null) {
+                when (val result = startUpgrade(state, affordable.first, at = now)) {
+                    is StartUpgradeResult.Started -> state = result.state
+                    StartUpgradeResult.QueueBusy,
+                    StartUpgradeResult.InsufficientResources,
+                    StartUpgradeResult.RequirementsNotMet,
+                    -> Unit // race between the affordability check and start; skip this hour
+                }
             }
         }
     }
@@ -34,14 +44,5 @@ fun main() {
     println("after 7 days:")
     println("  metal=${state.resources.metal} crystal=${state.resources.crystal} deuterium=${state.resources.deuterium}")
     println("  buildings=${state.buildings}")
-    println("  events=${state.eventLog.size} completed builds")
+    println("  events=${state.eventLog.size} (starts + completions)")
 }
-
-private fun nextLevelOf(state: GameState, building: BuildingType) = when (building) {
-    BuildingType.METAL_MINE -> state.buildings.metalMine
-    BuildingType.CRYSTAL_MINE -> state.buildings.crystalMine
-    BuildingType.DEUTERIUM_SYNTHESIZER -> state.buildings.deuteriumSynthesizer
-    BuildingType.SOLAR_PLANT -> state.buildings.solarPlant
-    BuildingType.ROBOTICS_FACTORY -> state.buildings.roboticsFactory
-    BuildingType.NANITE_FACTORY -> state.buildings.naniteFactory
-}.let { dev.fardavide.oltre.core.BuildingLevel(it.value + 1) }

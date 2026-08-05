@@ -6,9 +6,12 @@ import kotlin.time.Duration.Companion.minutes
 // PLACEHOLDER balance numbers — every value here is provisional until decided on the Notion
 // page or by Davide. This object is the single place placeholders live; never scatter literals.
 object PlaceholderBalance {
-    // Flat placeholder cap per resource, in whole units. The rule that raises it (storage
-    // building? mine-level-scaled?) is an open design question for Davide.
-    const val STORAGE_CAPACITY: Long = 250_000
+    // Flat placeholder cap per resource, in whole units — sized so every placeholder cost
+    // curve (nanite L1 = 1M metal) stays reachable. The rule that raises it (storage building?
+    // mine-level-scaled?) is an open design question for Davide.
+    const val STORAGE_CAPACITY: Long = 10_000_000
+
+    const val NANITE_ROBOTICS_REQUIREMENT: Int = 10
 
     const val METAL_PRODUCTION_PER_HOUR: Long = 3_600
     const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 1_800
@@ -51,7 +54,11 @@ object PlaceholderBalance {
     }
 
     // Exponential placeholder curves: cost doubles per level, duration grows linearly.
-    fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources = when (building) {
+    fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
+        // 2^40 × the largest base (1e6) × FINE_PER_UNIT still fits in a Long; beyond that the
+        // shift itself wraps, so reject before computing.
+        require(toLevel.value <= 40) { "upgrade cost overflows beyond level 40, asked for $toLevel" }
+        return when (building) {
         BuildingType.METAL_MINE -> Resources.of(
             metal = 60L shl (toLevel.value - 1),
             crystal = 15L shl (toLevel.value - 1),
@@ -78,6 +85,7 @@ object PlaceholderBalance {
             crystal = 500_000L shl (toLevel.value - 1),
             deuterium = 100_000L shl (toLevel.value - 1),
         )
+    }
     }
 
     fun upgradeDuration(

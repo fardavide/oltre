@@ -33,6 +33,6 @@ Updated: 2026-08-05
 - Milestone roadmap: ~~M1 iOS wiring~~ ✓, ~~M2 core economy~~ ✓, M3 Colony screen vs mockup,
   M4 research branch + tab, M5 procgen galaxy + Galaxy screen, M6 ships/shipyard/fleets,
   M7 combat + 3 AI empires, M8 JSON save + offline progression + notifications.
-- **Open design question for Davide:** what raises the storage cap? (flat 250k placeholder now;
+- **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.)
 - No linter (detekt) configured yet — decide when code volume justifies it.

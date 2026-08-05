@@ -3,7 +3,11 @@ package dev.fardavide.oltre.core
 import kotlin.jvm.JvmInline
 
 @JvmInline
-value class BuildingLevel(val value: Int)
+value class BuildingLevel(val value: Int) {
+    init {
+        require(value >= 0) { "building level must be non-negative, was $value" }
+    }
+}
 
 data class Buildings(
     val metalMine: BuildingLevel,
@@ -13,6 +17,15 @@ data class Buildings(
     val roboticsFactory: BuildingLevel,
     val naniteFactory: BuildingLevel,
 ) {
+    fun levelOf(building: BuildingType): BuildingLevel = when (building) {
+        BuildingType.METAL_MINE -> metalMine
+        BuildingType.CRYSTAL_MINE -> crystalMine
+        BuildingType.DEUTERIUM_SYNTHESIZER -> deuteriumSynthesizer
+        BuildingType.SOLAR_PLANT -> solarPlant
+        BuildingType.ROBOTICS_FACTORY -> roboticsFactory
+        BuildingType.NANITE_FACTORY -> naniteFactory
+    }
+
     fun withLevel(building: BuildingType, level: BuildingLevel): Buildings = when (building) {
         BuildingType.METAL_MINE -> copy(metalMine = level)
         BuildingType.CRYSTAL_MINE -> copy(crystalMine = level)

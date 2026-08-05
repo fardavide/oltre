@@ -27,7 +27,7 @@ sealed interface StartUpgradeResult {
 fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUpgradeResult {
     if (state.buildQueue != null) return StartUpgradeResult.QueueBusy
     // Nanite requires Robotics 10 (mockup rule); the research half of the gate arrives in M4.
-    if (building == BuildingType.NANITE_FACTORY && state.buildings.roboticsFactory.value < 10) {
+    if (building == BuildingType.NANITE_FACTORY && state.buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT) {
         return StartUpgradeResult.RequirementsNotMet
     }
     val toLevel = when (building) {
@@ -48,6 +48,7 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
                 toLevel = toLevel,
                 completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
             ),
+            eventLog = state.eventLog + Event.BuildStarted(building = building, toLevel = toLevel, at = at),
         ),
     )
 }

@@ -8,6 +8,12 @@ import kotlin.time.Instant
 sealed interface Event {
     val at: Instant
 
+    data class BuildStarted(
+        val building: BuildingType,
+        val toLevel: BuildingLevel,
+        override val at: Instant,
+    ) : Event
+
     data class BuildCompleted(
         val building: BuildingType,
         val newLevel: BuildingLevel,
