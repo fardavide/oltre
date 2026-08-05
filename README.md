@@ -1,0 +1,54 @@
+# Oltre
+
+An asynchronous space colonisation strategy game in the OGame lineage. Short check-in sessions,
+everything progresses while the app is closed: exponential cost curves, distance as travel time,
+permanent fleet loss. v1 is local single-player against scripted AI empires; multiplayer is the
+destination. iPhone is the delivery target, desktop is the dev loop.
+
+All rights reserved. No license is granted for reuse of this code.
+
+## Stack
+
+Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
+
+| Module | What |
+|---|---|
+| `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules, zero third-party deps. |
+| `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), one module per feature as features land. |
+| `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
+| `iosApp` | Xcode wrapper around the client framework (pending). |
+
+## Build
+
+```bash
+./gradlew build
+```
+
+## Test
+
+```bash
+./gradlew check
+```
+
+## Run
+
+```bash
+./gradlew :client:shell:run     # desktop client (dev loop)
+./gradlew :sim:run        # balancing harness
+./gradlew :server:run     # server stub
+```
+
+iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
+
+## Docs
+
+- [docs/ui-mockup.html](docs/ui-mockup.html) — UI design brief: Colony + Galaxy screens at iPhone size.
+- [.claude/docs/brief.md](.claude/docs/brief.md) — distilled project brief; points to the Notion design page.
+- `.claude/docs/` — architecture, decisions, status.
+
+## Changelog
+
+### 0.0.1 — 2026-08-05
+
+- Initial project scaffold: KMP monorepo (core, sim, client, server), CI, branch ruleset.
