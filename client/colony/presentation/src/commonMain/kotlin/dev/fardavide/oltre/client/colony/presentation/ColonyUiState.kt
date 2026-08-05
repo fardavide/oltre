@@ -4,6 +4,7 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import kotlin.time.Instant
 
 data class ColonyUiState(
     val metal: String,
@@ -13,6 +14,13 @@ data class ColonyUiState(
     val deuterium: String,
     val deuteriumRatePerHour: String,
     val facilities: List<FacilityRowUiState>,
+    val inProgress: InProgressUiState?,
+)
+
+data class InProgressUiState(
+    val title: String,
+    val countdown: String,
+    val progressPercent: Int,
 )
 
 data class FacilityRowUiState(
@@ -27,7 +35,7 @@ data class FacilityRowUiState(
     val lockedReason: String?,
 )
 
-fun GameState.toColonyUiState(): ColonyUiState = ColonyUiState(
+fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
     metal = resources.metal.groupedByThousands(),
     metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings).groupedByThousands()}/h",
     crystal = resources.crystal.groupedByThousands(),
@@ -35,7 +43,26 @@ fun GameState.toColonyUiState(): ColonyUiState = ColonyUiState(
     deuterium = resources.deuterium.groupedByThousands(),
     deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings).groupedByThousands()}/h",
     facilities = BuildingType.entries.map { toFacilityRow(it) },
+    inProgress = buildQueue?.let { job ->
+        val totalMs = (job.completesAt.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceAtLeast(1)
+        val elapsedMs = (now.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
+        val remainingSeconds = ((job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()) / 1000).coerceAtLeast(0)
+        InProgressUiState(
+            title = "${job.building.displayName()} \u2192 ${job.toLevel.value}",
+            countdown = remainingSeconds.toCountdown(),
+            progressPercent = (elapsedMs * 100 / totalMs).toInt(),
+        )
+    },
 )
+
+private fun Long.toCountdown(): String {
+    val hours = this / 3600
+    val minutes = this % 3600 / 60
+    val seconds = this % 60
+    return "${hours.pad2()}:${minutes.pad2()}:${seconds.pad2()}"
+}
+
+private fun Long.pad2(): String = toString().padStart(2, '0')
 
 private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState {
     val level = buildings.levelOf(building)
@@ -59,7 +86,7 @@ private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState 
     )
 }
 
-private fun BuildingType.displayName(): String = when (this) {
+internal fun BuildingType.displayName(): String = when (this) {
     BuildingType.METAL_MINE -> "Metal Mine"
     BuildingType.CRYSTAL_MINE -> "Crystal Mine"
     BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium Synth."

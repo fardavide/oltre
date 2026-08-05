@@ -37,7 +37,7 @@ fun App(modifier: Modifier = Modifier) {
                     now = Clock.System.now()
                 }
             }
-            val uiState = advance(initial, from = start, to = now).toColonyUiState()
+            val uiState = advance(initial, from = start, to = now).toColonyUiState(now = now)
             ResourceRail(
                 uiState = uiState,
                 modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),

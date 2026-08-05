@@ -26,6 +26,7 @@ class ResourceRailScreenshotTest {
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
                             facilities = emptyList(),
+                            inProgress = null,
                         ),
                     )
                 }
