@@ -13,14 +13,27 @@ import kotlin.test.assertTrue
 import org.junit.Test
 
 // The window is not a phone: iPad, Split View, Stage Manager and desktop all hand the UI an
-// arbitrary width. Past OltreLayout.maxContentWidth the colony stops stretching and centres,
-// because a 1000dp-wide facility row of 13.5sp text is unreadable.
+// arbitrary width. The rule is the same at every size — the content is as wide as the window up
+// to OltreLayout.maxContentWidth, and centred past it — because a 1000dp-wide facility row of
+// 13.5sp text is unreadable.
 @OptIn(ExperimentalTestApi::class)
 class ColonyScreenLayoutTest {
 
     @Test
-    fun `content is capped and centred in a window wider than the max content width`() {
-        runDesktopComposeUiTest(width = 1400, height = 900) {
+    fun `content caps and centres in a window far wider than a phone`() {
+        assertContentColumn(windowWidth = 1400, windowHeight = 900)
+    }
+
+    @Test
+    fun `content fills a phone-sized window`() {
+        assertContentColumn(windowWidth = 393, windowHeight = 852)
+    }
+
+    // The window size is given in pixels and the bounds come back in Dp, so the expectation is
+    // derived from the measured root rather than from the pixel count: the rule under test is
+    // min(window, cap), whatever the density the test environment picks.
+    private fun assertContentColumn(windowWidth: Int, windowHeight: Int) {
+        runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {
                 OltreTheme {
                     ColonyScreen(uiState = testColonyUiState, onUpgrade = {})
@@ -28,40 +41,20 @@ class ColonyScreenLayoutTest {
             }
 
             val root = onRoot().getBoundsInRoot()
+            val rootWidth = root.right - root.left
+            val expected = minOf(rootWidth, OltreLayout.maxContentWidth)
             CONSTRAINED_TAGS.forEach { tag ->
                 val bounds = onNodeWithTag(tag, useUnmergedTree = true).getBoundsInRoot()
                 val width = bounds.right - bounds.left
                 assertTrue(
-                    width <= OltreLayout.maxContentWidth + TOLERANCE,
-                    "$tag is $width wide, expected at most ${OltreLayout.maxContentWidth}",
+                    abs((width - expected).value) <= TOLERANCE.value,
+                    "$tag is $width wide in a $rootWidth window, expected $expected",
                 )
                 val leftGap = bounds.left - root.left
                 val rightGap = root.right - bounds.right
                 assertTrue(
                     abs((leftGap - rightGap).value) <= TOLERANCE.value,
-                    "$tag is off-centre: $leftGap on the left, $rightGap on the right",
-                )
-            }
-        }
-    }
-
-    @Test
-    fun `content fills a window narrower than the max content width`() {
-        runDesktopComposeUiTest(width = 393, height = 852) {
-            setContent {
-                OltreTheme {
-                    ColonyScreen(uiState = testColonyUiState, onUpgrade = {})
-                }
-            }
-
-            val rootBounds = onRoot().getBoundsInRoot()
-            val rootWidth = rootBounds.right - rootBounds.left
-            CONSTRAINED_TAGS.forEach { tag ->
-                val bounds = onNodeWithTag(tag, useUnmergedTree = true).getBoundsInRoot()
-                val width = bounds.right - bounds.left
-                assertTrue(
-                    abs((width - rootWidth).value) <= TOLERANCE.value,
-                    "$tag is $width wide, expected to fill the $rootWidth window",
+                    "$tag is off-centre in a $rootWidth window: $leftGap left, $rightGap right",
                 )
             }
         }
