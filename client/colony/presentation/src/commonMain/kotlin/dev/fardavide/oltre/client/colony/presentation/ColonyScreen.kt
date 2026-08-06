@@ -33,6 +33,9 @@ fun ColonyScreen(
                 SectionLabel(text = "IN PROGRESS")
                 InProgressCard(uiState = card, modifier = Modifier.padding(bottom = 22.dp))
             }
+            uiState.returningFleet?.let { fleet ->
+                FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
+            }
             SectionLabel(text = "FACILITIES")
             FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
         }

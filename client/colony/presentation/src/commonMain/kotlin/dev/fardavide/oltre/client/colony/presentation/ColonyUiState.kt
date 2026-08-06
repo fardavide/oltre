@@ -5,6 +5,8 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.ReturningFleet
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.time.Duration
@@ -21,6 +23,13 @@ data class ColonyUiState(
     val deuteriumRatePerHour: String,
     val facilities: List<FacilityRowUiState>,
     val inProgress: InProgressUiState?,
+    val returningFleet: ReturningFleetUiState?,
+)
+
+data class ReturningFleetUiState(
+    val title: String,
+    val subtitle: String,
+    val countdown: String,
 )
 
 data class InProgressUiState(
@@ -72,7 +81,27 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
             doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
         )
     },
+    returningFleet = returningFleet?.toStrip(now),
 )
+
+private fun ReturningFleet.toStrip(now: Instant): ReturningFleetUiState {
+    val remainingMs = (arrivesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
+    val composition = ShipType.entries
+        .mapNotNull { type -> ships[type]?.let { count -> "$count ${type.displayName()}" } }
+        .joinToString(" · ")
+    return ReturningFleetUiState(
+        title = "Fleet returning",
+        subtitle = "from [${origin.galaxy}:${origin.system}:${origin.position}] · $composition",
+        countdown = ((remainingMs + 999) / 1000).toCountdown(),
+    )
+}
+
+private fun ShipType.displayName(): String = when (this) {
+    ShipType.CARGO -> "cargo"
+    ShipType.FIGHTER -> "fighter"
+    ShipType.CRUISER -> "cruiser"
+    ShipType.COLONY_SHIP -> "colony ship"
+}
 
 private fun Long.toCountdown(): String {
     val hours = this / 3600

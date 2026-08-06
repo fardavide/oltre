@@ -3,17 +3,22 @@ package dev.fardavide.oltre.client.colony.presentation
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ReturningFleet
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.startUpgrade
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -271,6 +276,45 @@ class ColonyUiStateTest {
 
         // then
         assertEquals("00:00:01", checkNotNull(card).countdown)
+    }
+
+    @Test
+    fun `a returning fleet appears as the strip with origin, composition and countdown`() {
+        // given a fleet of 14 cargo and 1 cruiser from [2:117:9], 4h 11m 52s out
+        val now = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial().copy(
+            returningFleet = ReturningFleet(
+                ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
+                cargo = Resources.of(metal = 500),
+                origin = Coordinates(galaxy = 2, system = 117, position = 9),
+                arrivesAt = now + 4.hours + 11.minutes + 52.seconds,
+            ),
+        )
+
+        // when
+        val strip = state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet
+
+        // then
+        assertEquals(
+            ReturningFleetUiState(
+                title = "Fleet returning",
+                subtitle = "from [2:117:9] · 14 cargo · 1 cruiser",
+                countdown = "04:11:52",
+            ),
+            checkNotNull(strip),
+        )
+    }
+
+    @Test
+    fun `no fleet in flight means no strip`() {
+        // given
+        val state = GameState.initial()
+
+        // when
+        val strip = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).returningFleet
+
+        // then
+        assertEquals(null, strip)
     }
 
     @Test
