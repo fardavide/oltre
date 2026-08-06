@@ -46,7 +46,8 @@ fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
     inProgress = buildQueue?.let { job ->
         val totalMs = (job.completesAt.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceAtLeast(1)
         val elapsedMs = (now.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
-        val remainingSeconds = ((job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()) / 1000).coerceAtLeast(0)
+        val remainingMs = (job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
+        val remainingSeconds = (remainingMs + 999) / 1000
         InProgressUiState(
             title = "${job.building.displayName()} \u2192 ${job.toLevel.value}",
             countdown = remainingSeconds.toCountdown(),

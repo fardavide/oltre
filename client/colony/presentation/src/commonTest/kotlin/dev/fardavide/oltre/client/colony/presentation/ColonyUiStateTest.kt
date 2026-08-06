@@ -9,6 +9,7 @@ import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.startUpgrade
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlin.test.assertEquals
@@ -133,6 +134,24 @@ class ColonyUiStateTest {
             ),
             checkNotNull(card),
         )
+    }
+
+    @Test
+    fun `countdown ceils a sub-second remainder so zero means done`() {
+        // given a build with 900ms left
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+        val started = (startUpgrade(funded, BuildingType.METAL_MINE, at = t0) as StartUpgradeResult.Started).state
+        val completesAt = checkNotNull(started.buildQueue).completesAt
+
+        // when
+        val card = started.toColonyUiState(now = completesAt - 900.milliseconds).inProgress
+
+        // then
+        assertEquals("00:00:01", checkNotNull(card).countdown)
     }
 
     @Test
