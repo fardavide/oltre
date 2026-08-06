@@ -60,6 +60,13 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.6 — 2026-08-06
+
+- **Returning fleets are visible.** A fleet flying home sits in an amber strip under the hero
+  card — where it's coming from, what it's made of, and a live countdown to arrival. When it
+  lands, its cargo joins your stores (up to the storage cap) and the return is logged. Ship
+  names are placeholders until the v1 ship set is decided.
+
 ### 0.0.5 — 2026-08-06
 
 - **The Colony screen is playable.** The resource rail shows all three resources with live

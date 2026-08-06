@@ -19,4 +19,10 @@ sealed interface Event {
         val newLevel: BuildingLevel,
         override val at: Instant,
     ) : Event
+
+    data class FleetReturned(
+        val ships: Map<ShipType, Int>,
+        val cargo: Resources,
+        override val at: Instant,
+    ) : Event
 }
