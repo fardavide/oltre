@@ -2,7 +2,6 @@ package dev.fardavide.oltre.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
@@ -236,11 +235,10 @@ class GameSaveTest {
 
     @Test
     fun `the version 1 fixture is the string 0_0_7 actually wrote`() {
-        // The migration is only worth as much as the fixture it is tested against, so the
-        // fixture is not written from memory: this is byte-for-byte the string 0.0.7 pinned in
-        // `the on-disk shape is pinned` (git ecbe518), with the stock of a colony that had not
-        // yet been opened. If a future edit has to change it, the save it describes is not a
-        // 0.0.7 save any more and the migration is being tested against fiction.
+        // The reset is only worth as much as the fixture that triggers it, so the fixture is not
+        // written from memory: this is byte-for-byte the string 0.0.7 pinned in `the on-disk
+        // shape is pinned` (git ecbe518), with the stock of a colony not yet opened. If a future
+        // edit has to change it, it is not a 0.0.7 save any more and this stops proving anything.
         assertEquals(
             """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
                 """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
@@ -252,86 +250,62 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 1 save migrates its single build slot into the per-facility map`() {
+    fun `a version 1 save is retired rather than carried forward`() {
         // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
+        val decoded = GameSave.decode(VERSION_1_IDLE)
 
-        // then the queued job keeps its identity, keyed by the facility it was raising
-        assertEquals(
-            mapOf(
-                BuildingType.METAL_MINE to BuildJob(
-                    building = BuildingType.METAL_MINE,
-                    toLevel = BuildingLevel(2),
-                    startedAt = EPOCH,
-                    completesAt = EPOCH + 20.minutes,
-                ),
-            ),
-            decoded.state.builds,
-        )
-        assertEquals(SCHEMA_VERSION_CURRENT, decoded.schemaVersion)
+        // then — the rebalance is too deep for a colony grown at the old rates to survive it
+        assertEquals(1, assertIs<DecodeResult.Obsolete>(decoded).schemaVersion)
     }
 
     @Test
-    fun `a version 1 save with nothing building migrates to an empty build map`() {
+    fun `a played version 1 colony is retired too, however far it got`() {
+        // given a save with levelled buildings, a stock, a fleet inbound and an event log
+
         // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_IDLE)).snapshot
+        val decoded = GameSave.decode(VERSION_1_FULL)
+
+        // then — nothing about how much was built earns an exemption
+        assertIs<DecodeResult.Obsolete>(decoded)
+    }
+
+    @Test
+    fun `a version 1 save mid-build is retired, queue and all`() {
+        // when / then
+        assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_BUILDING))
+    }
+
+    @Test
+    fun `a retired save says why, so the player can be told`() {
+        // when
+        val obsolete = assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_IDLE))
+
+        // then — the reason is the payload; a bare failure would leave nothing to show
+        assertTrue(obsolete.reason.isNotBlank())
+        assertTrue(obsolete.reason.contains("rebalance"), obsolete.reason)
+    }
+
+    @Test
+    fun `a retired save is not confused with a broken one`() {
+        // A reset the player was promised and a reset caused by a corrupt file are different
+        // events, and only one of them is worth explaining. Both start a fresh colony, so the
+        // types are the only thing keeping them apart.
+        assertIs<DecodeResult.Failure>(GameSave.decode("not json at all"))
+        assertIs<DecodeResult.Failure>(GameSave.decode(""))
+        assertIs<DecodeResult.Failure>(GameSave.decode(VERSION_1_IDLE.replace(""""schemaVersion":1""", """"schemaVersion":9""")))
+        assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_IDLE))
+    }
+
+    @Test
+    fun `a version 2 save still loads, so the reset is version 1 only`() {
+        // given — the retirement must not take the current format with it
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial())
+
+        // when
+        val decoded = GameSave.decode(GameSave.encode(snapshot))
 
         // then
-        assertTrue(decoded.state.builds.isEmpty())
-    }
-
-    @Test
-    fun `migrating changes the build slot and nothing else`() {
-        // given a version 1 colony with a fleet inbound, an event log and a stock
-
-        // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_FULL)).snapshot
-
-        // then everything outside the build slot survives untouched
-        assertEquals(EPOCH, decoded.lastUpdatedAt)
-        assertEquals(500L, decoded.state.resources.metal)
-        assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
-        assertEquals(BuildingLevel(2), decoded.state.buildings.solarPlant)
-        assertEquals(
-            ReturningFleet(
-                ships = mapOf(ShipType.CARGO to 14),
-                cargo = Resources.of(metal = CARGO_METAL),
-                origin = Coordinates(galaxy = 2, system = 117, position = 9),
-                arrivesAt = EPOCH + 1.hours,
-            ),
-            decoded.state.returningFleet,
-        )
-        assertEquals(
-            listOf(Event.BuildStarted(building = BuildingType.METAL_MINE, toLevel = BuildingLevel(5), at = EPOCH)),
-            decoded.state.eventLog,
-        )
-    }
-
-    @Test
-    fun `a migrated save is written back as a version 2 save`() {
-        // given — the migration happens once, on read; what the app then writes is current.
-        val migrated = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
-
-        // when
-        val rewritten = GameSave.encode(migrated)
-
-        // then
-        assertTrue(rewritten.contains(""""schemaVersion":2"""), rewritten)
-        assertTrue(rewritten.contains(""""builds":{"METAL_MINE":"""), rewritten)
-        assertFalse(rewritten.contains("buildQueue"), rewritten)
-        assertEquals(migrated, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
-    }
-
-    @Test
-    fun `a migrated colony keeps building through the reload`() {
-        // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
-        val resumed = advance(decoded.state, from = decoded.lastUpdatedAt, to = EPOCH + 21.minutes)
-
-        // then
-        assertEquals(BuildingLevel(2), resumed.buildings.metalMine)
-        assertTrue(resumed.builds.isEmpty())
-        assertTrue(resumed.eventLog.any { it is Event.BuildCompleted })
+        assertEquals(snapshot, assertIs<DecodeResult.Success>(decoded).snapshot)
     }
 
     private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
@@ -350,7 +324,6 @@ class GameSaveTest {
 
     private companion object {
         val EPOCH = Instant.fromEpochMilliseconds(0)
-        const val SCHEMA_VERSION_CURRENT = 2
         const val CARGO_METAL = 500L
 
         // Frozen captures of the 0.0.7 on-disk format — the saves already sitting on installed

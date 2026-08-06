@@ -270,19 +270,27 @@ Rejected: posting the images as an artifact link only (an artifact is a zip nobo
 review) and committing diff renders to the repo (build output does not belong in git). Raw URLs
 on a public repo render inline in a comment, which is what makes the validation actually happen.
 
-## Save schema 2: parallel builds migrate, they do not wipe
+## Save schema 2: version 1 is retired, not migrated
 
-Required by the persistence entry above: 0.0.7 shipped to TestFlight with schema 1, so the
-`buildQueue` → `builds` change is a `SCHEMA_VERSION` bump **plus** a migration, not a re-pinned
-test string. `GameSave.decode` parses to a `JsonElement` first, migrates a version-1 object, then
-decodes — a queued job already names the facility it was raising, so the map key is in the data
-and nothing is invented. A version-1 save that is broken in any *other* way is left untouched for
-the decoder to reject: the migration must never turn an unreadable save into a plausible one.
+0.0.7 shipped persistence to TestFlight, so the `buildQueue` → `builds` change is a
+`SCHEMA_VERSION` bump rather than a re-pinned test string — that much the persistence entry
+above already required. What to do with the version-1 saves already on installed builds was
+Davide's call (2026-08-06): **reset them.**
 
-**The migration is deliberately shape-only.** A colony grown under the old economy keeps its
-stored resources, which the rescale makes absurdly large — the new rates apply from the moment it
-loads, the existing pile does not shrink. Scaling stocks by the ratio between the old and new
-curves was rejected: it invents a number nobody decided, and it would quietly rewrite the one
-part of a save a player would notice. Deleting the save was also rejected — losing a colony
-without being asked is worse than a rich one, and deleting it is a thing Davide can do in a
-second if he prefers a clean start.
+A shape-only migration was written first and rejected on review. It worked — a queued job names
+its own facility, so the map key was in the data — but it preserved the wrong thing. A colony
+grown at the old rates keeps stocks the new curves would take weeks to earn, so converting its
+shape hands back a colony that is no longer playable rather than preserving one. Rescaling the
+stocks by the ratio between the curves was rejected too: it invents a number nobody decided.
+
+`DecodeResult` therefore gains **`Obsolete`**, distinct from `Failure`. Both start a fresh
+colony, so the distinction buys nothing today — it exists because a corrupt save is an accident
+and a retired one is a decision, and only one of them is worth explaining to the player. The
+reason string travels with the result, so a "your colony was reset, here is why" notice can be
+built on it without touching core or the store. `OBSOLETE_SCHEMAS` is the list; adding to it is
+how a future rebalance retires a format, and migrating stays the default for changes that are
+only shape.
+
+The version-1 test fixtures are frozen captures of what 0.0.7 wrote, asserted byte-for-byte
+against the string that build pinned (git `ecbe518`). A reset test is only as good as the save
+that triggers it: a fixture written from memory would prove that made-up JSON resets.

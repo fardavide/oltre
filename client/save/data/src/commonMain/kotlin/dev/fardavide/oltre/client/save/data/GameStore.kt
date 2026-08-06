@@ -14,6 +14,10 @@ class GameStore(private val file: SaveFile) {
         return when (val decoded = GameSave.decode(text)) {
             is DecodeResult.Success -> decoded.snapshot
             is DecodeResult.Failure -> null
+            // A colony from a schema this build has retired starts over. The reason travels with
+            // the result so a "your colony was reset, here is why" notice can be built on it
+            // without changing this layer; there is no such screen yet.
+            is DecodeResult.Obsolete -> null
         }
     }
 

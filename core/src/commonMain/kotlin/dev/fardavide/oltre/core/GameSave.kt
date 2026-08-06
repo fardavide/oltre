@@ -3,11 +3,8 @@ package dev.fardavide.oltre.core
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonObject
 import kotlin.time.Instant
 
 // A save is the whole simulation plus the instant it is accurate as of, and nothing else: every
@@ -28,18 +25,32 @@ sealed interface DecodeResult {
     // Missing keys, corrupt text, a broken model invariant or a schema this build cannot read.
     // Core only states the reason; deciding what to do about it is the caller's business.
     data class Failure(val reason: String) : DecodeResult
+
+    // A save this build deliberately refuses to carry forward. Distinct from Failure on purpose:
+    // a corrupt save is an accident and an obsolete one is a decision, and a caller that wants
+    // to tell the player which happened can only do so if the two are different answers.
+    data class Obsolete(val schemaVersion: Int, val reason: String) : DecodeResult
 }
 
 // Pure text in, pure text out — the file itself is the caller's problem, which keeps core free
 // of I/O.
 object GameSave {
 
-    // Bump whenever the on-disk shape changes, and migrate here. An unknown version is never
-    // guessed at: silently misreading a colony is worse than admitting the save is unreadable.
+    // Bump whenever the on-disk shape changes, then either migrate the old shape here or
+    // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
+    // is worse than admitting the save is unreadable.
     //
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
-    // 1 — first shipped format.
+    // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
     const val SCHEMA_VERSION: Int = 2
+
+    // Versions this build refuses to carry forward, and why the player is told. A rebalance
+    // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
+    // stocks the new curves would take weeks to earn, so migrating its shape would hand back a
+    // colony that is no longer playable rather than preserving one. Davide's call, 2026-08-06.
+    private val OBSOLETE_SCHEMAS: Map<Int, String> = mapOf(
+        1 to "saved before the 0.0.8 rebalance, when the economy ran at 60x these rates",
+    )
 
     private val json = Json {
         // schemaVersion carries a default, and a save that does not spell out its own version
@@ -57,15 +68,16 @@ object GameSave {
         }
         val version = (element as? JsonObject)?.intOrNull("schemaVersion")
             ?: return DecodeResult.Failure("save carries no schema version")
-        val current = when (version) {
-            SCHEMA_VERSION -> element
-            1 -> element.jsonObject.migrateOneToTwo()
-            else -> return DecodeResult.Failure(
+        OBSOLETE_SCHEMAS[version]?.let { reason ->
+            return DecodeResult.Obsolete(schemaVersion = version, reason = reason)
+        }
+        if (version != SCHEMA_VERSION) {
+            return DecodeResult.Failure(
                 "unsupported save schema $version, this build reads $SCHEMA_VERSION",
             )
         }
         val snapshot = try {
-            json.decodeFromJsonElement(GameSnapshot.serializer(), current)
+            json.decodeFromJsonElement(GameSnapshot.serializer(), element)
         } catch (e: SerializationException) {
             return DecodeResult.Failure("malformed save: ${e.message}")
         } catch (e: IllegalArgumentException) {
@@ -74,28 +86,6 @@ object GameSave {
             return DecodeResult.Failure("invalid save: ${e.message}")
         }
         return DecodeResult.Success(snapshot)
-    }
-
-    // v1 held at most one build; v2 holds one per facility, keyed by the facility. A queued job
-    // already names the building it was raising, so the key is in the data — nothing is invented
-    // and nothing is dropped. Anything malformed is left alone for the decoder to report, so the
-    // migration never turns a broken save into a plausible one.
-    private fun JsonObject.migrateOneToTwo(): JsonElement {
-        val state = this["state"] as? JsonObject ?: return this
-        val queued = state["buildQueue"]
-        val builds = when {
-            queued == null || queued is JsonNull -> JsonObject(emptyMap())
-            else -> {
-                val building = (queued as? JsonObject)?.get("building") as? JsonPrimitive ?: return this
-                JsonObject(mapOf(building.content to queued))
-            }
-        }
-        return JsonObject(
-            this + mapOf(
-                "schemaVersion" to JsonPrimitive(SCHEMA_VERSION),
-                "state" to JsonObject(state - "buildQueue" + ("builds" to builds)),
-            ),
-        )
     }
 
     private fun JsonObject.intOrNull(key: String): Int? =
