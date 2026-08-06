@@ -18,12 +18,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.client.design.OltreColors
 import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.ResourceKind
 
-// Facility rows per the mockup: affordability shown by colour, locked rows dimmed with their
-// requirement instead of a dead button.
+// Facility rows per the mockup: per-resource affordability by colour, a duration chip on every
+// unlockable row, time-until-affordable in the action slot instead of a dead button, and locked
+// rows dimmed with their requirement.
 @Composable
 fun FacilityList(
     facilities: List<FacilityRowUiState>,
@@ -40,10 +42,11 @@ fun FacilityList(
 @Composable
 private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Unit) {
     val mono = oltreMono()
+    val locked = row.action is FacilityActionUiState.Locked
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (row.locked) 0.42f else 1f)
+            .alpha(if (locked) 0.42f else 1f)
             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(14.dp))
             .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
             .padding(11.dp),
@@ -54,11 +57,12 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                 Text(
                     text = row.name,
                     color = OltreColors.text,
+                    fontFamily = mono,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = "LV ${row.level}",
+                    text = "LV ${row.level.value}",
                     color = OltreColors.textSecondary,
                     fontFamily = mono,
                     fontSize = 10.sp,
@@ -69,52 +73,67 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         .padding(horizontal = 5.dp, vertical = 2.dp),
                 )
             }
-            if (row.locked && row.lockedReason != null) {
-                Text(
-                    text = row.lockedReason,
+            when (val action = row.action) {
+                is FacilityActionUiState.Locked -> Text(
+                    text = action.reason,
                     color = OltreColors.textSecondary,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
                     modifier = Modifier.padding(top = 4.dp),
                 )
-            } else {
-                Row(
+                FacilityActionUiState.Upgrade,
+                is FacilityActionUiState.AffordableIn,
+                -> Row(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.padding(top = 4.dp),
                 ) {
-                    CostChip(amount = row.metalCost, tint = OltreColors.metal, short = !row.affordable)
-                    CostChip(amount = row.crystalCost, tint = OltreColors.crystal, short = !row.affordable)
+                    row.costs.forEach { chip -> CostChip(chip = chip) }
+                    Text(
+                        text = row.duration,
+                        color = OltreColors.textSecondary,
+                        fontFamily = mono,
+                        fontSize = 10.5.sp,
+                    )
                 }
             }
         }
-        if (!row.locked) {
-            Text(
+        when (val action = row.action) {
+            FacilityActionUiState.Upgrade -> Text(
                 text = "Upgrade",
-                color = if (row.affordable) Color.White else OltreColors.textTertiary,
+                color = Color.White,
+                fontFamily = mono,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
-                    .background(
-                        if (row.affordable) OltreColors.accent else Color.Transparent,
-                        RoundedCornerShape(9.dp),
-                    )
-                    .border(
-                        1.dp,
-                        if (row.affordable) Color.Transparent else Color.White.copy(alpha = 0.16f),
-                        RoundedCornerShape(9.dp),
-                    )
-                    .clickable(enabled = row.affordable) { onUpgrade(row.building) }
+                    .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                    .clickable { onUpgrade(row.building) }
                     .padding(horizontal = 11.dp, vertical = 7.dp),
             )
+            is FacilityActionUiState.AffordableIn -> Text(
+                text = action.label,
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                    .padding(horizontal = 11.dp, vertical = 7.dp),
+            )
+            is FacilityActionUiState.Locked -> Unit
         }
     }
 }
 
 @Composable
-private fun CostChip(amount: String, tint: Color, short: Boolean) {
+private fun CostChip(chip: CostChipUiState) {
+    val tint = when (chip.kind) {
+        ResourceKind.METAL -> OltreColors.metal
+        ResourceKind.CRYSTAL -> OltreColors.crystal
+        ResourceKind.DEUTERIUM -> OltreColors.deuterium
+    }
     Text(
-        text = amount,
-        color = if (short) OltreColors.danger else tint,
+        text = chip.amount,
+        color = if (chip.short) OltreColors.danger else tint,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
     )

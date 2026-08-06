@@ -1,12 +1,15 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.ThresholdValidator
 import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.ResourceKind
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
@@ -18,44 +21,46 @@ class FacilityListScreenshotTest {
         runDesktopComposeUiTest(width = 393, height = 420) {
             setContent {
                 OltreTheme {
-                    androidx.compose.material3.Surface {
+                    Surface {
                         FacilityList(
-                        facilities = listOf(
-                            FacilityRowUiState(
-                                building = BuildingType.CRYSTAL_MINE,
-                                name = "Crystal Mine",
-                                level = 19,
-                                metalCost = "212,480",
-                                crystalCost = "106,240",
-                                deuteriumCost = "0",
-                                affordable = true,
-                                locked = false,
-                                lockedReason = null,
+                            facilities = listOf(
+                                FacilityRowUiState(
+                                    building = BuildingType.ROBOTICS_FACTORY,
+                                    name = "Robotics Factory",
+                                    level = BuildingLevel(0),
+                                    costs = listOf(
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "400", short = false),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "120", short = false),
+                                        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "200", short = false),
+                                    ),
+                                    duration = "30m",
+                                    action = FacilityActionUiState.Upgrade,
+                                ),
+                                FacilityRowUiState(
+                                    building = BuildingType.DEUTERIUM_SYNTHESIZER,
+                                    name = "Deuterium Synth.",
+                                    level = BuildingLevel(16),
+                                    costs = listOf(
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "604,900", short = true),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "201,600", short = false),
+                                    ),
+                                    duration = "2h 51m",
+                                    action = FacilityActionUiState.AffordableIn("in 3h 12m"),
+                                ),
+                                FacilityRowUiState(
+                                    building = BuildingType.NANITE_FACTORY,
+                                    name = "Nanite Factory",
+                                    level = BuildingLevel(0),
+                                    costs = listOf(
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "1,000,000", short = false),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "500,000", short = false),
+                                        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "100,000", short = false),
+                                    ),
+                                    duration = "4h 00m",
+                                    action = FacilityActionUiState.Locked("Requires Robotics 10"),
+                                ),
                             ),
-                            FacilityRowUiState(
-                                building = BuildingType.DEUTERIUM_SYNTHESIZER,
-                                name = "Deuterium Synth.",
-                                level = 16,
-                                metalCost = "604,900",
-                                crystalCost = "201,600",
-                                deuteriumCost = "0",
-                                affordable = false,
-                                locked = false,
-                                lockedReason = null,
-                            ),
-                            FacilityRowUiState(
-                                building = BuildingType.NANITE_FACTORY,
-                                name = "Nanite Factory",
-                                level = 0,
-                                metalCost = "1,000,000",
-                                crystalCost = "500,000",
-                                deuteriumCost = "100,000",
-                                affordable = true,
-                                locked = true,
-                                lockedReason = "Requires Robotics 10",
-                            ),
-                        ),
-                        onUpgrade = {},
+                            onUpgrade = {},
                         )
                     }
                 }

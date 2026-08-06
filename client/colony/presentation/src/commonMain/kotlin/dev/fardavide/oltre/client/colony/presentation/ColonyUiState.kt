@@ -4,6 +4,10 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.shortfallOf
+import dev.fardavide.oltre.core.timeUntilAffordable
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 data class ColonyUiState(
@@ -26,14 +30,23 @@ data class InProgressUiState(
 data class FacilityRowUiState(
     val building: BuildingType,
     val name: String,
-    val level: Int,
-    val metalCost: String,
-    val crystalCost: String,
-    val deuteriumCost: String,
-    val affordable: Boolean,
-    val locked: Boolean,
-    val lockedReason: String?,
+    val level: BuildingLevel,
+    val costs: List<CostChipUiState>,
+    val duration: String,
+    val action: FacilityActionUiState,
 )
+
+data class CostChipUiState(
+    val kind: ResourceKind,
+    val amount: String,
+    val short: Boolean,
+)
+
+sealed interface FacilityActionUiState {
+    data object Upgrade : FacilityActionUiState
+    data class AffordableIn(val label: String) : FacilityActionUiState
+    data class Locked(val reason: String) : FacilityActionUiState
+}
 
 fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
     metal = resources.metal.groupedByThousands(),
@@ -49,7 +62,7 @@ fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
         val remainingMs = (job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
         val remainingSeconds = (remainingMs + 999) / 1000
         InProgressUiState(
-            title = "${job.building.displayName()} \u2192 ${job.toLevel.value}",
+            title = "${job.building.displayName()} → ${job.toLevel.value}",
             countdown = remainingSeconds.toCountdown(),
             progressPercent = (elapsedMs * 100 / totalMs).toInt(),
         )
@@ -67,24 +80,44 @@ private fun Long.pad2(): String = toString().padStart(2, '0')
 
 private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState {
     val level = buildings.levelOf(building)
-    val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level.value + 1))
+    val toLevel = BuildingLevel(level.value + 1)
+    val cost = PlaceholderBalance.upgradeCost(building, toLevel)
+    val short = resources.shortfallOf(cost)
     val locked = building == BuildingType.NANITE_FACTORY &&
         buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
-        level = level.value,
-        metalCost = cost.metal.groupedByThousands(),
-        crystalCost = cost.crystal.groupedByThousands(),
-        deuteriumCost = cost.deuterium.groupedByThousands(),
-        affordable = resources.covers(cost),
-        locked = locked,
-        lockedReason = if (locked) {
-            "Requires Robotics ${PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT}"
-        } else {
-            null
+        level = level,
+        costs = listOfNotNull(
+            cost.metal.toCostChip(ResourceKind.METAL, short),
+            cost.crystal.toCostChip(ResourceKind.CRYSTAL, short),
+            cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
+        ),
+        duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
+        action = when {
+            locked -> FacilityActionUiState.Locked(
+                "Requires Robotics ${PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT}",
+            )
+            short.isEmpty() -> FacilityActionUiState.Upgrade
+            else -> FacilityActionUiState.AffordableIn(
+                timeUntilAffordable(resources, cost, buildings)
+                    ?.let { "in ${it.toChipLabel()}" }
+                    ?: "—",
+            )
         },
     )
+}
+
+private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
+    takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }
+
+// Mockup style: "1h 04m" / "42m"; sub-minute durations round up so a chip never reads 0m.
+private fun Duration.toChipLabel(): String {
+    val totalMinutes = (inWholeSeconds + 59) / 60
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes.toString().padStart(2, '0')}m" else "${minutes}m"
 }
 
 internal fun BuildingType.displayName(): String = when (this) {
