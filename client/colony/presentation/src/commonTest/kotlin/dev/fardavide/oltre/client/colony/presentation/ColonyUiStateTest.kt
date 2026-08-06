@@ -6,6 +6,7 @@ import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ReturningFleet
