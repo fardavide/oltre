@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.notifications.data.GameNotifications
+import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.advance
@@ -29,3 +31,12 @@ internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
 // second of battery for nothing.
 internal fun GameSession.hasNewEventsSince(previous: GameSession): Boolean =
     state.eventLog.size != previous.state.eventLog.size
+
+// Writing the colony down and telling the player when to come back are one operation, because
+// they answer to the same trigger and to the same instant. Split them and they drift: a save
+// without a reschedule leaves an alert promising a build that has already finished, and a
+// reschedule without a save promises something the next launch will not remember.
+internal suspend fun GameSession.commit(store: GameStore, notifications: GameNotifications) {
+    store.save(toSnapshot())
+    notifications.sync(state, now = lastUpdatedAt)
+}
