@@ -3,10 +3,10 @@ package dev.fardavide.oltre.client.design
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import dev.fardavide.oltre.design.generated.resources.Res
-import dev.fardavide.oltre.design.generated.resources.jetbrains_mono_bold
-import dev.fardavide.oltre.design.generated.resources.jetbrains_mono_regular
-import dev.fardavide.oltre.design.generated.resources.jetbrains_mono_semibold
+import dev.fardavide.oltre.client.design.generated.resources.Res
+import dev.fardavide.oltre.client.design.generated.resources.jetbrains_mono_bold
+import dev.fardavide.oltre.client.design.generated.resources.jetbrains_mono_regular
+import dev.fardavide.oltre.client.design.generated.resources.jetbrains_mono_semibold
 import org.jetbrains.compose.resources.Font
 
 // Bundled font (JetBrains Mono, OFL — see OFL.txt): text must render identically on every
