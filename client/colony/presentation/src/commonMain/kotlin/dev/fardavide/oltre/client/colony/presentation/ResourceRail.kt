@@ -1,26 +1,43 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.OltreColors
+import dev.fardavide.oltre.client.design.OltreLayout
 import dev.fardavide.oltre.client.design.oltreMono
 
 @Composable
 fun ResourceRail(uiState: ColonyUiState, modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().background(OltreColors.surface)) {
-        ResourceCell(name = "METAL", value = uiState.metal, rate = uiState.metalRatePerHour)
-        ResourceCell(name = "CRYSTAL", value = uiState.crystal, rate = uiState.crystalRatePerHour)
-        ResourceCell(name = "DEUTERIUM", value = uiState.deuterium, rate = uiState.deuteriumRatePerHour)
+    // The bar itself is full-bleed — it reads as the top edge of the window — but its cells
+    // stay on the same centred column as the content below, whatever the window's width.
+    Box(
+        modifier = modifier.fillMaxWidth().background(OltreColors.surface),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Row(
+            modifier = Modifier
+                .widthIn(max = OltreLayout.maxContentWidth)
+                .fillMaxWidth()
+                .testTag(ColonyTestTags.RESOURCE_RAIL_CONTENT),
+        ) {
+            ResourceCell(name = "METAL", value = uiState.metal, rate = uiState.metalRatePerHour)
+            ResourceCell(name = "CRYSTAL", value = uiState.crystal, rate = uiState.crystalRatePerHour)
+            ResourceCell(name = "DEUTERIUM", value = uiState.deuterium, rate = uiState.deuteriumRatePerHour)
+        }
     }
 }
 

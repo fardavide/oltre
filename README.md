@@ -61,6 +61,16 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.9 — 2026-08-06
+
+- **The game is a real iPad app.** It no longer runs in the letterboxed iPhone compatibility
+  window: it fills the screen in every orientation, resizes freely, and works in Split View,
+  Slide Over and Stage Manager alongside another app.
+- **The colony reads the same at any window size.** Past a phone's width the content stops
+  stretching — it caps and centres, with the resource bar still spanning the top edge — so a
+  facility row on a large iPad or a wide desktop window is as readable as on a phone. On a phone
+  nothing changes.
+
 ### 0.0.8 — 2026-08-06
 
 - **Upgrades run in parallel, and the numbers are human.** Every facility builds on its own —
