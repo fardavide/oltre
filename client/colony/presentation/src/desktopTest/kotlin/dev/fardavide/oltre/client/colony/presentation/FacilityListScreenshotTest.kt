@@ -15,13 +15,29 @@ import org.junit.Test
 class FacilityListScreenshotTest {
 
     @Test
-    fun `facility list with affordable, unaffordable and locked rows`() {
-        runDesktopComposeUiTest(width = 393, height = 420) {
+    fun `facility list with building, affordable, unaffordable and locked rows`() {
+        runDesktopComposeUiTest(width = 393, height = 500) {
             setContent {
                 OltreTheme {
                     Surface {
                         FacilityList(
                             facilities = listOf(
+                                FacilityRowUiState(
+                                    building = BuildingType.METAL_MINE,
+                                    name = "Metal Mine",
+                                    level = BuildingLevel(12),
+                                    costs = listOf(
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,851", short = false),
+                                    ),
+                                    duration = "2h 10m",
+                                    action = FacilityActionUiState.Upgrading(
+                                        toLevel = BuildingLevel(13),
+                                        countdown = "01:42:19",
+                                        progressPercent = 68,
+                                        doneAt = "done 11:23",
+                                    ),
+                                ),
                                 FacilityRowUiState(
                                     building = BuildingType.ROBOTICS_FACTORY,
                                     name = "Robotics Factory",
@@ -39,10 +55,10 @@ class FacilityListScreenshotTest {
                                     name = "Deuterium Synth.",
                                     level = BuildingLevel(16),
                                     costs = listOf(
-                                        CostChipUiState(kind = ResourceKind.METAL, amount = "604,900", short = true),
-                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "201,600", short = false),
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "48,997", short = false),
                                     ),
-                                    duration = "2h 51m",
+                                    duration = "5h 40m",
                                     action = FacilityActionUiState.AffordableIn("in 3h 12m"),
                                 ),
                                 FacilityRowUiState(
@@ -50,11 +66,11 @@ class FacilityListScreenshotTest {
                                     name = "Nanite Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
-                                        CostChipUiState(kind = ResourceKind.METAL, amount = "1,000,000", short = false),
-                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "500,000", short = false),
-                                        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "100,000", short = false),
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "10,000", short = false),
+                                        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "4,000", short = false),
                                     ),
-                                    duration = "4h 00m",
+                                    duration = "2h 00m",
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                 ),
                             ),

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
@@ -22,7 +23,6 @@ data class ColonyUiState(
     val deuterium: String,
     val deuteriumRatePerHour: String,
     val facilities: List<FacilityRowUiState>,
-    val inProgress: InProgressUiState?,
     val returningFleet: ReturningFleetUiState?,
 )
 
@@ -30,13 +30,6 @@ data class ReturningFleetUiState(
     val title: String,
     val subtitle: String,
     val countdown: String,
-)
-
-data class InProgressUiState(
-    val title: String,
-    val countdown: String,
-    val progressPercent: Int,
-    val doneAt: String,
 )
 
 data class FacilityRowUiState(
@@ -58,6 +51,15 @@ sealed interface FacilityActionUiState {
     data object Upgrade : FacilityActionUiState
     data class AffordableIn(val label: String) : FacilityActionUiState
     data class Locked(val reason: String) : FacilityActionUiState
+
+    // Builds run in parallel, so progress belongs to the facility that is building rather than
+    // to a single card at the top of the screen.
+    data class Upgrading(
+        val toLevel: BuildingLevel,
+        val countdown: String,
+        val progressPercent: Int,
+        val doneAt: String,
+    ) : FacilityActionUiState
 }
 
 fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
@@ -67,20 +69,7 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
     crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings).groupedByThousands()}/h",
     deuterium = resources.deuterium.groupedByThousands(),
     deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings).groupedByThousands()}/h",
-    facilities = BuildingType.entries.map { toFacilityRow(it) },
-    inProgress = buildQueue?.let { job ->
-        val totalMs = (job.completesAt.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceAtLeast(1)
-        val elapsedMs = (now.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
-        val remainingMs = (job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
-        val remainingSeconds = (remainingMs + 999) / 1000
-        val completesLocal = job.completesAt.toLocalDateTime(timeZone)
-        InProgressUiState(
-            title = "${job.building.displayName()} → ${job.toLevel.value}",
-            countdown = remainingSeconds.toCountdown(),
-            progressPercent = (elapsedMs * 100 / totalMs).toInt(),
-            doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
-        )
-    },
+    facilities = BuildingType.entries.map { toFacilityRow(it, now = now, timeZone = timeZone) },
     returningFleet = returningFleet?.toStrip(now),
 )
 
@@ -114,13 +103,18 @@ private fun Long.pad2(): String = toString().padStart(2, '0')
 
 private fun Int.pad2(): String = toString().padStart(2, '0')
 
-private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState {
+private fun GameState.toFacilityRow(
+    building: BuildingType,
+    now: Instant,
+    timeZone: TimeZone,
+): FacilityRowUiState {
     val level = buildings.levelOf(building)
     val toLevel = BuildingLevel(level.value + 1)
     val cost = PlaceholderBalance.upgradeCost(building, toLevel)
     val short = resources.shortfallOf(cost)
     val locked = building == BuildingType.NANITE_FACTORY &&
         buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT
+    val job = builds[building]
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
@@ -132,6 +126,7 @@ private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState 
         ),
         duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
         action = when {
+            job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(
                 "Requires Robotics ${PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT}",
             )
@@ -143,6 +138,20 @@ private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState 
                     ?: "—",
             )
         },
+    )
+}
+
+private fun BuildJob.toUpgradingAction(now: Instant, timeZone: TimeZone): FacilityActionUiState.Upgrading {
+    val totalMs = (completesAt.toEpochMilliseconds() - startedAt.toEpochMilliseconds()).coerceAtLeast(1)
+    val elapsedMs = (now.toEpochMilliseconds() - startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
+    val remainingMs = (completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
+    val completesLocal = completesAt.toLocalDateTime(timeZone)
+    return FacilityActionUiState.Upgrading(
+        toLevel = toLevel,
+        // Ceil the remainder so a countdown only reads 00:00:00 once the build is actually done.
+        countdown = ((remainingMs + 999) / 1000).toCountdown(),
+        progressPercent = (elapsedMs * 100 / totalMs).toInt(),
+        doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
     )
 }
 
