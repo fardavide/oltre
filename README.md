@@ -69,6 +69,11 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   hour rather than 3,600, an upgrade raises output by a quarter instead of doubling it, and
   costs grow by half per level instead of doubling. A new colony now starts with enough metal
   and crystal to make its first choice immediately.
+- **Colonies saved by 0.0.7 still load.** The save format moved to version 2 — one build slot
+  became one per facility — and older saves are migrated as they are read, with anything that
+  was building at the time still building. The new rates apply from the moment it loads; the
+  resources already in store are left exactly as they were, so a colony grown under the old
+  economy comes back very rich.
 
 ### 0.0.7 — 2026-08-06
 

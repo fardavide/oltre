@@ -269,3 +269,20 @@ Two mechanics worth knowing before touching the workflow:
 Rejected: posting the images as an artifact link only (an artifact is a zip nobody opens during
 review) and committing diff renders to the repo (build output does not belong in git). Raw URLs
 on a public repo render inline in a comment, which is what makes the validation actually happen.
+
+## Save schema 2: parallel builds migrate, they do not wipe
+
+Required by the persistence entry above: 0.0.7 shipped to TestFlight with schema 1, so the
+`buildQueue` → `builds` change is a `SCHEMA_VERSION` bump **plus** a migration, not a re-pinned
+test string. `GameSave.decode` parses to a `JsonElement` first, migrates a version-1 object, then
+decodes — a queued job already names the facility it was raising, so the map key is in the data
+and nothing is invented. A version-1 save that is broken in any *other* way is left untouched for
+the decoder to reject: the migration must never turn an unreadable save into a plausible one.
+
+**The migration is deliberately shape-only.** A colony grown under the old economy keeps its
+stored resources, which the rescale makes absurdly large — the new rates apply from the moment it
+loads, the existing pile does not shrink. Scaling stocks by the ratio between the old and new
+curves was rejected: it invents a number nobody decided, and it would quietly rewrite the one
+part of a save a player would notice. Deleting the save was also rejected — losing a colony
+without being asked is worse than a rich one, and deleting it is a thing Davide can do in a
+second if he prefers a clean start.
