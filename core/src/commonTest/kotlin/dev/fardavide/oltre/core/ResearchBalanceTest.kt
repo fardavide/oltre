@@ -83,8 +83,11 @@ class ResearchBalanceTest {
         // except Robotics and Nanite, so without it deuterium accumulates unspent.
         val extractionToSix = (1..6).sumOf { ResearchBalance.researchCost(Technology.EXTRACTION, TechLevel(it)).deuterium }
         val extractionMetalToSix = (1..6).sumOf { ResearchBalance.researchCost(Technology.EXTRACTION, TechLevel(it)).metal }
-        assertEquals(4_156L, extractionToSix, "the sheet prices Extraction 6 at 4156 cumulative deuterium")
-        assertEquals(12_469L, extractionMetalToSix, "and at 12469 cumulative metal")
+        // The sheet's CUM DEUT column reads 4,156 because it sums the costs before rounding them;
+        // a player pays six rounded levels, which is one unit more. The per-level table is the
+        // one that has to match to the unit, and it does — this is what is actually charged.
+        assertEquals(4_157L, extractionToSix, "six levels of Extraction cost 4157 deuterium in total")
+        assertEquals(12_469L, extractionMetalToSix, "and 12469 metal - 2_4 days of deuterium against 13 hours of metal")
     }
 
     @Test

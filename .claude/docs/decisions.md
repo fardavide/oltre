@@ -486,3 +486,123 @@ sharpen a number nobody gates on).
 **Nothing gates.** No thresholds, and the Coverage job is deliberately not a required check. A
 coverage minimum is a design decision with a number attached, and numbers are Davide's; the
 report exists so the trend is visible before anyone picks one.
+
+## Research: three technologies behind one gate, one slot, effects as multipliers
+
+The 0.1 research decision sheet (approved by Davide, 2026-08-06) is the design, and 0.0.12 is an
+implementation of it rather than a set of calls. What is worth carrying forward is *why* the sheet
+chose what it did, because those reasons constrain slices that have not been designed yet.
+
+**One branch means a flat set behind a shared gate, not a chain.** A linear chain contains no
+decision — the player researches the next thing because it is the next thing, and the only
+variable is when they can pay, which the Colony screen already asks better. Three rows behind one
+gate means every time the slot frees the question is *which of three*, and that question has a
+different answer on day 4 than on day 11. Rejected: a chain (no decision in it), independent
+parallel tracks (a tree in everything but name, unreadable at 393dp without a diagram), and more
+than four technologies. Three rows also means **the flat list is the tech tree** — the whole branch
+is legible on day 1 without a diagram, a graph view or a tap, which is the strongest argument
+against drawing a tree in v1.
+
+**Effects compound, and that overrules the obvious precedent.** With a linear effect (+3% per
+level) against any exponential cost, payback doubles every level and the branch is dead by level 4.
+Compounding keeps level 8 a live decision, and Davide's rule still holds because cost grows faster
+than output. The cost: research multiplying a building curve that already compounds is
+double-exponential in the long run — harmless inside 0.1 (level 6 Extraction is +59%) and the
+number to watch when the horizon goes past a month.
+
+**One slot, empire-wide, and this is where the pressure starts.** Buildings stay
+unlimited-parallel; research does not. It gives the two screens different characters, which is
+worth more than consistency here — the colony is limited by resources, research by time — and it
+is the only scarcity research has: its costs are small next to a mine of the same era, so without
+a slot the answer is always "start all three" and there is no decision left. Rejected: a queue,
+which is a promise about a future the player cannot see and deletes the decision the check-in
+exists to hold. This is also the first answer to Notion's "limited simultaneous projects", which
+the parallel-builds entry above left deliberately open.
+
+**Research has no building; its speed rides Robotics.** That answers "where does research happen"
+without a seventh building, gives the Robotics Factory a second reason to exist, and places
+research behind the deuterium wall using a gate already in the game. Rejected: a Research Lab (the
+building set is closed, and a building whose only function is to permit research is a tax the
+player pays for nothing visible).
+
+**The Robotics divisor is deliberately not the one construction uses.** Research is
+`base minutes × level ÷ (1 + 0.08 × Robotics)`; a build is `base minutes × level ÷ (1 + Robotics)`.
+The sheet flagged the mismatch and Davide called it (2026-08-06): research keeps the gentle curve
+its published tables were computed against, construction keeps the steep one the 0.0.8 round
+settled. Making them agree is a rebalance of the *colony*, not of this branch, so it is not
+smuggled in here. If it is ever unified, `ResearchBalance.researchDuration` and
+`PlaceholderBalance.upgradeDuration` are the two places and the balance log is where it goes.
+
+**Order of application is a rule, not an implementation detail:** building level curve, then the
+research multiplier, then energy deficit scaling. So Photovoltaics raises supply *before* the
+deficit ratio is computed, and Extraction's bonus is scaled down by a deficit exactly as the mine's
+own output is. `AdvanceResearchTest` pins it with a case where the two orders differ by one unit —
+295 against 294 — because an order that is only stated in a comment is an order that drifts.
+
+**These numbers are decided, not placeholders**, which is why they live in `ResearchBalance` rather
+than in `PlaceholderBalance` next door. `ResearchBalanceTest` pins all three published tables value
+by value — 30 effect percentages, 90 costs and 30 durations. If one of them has to change, the
+sheet changed, and that is Davide's call rather than a refactor.
+
+Two rounding conventions live in `Curves.kt` and the split is deliberate. Costs use exact
+arithmetic rounded once (`exactGeometric`) because the sheet's tables were computed that way, and
+per-step flooring drifts a unit low by level 5 and eight units low by level 10 — a gap between the
+published design and the game's own cost chips, for nothing. Effects use per-step flooring
+(`compound`) because exact arithmetic there needs `1e6 × 27^level`, which leaves `Long` by level
+10. The bound this forces on costs is `TechLevel.MAX = 30`, which is not a design cap in any
+player-facing sense: level 30 Extraction costs 4.4 billion metal, centuries at reference rates. It
+is the same kind of arithmetic guard `MAX_UPGRADE_LEVEL = 40` already is for buildings.
+
+Two of the sheet's five open calls are **recorded rather than settled**, because nothing changes
+until Davide answers them: whether effects should be linear instead of compounding, and whether
+Automation — the deferred fourth technology, fully specced with numbers in the sheet and in
+`balance-log.md` — joins in 0.2. The third, the Robotics divisor, is settled above. The fourth
+(Enrichment's payback being the worst of the three, deliberately) and the fifth (whether research
+completion notifies — it does, on the construction channel) are implemented as the sheet proposed.
+
+## Save schema 3 migrates version 2 rather than retiring it
+
+The opposite call from the one version 1 got, for the opposite reason. Version 1 was retired
+because the 0.0.8 rebalance made a colony grown at the old rates unplayable at the new ones, so
+converting its shape would have handed back something that is no longer a colony. Research is
+**purely additive**: a save written before the branch existed has researched nothing and has
+nothing running, which is exactly what a fresh `Research` says. There is no number to invent and
+nothing to rescale, so migrating is what the persistence entry above already called the default for
+a change that is only shape. Davide's call, 2026-08-06.
+
+`MIGRATIONS` is keyed by the version being migrated *from* and applied one hop at a time, with the
+envelope's version stamped by the loop rather than by each step — so a save several versions behind
+is carried forward by composition instead of by a special case per starting point, and a step
+cannot forget to bump. A version with no step, and any version from the future, still fail rather
+than being guessed at.
+
+The version 2 fixtures in `GameSaveTest` are frozen captures of what 0.0.11 wrote, byte-for-byte
+against the string that build pinned. A migration test is only as good as the save that triggers
+it: a fixture written from memory proves that made-up JSON migrates.
+
+## The resource rail is chrome, and chrome lives in the shell
+
+The approved Research design draws the rail on the Research screen, which made it the second
+destination showing it — and the module rule says features never see each other. So the rail moved
+out of `:client:colony:presentation` into `:client:shell` at 0.0.12, and `MainScaffold` draws it
+above whichever destination is selected.
+
+This is the tab bar's reasoning applied a second time, and the tab-bar entry above already ruled
+out the alternative: `:client:design` is a *token* module, and every visual component so far lives
+with the feature that owns it. What changed is which side of that line the rail is on. It was never
+the colony's — it shows empire-wide stocks — it only looked like it while the colony was the only
+screen. `ColonyUiState` lost its six stock-and-rate strings and the mapping became
+`GameState.toResourceRailUiState` in the shell, still reading the *effective* rates so what the
+rail says is what `advance` will really accrue.
+
+`MainScaffold` also stopped branching on `pendingWork` and now dispatches over `OltreTab`
+exhaustively. With one destination built, "null means show the colony" was the same statement; with
+two it is the bug where a new tab silently shows its neighbour.
+
+**Two duplications were left in deliberately, both under the rule 0.0.11 set** — two callers do not
+justify a shared module, a third does. `oltreRoborazziOptions` is now in its **third** copy, so that
+threshold is met and extracting it (KMP source sets cannot host test fixtures, so it needs a
+module) is the next slice's to do, not this one's: it is a build-layout change with nothing to do
+with research. The cost chip and its ui-state are duplicated between the colony and research
+presentation modules at twelve lines, which is a cheaper price than reopening what `:client:design`
+is for.

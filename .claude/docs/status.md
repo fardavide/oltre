@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-06
+Updated: 2026-08-06 (0.0.12)
 
 ## Landed
 
@@ -46,6 +46,18 @@ Updated: 2026-08-06
   scaffold. Each feature that lands takes a parameter on `MainScaffold`, so its signature is the
   list of what is really built. See `decisions.md`.
 
+- **0.0.12 research (slices 2 and 3)** — the whole branch, built to the 0.1 research decision sheet
+  Davide approved. `core` gains `Technology` / `Research` / `ResearchJob`, a decided
+  `ResearchBalance` (three technologies, compounding multipliers, ×1.5 costs, duration riding
+  Robotics), `startResearch` with one empire-wide slot, completions applied by `advance` as logged
+  events with a pinned tie-break, and effects that reach production in a fixed order (building
+  curve → research multiplier → energy deficit). `futureEvents` carries research, so the alerts do.
+  Save schema 3 **migrates** version 2 rather than retiring it. `:client:research:presentation`
+  renders the three rows in four states with six baselines at 393dp and 320dp, and the first
+  behaviour test in the repo that drives a real game interaction — through a Robot, as the taxonomy
+  asks. The resource rail moved to `:client:shell`, because the design draws it on Research too and
+  a feature module cannot own what another feature needs. See `decisions.md` and `balance-log.md`.
+
 - **Test taxonomy + per-kind coverage reporting** — tests declare their kind by class-name
   suffix (`…Test` / `…IntegrationTest` / `…ScreenshotTest` / `…BehaviourTest`),
   `-Poltre.testCategory` filters the build to one kind, and the new **Coverage** CI job reports
@@ -63,8 +75,8 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | # | Slice | Ends with | Needs a design call first |
 |---|---|---|---|
 | ~~1~~ | ~~**Tab bar**~~ | Landed at 0.0.11 | — |
-| 2 | **Research: core** | A shared tech tree in `core` — levels, costs, one lab-style build slot, effects applied through `advance` | **Yes** — which techs, what each does |
-| 3 | **Research: screen** | The Research tab, built like the facility list | No, once #2 lands |
+| ~~2~~ | ~~**Research: core**~~ | Landed at 0.0.12 | — |
+| ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
 | 4 | **Galaxy: procgen** | Seeded generation of hundreds of systems with world traits, pure and reproducible from a seed in the save | **Yes** — trait axes and how they read |
 | 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | No, once #4 lands |
 | 6 | **Shipyard: core + screen** | The 4 v1 ship types, built from the shipyard, held in one empire-wide pool | **Yes** — the ship set (today's `CARGO/FIGHTER/CRUISER/COLONY_SHIP` are placeholders) |
@@ -73,11 +85,14 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | 9 | **AI empires** | 3 scripted empires that grow and raid, driven from `advance` | **Yes** — how visible, how aggressive |
 | 10 | **Colonisation** | Settling a second world; the outpost → settlement → self-sufficient lifecycle | **Yes** — the pillar's rules |
 
-Slice 1 landed at 0.0.11, so **every remaining slice is blocked on a design call except #3 and
-#5, and each of those is blocked on the slice before it**. The sequencing question is therefore
-answered by whichever of #2, #4 and #6 Davide decides first — the build cannot pick for him. The
-cheapest thing to ask for is the research tech list (#2), because #3 follows it immediately and
-is built exactly like the facility list that already exists.
+Five of the eight v1 features are done. With research landed, **every remaining slice is blocked on
+a design call except #5, which is blocked on #4** — so the sequencing question is answered by
+whichever of #4 (galaxy trait axes), #6 (the real ship set) and #8 (the combat model) Davide
+decides first. The build cannot pick for him.
+
+The research slice is worth copying as a shape: a decision sheet that answers the design questions
+*and* argues the alternatives it rejected turned two slices into an implementation with no invented
+numbers in it. The same sheet for the galaxy's trait axes would unblock #4 and #5 together.
 
 Colonisation (#10) is called a **core pillar** on Notion but is not in the eight-item v1 list;
 carried here because the pressures that replace hard caps (upkeep, logistics, distance decay,
@@ -92,22 +107,30 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   is far out of reach — it binds nothing until very deep levels.
 - **Open design question for Davide:** should anything cap how many facilities build at once?
   Nothing does today (resources are the only limiter), while Notion's expansion pressures call
-  for "limited simultaneous projects".
+  for "limited simultaneous projects". Research answered half of it at 0.0.12 — one project at a
+  time, empire-wide — so the remaining question is only about *construction*.
+- **Open calls left by the research sheet**, recorded in `balance-log.md` and costing nothing
+  until answered: compounding versus linear effects; whether Automation joins as a fourth
+  technology in 0.2; and whether the two Robotics divisors (÷ 1 + 0.08 × Robotics for research,
+  ÷ 1 + Robotics for construction) should ever be made to agree — which would be a rebalance of
+  the colony, not of research.
+- **`oltreRoborazziOptions` is now in three modules**, which is the threshold `decisions.md` set
+  for extracting it. It needs a module of its own (KMP source sets cannot host test fixtures);
+  deliberately not done inside the research slice, because it is a build-layout change with
+  nothing to do with research.
 - **Open design question for Davide:** what a notification *says* is player-facing content. The
   copy in `GameNotifications` is a placeholder that says what happened and that a decision is
   waiting. The same applies to the unbuilt tabs' one-liners in `OltreTab.pendingWork`, which say
   only what will be there.
 - No linter (detekt) configured yet — decide when code volume justifies it.
-- **Nothing drives the upgrade tap.** The tab bar landed with real interaction tests
-  (`MainScaffoldBehaviourTest` taps every destination), but the colony's Upgrade button — the
-  only interaction in the *game*, as opposed to the chrome — is still covered by `core` unit
-  tests and by nothing that renders: every colony test passes `onUpgrade = {}` to nothing. The
-  Robot harness and the first interaction tests are prompted out to a desktop session in
-  `.claude/prompts/robot-behaviour-tests.md` (the pattern is ported from BandLab, which no agent
-  session here can read).
-- **Behaviour tests do not go through Robots yet.** `MainScaffoldBehaviourTest` queries nodes
-  directly in its test bodies, which the taxonomy asks it not to. It predates the convention;
-  the same desktop prompt migrates it.
+- **Nothing drives the colony's upgrade tap.** Research fixed this for *its* screen at 0.0.12 —
+  `ResearchScreenBehaviourTest` really taps Research and asserts the technology reaches the
+  callback — but the colony's Upgrade button is still covered by `core` unit tests and by nothing
+  that renders: every colony test passes `onUpgrade = {}` to nothing. `ResearchRobot` is now the
+  worked example to copy; the prompt in `.claude/prompts/robot-behaviour-tests.md` predates it.
+- **`MainScaffoldBehaviourTest` still queries nodes directly** in its test bodies, which the
+  taxonomy asks it not to. It predates the convention and is the migration target; the research
+  module shows the shape.
 - **The `protect-main` ruleset payload is unchanged.** The new Coverage job is deliberately not
   required; if that ever changes, the ruleset has to change with it.
 - **Agent sessions cannot build.** The remote environment's egress policy blocks

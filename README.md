@@ -20,9 +20,14 @@ All rights reserved. No license is granted for reuse of this code.
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — stocks and live rates, a fleet on its way home, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — one of the four destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
+<td align="center"><b>Galaxy</b> — one of the three destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
 </tr>
 </table>
+
+One branch, three technologies, one project at a time — running, waiting on the deuterium,
+and waiting on the lab:
+
+<img src="client/research/presentation/src/desktopTest/screenshots/research_in_flight.png" alt="The Research screen: Photovoltaics counting down, Extraction and Enrichment waiting" width="393">
 
 Five destinations across the bottom, on a phone:
 
@@ -49,7 +54,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one module per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation` and `:client:research:presentation` (the two screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -94,6 +99,28 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.12 — 2026-08-06
+
+- **Research is playable.** The Research tab is real: one branch of three technologies —
+  Photovoltaics raises what your Solar Plant makes, Extraction what both mines make, Enrichment
+  what the synthesizer makes. Each one costs metal, crystal and deuterium, takes hours, and every
+  level you finish shows up in the rates on the resource bar and in everything the colony produces
+  while the app is closed. A finished project tells you, the same way a finished building does.
+- **One project at a time.** Buildings still go up in parallel; research does not. The colony is
+  limited by what you can pay for, research by what you can wait for — so every time the lab frees
+  up, the question is which of the three, and it has a different answer on day four than on day
+  eleven.
+- **The branch is legible before you can use any of it.** All three technologies are listed from
+  the first launch, dimmed, saying what they want: Photovoltaics and Extraction open with your
+  first Robotics Factory, Enrichment once Extraction reaches level 3. A row you cannot start yet
+  says *when* you will be able to, never just "no".
+- **Every row shows what the next level actually buys** — "+36% → +47%" — because a level is only
+  meaningful against the one before it.
+- **Your stocks now follow you across the app.** The resource bar sits above every tab instead of
+  only the Colony, so you can price a research project without switching back.
+- **Colonies carry forward.** Existing saves keep their buildings, stocks, builds and fleets and
+  simply start with nothing researched.
 
 ### 0.0.11 — 2026-08-06
 
