@@ -95,6 +95,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.12 — 2026-08-06
+
+- **Your mines tell you when they are running at half power.** The colony has always throttled
+  every mine when the solar plant could not keep up — a colony producing 50 energy against 90
+  consumed was quietly losing 45% of its metal, crystal and deuterium — but nothing on screen
+  said so, and it read as the game being slow rather than as a solar plant being needed. A power
+  line under the resource rail now shows what is produced against what is consumed and what it is
+  costing you, and the facilities being throttled say so on their own cards.
+- **Metal arrives at the rate the game spends it.** Metal was produced at twice the rate of
+  crystal while the early build tree costs about three times as much metal as crystal, so metal
+  was the bottleneck for every decision no matter how you played, and crystal piled up with
+  nothing to spend it on. A mine now starts at 90 metal an hour instead of 60.
+
 ### 0.0.11 — 2026-08-06
 
 - **The game has its five destinations.** A bottom bar carries Colony, Research, Shipyard, Galaxy

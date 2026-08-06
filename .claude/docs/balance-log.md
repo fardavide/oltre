@@ -98,3 +98,48 @@ Watch for:
 - **Nothing caps simultaneous projects.** Notion's expansion pressures call for "limited
   simultaneous *projects*"; today only resources limit them.
 - Saves from before this round are retired rather than migrated — see `decisions.md`.
+
+## Round 3 — 0.0.12, the shortage nobody could see (2026-08-06)
+
+Davide, with a screenshot of a colony at metal 3 / crystal 2 / deuterium 2 / solar 1:
+
+> "I think I'm struggling way to much with Metal. I'm at the start of the game, and its feels
+> too slow to gather some Metal. I dont want to be able to update things no stop, but this seems
+> a bit too much, also considering its the more basic meterial, no?"
+
+**The complaint was mostly not about the metal curve.** That colony produced 50 energy and
+consumed 90, so `scaleByEnergy` was multiplying every mine by 50/90. The rail read `+51/h` from
+a level-3 mine whose real rate was 93/h; crystal read 20 against 37, deuterium 10 against 18.
+Nothing in the client mentioned energy — the string "energy" did not appear in a single Kotlin
+file under `client/`. The fix he needed was a 16-minute Solar Plant upgrade he was 8 metal short
+of, and the game had no way to tell him.
+
+Two changes, and they are independent — keep them apart when judging what the next round felt
+like:
+
+1. **The shortage is now visible.** `EnergyBalance` gives the rule a name (produced, consumed,
+   `outputPercent`, `surplus`); a power line under the rail shows it always, warn-coloured on a
+   deficit; the throttled facilities are badged. No balance number moved for this — the same
+   colony produces exactly what it produced before, it just says so.
+2. **Metal base output 60 → 90/h.** The early tree (everything but Nanite) costs 808 metal to
+   264 crystal, ~3:1, against production of 2:1. Metal was structurally the bottleneck however
+   the colony was played. 90/h makes production 3:1 and `BalanceCurveTest` now ties the ratio to
+   the cost curves so they cannot drift apart again.
+
+**The cost of change 2, stated plainly: the early loop got faster.** First mine upgrade payback
+goes 6h → 4h, level 10 → 11 goes 31h → 20h. That is in tension with "I dont want to be able to
+update things no stop". It was accepted knowingly because the shortage fix already returns +82%
+on its own — if the game now feels *too* fast, change 2 is the one to walk back, not change 1,
+and the lever is `METAL_PRODUCTION_PER_HOUR` alone.
+
+Watch for:
+
+- **Whether the metal raise was needed at all.** The energy fix alone took that colony from
+  51/h to 93/h. If a session after this feels loose, try 60/h again with the shortage visible
+  before touching anything else — that combination has never actually been played.
+- **Durations are still the wrong shape** (carried from round 2, untouched): cost grows ×1.5 per
+  level while duration grows linearly, so deep levels are gated by resources, not by building.
+- **Nothing still caps simultaneous projects**, and the 10M storage cap still binds nothing.
+- **The energy curve itself is untested by play.** Solar is 50/level against mines at 10/10/20
+  per level, so a solar plant covers roughly two mine levels; whether that cadence is right is
+  now at least observable, via the sim's new "hours throttled" count.
