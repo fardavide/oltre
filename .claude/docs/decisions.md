@@ -137,3 +137,45 @@ mechanism Apple actually supports.
 release link plus the archive is the expensive part, and `~/.konan` (~1.8 GB) is re-downloaded on
 every cold machine. If hours run short, the first lever is pointing `KONAN_DATA_DIR` at derived
 data — accepting the same undocumented caching the JDK install deliberately avoids.
+
+## Persistence: a JSON snapshot owned by `core`, written only on discrete transitions
+
+The v1 scope on Notion says "JSON snapshot save", which is what landed at 0.0.6.
+
+**The format lives in `core`, not in a client adapter.** `kotlinx-serialization` is the one
+dependency `core` now carries — the brief always allowed it, justified first, and this is the
+justification: a save is a statement about the simulation, so client and server must read the
+same bytes once multiplayer arrives. `GameSnapshot` is the whole `GameState` plus the instant it
+is accurate as of, and `GameSave.encode/decode` are pure string functions, so core still does no
+I/O. Rejected: a DTO layer in the client (`Resources` keeps its fine-unit fields internal, so the
+mapping would have had to be exported from core anyway — the same coupling with a translation
+step to drift).
+
+**Only discrete transitions are saved.** The append-only event log plus the advance-composability
+property means the state between two events is reproduced exactly from the last saved instant, so
+a per-tick save would write a file every second to record nothing. The shell writes on load and
+whenever the event log grows. A player who is killed mid-session loses nothing — not "loses
+little": the reload recomputes it.
+
+**A save that cannot be read is no save.** Corrupt, truncated and future-schema files all decode
+to `DecodeResult.Failure` and the client starts a fresh colony. `SCHEMA_VERSION` is checked rather
+than guessed at, and `GameSaveTest` pins the exact on-disk string — changing it requires a version
+bump and a migration, and cannot happen by accident.
+
+**`:client:save:data` has no presentation layer**, the one deliberate exception to the
+one-directory-per-feature-with-a-presentation-module rule: saving is infrastructure with no UI,
+and `core` (which cannot do I/O) is the only place below it. If a save/restore screen ever
+exists, `:client:save:presentation` joins it.
+
+Davide settled the shape on review (2026-08-06), so **do not re-open it**. Two alternatives were
+put to him and rejected: flattening to `:client:save` (a shared module in the shape of
+`:client:design`, since the directory is named for a technical concern rather than a feature),
+and folding it into `:client:colony:data` (strict feature purity). The second is the more
+tempting mistake — the colony is the whole game today, so it looks like the natural owner, but
+the snapshot is *whole-game* state and galaxy, fleets and research all land in it.
+
+Save locations: macOS `~/Library/Application Support/Oltre/`, Windows `%APPDATA%\Oltre\`, Linux
+`$XDG_DATA_HOME/Oltre/`, iOS the app's `Documents` directory. Android's actual needs a `Context`
+and there is no Android app module yet, so `AndroidSaveLocation.directory` is set by the
+application at startup; the two identical JVM `FileSaveFile` copies collapse into one shared
+source set when that module lands.

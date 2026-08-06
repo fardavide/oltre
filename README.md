@@ -13,9 +13,9 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 
 | Module | What |
 |---|---|
-| `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules, zero third-party deps. |
+| `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), one module per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), `:client:save:data` (the JSON snapshot on disk), one module per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -59,6 +59,16 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.7 — 2026-08-06
+
+- **Your colony survives closing the app, and keeps working while it is closed.** The game saves
+  itself and reloads on launch: levels, stocks, the build in progress, a fleet still on its way
+  home and the event log all come back, and every hour the app spent shut is credited on the way
+  in — a build queued last night is finished by morning, and a fleet that landed overnight has
+  already unloaded. The save is a JSON snapshot in the platform's app-data folder, rewritten only
+  when something actually happens, and a save that has been corrupted or written by a newer build
+  starts a fresh colony instead of crashing.
 
 ### 0.0.6 — 2026-08-06
 
