@@ -46,12 +46,14 @@ class ResearchScreenScreenshotTest {
         capture(width = 320, uiState = oneProjectInFlightUiState, name = "research_in_flight_slide_over")
     }
 
-    // Tall enough for three rows, the section label and the padding under them, and no taller: a
-    // capture window with a field of empty background in it hides a layout change rather than
-    // showing one. Three rows leave most of a phone empty by design, and that emptiness is the
-    // scaffold's to draw, not this screen's.
+    // Comfortably taller than three rows plus the section label, with headroom. The screen
+    // scrolls, so a capture window that is too short does not overflow visibly — it silently
+    // clips the last row out of the baseline and asserts the truncation forever, which is exactly
+    // how the first tab-bar baseline went wrong. Erring tall costs a band of empty background;
+    // erring short costs the assertion. The emptiness is honest anyway: three rows leave most of
+    // a phone empty by design, and a branch that fills the screen is a branch with filler in it.
     private fun capture(width: Int, uiState: ResearchUiState, name: String) {
-        runDesktopComposeUiTest(width = width, height = 300) {
+        runDesktopComposeUiTest(width = width, height = 420) {
             setContent {
                 OltreTheme {
                     Surface {

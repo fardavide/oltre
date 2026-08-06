@@ -71,7 +71,7 @@ internal val nothingRunningUiState = ResearchUiState(
             level = TechLevel(0),
             effect = enrichmentEffect(current = null, next = "+14%"),
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
-            duration = "3h 15m",
+            duration = "2h 10m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
         ),
     ),
