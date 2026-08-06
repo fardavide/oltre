@@ -36,7 +36,9 @@ fun App(modifier: Modifier = Modifier) {
             LaunchedEffect(Unit) {
                 while (true) {
                     delay(1.seconds)
-                    now = Clock.System.now()
+                    // The wall clock can step backwards (NTP, the user changing device time);
+                    // core's advance requires to >= from, so the boundary clamps.
+                    now = maxOf(Clock.System.now(), lastUpdated)
                     state = advance(state, from = lastUpdated, to = now)
                     lastUpdated = now
                 }
@@ -44,7 +46,7 @@ fun App(modifier: Modifier = Modifier) {
             ColonyScreen(
                 uiState = state.toColonyUiState(now = now),
                 onUpgrade = { building ->
-                    val at = Clock.System.now()
+                    val at = maxOf(Clock.System.now(), lastUpdated)
                     val current = advance(state, from = lastUpdated, to = at)
                     state = when (val result = startUpgrade(current, building, at = at)) {
                         is StartUpgradeResult.Started -> result.state
