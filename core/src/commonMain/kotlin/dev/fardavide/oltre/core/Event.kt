@@ -29,6 +29,8 @@ sealed interface Event {
         override val at: Instant,
     ) : Event
 
+    @Serializable
+    @SerialName("FleetReturned")
     data class FleetReturned(
         val ships: Map<ShipType, Int>,
         val cargo: Resources,

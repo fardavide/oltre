@@ -162,6 +162,15 @@ to `DecodeResult.Failure` and the client starts a fresh colony. `SCHEMA_VERSION`
 than guessed at, and `GameSaveTest` pins the exact on-disk string — changing it requires a version
 bump and a migration, and cannot happen by accident.
 
+**Pre-release, a format change re-pins the test instead of bumping `SCHEMA_VERSION`.** The
+returning-fleet field landed on `GameState` between this work being written and merged, which
+changed the on-disk shape and failed the pinned-string test exactly as intended. The string was
+re-pinned at version 1: no build carrying a save has shipped to TestFlight, so there is no
+installed format to migrate *from*, and spending schema version 1 on a shape no player ever had
+would burn the mechanism for nothing. **This stops being true the moment a TestFlight build
+containing persistence reaches a tester** — from then on, every change to that string is a
+`SCHEMA_VERSION` bump plus a migration, no exceptions.
+
 **`:client:save:data` has no presentation layer**, the one deliberate exception to the
 one-directory-per-feature-with-a-presentation-module rule: saving is infrastructure with no UI,
 and `core` (which cannot do I/O) is the only place below it. If a save/restore screen ever

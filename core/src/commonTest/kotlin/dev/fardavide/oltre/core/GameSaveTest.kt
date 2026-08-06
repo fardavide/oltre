@@ -68,7 +68,7 @@ class GameSaveTest {
                 """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-                """"buildQueue":null,"eventLog":[]}}""",
+                """"buildQueue":null,"returningFleet":null,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -176,6 +176,68 @@ class GameSaveTest {
         assertTrue(resumed.eventLog.any { it is Event.BuildCompleted })
     }
 
+    @Test
+    fun `a fleet in flight survives a round trip with its origin and manifest`() {
+        // given
+        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 4.hours))
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        // then
+        assertEquals(state.returningFleet, decoded.state.returningFleet)
+    }
+
+    @Test
+    fun `a fleet that landed while the app was closed has unloaded on reopening`() {
+        // given a fleet carrying metal, arriving an hour after the save
+        val arrivesAt = EPOCH + 1.hours
+        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = arrivesAt))
+
+        // when
+        val reloaded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))),
+        ).snapshot
+        val resumed = advance(reloaded.state, from = reloaded.lastUpdatedAt, to = arrivesAt + 1.minutes)
+
+        // then
+        assertEquals(null, resumed.returningFleet)
+        assertTrue(resumed.eventLog.any { it is Event.FleetReturned })
+        assertTrue(resumed.resources.metal >= CARGO_METAL)
+    }
+
+    @Test
+    fun `ship types keep their names on disk`() {
+        // given — the manifest is a map keyed by enum, so the constant names are on-disk keys
+        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 1.hours))
+
+        // when
+        val encoded = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+
+        // then
+        assertTrue(encoded.contains(""""CARGO":14"""), encoded)
+        assertTrue(encoded.contains(""""CRUISER":1"""), encoded)
+    }
+
+    @Test
+    fun `a save with an impossible fleet decodes to a failure`() {
+        // given — hand-edited to a negative ship count, which ReturningFleet forbids
+        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 1.hours))
+        val tampered = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""CARGO":14""", """"CARGO":-14""")
+
+        // when / then
+        assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+    }
+
+    private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
+        ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
+        cargo = Resources.of(metal = CARGO_METAL),
+        origin = Coordinates(galaxy = 2, system = 117, position = 9),
+        arrivesAt = arrivesAt,
+    )
+
     private fun funded(building: BuildingType): GameState {
         val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(2))
         return GameState.initial().copy(
@@ -185,5 +247,6 @@ class GameSaveTest {
 
     private companion object {
         val EPOCH = Instant.fromEpochMilliseconds(0)
+        const val CARGO_METAL = 500L
     }
 }
