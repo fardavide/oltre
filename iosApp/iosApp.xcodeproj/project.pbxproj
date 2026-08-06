@@ -221,13 +221,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.0.7;
+				MARKETING_VERSION = 0.0.8;
 				OTHER_LDFLAGS = "$(inherited) -framework OltreClient";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fardavide.oltre;
 				PRODUCT_NAME = Oltre;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -309,13 +309,13 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.0.7;
+				MARKETING_VERSION = 0.0.8;
 				OTHER_LDFLAGS = "$(inherited) -framework OltreClient";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fardavide.oltre;
 				PRODUCT_NAME = Oltre;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.9;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};

@@ -24,18 +24,34 @@ targets:
         # build lands in "Missing Compliance" and reaches no tester until answered by hand.
         ITSAppUsesNonExemptEncryption: false
         UILaunchScreen: {}
+        # iPad is a real target, not a scaled iPhone (see TARGETED_DEVICE_FAMILY below). An
+        # iPad app is only resizable — Split View, Slide Over, Stage Manager — if it supports
+        # every iPad orientation and does not demand the full screen; declaring both keys
+        # explicitly stops a future default from quietly reinstating the letterboxed window.
+        UIRequiresFullScreen: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fardavide.oltre
         PRODUCT_NAME: Oltre
-        MARKETING_VERSION: 0.0.7
+        MARKETING_VERSION: 0.0.8
         # Placeholder only. The shipped build number comes from $CI_BUILD_NUMBER, written in
         # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .claude/skills/versioning.
         CURRENT_PROJECT_VERSION: 3
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         DEVELOPMENT_TEAM: A7Q83J6LR4
         CODE_SIGN_STYLE: Automatic
-        TARGETED_DEVICE_FAMILY: 1
+        # 1,2 = iPhone and iPad. With iPhone alone iPadOS runs the app in compatibility mode:
+        # a fixed iPhone-shaped window the player cannot resize, with no multitasking.
+        TARGETED_DEVICE_FAMILY: "1,2"
         SWIFT_VERSION: 5.9
         FRAMEWORK_SEARCH_PATHS: $(inherited) $(SRCROOT)/../client/shell/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)
         OTHER_LDFLAGS: $(inherited) -framework OltreClient
