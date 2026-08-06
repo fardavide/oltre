@@ -82,7 +82,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `the rate on the rail is the throttled rate, and the strip explains why`() {
+    fun `the rate on the rail is the throttled rate and the strip explains why`() {
         // given
         val state = colony(buildings = starved())
 
