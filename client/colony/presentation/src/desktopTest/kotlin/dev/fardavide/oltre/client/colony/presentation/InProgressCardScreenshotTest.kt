@@ -24,6 +24,7 @@ class InProgressCardScreenshotTest {
                                 title = "Metal Mine → 24",
                                 countdown = "01:42:19",
                                 progressPercent = 68,
+                                doneAt = "done 11:23",
                             ),
                         )
                     }

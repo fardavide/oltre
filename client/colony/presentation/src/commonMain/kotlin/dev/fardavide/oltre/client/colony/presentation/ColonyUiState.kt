@@ -9,6 +9,8 @@ import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.time.Duration
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 data class ColonyUiState(
     val metal: String,
@@ -25,6 +27,7 @@ data class InProgressUiState(
     val title: String,
     val countdown: String,
     val progressPercent: Int,
+    val doneAt: String,
 )
 
 data class FacilityRowUiState(
@@ -48,7 +51,7 @@ sealed interface FacilityActionUiState {
     data class Locked(val reason: String) : FacilityActionUiState
 }
 
-fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
+fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
     metal = resources.metal.groupedByThousands(),
     metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings).groupedByThousands()}/h",
     crystal = resources.crystal.groupedByThousands(),
@@ -61,10 +64,12 @@ fun GameState.toColonyUiState(now: Instant): ColonyUiState = ColonyUiState(
         val elapsedMs = (now.toEpochMilliseconds() - job.startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
         val remainingMs = (job.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
         val remainingSeconds = (remainingMs + 999) / 1000
+        val completesLocal = job.completesAt.toLocalDateTime(timeZone)
         InProgressUiState(
             title = "${job.building.displayName()} → ${job.toLevel.value}",
             countdown = remainingSeconds.toCountdown(),
             progressPercent = (elapsedMs * 100 / totalMs).toInt(),
+            doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
         )
     },
 )
@@ -77,6 +82,8 @@ private fun Long.toCountdown(): String {
 }
 
 private fun Long.pad2(): String = toString().padStart(2, '0')
+
+private fun Int.pad2(): String = toString().padStart(2, '0')
 
 private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState {
     val level = buildings.levelOf(building)

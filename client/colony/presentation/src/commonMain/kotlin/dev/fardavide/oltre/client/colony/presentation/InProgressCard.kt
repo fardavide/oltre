@@ -48,6 +48,7 @@ fun InProgressCard(uiState: InProgressUiState, modifier: Modifier = Modifier) {
                 Text(
                     text = uiState.title,
                     color = OltreColors.text,
+                    fontFamily = mono,
                     fontSize = 14.5.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -74,12 +75,20 @@ fun InProgressCard(uiState: InProgressUiState, modifier: Modifier = Modifier) {
                     .background(OltreColors.accent, RoundedCornerShape(3.dp)),
             )
         }
-        Text(
-            text = "${uiState.progressPercent}%",
-            color = OltreColors.textTertiary,
-            fontFamily = mono,
-            fontSize = 11.sp,
-            modifier = Modifier.padding(top = 9.dp),
-        )
+        Row(modifier = Modifier.fillMaxWidth().padding(top = 9.dp)) {
+            Text(
+                text = "${uiState.progressPercent}%",
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 11.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = uiState.doneAt,
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 11.sp,
+            )
+        }
     }
 }

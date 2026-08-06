@@ -11,8 +11,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
-import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.client.design.OltreColors
+import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.core.BuildingType
 
 @Composable
 fun ColonyScreen(
@@ -43,6 +44,7 @@ private fun SectionLabel(text: String) {
     Text(
         text = text,
         color = OltreColors.textTertiary,
+        fontFamily = oltreMono(),
         fontSize = 10.5.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.4.sp,

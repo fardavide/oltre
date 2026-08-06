@@ -15,6 +15,7 @@ import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 class ColonyUiStateTest {
 
@@ -24,7 +25,7 @@ class ColonyUiStateTest {
         val state = GameState(resources = Resources.of(metal = 482_910), buildings = Buildings.initial(), buildQueue = null, eventLog = emptyList())
 
         // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
 
         // then
         assertEquals("482,910", uiState.metal)
@@ -41,7 +42,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
 
         // then
         assertEquals("+7,200/h", uiState.metalRatePerHour)
@@ -58,7 +59,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
 
         // then
         assertEquals("2,000", uiState.crystal)
@@ -78,7 +79,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.METAL_MINE }
 
         // then
@@ -100,7 +101,7 @@ class ColonyUiStateTest {
         val state = GameState.initial()
 
         // when
-        val robotics = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val robotics = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.ROBOTICS_FACTORY }
 
         // then
@@ -125,7 +126,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val synth = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val synth = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.DEUTERIUM_SYNTHESIZER }
 
         // then
@@ -143,7 +144,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.METAL_MINE }
 
         // then
@@ -156,7 +157,7 @@ class ColonyUiStateTest {
         val state = GameState.initial()
 
         // when
-        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val metalMine = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.METAL_MINE }
 
         // then
@@ -174,7 +175,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val robotics = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val robotics = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.ROBOTICS_FACTORY }
 
         // then
@@ -192,7 +193,7 @@ class ColonyUiStateTest {
         )
 
         // when
-        val nanite = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0))
+        val nanite = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
             .facilities.first { it.building == BuildingType.NANITE_FACTORY }
 
         // then
@@ -212,7 +213,7 @@ class ColonyUiStateTest {
         ).state
 
         // when
-        val card = started.toColonyUiState(now = t0 + 5.minutes).inProgress
+        val card = started.toColonyUiState(now = t0 + 5.minutes, timeZone = TimeZone.UTC).inProgress
 
         // then
         assertEquals(
@@ -220,9 +221,29 @@ class ColonyUiStateTest {
                 title = "Metal Mine → 2",
                 countdown = "00:15:00",
                 progressPercent = 25,
+                doneAt = "done 00:20",
             ),
             checkNotNull(card),
         )
+    }
+
+    @Test
+    fun `the in-progress card shows the local completion time`() {
+        // given a 20-minute build started 2026-08-06T10:00Z, viewed from UTC+2
+        val t0 = Instant.parse("2026-08-06T10:00:00Z")
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+        val started = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
+        ).state
+
+        // when
+        val card = started.toColonyUiState(now = t0, timeZone = TimeZone.of("Europe/Rome")).inProgress
+
+        // then
+        assertEquals("done 12:20", checkNotNull(card).doneAt)
     }
 
     @Test
@@ -239,7 +260,7 @@ class ColonyUiStateTest {
         val completesAt = checkNotNull(started.buildQueue).completesAt
 
         // when
-        val card = started.toColonyUiState(now = completesAt - 900.milliseconds).inProgress
+        val card = started.toColonyUiState(now = completesAt - 900.milliseconds, timeZone = TimeZone.UTC).inProgress
 
         // then
         assertEquals("00:00:01", checkNotNull(card).countdown)
@@ -251,7 +272,7 @@ class ColonyUiStateTest {
         val state = GameState.initial()
 
         // when
-        val card = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0)).inProgress
+        val card = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).inProgress
 
         // then
         assertEquals(null, card)

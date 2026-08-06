@@ -30,6 +30,8 @@ kotlin {
             implementation(projects.core)
             implementation(projects.client.design)
 
+            implementation(libs.kotlinx.datetime)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

@@ -20,6 +20,7 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.delay
+import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
@@ -44,7 +45,7 @@ fun App(modifier: Modifier = Modifier) {
                 }
             }
             ColonyScreen(
-                uiState = state.toColonyUiState(now = now),
+                uiState = state.toColonyUiState(now = now, timeZone = TimeZone.currentSystemDefault()),
                 onUpgrade = { building ->
                     val at = maxOf(Clock.System.now(), lastUpdated)
                     val current = advance(state, from = lastUpdated, to = at)
