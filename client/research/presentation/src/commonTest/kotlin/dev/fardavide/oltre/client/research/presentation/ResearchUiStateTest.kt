@@ -200,7 +200,7 @@ class ResearchUiStateTest {
         val uiState = colony(
             buildings = gated(),
             resources = Resources.of(metal = 600, crystal = 400, deuterium = 200),
-            activeResearch = project(completesAt = EPOCH + 1.hours),
+            activeResearch = project(completesAt = EPOCH + 1.hours, technology = Technology.PHOTOVOLTAICS),
         ).toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         // then - the other two carry a wait, because the slot is what is holding them
@@ -241,8 +241,13 @@ class ResearchUiStateTest {
     private fun gated(robotics: Int = 1): Buildings =
         Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(robotics))
 
-    private fun project(completesAt: Instant): ResearchJob = ResearchJob(
-        technology = Technology.PHOTOVOLTAICS,
+    // The slot is empire-wide, so "the slot is busy" means busy with *something else* — the
+    // default is deliberately not the technology these tests then ask about.
+    private fun project(
+        completesAt: Instant,
+        technology: Technology = Technology.EXTRACTION,
+    ): ResearchJob = ResearchJob(
+        technology = technology,
         toLevel = TechLevel(1),
         startedAt = EPOCH,
         completesAt = completesAt,
