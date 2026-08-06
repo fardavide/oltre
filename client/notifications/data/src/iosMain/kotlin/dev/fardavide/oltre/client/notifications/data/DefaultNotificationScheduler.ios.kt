@@ -38,13 +38,14 @@ private class IosNotificationScheduler : NotificationScheduler {
                 setTitle(notification.title)
                 setBody(notification.body)
             }
+            // Positional throughout: Kotlin rejects named arguments for Objective-C functions.
             center.addNotificationRequest(
                 UNNotificationRequest.requestWithIdentifier(
                     notification.id,
                     content,
                     UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(seconds, false),
                 ),
-                withCompletionHandler = null,
+                null,
             )
         }
     }
