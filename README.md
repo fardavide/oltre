@@ -56,6 +56,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 - [docs/ui-mockup.html](docs/ui-mockup.html) — UI design brief: Colony + Galaxy screens at iPhone size.
 - [.claude/docs/brief.md](.claude/docs/brief.md) — distilled project brief; points to the Notion design page.
+- [.claude/docs/balance-log.md](.claude/docs/balance-log.md) — every round of balance tuning: the numbers, the feedback that changed them, what is still open.
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog

@@ -229,6 +229,11 @@ placeholders in `PlaceholderBalance` — but the *shape* is now deliberate:
 Build durations were left alone (base minutes × level), so deep levels are gated by resources
 rather than by clock. If that ever feels wrong the lever is tying duration to cost, OGame-style.
 
+Each round of tuning is recorded in [balance-log.md](balance-log.md), with Davide's feedback in
+his own words and what the change was expected to feel like — so the next session can tell a
+repeat complaint from a new one, and can see what was already tried and rejected. `:sim:run`
+prints the curve table that file carries, so its numbers are regenerated rather than retyped.
+
 ## Notion is read/write for agents
 
 Davide, 2026-08-06, superseding the kickstart "never write to Notion" rule: the game's plan is
