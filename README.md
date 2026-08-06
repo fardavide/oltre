@@ -60,6 +60,14 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.5 — 2026-08-06
+
+- **The Colony screen is playable.** The resource rail shows all three resources with live
+  rates; every facility is listed with its level and upgrade cost — affordable upgrades in
+  colour, unaffordable ones flagged, the Nanite Factory locked until Robotics 10; tapping
+  Upgrade starts the build, and the one in-flight build sits in a hero card with a live
+  countdown and progress bar.
+
 ### 0.0.4 — 2026-08-06
 
 - **Oltre has a face.** The app ships an icon — a planet's lit limb with a single trajectory
