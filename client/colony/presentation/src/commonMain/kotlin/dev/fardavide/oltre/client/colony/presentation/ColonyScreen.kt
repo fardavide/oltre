@@ -2,16 +2,21 @@ package dev.fardavide.oltre.client.colony.presentation
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import dev.fardavide.oltre.client.design.OltreColors
+import dev.fardavide.oltre.client.design.OltreLayout
 import dev.fardavide.oltre.client.design.oltreMono
 import dev.fardavide.oltre.core.BuildingType
 
@@ -23,21 +28,31 @@ fun ColonyScreen(
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         ResourceRail(uiState = uiState)
+        // The window can be any width — iPad, Split View, Stage Manager, a desktop window — so
+        // the colony caps its content and centres it instead of stretching the cards.
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            uiState.inProgress?.let { card ->
-                SectionLabel(text = "IN PROGRESS")
-                InProgressCard(uiState = card, modifier = Modifier.padding(bottom = 22.dp))
+            Column(
+                modifier = Modifier
+                    .widthIn(max = OltreLayout.maxContentWidth)
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .testTag(ColonyTestTags.CONTENT),
+            ) {
+                uiState.inProgress?.let { card ->
+                    SectionLabel(text = "IN PROGRESS")
+                    InProgressCard(uiState = card, modifier = Modifier.padding(bottom = 22.dp))
+                }
+                uiState.returningFleet?.let { fleet ->
+                    FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
+                }
+                SectionLabel(text = "FACILITIES")
+                FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
             }
-            uiState.returningFleet?.let { fleet ->
-                FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
-            }
-            SectionLabel(text = "FACILITIES")
-            FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
         }
     }
 }
