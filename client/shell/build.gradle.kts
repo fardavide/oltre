@@ -38,7 +38,9 @@ kotlin {
             implementation(projects.core)
             implementation(projects.client.colony.presentation)
             implementation(projects.client.design)
+            implementation(projects.client.save.data)
 
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
 
             implementation(libs.compose.runtime)

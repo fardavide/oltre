@@ -11,6 +11,8 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
   :client:<feature>:<layer>  One directory per feature, holding layer modules (presentation,
                              plus domain / data only where the feature requires them) — never
                              a monolithic feature module
+  :client:save:data          Reads/writes the JSON snapshot; the only client module that
+                             touches a filesystem. No presentation layer — saving has no UI.
 server        JVM + Ktor. Compiling stub until multiplayer starts.
 iosApp/       Xcode wrapper around the client framework (pending, arrives with the iOS slice)
 androidApp    Thin Android app module wrapping :client:shell (pending, when Android delivery matters)
@@ -18,11 +20,12 @@ androidApp    Thin Android app module wrapping :client:shell (pending, when Andr
 
 ## Dependency rule
 
-Dependencies point inward to `core`; `core` depends on **nothing** (its build file declares no
-dependencies beyond the test library, and only `kotlinx-datetime` / `kotlinx-serialization` may
-ever be justified in). `client/*`, `server` and `sim` depend on `core`; feature modules depend on
-`core` + `:client:design`; `:client:shell` composes the features. The module graph *is* the
-enforcement — a violating import fails to compile because the dependency simply is not declared.
+Dependencies point inward to `core`; `core` depends on **nothing** but `kotlinx-serialization`
+(justified in at 0.0.6 — the save format is a rule client and server must agree on; see
+[decisions.md](decisions.md)). `client/*`, `server` and `sim` depend on `core`; feature modules
+depend on `core` + `:client:design`; `:client:shell` composes the features. The module graph *is*
+the enforcement — a violating import fails to compile because the dependency simply is not
+declared.
 
 ## Core purity (the load-bearing invariants)
 
@@ -52,4 +55,7 @@ layer. Never one repo-wide doubles module.
 - The UI computes state from the last-updated instant when the app comes to the foreground —
   never from a running timer. Local notifications are scheduled at computed completion
   timestamps (this is the entire iOS check-in loop; the platform forbids background execution).
+- The shell persists **only on discrete transitions** (an event appended to the log), never per
+  tick. Everything between two events is reproduced exactly by `advance` from the saved instant,
+  so an accrual-only tick has nothing new to write.
 - Galaxy map is a Compose `Canvas`. No game engine, settled.

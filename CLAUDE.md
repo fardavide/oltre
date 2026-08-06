@@ -28,8 +28,8 @@ Versions live only in `gradle/libs.versions.toml`.
 
 `core` (pure KMP model + rules) ← `client/*`, `server`, `sim`. Dependencies point inward; the
 module graph enforces the direction (`core`'s build file declares nothing beyond the test
-library). Core *purity* — no clock reads, no I/O — is enforced by review and the required
-property tests, not by compilation.
+library and `kotlinx-serialization`, which carries the save format). Core *purity* — no clock
+reads, no I/O — is enforced by review and the required property tests, not by compilation.
 Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 
 1. `core` is pure: no I/O, no clock reads, no platform types. Time is a parameter:
