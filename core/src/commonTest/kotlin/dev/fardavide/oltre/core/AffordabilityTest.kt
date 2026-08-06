@@ -76,7 +76,7 @@ class AffordabilityTest {
     }
 
     @Test
-    fun `time until affordable is null when a needed resource has no production`() {
+    fun `time until affordable is infinite when a needed resource has no production`() {
         // given no deuterium synthesizer, so deuterium never accrues
         val buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(0))
         val cost = PlaceholderBalance.upgradeCost(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1))
@@ -86,6 +86,6 @@ class AffordabilityTest {
         val wait = timeUntilAffordable(stock, cost, buildings)
 
         // then
-        assertEquals(null, wait)
+        assertEquals(Duration.INFINITE, wait)
     }
 }

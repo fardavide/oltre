@@ -69,7 +69,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `facility rows expose typed level, per-resource cost chips and duration`() {
+    fun `facility rows expose typed level with per-resource cost chips and duration`() {
         // given plenty of metal but no crystal
         val state = GameState(
             resources = Resources.of(metal = 1_000_000),

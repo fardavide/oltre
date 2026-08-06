@@ -109,6 +109,7 @@ private fun GameState.toFacilityRow(building: BuildingType): FacilityRowUiState 
             short.isEmpty() -> FacilityActionUiState.Upgrade
             else -> FacilityActionUiState.AffordableIn(
                 timeUntilAffordable(resources, cost, buildings)
+                    .takeIf { it.isFinite() }
                     ?.let { "in ${it.toChipLabel()}" }
                     ?: "—",
             )

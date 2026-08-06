@@ -12,9 +12,9 @@ fun Resources.shortfallOf(cost: Resources): Set<ResourceKind> = buildSet {
 }
 
 // Fine units are hourly-rate × milliseconds, so deficitFine / ratePerHour is exactly the
-// milliseconds until that deficit closes — ceiled so the wait never understates.
-// Null means never at current rates (a short resource with zero effective production).
-fun timeUntilAffordable(stock: Resources, cost: Resources, buildings: Buildings): Duration? {
+// milliseconds until that deficit closes — ceiled so the wait never understates. A short
+// resource with zero effective production makes the wait infinite.
+fun timeUntilAffordable(stock: Resources, cost: Resources, buildings: Buildings): Duration {
     val waits = stock.shortfallOf(cost).map { kind ->
         val deficitFine = when (kind) {
             ResourceKind.METAL -> cost.metalFine - stock.metalFine
@@ -26,7 +26,7 @@ fun timeUntilAffordable(stock: Resources, cost: Resources, buildings: Buildings)
             ResourceKind.CRYSTAL -> PlaceholderBalance.effectiveCrystalProductionPerHour(buildings)
             ResourceKind.DEUTERIUM -> PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings)
         }
-        if (ratePerHour <= 0) return null
+        if (ratePerHour <= 0) return Duration.INFINITE
         ((deficitFine + ratePerHour - 1) / ratePerHour).milliseconds
     }
     return waits.maxOrNull() ?: Duration.ZERO
