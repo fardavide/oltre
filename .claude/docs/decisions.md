@@ -188,3 +188,32 @@ Save locations: macOS `~/Library/Application Support/Oltre/`, Windows `%APPDATA%
 and there is no Android app module yet, so `AndroidSaveLocation.directory` is set by the
 application at startup; the two identical JVM `FileSaveFile` copies collapse into one shared
 source set when that module lands.
+
+## Screenshot baselines can be recorded by a manual CI job
+
+Davide's proposal (2026-08-06), after a remote agent session could not record a baseline: a
+`workflow_dispatch` job that runs `recordRoborazziDesktop`, pushes the result to the PR branch and
+comments with the images for visual validation.
+
+This narrows the earlier "never record on CI" rule rather than dropping it. What that rule
+protects against is a job that re-records on every red build, which turns the assertion into a
+recorder of whatever the code draws. The protection now lives in the shape of the job: it is
+**manual only**, it posts before/after images into the PR, and the recording lands as its own
+reviewable commit. Dispatching it is the human statement "this visual change is intended", which
+is exactly the judgement the old rule was reserving for a person.
+
+Two mechanics worth knowing before touching the workflow:
+
+- **A push made with `GITHUB_TOKEN` starts no workflow run.** The new head commit would otherwise
+  carry no checks at all, which the `protect-main` ruleset reads as unmergeable rather than as
+  green — so the job dispatches `ci.yml` explicitly afterwards. Any future job that pushes to a
+  PR branch needs the same step.
+- **Baselines it records are Linux-rendered**, where locally recorded ones are macOS-rendered.
+  Better for CI (recorder and verifier become the same renderer), worse locally: a Mac
+  `verifyRoborazziDesktop` failure on an untouched baseline is cross-OS drift, not a regression.
+  Rejected: making the job run on `macos-latest` to preserve provenance — it pays macOS runner
+  minutes to keep the *verifier* mismatched, which is backwards.
+
+Rejected: posting the images as an artifact link only (an artifact is a zip nobody opens during
+review) and committing diff renders to the repo (build output does not belong in git). Raw URLs
+on a public repo render inline in a comment, which is what makes the validation actually happen.

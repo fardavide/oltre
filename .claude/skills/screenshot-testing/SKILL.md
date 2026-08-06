@@ -1,6 +1,6 @@
 ---
 name: screenshot-testing
-description: Oltre's Roborazzi workflow — desktop-target screenshot tests, baselines recorded locally and committed, verified on CI with tolerance, never regenerated on CI.
+description: Oltre's Roborazzi workflow — desktop-target screenshot tests, baselines recorded locally or by the manual Record screenshots job, committed, verified on CI with tolerance, never re-recorded automatically.
 when_to_use: >
   Consult when writing or changing any Compose UI that a screenshot test covers, when a
   screenshot check fails on CI, or when the user asks to add/update UI baselines.
@@ -13,9 +13,21 @@ when_to_use: >
 - **Record baselines locally**: `./gradlew recordRoborazziDesktop`. Baselines are committed —
   they are the assertion.
 - **Verify** (what CI's "Screenshot tests" job runs): `./gradlew verifyRoborazziDesktop`.
-- **Never record on CI** and never re-record to make a red build green without looking at the
-  diff first — that converts the test into a recorder of whatever the code does. Re-record only
-  when the visual change is intended, and say so in the PR.
+- **Or dispatch the "Record screenshots" workflow** with the PR number
+  (`gh workflow run record-screenshots.yml -f pr=<number>`, or the Run workflow button). It
+  records on the runner, pushes a `chore: re-record screenshot baselines` commit to the PR
+  branch, comments with before/after images, and dispatches CI so the new commit gets its
+  required checks. Use it when the machine at hand cannot build — a remote agent session, or no
+  Mac to hand.
+- **Never re-record automatically, and never to make a red build green without looking at the
+  diff first** — that converts the test into a recorder of whatever the code does. This is why
+  the workflow is `workflow_dispatch` only and posts the images: dispatching it *is* the
+  statement "this visual change is intended", and the comment is where that gets checked. Say so
+  in the PR too.
+- **A baseline recorded by the workflow is Linux-rendered**, where a locally recorded one is
+  macOS-rendered. That direction is friendlier to CI (the recorder and the verifier are then the
+  same renderer) but harsher locally: if `verifyRoborazziDesktop` starts failing on Davide's Mac
+  for a baseline nobody touched, cross-OS drift is the first suspect, not a real regression.
 - On CI failure, the diff images upload as the `roborazzi-diffs` artifact — read the diff, don't
   guess.
 - **Never use platform font families** (`FontFamily.Monospace`, default sans) in any composable
