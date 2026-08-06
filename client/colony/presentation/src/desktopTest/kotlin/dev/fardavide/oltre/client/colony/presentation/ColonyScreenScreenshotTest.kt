@@ -8,15 +8,40 @@ import dev.fardavide.oltre.client.design.OltreTheme
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
-// The whole screen at iPad-landscape size (1194×834pt, 11"): what the centred column actually
-// looks like when the window is far wider than a phone. The component baselines cover phone
-// width; this one is here so a regression in the wide layout is visible, not just asserted.
+// The whole screen at the sizes an iPad actually hands it. The component baselines cover phone
+// width; these cover what the window does past it, so a regression in the capped-and-centred
+// layout is visible rather than only asserted. Sizes are 11" iPad points, and each one sits on a
+// different side of OltreLayout.maxContentWidth (560dp) — see ColonyScreenLayoutTest for the rule.
 @OptIn(ExperimentalTestApi::class)
 class ColonyScreenScreenshotTest {
 
     @Test
-    fun `colony screen in an iPad-sized window`() {
-        runDesktopComposeUiTest(width = 1194, height = 834) {
+    fun `colony screen in an iPad landscape window`() {
+        captureColonyScreen(width = 1194, height = 834, name = "colony_screen_ipad_landscape")
+    }
+
+    @Test
+    fun `colony screen in an iPad portrait window`() {
+        captureColonyScreen(width = 834, height = 1194, name = "colony_screen_ipad_portrait")
+    }
+
+    // Half of a landscape iPad, the widest Split View pane. At 570dp it clears the 560dp cap by
+    // 10dp — the tightest case where centring is visible at all, and the one most likely to look
+    // wrong if the cap ever drifts.
+    @Test
+    fun `colony screen in a Split View pane`() {
+        captureColonyScreen(width = 570, height = 834, name = "colony_screen_ipad_split_view")
+    }
+
+    // Slide Over, and the narrow Stage Manager window with it: below the cap, so the content
+    // fills the window exactly as it does on a phone.
+    @Test
+    fun `colony screen in a Slide Over window`() {
+        captureColonyScreen(width = 320, height = 834, name = "colony_screen_ipad_slide_over")
+    }
+
+    private fun captureColonyScreen(width: Int, height: Int, name: String) {
+        runDesktopComposeUiTest(width = width, height = height) {
             setContent {
                 OltreTheme {
                     Surface {
@@ -25,7 +50,7 @@ class ColonyScreenScreenshotTest {
                 }
             }
             onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/colony_screen_wide.png",
+                filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }

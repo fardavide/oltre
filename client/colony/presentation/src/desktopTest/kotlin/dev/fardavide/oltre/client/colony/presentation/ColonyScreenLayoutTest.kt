@@ -24,6 +24,29 @@ class ColonyScreenLayoutTest {
         assertContentColumn(windowWidth = 1400, windowHeight = 900)
     }
 
+    // The sizes an iPad actually hands the app, in 11" points: full screen either way up, the
+    // widest Split View pane, and Slide Over. 570dp clears the 560dp cap by 10dp, so it is the
+    // tightest case the rule has to get right; 320dp is below it and must simply fill.
+    @Test
+    fun `content caps and centres in an iPad landscape window`() {
+        assertContentColumn(windowWidth = 1194, windowHeight = 834)
+    }
+
+    @Test
+    fun `content caps and centres in an iPad portrait window`() {
+        assertContentColumn(windowWidth = 834, windowHeight = 1194)
+    }
+
+    @Test
+    fun `content caps and centres in a Split View pane`() {
+        assertContentColumn(windowWidth = 570, windowHeight = 834)
+    }
+
+    @Test
+    fun `content fills a Slide Over window`() {
+        assertContentColumn(windowWidth = 320, windowHeight = 834)
+    }
+
     @Test
     fun `content fills a phone-sized window`() {
         assertContentColumn(windowWidth = 393, windowHeight = 852)
