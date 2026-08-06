@@ -398,3 +398,50 @@ the right project all along, and the component it pointed at was being dropped a
 change is reverted; `TYPESAFE_PROJECT_ACCESSORS` stays. The lesson is that a resolution symptom
 is worth reading as resolution, and that "the declaration must be wrong" is a guess, not a
 diagnosis.
+
+## Navigation lives in `:client:shell`, and unbuilt tabs are screens rather than absences
+
+The mockup's five-tab bar is the piece everything else hangs off, and it needs nothing decided,
+so it went first of the remaining v1 slices (0.0.11).
+
+**It is the shell's, not a feature's, and not `:client:design`'s.** A tab set names every feature
+there is, and the module rule says features never see each other while the shell is the only
+module that sees them all — so navigation can live nowhere else without breaking the direction of
+the graph. `:client:design` was the other candidate and lost for a different reason: it is a
+*token* module (colours, type, the content-width cap) and every visual component so far — the
+resource rail, the facility rows, the fleet strip — lives with the feature that owns it. A tab bar
+is chrome the shell owns, so it sits with the shell.
+
+**A tab with no screen behind it shows an honest empty state, not nothing and not a hidden tab.**
+`OltreTab.pendingWork` is the table: null once a tab has a real screen, otherwise a line saying
+what will be there. Hiding the unbuilt four was rejected — the bar's job in this slice is to make
+the shape of the game visible, and a bar that grows an item per release never gets to do that.
+Showing a blank screen was rejected too: on a black theme it reads as a crash, not as a gap. The
+copy is a **placeholder**, marked as such, for the same reason the notification copy is — what a
+screen says to the player is content, and content is Davide's.
+
+**Each feature that lands takes a parameter on `MainScaffold`.** The signature is therefore the
+honest list of what exists: a tab with no parameter is a tab with no screen. Rejected: a
+`content: @Composable (OltreTab) -> Unit` lambda that hands the decision back to `App`, which
+would let a tab quietly fall through to the wrong screen and puts a `when` over every destination
+in the one place already holding the clock, the save and the notifications.
+
+**Selection is not restored across launches.** The colony is recomputed from the save every time
+the app opens, so opening on the Colony is what the player wants to see; restoring "you were on
+Fleets" restores a screen that is not built. Revisit when the other tabs are real.
+
+**The glyphs are drawn, not imported.** They are bespoke — a ringed world, a lab ring, a rocket, a
+galaxy, a fleet wedge — so no icon pack carries them; a Compose `Canvas` writing the mockup's own
+24-unit paths keeps them exact and adds no dependency. That is also why they have screenshot
+baselines: a path is the only kind of drawing where a typo compiles.
+
+**Insets moved from the screen to the frame.** `windowInsetsPadding(safeDrawing)` was on
+`ColonyScreen`; it belongs on the scaffold, because every tab sits in the same safe area and the
+bar has to clear the home indicator whatever is above it. The tabs share the content column's
+560dp cap for the same reason the resource rail does — an iPad would otherwise push them to the
+screen edges — and take an equal share of the width rather than the mockup's fixed 66px, which
+five of would overflow a 320dp Slide Over pane.
+
+**`oltreRoborazziOptions` is now duplicated in two modules.** Sharing it needs a module (KMP
+source sets cannot host test fixtures), which two callers do not justify and a third would. Both
+copies carry the same comment saying so.

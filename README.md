@@ -61,6 +61,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.11 — 2026-08-06
+
+- **The game has its five destinations.** A bottom bar carries Colony, Research, Shipyard, Galaxy
+  and Fleets, and the game opens on the Colony as it always has. The four that are not built yet
+  say so and say what will be there, rather than being hidden until their screen exists — so the
+  shape of the game is visible from the first launch. The bar keeps its tabs on the same centred
+  column as the content on an iPad or a wide desktop window, and fits five destinations in a
+  Slide Over pane.
+
 ### 0.0.10 — 2026-08-06
 
 - **The game tells you when to come back.** Every build you start and every fleet on its way
