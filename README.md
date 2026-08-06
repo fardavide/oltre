@@ -15,7 +15,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), `:client:save:data` (the JSON snapshot on disk), one module per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root + entry points), `:client:design` (theme), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one module per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -60,6 +60,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.10 — 2026-08-06
+
+- **The game tells you when to come back.** Every build you start and every fleet on its way
+  home now books a notification at the exact moment it lands, so a colony left running while the
+  app is closed reaches you instead of waiting to be checked on. The alerts are rebuilt from the
+  colony itself whenever anything happens, so one that has been overtaken — a build that
+  finished early, a colony reloaded from a save — is gone rather than stale, and starting three
+  upgrades at once gets you three separate alerts. On iPhone permission is asked once, on the
+  first launch; declining costs you the alerts and nothing else. On desktop the schedule is
+  printed to the console rather than raised, because the dev loop already has the app open.
+- **The version on TestFlight is the version in the repo.** 0.0.8 shipped labelled 0.0.7; the
+  build number and the release label are both written from their real sources now, so a build
+  cannot go out mislabelled again.
 
 ### 0.0.9 — 2026-08-06
 
