@@ -279,7 +279,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a returning fleet appears as the strip with origin, composition and countdown`() {
+    fun `a returning fleet appears as the strip with origin composition and countdown`() {
         // given a fleet of 14 cargo and 1 cruiser from [2:117:9], 4h 11m 52s out
         val now = Instant.fromEpochMilliseconds(0)
         val state = GameState.initial().copy(
