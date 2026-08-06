@@ -256,8 +256,17 @@ This narrows the earlier "never record on CI" rule rather than dropping it. What
 protects against is a job that re-records on every red build, which turns the assertion into a
 recorder of whatever the code draws. The protection now lives in the shape of the job: it is
 **manual only**, it posts before/after images into the PR, and the recording lands as its own
-reviewable commit. Dispatching it is the human statement "this visual change is intended", which
-is exactly the judgement the old rule was reserving for a person.
+reviewable commit. ~~Dispatching it is the human statement "this visual change is intended", which
+is exactly the judgement the old rule was reserving for a person.~~
+
+**Superseded by Davide, 2026-08-06: the agent dispatches the job itself.** Written as above, the
+entry was read at 0.0.11 as "an agent must not dispatch", and the PR sat red waiting on a click.
+That is not what the rule was protecting: the reviewable artefact is the **comment**, which puts
+before/after images in the PR before anything merges, and it exists whoever pressed the button.
+An agent that leaves a red check for a human to clear is not being careful, it is being slow. So:
+a slice that adds or changes baselines dispatches Record screenshots against its own PR, and the
+human judgement happens where it always was — reading the images the job posts, before merging.
+The rest of the entry stands, "manual only" included: the job still never fires by itself.
 
 Two mechanics worth knowing before touching the workflow:
 

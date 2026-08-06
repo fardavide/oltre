@@ -19,11 +19,14 @@ when_to_use: >
   branch, comments with before/after images, and dispatches CI so the new commit gets its
   required checks. Use it when the machine at hand cannot build — a remote agent session, or no
   Mac to hand.
+- **Dispatch it yourself; do not leave the check red for Davide to clear** (his correction,
+  2026-08-06, after a session read the rule below as forbidding that and stalled). A slice that
+  adds or changes baselines dispatches the job against its own PR as part of finishing the slice.
 - **Never re-record automatically, and never to make a red build green without looking at the
   diff first** — that converts the test into a recorder of whatever the code does. This is why
-  the workflow is `workflow_dispatch` only and posts the images: dispatching it *is* the
-  statement "this visual change is intended", and the comment is where that gets checked. Say so
-  in the PR too.
+  the workflow is `workflow_dispatch` only and posts the images: the reviewable artefact is the
+  **comment**, and reading those images before merging is where "this visual change is intended"
+  actually gets decided. Say in the PR that the job ran and what it recorded.
 - **A baseline recorded by the workflow is Linux-rendered**, where a locally recorded one is
   macOS-rendered. That direction is friendlier to CI (the recorder and the verifier are then the
   same renderer) but harsher locally: if `verifyRoborazziDesktop` starts failing on Davide's Mac
