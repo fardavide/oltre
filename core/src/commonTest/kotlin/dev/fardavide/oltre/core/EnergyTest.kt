@@ -121,6 +121,68 @@ class EnergyTest {
     }
 
     @Test
+    fun `a facility reports the energy it supplies at its own level`() {
+        // then the solar plant is the only thing that supplies, and it supplies 50 a level
+        assertEquals(150L, PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, BuildingLevel(3)))
+        assertEquals(0L, PlaceholderBalance.energySupply(BuildingType.METAL_MINE, BuildingLevel(3)))
+    }
+
+    @Test
+    fun `the colony's production is the sum of what each facility supplies`() {
+        // given
+        val buildings = GameState.initial().buildings.copy(solarPlant = BuildingLevel(4))
+
+        // then the per-facility figure the UI attributes with and the colony total cannot drift
+        assertEquals(
+            BuildingType.entries.sumOf { PlaceholderBalance.energySupply(it, buildings.levelOf(it)) },
+            PlaceholderBalance.energyProduction(buildings),
+        )
+    }
+
+    @Test
+    fun `spare energy is counted in the facility levels it would buy`() {
+        // given a new colony: 50 produced against 40 drawn, and the cheapest level draws 10
+        val buildings = GameState.initial().buildings
+
+        // then a bare surplus means nothing until you know what a level costs
+        assertEquals(1L, PlaceholderBalance.energyHeadroomLevels(buildings))
+    }
+
+    @Test
+    fun `headroom grows as the plant outruns the mines`() {
+        // given the solar 4 / metal 5 / crystal 4 / deuterium 4 colony: 200 produced, 170 drawn
+        val buildings = Buildings(
+            metalMine = BuildingLevel(5),
+            crystalMine = BuildingLevel(4),
+            deuteriumSynthesizer = BuildingLevel(4),
+            solarPlant = BuildingLevel(4),
+            roboticsFactory = BuildingLevel(0),
+            naniteFactory = BuildingLevel(0),
+        )
+
+        // then
+        assertEquals(3L, PlaceholderBalance.energyHeadroomLevels(buildings))
+    }
+
+    @Test
+    fun `a colony that exactly covers its draw has no headroom left`() {
+        // given metal mine 2: 50 produced against 50 drawn
+        val buildings = GameState.initial().buildings.copy(metalMine = BuildingLevel(2))
+
+        // then
+        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings))
+    }
+
+    @Test
+    fun `a colony already in deficit has no headroom to report`() {
+        // given
+        val buildings = GameState.initial().buildings.copy(metalMine = BuildingLevel(9))
+
+        // then headroom is a healthy-state reading; in deficit the percentage is the reading
+        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings))
+    }
+
+    @Test
     fun `resources stop accruing at the storage cap`() {
         // given
         val start = Instant.fromEpochMilliseconds(0)
