@@ -77,6 +77,15 @@ the run summary. Each row is a test kind; each cell carries the current value an
 against the last `main` run. The per-package section answers the question the totals cannot:
 *which kind of test is actually reaching this code.*
 
+**Read the behaviour and screenshot rows as "was this rendered", not "was this asserted".**
+Rendering a screen executes every line that composes it, so both kinds score high on a UI module
+the moment any test puts it on screen — the first report had behaviour at 47% and screenshot at
+46% of the whole project while *nothing* drove the game's only interaction. Line coverage cannot
+tell a rendered line from a driven one. What the split is good for is the comparison *between*
+kinds on one package: `dev.fardavide.oltre.client` at 4% unit and 74% behaviour says the shell is
+held up entirely by tests that render it, which is true and worth knowing. A high behaviour
+number is never on its own evidence that an interaction is tested.
+
 The baseline is a GitHub Actions cache written only by `main` (`oltre-coverage-v1-<sha>`), read
 by every branch. Consequences worth knowing:
 
