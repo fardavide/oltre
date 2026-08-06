@@ -47,12 +47,31 @@ is base-minutes × level, divided by 1 + robotics level; storage cap a flat 10M 
 energy scales all mine output by produced/consumed on a deficit — and that scaling is now on
 screen rather than silent (round 3).
 
-> **Still computed by hand, not from `:sim:run`.** The same egress block that stopped round 2
-> stopped round 3: `dl.google.com` is denied by this environment's network policy, so Gradle
-> cannot resolve AGP and no agent session yet has been able to run the sim or the tests. The
-> table above was generated from the curve definitions and cross-checked against a standalone
-> reimplementation of `compound()`; re-run `./gradlew :sim:run` on a machine that can build and
-> correct anything that differs.
+> **Regenerated from `./gradlew :sim:run` (2026-08-06), and it needed no correction.** Rounds 2
+> and 3 both wrote this table by hand because `dl.google.com` was blocked in those sessions and
+> Gradle could not resolve AGP. The first session that could build re-ran the sim and every
+> figure above — all ten rows, both cost columns, the paybacks and the daily totals — came back
+> identical. The hand arithmetic held; the table is now machine-generated and can be trusted.
+
+A greedy week from a cold start, from the same run — upgrade anything affordable once an hour,
+cheapest first, mines *and* plant:
+
+```
+after 7 days: metal=49,544 crystal=1,410 deuterium=2,520
+buildings: metal 15 · crystal 14 · deuterium 1 · solar 14 · robotics 0 · nanite 0
+energy: 700/310 (mines at 100%) — hours throttled by power: 0 of 168
+events: 80 (starts + completions)
+```
+
+**Zero throttled hours is the finding, and it is about the strategy, not the curve.** A player who
+treats the Solar Plant as just another cheap upgrade never meets the shortage at all — solar
+reached 14 alongside metal 15. Davide's colony hit 55% precisely because he was buying mines and
+not plant, which is the choice the mechanic exists to make visible. The sim as written cannot
+reproduce his session; a variant that never builds solar would be the one that measures the pain.
+
+Also worth noting from the same run: crystal ends at 1,410 against metal's 49,544, so after round
+3's raise metal is now the resource that piles up unspent. That is the mirror image of the
+complaint round 3 fixed, and it is the first evidence bearing on whether 90/h overshot.
 
 ## Round 1 — 0.0.3, the first placeholders (2026-08-05)
 
@@ -118,9 +137,13 @@ Two changes, and they are independent — keep them apart when judging what the 
 like:
 
 1. **The shortage is now visible.** `EnergyBalance` gives the rule a name (produced, consumed,
-   `outputPercent`, `surplus`); a power line under the rail shows it always, warn-coloured on a
-   deficit; the throttled facilities are badged. No balance number moved for this — the same
-   colony produces exactly what it produced before, it just says so.
+   `outputPercent`, `surplus`); the colony screen opens with a power card that states the ratio
+   as a bar and its consequence as a sentence, in both states rather than only the bad one; each
+   facility carries its own signed energy figure while a shortage lasts; the rail's rates take
+   the same mark; and the Solar Plant says when one level would end it. No balance number moved
+   for this — the same colony produces exactly what it produced before, it just says so.
+   (First drafted as a provisional strip under the rail, then replaced wholesale by the imported
+   Claude Design treatment — direction 1a of the Energy Screen page.)
 2. **Metal base output 60 → 90/h.** The early tree (everything but Nanite) costs 808 metal to
    264 crystal, ~3:1, against production of 2:1. Metal was structurally the bottleneck however
    the colony was played. 90/h makes production 3:1 and `BalanceCurveTest` now ties the ratio to
@@ -136,10 +159,19 @@ Watch for:
 
 - **Whether the metal raise was needed at all.** The energy fix alone took that colony from
   51/h to 93/h. If a session after this feels loose, try 60/h again with the shortage visible
-  before touching anything else — that combination has never actually been played.
+  before touching anything else — that combination has never actually been played. The greedy
+  week above adds a first data point against 90/h: metal ends at 49,544 and crystal at 1,410,
+  so metal is now the resource with nothing to spend it on.
 - **Durations are still the wrong shape** (carried from round 2, untouched): cost grows ×1.5 per
   level while duration grows linearly, so deep levels are gated by resources, not by building.
 - **Nothing still caps simultaneous projects**, and the 10M storage cap still binds nothing.
 - **The energy curve itself is untested by play.** Solar is 50/level against mines at 10/10/20
-  per level, so a solar plant covers roughly two mine levels; whether that cadence is right is
-  now at least observable, via the sim's new "hours throttled" count.
+  per level, so a plant level covers five mine levels — both curves are linear, so that ratio
+  holds at level 1 and at level 40 and the tension never escalates. The sim now counts throttled
+  hours and reported zero, but only because its greedy strategy buys plant as readily as mines;
+  the cadence is still unmeasured for a player who does not. A sim variant that starves solar
+  deliberately is the cheapest way to put a number on how bad the shortage gets.
+- **Five design calls are still open** on the energy work — direction, the wording of the
+  headroom verdict, whether amber may mean "attenuated" as well as "in transit", and whether a
+  deficit belongs in a notification. They are listed in the Energy Decision Sheet on the Claude
+  Design page and are Davide's to make.
