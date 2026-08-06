@@ -32,7 +32,11 @@ Updated: 2026-08-06
 - **0.0.9 local notifications (the rest of M8)** — `core.futureEvents` derives what is still
   coming, `:client:notifications:data` books it, the shell reschedules on the same trigger as
   the save. iOS schedules for real, desktop prints, Android waits for an app module. Also fixed
-  the `MARKETING_VERSION` drift that shipped 0.0.8 to TestFlight labelled 0.0.7.
+  the `MARKETING_VERSION` drift that shipped 0.0.8 to TestFlight labelled 0.0.7, and a latent
+  build defect the new module exposed: every project shared one Gradle group, so two modules
+  named `data` had identical coordinates and one silently left the compile classpath. The group
+  now carries the project path — see `decisions.md`, and expect the same for `presentation` and
+  `domain` layers as they arrive.
 
 ## Roadmap — v1 in vertical slices
 
