@@ -12,7 +12,7 @@ application {
 }
 
 dependencies {
-    implementation(project(":core"))
+    implementation(projects.core)
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)
 

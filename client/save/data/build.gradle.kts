@@ -25,7 +25,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // GameSnapshot is this module's own vocabulary, so it travels with it.
-            api(project(":core"))
+            api(projects.core)
 
             implementation(libs.kotlinx.coroutines.core)
         }

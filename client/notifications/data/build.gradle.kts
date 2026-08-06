@@ -25,7 +25,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             // GameState and FutureEvent are this module's own vocabulary, so they travel with it.
-            api(project(":core"))
+            api(projects.core)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

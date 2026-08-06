@@ -365,26 +365,36 @@ This does **not** retire `project.yml` — it is the source the next `xcodegen g
 a bump still edits it. What it retires is the failure mode where the only machine that can make
 the repo honest is one the session does not have.
 
-## No type-safe project accessors — they collide with `:client:<feature>:<layer>`
+## The Gradle group carries the project path, because layer names repeat
 
 Adding `:client:notifications:data` next to `:client:save:data` at 0.0.9 silently broke the
-shell: `implementation(projects.client.save.data)` stopped resolving to the save module, the
-save jar never reached the compile classpath, and the build failed on `Unresolved reference
-'save'` in a file nobody had touched.
+shell: the save jar left the compile classpath and the build failed on `Unresolved reference
+'save'` in files nobody had touched, while the *notifications* module — declared identically,
+one line above — resolved fine.
 
-The accessor is generated from a project's **name**, not its path, so two projects named `data`
-generate one accessor and one of them wins. The module architecture — one directory per feature
-holding `presentation` / `domain` / `data` layer modules — *guarantees* duplicate leaf names, so
-this was never a one-off: every future feature with a `data` layer would have hit it, and
-`:client:colony:presentation` had simply been the only `presentation` so far.
+The cause is coordinates, not code. `allprojects { group = "dev.fardavide.oltre" }` gave every
+module the same group and the same version, and a Gradle module is identified by
+`group:name:version`. Two projects both named `data` were therefore both
+`dev.fardavide.oltre:data:0.0.9` — one component as far as resolution is concerned. Gradle
+conflict-resolved the pair to a single winner and the loser simply was not there.
 
-`enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")` is therefore gone and dependencies are
-declared as `project(":client:save:data")`. Between an incubating Gradle convenience and a
-module layout Davide decided, the layout wins.
+The module architecture — one directory per feature holding `presentation` / `domain` / `data`
+layer modules — *guarantees* repeated leaf names, so this was never a one-off. It had gone
+unnoticed only because `:client:save:data` was the first `data` and `:client:colony:presentation`
+is still the only `presentation`. The group now carries the parent path
+(`dev.fardavide.oltre.client.save:data`), which makes every module's coordinates unique by
+construction, including every layer module not yet written.
 
-What makes this worth an entry rather than a one-line fix: **it fails silently and wrongly**,
-not loudly. Here the two modules had no overlapping API so it surfaced as a compile error, but
-the same mis-resolution between two modules that happened to satisfy each other's imports would
-have produced a *building* project wired to the wrong dependency. Rejected: renaming the layer
-modules to be globally unique (`save-data`, `notifications-data`), which fixes the accessor by
-disfiguring the naming convention that is the actual decision.
+What makes this worth an entry: **it fails silently and wrongly.** Here the two modules shared no
+API, so it surfaced as a compile error. Two modules that happened to satisfy each other's imports
+would have produced a *building* project wired to the wrong dependency.
+
+Rejected: renaming the layer modules to be globally unique (`save-data`, `notifications-data`),
+which fixes the coordinates by disfiguring the naming convention that is the actual decision.
+Also rejected on the way — and recorded because it cost a CI cycle — **blaming type-safe project
+accessors**. `projects.client.save.data` looked like the obvious suspect, and swapping every
+dependency for an explicit `project(":path")` changed nothing: the accessor had been resolving to
+the right project all along, and the component it pointed at was being dropped afterwards. That
+change is reverted; `TYPESAFE_PROJECT_ACCESSORS` stays. The lesson is that a resolution symptom
+is worth reading as resolution, and that "the declaration must be wrong" is a guess, not a
+diagnosis.
