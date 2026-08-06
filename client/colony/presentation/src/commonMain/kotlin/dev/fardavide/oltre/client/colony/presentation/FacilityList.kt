@@ -19,6 +19,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.OltreColors
@@ -62,6 +63,9 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
+                // Slide Over is 320dp — narrower than any phone, and reachable now that the app
+                // multitasks on iPad. A long name has to give way there: it truncates, while the
+                // level badge keeps its one line rather than wrapping "LV" above its number.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = row.name,
@@ -69,6 +73,9 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         fontFamily = mono,
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
                     Text(
                         text = "LV ${row.level.value}",
@@ -76,6 +83,8 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         fontFamily = mono,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        softWrap = false,
                         modifier = Modifier
                             .padding(start = 7.dp)
                             .background(Color.White.copy(alpha = 0.09f), RoundedCornerShape(4.dp))
