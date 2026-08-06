@@ -10,4 +10,11 @@ object OltreLayout {
     // A little wider than the largest phone (430dp on a Pro Max), so no phone ever hits the cap
     // and renders differently from the mockup.
     val maxContentWidth = 560.dp
+
+    // Below this, a screen may shorten a string rather than let it truncate. Sits between the
+    // 320dp Slide Over pane — the narrowest window the app has to survive — and the 375dp of the
+    // smallest phone it ships on, so abbreviating never happens on a real device. Abbreviation is
+    // a width decision, not a change of voice: what drops is a trailing noun, never a number or a
+    // name.
+    val compactWidth = 360.dp
 }

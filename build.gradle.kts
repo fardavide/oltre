@@ -91,6 +91,7 @@ dependencies {
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
     kover(projects.client.notifications.data)
+    kover(projects.client.research.presentation)
     kover(projects.client.save.data)
 }
 

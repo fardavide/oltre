@@ -50,7 +50,11 @@ class MainScaffoldLayoutBehaviourTest {
         runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {
                 OltreTheme {
-                    MainScaffold(resources = testResourceRailUiState) { Text("colony-under-test") }
+                    MainScaffold(
+                        resources = testResourceRailUiState,
+                        colony = { Text("colony-under-test") },
+                        research = { Text("research-under-test") },
+                    )
                 }
             }
 

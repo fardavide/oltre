@@ -39,6 +39,7 @@ kotlin {
             implementation(projects.client.colony.presentation)
             implementation(projects.client.design)
             implementation(projects.client.notifications.data)
+            implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
 
             implementation(libs.kotlinx.coroutines.core)

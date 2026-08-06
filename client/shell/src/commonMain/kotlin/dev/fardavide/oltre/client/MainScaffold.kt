@@ -30,8 +30,9 @@ import androidx.compose.ui.Modifier
 @Composable
 fun MainScaffold(
     resources: ResourceRailUiState,
-    modifier: Modifier = Modifier,
     colony: @Composable () -> Unit,
+    research: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
     Column(
@@ -40,15 +41,32 @@ fun MainScaffold(
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         ResourceRail(uiState = resources)
-        Destination(selected = selected, colony = colony)
+        Destination(selected = selected, colony = colony, research = research)
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }
 }
 
 @Composable
-private fun ColumnScope.Destination(selected: OltreTab, colony: @Composable () -> Unit) {
+private fun ColumnScope.Destination(
+    selected: OltreTab,
+    colony: @Composable () -> Unit,
+    research: @Composable () -> Unit,
+) {
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-        val pendingWork = selected.pendingWork
-        if (pendingWork == null) colony() else UnbuiltTabScreen(tab = selected, pendingWork = pendingWork)
+        // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
+        // impossible to reach by accident, and `pendingWork` is the table saying which those are.
+        when (selected) {
+            OltreTab.COLONY -> colony()
+            OltreTab.RESEARCH -> research()
+            OltreTab.SHIPYARD,
+            OltreTab.GALAXY,
+            OltreTab.FLEETS,
+            -> UnbuiltTabScreen(
+                tab = selected,
+                pendingWork = checkNotNull(selected.pendingWork) {
+                    "${selected.label} has no screen and no pending-work line"
+                },
+            )
+        }
     }
 }
