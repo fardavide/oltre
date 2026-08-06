@@ -85,7 +85,12 @@ class ColonyScreenLayoutBehaviourTest {
 
     private companion object {
 
-        val CONSTRAINED_TAGS = listOf(ColonyTestTags.RESOURCE_RAIL_CONTENT, ColonyTestTags.CONTENT)
+        // The power indicator is not among them: it sits inside the content column rather than
+        // as a bar of its own, so the column's own bounds already govern it.
+        val CONSTRAINED_TAGS = listOf(
+            ColonyTestTags.RESOURCE_RAIL_CONTENT,
+            ColonyTestTags.CONTENT,
+        )
 
         // Layout rounds to whole pixels; a Dp of slack keeps the assertions about the layout
         // rule rather than about rounding.

@@ -12,14 +12,14 @@ All rights reserved. No license is granted for reuse of this code.
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, and the facility list" width="320">
+<img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
 <img src="client/shell/src/desktopTest/screenshots/unbuilt_tab_galaxy.png" alt="The Galaxy tab, saying what will be there" width="320">
 </td>
 </tr>
 <tr>
-<td align="center"><b>Colony</b> — stocks and live rates, a fleet on its way home, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
+<td align="center"><b>Colony</b> — stocks and live rates, a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
 <td align="center"><b>Galaxy</b> — one of the four destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
 </tr>
 </table>
@@ -36,6 +36,14 @@ A facility row per state — building with a countdown, affordable, not yet affo
 (the resource you're short in red, and when you'll have it), and locked:
 
 <img src="client/colony/presentation/src/desktopTest/screenshots/facility_list.png" alt="Four facility rows, one in each action state" width="393">
+
+Energy is not a resource — it never accumulates — so it is a ratio with a consequence attached
+rather than a fourth cell in the rail. The empty tail is headroom you have not spent; the amber
+tail is draw your plant cannot cover:
+
+<img src="client/colony/presentation/src/desktopTest/screenshots/power_indicator_headroom.png" alt="The power card with headroom: room for 1 mine level" width="393">
+
+<img src="client/colony/presentation/src/desktopTest/screenshots/power_indicator_deficit.png" alt="The power card in deficit: every mine at 55%" width="393">
 
 These are the committed Roborazzi baselines, not exported marketing shots — the same images CI
 verifies the UI against on every push, so a screen here cannot drift from the screen that ships.
@@ -94,6 +102,22 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.12 — 2026-08-06
+
+- **Your mines tell you when they are running at half power.** The colony has always throttled
+  every mine when the solar plant could not keep up — a colony producing 50 energy against 90
+  consumed was quietly losing 45% of its metal, crystal and deuterium — but nothing on screen
+  said so, and it read as the game being slow rather than as a solar plant being needed. The
+  colony screen now opens with a power card: a bar of what your plant supplies against what your
+  facilities draw, and a plain reading of the consequence — "room for 1 mine level" while you
+  have headroom, "every mine at 55%" once you do not. Each facility carries its own energy figure
+  while a shortage lasts, the resource rail marks the rates it is holding down, and the Solar
+  Plant says on its own card when one more level would end it.
+- **Metal arrives at the rate the game spends it.** Metal was produced at twice the rate of
+  crystal while the early build tree costs about three times as much metal as crystal, so metal
+  was the bottleneck for every decision no matter how you played, and crystal piled up with
+  nothing to spend it on. A mine now starts at 90 metal an hour instead of 60.
 
 ### 0.0.11 — 2026-08-06
 

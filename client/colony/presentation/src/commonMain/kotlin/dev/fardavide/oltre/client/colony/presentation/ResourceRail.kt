@@ -34,15 +34,35 @@ fun ResourceRail(uiState: ColonyUiState, modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .testTag(ColonyTestTags.RESOURCE_RAIL_CONTENT),
         ) {
-            ResourceCell(name = "METAL", value = uiState.metal, rate = uiState.metalRatePerHour)
-            ResourceCell(name = "CRYSTAL", value = uiState.crystal, rate = uiState.crystalRatePerHour)
-            ResourceCell(name = "DEUTERIUM", value = uiState.deuterium, rate = uiState.deuteriumRatePerHour)
+            // The rates are already the throttled figures. What misled the player was not the
+            // number but the absence of any mark saying it was being held down — a true rate
+            // presented as an untroubled one. Recolouring costs no width, which matters in the
+            // one component with none to spare.
+            val throttled = uiState.energy.deficit
+            ResourceCell(
+                name = "METAL",
+                value = uiState.metal,
+                rate = uiState.metalRatePerHour,
+                throttled = throttled,
+            )
+            ResourceCell(
+                name = "CRYSTAL",
+                value = uiState.crystal,
+                rate = uiState.crystalRatePerHour,
+                throttled = throttled,
+            )
+            ResourceCell(
+                name = "DEUTERIUM",
+                value = uiState.deuterium,
+                rate = uiState.deuteriumRatePerHour,
+                throttled = throttled,
+            )
         }
     }
 }
 
 @Composable
-private fun RowScope.ResourceCell(name: String, value: String, rate: String) {
+private fun RowScope.ResourceCell(name: String, value: String, rate: String, throttled: Boolean) {
     val mono = oltreMono()
     Column(modifier = Modifier.weight(1f).padding(horizontal = 11.dp, vertical = 9.dp)) {
         Text(
@@ -60,11 +80,19 @@ private fun RowScope.ResourceCell(name: String, value: String, rate: String) {
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        Text(
-            text = rate,
-            color = OltreColors.ok,
-            fontFamily = mono,
-            fontSize = 10.sp,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (throttled) {
+                PowerMark(color = OltreColors.warn, width = 7.dp, height = 10.dp)
+            }
+            Text(
+                text = rate,
+                color = if (throttled) OltreColors.warn else OltreColors.ok,
+                fontFamily = mono,
+                fontSize = 10.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(start = if (throttled) 2.dp else 0.dp),
+            )
+        }
     }
 }

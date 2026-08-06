@@ -16,7 +16,12 @@ object PlaceholderBalance {
     // Level-1 hourly output, in whole units. Deliberately human-scale: a fresh colony makes
     // tens of units an hour, so a stock is a number the player reads rather than a wall of
     // digits, and an upgrade cost is something they can hold in their head.
-    const val METAL_PRODUCTION_PER_HOUR: Long = 60
+    //
+    // Metal is produced 3:1 against crystal because the early build tree *costs* ~3:1 — at the
+    // 2:1 it used to be, metal was the bottleneck for every decision no matter how the colony
+    // was played, while crystal piled up with nothing to spend it on. `BalanceCurveTest` ties
+    // this ratio to the cost curves so the two cannot drift apart again.
+    const val METAL_PRODUCTION_PER_HOUR: Long = 90
     const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 30
     const val DEUTERIUM_PRODUCTION_PER_HOUR: Long = 15
 
@@ -50,12 +55,51 @@ object PlaceholderBalance {
     // hourly rate is scaled by produced/consumed using integer division. The scaled rate is
     // itself the rule (an integer per level configuration), so accrual stays exact and the
     // composability property is untouched.
-    fun energyProduction(buildings: Buildings): Long = 50L * buildings.solarPlant.value
+    //
+    // Both sides are linear, so the tension never escalates: one plant level buys five metal or
+    // crystal levels at level 1 and at level 40. Solar output does not vary with anything —
+    // there is no OGame-style temperature or position modifier.
+    fun energySupply(building: BuildingType, level: BuildingLevel): Long = when (building) {
+        BuildingType.SOLAR_PLANT -> 50L * level.value
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.ROBOTICS_FACTORY,
+        BuildingType.NANITE_FACTORY,
+        -> 0L
+    }
+
+    fun energyProduction(buildings: Buildings): Long =
+        BuildingType.entries.sumOf { energySupply(it, buildings.levelOf(it)) }
+
+    // Per building, so a caller can ask whether *this* facility is one of the ones a shortage
+    // throttles rather than re-deriving the list. The colony total is the sum over the tree.
+    fun energyConsumption(building: BuildingType, level: BuildingLevel): Long = when (building) {
+        BuildingType.METAL_MINE -> 10L * level.value
+        BuildingType.CRYSTAL_MINE -> 10L * level.value
+        BuildingType.DEUTERIUM_SYNTHESIZER -> 20L * level.value
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+        BuildingType.NANITE_FACTORY,
+        -> 0L
+    }
 
     fun energyConsumption(buildings: Buildings): Long =
-        10L * buildings.metalMine.value +
-            10L * buildings.crystalMine.value +
-            20L * buildings.deuteriumSynthesizer.value
+        BuildingType.entries.sumOf { energyConsumption(it, buildings.levelOf(it)) }
+
+    // Spare energy in the unit the player spends it in: how many further levels of the
+    // cheapest-drawing facility the colony could power before it starts throttling. A bare
+    // surplus figure is unreadable at a glance, because 10 energy means nothing until you know
+    // what a level costs. Zero once the colony is in deficit — there the percentage is the
+    // reading, and headroom has nothing left to say.
+    fun energyHeadroomLevels(buildings: Buildings): Long {
+        val balance = energyBalance(buildings)
+        val cheapestDrawPerLevel = BuildingType.entries
+            .map { energyConsumption(it, BuildingLevel(1)) }
+            .filter { it > 0 }
+            .minOrNull()
+        return if (balance.isDeficit || cheapestDrawPerLevel == null) 0 else balance.surplus / cheapestDrawPerLevel
+    }
 
     fun effectiveMetalProductionPerHour(buildings: Buildings): Long =
         scaleByEnergy(metalProductionPerHour(buildings.metalMine), buildings)
@@ -66,10 +110,14 @@ object PlaceholderBalance {
     fun effectiveDeuteriumProductionPerHour(buildings: Buildings): Long =
         scaleByEnergy(deuteriumProductionPerHour(buildings.deuteriumSynthesizer), buildings)
 
+    fun energyBalance(buildings: Buildings): EnergyBalance = EnergyBalance(
+        produced = energyProduction(buildings),
+        consumed = energyConsumption(buildings),
+    )
+
     private fun scaleByEnergy(fullRate: Long, buildings: Buildings): Long {
-        val produced = energyProduction(buildings)
-        val consumed = energyConsumption(buildings)
-        return if (produced >= consumed) fullRate else fullRate * produced / consumed
+        val energy = energyBalance(buildings)
+        return if (!energy.isDeficit) fullRate else fullRate * energy.produced / energy.consumed
     }
 
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
