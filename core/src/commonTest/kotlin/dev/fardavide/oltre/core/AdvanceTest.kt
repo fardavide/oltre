@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 class AdvanceTest {
@@ -143,6 +144,51 @@ class AdvanceTest {
 
             // then
             assertEquals(oneShot, stepped, "split at ${milliseconds}ms diverged")
+        }
+    }
+
+    // The property everything downstream rests on, held against a colony with all three kinds of
+    // event in flight at once. Research is the newest of them and the one that changes what the
+    // *following* span accrues, so a completion the split lands on either side of is exactly where
+    // it would break.
+    @Test
+    fun `advancing in one span equals advancing through any intermediate instant with everything in flight`() {
+        // given a colony building two facilities, researching, and expecting a fleet
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val t2 = t0 + 7.days
+        val busy = GameState.initial()
+            .fundedFor(BuildingType.METAL_MINE, BuildingType.SOLAR_PLANT)
+            .started(BuildingType.METAL_MINE, at = t0)
+            .started(BuildingType.SOLAR_PLANT, at = t0)
+            .researching(Technology.EXTRACTION, at = t0)
+            .copy(
+                returningFleet = ReturningFleet(
+                    ships = mapOf(ShipType.CARGO to 8),
+                    cargo = Resources.of(metal = 400, crystal = 120),
+                    origin = Coordinates(galaxy = 2, system = 117, position = 9),
+                    arrivesAt = t0 + 3.hours,
+                ),
+            )
+        val oneShot = advance(busy, from = t0, to = t2)
+        val researchCompletesAt = busy.project().completesAt
+
+        // when the span is split around every event boundary and on each of them exactly
+        val splits = buildList {
+            add(t0 + 1.hours)
+            add(researchCompletesAt - 1.milliseconds)
+            add(researchCompletesAt)
+            add(researchCompletesAt + 1.milliseconds)
+            add(t0 + 3.hours)
+            busy.builds.values.forEach { job ->
+                add(job.completesAt - 1.milliseconds)
+                add(job.completesAt)
+                add(job.completesAt + 1.milliseconds)
+            }
+        }
+
+        // then
+        for (t1 in splits) {
+            assertEquals(oneShot, advance(advance(busy, from = t0, to = t1), from = t1, to = t2), "split at $t1 diverged")
         }
     }
 }

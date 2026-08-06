@@ -4,6 +4,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.futureEvents
 import kotlin.time.Instant
 
@@ -40,6 +41,15 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = "Construction is complete — pick what your colony builds next.",
         at = at,
     )
+    is FutureEvent.ResearchCompletes -> LocalNotification(
+        // Only one project runs at a time, so the technology is not needed to keep this unique —
+        // it is here because an id derived from the thing it is about is what makes replacing the
+        // whole set idempotent, and because a second slot would otherwise silently collide.
+        id = "research-${technology.name}",
+        title = "${technology.displayName()} reached level ${toLevel.value}",
+        body = "The lab is free — pick what your empire researches next.",
+        at = at,
+    )
     is FutureEvent.FleetArrives -> LocalNotification(
         id = "fleet-arrival",
         title = "Your fleet has landed",
@@ -61,6 +71,12 @@ private fun BuildingType.displayName(): String = when (this) {
     BuildingType.SOLAR_PLANT -> "Solar Plant"
     BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
     BuildingType.NANITE_FACTORY -> "Nanite Factory"
+}
+
+private fun Technology.displayName(): String = when (this) {
+    Technology.PHOTOVOLTAICS -> "Photovoltaics"
+    Technology.EXTRACTION -> "Extraction"
+    Technology.ENRICHMENT -> "Enrichment"
 }
 
 private fun Coordinates.label(): String = "[$galaxy:$system:$position]"

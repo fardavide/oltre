@@ -9,6 +9,12 @@ internal fun GameState.jobOf(building: BuildingType): BuildJob =
 
 internal fun GameState.completionOf(building: BuildingType): Instant = jobOf(building).completesAt
 
+internal fun GameState.started(building: BuildingType, at: Instant): GameState =
+    when (val result = startUpgrade(this, building, at = at)) {
+        is StartUpgradeResult.Started -> result.state
+        else -> error("could not start $building: $result")
+    }
+
 internal fun GameState.fundedFor(vararg buildings: BuildingType): GameState {
     val total = buildings.fold(Resources.of()) { stock, building ->
         val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(this.buildings.levelOf(building).value + 1))

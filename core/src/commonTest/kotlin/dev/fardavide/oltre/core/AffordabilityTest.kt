@@ -41,7 +41,7 @@ class AffordabilityTest {
         val stock = Resources.of(metal = cost.metal, crystal = cost.crystal)
 
         // when
-        val wait = timeUntilAffordable(stock, cost, Buildings.initial())
+        val wait = timeUntilAffordable(stock, cost, Buildings.initial(), Research.initial())
 
         // then
         assertEquals(Duration.ZERO, wait)
@@ -54,7 +54,7 @@ class AffordabilityTest {
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
 
         // when
-        val wait = timeUntilAffordable(Resources.of(), cost, Buildings.initial())
+        val wait = timeUntilAffordable(Resources.of(), cost, Buildings.initial(), Research.initial())
 
         // then
         assertEquals(90.minutes, wait)
@@ -69,7 +69,7 @@ class AffordabilityTest {
             .withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(2))
 
         // when
-        val wait = timeUntilAffordable(Resources.of(), Resources.of(metal = 1), buildings)
+        val wait = timeUntilAffordable(Resources.of(), Resources.of(metal = 1), buildings, Research.initial())
 
         // then
         assertEquals(15_930.milliseconds, wait)
@@ -83,7 +83,7 @@ class AffordabilityTest {
         val stock = Resources.of(metal = 400, crystal = 120)
 
         // when
-        val wait = timeUntilAffordable(stock, cost, buildings)
+        val wait = timeUntilAffordable(stock, cost, buildings, Research.initial())
 
         // then
         assertEquals(Duration.INFINITE, wait)

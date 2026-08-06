@@ -50,24 +50,50 @@ object PlaceholderBalance {
     // hourly rate is scaled by produced/consumed using integer division. The scaled rate is
     // itself the rule (an integer per level configuration), so accrual stays exact and the
     // composability property is untouched.
-    fun energyProduction(buildings: Buildings): Long = 50L * buildings.solarPlant.value
+    //
+    // Photovoltaics raises supply *before* the deficit ratio is computed, so a deficit now has two
+    // answers with different shapes: build the plant (metal, now) or research it (deuterium, over
+    // hours). Nothing else in the branch touches energy.
+    fun energyProduction(buildings: Buildings, research: Research): Long =
+        50L * buildings.solarPlant.value *
+            ResearchBalance.multiplier(Technology.PHOTOVOLTAICS, research.photovoltaics) /
+            ResearchBalance.MULTIPLIER_BASIS
 
     fun energyConsumption(buildings: Buildings): Long =
         10L * buildings.metalMine.value +
             10L * buildings.crystalMine.value +
             20L * buildings.deuteriumSynthesizer.value
 
-    fun effectiveMetalProductionPerHour(buildings: Buildings): Long =
-        scaleByEnergy(metalProductionPerHour(buildings.metalMine), buildings)
+    // The order of application is the rule, not an implementation detail: the building level curve
+    // first, then the research multiplier, then the energy deficit last. So Extraction's bonus is
+    // scaled down by a deficit exactly as the mine's own output is, rather than escaping it.
+    fun effectiveMetalProductionPerHour(buildings: Buildings, research: Research): Long =
+        scaleByEnergy(
+            researched(metalProductionPerHour(buildings.metalMine), Technology.EXTRACTION, research),
+            buildings,
+            research,
+        )
 
-    fun effectiveCrystalProductionPerHour(buildings: Buildings): Long =
-        scaleByEnergy(crystalProductionPerHour(buildings.crystalMine), buildings)
+    fun effectiveCrystalProductionPerHour(buildings: Buildings, research: Research): Long =
+        scaleByEnergy(
+            researched(crystalProductionPerHour(buildings.crystalMine), Technology.EXTRACTION, research),
+            buildings,
+            research,
+        )
 
-    fun effectiveDeuteriumProductionPerHour(buildings: Buildings): Long =
-        scaleByEnergy(deuteriumProductionPerHour(buildings.deuteriumSynthesizer), buildings)
+    fun effectiveDeuteriumProductionPerHour(buildings: Buildings, research: Research): Long =
+        scaleByEnergy(
+            researched(deuteriumProductionPerHour(buildings.deuteriumSynthesizer), Technology.ENRICHMENT, research),
+            buildings,
+            research,
+        )
 
-    private fun scaleByEnergy(fullRate: Long, buildings: Buildings): Long {
-        val produced = energyProduction(buildings)
+    private fun researched(fullRate: Long, technology: Technology, research: Research): Long =
+        fullRate * ResearchBalance.multiplier(technology, research.levelOf(technology)) /
+            ResearchBalance.MULTIPLIER_BASIS
+
+    private fun scaleByEnergy(fullRate: Long, buildings: Buildings, research: Research): Long {
+        val produced = energyProduction(buildings, research)
         val consumed = energyConsumption(buildings)
         return if (produced >= consumed) fullRate else fullRate * produced / consumed
     }
@@ -107,16 +133,6 @@ object PlaceholderBalance {
         } else {
             compound(baseAtLevelOne, level.value - 1, PRODUCTION_GROWTH_NUMERATOR, PRODUCTION_GROWTH_DENOMINATOR)
         }
-
-    // Integer geometric growth, floored at every step rather than once at the end. Per-step
-    // flooring is the rule, not an approximation of one: an hourly rate has to be a whole
-    // number of units for fine-unit accrual to stay exact, and a cost has to be a whole number
-    // for the stock arithmetic to close.
-    private fun compound(base: Long, steps: Int, numerator: Long, denominator: Long): Long {
-        var value = base
-        repeat(steps) { value = value * numerator / denominator }
-        return value
-    }
 
     private fun baseCost(building: BuildingType): BaseCost = when (building) {
         BuildingType.METAL_MINE -> BaseCost(metal = 60, crystal = 15)

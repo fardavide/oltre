@@ -64,11 +64,11 @@ sealed interface FacilityActionUiState {
 
 fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
     metal = resources.metal.groupedByThousands(),
-    metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings).groupedByThousands()}/h",
+    metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings, research).groupedByThousands()}/h",
     crystal = resources.crystal.groupedByThousands(),
-    crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings).groupedByThousands()}/h",
+    crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings, research).groupedByThousands()}/h",
     deuterium = resources.deuterium.groupedByThousands(),
-    deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings).groupedByThousands()}/h",
+    deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings, research).groupedByThousands()}/h",
     facilities = BuildingType.entries.map { toFacilityRow(it, now = now, timeZone = timeZone) },
     returningFleet = returningFleet?.toStrip(now),
 )
@@ -132,7 +132,7 @@ private fun GameState.toFacilityRow(
             )
             short.isEmpty() -> FacilityActionUiState.Upgrade
             else -> FacilityActionUiState.AffordableIn(
-                timeUntilAffordable(resources, cost, buildings)
+                timeUntilAffordable(resources, cost, buildings, research)
                     .takeIf { it.isFinite() }
                     ?.let { "in ${it.toChipLabel()}" }
                     ?: "—",

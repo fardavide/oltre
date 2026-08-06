@@ -3,6 +3,8 @@ package dev.fardavide.oltre.core
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.time.Instant
@@ -40,9 +42,10 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 2
+    const val SCHEMA_VERSION: Int = 3
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -58,24 +61,41 @@ object GameSave {
         encodeDefaults = true
     }
 
+    // One step per version, keyed by the version being migrated *from*, so a save several
+    // versions behind is carried forward one hop at a time rather than by a special case per
+    // starting point. Migrating is the default for a change that is only shape — retiring is for
+    // a change that would hand back a colony no longer worth playing (see OBSOLETE_SCHEMAS).
+    private val MIGRATIONS: Map<Int, (JsonObject) -> JsonObject> = mapOf(
+        // 2 -> 3: research is purely additive. A colony saved before the branch existed has
+        // researched nothing and has nothing running, which is exactly what a fresh `Research`
+        // says — so there is no number to invent and nothing to rescale. Davide's call,
+        // 2026-08-06: carry it forward rather than reset it.
+        2 to { root ->
+            root.withState(
+                "research" to json.encodeToJsonElement(Research.serializer(), Research.initial()),
+                "activeResearch" to JsonNull,
+            )
+        },
+    )
+
     fun encode(snapshot: GameSnapshot): String = json.encodeToString(snapshot)
 
     fun decode(text: String): DecodeResult {
-        val element = try {
+        val parsed = try {
             json.parseToJsonElement(text)
         } catch (e: SerializationException) {
             return DecodeResult.Failure("malformed save: ${e.message}")
         }
-        val version = (element as? JsonObject)?.intOrNull("schemaVersion")
+        val root = parsed as? JsonObject
+        val version = root?.intOrNull("schemaVersion")
             ?: return DecodeResult.Failure("save carries no schema version")
         OBSOLETE_SCHEMAS[version]?.let { reason ->
             return DecodeResult.Obsolete(schemaVersion = version, reason = reason)
         }
-        if (version != SCHEMA_VERSION) {
-            return DecodeResult.Failure(
+        val element = migratedToCurrent(root, from = version)
+            ?: return DecodeResult.Failure(
                 "unsupported save schema $version, this build reads $SCHEMA_VERSION",
             )
-        }
         val snapshot = try {
             json.decodeFromJsonElement(GameSnapshot.serializer(), element)
         } catch (e: SerializationException) {
@@ -86,6 +106,27 @@ object GameSave {
             return DecodeResult.Failure("invalid save: ${e.message}")
         }
         return DecodeResult.Success(snapshot)
+    }
+
+    // Null when this build cannot get there: an unknown version, one from the future, or an
+    // older one whose step is missing. Guessing is what the version check exists to prevent.
+    private fun migratedToCurrent(root: JsonObject, from: Int): JsonObject? {
+        if (from > SCHEMA_VERSION) return null
+        var element = root
+        var version = from
+        while (version < SCHEMA_VERSION) {
+            element = MIGRATIONS[version]?.invoke(element) ?: return null
+            version += 1
+            element = JsonObject(element + ("schemaVersion" to JsonPrimitive(version)))
+        }
+        return element
+    }
+
+    // A migration only ever adds to or rewrites the `state` object; the envelope's own version is
+    // stamped by the loop above, so a step cannot forget to bump it.
+    private fun JsonObject.withState(vararg entries: Pair<String, JsonElement>): JsonObject {
+        val state = this["state"] as? JsonObject ?: return this
+        return JsonObject(this + ("state" to JsonObject(state + entries)))
     }
 
     private fun JsonObject.intOrNull(key: String): Int? =

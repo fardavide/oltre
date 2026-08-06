@@ -15,7 +15,7 @@ class EnergyTest {
 
         // then
         assertTrue(
-            PlaceholderBalance.energyProduction(state.buildings) >=
+            PlaceholderBalance.energyProduction(state.buildings, state.research) >=
                 PlaceholderBalance.energyConsumption(state.buildings),
             "initial solar plant must cover initial mines",
         )
@@ -32,7 +32,7 @@ class EnergyTest {
         val hungry = initial.copy(
             buildings = initial.buildings.copy(metalMine = BuildingLevel(9)),
         )
-        val produced = PlaceholderBalance.energyProduction(hungry.buildings)
+        val produced = PlaceholderBalance.energyProduction(hungry.buildings, hungry.research)
         val consumed = PlaceholderBalance.energyConsumption(hungry.buildings)
         assertTrue(produced < consumed, "scenario must actually be energy-starved")
 

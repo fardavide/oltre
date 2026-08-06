@@ -30,6 +30,22 @@ sealed interface Event {
     ) : Event
 
     @Serializable
+    @SerialName("ResearchStarted")
+    data class ResearchStarted(
+        val technology: Technology,
+        val toLevel: TechLevel,
+        override val at: Instant,
+    ) : Event
+
+    @Serializable
+    @SerialName("ResearchCompleted")
+    data class ResearchCompleted(
+        val technology: Technology,
+        val newLevel: TechLevel,
+        override val at: Instant,
+    ) : Event
+
+    @Serializable
     @SerialName("FleetReturned")
     data class FleetReturned(
         val ships: Map<ShipType, Int>,

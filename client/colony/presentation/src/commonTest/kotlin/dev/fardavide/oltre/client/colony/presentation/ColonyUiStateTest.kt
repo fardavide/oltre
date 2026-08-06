@@ -280,6 +280,8 @@ class ColonyUiStateTest {
         resources = resources,
         buildings = buildings,
         builds = emptyMap(),
+        research = Research.initial(),
+        activeResearch = null,
         returningFleet = null,
         eventLog = emptyList(),
     )

@@ -64,11 +64,12 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":2,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """{"schemaVersion":3,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-                """"builds":{},"returningFleet":null,"eventLog":[]}}""",
+                """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
+                """"activeResearch":null,"returningFleet":null,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -80,6 +81,8 @@ class GameSaveTest {
             eventLog = listOf(
                 Event.BuildStarted(building = BuildingType.SOLAR_PLANT, toLevel = BuildingLevel(2), at = EPOCH),
                 Event.BuildCompleted(building = BuildingType.SOLAR_PLANT, newLevel = BuildingLevel(2), at = EPOCH),
+                Event.ResearchStarted(technology = Technology.EXTRACTION, toLevel = TechLevel(1), at = EPOCH),
+                Event.ResearchCompleted(technology = Technology.EXTRACTION, newLevel = TechLevel(1), at = EPOCH),
             ),
         )
 
@@ -89,6 +92,57 @@ class GameSaveTest {
         // then
         assertTrue(encoded.contains(""""type":"BuildStarted""""), encoded)
         assertTrue(encoded.contains(""""type":"BuildCompleted""""), encoded)
+        assertTrue(encoded.contains(""""type":"ResearchStarted""""), encoded)
+        assertTrue(encoded.contains(""""type":"ResearchCompleted""""), encoded)
+    }
+
+    @Test
+    fun `technologies keep their names on disk`() {
+        // given — the research levels are named fields and the enum names key the events
+        val state = GameState.initial().researching(Technology.ENRICHMENT, at = EPOCH)
+
+        // when
+        val encoded = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+
+        // then
+        assertTrue(encoded.contains(""""photovoltaics":0"""), encoded)
+        assertTrue(encoded.contains(""""technology":"ENRICHMENT""""), encoded)
+    }
+
+    @Test
+    fun `a colony mid-research survives a round trip with its slot and levels`() {
+        // given a colony that has finished one project and started another
+        val done = GameState.initial().copy(
+            research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(3)),
+        )
+        val state = done.researching(Technology.ENRICHMENT, at = EPOCH)
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        // then
+        assertEquals(snapshot, decoded)
+        assertEquals(TechLevel(3), decoded.state.research.extraction)
+        assertEquals(state.activeResearch, decoded.state.activeResearch)
+    }
+
+    @Test
+    fun `research queued before the app closed completes while it is closed`() {
+        // given
+        val started = GameState.initial().researching(Technology.EXTRACTION, at = EPOCH)
+        val completesAt = checkNotNull(started.activeResearch).completesAt
+
+        // when
+        val reloaded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = started))),
+        ).snapshot
+        val resumed = advance(reloaded.state, from = reloaded.lastUpdatedAt, to = completesAt + 1.minutes)
+
+        // then
+        assertEquals(TechLevel(1), resumed.research.extraction)
+        assertEquals(null, resumed.activeResearch)
+        assertTrue(resumed.eventLog.any { it is Event.ResearchCompleted })
     }
 
     @Test
@@ -304,7 +358,7 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 2 save still loads so the reset is version 1 only`() {
+    fun `the current format still loads so the reset is version 1 only`() {
         // given — the retirement must not take the current format with it
         val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial())
 
@@ -313,6 +367,94 @@ class GameSaveTest {
 
         // then
         assertEquals(snapshot, assertIs<DecodeResult.Success>(decoded).snapshot)
+    }
+
+    @Test
+    fun `the version 2 fixture is the string 0_0_11 actually wrote`() {
+        // The migration is only worth as much as the save that triggers it, so the fixture is not
+        // written from memory: this is byte-for-byte the string 0.0.11 pinned in `the on-disk
+        // shape is pinned`, with the stock of a colony not yet opened.
+        assertEquals(
+            """{"schemaVersion":2,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+                """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+                """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+                """"builds":{},"returningFleet":null,"eventLog":[]}}""",
+            VERSION_2_IDLE,
+        )
+    }
+
+    @Test
+    fun `a version 2 colony is carried forward rather than reset`() {
+        // Research is purely additive, so unlike the 0.0.8 rebalance there is nothing about the
+        // old save that the new rules make unplayable. Davide's call, 2026-08-06.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_2_IDLE)).snapshot
+
+        // then
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(Research.initial(), decoded.state.research)
+        assertEquals(null, decoded.state.activeResearch)
+    }
+
+    @Test
+    fun `a played version 2 colony keeps everything it had`() {
+        // given a save with levelled buildings, a stock, a build running, a fleet inbound and an
+        // event log — everything the migration must carry across untouched
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_2_FULL)).snapshot
+
+        // then
+        assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
+        assertEquals(500L, decoded.state.resources.metal)
+        assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
+        assertEquals(1, decoded.state.eventLog.size)
+        assertEquals(
+            Coordinates(galaxy = 2, system = 117, position = 9),
+            checkNotNull(decoded.state.returningFleet).origin,
+        )
+        assertEquals(Research.initial(), decoded.state.research)
+    }
+
+    @Test
+    fun `a migrated colony keeps accruing from the instant it was saved`() {
+        // The point of migrating rather than retiring: the colony is still the same colony.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_2_IDLE)).snapshot
+
+        // when
+        val resumed = advance(decoded.state, from = decoded.lastUpdatedAt, to = EPOCH + 6.hours)
+
+        // then
+        assertEquals(advance(GameState.initial(), from = EPOCH, to = EPOCH + 6.hours), resumed)
+    }
+
+    @Test
+    fun `a migrated colony can start research immediately`() {
+        // given a version 2 save whose Robotics Factory already clears the gate, with the 300 /
+        // 150 / 100 a first Photovoltaics costs
+        val readyToResearch = VERSION_2_IDLE
+            .replace(""""roboticsFactory":0""", """"roboticsFactory":1""")
+            .replace(""""deuteriumFine":0""", """"deuteriumFine":3600000000""")
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(readyToResearch)).snapshot
+
+        // when
+        val started = startResearch(decoded.state, Technology.PHOTOVOLTAICS, at = EPOCH)
+
+        // then — the migrated slot is empty, not absent
+        assertEquals(TechLevel(1), assertIs<StartResearchResult.Started>(started).state.project().toLevel)
+    }
+
+    @Test
+    fun `a migrated save re-encodes at the current version`() {
+        // given
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_2_IDLE)).snapshot
+
+        // when — the shell writes the snapshot back on the first commit after loading
+        val rewritten = GameSave.encode(decoded)
+
+        // then — and from then on it is a version 3 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":3"""), rewritten)
+        assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
     private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
@@ -349,6 +491,29 @@ class GameSaveTest {
             """"buildQueue":{"building":"METAL_MINE","toLevel":2,""" +
             """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:20:00Z"},""" +
             """"returningFleet":null,"eventLog":[]}}"""
+
+        // Frozen captures of the 0.0.11 on-disk format — the saves sitting on the builds that
+        // shipped between 0.0.8 and 0.0.11. Read them, never rewrite them.
+        const val VERSION_2_IDLE = """{"schemaVersion":2,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"builds":{},"returningFleet":null,"eventLog":[]}}"""
+
+        // A version 2 colony that had actually been played: levelled buildings, a stock, a job in
+        // the parallel build map, a fleet on its way home and an event log — everything the
+        // migration must carry across untouched.
+        const val VERSION_2_FULL = """{"schemaVersion":2,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"builds":{"METAL_MINE":{"building":"METAL_MINE","toLevel":5,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"}},""" +
+            """"returningFleet":{"ships":{"CARGO":14},""" +
+            """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
+            """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
+            """"at":"1970-01-01T00:00:00Z"}]}}"""
 
         // A colony that had actually been played: levelled buildings, a stock, a fleet on its
         // way home and an event log — everything the migration must carry across untouched.
