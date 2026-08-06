@@ -10,57 +10,89 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.colony.presentation.ColonyScreen
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
 import dev.fardavide.oltre.client.design.OltreTheme
-import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.Instant
 
-// The shell is the impure boundary: it reads the clock, ticks the UI, and holds the current
-// state. Game state itself only ever moves through core's advance/startUpgrade.
+// The shell is the impure boundary: it reads the clock, reads and writes the save file, ticks
+// the UI, and holds the current session. Game state itself only ever moves through core's
+// advance/startUpgrade.
 @Composable
-fun App(modifier: Modifier = Modifier) {
+fun App(
+    store: GameStore = remember { GameStore(defaultSaveFile()) },
+    modifier: Modifier = Modifier,
+) {
     OltreTheme {
         Surface(modifier.fillMaxSize()) {
-            var lastUpdated by remember { mutableStateOf<Instant>(Clock.System.now()) }
-            var state by remember { mutableStateOf(GameState.initial()) }
-            var now by remember { mutableStateOf<Instant>(lastUpdated) }
+            val scope = rememberCoroutineScope()
+            // Null until the save has been read. Rendering a fresh colony first and swapping it
+            // for the real one a frame later would flash wrong numbers at the player.
+            var session by remember { mutableStateOf<GameSession?>(null) }
+
             LaunchedEffect(Unit) {
-                while (true) {
-                    delay(1.seconds)
-                    // The wall clock can step backwards (NTP, the user changing device time);
-                    // core's advance requires to >= from, so the boundary clamps.
-                    now = maxOf(Clock.System.now(), lastUpdated)
-                    state = advance(state, from = lastUpdated, to = now)
-                    lastUpdated = now
-                }
+                val resumed = resume(store.load(), now = Clock.System.now())
+                session = resumed
+                // Save immediately, save included: a player who opens the game once and closes
+                // it must still come back to hours of production, and on a first launch there
+                // is no saved instant to accrue from until one is written.
+                store.save(resumed.toSnapshot())
             }
-            ColonyScreen(
-                uiState = state.toColonyUiState(now = now, timeZone = TimeZone.currentSystemDefault()),
-                onUpgrade = { building ->
-                    val at = maxOf(Clock.System.now(), lastUpdated)
-                    val current = advance(state, from = lastUpdated, to = at)
-                    state = when (val result = startUpgrade(current, building, at = at)) {
-                        is StartUpgradeResult.Started -> result.state
-                        StartUpgradeResult.QueueBusy,
-                        StartUpgradeResult.InsufficientResources,
-                        StartUpgradeResult.RequirementsNotMet,
-                        -> current
+
+            val current = session
+            if (current != null) {
+                LaunchedEffect(Unit) {
+                    while (true) {
+                        delay(1.seconds)
+                        val previous = session ?: continue
+                        // The wall clock can step backwards (NTP, the user changing device
+                        // time); core's advance requires to >= from, so the boundary clamps.
+                        val now = maxOf(Clock.System.now(), previous.lastUpdatedAt)
+                        val next = GameSession(
+                            state = advance(previous.state, from = previous.lastUpdatedAt, to = now),
+                            lastUpdatedAt = now,
+                        )
+                        session = next
+                        if (next.hasNewEventsSince(previous)) store.save(next.toSnapshot())
                     }
-                    lastUpdated = at
-                    now = at
-                },
-                modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
-            )
+                }
+
+                ColonyScreen(
+                    uiState = current.state.toColonyUiState(
+                        now = current.lastUpdatedAt,
+                        timeZone = TimeZone.currentSystemDefault(),
+                    ),
+                    onUpgrade = { building ->
+                        val at = maxOf(Clock.System.now(), current.lastUpdatedAt)
+                        val advanced = advance(current.state, from = current.lastUpdatedAt, to = at)
+                        val next = GameSession(
+                            state = when (val result = startUpgrade(advanced, building, at = at)) {
+                                is StartUpgradeResult.Started -> result.state
+                                StartUpgradeResult.QueueBusy,
+                                StartUpgradeResult.InsufficientResources,
+                                StartUpgradeResult.RequirementsNotMet,
+                                -> advanced
+                            },
+                            lastUpdatedAt = at,
+                        )
+                        session = next
+                        if (next.hasNewEventsSince(current)) scope.launch { store.save(next.toSnapshot()) }
+                    },
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
+                )
+            }
         }
     }
 }
