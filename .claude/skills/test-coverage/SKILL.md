@@ -63,10 +63,12 @@ them alone and read the report.
 - `.github/scripts/coverage.py` folds Kover XML + JUnit XML into `build/coverage/summary.json`
   and renders the Markdown report.
 - Excluded from the numbers: Compose's generated `ComposableSingletons*`, serialization's
-  `$$serializer` classes, and the two `MainKt` entry points (`:sim`, `:server`) — process
-  entry points that are exercised by running them, so leaving them in only depresses the total
-  permanently. Nothing else is excluded; if a number looks wrong, it is the tests that are
-  wrong.
+  `$$serializer` classes, compose-resources' `*.generated.resources` accessors, and the two
+  `MainKt` entry points (`:sim`, `:server`) — generated code, or process entry points exercised
+  by running them, so leaving them in only depresses the total with a number no test can move.
+  Nothing else is excluded; if a number looks wrong, it is the tests that are wrong.
+  **Adding an exclusion needs evidence from a real report**, not a guess that something is
+  generated — every entry above was added after seeing it in one.
 
 ## The PR report
 

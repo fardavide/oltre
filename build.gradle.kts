@@ -101,6 +101,12 @@ kover {
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
                 classes("*ComposableSingletons*", "*\$\$serializer")
+                // compose-resources' generated accessors (the bundled font lives behind them).
+                // The first report showed `client.shell.generated.resources` at 0% across all
+                // four kinds and `client.design.generated.resources` at 29% — a number no test
+                // can move, because nothing in there is written by hand.
+                packages("*.generated.resources")
+                classes("*.generated.resources.*")
                 // `main()`. Both are process entry points exercised by running them
                 // (`:sim:run`, the server) — there is nothing for a test to hold on to, so
                 // leaving them in only depresses the total permanently.
