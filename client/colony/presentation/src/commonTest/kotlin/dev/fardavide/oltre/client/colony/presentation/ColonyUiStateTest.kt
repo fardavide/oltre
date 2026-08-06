@@ -171,7 +171,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a building facility carries its own countdown, target level and progress`() {
+    fun `a building facility carries its own target level countdown and progress`() {
         // given a metal mine upgrade to 2 (20 minutes at robotics 0), a quarter through
         val t0 = Instant.fromEpochMilliseconds(0)
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
@@ -192,7 +192,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `only the building facility shows progress, the rest stay actionable`() {
+    fun `only the building facility shows progress while the rest stay actionable`() {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
         val started = upgrading(BuildingType.METAL_MINE, at = t0)

@@ -259,7 +259,7 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a played version 1 colony is retired too, however far it got`() {
+    fun `a played version 1 colony is retired however far it got`() {
         // given a save with levelled buildings, a stock, a fleet inbound and an event log
 
         // when
@@ -270,13 +270,13 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 1 save mid-build is retired, queue and all`() {
+    fun `a version 1 save mid-build is retired with its queue`() {
         // when / then
         assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_BUILDING))
     }
 
     @Test
-    fun `a retired save says why, so the player can be told`() {
+    fun `a retired save says why so the player can be told`() {
         // when
         val obsolete = assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_IDLE))
 
@@ -297,7 +297,7 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 2 save still loads, so the reset is version 1 only`() {
+    fun `a version 2 save still loads so the reset is version 1 only`() {
         // given — the retirement must not take the current format with it
         val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial())
 

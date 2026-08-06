@@ -32,7 +32,7 @@ class ParallelBuildTest {
     }
 
     @Test
-    fun `parallel jobs complete independently, earliest first`() {
+    fun `parallel jobs complete independently and earliest first`() {
         // given a solar plant → 2 (16 minutes) started alongside a metal mine → 2 (20 minutes)
         val t0 = Instant.fromEpochMilliseconds(0)
         val both = twoJobs(t0)

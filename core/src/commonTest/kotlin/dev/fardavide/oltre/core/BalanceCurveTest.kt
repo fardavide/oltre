@@ -55,7 +55,7 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `cost outgrows production, so deep levels pay back slower`() {
+    fun `cost outgrows production so deep levels pay back slower`() {
         // given the payback of a level: what it costs in metal over what it adds per hour
         fun paybackHours(level: Int): Long {
             val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1)).metal

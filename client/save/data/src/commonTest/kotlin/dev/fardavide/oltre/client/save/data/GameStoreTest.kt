@@ -83,7 +83,7 @@ class GameStoreTest {
     }
 
     @Test
-    fun `a colony from a retired schema reads as no colony, so the app starts fresh`() = runTest {
+    fun `a colony from a retired schema reads as no colony so the app starts fresh`() = runTest {
         // given a 0.0.7 save, from before the rebalance that retired schema 1
         val beforeTheRebalance = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
             """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
