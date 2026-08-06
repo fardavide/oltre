@@ -4,8 +4,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import com.github.takahirom.roborazzi.RoborazziOptions
-import com.github.takahirom.roborazzi.ThresholdValidator
 import dev.fardavide.oltre.client.design.OltreTheme
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -67,11 +65,7 @@ class FacilityListScreenshotTest {
             }
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/facility_list.png",
-                roborazziOptions = RoborazziOptions(
-                    compareOptions = RoborazziOptions.CompareOptions(
-                        resultValidator = ThresholdValidator(0.01f),
-                    ),
-                ),
+                roborazziOptions = oltreRoborazziOptions(),
             )
         }
     }
