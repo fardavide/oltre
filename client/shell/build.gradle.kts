@@ -39,6 +39,8 @@ kotlin {
             implementation(projects.client.colony.presentation)
             implementation(projects.client.design)
 
+            implementation(libs.kotlinx.datetime)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

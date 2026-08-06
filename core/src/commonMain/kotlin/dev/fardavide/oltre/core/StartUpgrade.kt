@@ -14,6 +14,7 @@ enum class BuildingType {
 data class BuildJob(
     val building: BuildingType,
     val toLevel: BuildingLevel,
+    val startedAt: Instant,
     val completesAt: Instant,
 )
 
@@ -46,6 +47,7 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
             buildQueue = BuildJob(
                 building = building,
                 toLevel = toLevel,
+                startedAt = at,
                 completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
             ),
             eventLog = state.eventLog + Event.BuildStarted(building = building, toLevel = toLevel, at = at),

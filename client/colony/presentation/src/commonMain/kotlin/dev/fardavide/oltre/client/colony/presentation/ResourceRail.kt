@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.colony.presentation
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
@@ -17,18 +18,16 @@ import dev.fardavide.oltre.client.design.oltreMono
 @Composable
 fun ResourceRail(uiState: ColonyUiState, modifier: Modifier = Modifier) {
     Row(modifier = modifier.fillMaxWidth().background(OltreColors.surface)) {
-        ResourceCell(
-            name = "METAL",
-            value = uiState.metal,
-            rate = uiState.metalRatePerHour,
-        )
+        ResourceCell(name = "METAL", value = uiState.metal, rate = uiState.metalRatePerHour)
+        ResourceCell(name = "CRYSTAL", value = uiState.crystal, rate = uiState.crystalRatePerHour)
+        ResourceCell(name = "DEUTERIUM", value = uiState.deuterium, rate = uiState.deuteriumRatePerHour)
     }
 }
 
 @Composable
-private fun ResourceCell(name: String, value: String, rate: String) {
+private fun RowScope.ResourceCell(name: String, value: String, rate: String) {
     val mono = oltreMono()
-    Column(modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
+    Column(modifier = Modifier.weight(1f).padding(horizontal = 11.dp, vertical = 9.dp)) {
         Text(
             text = name,
             color = OltreColors.textTertiary,

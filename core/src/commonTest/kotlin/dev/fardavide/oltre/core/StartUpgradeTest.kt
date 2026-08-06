@@ -27,7 +27,7 @@ class StartUpgradeTest {
         assertEquals(5, started.state.resources.crystal)
         val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel, BuildingLevel(0))
         assertEquals(
-            BuildJob(building = BuildingType.METAL_MINE, toLevel = toLevel, completesAt = expectedCompletion),
+            BuildJob(building = BuildingType.METAL_MINE, toLevel = toLevel, startedAt = now, completesAt = expectedCompletion),
             started.state.buildQueue,
         )
     }
@@ -200,5 +200,23 @@ class StartUpgradeTest {
         return GameState.initial().copy(
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
         )
+    }
+
+    @Test
+    fun `the build job records its start instant`() {
+        // given
+        val now = Instant.fromEpochMilliseconds(42_000)
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
+        val funded = GameState.initial().copy(
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
+        )
+
+        // when
+        val started = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(funded, BuildingType.METAL_MINE, at = now),
+        ).state
+
+        // then
+        assertEquals(now, checkNotNull(started.buildQueue).startedAt)
     }
 }
