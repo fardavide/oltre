@@ -24,24 +24,49 @@ import androidx.compose.ui.Modifier
 // "you were on Fleets" would restore a screen that is not built yet.
 //
 // Each feature that lands takes a parameter here, so this signature is the honest list of what
-// exists — the tabs with no parameter are the ones that are not built.
+// exists — the tabs with no parameter are the ones that are not built. `resources` is the
+// exception that proves it: the rail is chrome rather than a feature, framing every destination
+// exactly as the tab bar does.
 @Composable
-fun MainScaffold(modifier: Modifier = Modifier, colony: @Composable () -> Unit) {
+fun MainScaffold(
+    resources: ResourceRailUiState,
+    colony: @Composable () -> Unit,
+    research: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
-        Destination(selected = selected, colony = colony)
+        ResourceRail(uiState = resources)
+        Destination(selected = selected, colony = colony, research = research)
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }
 }
 
 @Composable
-private fun ColumnScope.Destination(selected: OltreTab, colony: @Composable () -> Unit) {
+private fun ColumnScope.Destination(
+    selected: OltreTab,
+    colony: @Composable () -> Unit,
+    research: @Composable () -> Unit,
+) {
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-        val pendingWork = selected.pendingWork
-        if (pendingWork == null) colony() else UnbuiltTabScreen(tab = selected, pendingWork = pendingWork)
+        // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
+        // impossible to reach by accident, and `pendingWork` is the table saying which those are.
+        when (selected) {
+            OltreTab.COLONY -> colony()
+            OltreTab.RESEARCH -> research()
+            OltreTab.SHIPYARD,
+            OltreTab.GALAXY,
+            OltreTab.FLEETS,
+            -> UnbuiltTabScreen(
+                tab = selected,
+                pendingWork = checkNotNull(selected.pendingWork) {
+                    "${selected.label} has no screen and no pending-work line"
+                },
+            )
+        }
     }
 }

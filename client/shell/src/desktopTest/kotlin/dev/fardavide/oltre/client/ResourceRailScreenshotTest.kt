@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.colony.presentation
+package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
@@ -12,7 +12,7 @@ class ResourceRailScreenshotTest {
 
     @Test
     fun `resource rail with metal stock and rate`() {
-        capture(name = "resource_rail", deficit = false)
+        capture(name = "resource_rail", throttled = false)
     }
 
     // The rail is the component that misled the player: it stated the throttled rate in the
@@ -20,33 +20,22 @@ class ResourceRailScreenshotTest {
     // strings take the amber and the mark, at no cost in width.
     @Test
     fun `resource rail while a power shortage throttles the rates`() {
-        capture(name = "resource_rail_throttled", deficit = true)
+        capture(name = "resource_rail_throttled", throttled = true)
     }
 
-    private fun capture(name: String, deficit: Boolean) {
+    private fun capture(name: String, throttled: Boolean) {
         runDesktopComposeUiTest {
             setContent {
                 OltreTheme {
                     ResourceRail(
-                        uiState = ColonyUiState(
+                        uiState = ResourceRailUiState(
                             metal = "482,910",
                             metalRatePerHour = "+12,400/h",
                             crystal = "198,340",
                             crystalRatePerHour = "+6,180/h",
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
-                            energy = EnergyUiState(
-                                verdict = if (deficit) "every mine at 70%" else "room for 7 mine levels",
-                                terms = if (deficit) {
-                                    "450 produced · 640 drawn · 190 short"
-                                } else {
-                                    "450 produced · 380 drawn · 70 spare"
-                                },
-                                coveredFraction = if (deficit) 450f / 640f else 380f / 450f,
-                                deficit = deficit,
-                            ),
-                            facilities = emptyList(),
-                            returningFleet = null,
+                            throttled = throttled,
                         ),
                     )
                 }

@@ -11,12 +11,6 @@ import dev.fardavide.oltre.core.ResourceKind
 // against metal 12 and deuterium 16 drawing 120 and 320 — so the marks on the cards, the terms
 // under the track and the fix line can all be checked against each other by eye in a baseline.
 internal val testColonyUiState = ColonyUiState(
-    metal = "8,420",
-    metalRatePerHour = "+940/h",
-    crystal = "3,180",
-    crystalRatePerHour = "+140/h",
-    deuterium = "960",
-    deuteriumRatePerHour = "+45/h",
     // Short of power, so the wide baselines carry the whole vocabulary at once: the amber tail on
     // the indicator, the throttled rates on the rail, the marks that attribute the cut, and the
     // one line that says what ends it.

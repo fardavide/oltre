@@ -6,6 +6,7 @@ import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ReturningFleet
@@ -23,32 +24,6 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 class ColonyUiStateTest {
-
-    @Test
-    fun `metal stock is grouped by thousands`() {
-        // given
-        val state = colony(resources = Resources.of(metal = 482_910))
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("482,910", uiState.metal)
-    }
-
-    @Test
-    fun `metal rate reflects the mine level`() {
-        // given
-        val state = colony(
-            buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)),
-        )
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("+112/h", uiState.metalRatePerHour)
-    }
 
     @Test
     fun `a colony within its power budget counts its headroom in the levels it would buy`() {
@@ -142,19 +117,6 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `the rate on the rail is the throttled rate and the strip explains why`() {
-        // given
-        val state = colony(buildings = starved())
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then a level-3 metal mine makes 140/h at full power; this is what the player saw
-        assertEquals("+77/h", uiState.metalRatePerHour)
-        assertEquals(true, uiState.energy.deficit)
-    }
-
-    @Test
     fun `a shortage attributes itself to each facility's own signed figure`() {
         // given
         val state = colony(buildings = starved())
@@ -237,21 +199,6 @@ class ColonyUiStateTest {
 
         // then
         assertEquals(emptyList(), rows.filter { it.fix != null })
-    }
-
-    @Test
-    fun `all three resources appear with stock and rate`() {
-        // given
-        val state = colony(resources = Resources.of(metal = 1_000, crystal = 2_000, deuterium = 3_000))
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("2,000", uiState.crystal)
-        assertEquals("+30/h", uiState.crystalRatePerHour)
-        assertEquals("3,000", uiState.deuterium)
-        assertEquals("+15/h", uiState.deuteriumRatePerHour)
     }
 
     @Test
@@ -479,6 +426,8 @@ class ColonyUiStateTest {
         resources = resources,
         buildings = buildings,
         builds = emptyMap(),
+        research = Research.initial(),
+        activeResearch = null,
         returningFleet = null,
         eventLog = emptyList(),
     )

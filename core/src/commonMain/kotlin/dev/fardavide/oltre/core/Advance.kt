@@ -7,11 +7,13 @@ import kotlin.time.Instant
 // sub-spans (the composability property).
 fun advance(state: GameState, from: Instant, to: Instant): GameState {
     require(to >= from) { "advance must not go backwards: from=$from to=$to" }
-    // Builds run in parallel, so several of them — plus a fleet arrival — are in flight at once
-    // and each one changes what the following span accrues. Take the earliest due event, apply
-    // it, and recurse.
+    // Builds run in parallel, so several of them — plus a research project and a fleet arrival —
+    // are in flight at once and each one changes what the following span accrues. Take the
+    // earliest due event, apply it, and recurse.
     val nextEventAt = (
-        state.builds.values.map { it.completesAt } + listOfNotNull(state.returningFleet?.arrivesAt)
+        state.builds.values.map { it.completesAt } +
+            listOfNotNull(state.activeResearch?.completesAt) +
+            listOfNotNull(state.returningFleet?.arrivesAt)
         ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
     // apply it defensively instead of wedging it forever.
@@ -22,8 +24,12 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
 
 private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     var next = this
-    // Two jobs can land on the same instant; applying them in building order keeps the event
-    // log deterministic.
+    // Several things can land on the same instant. Which order they are applied in changes only
+    // the event log — everything up to the boundary has already accrued, and none of these
+    // transitions reads another's result — but the log has to be reproducible, so the order is
+    // fixed here and mirrored by `futureEvents`: build completions in building order, then the
+    // research completion, then the fleet arrival. Colony first, then the empire, then what
+    // arrives from outside it.
     val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
     for (job in completed) {
         next = next.copy(
@@ -33,6 +39,18 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
                 building = job.building,
                 newLevel = job.toLevel,
                 at = job.completesAt,
+            ),
+        )
+    }
+    val project = next.activeResearch
+    if (project != null && project.completesAt == instant) {
+        next = next.copy(
+            research = next.research.withLevel(project.technology, project.toLevel),
+            activeResearch = null,
+            eventLog = next.eventLog + Event.ResearchCompleted(
+                technology = project.technology,
+                newLevel = project.toLevel,
+                at = project.completesAt,
             ),
         )
     }
@@ -61,17 +79,20 @@ private fun accrue(state: GameState, from: Instant, to: Instant): GameState {
             metalFine = minOf(
                 CAP_FINE,
                 state.resources.metalFine +
-                    PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings) * elapsedMilliseconds,
+                    PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research) *
+                    elapsedMilliseconds,
             ),
             crystalFine = minOf(
                 CAP_FINE,
                 state.resources.crystalFine +
-                    PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings) * elapsedMilliseconds,
+                    PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research) *
+                    elapsedMilliseconds,
             ),
             deuteriumFine = minOf(
                 CAP_FINE,
                 state.resources.deuteriumFine +
-                    PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings) * elapsedMilliseconds,
+                    PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings, state.research) *
+                    elapsedMilliseconds,
             ),
         ),
     )

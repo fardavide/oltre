@@ -4,9 +4,13 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.TechLevel
+import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startUpgrade
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
@@ -16,7 +20,41 @@ import kotlin.time.Instant
 // and each start eats into the same stock.
 fun main() {
     printCurveTable()
+    printResearchTable()
     printGreedyWeek()
+}
+
+// The research branch's own tables, regenerated the same way the building curves are. The numbers
+// come from the approved 0.1 decision sheet, so this prints what the game charges rather than what
+// the sheet claimed — if the two ever disagree, that is the bug.
+private fun printResearchTable() {
+    println("## Research curves")
+    println()
+    for (technology in Technology.entries) {
+        val requirement = ResearchBalance.requirementFor(technology)
+        println("### $technology — requires $requirement")
+        println()
+        println("| Level | effect | metal | crystal | deuterium | at Robotics 0 | at Robotics 4 |")
+        println("|---|---|---|---|---|---|---|")
+        for (level in 1..10) {
+            val techLevel = TechLevel(level)
+            val cost = ResearchBalance.researchCost(technology, techLevel)
+            println(
+                "| $level | +${ResearchBalance.effectPercent(technology, techLevel)}% " +
+                    "| ${cost.metal.grouped()} | ${cost.crystal.grouped()} | ${cost.deuterium.grouped()} " +
+                    "| ${ResearchBalance.researchDuration(technology, techLevel, BuildingLevel(0)).label()} " +
+                    "| ${ResearchBalance.researchDuration(technology, techLevel, BuildingLevel(4)).label()} |",
+            )
+        }
+        println()
+    }
+}
+
+// Rounded to the nearest minute, matching how the decision sheet's tables are written. The UI
+// ceils instead, so a chip can read a minute longer — deliberate, and the colony's convention.
+private fun Duration.label(): String {
+    val totalMinutes = (inWholeSeconds + 30) / 60
+    return "${totalMinutes / 60}h ${(totalMinutes % 60).toString().padStart(2, '0')}m"
 }
 
 // The balance log is only useful if its numbers can be regenerated rather than retyped. Markdown
@@ -63,7 +101,7 @@ private fun printGreedyWeek() {
         val next = now + 1.hours
         state = advance(state, from = now, to = next)
         now = next
-        if (PlaceholderBalance.energyBalance(state.buildings).isDeficit) throttledHours++
+        if (PlaceholderBalance.energyBalance(state.buildings, state.research).isDeficit) throttledHours++
 
         val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
         candidates
@@ -81,7 +119,7 @@ private fun printGreedyWeek() {
             }
     }
 
-    val energy = PlaceholderBalance.energyBalance(state.buildings)
+    val energy = PlaceholderBalance.energyBalance(state.buildings, state.research)
     println("after 7 days (parallel builds):")
     println("  metal=${state.resources.metal} crystal=${state.resources.crystal} deuterium=${state.resources.deuterium}")
     println("  buildings=${state.buildings}")

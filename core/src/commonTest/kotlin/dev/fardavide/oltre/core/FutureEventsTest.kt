@@ -58,6 +58,102 @@ class FutureEventsTest {
     }
 
     @Test
+    fun `a running research is one upcoming completion carrying the level it will reach`() {
+        // given - the alerts are booked from this list, so a research the player is never told
+        // about is the feature failing at its one job
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial().researching(Technology.EXTRACTION, at = t0)
+
+        // when
+        val upcoming = futureEvents(state)
+
+        // then
+        assertEquals(
+            listOf(
+                FutureEvent.ResearchCompletes(
+                    technology = Technology.EXTRACTION,
+                    toLevel = TechLevel(1),
+                    at = state.project().completesAt,
+                ),
+            ),
+            upcoming,
+        )
+    }
+
+    @Test
+    fun `a colony researching and building has both coming`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial()
+            .fundedFor(BuildingType.METAL_MINE)
+            .started(BuildingType.METAL_MINE, at = t0)
+            .researching(Technology.EXTRACTION, at = t0)
+
+        // when
+        val upcoming = futureEvents(state)
+
+        // then
+        assertEquals(2, upcoming.size)
+        assertEquals(upcoming.map { it.at }.sorted(), upcoming.map { it.at })
+    }
+
+    @Test
+    fun `a build and a research at the same instant put the build first`() {
+        // given - mirroring exactly what advance does at a shared instant
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val together = t0 + 2.hours
+        val state = GameState.initial().copy(
+            builds = mapOf(
+                BuildingType.NANITE_FACTORY to BuildJob(
+                    building = BuildingType.NANITE_FACTORY,
+                    toLevel = BuildingLevel(1),
+                    startedAt = t0,
+                    completesAt = together,
+                ),
+            ),
+            activeResearch = ResearchJob(
+                technology = Technology.EXTRACTION,
+                toLevel = TechLevel(1),
+                startedAt = t0,
+                completesAt = together,
+            ),
+        )
+
+        // when
+        val upcoming = futureEvents(state)
+
+        // then - the last building in the enum still sorts ahead of the research
+        assertEquals(listOf("BuildCompletes", "ResearchCompletes"), upcoming.map { it::class.simpleName })
+    }
+
+    @Test
+    fun `a research and an arrival at the same instant put the research first`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val together = t0 + 2.hours
+        val state = GameState.initial().copy(
+            activeResearch = ResearchJob(
+                technology = Technology.EXTRACTION,
+                toLevel = TechLevel(1),
+                startedAt = t0,
+                completesAt = together,
+            ),
+            returningFleet = ReturningFleet(
+                ships = mapOf(ShipType.CARGO to 1),
+                cargo = Resources.of(metal = 10),
+                origin = Coordinates(galaxy = 1, system = 1, position = 1),
+                arrivesAt = together,
+            ),
+        )
+
+        // when
+        val upcoming = futureEvents(state)
+
+        // then
+        assertEquals(listOf("ResearchCompletes", "FleetArrives"), upcoming.map { it::class.simpleName })
+    }
+
+    @Test
     fun `a fleet in flight is one upcoming arrival`() {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
@@ -175,9 +271,3 @@ class FutureEventsTest {
         assertEquals(listOf("BuildCompletes", "FleetArrives"), upcoming.map { it::class.simpleName })
     }
 }
-
-private fun GameState.started(building: BuildingType, at: Instant): GameState =
-    when (val result = startUpgrade(this, building, at = at)) {
-        is StartUpgradeResult.Started -> result.state
-        else -> error("could not start $building: $result")
-    }

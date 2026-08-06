@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.EnergyBalance
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
@@ -18,13 +19,9 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+// The stocks and their rates are deliberately absent: the resource rail is the shell's chrome
+// now, because it frames every destination rather than only this one.
 data class ColonyUiState(
-    val metal: String,
-    val metalRatePerHour: String,
-    val crystal: String,
-    val crystalRatePerHour: String,
-    val deuterium: String,
-    val deuteriumRatePerHour: String,
     val energy: EnergyUiState,
     val facilities: List<FacilityRowUiState>,
     val returningFleet: ReturningFleetUiState?,
@@ -102,17 +99,11 @@ sealed interface FacilityActionUiState {
 }
 
 fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
-    metal = resources.metal.groupedByThousands(),
-    metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings).groupedByThousands()}/h",
-    crystal = resources.crystal.groupedByThousands(),
-    crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings).groupedByThousands()}/h",
-    deuterium = resources.deuterium.groupedByThousands(),
-    deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings).groupedByThousands()}/h",
-    energy = buildings.toEnergyUiState(),
+    energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
         toFacilityRow(
             building = it,
-            energy = PlaceholderBalance.energyBalance(buildings),
+            energy = PlaceholderBalance.energyBalance(buildings, research),
             now = now,
             timeZone = timeZone,
         )
@@ -120,12 +111,12 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
     returningFleet = returningFleet?.toStrip(now),
 )
 
-private fun Buildings.toEnergyUiState(): EnergyUiState {
-    val balance = PlaceholderBalance.energyBalance(this)
+private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
+    val balance = PlaceholderBalance.energyBalance(this, research)
     val span = maxOf(balance.produced, balance.consumed)
     val covered = if (balance.isDeficit) balance.produced else balance.consumed
     return EnergyUiState(
-        verdict = balance.verdict(headroomLevels = PlaceholderBalance.energyHeadroomLevels(this)),
+        verdict = balance.verdict(headroomLevels = PlaceholderBalance.energyHeadroomLevels(this, research)),
         terms = "${balance.produced.groupedByThousands()} produced · " +
             "${balance.consumed.groupedByThousands()} drawn · " +
             "${abs(balance.surplus).groupedByThousands()} ${if (balance.isDeficit) "short" else "spare"}",
@@ -199,8 +190,8 @@ private fun GameState.toFacilityRow(
             cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
         ),
         duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
-        power = if (energy.isDeficit) building.powerAt(level) else null,
-        fix = energy.fixOn(building, solarPlant = buildings.solarPlant),
+        power = if (energy.isDeficit) building.powerAt(level, research) else null,
+        fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(
@@ -208,7 +199,7 @@ private fun GameState.toFacilityRow(
             )
             short.isEmpty() -> FacilityActionUiState.Upgrade
             else -> FacilityActionUiState.AffordableIn(
-                timeUntilAffordable(resources, cost, buildings)
+                timeUntilAffordable(resources, cost, buildings, research)
                     .takeIf { it.isFinite() }
                     ?.let { "in ${it.toChipLabel()}" }
                     ?: "—",
@@ -219,8 +210,8 @@ private fun GameState.toFacilityRow(
 
 // Signed, because the sign is what makes the top of the list the supply side and the rest of it
 // the draw side — which is what makes the indicator's two terms attributable by eye.
-private fun BuildingType.powerAt(level: BuildingLevel): FacilityPowerUiState? {
-    val supplied = PlaceholderBalance.energySupply(this, level)
+private fun BuildingType.powerAt(level: BuildingLevel, research: Research): FacilityPowerUiState? {
+    val supplied = PlaceholderBalance.energySupply(this, level, research)
     val drawn = PlaceholderBalance.energyConsumption(this, level)
     return when {
         supplied > 0 -> FacilityPowerUiState(label = "+${supplied.groupedByThousands()}", supply = true)
@@ -231,10 +222,14 @@ private fun BuildingType.powerAt(level: BuildingLevel): FacilityPowerUiState? {
 
 // The arrow already means "becomes" on a row that is building, so the fix needs no new element:
 // in a deficit, what the plant's next level *is* happens to be the end of the deficit.
-private fun EnergyBalance.fixOn(building: BuildingType, solarPlant: BuildingLevel): String? {
+private fun EnergyBalance.fixOn(
+    building: BuildingType,
+    solarPlant: BuildingLevel,
+    research: Research,
+): String? {
     if (building != BuildingType.SOLAR_PLANT || !isDeficit) return null
     val nextLevel = BuildingLevel(solarPlant.value + 1)
-    if (PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, nextLevel) < consumed) return null
+    if (PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, nextLevel, research) < consumed) return null
     return "→ LV ${nextLevel.value} covers all ${consumed.groupedByThousands()} drawn"
 }
 

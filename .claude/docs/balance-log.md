@@ -175,3 +175,67 @@ Watch for:
   headroom verdict, whether amber may mean "attenuated" as well as "in transit", and whether a
   deficit belongs in a notification. They are listed in the Energy Decision Sheet on the Claude
   Design page and are Davide's to make.
+
+## Round 4 — 0.0.13, the research branch (2026-08-06)
+
+The first numbers in the game that are **not placeholders**. They come from the 0.1 research
+decision sheet Davide approved, they live in `ResearchBalance` rather than `PlaceholderBalance`,
+and `ResearchBalanceTest` pins all three published tables value by value.
+
+Shape: `cost(level) = base × 1.5^(level−1)` · `duration(level) = base minutes × level ÷ (1 + 0.08 ×
+Robotics)` · `effect(level) = rate^level`, compounding.
+
+| Technology | Effect | Bases (m/c/d) | Minutes × level | Requires |
+|---|---|---|---|---|
+| Photovoltaics | Solar Plant output × 1.10^level | 300 / 150 / 100 | 60 | Robotics 1 |
+| Extraction | Metal and Crystal Mine output × 1.08^level | 600 / 400 / 200 | 90 | Robotics 1 |
+| Enrichment | Deuterium Synthesizer output × 1.14^level | 500 / 700 / 200 | 150 | Extraction 3 |
+
+Reference colony for every payback figure below: Metal 12 / Crystal 10 / Deuterium 8 / Solar 12 /
+Robotics 4, producing 698 / 224 / 72 raw per hour, pricing resources against metal at 1 : 2 : 3.
+
+| LV | Photovoltaics | Extraction | Extraction payback | Enrichment | Enrichment payback |
+|---|---|---|---|---|---|
+| 1 | +10% | +8% | 21h 49m | +14% | 3.5d |
+| 3 | +33% | +26% | 42h 06m | +48% | 6.0d |
+| 6 | +77% | +59% | 4.7d | +119% | 13.7d |
+| 10 | +159% | +116% | 17.5d | +271% | 41.0d |
+
+Cumulative to Extraction 6: 12,469 metal / 8,313 crystal / **4,157 deuterium** — 2.4 days of the
+reference colony's deuterium income against thirteen hours of its metal income. Deuterium is the
+price; metal and crystal are there to make the cost chips mean something.
+
+Regenerate this with `./gradlew :sim:run`, which now prints the research tables alongside the
+building curves.
+
+What the sheet expected it to feel like, to check next round:
+
+- Research should **beat the marginal mine upgrade early and lose to it late** — Extraction crosses
+  over around level 6, against a Metal Mine 12→13 that pays back in 2.8 days.
+- A deficit should now have **two answers with different shapes**: build the plant (metal, now) or
+  research it (deuterium, over hours).
+- **Enrichment's payback is the worst of the three on purpose.** Deuterium cannot be traded for
+  progress, so any exchange rate understates it, and the branch is more interesting when the
+  efficient buy and the unblocking buy are different rows. If it plays as a trap, the sheet says the
+  lever is the Deuterium Synthesizer's base rate, not Enrichment's multiplier — not the obvious one.
+
+Still open, deliberately:
+
+- **Compounding or linear effects.** Compounding was chosen to keep late levels alive; it is one
+  constant per technology to switch. Watch it if the horizon ever goes past a month.
+- **Three technologies or four.** Automation — build duration ÷ 1.06^level, bases 1000 / 600 / 500,
+  180 min × level, requires Robotics 5 — is fully specced in the sheet and deferred: in a game where
+  you only act at check-in, shaving 30% off a build changes nothing you can use until the next
+  session, and its deuterium cost to level 6 is six days of income against a benefit you cannot
+  feel. Kept here so 0.2 can add it as a fourth row without re-deriving anything.
+- **Storage stays a flat 10M cap.** The sheet rejected a storage technology for 0.1: at these rates
+  the cap is 438 days away, so it would be a row that buys nothing sitting next to two that buy
+  something. When it does start to bite, the sheet's proposal is that the *mine* raises its own
+  resource's cap — no UI, no new decision. That reopens the closed set of six only if Davide wants
+  storage to be a decision rather than a consequence, and that is a bigger call than this branch.
+- **The two Robotics divisors disagree by design** (research ÷ 1 + 0.08 × Robotics, construction
+  ÷ 1 + Robotics). See `decisions.md`; unifying them is a colony rebalance, not a research one.
+
+Durations were **not** touched for buildings, so the 0.0.8 watch item stands: deep building levels
+are still gated almost entirely by resources rather than by clock.
+

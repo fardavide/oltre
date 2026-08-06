@@ -5,10 +5,15 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.TechLevel
+import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -61,6 +66,37 @@ class GameNotificationsTest {
         val notification = scheduler.scheduled.single()
         assertEquals(EPOCH + 3.hours, notification.at)
         assertTrue("2:117:9" in notification.body, "body was '${notification.body}'")
+    }
+
+    @Test
+    fun `a running research is announced at the instant it completes`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+        val state = researching(Technology.EXTRACTION)
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertEquals(checkNotNull(state.activeResearch).completesAt, notification.at)
+        assertTrue("Extraction" in notification.title, "title was '${notification.title}'")
+        assertTrue("1" in notification.title, "the level is what the player wants to read")
+    }
+
+    @Test
+    fun `a colony building and researching at once gets an alert for each`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+        val state = researching(Technology.EXTRACTION, on = building(BuildingType.METAL_MINE))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(2, scheduler.scheduled.size)
+        assertEquals(2, scheduler.scheduled.map { it.id }.toSet().size, "ids must not collide")
+        assertEquals(scheduler.scheduled.map { it.at }.sorted(), scheduler.scheduled.map { it.at })
     }
 
     @Test
@@ -161,6 +197,21 @@ class GameNotificationsTest {
         return buildings.fold(GameState.initial().copy(resources = total)) { state, building ->
             assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = EPOCH)).state
         }
+    }
+
+    // The gate and the price, so the test reads as "a colony that is researching" rather than as
+    // the four lines it takes to make one.
+    private fun researching(
+        technology: Technology,
+        on: GameState = GameState.initial(),
+    ): GameState {
+        val toLevel = TechLevel(on.research.levelOf(technology).value + 1)
+        val cost = ResearchBalance.researchCost(technology, toLevel)
+        val ready = on.copy(
+            buildings = on.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)),
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
+        )
+        return assertIs<StartResearchResult.Started>(startResearch(ready, technology, at = EPOCH)).state
     }
 
     private fun fleetArrivingAt(instant: Instant): ReturningFleet = ReturningFleet(

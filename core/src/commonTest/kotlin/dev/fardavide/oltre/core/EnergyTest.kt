@@ -15,7 +15,7 @@ class EnergyTest {
 
         // then
         assertTrue(
-            PlaceholderBalance.energyProduction(state.buildings) >=
+            PlaceholderBalance.energyProduction(state.buildings, state.research) >=
                 PlaceholderBalance.energyConsumption(state.buildings),
             "initial solar plant must cover initial mines",
         )
@@ -32,7 +32,7 @@ class EnergyTest {
         val hungry = initial.copy(
             buildings = initial.buildings.copy(metalMine = BuildingLevel(9)),
         )
-        val produced = PlaceholderBalance.energyProduction(hungry.buildings)
+        val produced = PlaceholderBalance.energyProduction(hungry.buildings, hungry.research)
         val consumed = PlaceholderBalance.energyConsumption(hungry.buildings)
         assertTrue(produced < consumed, "scenario must actually be energy-starved")
 
@@ -60,7 +60,7 @@ class EnergyTest {
         )
 
         // when
-        val energy = PlaceholderBalance.energyBalance(buildings)
+        val energy = PlaceholderBalance.energyBalance(buildings, Research.initial())
 
         // then
         assertEquals(50L, energy.produced)
@@ -75,7 +75,7 @@ class EnergyTest {
         val buildings = GameState.initial().buildings
 
         // when
-        val energy = PlaceholderBalance.energyBalance(buildings)
+        val energy = PlaceholderBalance.energyBalance(buildings, Research.initial())
 
         // then
         assertTrue(energy.isDeficit.not())
@@ -96,7 +96,7 @@ class EnergyTest {
         )
 
         // when
-        val energy = PlaceholderBalance.energyBalance(buildings)
+        val energy = PlaceholderBalance.energyBalance(buildings, Research.initial())
 
         // then
         assertTrue(energy.isDeficit.not())
@@ -109,7 +109,7 @@ class EnergyTest {
         val start = Instant.fromEpochMilliseconds(0)
         val initial = GameState.initial()
         val hungry = initial.copy(buildings = initial.buildings.copy(metalMine = BuildingLevel(9)))
-        val energy = PlaceholderBalance.energyBalance(hungry.buildings)
+        val energy = PlaceholderBalance.energyBalance(hungry.buildings, hungry.research)
 
         // when
         val accrued = advance(hungry, from = start, to = start + 1.hours).resources.metal - hungry.resources.metal
@@ -123,8 +123,8 @@ class EnergyTest {
     @Test
     fun `a facility reports the energy it supplies at its own level`() {
         // then the solar plant is the only thing that supplies, and it supplies 50 a level
-        assertEquals(150L, PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, BuildingLevel(3)))
-        assertEquals(0L, PlaceholderBalance.energySupply(BuildingType.METAL_MINE, BuildingLevel(3)))
+        assertEquals(150L, PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, BuildingLevel(3), Research.initial()))
+        assertEquals(0L, PlaceholderBalance.energySupply(BuildingType.METAL_MINE, BuildingLevel(3), Research.initial()))
     }
 
     @Test
@@ -134,8 +134,8 @@ class EnergyTest {
 
         // then the per-facility figure the UI attributes with and the colony total cannot drift
         assertEquals(
-            BuildingType.entries.sumOf { PlaceholderBalance.energySupply(it, buildings.levelOf(it)) },
-            PlaceholderBalance.energyProduction(buildings),
+            BuildingType.entries.sumOf { PlaceholderBalance.energySupply(it, buildings.levelOf(it), Research.initial()) },
+            PlaceholderBalance.energyProduction(buildings, Research.initial()),
         )
     }
 
@@ -145,7 +145,7 @@ class EnergyTest {
         val buildings = GameState.initial().buildings
 
         // then a bare surplus means nothing until you know what a level costs
-        assertEquals(1L, PlaceholderBalance.energyHeadroomLevels(buildings))
+        assertEquals(1L, PlaceholderBalance.energyHeadroomLevels(buildings, Research.initial()))
     }
 
     @Test
@@ -161,7 +161,7 @@ class EnergyTest {
         )
 
         // then
-        assertEquals(3L, PlaceholderBalance.energyHeadroomLevels(buildings))
+        assertEquals(3L, PlaceholderBalance.energyHeadroomLevels(buildings, Research.initial()))
     }
 
     @Test
@@ -170,7 +170,7 @@ class EnergyTest {
         val buildings = GameState.initial().buildings.copy(metalMine = BuildingLevel(2))
 
         // then
-        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings))
+        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings, Research.initial()))
     }
 
     @Test
@@ -179,7 +179,7 @@ class EnergyTest {
         val buildings = GameState.initial().buildings.copy(metalMine = BuildingLevel(9))
 
         // then headroom is a healthy-state reading; in deficit the percentage is the reading
-        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings))
+        assertEquals(0L, PlaceholderBalance.energyHeadroomLevels(buildings, Research.initial()))
     }
 
     @Test
