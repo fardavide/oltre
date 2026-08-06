@@ -81,45 +81,6 @@ proportionally. It is not a fourth resource on the rail — a warning state inst
 anti-overwhelm principle. Rejected: no-energy v1 (loses the mine-vs-plant build tension that
 makes early upgrade ordering a real decision).
 
-## Parallel upgrades; build progress lives on the facility row
-
-Davide's play-test feedback (2026-08-06). One build slot is replaced by one job **per facility**:
-`GameState.builds` is a `Map<BuildingType, BuildJob>`, `advance` applies completions earliest
-first (ties broken by building order, so the event log is deterministic), and `startUpgrade`
-refuses only a second job on the *same* facility. Resources are meant to be the limiter, and now
-they are the only one.
-
-The UI follows the mechanic: the hero "in progress" card is gone and each facility row shows its
-own target level, countdown, finish time and progress bar. **This supersedes the Notion UI
-direction line "one hero in-progress card with a live countdown as the focal point"** — with
-parallel builds there is no single build to hoist. Agents never write to Notion, so that page
-still says otherwise until Davide updates it.
-
-Open, deliberately not decided here: whether a later pressure (logistics, upkeep) caps how many
-projects can run at once — Notion's "unlimited mature colonies, limited simultaneous projects"
-suggests it eventually should.
-
-## Placeholder curves: human numbers, +25% output per level, ×1.5 cost
-
-Davide's play-test feedback (2026-08-06): production doubling on upgrade is absurd, facilities
-produce too much, upgrades cost too much. Notion carries no balance numbers, so these remain
-placeholders in `PlaceholderBalance` — but the *shape* is now deliberate:
-
-- Level-1 output is 60/30/15 metal/crystal/deuterium per hour (was 3,600/1,800/900). A check-in
-  reads as a number, not a wall of digits.
-- Output compounds **+25% per level** instead of scaling linearly with it (`rate × level`
-  doubled output on the very first upgrade). Level 10 out-produces level 1 by ~7×.
-- Cost compounds **×1.5 per level** instead of ×2, from the same OGame-shaped bases; the Nanite
-  Factory's base drops from 1M/500k/100k to 20k/10k/4k so it sits just past Robotics 10 instead
-  of in another economy entirely.
-- Cost outgrowing output is the point: the first mine upgrade pays back in ~6 hours, level 11 in
-  ~31, so depth stays a decision. Asserted in `BalanceCurveTest`, not left to arithmetic.
-- A new colony starts with 500 metal / 300 crystal so the first session opens on a decision
-  rather than a wait. Deuterium is never granted — it is what gates the Robotics Factory.
-
-Build durations were left alone (base minutes × level), so deep levels are gated by resources
-rather than by clock. If that ever feels wrong the lever is tying duration to cost, OGame-style.
-
 ## `protect-main` ruleset, active, no bypass
 
 Standard kickstart shape (as `fardavide/Aura`): PRs only, all four CI checks required, squash
@@ -227,6 +188,58 @@ Save locations: macOS `~/Library/Application Support/Oltre/`, Windows `%APPDATA%
 and there is no Android app module yet, so `AndroidSaveLocation.directory` is set by the
 application at startup; the two identical JVM `FileSaveFile` copies collapse into one shared
 source set when that module lands.
+
+## Parallel upgrades; build progress lives on the facility row
+
+Davide's play-test feedback (2026-08-06). One build slot is replaced by one job **per facility**:
+`GameState.builds` is a `Map<BuildingType, BuildJob>`, `advance` applies completions earliest
+first (ties broken by building order, so the event log is deterministic), and `startUpgrade`
+refuses only a second job on the *same* facility. Resources are meant to be the limiter, and now
+they are the only one.
+
+The UI follows the mechanic: the hero "in progress" card is gone and each facility row shows its
+own target level, countdown, finish time and progress bar. **This supersedes the Notion UI
+direction line "one hero in-progress card with a live countdown as the focal point"** — with
+parallel builds there is no single build to hoist. The Notion page records the supersession
+(written 2026-08-06 under the read/write rule below); the principle survives, the countdown just
+lives on the row.
+
+Open, deliberately not decided here: whether a later pressure (logistics, upkeep) caps how many
+projects can run at once — Notion's "unlimited mature colonies, limited simultaneous projects"
+suggests it eventually should.
+
+## Placeholder curves: human numbers, +25% output per level, ×1.5 cost
+
+Davide's play-test feedback (2026-08-06): production doubling on upgrade is absurd, facilities
+produce too much, upgrades cost too much. Notion carries no balance numbers, so these remain
+placeholders in `PlaceholderBalance` — but the *shape* is now deliberate:
+
+- Level-1 output is 60/30/15 metal/crystal/deuterium per hour (was 3,600/1,800/900). A check-in
+  reads as a number, not a wall of digits.
+- Output compounds **+25% per level** instead of scaling linearly with it (`rate × level`
+  doubled output on the very first upgrade). Level 10 out-produces level 1 by ~7×.
+- Cost compounds **×1.5 per level** instead of ×2, from the same OGame-shaped bases; the Nanite
+  Factory's base drops from 1M/500k/100k to 20k/10k/4k so it sits just past Robotics 10 instead
+  of in another economy entirely.
+- Cost outgrowing output is the point: the first mine upgrade pays back in ~6 hours, level 11 in
+  ~31, so depth stays a decision. Asserted in `BalanceCurveTest`, not left to arithmetic.
+- A new colony starts with 500 metal / 300 crystal so the first session opens on a decision
+  rather than a wait. Deuterium is never granted — it is what gates the Robotics Factory.
+
+Build durations were left alone (base minutes × level), so deep levels are gated by resources
+rather than by clock. If that ever feels wrong the lever is tying duration to cost, OGame-style.
+
+## Notion is read/write for agents
+
+Davide, 2026-08-06, superseding the kickstart "never write to Notion" rule: the game's plan is
+still forming, so what the build learns should land where the design lives instead of only in
+chat. The guard rails, spelled out in [brief.md](brief.md): record rather than decide (design
+calls stay his), append and annotate rather than overwrite, date every entry and say it came
+from the build, and stay inside the Oltre page.
+
+What the old rule was protecting against — an agent quietly rewriting a decision — is now
+covered by *how* to write rather than by not writing at all. The first entries under it are the
+hero-card supersession and the placeholder-curve shapes above.
 
 ## Screenshot baselines can be recorded by a manual CI job
 
