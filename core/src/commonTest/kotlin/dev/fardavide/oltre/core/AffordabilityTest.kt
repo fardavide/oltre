@@ -49,21 +49,21 @@ class AffordabilityTest {
 
     @Test
     fun `time until affordable is the largest per-resource deficit over its effective rate`() {
-        // given an empty stock and initial buildings (60 metal + 30 crystal per hour);
-        // metal mine → 2 costs 90 metal (90 minutes) and 22 crystal (44 minutes)
+        // given an empty stock and initial buildings (90 metal + 30 crystal per hour);
+        // metal mine → 2 costs 90 metal (60 minutes) and 22 crystal (44 minutes)
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
 
         // when
         val wait = timeUntilAffordable(Resources.of(), cost, Buildings.initial())
 
         // then
-        assertEquals(90.minutes, wait)
+        assertEquals(60.minutes, wait)
     }
 
     @Test
     fun `time until affordable rounds up to the next millisecond`() {
-        // given metal mine 7 (226/h, solar raised so energy stays whole): a 1-metal deficit
-        // is 3,600,000 fine / 226 = 15,929.2ms
+        // given metal mine 7 (340/h, solar raised so energy stays whole): a 1-metal deficit
+        // is 3,600,000 fine / 340 = 10,588.2ms
         val buildings = Buildings.initial()
             .withLevel(BuildingType.METAL_MINE, BuildingLevel(7))
             .withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(2))
@@ -72,7 +72,7 @@ class AffordabilityTest {
         val wait = timeUntilAffordable(Resources.of(), Resources.of(metal = 1), buildings)
 
         // then
-        assertEquals(15_930.milliseconds, wait)
+        assertEquals(10_589.milliseconds, wait)
     }
 
     @Test
