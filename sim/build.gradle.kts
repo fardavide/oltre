@@ -12,7 +12,7 @@ application {
 }
 
 dependencies {
-    implementation(projects.core)
+    implementation(project(":core"))
 
     testImplementation(libs.kotlin.test)
 }

@@ -27,8 +27,8 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.core)
-            implementation(projects.client.design)
+            implementation(project(":core"))
+            implementation(project(":client:design"))
 
             implementation(libs.kotlinx.datetime)
 

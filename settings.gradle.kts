@@ -1,5 +1,9 @@
 rootProject.name = "oltre"
-enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
+
+// No TYPESAFE_PROJECT_ACCESSORS. It is incompatible with this repo's module layout: the
+// accessor is built from a project's *name*, so `:client:save:data` and
+// `:client:notifications:data` both generate `…data` and one silently wins. That is not
+// hypothetical — it landed at 0.0.9 and cost a CI cycle. See `.claude/docs/decisions.md`.
 
 pluginManagement {
     repositories {

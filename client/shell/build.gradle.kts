@@ -35,11 +35,11 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(projects.core)
-            implementation(projects.client.colony.presentation)
-            implementation(projects.client.design)
-            implementation(projects.client.notifications.data)
-            implementation(projects.client.save.data)
+            implementation(project(":core"))
+            implementation(project(":client:colony:presentation"))
+            implementation(project(":client:design"))
+            implementation(project(":client:notifications:data"))
+            implementation(project(":client:save:data"))
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
