@@ -1,7 +1,9 @@
 package dev.fardavide.oltre.core
 
+import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 
+@Serializable
 @JvmInline
 value class BuildingLevel(val value: Int) {
     init {
@@ -9,6 +11,7 @@ value class BuildingLevel(val value: Int) {
     }
 }
 
+@Serializable
 data class Buildings(
     val metalMine: BuildingLevel,
     val crystalMine: BuildingLevel,

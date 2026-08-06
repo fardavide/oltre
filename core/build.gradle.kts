@@ -3,6 +3,9 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    // The one dependency core carries. The save format is a game rule — client and server must
+    // agree on it byte for byte — so it belongs here, not in a client adapter.
+    alias(libs.plugins.kotlinxSerialization)
 }
 
 kotlin {
@@ -23,6 +26,9 @@ kotlin {
     }
 
     sourceSets {
+        commonMain.dependencies {
+            api(libs.kotlinx.serialization.json)
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }

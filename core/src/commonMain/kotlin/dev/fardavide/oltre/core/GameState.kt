@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.core
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class GameState(
     val resources: Resources,
     val buildings: Buildings,

@@ -1,13 +1,25 @@
 package dev.fardavide.oltre.core
 
+import kotlinx.serialization.Serializable
+
 // Stock is stored in fine units (1 resource = FINE_PER_UNIT fine) so that accruing
 // `hourlyRate × elapsedMilliseconds` is exact integer arithmetic. Anything coarser truncates,
 // and truncation breaks the advance-composability property the whole simulation rests on.
+@Serializable
 data class Resources internal constructor(
     internal val metalFine: Long,
     internal val crystalFine: Long,
     internal val deuteriumFine: Long,
 ) {
+    // Nothing in the simulation can produce a negative stock — accrual only adds, and a cost is
+    // only subtracted once covers() has passed — so a negative one means a corrupt save, and
+    // catching it here is what turns that into a clean decode failure.
+    init {
+        require(metalFine >= 0) { "metal stock must be non-negative, was $metalFine" }
+        require(crystalFine >= 0) { "crystal stock must be non-negative, was $crystalFine" }
+        require(deuteriumFine >= 0) { "deuterium stock must be non-negative, was $deuteriumFine" }
+    }
+
     fun covers(other: Resources): Boolean =
         metalFine >= other.metalFine && crystalFine >= other.crystalFine && deuteriumFine >= other.deuteriumFine
 

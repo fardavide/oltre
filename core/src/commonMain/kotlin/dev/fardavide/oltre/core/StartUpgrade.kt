@@ -1,7 +1,11 @@
 package dev.fardavide.oltre.core
 
+import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
+// Enum names are on-disk identifiers in every existing save; adding a constant is free,
+// renaming one is a schema break.
+@Serializable
 enum class BuildingType {
     METAL_MINE,
     CRYSTAL_MINE,
@@ -11,6 +15,7 @@ enum class BuildingType {
     NANITE_FACTORY,
 }
 
+@Serializable
 data class BuildJob(
     val building: BuildingType,
     val toLevel: BuildingLevel,
