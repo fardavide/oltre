@@ -68,13 +68,17 @@ fun PowerIndicator(uiState: EnergyUiState, modifier: Modifier = Modifier) {
             )
         }
         PowerTrack(coveredFraction = uiState.coveredFraction, deficit = uiState.deficit)
+        // Wraps rather than clipping, and deliberately carries no maxLines. At 320dp the card's
+        // interior is 266dp and the line advances 6.83dp per character — 6.3 for JetBrains
+        // Mono's 0.6em plus the 0.5sp letterSpacing inherited from Material3's bodyLarge — so it
+        // holds 38 characters, and four-digit figures on both terms reach 40. All three numbers
+        // are load-bearing; the card growing a line in a deep colony is the cheap side of that
+        // trade, and losing the last term silently is not.
         Text(
             text = uiState.terms,
             color = OltreColors.textSecondary,
             fontFamily = mono,
             fontSize = 10.5.sp,
-            maxLines = 1,
-            softWrap = false,
         )
     }
 }

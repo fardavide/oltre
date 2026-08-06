@@ -56,6 +56,38 @@ class PowerIndicatorScreenshotTest {
         )
     }
 
+    // The narrowest supported window against the longest terms string the balance can reach.
+    // At 320dp the card's interior is 266dp and the line holds 38 characters; a deep colony —
+    // solar 20 against metal 25, crystal 31 and deuterium 27 — produces 40. This is the case
+    // that clipped its last term silently before the line was allowed to wrap, so the baseline
+    // exists to keep it wrapping.
+    @Test
+    fun `power indicator at Slide Over width with four-digit terms`() {
+        // Tall enough for the wrapped second line. On the real screen the card sits in a
+        // vertical scroll and has no height ceiling at all; only this harness imposes one.
+        runDesktopComposeUiTest(width = 320, height = 150) {
+            setContent {
+                OltreTheme {
+                    Surface {
+                        PowerIndicator(
+                            uiState = EnergyUiState(
+                                verdict = "every mine at 90%",
+                                terms = "1,000 produced · 1,100 drawn · 100 short",
+                                coveredFraction = 1000f / 1100f,
+                                deficit = true,
+                            ),
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+            }
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/power_indicator_slide_over.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
     private fun capture(name: String, uiState: EnergyUiState) {
         // Roomier than the card needs. The card wraps its content, and a window sized to the
         // nominal 72dp leaves the terms line nothing to measure into once real font metrics are
