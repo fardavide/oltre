@@ -95,9 +95,16 @@ class GameSaveTest {
     fun `garbage decodes to a failure instead of throwing`() {
         assertIs<DecodeResult.Failure>(GameSave.decode("not json at all"))
         assertIs<DecodeResult.Failure>(GameSave.decode(""))
-        // a version 1 envelope with no state migrates cleanly and still fails to decode
-        assertIs<DecodeResult.Failure>(GameSave.decode("""{"schemaVersion":1}"""))
         assertIs<DecodeResult.Failure>(GameSave.decode("""{"lastUpdatedAt":"1970-01-01T00:00:00Z"}"""))
+        assertIs<DecodeResult.Failure>(GameSave.decode("""{"schemaVersion":"not a number"}"""))
+    }
+
+    @Test
+    fun `a retired version is answered without reading the body`() {
+        // A version 1 envelope is retired on its version alone, so a truncated one is reported
+        // as Obsolete rather than as garbage. Both start a fresh colony; this pins which answer
+        // the version check gives, since it runs before anything is decoded.
+        assertIs<DecodeResult.Obsolete>(GameSave.decode("""{"schemaVersion":1}"""))
     }
 
     @Test
