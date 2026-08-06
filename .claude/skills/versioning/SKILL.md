@@ -31,7 +31,7 @@ milestones — minor bumps resume when he says so.
   **If you cannot run xcodegen** (no macOS — every agent session so far), bump `project.yml`
   anyway and say in the PR that the generated project is unregenerated. The *shipped* label is
   safe either way: `iosApp/ci_scripts/ci_pre_xcodebuild.sh` rewrites `MARKETING_VERSION` in the
-  pbxproj from the `oltre` version in the catalogue on every Xcode Cloud build, added at 0.0.9
+  pbxproj from the `oltre` version in the catalogue on every Xcode Cloud build, added at 0.0.10
   after 0.0.8 shipped to TestFlight labelled 0.0.7. That safety net is not a licence to skip
   `project.yml` — it is the source the next `xcodegen generate` reads.
 - **Do not touch `CURRENT_PROJECT_VERSION`.** It is a placeholder; the shipped build number is

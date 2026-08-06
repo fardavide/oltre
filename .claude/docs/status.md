@@ -29,7 +29,9 @@ Updated: 2026-08-06
   (one job per facility, progress on the facility row, hero card gone) and the placeholder
   curves are human-scale (60/30/15 per hour at level 1, +25% output per level, ×1.5 cost per
   level, 500 metal / 300 crystal starting stock). See `decisions.md`.
-- **0.0.9 local notifications (the rest of M8)** — `core.futureEvents` derives what is still
+- **0.0.9 iPad** — the app fills the screen at any size, Split View and Stage Manager work, and
+  content caps and centres past a phone's width (Davide, #11).
+- **0.0.10 local notifications (the rest of M8)** — `core.futureEvents` derives what is still
   coming, `:client:notifications:data` books it, the shell reschedules on the same trigger as
   the save. iOS schedules for real, desktop prints, Android waits for an app module. Also fixed
   the `MARKETING_VERSION` drift that shipped 0.0.8 to TestFlight labelled 0.0.7, and a latent

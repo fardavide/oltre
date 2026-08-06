@@ -304,7 +304,7 @@ that triggers it: a fixture written from memory would prove that made-up JSON re
 
 Notion locks both the feature and the mechanism — "schedule local notifications
 (UNUserNotificationCenter) at computed completion and arrival timestamps; that is the entire
-check-in loop" — so 0.0.9 is an implementation, not a design call. It is the other half of what
+check-in loop" — so 0.0.10 is an implementation, not a design call. It is the other half of what
 0.0.7 started: persistence made the colony survive being closed, and this is what tells the
 player it did something while it was.
 
@@ -367,7 +367,7 @@ the repo honest is one the session does not have.
 
 ## The Gradle group carries the project path, because layer names repeat
 
-Adding `:client:notifications:data` next to `:client:save:data` at 0.0.9 silently broke the
+Adding `:client:notifications:data` next to `:client:save:data` at 0.0.10 silently broke the
 shell: the save jar left the compile classpath and the build failed on `Unresolved reference
 'save'` in files nobody had touched, while the *notifications* module — declared identically,
 one line above — resolved fine.
@@ -375,7 +375,7 @@ one line above — resolved fine.
 The cause is coordinates, not code. `allprojects { group = "dev.fardavide.oltre" }` gave every
 module the same group and the same version, and a Gradle module is identified by
 `group:name:version`. Two projects both named `data` were therefore both
-`dev.fardavide.oltre:data:0.0.9` — one component as far as resolution is concerned. Gradle
+`dev.fardavide.oltre:data:0.0.10` — one component as far as resolution is concerned. Gradle
 conflict-resolved the pair to a single winner and the loser simply was not there.
 
 The module architecture — one directory per feature holding `presentation` / `domain` / `data`
