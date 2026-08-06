@@ -15,13 +15,9 @@ import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 
+// The stocks and their rates are deliberately absent: the resource rail is the shell's chrome
+// now, because it frames every destination rather than only this one.
 data class ColonyUiState(
-    val metal: String,
-    val metalRatePerHour: String,
-    val crystal: String,
-    val crystalRatePerHour: String,
-    val deuterium: String,
-    val deuteriumRatePerHour: String,
     val facilities: List<FacilityRowUiState>,
     val returningFleet: ReturningFleetUiState?,
 )
@@ -63,12 +59,6 @@ sealed interface FacilityActionUiState {
 }
 
 fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
-    metal = resources.metal.groupedByThousands(),
-    metalRatePerHour = "+${PlaceholderBalance.effectiveMetalProductionPerHour(buildings, research).groupedByThousands()}/h",
-    crystal = resources.crystal.groupedByThousands(),
-    crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings, research).groupedByThousands()}/h",
-    deuterium = resources.deuterium.groupedByThousands(),
-    deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings, research).groupedByThousands()}/h",
     facilities = BuildingType.entries.map { toFacilityRow(it, now = now, timeZone = timeZone) },
     returningFleet = returningFleet?.toStrip(now),
 )

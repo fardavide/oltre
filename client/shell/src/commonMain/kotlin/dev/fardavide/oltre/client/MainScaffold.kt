@@ -24,15 +24,22 @@ import androidx.compose.ui.Modifier
 // "you were on Fleets" would restore a screen that is not built yet.
 //
 // Each feature that lands takes a parameter here, so this signature is the honest list of what
-// exists — the tabs with no parameter are the ones that are not built.
+// exists — the tabs with no parameter are the ones that are not built. `resources` is the
+// exception that proves it: the rail is chrome rather than a feature, framing every destination
+// exactly as the tab bar does.
 @Composable
-fun MainScaffold(modifier: Modifier = Modifier, colony: @Composable () -> Unit) {
+fun MainScaffold(
+    resources: ResourceRailUiState,
+    modifier: Modifier = Modifier,
+    colony: @Composable () -> Unit,
+) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
+        ResourceRail(uiState = resources)
         Destination(selected = selected, colony = colony)
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }

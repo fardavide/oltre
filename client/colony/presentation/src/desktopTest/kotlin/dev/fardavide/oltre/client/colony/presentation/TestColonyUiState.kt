@@ -7,12 +7,6 @@ import dev.fardavide.oltre.core.ResourceKind
 // A mid-game colony: two builds running in parallel, a fleet on its way home, and rows in every
 // action state. Shared by the layout assertions and the wide-window baseline.
 internal val testColonyUiState = ColonyUiState(
-    metal = "8,420",
-    metalRatePerHour = "+310/h",
-    crystal = "3,180",
-    crystalRatePerHour = "+140/h",
-    deuterium = "960",
-    deuteriumRatePerHour = "+45/h",
     facilities = listOf(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,

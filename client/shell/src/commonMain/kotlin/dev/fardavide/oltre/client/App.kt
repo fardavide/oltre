@@ -71,7 +71,7 @@ fun App(
                     }
                 }
 
-                MainScaffold {
+                MainScaffold(resources = current.state.toResourceRailUiState()) {
                     ColonyScreen(
                         uiState = current.state.toColonyUiState(
                             now = current.lastUpdatedAt,

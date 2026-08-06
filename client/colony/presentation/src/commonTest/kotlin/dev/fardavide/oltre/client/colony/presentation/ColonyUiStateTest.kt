@@ -25,47 +25,6 @@ import kotlinx.datetime.TimeZone
 class ColonyUiStateTest {
 
     @Test
-    fun `metal stock is grouped by thousands`() {
-        // given
-        val state = colony(resources = Resources.of(metal = 482_910))
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("482,910", uiState.metal)
-    }
-
-    @Test
-    fun `metal rate reflects the mine level`() {
-        // given
-        val state = colony(
-            buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)),
-        )
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("+75/h", uiState.metalRatePerHour)
-    }
-
-    @Test
-    fun `all three resources appear with stock and rate`() {
-        // given
-        val state = colony(resources = Resources.of(metal = 1_000, crystal = 2_000, deuterium = 3_000))
-
-        // when
-        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
-
-        // then
-        assertEquals("2,000", uiState.crystal)
-        assertEquals("+30/h", uiState.crystalRatePerHour)
-        assertEquals("3,000", uiState.deuterium)
-        assertEquals("+15/h", uiState.deuteriumRatePerHour)
-    }
-
-    @Test
     fun `facility rows expose typed level with per-resource cost chips and duration`() {
         // given plenty of metal but no crystal
         val state = colony(resources = Resources.of(metal = 1_000_000))

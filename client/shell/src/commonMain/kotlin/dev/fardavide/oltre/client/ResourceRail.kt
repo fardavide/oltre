@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.colony.presentation
+package dev.fardavide.oltre.client
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -20,8 +20,12 @@ import dev.fardavide.oltre.client.design.OltreColors
 import dev.fardavide.oltre.client.design.OltreLayout
 import dev.fardavide.oltre.client.design.oltreMono
 
+// Chrome, like the tab bar below it, and here for the same reason: what it shows is the empire's,
+// not one screen's, and it frames every destination. It moved out of :client:colony:presentation
+// when Research landed as a second screen that shows it — a feature module cannot own a component
+// another feature needs, and :client:design is tokens rather than components.
 @Composable
-fun ResourceRail(uiState: ColonyUiState, modifier: Modifier = Modifier) {
+internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Modifier) {
     // The bar itself is full-bleed — it reads as the top edge of the window — but its cells
     // stay on the same centred column as the content below, whatever the window's width.
     Box(
@@ -32,7 +36,7 @@ fun ResourceRail(uiState: ColonyUiState, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .widthIn(max = OltreLayout.maxContentWidth)
                 .fillMaxWidth()
-                .testTag(ColonyTestTags.RESOURCE_RAIL_CONTENT),
+                .testTag(ShellTestTags.RESOURCE_RAIL_CONTENT),
         ) {
             ResourceCell(name = "METAL", value = uiState.metal, rate = uiState.metalRatePerHour)
             ResourceCell(name = "CRYSTAL", value = uiState.crystal, rate = uiState.crystalRatePerHour)

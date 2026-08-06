@@ -30,7 +30,7 @@ Five destinations across the bottom, on a phone:
 
 The three resources, accruing while you read them:
 
-<img src="client/colony/presentation/src/desktopTest/screenshots/resource_rail.png" alt="Metal, crystal and deuterium with their hourly rates" width="512">
+<img src="client/shell/src/desktopTest/screenshots/resource_rail.png" alt="Metal, crystal and deuterium with their hourly rates" width="512">
 
 A facility row per state — building with a countdown, affordable, not yet affordable
 (the resource you're short in red, and when you'll have it), and locked:

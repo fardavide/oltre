@@ -68,7 +68,7 @@ class MainScaffoldBehaviourTest {
         runDesktopComposeUiTest(width = 393, height = 852) {
             setContent {
                 OltreTheme {
-                    MainScaffold { Text(COLONY_MARKER) }
+                    MainScaffold(resources = testResourceRailUiState) { Text(COLONY_MARKER) }
                 }
             }
             assertions()

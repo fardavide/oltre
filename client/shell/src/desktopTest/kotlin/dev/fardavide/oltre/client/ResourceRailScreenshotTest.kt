@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.colony.presentation
+package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
@@ -16,15 +16,13 @@ class ResourceRailScreenshotTest {
             setContent {
                 OltreTheme {
                     ResourceRail(
-                        uiState = ColonyUiState(
+                        uiState = ResourceRailUiState(
                             metal = "482,910",
                             metalRatePerHour = "+12,400/h",
                             crystal = "198,340",
                             crystalRatePerHour = "+6,180/h",
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
-                            facilities = emptyList(),
-                            returningFleet = null,
                         ),
                     )
                 }
