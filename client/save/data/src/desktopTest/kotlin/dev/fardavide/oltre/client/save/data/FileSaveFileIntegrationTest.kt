@@ -8,7 +8,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
-class FileSaveFileTest {
+// Integration, not unit: this is the one place the save format meets a real filesystem —
+// temporary directories, partial writes, a file that is not there yet. `GameStoreTest` covers
+// the same store against `FakeSaveFile` and stays a unit test.
+class FileSaveFileIntegrationTest {
 
     @Test
     fun `a file that was never written reads as nothing saved`() = runTest {

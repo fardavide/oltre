@@ -11,7 +11,8 @@ import org.junit.Test
 // The whole screen at the sizes an iPad actually hands it. The component baselines cover phone
 // width; these cover what the window does past it, so a regression in the capped-and-centred
 // layout is visible rather than only asserted. Sizes are 11" iPad points, and each one sits on a
-// different side of OltreLayout.maxContentWidth (560dp) — see ColonyScreenLayoutTest for the rule.
+// different side of OltreLayout.maxContentWidth (560dp) — see ColonyScreenLayoutBehaviourTest
+// for the rule.
 @OptIn(ExperimentalTestApi::class)
 class ColonyScreenScreenshotTest {
 

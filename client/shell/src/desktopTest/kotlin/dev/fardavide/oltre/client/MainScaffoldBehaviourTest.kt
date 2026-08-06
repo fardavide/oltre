@@ -17,7 +17,7 @@ import org.junit.Test
 // right is small and worth pinning: the game opens on the colony, all five destinations are
 // reachable, and a tab with no screen behind it says so rather than showing the colony again.
 @OptIn(ExperimentalTestApi::class)
-class MainScaffoldTest {
+class MainScaffoldBehaviourTest {
 
     @Test
     fun `the game opens on the colony`() {

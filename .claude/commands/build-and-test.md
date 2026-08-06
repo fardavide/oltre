@@ -11,3 +11,7 @@ its output verbatim (do not summarise an error away):
    (skip silently if no baselines exist yet).
 
 Both must pass before any PR is opened. These are the same gates CI enforces as required checks.
+
+Coverage is reported, not gated: CI's **Coverage** job runs `.github/scripts/measure-coverage.sh`
+and comments the per-test-kind table on the PR. Run it locally only when you want the numbers —
+it is five Gradle passes. A single kind is cheap: `./gradlew check -Poltre.testCategory=behaviour`.

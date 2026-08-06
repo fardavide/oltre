@@ -7,6 +7,9 @@
 | [decisions.md](decisions.md) | Why — ADR-style, newest last |
 | [status.md](status.md) | Where the project is: slices landed, what's next, pending setup |
 
+Work that a remote agent session cannot do — anything needing a Gradle build, or a repo only the
+desktop machine has — is written up as a ready-to-paste prompt in [`../prompts/`](../prompts/).
+
 ## For agents
 
 - Read `architecture.md` and `decisions.md` before any non-trivial change — several choices were

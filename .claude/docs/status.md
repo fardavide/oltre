@@ -46,6 +46,13 @@ Updated: 2026-08-06
   scaffold. Each feature that lands takes a parameter on `MainScaffold`, so its signature is the
   list of what is really built. See `decisions.md`.
 
+- **Test taxonomy + per-kind coverage reporting** — tests declare their kind by class-name
+  suffix (`…Test` / `…IntegrationTest` / `…ScreenshotTest` / `…BehaviourTest`),
+  `-Poltre.testCategory` filters the build to one kind, and the new **Coverage** CI job reports
+  line/branch coverage *per kind* with a delta against the last `main` run, as one rewritten-in-
+  place PR comment. Reporting only — no thresholds, not a required check. See `decisions.md` and
+  the `test-coverage` skill.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -91,6 +98,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   waiting. The same applies to the unbuilt tabs' one-liners in `OltreTab.pendingWork`, which say
   only what will be there.
 - No linter (detekt) configured yet — decide when code volume justifies it.
+- **Nothing drives the upgrade tap.** The tab bar landed with real interaction tests
+  (`MainScaffoldBehaviourTest` taps every destination), but the colony's Upgrade button — the
+  only interaction in the *game*, as opposed to the chrome — is still covered by `core` unit
+  tests and by nothing that renders: every colony test passes `onUpgrade = {}` to nothing. The
+  Robot harness and the first interaction tests are prompted out to a desktop session in
+  `.claude/prompts/robot-behaviour-tests.md` (the pattern is ported from BandLab, which no agent
+  session here can read).
+- **Behaviour tests do not go through Robots yet.** `MainScaffoldBehaviourTest` queries nodes
+  directly in its test bodies, which the taxonomy asks it not to. It predates the convention;
+  the same desktop prompt migrates it.
+- **The `protect-main` ruleset payload is unchanged.** The new Coverage job is deliberately not
+  required; if that ever changes, the ruleset has to change with it.
 - **Agent sessions cannot build.** The remote environment's egress policy blocks
   `dl.google.com`, so Gradle cannot resolve AGP and `./gradlew build` fails before compiling
   anything; `maven.google.com` only redirects there. CI is the gate for agent-written code, and
