@@ -51,18 +51,60 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a colony within its power budget reports headroom rather than a warning`() {
-        // given
+    fun `a colony within its power budget counts its headroom in the levels it would buy`() {
+        // given a new colony: 50 produced against 40 drawn
         val state = colony()
 
         // when
         val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
 
-        // then
+        // then the track spans the larger term, so the fill is the draw and the empty tail is
+        // the headroom the verdict names
         assertEquals(
-            EnergyUiState(reading = "50 / 40", consequence = "+10 spare", deficit = false),
+            EnergyUiState(
+                verdict = "room for 1 mine level",
+                terms = "50 produced · 40 drawn · 10 spare",
+                coveredFraction = 40f / 50f,
+                deficit = false,
+            ),
             energy,
         )
+    }
+
+    @Test
+    fun `headroom for more than one level reads as a plural`() {
+        // given solar 4 against metal 5, crystal 4 and deuterium 4: 200 produced, 170 drawn
+        val state = colony(
+            buildings = Buildings(
+                metalMine = BuildingLevel(5),
+                crystalMine = BuildingLevel(4),
+                deuteriumSynthesizer = BuildingLevel(4),
+                solarPlant = BuildingLevel(4),
+                roboticsFactory = BuildingLevel(0),
+                naniteFactory = BuildingLevel(0),
+            ),
+        )
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then
+        assertEquals("room for 3 mine levels", energy.verdict)
+    }
+
+    @Test
+    fun `a colony that exactly covers its draw reads as break even`() {
+        // given metal mine 2: 50 produced against 50 drawn, the upgrade after the first one
+        val state = colony(
+            buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)),
+        )
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then "room for 0 mine levels" is a sentence about nothing; this is the same fact
+        assertEquals("break even", energy.verdict)
+        assertEquals(false, energy.deficit)
     }
 
     @Test
@@ -74,11 +116,29 @@ class ColonyUiStateTest {
         // when
         val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
 
-        // then
+        // then the fill stops where the plant stops, so the boundary is the plant's ceiling
         assertEquals(
-            EnergyUiState(reading = "50 / 90", consequence = "every mine at 55%", deficit = true),
+            EnergyUiState(
+                verdict = "every mine at 55%",
+                terms = "50 produced · 90 drawn · 40 short",
+                coveredFraction = 50f / 90f,
+                deficit = true,
+            ),
             energy,
         )
+    }
+
+    @Test
+    fun `a colony with no plant at all reports every mine stopped`() {
+        // given there is no floor: at solar 0 production is 0 and every mine stops dead
+        val state = colony(buildings = starved().withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(0)))
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then a track with no green in it already says the state is total, so no new colour
+        assertEquals("every mine stopped", energy.verdict)
+        assertEquals(0f, energy.coveredFraction)
     }
 
     @Test
@@ -95,22 +155,80 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a shortage marks the facilities it throttles and leaves the rest alone`() {
+    fun `a shortage attributes itself to each facility's own signed figure`() {
         // given
         val state = colony(buildings = starved())
 
         // when
         val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
 
-        // then only the three that draw power — the solar plant curing it is not itself throttled
+        // then the percentage is not repeated per card — each mine floors independently, so three
+        // cards saying "55%" would each be slightly wrong. The draw is exactly true per card.
         assertEquals(
-            listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.DEUTERIUM_SYNTHESIZER),
-            rows.filter { it.throttled }.map { it.building },
+            mapOf(
+                BuildingType.METAL_MINE to FacilityPowerUiState(label = "−30", supply = false),
+                BuildingType.CRYSTAL_MINE to FacilityPowerUiState(label = "−20", supply = false),
+                BuildingType.DEUTERIUM_SYNTHESIZER to FacilityPowerUiState(label = "−40", supply = false),
+                BuildingType.SOLAR_PLANT to FacilityPowerUiState(label = "+50", supply = true),
+            ),
+            rows.mapNotNull { row -> row.power?.let { row.building to it } }.toMap(),
         )
     }
 
     @Test
-    fun `nothing is marked throttled while the colony is within its power budget`() {
+    fun `an unbuilt facility draws nothing so it carries no mark`() {
+        // given a shortage, with robotics and nanite both at level 0
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then there is nothing to attribute, and nothing to fight the locked row's dim
+        assertEquals(null, rows.first { it.building == BuildingType.NANITE_FACTORY }.power)
+        assertEquals(null, rows.first { it.building == BuildingType.ROBOTICS_FACTORY }.power)
+    }
+
+    @Test
+    fun `no facility is marked while the colony is within its power budget`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then the mark is the deficit's vocabulary; a healthy colony has nothing to say with it
+        assertEquals(emptyList(), rows.filter { it.power != null }.map { it.building })
+    }
+
+    @Test
+    fun `the plant that would end the shortage says so on its own card`() {
+        // given the report's colony: 50 produced against 90 drawn, and a solar plant one level
+        // from covering all of it
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then no banner and no reordering — one line, in the slot a card already uses to say
+        // what its next level is
+        assertEquals("→ LV 2 covers all 90 drawn", rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)
+        assertEquals(emptyList(), rows.filter { it.building != BuildingType.SOLAR_PLANT && it.fix != null })
+    }
+
+    @Test
+    fun `no fix is offered when one plant level would not be enough`() {
+        // given metal mine 15, which takes the draw to 210 against a plant that reaches 100
+        val state = colony(buildings = starved().withLevel(BuildingType.METAL_MINE, BuildingLevel(15)))
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then the line states a fact or it is absent; it never states an intention
+        assertEquals(null, rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)
+    }
+
+    @Test
+    fun `a healthy colony is offered no fix`() {
         // given
         val state = colony()
 
@@ -118,7 +236,7 @@ class ColonyUiStateTest {
         val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
 
         // then
-        assertEquals(emptyList(), rows.filter { it.throttled }.map { it.building })
+        assertEquals(emptyList(), rows.filter { it.fix != null })
     }
 
     @Test

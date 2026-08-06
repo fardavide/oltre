@@ -5,5 +5,4 @@ package dev.fardavide.oltre.client.colony.presentation
 internal object ColonyTestTags {
     const val CONTENT = "colony-content"
     const val RESOURCE_RAIL_CONTENT = "colony-resource-rail-content"
-    const val POWER_STRIP_CONTENT = "colony-power-strip-content"
 }

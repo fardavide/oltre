@@ -85,9 +85,10 @@ class ColonyScreenLayoutBehaviourTest {
 
     private companion object {
 
+        // The power indicator is not among them: it sits inside the content column rather than
+        // as a bar of its own, so the column's own bounds already govern it.
         val CONSTRAINED_TAGS = listOf(
             ColonyTestTags.RESOURCE_RAIL_CONTENT,
-            ColonyTestTags.POWER_STRIP_CONTENT,
             ColonyTestTags.CONTENT,
         )
 

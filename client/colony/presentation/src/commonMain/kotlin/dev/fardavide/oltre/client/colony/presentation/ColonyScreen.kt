@@ -28,7 +28,6 @@ fun ColonyScreen(
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         ResourceRail(uiState = uiState)
-        PowerStrip(uiState = uiState.energy)
         // The window can be any width — iPad, Split View, Stage Manager, a desktop window — so
         // the colony caps its content and centres it instead of stretching the cards.
         Column(
@@ -49,6 +48,9 @@ fun ColonyScreen(
                 uiState.returningFleet?.let { fleet ->
                     FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
                 }
+                // First in the column, so the reading order is the state of the colony and then
+                // the things that produce it.
+                PowerIndicator(uiState = uiState.energy, modifier = Modifier.padding(bottom = 8.dp))
                 SectionLabel(text = "FACILITIES")
                 FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
             }
