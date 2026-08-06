@@ -22,7 +22,7 @@ class ColonyUiStateTest {
     @Test
     fun `metal stock is grouped by thousands`() {
         // given
-        val state = GameState(resources = Resources.of(metal = 482_910), buildings = Buildings.initial(), buildQueue = null, eventLog = emptyList())
+        val state = GameState(resources = Resources.of(metal = 482_910), buildings = Buildings.initial(), buildQueue = null, returningFleet = null, eventLog = emptyList())
 
         // when
         val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
@@ -38,6 +38,7 @@ class ColonyUiStateTest {
             resources = Resources.of(),
             buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -55,6 +56,7 @@ class ColonyUiStateTest {
             resources = Resources.of(metal = 1_000, crystal = 2_000, deuterium = 3_000),
             buildings = Buildings.initial(),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -75,6 +77,7 @@ class ColonyUiStateTest {
             resources = Resources.of(metal = 1_000_000),
             buildings = Buildings.initial(),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -122,6 +125,7 @@ class ColonyUiStateTest {
             resources = Resources.of(),
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(3)),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -140,6 +144,7 @@ class ColonyUiStateTest {
             resources = Resources.of(metal = 1_000, crystal = 1_000),
             buildings = Buildings.initial(),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -171,6 +176,7 @@ class ColonyUiStateTest {
             resources = Resources.of(metal = 400, crystal = 120),
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(0)),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
@@ -189,6 +195,7 @@ class ColonyUiStateTest {
             resources = Resources.of(metal = 1_000_000),
             buildings = Buildings.initial(),
             buildQueue = null,
+            returningFleet = null,
             eventLog = emptyList(),
         )
 
