@@ -13,6 +13,9 @@ internal val testColonyUiState = ColonyUiState(
     crystalRatePerHour = "+140/h",
     deuterium = "960",
     deuteriumRatePerHour = "+45/h",
+    // Short of power, so the wide baseline carries both the warning strip and the badges that
+    // attribute the cut to the rows losing output.
+    energy = EnergyUiState(reading = "450 / 640", consequence = "every mine at 70%", deficit = true),
     facilities = listOf(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,
@@ -29,6 +32,7 @@ internal val testColonyUiState = ColonyUiState(
                 progressPercent = 68,
                 doneAt = "done 11:23",
             ),
+            throttled = true,
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
@@ -51,6 +55,7 @@ internal val testColonyUiState = ColonyUiState(
             ),
             duration = "5h 40m",
             action = FacilityActionUiState.AffordableIn("in 3h 12m"),
+            throttled = true,
         ),
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,

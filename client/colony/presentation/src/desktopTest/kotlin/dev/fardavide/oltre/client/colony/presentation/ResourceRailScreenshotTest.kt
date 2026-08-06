@@ -23,6 +23,7 @@ class ResourceRailScreenshotTest {
                             crystalRatePerHour = "+6,180/h",
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
+                            energy = EnergyUiState(reading = "450 / 380", consequence = "+70 spare", deficit = false),
                             facilities = emptyList(),
                             returningFleet = null,
                         ),

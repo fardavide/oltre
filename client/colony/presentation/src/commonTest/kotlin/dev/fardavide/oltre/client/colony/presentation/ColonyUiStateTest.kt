@@ -47,7 +47,78 @@ class ColonyUiStateTest {
         val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
 
         // then
-        assertEquals("+75/h", uiState.metalRatePerHour)
+        assertEquals("+112/h", uiState.metalRatePerHour)
+    }
+
+    @Test
+    fun `a colony within its power budget reports headroom rather than a warning`() {
+        // given
+        val state = colony()
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then
+        assertEquals(
+            EnergyUiState(reading = "50 / 40", consequence = "+10 spare", deficit = false),
+            energy,
+        )
+    }
+
+    @Test
+    fun `a power shortage names the rate it is costing every mine`() {
+        // given the colony from Davide's report — metal 3, crystal 2, deuterium 2, solar 1 —
+        // which was losing 45% of every mine with nothing on screen to say so
+        val state = colony(buildings = starved())
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then
+        assertEquals(
+            EnergyUiState(reading = "50 / 90", consequence = "every mine at 55%", deficit = true),
+            energy,
+        )
+    }
+
+    @Test
+    fun `the rate on the rail is the throttled rate, and the strip explains why`() {
+        // given
+        val state = colony(buildings = starved())
+
+        // when
+        val uiState = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
+
+        // then a level-3 metal mine makes 140/h at full power; this is what the player saw
+        assertEquals("+77/h", uiState.metalRatePerHour)
+        assertEquals(true, uiState.energy.deficit)
+    }
+
+    @Test
+    fun `a shortage marks the facilities it throttles and leaves the rest alone`() {
+        // given
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then only the three that draw power — the solar plant curing it is not itself throttled
+        assertEquals(
+            listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.DEUTERIUM_SYNTHESIZER),
+            rows.filter { it.throttled }.map { it.building },
+        )
+    }
+
+    @Test
+    fun `nothing is marked throttled while the colony is within its power budget`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then
+        assertEquals(emptyList(), rows.filter { it.throttled }.map { it.building })
     }
 
     @Test
@@ -133,14 +204,14 @@ class ColonyUiStateTest {
 
     @Test
     fun `an unaffordable row shows the time until affordable instead of a dead button`() {
-        // given an empty stock: metal mine → 2 needs 90 metal (90m at 60/h) and 22 crystal (44m)
+        // given an empty stock: metal mine → 2 needs 90 metal (60m at 90/h) and 22 crystal (44m)
         val state = colony()
 
         // when
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("in 1h 30m"), metalMine.action)
+        assertEquals(FacilityActionUiState.AffordableIn("in 1h 00m"), metalMine.action)
     }
 
     @Test
@@ -272,6 +343,16 @@ class ColonyUiStateTest {
         // then
         assertEquals(null, strip)
     }
+
+    // Seven levels of mine on one solar plant: 50 produced against 90 consumed.
+    private fun starved(): Buildings = Buildings(
+        metalMine = BuildingLevel(3),
+        crystalMine = BuildingLevel(2),
+        deuteriumSynthesizer = BuildingLevel(2),
+        solarPlant = BuildingLevel(1),
+        roboticsFactory = BuildingLevel(0),
+        naniteFactory = BuildingLevel(0),
+    )
 
     private fun colony(
         resources: Resources = Resources.of(),

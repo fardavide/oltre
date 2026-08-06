@@ -85,7 +85,11 @@ class ColonyScreenLayoutBehaviourTest {
 
     private companion object {
 
-        val CONSTRAINED_TAGS = listOf(ColonyTestTags.RESOURCE_RAIL_CONTENT, ColonyTestTags.CONTENT)
+        val CONSTRAINED_TAGS = listOf(
+            ColonyTestTags.RESOURCE_RAIL_CONTENT,
+            ColonyTestTags.POWER_STRIP_CONTENT,
+            ColonyTestTags.CONTENT,
+        )
 
         // Layout rounds to whole pixels; a Dp of slack keeps the assertions about the layout
         // rule rather than about rounding.
