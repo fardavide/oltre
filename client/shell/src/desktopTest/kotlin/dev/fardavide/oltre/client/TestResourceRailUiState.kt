@@ -9,4 +9,7 @@ internal val testResourceRailUiState = ResourceRailUiState(
     crystalRatePerHour = "+304/h",
     deuterium = "732",
     deuteriumRatePerHour = "+72/h",
+    // The scaffold's tests are about the frame, and a colony with power to spare is the state
+    // that says nothing about power — which is what keeps these baselines about the frame.
+    throttled = false,
 )
