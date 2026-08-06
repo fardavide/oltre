@@ -19,7 +19,7 @@ none of those, and a source-set split would force a test to live away from the c
 | Unit | `…Test` | In-process, no I/O, no clock, no Compose. The default — everything that is not one of the three below | `AdvanceTest`, `ColonyUiStateTest` |
 | Integration | `…IntegrationTest` | Crosses one real boundary: the filesystem, a platform adapter, a real scheduler | `FileSaveFileIntegrationTest` |
 | Screenshot | `…ScreenshotTest` | Roborazzi, verified against a committed baseline. See the `screenshot-testing` skill | `FacilityListScreenshotTest` |
-| Behaviour | `…BehaviourTest` | Compose rendered and driven — taps, gestures, assertions on the node tree | `ColonyScreenLayoutBehaviourTest` |
+| Behaviour | `…BehaviourTest` | Compose rendered and driven — taps, gestures, assertions on the node tree | `MainScaffoldBehaviourTest` |
 
 Rules that follow from the table:
 
@@ -30,7 +30,11 @@ Rules that follow from the table:
   other one integration is the real `File`.
 - **Behaviour tests go through Robots**, never through raw `onNodeWithTag` chains in the test
   body. A test says *what the player did and what they should see*; the Robot owns *how*. This
-  keeps a testTag rename to one file.
+  keeps a testTag rename to one file. `MainScaffoldBehaviourTest` predates the rule and still
+  queries directly — it is the migration target, not the example to copy.
+- **Rendering Compose is enough to make it a behaviour test.**
+  `ColonyScreenLayoutBehaviourTest` asserts layout bounds rather than tapping anything, and it
+  still belongs here: it needs a composition and a node tree, which is what separates the kind.
 - **Screenshot and behaviour are not alternatives.** A screenshot asserts what a state looks
   like; a behaviour test asserts what happens when you touch it. A tap that changes appearance
   wants both.

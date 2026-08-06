@@ -42,7 +42,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fardavide.oltre
         PRODUCT_NAME: Oltre
-        MARKETING_VERSION: 0.0.10
+        MARKETING_VERSION: 0.0.11
         # Placeholder only. The shipped build number comes from $CI_BUILD_NUMBER, written in
         # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .claude/skills/versioning.
         CURRENT_PROJECT_VERSION: 3

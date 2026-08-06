@@ -18,16 +18,21 @@ always.
 
 ## The gap you are closing
 
-Oltre's only interaction is tap-to-upgrade on a facility row, and **nothing tests it through the
-UI.** Every Compose test in the repo passes `onUpgrade = {}` — a callback wired to nothing — so
+The game's only real interaction is tap-to-upgrade on a facility row, and **nothing tests it
+through the UI.** Every colony test passes `onUpgrade = {}` — a callback wired to nothing — so
 the suite would stay green if the button were deleted. `core` unit-tests `startUpgrade` heavily;
 the shell's `App` composable, which is what actually turns a tap into a state change, has no test
 at all.
 
-A previous session added the machinery to make that visible: tests declare their kind by
-class-name suffix, and CI reports coverage **per kind** with a delta on every PR. The
-`behaviour` row currently reports one test class that asserts layout bounds. Your job is to make
-that row mean something.
+The tab bar (0.0.11) is the exception and your starting point: `MainScaffoldBehaviourTest`
+already taps every destination and asserts what is shown. It does it with raw `onNodeWithTag` /
+`performClick` calls in the test bodies — which is precisely what the Robot rule forbids — so it
+is both the proof that interaction testing works here and the first thing to migrate.
+
+A previous session added the machinery to make the gap visible: tests declare their kind by
+class-name suffix, and CI reports coverage **per kind** with a delta on every PR. Your job is to
+make the `behaviour` row mean something for the colony, and to put the existing behaviour tests
+behind Robots.
 
 ## What to do
 
@@ -125,8 +130,14 @@ dependent and will be flaky. Two honest routes:
 - **Stay at presentation level** and cover the shell's sequencing with unit tests on
   `GameSession`, saying plainly in the PR that the tap-to-state-change seam remains untested.
 
-Pick one, say why, do not do half of each. If you take the first, `:client:shell` needs the
-Compose UI test dependencies on `desktopTest` — it has none today.
+Pick one, say why, do not do half of each. `:client:shell` already has the Compose UI test
+dependencies and a `desktopTest` source set (the tab bar brought both), so either route starts
+from working ground.
+
+While you are in that module: migrate `MainScaffoldBehaviourTest` to the Robot you build here,
+and give the shell a `MainScaffoldRobot` over `ShellTestTags`. Its assertions do not change —
+only who makes the queries. If the migration makes any of them harder to express, that is a
+finding about the Robot design, not a reason to leave the raw queries.
 
 ## Constraints
 

@@ -7,6 +7,40 @@ destination. iPhone is the delivery target, desktop is the dev loop.
 
 All rights reserved. No license is granted for reuse of this code.
 
+## Screens
+
+<table>
+<tr>
+<td width="50%" align="center">
+<img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, and the facility list" width="320">
+</td>
+<td width="50%" align="center">
+<img src="client/shell/src/desktopTest/screenshots/unbuilt_tab_galaxy.png" alt="The Galaxy tab, saying what will be there" width="320">
+</td>
+</tr>
+<tr>
+<td align="center"><b>Colony</b> — stocks and live rates, a fleet on its way home, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
+<td align="center"><b>Galaxy</b> — one of the four destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
+</tr>
+</table>
+
+Five destinations across the bottom, on a phone:
+
+<img src="client/shell/src/desktopTest/screenshots/tab_bar_phone.png" alt="The tab bar: Colony, Research, Shipyard, Galaxy, Fleets" width="393">
+
+The three resources, accruing while you read them:
+
+<img src="client/colony/presentation/src/desktopTest/screenshots/resource_rail.png" alt="Metal, crystal and deuterium with their hourly rates" width="512">
+
+A facility row per state — building with a countdown, affordable, not yet affordable
+(the resource you're short in red, and when you'll have it), and locked:
+
+<img src="client/colony/presentation/src/desktopTest/screenshots/facility_list.png" alt="Four facility rows, one in each action state" width="393">
+
+These are the committed Roborazzi baselines, not exported marketing shots — the same images CI
+verifies the UI against on every push, so a screen here cannot drift from the screen that ships.
+Recording them is the workflow in the `screenshot-testing` skill.
+
 ## Stack
 
 Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
@@ -60,6 +94,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.0.11 — 2026-08-06
+
+- **The game has its five destinations.** A bottom bar carries Colony, Research, Shipyard, Galaxy
+  and Fleets, and the game opens on the Colony as it always has. The four that are not built yet
+  say so and say what will be there, rather than being hidden until their screen exists — so the
+  shape of the game is visible from the first launch. The bar keeps its tabs on the same centred
+  column as the content on an iPad or a wide desktop window, and fits five destinations in a
+  Slide Over pane.
 
 ### 0.0.10 — 2026-08-06
 
