@@ -60,6 +60,16 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.8 — 2026-08-06
+
+- **Upgrades run in parallel, and the numbers are human.** Every facility builds on its own —
+  start a mine, a plant and a factory at once — and each row carries its own countdown, target
+  level, finish time and progress bar instead of a single card at the top of the screen. The
+  economy was rescaled to numbers you can hold in your head: a level-1 mine makes 60 metal an
+  hour rather than 3,600, an upgrade raises output by a quarter instead of doubling it, and
+  costs grow by half per level instead of doubling. A new colony now starts with enough metal
+  and crystal to make its first choice immediately.
+
 ### 0.0.7 — 2026-08-06
 
 - **Your colony survives closing the app, and keeps working while it is closed.** The game saves

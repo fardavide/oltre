@@ -22,6 +22,11 @@ Updated: 2026-08-05
   caps, robotics build-speed, nanite gate at Robotics 10. Composability property extended
   across completion boundaries and caps.
 
+- **0.0.8 balance + parallel builds** — play-test feedback from Davide: upgrades run in parallel
+  (one job per facility, progress on the facility row, hero card gone) and the placeholder
+  curves are human-scale (60/30/15 per hour at level 1, +25% output per level, ×1.5 cost per
+  level, 500 metal / 300 crystal starting stock). See `decisions.md`.
+
 ## Next
 
 - Decompose v1 into vertical slices and record the roadmap here: 3 resources, 6 buildings,
@@ -34,5 +39,12 @@ Updated: 2026-08-05
   M4 research branch + tab, M5 procgen galaxy + Galaxy screen, M6 ships/shipyard/fleets,
   M7 combat + 3 AI empires, M8 JSON save + offline progression + notifications.
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
-  candidates: a storage building, mine-level scaling.)
+  candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
+  is far out of reach — it binds nothing until very deep levels.
+- **Open design question for Davide:** should anything cap how many facilities build at once?
+  Nothing does today (resources are the only limiter), while Notion's expansion pressures call
+  for "limited simultaneous projects".
+- **Notion is stale on one point:** the UI direction still names a single hero "in progress"
+  card as the focal point. Parallel builds replaced it with per-row progress; agents never write
+  to Notion, so Davide updates that line.
 - No linter (detekt) configured yet — decide when code volume justifies it.
