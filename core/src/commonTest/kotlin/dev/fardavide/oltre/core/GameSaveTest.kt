@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
@@ -234,18 +235,26 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 1 save migrates its single build slot into the per-facility map`() {
-        // given a save written by 0.0.7, when one facility at a time could build
-        val version1 = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
-            """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
-            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
-            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-            """"buildQueue":{"building":"METAL_MINE","toLevel":2,""" +
-            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:20:00Z"},""" +
-            """"returningFleet":null,"eventLog":[]}}"""
+    fun `the version 1 fixture is the string 0_0_7 actually wrote`() {
+        // The migration is only worth as much as the fixture it is tested against, so the
+        // fixture is not written from memory: this is byte-for-byte the string 0.0.7 pinned in
+        // `the on-disk shape is pinned` (git ecbe518), with the stock of a colony that had not
+        // yet been opened. If a future edit has to change it, the save it describes is not a
+        // 0.0.7 save any more and the migration is being tested against fiction.
+        assertEquals(
+            """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+                """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+                """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+                """"buildQueue":null,"returningFleet":null,"eventLog":[]}}""",
+            VERSION_1_IDLE,
+        )
+    }
 
+    @Test
+    fun `a version 1 save migrates its single build slot into the per-facility map`() {
         // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(version1)).snapshot
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
 
         // then the queued job keeps its identity, keyed by the facility it was raising
         assertEquals(
@@ -264,33 +273,59 @@ class GameSaveTest {
 
     @Test
     fun `a version 1 save with nothing building migrates to an empty build map`() {
-        // given
-        val version1 = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
-            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
-            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
-            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-            """"buildQueue":null,"returningFleet":null,"eventLog":[]}}"""
-
         // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(version1)).snapshot
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_IDLE)).snapshot
 
         // then
         assertTrue(decoded.state.builds.isEmpty())
     }
 
     @Test
-    fun `a migrated colony keeps building through the reload`() {
-        // given a version 1 save whose build lands 20 minutes after it was written
-        val version1 = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
-            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
-            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
-            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-            """"buildQueue":{"building":"METAL_MINE","toLevel":2,""" +
-            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:20:00Z"},""" +
-            """"returningFleet":null,"eventLog":[]}}"""
+    fun `migrating changes the build slot and nothing else`() {
+        // given a version 1 colony with a fleet inbound, an event log and a stock
 
         // when
-        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(version1)).snapshot
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_FULL)).snapshot
+
+        // then everything outside the build slot survives untouched
+        assertEquals(EPOCH, decoded.lastUpdatedAt)
+        assertEquals(500L, decoded.state.resources.metal)
+        assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
+        assertEquals(BuildingLevel(2), decoded.state.buildings.solarPlant)
+        assertEquals(
+            ReturningFleet(
+                ships = mapOf(ShipType.CARGO to 14),
+                cargo = Resources.of(metal = CARGO_METAL),
+                origin = Coordinates(galaxy = 2, system = 117, position = 9),
+                arrivesAt = EPOCH + 1.hours,
+            ),
+            decoded.state.returningFleet,
+        )
+        assertEquals(
+            listOf(Event.BuildStarted(building = BuildingType.METAL_MINE, toLevel = BuildingLevel(5), at = EPOCH)),
+            decoded.state.eventLog,
+        )
+    }
+
+    @Test
+    fun `a migrated save is written back as a version 2 save`() {
+        // given — the migration happens once, on read; what the app then writes is current.
+        val migrated = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
+
+        // when
+        val rewritten = GameSave.encode(migrated)
+
+        // then
+        assertTrue(rewritten.contains(""""schemaVersion":2"""), rewritten)
+        assertTrue(rewritten.contains(""""builds":{"METAL_MINE":"""), rewritten)
+        assertFalse(rewritten.contains("buildQueue"), rewritten)
+        assertEquals(migrated, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
+    }
+
+    @Test
+    fun `a migrated colony keeps building through the reload`() {
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_1_BUILDING)).snapshot
         val resumed = advance(decoded.state, from = decoded.lastUpdatedAt, to = EPOCH + 21.minutes)
 
         // then
@@ -317,5 +352,36 @@ class GameSaveTest {
         val EPOCH = Instant.fromEpochMilliseconds(0)
         const val SCHEMA_VERSION_CURRENT = 2
         const val CARGO_METAL = 500L
+
+        // Frozen captures of the 0.0.7 on-disk format — the saves already sitting on installed
+        // builds. Read them, never rewrite them: an edit here silences the migration tests
+        // instead of fixing them.
+        const val VERSION_1_IDLE = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":null,"returningFleet":null,"eventLog":[]}}"""
+
+        const val VERSION_1_BUILDING = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":{"building":"METAL_MINE","toLevel":2,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:20:00Z"},""" +
+            """"returningFleet":null,"eventLog":[]}}"""
+
+        // A colony that had actually been played: levelled buildings, a stock, a fleet on its
+        // way home and an event log — everything the migration must carry across untouched.
+        const val VERSION_1_FULL = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":{"building":"METAL_MINE","toLevel":5,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"},""" +
+            """"returningFleet":{"ships":{"CARGO":14},""" +
+            """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
+            """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
+            """"at":"1970-01-01T00:00:00Z"}]}}"""
     }
 }
