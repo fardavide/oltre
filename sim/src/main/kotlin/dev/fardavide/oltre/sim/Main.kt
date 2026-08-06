@@ -11,8 +11,8 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 // Headless balancing harness. Never ships. Fast-forwards a week of a greedy strategy that,
-// once per simulated hour, starts the mine-or-plant upgrade with the lowest combined
-// metal+crystal cost among those it can afford right now.
+// once per simulated hour, starts every mine-or-plant upgrade it can afford — cheapest first,
+// since builds now run in parallel and each start eats into the same stock.
 fun main() {
     val start = Instant.fromEpochMilliseconds(0)
     var state = GameState.initial()
@@ -23,25 +23,23 @@ fun main() {
         state = advance(state, from = now, to = next)
         now = next
 
-        if (state.buildQueue == null) {
-            val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
-            val affordable = candidates
-                .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
-                .filter { (_, cost) -> state.resources.covers(cost) }
-                .minByOrNull { (_, cost) -> cost.metal + cost.crystal }
-            if (affordable != null) {
-                when (val result = startUpgrade(state, affordable.first, at = now)) {
+        val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
+        candidates
+            .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
+            .sortedBy { (_, cost) -> cost.metal + cost.crystal }
+            .forEach { (building, cost) ->
+                if (!state.resources.covers(cost)) return@forEach
+                when (val result = startUpgrade(state, building, at = now)) {
                     is StartUpgradeResult.Started -> state = result.state
-                    StartUpgradeResult.QueueBusy,
+                    StartUpgradeResult.AlreadyUpgrading,
                     StartUpgradeResult.InsufficientResources,
                     StartUpgradeResult.RequirementsNotMet,
-                    -> Unit // race between the affordability check and start; skip this hour
+                    -> Unit // already building this facility, or outbid by an earlier start
                 }
             }
-        }
     }
 
-    println("after 7 days:")
+    println("after 7 days (parallel builds):")
     println("  metal=${state.resources.metal} crystal=${state.resources.crystal} deuterium=${state.resources.deuterium}")
     println("  buildings=${state.buildings}")
     println("  events=${state.eventLog.size} (starts + completions)")

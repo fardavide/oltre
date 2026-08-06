@@ -6,7 +6,9 @@ import kotlinx.serialization.Serializable
 data class GameState(
     val resources: Resources,
     val buildings: Buildings,
-    val buildQueue: BuildJob?,
+    // Upgrades run in parallel across facilities, one job per facility — the map key is the
+    // rule. Ordering never matters here: `advance` picks the next completion by instant.
+    val builds: Map<BuildingType, BuildJob>,
     val returningFleet: ReturningFleet?,
     val eventLog: List<Event>,
 ) {
@@ -14,7 +16,7 @@ data class GameState(
         fun initial(): GameState = GameState(
             resources = Resources.of(metal = 0),
             buildings = Buildings.initial(),
-            buildQueue = null,
+            builds = emptyMap(),
             returningFleet = null,
             eventLog = emptyList(),
         )

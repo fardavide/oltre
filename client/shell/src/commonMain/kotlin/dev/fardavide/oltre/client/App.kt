@@ -80,7 +80,7 @@ fun App(
                         val next = GameSession(
                             state = when (val result = startUpgrade(advanced, building, at = at)) {
                                 is StartUpgradeResult.Started -> result.state
-                                StartUpgradeResult.QueueBusy,
+                                StartUpgradeResult.AlreadyUpgrading,
                                 StartUpgradeResult.InsufficientResources,
                                 StartUpgradeResult.RequirementsNotMet,
                                 -> advanced
