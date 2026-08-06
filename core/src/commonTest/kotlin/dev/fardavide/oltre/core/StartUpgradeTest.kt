@@ -27,13 +27,20 @@ class StartUpgradeTest {
         assertEquals(5, started.state.resources.crystal)
         val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel, BuildingLevel(0))
         assertEquals(
-            BuildJob(building = BuildingType.METAL_MINE, toLevel = toLevel, startedAt = now, completesAt = expectedCompletion),
-            started.state.buildQueue,
+            mapOf(
+                BuildingType.METAL_MINE to BuildJob(
+                    building = BuildingType.METAL_MINE,
+                    toLevel = toLevel,
+                    startedAt = now,
+                    completesAt = expectedCompletion,
+                ),
+            ),
+            started.state.builds,
         )
     }
 
     @Test
-    fun `starting an upgrade while another is in progress is rejected`() {
+    fun `starting a second upgrade of the same facility is rejected`() {
         // given
         val now = Instant.fromEpochMilliseconds(0)
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
@@ -48,14 +55,14 @@ class StartUpgradeTest {
         val second = startUpgrade(started, BuildingType.METAL_MINE, at = now)
 
         // then
-        assertIs<StartUpgradeResult.QueueBusy>(second)
+        assertIs<StartUpgradeResult.AlreadyUpgrading>(second)
     }
 
     @Test
     fun `starting an unaffordable upgrade is rejected without changing state`() {
         // given
         val now = Instant.fromEpochMilliseconds(0)
-        val broke = GameState.initial()
+        val broke = GameState.initial().copy(resources = Resources.of())
 
         // when
         val result = startUpgrade(broke, BuildingType.METAL_MINE, at = now)
@@ -77,7 +84,7 @@ class StartUpgradeTest {
         ).state
 
         // when
-        val after = advance(started, from = now, to = checkNotNull(started.buildQueue).completesAt)
+        val after = advance(started, from = now, to = started.completionOf(BuildingType.CRYSTAL_MINE))
 
         // then
         assertEquals(BuildingLevel(2), after.buildings.crystalMine)
@@ -97,7 +104,7 @@ class StartUpgradeTest {
         ).state
 
         // when
-        val after = advance(started, from = now, to = checkNotNull(started.buildQueue).completesAt)
+        val after = advance(started, from = now, to = started.completionOf(BuildingType.DEUTERIUM_SYNTHESIZER))
 
         // then
         assertEquals(BuildingLevel(2), after.buildings.deuteriumSynthesizer)
@@ -117,12 +124,10 @@ class StartUpgradeTest {
         )
 
         // when
-        val slowJob = checkNotNull(
-            assertIs<StartUpgradeResult.Started>(startUpgrade(slow, BuildingType.METAL_MINE, at = now)).state.buildQueue,
-        )
-        val fastJob = checkNotNull(
-            assertIs<StartUpgradeResult.Started>(startUpgrade(fast, BuildingType.METAL_MINE, at = now)).state.buildQueue,
-        )
+        val slowJob = assertIs<StartUpgradeResult.Started>(startUpgrade(slow, BuildingType.METAL_MINE, at = now))
+            .state.jobOf(BuildingType.METAL_MINE)
+        val fastJob = assertIs<StartUpgradeResult.Started>(startUpgrade(fast, BuildingType.METAL_MINE, at = now))
+            .state.jobOf(BuildingType.METAL_MINE)
 
         // then
         val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
@@ -184,7 +189,7 @@ class StartUpgradeTest {
     @Test
     fun `an upgrade cost that would overflow is rejected loudly`() {
         assertFailsWith<IllegalArgumentException> {
-            PlaceholderBalance.upgradeCost(BuildingType.NANITE_FACTORY, BuildingLevel(23))
+            PlaceholderBalance.upgradeCost(BuildingType.NANITE_FACTORY, BuildingLevel(41))
         }
     }
 
@@ -217,6 +222,6 @@ class StartUpgradeTest {
         ).state
 
         // then
-        assertEquals(now, checkNotNull(started.buildQueue).startedAt)
+        assertEquals(now, started.jobOf(BuildingType.METAL_MINE).startedAt)
     }
 }

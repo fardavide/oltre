@@ -35,7 +35,7 @@ class GameSaveTest {
 
         // then
         assertEquals(snapshot, decoded)
-        assertEquals(checkNotNull(started.buildQueue), checkNotNull(decoded.state.buildQueue))
+        assertEquals(started.builds, decoded.state.builds)
         assertEquals(started.eventLog, decoded.state.eventLog)
     }
 
@@ -64,11 +64,11 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
-                """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+            """{"schemaVersion":2,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-                """"buildQueue":null,"returningFleet":null,"eventLog":[]}}""",
+                """"builds":{},"returningFleet":null,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -95,7 +95,16 @@ class GameSaveTest {
     fun `garbage decodes to a failure instead of throwing`() {
         assertIs<DecodeResult.Failure>(GameSave.decode("not json at all"))
         assertIs<DecodeResult.Failure>(GameSave.decode(""))
-        assertIs<DecodeResult.Failure>(GameSave.decode("""{"schemaVersion":1}"""))
+        assertIs<DecodeResult.Failure>(GameSave.decode("""{"lastUpdatedAt":"1970-01-01T00:00:00Z"}"""))
+        assertIs<DecodeResult.Failure>(GameSave.decode("""{"schemaVersion":"not a number"}"""))
+    }
+
+    @Test
+    fun `a retired version is answered without reading the body`() {
+        // A version 1 envelope is retired on its version alone, so a truncated one is reported
+        // as Obsolete rather than as garbage. Both start a fresh colony; this pins which answer
+        // the version check gives, since it runs before anything is decoded.
+        assertIs<DecodeResult.Obsolete>(GameSave.decode("""{"schemaVersion":1}"""))
     }
 
     @Test
@@ -162,7 +171,7 @@ class GameSaveTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded(BuildingType.METAL_MINE), BuildingType.METAL_MINE, at = EPOCH),
         ).state
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = checkNotNull(started.builds[BuildingType.METAL_MINE]).completesAt
 
         // when
         val reloaded = assertIs<DecodeResult.Success>(
@@ -172,7 +181,7 @@ class GameSaveTest {
 
         // then
         assertEquals(BuildingLevel(2), resumed.buildings.metalMine)
-        assertEquals(null, resumed.buildQueue)
+        assertTrue(resumed.builds.isEmpty())
         assertTrue(resumed.eventLog.any { it is Event.BuildCompleted })
     }
 
@@ -231,6 +240,81 @@ class GameSaveTest {
         assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
     }
 
+    @Test
+    fun `the version 1 fixture is the string 0_0_7 actually wrote`() {
+        // The reset is only worth as much as the fixture that triggers it, so the fixture is not
+        // written from memory: this is byte-for-byte the string 0.0.7 pinned in `the on-disk
+        // shape is pinned` (git ecbe518), with the stock of a colony not yet opened. If a future
+        // edit has to change it, it is not a 0.0.7 save any more and this stops proving anything.
+        assertEquals(
+            """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+                """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+                """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+                """"buildQueue":null,"returningFleet":null,"eventLog":[]}}""",
+            VERSION_1_IDLE,
+        )
+    }
+
+    @Test
+    fun `a version 1 save is retired rather than carried forward`() {
+        // when
+        val decoded = GameSave.decode(VERSION_1_IDLE)
+
+        // then — the rebalance is too deep for a colony grown at the old rates to survive it
+        assertEquals(1, assertIs<DecodeResult.Obsolete>(decoded).schemaVersion)
+    }
+
+    @Test
+    fun `a played version 1 colony is retired however far it got`() {
+        // given a save with levelled buildings, a stock, a fleet inbound and an event log
+
+        // when
+        val decoded = GameSave.decode(VERSION_1_FULL)
+
+        // then — nothing about how much was built earns an exemption
+        assertIs<DecodeResult.Obsolete>(decoded)
+    }
+
+    @Test
+    fun `a version 1 save mid-build is retired with its queue`() {
+        // when / then
+        assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_BUILDING))
+    }
+
+    @Test
+    fun `a retired save says why so the player can be told`() {
+        // when
+        val obsolete = assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_IDLE))
+
+        // then — the reason is the payload; a bare failure would leave nothing to show
+        assertTrue(obsolete.reason.isNotBlank())
+        assertTrue(obsolete.reason.contains("rebalance"), obsolete.reason)
+    }
+
+    @Test
+    fun `a retired save is not confused with a broken one`() {
+        // A reset the player was promised and a reset caused by a corrupt file are different
+        // events, and only one of them is worth explaining. Both start a fresh colony, so the
+        // types are the only thing keeping them apart.
+        assertIs<DecodeResult.Failure>(GameSave.decode("not json at all"))
+        assertIs<DecodeResult.Failure>(GameSave.decode(""))
+        assertIs<DecodeResult.Failure>(GameSave.decode(VERSION_1_IDLE.replace(""""schemaVersion":1""", """"schemaVersion":9""")))
+        assertIs<DecodeResult.Obsolete>(GameSave.decode(VERSION_1_IDLE))
+    }
+
+    @Test
+    fun `a version 2 save still loads so the reset is version 1 only`() {
+        // given — the retirement must not take the current format with it
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial())
+
+        // when
+        val decoded = GameSave.decode(GameSave.encode(snapshot))
+
+        // then
+        assertEquals(snapshot, assertIs<DecodeResult.Success>(decoded).snapshot)
+    }
+
     private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
         ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
         cargo = Resources.of(metal = CARGO_METAL),
@@ -248,5 +332,36 @@ class GameSaveTest {
     private companion object {
         val EPOCH = Instant.fromEpochMilliseconds(0)
         const val CARGO_METAL = 500L
+
+        // Frozen captures of the 0.0.7 on-disk format — the saves already sitting on installed
+        // builds. Read them, never rewrite them: an edit here silences the migration tests
+        // instead of fixing them.
+        const val VERSION_1_IDLE = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":null,"returningFleet":null,"eventLog":[]}}"""
+
+        const val VERSION_1_BUILDING = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":0,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":{"building":"METAL_MINE","toLevel":2,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:20:00Z"},""" +
+            """"returningFleet":null,"eventLog":[]}}"""
+
+        // A colony that had actually been played: levelled buildings, a stock, a fleet on its
+        // way home and an event log — everything the migration must carry across untouched.
+        const val VERSION_1_FULL = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"buildQueue":{"building":"METAL_MINE","toLevel":5,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"},""" +
+            """"returningFleet":{"ships":{"CARGO":14},""" +
+            """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
+            """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
+            """"at":"1970-01-01T00:00:00Z"}]}}"""
     }
 }

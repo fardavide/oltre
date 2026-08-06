@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertFailsWith
-import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
@@ -22,14 +22,14 @@ class AdvanceCompletionTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
         ).state
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = started.completionOf(BuildingType.METAL_MINE)
 
         // when
         val after = advance(started, from = t0, to = completesAt + 1.hours)
 
         // then
         assertEquals(BuildingLevel(2), after.buildings.metalMine)
-        assertNull(after.buildQueue)
+        assertTrue(after.builds.isEmpty(), "completed job must leave the build map")
         assertEquals(
             listOf(
                 Event.BuildStarted(
@@ -58,7 +58,7 @@ class AdvanceCompletionTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
         ).state
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = started.completionOf(BuildingType.METAL_MINE)
 
         // when
         val after = advance(started, from = t0, to = completesAt + 1.hours)
@@ -82,7 +82,7 @@ class AdvanceCompletionTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
         ).state
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = started.completionOf(BuildingType.METAL_MINE)
         val t2 = completesAt + 3.hours
         val oneShot = advance(started, from = t0, to = t2)
 
@@ -113,13 +113,13 @@ class AdvanceCompletionTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
         ).state
-        val t2 = checkNotNull(started.buildQueue).completesAt + 3.hours
+        val t2 = started.completionOf(BuildingType.METAL_MINE) + 3.hours
         val oneShot = advance(started, from = t0, to = t2)
 
         val splits = listOf(
             Instant.fromEpochMilliseconds(100_000),
             Instant.fromEpochSeconds(200, 123_456_789),
-            checkNotNull(started.buildQueue).completesAt - 1.milliseconds,
+            started.completionOf(BuildingType.METAL_MINE) - 1.milliseconds,
         )
         for (t1 in splits) {
             // when
@@ -141,7 +141,7 @@ class AdvanceCompletionTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = t0),
         ).state
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = started.completionOf(BuildingType.METAL_MINE)
         val lateFrom = completesAt + 2.hours
 
         // when
@@ -149,7 +149,7 @@ class AdvanceCompletionTest {
 
         // then
         assertEquals(BuildingLevel(2), after.buildings.metalMine)
-        assertNull(after.buildQueue)
+        assertTrue(after.builds.isEmpty(), "completed job must leave the build map")
     }
 
     @Test

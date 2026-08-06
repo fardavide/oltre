@@ -13,7 +13,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -52,7 +51,7 @@ class GameSessionTest {
     fun `a build that finished while the app was closed is finished on reopening`() {
         // given
         val started = midBuild()
-        val completesAt = checkNotNull(started.buildQueue).completesAt
+        val completesAt = checkNotNull(started.builds[BuildingType.METAL_MINE]).completesAt
 
         // when
         val session = resume(
@@ -62,7 +61,7 @@ class GameSessionTest {
 
         // then
         assertEquals(BuildingLevel(2), session.state.buildings.metalMine)
-        assertNull(session.state.buildQueue)
+        assertTrue(session.state.builds.isEmpty())
     }
 
     @Test
@@ -106,7 +105,7 @@ class GameSessionTest {
     fun `a tick that completed a build is worth saving`() {
         // given
         val before = GameSession(midBuild(), EPOCH)
-        val completesAt = checkNotNull(before.state.buildQueue).completesAt
+        val completesAt = checkNotNull(before.state.builds[BuildingType.METAL_MINE]).completesAt
 
         // when
         val after = GameSession(advance(before.state, from = EPOCH, to = completesAt), completesAt)

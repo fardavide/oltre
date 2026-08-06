@@ -7,10 +7,12 @@ import kotlin.time.Instant
 // sub-spans (the composability property).
 fun advance(state: GameState, from: Instant, to: Instant): GameState {
     require(to >= from) { "advance must not go backwards: from=$from to=$to" }
-    val nextEventAt = listOfNotNull(
-        state.buildQueue?.completesAt,
-        state.returningFleet?.arrivesAt,
-    ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
+    // Builds run in parallel, so several of them — plus a fleet arrival — are in flight at once
+    // and each one changes what the following span accrues. Take the earliest due event, apply
+    // it, and recurse.
+    val nextEventAt = (
+        state.builds.values.map { it.completesAt } + listOfNotNull(state.returningFleet?.arrivesAt)
+        ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
     // apply it defensively instead of wedging it forever.
     val boundary = maxOf(nextEventAt, from)
@@ -20,11 +22,13 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
 
 private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     var next = this
-    val job = next.buildQueue
-    if (job != null && job.completesAt == instant) {
+    // Two jobs can land on the same instant; applying them in building order keeps the event
+    // log deterministic.
+    val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
+    for (job in completed) {
         next = next.copy(
             buildings = next.buildings.withLevel(job.building, job.toLevel),
-            buildQueue = null,
+            builds = next.builds - job.building,
             eventLog = next.eventLog + Event.BuildCompleted(
                 building = job.building,
                 newLevel = job.toLevel,

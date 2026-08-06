@@ -7,25 +7,44 @@ import kotlin.time.Duration.Companion.minutes
 // page or by Davide. This object is the single place placeholders live; never scatter literals.
 object PlaceholderBalance {
     // Flat placeholder cap per resource, in whole units — sized so every placeholder cost
-    // curve (nanite L1 = 1M metal) stays reachable. The rule that raises it (storage building?
-    // mine-level-scaled?) is an open design question for Davide.
+    // curve stays reachable. The rule that raises it (storage building? mine-level-scaled?) is
+    // an open design question for Davide.
     const val STORAGE_CAPACITY: Long = 10_000_000
 
     const val NANITE_ROBOTICS_REQUIREMENT: Int = 10
 
-    const val METAL_PRODUCTION_PER_HOUR: Long = 3_600
-    const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 1_800
-    const val DEUTERIUM_PRODUCTION_PER_HOUR: Long = 900
+    // Level-1 hourly output, in whole units. Deliberately human-scale: a fresh colony makes
+    // tens of units an hour, so a stock is a number the player reads rather than a wall of
+    // digits, and an upgrade cost is something they can hold in their head.
+    const val METAL_PRODUCTION_PER_HOUR: Long = 60
+    const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 30
+    const val DEUTERIUM_PRODUCTION_PER_HOUR: Long = 15
 
-    // Linear placeholder curve; the real curve comes from Notion or sim tuning.
+    // Output compounds +25% per level, so an upgrade is a raise and never a doubling: level 10
+    // out-produces level 1 by ~7x rather than 10x, and the difference between levels stays
+    // legible. Cost compounds faster (+50%), which is what makes a deep level a decision
+    // instead of an obvious yes — payback time grows with depth.
+    private const val PRODUCTION_GROWTH_NUMERATOR: Long = 5
+    private const val PRODUCTION_GROWTH_DENOMINATOR: Long = 4
+    private const val COST_GROWTH_NUMERATOR: Long = 3
+    private const val COST_GROWTH_DENOMINATOR: Long = 2
+
+    // Beyond this the cost curve leaves human territory; the guard also keeps the fine-unit
+    // conversion inside Long (nanite metal at level 40 is ~1.5e11 whole units, ~5.3e17 fine).
+    private const val MAX_UPGRADE_LEVEL: Int = 40
+
+    // A new colony opens on a decision, not on a wait: enough metal and crystal for the first
+    // few mine levels. Deuterium is earned, never granted — it gates the Robotics Factory.
+    fun startingResources(): Resources = Resources.of(metal = 500, crystal = 300)
+
     fun metalProductionPerHour(level: BuildingLevel): Long =
-        METAL_PRODUCTION_PER_HOUR * level.value
+        productionPerHour(METAL_PRODUCTION_PER_HOUR, level)
 
     fun crystalProductionPerHour(level: BuildingLevel): Long =
-        CRYSTAL_PRODUCTION_PER_HOUR * level.value
+        productionPerHour(CRYSTAL_PRODUCTION_PER_HOUR, level)
 
     fun deuteriumProductionPerHour(level: BuildingLevel): Long =
-        DEUTERIUM_PRODUCTION_PER_HOUR * level.value
+        productionPerHour(DEUTERIUM_PRODUCTION_PER_HOUR, level)
 
     // Energy: mines consume, the solar plant produces; on deficit every mine's effective
     // hourly rate is scaled by produced/consumed using integer division. The scaled rate is
@@ -53,39 +72,17 @@ object PlaceholderBalance {
         return if (produced >= consumed) fullRate else fullRate * produced / consumed
     }
 
-    // Exponential placeholder curves: cost doubles per level, duration grows linearly.
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
-        // 2^40 × the largest base (1e6) × FINE_PER_UNIT still fits in a Long; beyond that the
-        // shift itself wraps, so reject before computing.
-        require(toLevel.value <= 40) { "upgrade cost overflows beyond level 40, asked for $toLevel" }
-        return when (building) {
-        BuildingType.METAL_MINE -> Resources.of(
-            metal = 60L shl (toLevel.value - 1),
-            crystal = 15L shl (toLevel.value - 1),
+        require(toLevel.value in 1..MAX_UPGRADE_LEVEL) {
+            "upgrade cost is only defined up to level $MAX_UPGRADE_LEVEL, asked for $toLevel"
+        }
+        val steps = toLevel.value - 1
+        val base = baseCost(building)
+        return Resources.of(
+            metal = compound(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            crystal = compound(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            deuterium = compound(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
         )
-        BuildingType.CRYSTAL_MINE -> Resources.of(
-            metal = 48L shl (toLevel.value - 1),
-            crystal = 24L shl (toLevel.value - 1),
-        )
-        BuildingType.DEUTERIUM_SYNTHESIZER -> Resources.of(
-            metal = 225L shl (toLevel.value - 1),
-            crystal = 75L shl (toLevel.value - 1),
-        )
-        BuildingType.SOLAR_PLANT -> Resources.of(
-            metal = 75L shl (toLevel.value - 1),
-            crystal = 30L shl (toLevel.value - 1),
-        )
-        BuildingType.ROBOTICS_FACTORY -> Resources.of(
-            metal = 400L shl (toLevel.value - 1),
-            crystal = 120L shl (toLevel.value - 1),
-            deuterium = 200L shl (toLevel.value - 1),
-        )
-        BuildingType.NANITE_FACTORY -> Resources.of(
-            metal = 1_000_000L shl (toLevel.value - 1),
-            crystal = 500_000L shl (toLevel.value - 1),
-            deuterium = 100_000L shl (toLevel.value - 1),
-        )
-    }
     }
 
     fun upgradeDuration(
@@ -103,4 +100,32 @@ object PlaceholderBalance {
         }
         return base / (1 + roboticsFactory.value)
     }
+
+    private fun productionPerHour(baseAtLevelOne: Long, level: BuildingLevel): Long =
+        if (level.value == 0) {
+            0
+        } else {
+            compound(baseAtLevelOne, level.value - 1, PRODUCTION_GROWTH_NUMERATOR, PRODUCTION_GROWTH_DENOMINATOR)
+        }
+
+    // Integer geometric growth, floored at every step rather than once at the end. Per-step
+    // flooring is the rule, not an approximation of one: an hourly rate has to be a whole
+    // number of units for fine-unit accrual to stay exact, and a cost has to be a whole number
+    // for the stock arithmetic to close.
+    private fun compound(base: Long, steps: Int, numerator: Long, denominator: Long): Long {
+        var value = base
+        repeat(steps) { value = value * numerator / denominator }
+        return value
+    }
+
+    private fun baseCost(building: BuildingType): BaseCost = when (building) {
+        BuildingType.METAL_MINE -> BaseCost(metal = 60, crystal = 15)
+        BuildingType.CRYSTAL_MINE -> BaseCost(metal = 48, crystal = 24)
+        BuildingType.DEUTERIUM_SYNTHESIZER -> BaseCost(metal = 225, crystal = 75)
+        BuildingType.SOLAR_PLANT -> BaseCost(metal = 75, crystal = 30)
+        BuildingType.ROBOTICS_FACTORY -> BaseCost(metal = 400, crystal = 120, deuterium = 200)
+        BuildingType.NANITE_FACTORY -> BaseCost(metal = 20_000, crystal = 10_000, deuterium = 4_000)
+    }
+
+    private data class BaseCost(val metal: Long, val crystal: Long = 0, val deuterium: Long = 0)
 }

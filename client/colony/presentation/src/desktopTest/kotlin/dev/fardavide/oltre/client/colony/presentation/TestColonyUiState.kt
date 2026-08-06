@@ -4,25 +4,41 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.ResourceKind
 
-// A mid-game colony: a build running, a fleet on its way home, and facility rows in all three
-// action states. Shared by the layout assertions and the wide-window baseline.
+// A mid-game colony: two builds running in parallel, a fleet on its way home, and rows in every
+// action state. Shared by the layout assertions and the wide-window baseline.
 internal val testColonyUiState = ColonyUiState(
-    metal = "482,910",
-    metalRatePerHour = "+12,400/h",
-    crystal = "198,340",
-    crystalRatePerHour = "+6,180/h",
-    deuterium = "74,120",
-    deuteriumRatePerHour = "+900/h",
+    metal = "8,420",
+    metalRatePerHour = "+310/h",
+    crystal = "3,180",
+    crystalRatePerHour = "+140/h",
+    deuterium = "960",
+    deuteriumRatePerHour = "+45/h",
     facilities = listOf(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,
             name = "Metal Mine",
-            level = BuildingLevel(18),
+            level = BuildingLevel(12),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "120,400", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "30,100", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,851", short = false),
             ),
-            duration = "1h 04m",
+            duration = "2h 10m",
+            action = FacilityActionUiState.Upgrading(
+                toLevel = BuildingLevel(13),
+                countdown = "01:42:19",
+                progressPercent = 68,
+                doneAt = "done 11:23",
+            ),
+        ),
+        FacilityRowUiState(
+            building = BuildingType.SOLAR_PLANT,
+            name = "Solar Plant",
+            level = BuildingLevel(9),
+            costs = listOf(
+                CostChipUiState(kind = ResourceKind.METAL, amount = "2,306", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "922", short = false),
+            ),
+            duration = "48m",
             action = FacilityActionUiState.Upgrade,
         ),
         FacilityRowUiState(
@@ -30,10 +46,10 @@ internal val testColonyUiState = ColonyUiState(
             name = "Deuterium Synth.",
             level = BuildingLevel(16),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "604,900", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "201,600", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "48,997", short = false),
             ),
-            duration = "2h 51m",
+            duration = "5h 40m",
             action = FacilityActionUiState.AffordableIn("in 3h 12m"),
         ),
         FacilityRowUiState(
@@ -41,19 +57,13 @@ internal val testColonyUiState = ColonyUiState(
             name = "Nanite Factory",
             level = BuildingLevel(0),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "1,000,000", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "500,000", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "100,000", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "10,000", short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "4,000", short = false),
             ),
-            duration = "4h 00m",
+            duration = "2h 00m",
             action = FacilityActionUiState.Locked("Requires Robotics 10"),
         ),
-    ),
-    inProgress = InProgressUiState(
-        title = "Crystal Mine → 9",
-        countdown = "00:41:12",
-        progressPercent = 62,
-        doneAt = "done 21:14",
     ),
     returningFleet = ReturningFleetUiState(
         title = "Fleet returning",

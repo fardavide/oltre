@@ -45,10 +45,6 @@ fun ColonyScreen(
                     .testTag(ColonyTestTags.CONTENT)
                     .padding(16.dp),
             ) {
-                uiState.inProgress?.let { card ->
-                    SectionLabel(text = "IN PROGRESS")
-                    InProgressCard(uiState = card, modifier = Modifier.padding(bottom = 22.dp))
-                }
                 uiState.returningFleet?.let { fleet ->
                     FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
                 }

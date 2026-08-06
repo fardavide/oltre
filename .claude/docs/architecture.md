@@ -50,6 +50,12 @@ Handwritten fakes via per-module Gradle test fixtures where the module type supp
 KMP module that cannot host fixtures gets a sibling `:<module>:testing` module owned by the same
 layer. Never one repo-wide doubles module.
 
+**Backtick test names in `commonTest` may not contain `, . ; : / \ < > [ ]`.** Kotlin/Native
+rejects them (`Name contains illegal characters`), so a comma in a test name compiles on the JVM,
+passes locally, and fails CI on the iOS targets only — learned the slow way, 2026-08-06. Write
+`only the building facility shows progress while the rest stay actionable`, not
+`… progress, the rest stay actionable`. `desktopTest` source sets are JVM-only and unaffected.
+
 ## Client rules
 
 - The UI computes state from the last-updated instant when the app comes to the foreground —

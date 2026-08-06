@@ -56,11 +56,12 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 - [docs/ui-mockup.html](docs/ui-mockup.html) — UI design brief: Colony + Galaxy screens at iPhone size.
 - [.claude/docs/brief.md](.claude/docs/brief.md) — distilled project brief; points to the Notion design page.
+- [.claude/docs/balance-log.md](.claude/docs/balance-log.md) — every round of balance tuning: the numbers, the feedback that changed them, what is still open.
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
 
-### 0.0.8 — 2026-08-06
+### 0.0.9 — 2026-08-06
 
 - **The game is a real iPad app.** It no longer runs in the letterboxed iPhone compatibility
   window: it fills the screen in every orientation, resizes freely, and works in Split View,
@@ -69,6 +70,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   stretching — it caps and centres, with the resource bar still spanning the top edge — so a
   facility row on a large iPad or a wide desktop window is as readable as on a phone. On a phone
   nothing changes.
+
+### 0.0.8 — 2026-08-06
+
+- **Upgrades run in parallel, and the numbers are human.** Every facility builds on its own —
+  start a mine, a plant and a factory at once — and each row carries its own countdown, target
+  level, finish time and progress bar instead of a single card at the top of the screen. The
+  economy was rescaled to numbers you can hold in your head: a level-1 mine makes 60 metal an
+  hour rather than 3,600, an upgrade raises output by a quarter instead of doubling it, and
+  costs grow by half per level instead of doubling. A new colony now starts with enough metal
+  and crystal to make its first choice immediately.
+- **Colonies from 0.0.7 start over.** The rebalance is too deep to carry an old colony across —
+  stocks earned at sixty times these rates would take weeks to earn now — so the save format
+  moved to version 2 and version 1 saves are retired rather than converted: opening 0.0.8 on an
+  older save begins a fresh colony. Saves written by 0.0.8 onwards load normally.
 
 ### 0.0.7 — 2026-08-06
 
