@@ -189,6 +189,63 @@ and there is no Android app module yet, so `AndroidSaveLocation.directory` is se
 application at startup; the two identical JVM `FileSaveFile` copies collapse into one shared
 source set when that module lands.
 
+## Parallel upgrades; build progress lives on the facility row
+
+Davide's play-test feedback (2026-08-06). One build slot is replaced by one job **per facility**:
+`GameState.builds` is a `Map<BuildingType, BuildJob>`, `advance` applies completions earliest
+first (ties broken by building order, so the event log is deterministic), and `startUpgrade`
+refuses only a second job on the *same* facility. Resources are meant to be the limiter, and now
+they are the only one.
+
+The UI follows the mechanic: the hero "in progress" card is gone and each facility row shows its
+own target level, countdown, finish time and progress bar. **This supersedes the Notion UI
+direction line "one hero in-progress card with a live countdown as the focal point"** — with
+parallel builds there is no single build to hoist. The Notion page records the supersession
+(written 2026-08-06 under the read/write rule below); the principle survives, the countdown just
+lives on the row.
+
+Open, deliberately not decided here: whether a later pressure (logistics, upkeep) caps how many
+projects can run at once — Notion's "unlimited mature colonies, limited simultaneous projects"
+suggests it eventually should.
+
+## Placeholder curves: human numbers, +25% output per level, ×1.5 cost
+
+Davide's play-test feedback (2026-08-06): production doubling on upgrade is absurd, facilities
+produce too much, upgrades cost too much. Notion carries no balance numbers, so these remain
+placeholders in `PlaceholderBalance` — but the *shape* is now deliberate:
+
+- Level-1 output is 60/30/15 metal/crystal/deuterium per hour (was 3,600/1,800/900). A check-in
+  reads as a number, not a wall of digits.
+- Output compounds **+25% per level** instead of scaling linearly with it (`rate × level`
+  doubled output on the very first upgrade). Level 10 out-produces level 1 by ~7×.
+- Cost compounds **×1.5 per level** instead of ×2, from the same OGame-shaped bases; the Nanite
+  Factory's base drops from 1M/500k/100k to 20k/10k/4k so it sits just past Robotics 10 instead
+  of in another economy entirely.
+- Cost outgrowing output is the point: the first mine upgrade pays back in ~6 hours, level 11 in
+  ~31, so depth stays a decision. Asserted in `BalanceCurveTest`, not left to arithmetic.
+- A new colony starts with 500 metal / 300 crystal so the first session opens on a decision
+  rather than a wait. Deuterium is never granted — it is what gates the Robotics Factory.
+
+Build durations were left alone (base minutes × level), so deep levels are gated by resources
+rather than by clock. If that ever feels wrong the lever is tying duration to cost, OGame-style.
+
+Each round of tuning is recorded in [balance-log.md](balance-log.md), with Davide's feedback in
+his own words and what the change was expected to feel like — so the next session can tell a
+repeat complaint from a new one, and can see what was already tried and rejected. `:sim:run`
+prints the curve table that file carries, so its numbers are regenerated rather than retyped.
+
+## Notion is read/write for agents
+
+Davide, 2026-08-06, superseding the kickstart "never write to Notion" rule: the game's plan is
+still forming, so what the build learns should land where the design lives instead of only in
+chat. The guard rails, spelled out in [brief.md](brief.md): record rather than decide (design
+calls stay his), append and annotate rather than overwrite, date every entry and say it came
+from the build, and stay inside the Oltre page.
+
+What the old rule was protecting against — an agent quietly rewriting a decision — is now
+covered by *how* to write rather than by not writing at all. The first entries under it are the
+hero-card supersession and the placeholder-curve shapes above.
+
 ## Screenshot baselines can be recorded by a manual CI job
 
 Davide's proposal (2026-08-06), after a remote agent session could not record a baseline: a
@@ -217,3 +274,28 @@ Two mechanics worth knowing before touching the workflow:
 Rejected: posting the images as an artifact link only (an artifact is a zip nobody opens during
 review) and committing diff renders to the repo (build output does not belong in git). Raw URLs
 on a public repo render inline in a comment, which is what makes the validation actually happen.
+
+## Save schema 2: version 1 is retired, not migrated
+
+0.0.7 shipped persistence to TestFlight, so the `buildQueue` → `builds` change is a
+`SCHEMA_VERSION` bump rather than a re-pinned test string — that much the persistence entry
+above already required. What to do with the version-1 saves already on installed builds was
+Davide's call (2026-08-06): **reset them.**
+
+A shape-only migration was written first and rejected on review. It worked — a queued job names
+its own facility, so the map key was in the data — but it preserved the wrong thing. A colony
+grown at the old rates keeps stocks the new curves would take weeks to earn, so converting its
+shape hands back a colony that is no longer playable rather than preserving one. Rescaling the
+stocks by the ratio between the curves was rejected too: it invents a number nobody decided.
+
+`DecodeResult` therefore gains **`Obsolete`**, distinct from `Failure`. Both start a fresh
+colony, so the distinction buys nothing today — it exists because a corrupt save is an accident
+and a retired one is a decision, and only one of them is worth explaining to the player. The
+reason string travels with the result, so a "your colony was reset, here is why" notice can be
+built on it without touching core or the store. `OBSOLETE_SCHEMAS` is the list; adding to it is
+how a future rebalance retires a format, and migrating stays the default for changes that are
+only shape.
+
+The version-1 test fixtures are frozen captures of what 0.0.7 wrote, asserted byte-for-byte
+against the string that build pinned (git `ecbe518`). A reset test is only as good as the save
+that triggers it: a fixture written from memory would prove that made-up JSON resets.

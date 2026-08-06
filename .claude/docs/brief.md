@@ -5,9 +5,17 @@
 The design lives in Notion: **👾 Game Projects → "Oltre"**
 `https://app.notion.com/p/3b383937c1be81af9036dce2ecaf7d57`
 
-Everything there is decided unless it says otherwise. **Notion is read-only for agents** — never
-write, update or create a Notion page. If something there is wrong, stale or missing, say so in
-chat instead.
+Everything there is decided unless it says otherwise. **Agents read and write that page**
+(Davide, 2026-08-06: the plan is still forming, so feedback belongs where the design lives).
+The rules for writing:
+
+- **Record, don't decide.** Design calls — balance, mechanics, scope — stay Davide's. Propose in
+  chat; write it to Notion once he has called it, or write it as an open question.
+- **Append and annotate; never overwrite or delete his text.** When the build supersedes
+  something, keep the original line and mark what replaced it and when, so the reasoning
+  survives.
+- **Date every entry**, and say it came from the build.
+- Edit the Oltre page and its subpages. Anything outside that page is still off limits.
 
 ## What Oltre is
 

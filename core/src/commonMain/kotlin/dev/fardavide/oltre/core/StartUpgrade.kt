@@ -25,36 +25,32 @@ data class BuildJob(
 
 sealed interface StartUpgradeResult {
     data class Started(val state: GameState) : StartUpgradeResult
-    data object QueueBusy : StartUpgradeResult
+    data object AlreadyUpgrading : StartUpgradeResult
     data object InsufficientResources : StartUpgradeResult
     data object RequirementsNotMet : StartUpgradeResult
 }
 
 fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUpgradeResult {
-    if (state.buildQueue != null) return StartUpgradeResult.QueueBusy
+    // Facilities upgrade in parallel; the only queue rule is that one facility cannot be
+    // upgraded twice at once. Resources are the real limiter, and they should be the only one.
+    if (building in state.builds) return StartUpgradeResult.AlreadyUpgrading
     // Nanite requires Robotics 10 (mockup rule); the research half of the gate arrives in M4.
     if (building == BuildingType.NANITE_FACTORY && state.buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT) {
         return StartUpgradeResult.RequirementsNotMet
     }
-    val toLevel = when (building) {
-        BuildingType.METAL_MINE -> BuildingLevel(state.buildings.metalMine.value + 1)
-        BuildingType.CRYSTAL_MINE -> BuildingLevel(state.buildings.crystalMine.value + 1)
-        BuildingType.DEUTERIUM_SYNTHESIZER -> BuildingLevel(state.buildings.deuteriumSynthesizer.value + 1)
-        BuildingType.SOLAR_PLANT -> BuildingLevel(state.buildings.solarPlant.value + 1)
-        BuildingType.ROBOTICS_FACTORY -> BuildingLevel(state.buildings.roboticsFactory.value + 1)
-        BuildingType.NANITE_FACTORY -> BuildingLevel(state.buildings.naniteFactory.value + 1)
-    }
+    val toLevel = BuildingLevel(state.buildings.levelOf(building).value + 1)
     val cost = PlaceholderBalance.upgradeCost(building, toLevel)
     if (!state.resources.covers(cost)) return StartUpgradeResult.InsufficientResources
+    val job = BuildJob(
+        building = building,
+        toLevel = toLevel,
+        startedAt = at,
+        completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
+    )
     return StartUpgradeResult.Started(
         state.copy(
             resources = state.resources.minus(cost),
-            buildQueue = BuildJob(
-                building = building,
-                toLevel = toLevel,
-                startedAt = at,
-                completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
-            ),
+            builds = state.builds + (building to job),
             eventLog = state.eventLog + Event.BuildStarted(building = building, toLevel = toLevel, at = at),
         ),
     )

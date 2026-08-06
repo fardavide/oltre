@@ -6,9 +6,11 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 
 ## Read first
 
-- `.claude/docs/brief.md` — distilled brief; links the Notion design page (**source of truth,
-  READ-ONLY — never write to Notion**).
+- `.claude/docs/brief.md` — distilled brief; links the Notion design page (**source of truth**;
+  agents read *and* write it — record what the build learned, never overwrite Davide's calls).
 - `.claude/docs/architecture.md` + `.claude/docs/decisions.md` — before any non-trivial change.
+- `.claude/docs/balance-log.md` — before touching any balance number: what was already tried,
+  what playing it felt like, what is still open. Add a round there whenever tuning lands.
 - Design decisions (balance numbers, mechanics, scope) are Davide's. If Notion doesn't answer,
   ask — never invent.
 

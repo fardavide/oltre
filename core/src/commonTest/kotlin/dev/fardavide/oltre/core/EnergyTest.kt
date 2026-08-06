@@ -20,7 +20,7 @@ class EnergyTest {
             "initial solar plant must cover initial mines",
         )
         val start = Instant.fromEpochMilliseconds(0)
-        val produced = advance(state, from = start, to = start + 1.hours).resources.metal
+        val produced = advance(state, from = start, to = start + 1.hours).resources.metal - state.resources.metal
         assertEquals(PlaceholderBalance.metalProductionPerHour(state.buildings.metalMine), produced)
     }
 
@@ -37,7 +37,8 @@ class EnergyTest {
         assertTrue(produced < consumed, "scenario must actually be energy-starved")
 
         // when
-        val metalAfterHour = advance(hungry, from = start, to = start + 1.hours).resources.metal
+        val metalAfterHour = advance(hungry, from = start, to = start + 1.hours).resources.metal -
+            hungry.resources.metal
 
         // then
         val fullRate = PlaceholderBalance.metalProductionPerHour(BuildingLevel(9))

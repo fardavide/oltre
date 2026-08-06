@@ -20,8 +20,14 @@ class AdvanceArrivalTest {
 
         // then
         assertEquals(null, result.returningFleet)
-        assertEquals(2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR + 500, result.resources.metal)
-        assertEquals(2 * PlaceholderBalance.CRYSTAL_PRODUCTION_PER_HOUR + 200, result.resources.crystal)
+        assertEquals(
+            state.resources.metal + 2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR + 500,
+            result.resources.metal,
+        )
+        assertEquals(
+            state.resources.crystal + 2 * PlaceholderBalance.CRYSTAL_PRODUCTION_PER_HOUR + 200,
+            result.resources.crystal,
+        )
     }
 
     @Test
@@ -57,7 +63,10 @@ class AdvanceArrivalTest {
 
         // then
         assertEquals(inFlight, result.returningFleet)
-        assertEquals(2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR, result.resources.metal)
+        assertEquals(
+            state.resources.metal + 2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR,
+            result.resources.metal,
+        )
     }
 
     @Test
