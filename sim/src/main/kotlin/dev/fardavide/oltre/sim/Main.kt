@@ -93,11 +93,15 @@ private fun printGreedyWeek() {
     val start = Instant.fromEpochMilliseconds(0)
     var state = GameState.initial()
     var now = start
+    // A power shortage scales every mine silently, so a week that looks slow can be a week spent
+    // throttled rather than a curve that is too flat. Counting it is what tells the two apart.
+    var throttledHours = 0
 
     repeat(7 * 24) {
         val next = now + 1.hours
         state = advance(state, from = now, to = next)
         now = next
+        if (PlaceholderBalance.energyBalance(state.buildings, state.research).isDeficit) throttledHours++
 
         val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
         candidates
@@ -115,8 +119,11 @@ private fun printGreedyWeek() {
             }
     }
 
+    val energy = PlaceholderBalance.energyBalance(state.buildings, state.research)
     println("after 7 days (parallel builds):")
     println("  metal=${state.resources.metal} crystal=${state.resources.crystal} deuterium=${state.resources.deuterium}")
     println("  buildings=${state.buildings}")
+    println("  energy=${energy.produced}/${energy.consumed} (mines at ${energy.outputPercent}%)")
+    println("  hours throttled by power: $throttledHours of ${7 * 24}")
     println("  events=${state.eventLog.size} (starts + completions)")
 }

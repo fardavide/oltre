@@ -47,6 +47,9 @@ fun ColonyScreen(
                 uiState.returningFleet?.let { fleet ->
                     FleetStrip(uiState = fleet, modifier = Modifier.padding(bottom = 22.dp))
                 }
+                // First in the column, so the reading order is the state of the colony and then
+                // the things that produce it.
+                PowerIndicator(uiState = uiState.energy, modifier = Modifier.padding(bottom = 8.dp))
                 SectionLabel(text = "FACILITIES")
                 FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
             }

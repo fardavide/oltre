@@ -23,10 +23,38 @@ class BalanceCurveTest {
     }
 
     @Test
+    fun `metal is produced in the proportion the early build tree demands it`() {
+        // given everything a first week actually builds — the Nanite Factory is a different
+        // economy and would drown the ratio it is not part of
+        val earlyTree = listOf(
+            BuildingType.METAL_MINE,
+            BuildingType.CRYSTAL_MINE,
+            BuildingType.DEUTERIUM_SYNTHESIZER,
+            BuildingType.SOLAR_PLANT,
+            BuildingType.ROBOTICS_FACTORY,
+        )
+        val demandedMetal = earlyTree.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).metal }
+        val demandedCrystal = earlyTree.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).crystal }
+
+        // when
+        val producedMetal = PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))
+        val producedCrystal = PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1))
+
+        // then production must roughly track demand, within a tenth. Metal used to be produced
+        // 2:1 against crystal while the early tree costs ~3:1, which made it the permanent
+        // bottleneck however the colony was played — crystal piled up unspent while metal starved.
+        assertTrue(
+            producedMetal * demandedCrystal * 10 >= demandedMetal * producedCrystal * 9,
+            "metal production ($producedMetal:$producedCrystal) must track the " +
+                "$demandedMetal:$demandedCrystal the early tree demands",
+        )
+    }
+
+    @Test
     fun `production is human-scale at the levels a first week reaches`() {
         // then
-        assertEquals(60L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)))
-        assertEquals(440L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(10)))
+        assertEquals(90L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)))
+        assertEquals(663L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(10)))
         assertEquals(30L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1)))
         assertEquals(213L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(10)))
         assertEquals(15L, PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(1)))

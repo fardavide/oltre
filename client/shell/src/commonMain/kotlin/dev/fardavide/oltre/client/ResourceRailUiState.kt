@@ -13,6 +13,10 @@ data class ResourceRailUiState(
     val crystalRatePerHour: String,
     val deuterium: String,
     val deuteriumRatePerHour: String,
+    // Whether a power shortage is holding those rates down. The rates are already the throttled
+    // figures; what misled the player was a true rate presented as an untroubled one. The Colony
+    // screen explains the shortage — this is only the mark that says the numbers above are it.
+    val throttled: Boolean,
 )
 
 internal fun GameState.toResourceRailUiState(): ResourceRailUiState = ResourceRailUiState(
@@ -22,6 +26,9 @@ internal fun GameState.toResourceRailUiState(): ResourceRailUiState = ResourceRa
     crystalRatePerHour = PlaceholderBalance.effectiveCrystalProductionPerHour(buildings, research).toRate(),
     deuterium = resources.deuterium.groupedByThousands(),
     deuteriumRatePerHour = PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings, research).toRate(),
+    // Derived from core, not handed down from the Colony screen: energy is a rule, and the rail
+    // sits above every destination including the ones that have no colony ui-state to ask.
+    throttled = PlaceholderBalance.energyBalance(buildings, research).isDeficit,
 )
 
 private fun Long.toRate(): String = "+${groupedByThousands()}/h"

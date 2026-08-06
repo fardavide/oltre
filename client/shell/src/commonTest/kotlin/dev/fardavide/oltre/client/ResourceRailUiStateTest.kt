@@ -9,6 +9,7 @@ import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 // Moved here with the rail itself at 0.0.12: it stopped being the Colony screen's and became the
 // frame's, because Research shows it too.
@@ -31,7 +32,7 @@ class ResourceRailUiStateTest {
         }
 
         // then
-        assertEquals("+75/h", state.toResourceRailUiState().metalRatePerHour)
+        assertEquals("+112/h", state.toResourceRailUiState().metalRatePerHour)
     }
 
     @Test
@@ -46,7 +47,7 @@ class ResourceRailUiStateTest {
 
         // then
         assertEquals("1,000", uiState.metal)
-        assertEquals("+60/h", uiState.metalRatePerHour)
+        assertEquals("+90/h", uiState.metalRatePerHour)
         assertEquals("2,000", uiState.crystal)
         assertEquals("+30/h", uiState.crystalRatePerHour)
         assertEquals("3,000", uiState.deuterium)
@@ -55,7 +56,7 @@ class ResourceRailUiStateTest {
 
     @Test
     fun `the rate the rail shows is the one research has already raised`() {
-        // given the same colony with two levels of Extraction - 60 and 30 per hour times 1_08^2
+        // given the same colony with two levels of Extraction - 90 and 30 per hour times 1_08^2
         val state = GameState.initial().copy(
             research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(2)),
         )
@@ -64,7 +65,7 @@ class ResourceRailUiStateTest {
         val uiState = state.toResourceRailUiState()
 
         // then - what the rail says has to be what advance will actually accrue
-        assertEquals("+69/h", uiState.metalRatePerHour)
+        assertEquals("+104/h", uiState.metalRatePerHour)
         assertEquals("+34/h", uiState.crystalRatePerHour)
     }
 
@@ -75,7 +76,8 @@ class ResourceRailUiStateTest {
             it.copy(buildings = it.buildings.withLevel(BuildingType.METAL_MINE, BuildingLevel(9)))
         }
 
-        // then - 352 per hour scaled by 50 produced over 120 consumed
-        assertEquals("+146/h", state.toResourceRailUiState().metalRatePerHour)
+        // then - 531 per hour scaled by 50 produced over 120 consumed, and marked as throttled
+        assertEquals("+221/h", state.toResourceRailUiState().metalRatePerHour)
+        assertTrue(state.toResourceRailUiState().throttled)
     }
 }

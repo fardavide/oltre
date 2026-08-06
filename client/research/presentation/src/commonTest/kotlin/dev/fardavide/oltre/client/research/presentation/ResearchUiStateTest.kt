@@ -132,10 +132,10 @@ class ResearchUiStateTest {
 
     @Test
     fun `a row waits on the money when the money is further away than the slot`() {
-        // given 60 metal short at 60 an hour, against a slot that frees in half an hour
+        // given 90 metal short at 90 an hour, against a slot that frees in half an hour
         val row = colony(
             buildings = gated(),
-            resources = Resources.of(metal = 240, crystal = 150, deuterium = 100),
+            resources = Resources.of(metal = 210, crystal = 150, deuterium = 100),
             activeResearch = project(completesAt = EPOCH + 30.minutes),
         ).rowFor(Technology.PHOTOVOLTAICS)
 

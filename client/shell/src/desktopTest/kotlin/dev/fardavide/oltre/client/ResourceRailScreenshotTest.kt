@@ -12,6 +12,18 @@ class ResourceRailScreenshotTest {
 
     @Test
     fun `resource rail with metal stock and rate`() {
+        capture(name = "resource_rail", throttled = false)
+    }
+
+    // The rail is the component that misled the player: it stated the throttled rate in the
+    // production green with nothing to say the figure was being held down. Throttled, the same
+    // strings take the amber and the mark, at no cost in width.
+    @Test
+    fun `resource rail while a power shortage throttles the rates`() {
+        capture(name = "resource_rail_throttled", throttled = true)
+    }
+
+    private fun capture(name: String, throttled: Boolean) {
         runDesktopComposeUiTest {
             setContent {
                 OltreTheme {
@@ -23,12 +35,13 @@ class ResourceRailScreenshotTest {
                             crystalRatePerHour = "+6,180/h",
                             deuterium = "74,120",
                             deuteriumRatePerHour = "+900/h",
+                            throttled = throttled,
                         ),
                     )
                 }
             }
             onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/resource_rail.png",
+                filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }

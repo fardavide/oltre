@@ -72,9 +72,9 @@ class AdvanceResearchTest {
         val researchedCrystal = advance(researched, from = EPOCH, to = EPOCH + 1.hours).resources.crystal -
             researched.resources.crystal
 
-        // then - 60/h and 30/h at level 1, both times 1.08^2
-        assertEquals(60L, plainMetal)
-        assertEquals(69L, researchedMetal)
+        // then - 90/h and 30/h at level 1, both times 1.08^2
+        assertEquals(90L, plainMetal)
+        assertEquals(104L, researchedMetal)
         assertEquals(34L, researchedCrystal)
     }
 
@@ -89,7 +89,7 @@ class AdvanceResearchTest {
 
         // then - 15/h at level 1 times 1.14^2, and metal untouched
         assertEquals(19L, after.resources.deuterium - researched.resources.deuterium)
-        assertEquals(60L, after.resources.metal - researched.resources.metal)
+        assertEquals(90L, after.resources.metal - researched.resources.metal)
     }
 
     @Test
@@ -109,28 +109,30 @@ class AdvanceResearchTest {
         val starvedMetal = advance(starved, from = EPOCH, to = EPOCH + 1.hours).resources.metal - starved.resources.metal
         val helpedMetal = advance(helped, from = EPOCH, to = EPOCH + 1.hours).resources.metal - helped.resources.metal
 
-        // then - the deficit ratio moves from 50/120 to 80/120 against a 352/h mine
-        assertEquals(146L, starvedMetal)
-        assertEquals(234L, helpedMetal)
+        // then - the deficit ratio moves from 50/120 to 80/120 against a 531/h mine
+        assertEquals(221L, starvedMetal)
+        assertEquals(354L, helpedMetal)
     }
 
     @Test
     fun `a deficit scales the research bonus exactly as it scales the mine`() {
         // The order of application is the rule: building curve, then research, then the deficit.
-        // Applying the deficit first and the multiplier after would produce 294 here, not 295 -
-        // which is what makes this a test of the order rather than of the arithmetic.
+        // Applying the deficit first and the multiplier after would produce 333 here, not 334 -
+        // which is what makes this a test of the order rather than of the arithmetic. The levels
+        // are chosen for that gap: at most pairings the two orders agree, and a test that cannot
+        // tell them apart is not testing the rule.
         val state = GameState.initial().copy(
             buildings = GameState.initial().buildings.copy(metalMine = BuildingLevel(9)),
             research = Research.initial()
-                .withLevel(Technology.PHOTOVOLTAICS, TechLevel(5))
+                .withLevel(Technology.PHOTOVOLTAICS, TechLevel(2))
                 .withLevel(Technology.EXTRACTION, TechLevel(3)),
         )
 
         // when
         val produced = advance(state, from = EPOCH, to = EPOCH + 1.hours).resources.metal - state.resources.metal
 
-        // then
-        assertEquals(295L, produced)
+        // then - a 531/h mine, 1_08^3, then 60 produced over 120 drawn
+        assertEquals(334L, produced)
     }
 
     @Test
@@ -148,8 +150,8 @@ class AdvanceResearchTest {
 
         // then - the project has to finish before it produces anything
         assertTrue(completesAt > EPOCH + 1.hours, "the fixture must not complete inside the first hour")
-        assertEquals(60L, beforeMetal)
-        assertEquals(64L, afterMetal)
+        assertEquals(90L, beforeMetal)
+        assertEquals(97L, afterMetal)
     }
 
     @Test

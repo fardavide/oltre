@@ -26,6 +26,182 @@ import kotlinx.datetime.TimeZone
 class ColonyUiStateTest {
 
     @Test
+    fun `a colony within its power budget counts its headroom in the levels it would buy`() {
+        // given a new colony: 50 produced against 40 drawn
+        val state = colony()
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then the track spans the larger term, so the fill is the draw and the empty tail is
+        // the headroom the verdict names
+        assertEquals(
+            EnergyUiState(
+                verdict = "room for 1 mine level",
+                terms = "50 produced · 40 drawn · 10 spare",
+                coveredFraction = 40f / 50f,
+                deficit = false,
+            ),
+            energy,
+        )
+    }
+
+    @Test
+    fun `headroom for more than one level reads as a plural`() {
+        // given solar 4 against metal 5, crystal 4 and deuterium 4: 200 produced, 170 drawn
+        val state = colony(
+            buildings = Buildings(
+                metalMine = BuildingLevel(5),
+                crystalMine = BuildingLevel(4),
+                deuteriumSynthesizer = BuildingLevel(4),
+                solarPlant = BuildingLevel(4),
+                roboticsFactory = BuildingLevel(0),
+                naniteFactory = BuildingLevel(0),
+            ),
+        )
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then
+        assertEquals("room for 3 mine levels", energy.verdict)
+    }
+
+    @Test
+    fun `a colony that exactly covers its draw reads as break even`() {
+        // given metal mine 2: 50 produced against 50 drawn, the upgrade after the first one
+        val state = colony(
+            buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)),
+        )
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then "room for 0 mine levels" is a sentence about nothing; this is the same fact
+        assertEquals("break even", energy.verdict)
+        assertEquals(false, energy.deficit)
+    }
+
+    @Test
+    fun `a power shortage names the rate it is costing every mine`() {
+        // given the colony from Davide's report — metal 3, crystal 2, deuterium 2, solar 1 —
+        // which was losing 45% of every mine with nothing on screen to say so
+        val state = colony(buildings = starved())
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then the fill stops where the plant stops, so the boundary is the plant's ceiling
+        assertEquals(
+            EnergyUiState(
+                verdict = "every mine at 55%",
+                terms = "50 produced · 90 drawn · 40 short",
+                coveredFraction = 50f / 90f,
+                deficit = true,
+            ),
+            energy,
+        )
+    }
+
+    @Test
+    fun `a colony with no plant at all reports every mine stopped`() {
+        // given there is no floor: at solar 0 production is 0 and every mine stops dead
+        val state = colony(buildings = starved().withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(0)))
+
+        // when
+        val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
+
+        // then a track with no green in it already says the state is total, so no new colour
+        assertEquals("every mine stopped", energy.verdict)
+        assertEquals(0f, energy.coveredFraction)
+    }
+
+    @Test
+    fun `a shortage attributes itself to each facility's own signed figure`() {
+        // given
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then the percentage is not repeated per card — each mine floors independently, so three
+        // cards saying "55%" would each be slightly wrong. The draw is exactly true per card.
+        assertEquals(
+            mapOf(
+                BuildingType.METAL_MINE to FacilityPowerUiState(label = "−30", supply = false),
+                BuildingType.CRYSTAL_MINE to FacilityPowerUiState(label = "−20", supply = false),
+                BuildingType.DEUTERIUM_SYNTHESIZER to FacilityPowerUiState(label = "−40", supply = false),
+                BuildingType.SOLAR_PLANT to FacilityPowerUiState(label = "+50", supply = true),
+            ),
+            rows.mapNotNull { row -> row.power?.let { row.building to it } }.toMap(),
+        )
+    }
+
+    @Test
+    fun `an unbuilt facility draws nothing so it carries no mark`() {
+        // given a shortage, with robotics and nanite both at level 0
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then there is nothing to attribute, and nothing to fight the locked row's dim
+        assertEquals(null, rows.first { it.building == BuildingType.NANITE_FACTORY }.power)
+        assertEquals(null, rows.first { it.building == BuildingType.ROBOTICS_FACTORY }.power)
+    }
+
+    @Test
+    fun `no facility is marked while the colony is within its power budget`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then the mark is the deficit's vocabulary; a healthy colony has nothing to say with it
+        assertEquals(emptyList(), rows.filter { it.power != null }.map { it.building })
+    }
+
+    @Test
+    fun `the plant that would end the shortage says so on its own card`() {
+        // given the report's colony: 50 produced against 90 drawn, and a solar plant one level
+        // from covering all of it
+        val state = colony(buildings = starved())
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then no banner and no reordering — one line, in the slot a card already uses to say
+        // what its next level is
+        assertEquals("→ LV 2 covers all 90 drawn", rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)
+        assertEquals(emptyList(), rows.filter { it.building != BuildingType.SOLAR_PLANT && it.fix != null })
+    }
+
+    @Test
+    fun `no fix is offered when one plant level would not be enough`() {
+        // given metal mine 15, which takes the draw to 210 against a plant that reaches 100
+        val state = colony(buildings = starved().withLevel(BuildingType.METAL_MINE, BuildingLevel(15)))
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then the line states a fact or it is absent; it never states an intention
+        assertEquals(null, rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)
+    }
+
+    @Test
+    fun `a healthy colony is offered no fix`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then
+        assertEquals(emptyList(), rows.filter { it.fix != null })
+    }
+
+    @Test
     fun `facility rows expose typed level with per-resource cost chips and duration`() {
         // given plenty of metal but no crystal
         val state = colony(resources = Resources.of(metal = 1_000_000))
@@ -93,14 +269,14 @@ class ColonyUiStateTest {
 
     @Test
     fun `an unaffordable row shows the time until affordable instead of a dead button`() {
-        // given an empty stock: metal mine → 2 needs 90 metal (90m at 60/h) and 22 crystal (44m)
+        // given an empty stock: metal mine → 2 needs 90 metal (60m at 90/h) and 22 crystal (44m)
         val state = colony()
 
         // when
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("in 1h 30m"), metalMine.action)
+        assertEquals(FacilityActionUiState.AffordableIn("in 1h 00m"), metalMine.action)
     }
 
     @Test
@@ -232,6 +408,16 @@ class ColonyUiStateTest {
         // then
         assertEquals(null, strip)
     }
+
+    // Seven levels of mine on one solar plant: 50 produced against 90 consumed.
+    private fun starved(): Buildings = Buildings(
+        metalMine = BuildingLevel(3),
+        crystalMine = BuildingLevel(2),
+        deuteriumSynthesizer = BuildingLevel(2),
+        solarPlant = BuildingLevel(1),
+        roboticsFactory = BuildingLevel(0),
+        naniteFactory = BuildingLevel(0),
+    )
 
     private fun colony(
         resources: Resources = Resources.of(),
