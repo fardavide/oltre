@@ -14,7 +14,7 @@ data class GameState(
 ) {
     companion object {
         fun initial(): GameState = GameState(
-            resources = Resources.of(metal = 0),
+            resources = PlaceholderBalance.startingResources(),
             buildings = Buildings.initial(),
             builds = emptyMap(),
             returningFleet = null,

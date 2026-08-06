@@ -61,8 +61,8 @@ class AdvanceTest {
         )
 
         // when
-        val producedAtLevel1 = advance(initial, from = start, to = start + 1.hours).resources.metal
-        val producedAtLevel2 = advance(upgraded, from = start, to = start + 1.hours).resources.metal
+        val producedAtLevel1 = advance(initial, from = start, to = start + 1.hours).metalAccruedSince(initial)
+        val producedAtLevel2 = advance(upgraded, from = start, to = start + 1.hours).metalAccruedSince(upgraded)
 
         // then
         assertEquals(PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)), producedAtLevel1)
@@ -82,12 +82,14 @@ class AdvanceTest {
         )
 
         // when
-        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.crystal
+        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.crystal -
+            upgraded.resources.crystal
 
         // then
         assertEquals(PlaceholderBalance.crystalProductionPerHour(BuildingLevel(3)), produced)
         assertTrue(
-            produced > advance(initial, from = start, to = start + 1.hours).resources.crystal,
+            produced > advance(initial, from = start, to = start + 1.hours).resources.crystal -
+                initial.resources.crystal,
             "level 3 must out-produce level 1",
         )
     }
@@ -102,15 +104,20 @@ class AdvanceTest {
         )
 
         // when
-        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.deuterium
+        val produced = advance(upgraded, from = start, to = start + 1.hours).resources.deuterium -
+            upgraded.resources.deuterium
 
         // then
         assertEquals(PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(4)), produced)
         assertTrue(
-            produced > advance(initial, from = start, to = start + 1.hours).resources.deuterium,
+            produced > advance(initial, from = start, to = start + 1.hours).resources.deuterium -
+                initial.resources.deuterium,
             "level 4 must out-produce level 1",
         )
     }
+
+    private fun GameState.metalAccruedSince(before: GameState): Long =
+        resources.metal - before.resources.metal
 
     @Test
     fun `advancing in one span equals advancing through any intermediate instant`() {
