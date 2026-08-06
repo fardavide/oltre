@@ -24,10 +24,12 @@ when_to_use: >
   very first baseline, 2026-08-05). Use the bundled family from `:client:design` (`oltreMono()`,
   JetBrains Mono, OFL) — bundle further weights/families there when needed.
 - Cross-OS drift between macOS recording and Linux CI comes in two shapes, measured from the
-  CI diff artifact of run 31072340252 (2026-08-06): gradient/dither noise of ±1/255 spread
-  across nearly every filled pixel (87% of the in-progress card), and glyph anti-aliasing
-  drift of ≥10/255 on 2.4–4.3% of pixels. Both are absorbed by the shared
-  `oltreRoborazziOptions()` (desktopTest): `SimpleImageComparator(maxDistance = 0.007f)`
-  ignores the sub-perceptual noise, `ThresholdValidator(0.05f)` budgets the glyph edges.
+  CI diff artifacts of runs 31072340252 and 31075759250 (2026-08-06): gradient/dither noise
+  of ±1/255 spread across nearly every filled pixel (87% of the in-progress card), and glyph
+  anti-aliasing drift of ≥10/255 on 2.4–5.6% of pixels — the ratio rises as the screenshot
+  shrinks, because text dominates a small canvas (the 393×72 fleet strip measured 5.6%).
+  Both are absorbed by the shared `oltreRoborazziOptions()` (desktopTest):
+  `SimpleImageComparator(maxDistance = 0.007f)` ignores the sub-perceptual noise,
+  `ThresholdValidator(0.08f)` budgets the glyph edges on the smallest text-dense component.
   Use it in every screenshot test; raise either constant only with a new CI diff image as
   evidence, never speculatively.
