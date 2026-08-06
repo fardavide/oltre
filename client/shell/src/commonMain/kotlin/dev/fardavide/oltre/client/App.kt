@@ -1,9 +1,6 @@
 package dev.fardavide.oltre.client
 
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -74,29 +71,30 @@ fun App(
                     }
                 }
 
-                ColonyScreen(
-                    uiState = current.state.toColonyUiState(
-                        now = current.lastUpdatedAt,
-                        timeZone = TimeZone.currentSystemDefault(),
-                    ),
-                    onUpgrade = { building ->
-                        val at = maxOf(Clock.System.now(), current.lastUpdatedAt)
-                        val advanced = advance(current.state, from = current.lastUpdatedAt, to = at)
-                        val next = GameSession(
-                            state = when (val result = startUpgrade(advanced, building, at = at)) {
-                                is StartUpgradeResult.Started -> result.state
-                                StartUpgradeResult.AlreadyUpgrading,
-                                StartUpgradeResult.InsufficientResources,
-                                StartUpgradeResult.RequirementsNotMet,
-                                -> advanced
-                            },
-                            lastUpdatedAt = at,
-                        )
-                        session = next
-                        if (next.hasNewEventsSince(current)) scope.launch { next.commit(store, notifications) }
-                    },
-                    modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
-                )
+                MainScaffold {
+                    ColonyScreen(
+                        uiState = current.state.toColonyUiState(
+                            now = current.lastUpdatedAt,
+                            timeZone = TimeZone.currentSystemDefault(),
+                        ),
+                        onUpgrade = { building ->
+                            val at = maxOf(Clock.System.now(), current.lastUpdatedAt)
+                            val advanced = advance(current.state, from = current.lastUpdatedAt, to = at)
+                            val next = GameSession(
+                                state = when (val result = startUpgrade(advanced, building, at = at)) {
+                                    is StartUpgradeResult.Started -> result.state
+                                    StartUpgradeResult.AlreadyUpgrading,
+                                    StartUpgradeResult.InsufficientResources,
+                                    StartUpgradeResult.RequirementsNotMet,
+                                    -> advanced
+                                },
+                                lastUpdatedAt = at,
+                            )
+                            session = next
+                            if (next.hasNewEventsSince(current)) scope.launch { next.commit(store, notifications) }
+                        },
+                    )
+                }
             }
         }
     }
