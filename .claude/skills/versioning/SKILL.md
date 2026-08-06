@@ -27,9 +27,13 @@ milestones — minor bumps resume when he says so.
 - After the squash merge: `git tag v<version> && git push origin v<version>`.
 - iOS: bump `MARKETING_VERSION` in `iosApp/project.yml` (single `settings.base` block) to match
   the new `oltre` version, then run `xcodegen generate` in `iosApp/` and commit the regenerated
-  project **and its shared scheme**; never edit `project.pbxproj` by hand. A `MARKETING_VERSION`
-  that drifts from `oltre` ships a build labelled with the wrong version — treat it as part of
-  the bump, not a follow-up.
+  project **and its shared scheme**; never edit `project.pbxproj` by hand.
+  **If you cannot run xcodegen** (no macOS — every agent session so far), bump `project.yml`
+  anyway and say in the PR that the generated project is unregenerated. The *shipped* label is
+  safe either way: `iosApp/ci_scripts/ci_pre_xcodebuild.sh` rewrites `MARKETING_VERSION` in the
+  pbxproj from the `oltre` version in the catalogue on every Xcode Cloud build, added at 0.0.10
+  after 0.0.8 shipped to TestFlight labelled 0.0.7. That safety net is not a licence to skip
+  `project.yml` — it is the source the next `xcodegen generate` reads.
 - **Do not touch `CURRENT_PROJECT_VERSION`.** It is a placeholder; the shipped build number is
   Xcode Cloud's own run number, written into the project by
   `iosApp/ci_scripts/ci_pre_xcodebuild.sh` at build time. Bumping it by hand achieves nothing and

@@ -13,6 +13,9 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
                              a monolithic feature module
   :client:save:data          Reads/writes the JSON snapshot; the only client module that
                              touches a filesystem. No presentation layer — saving has no UI.
+  :client:notifications:data Books the platform's local alerts at the instants core computes.
+                             No presentation layer either, for the same reason: the UI it has
+                             is the operating system's.
 server        JVM + Ktor. Compiling stub until multiplayer starts.
 iosApp/       Xcode wrapper around the client framework (pending, arrives with the iOS slice)
 androidApp    Thin Android app module wrapping :client:shell (pending, when Android delivery matters)
@@ -64,4 +67,7 @@ passes locally, and fails CI on the iOS targets only — learned the slow way, 2
 - The shell persists **only on discrete transitions** (an event appended to the log), never per
   tick. Everything between two events is reproduced exactly by `advance` from the saved instant,
   so an accrual-only tick has nothing new to write.
+- **Saving and rescheduling notifications are one operation** (`GameSession.commit`), on that
+  same trigger and against that same instant. Split, they drift: a save without a reschedule
+  leaves an alert promising a build that has already finished.
 - Galaxy map is a Compose `Canvas`. No game engine, settled.

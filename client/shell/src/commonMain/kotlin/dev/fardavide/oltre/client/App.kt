@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.colony.presentation.ColonyScreen
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
 import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.notifications.data.GameNotifications
+import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.core.StartUpgradeResult
@@ -27,12 +29,13 @@ import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
-// The shell is the impure boundary: it reads the clock, reads and writes the save file, ticks
-// the UI, and holds the current session. Game state itself only ever moves through core's
-// advance/startUpgrade.
+// The shell is the impure boundary: it reads the clock, reads and writes the save file, books
+// the local notifications, ticks the UI, and holds the current session. Game state itself only
+// ever moves through core's advance/startUpgrade.
 @Composable
 fun App(
     store: GameStore = remember { GameStore(defaultSaveFile()) },
+    notifications: GameNotifications = remember { GameNotifications(defaultNotificationScheduler()) },
     modifier: Modifier = Modifier,
 ) {
     OltreTheme {
@@ -45,10 +48,12 @@ fun App(
             LaunchedEffect(Unit) {
                 val resumed = resume(store.load(), now = Clock.System.now())
                 session = resumed
-                // Save immediately, save included: a player who opens the game once and closes
-                // it must still come back to hours of production, and on a first launch there
-                // is no saved instant to accrue from until one is written.
-                store.save(resumed.toSnapshot())
+                // Commit immediately, save included: a player who opens the game once and
+                // closes it must still come back to hours of production, and on a first launch
+                // there is no saved instant to accrue from until one is written. The same
+                // opening also books the alerts for whatever was already in flight — a colony
+                // restored from disk has a schedule that no longer exists on the device.
+                resumed.commit(store, notifications)
             }
 
             val current = session
@@ -65,7 +70,7 @@ fun App(
                             lastUpdatedAt = now,
                         )
                         session = next
-                        if (next.hasNewEventsSince(previous)) store.save(next.toSnapshot())
+                        if (next.hasNewEventsSince(previous)) next.commit(store, notifications)
                     }
                 }
 
@@ -88,7 +93,7 @@ fun App(
                             lastUpdatedAt = at,
                         )
                         session = next
-                        if (next.hasNewEventsSince(current)) scope.launch { store.save(next.toSnapshot()) }
+                        if (next.hasNewEventsSince(current)) scope.launch { next.commit(store, notifications) }
                     },
                     modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
                 )

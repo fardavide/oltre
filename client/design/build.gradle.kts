@@ -37,3 +37,11 @@ kotlin {
         }
     }
 }
+
+compose.resources {
+    // Pinned, because the default is derived from the Gradle group — which means a generated
+    // package, and every import of it, silently moves when the group does. It moved at 0.0.10,
+    // when the group started carrying the project path to keep module coordinates unique
+    // (see `.claude/docs/decisions.md`). Naming it here makes the two independent.
+    packageOfResClass = "dev.fardavide.oltre.client.design.generated.resources"
+}

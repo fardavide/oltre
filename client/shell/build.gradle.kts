@@ -38,6 +38,7 @@ kotlin {
             implementation(projects.core)
             implementation(projects.client.colony.presentation)
             implementation(projects.client.design)
+            implementation(projects.client.notifications.data)
             implementation(projects.client.save.data)
 
             implementation(libs.kotlinx.coroutines.core)
@@ -51,6 +52,7 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
         val desktopMain by getting {
             dependencies {

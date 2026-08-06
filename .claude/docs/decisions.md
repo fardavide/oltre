@@ -299,3 +299,102 @@ only shape.
 The version-1 test fixtures are frozen captures of what 0.0.7 wrote, asserted byte-for-byte
 against the string that build pinned (git `ecbe518`). A reset test is only as good as the save
 that triggers it: a fixture written from memory would prove that made-up JSON resets.
+
+## Local notifications: the whole set, derived from state, replaced on every transition
+
+Notion locks both the feature and the mechanism — "schedule local notifications
+(UNUserNotificationCenter) at computed completion and arrival timestamps; that is the entire
+check-in loop" — so 0.0.10 is an implementation, not a design call. It is the other half of what
+0.0.7 started: persistence made the colony survive being closed, and this is what tells the
+player it did something while it was.
+
+**`core` owns what is coming, not just what happened.** `futureEvents(state)` is the mirror of
+the event log: builds still running, a fleet still in flight, earliest first, ties broken exactly
+the way `advance` applies them (completions in building order, then the arrival). Putting it in
+core rather than in the client is the point — an alert, a future "while you were away" summary
+and the server's eventual push scheduling must all agree with what the simulation will really do,
+and reading them off the same state with the same ordering rule is the only way to guarantee it.
+It stays clock-free: the caller knows what "now" is and drops what has passed.
+
+**The pending set is replaced, never amended.** `NotificationScheduler.replaceAll` is the whole
+interface. The schedule is *derived* from state exactly as the save is, so recomputing it whole
+is what keeps it truthful: a build that completed, a fleet that landed, a colony reloaded from a
+different save all disappear by not being in the new list. Rejected: an add/cancel pair, which
+needs a record of what was scheduled last time — a second source of truth, in the one place
+where being wrong means lying to the player about their own colony.
+
+**Rescheduling rides the save's trigger.** `GameSession.commit` writes the snapshot and syncs the
+alerts together, on an event appended to the log, against the session's `lastUpdatedAt`. Two
+operations on one trigger because they answer the same question; separately they drift.
+
+**Only iOS schedules anything today.** Desktop prints the schedule instead: the dev loop has the
+app open, so an alert about the countdown you are watching is noise, and the checkable thing is
+that the right alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which
+would need a timer held for the whole wait — the exact mechanism this game is built to avoid —
+to buy a toast on the one platform that does not need one. Android does nothing until an
+`androidApp` module exists to hold a `Context` and the API-33 `POST_NOTIFICATIONS` permission;
+a stub that compiles and silently schedules nothing would look finished.
+
+**Permission is asked on the first sync**, which is the first frame, and never again (iOS shows
+the prompt once whatever you do). Not deferred to a "better moment": on iPhone the alerts *are*
+the game's check-in loop, so a player who declines has declined something they can see the
+shape of. A refusal is unreported and unrecoverable-in-app by design — there is no surface for
+it and the game is fully playable without it.
+
+Notification copy is a **placeholder**, marked as such in `GameNotifications`: what an alert says
+is player-facing content and therefore Davide's. It says the two things a check-in alert must —
+what happened, and that a decision is waiting — and the facility names are written out in full
+rather than reusing the Colony row's abbreviations ("Deuterium Synth."), which exist to fit a
+width a lock screen does not have.
+
+## The shipped iOS version comes from the catalogue, not from the generated project
+
+0.0.8 reached TestFlight labelled **0.0.7**. The bump did edit `iosApp/project.yml`, but the
+label Xcode reads lives in the generated `project.pbxproj`, and regenerating that needs
+`xcodegen` — macOS-only, and absent from every agent session so far. Hand-editing the generated
+file is precisely what the iOS-delivery entry above forbids, so nothing could close the gap and
+the drift shipped.
+
+`ci_pre_xcodebuild.sh` already rewrote `CURRENT_PROJECT_VERSION` in that file at build time for
+the same class of reason. It now also rewrites `MARKETING_VERSION` from the `oltre` version in
+`gradle/libs.versions.toml`, and asserts both landed. The generated project's copies are
+therefore placeholders like the build number: real for a local build, overwritten for a shipped
+one.
+
+This does **not** retire `project.yml` — it is the source the next `xcodegen generate` reads, so
+a bump still edits it. What it retires is the failure mode where the only machine that can make
+the repo honest is one the session does not have.
+
+## The Gradle group carries the project path, because layer names repeat
+
+Adding `:client:notifications:data` next to `:client:save:data` at 0.0.10 silently broke the
+shell: the save jar left the compile classpath and the build failed on `Unresolved reference
+'save'` in files nobody had touched, while the *notifications* module — declared identically,
+one line above — resolved fine.
+
+The cause is coordinates, not code. `allprojects { group = "dev.fardavide.oltre" }` gave every
+module the same group and the same version, and a Gradle module is identified by
+`group:name:version`. Two projects both named `data` were therefore both
+`dev.fardavide.oltre:data:0.0.10` — one component as far as resolution is concerned. Gradle
+conflict-resolved the pair to a single winner and the loser simply was not there.
+
+The module architecture — one directory per feature holding `presentation` / `domain` / `data`
+layer modules — *guarantees* repeated leaf names, so this was never a one-off. It had gone
+unnoticed only because `:client:save:data` was the first `data` and `:client:colony:presentation`
+is still the only `presentation`. The group now carries the parent path
+(`dev.fardavide.oltre.client.save:data`), which makes every module's coordinates unique by
+construction, including every layer module not yet written.
+
+What makes this worth an entry: **it fails silently and wrongly.** Here the two modules shared no
+API, so it surfaced as a compile error. Two modules that happened to satisfy each other's imports
+would have produced a *building* project wired to the wrong dependency.
+
+Rejected: renaming the layer modules to be globally unique (`save-data`, `notifications-data`),
+which fixes the coordinates by disfiguring the naming convention that is the actual decision.
+Also rejected on the way — and recorded because it cost a CI cycle — **blaming type-safe project
+accessors**. `projects.client.save.data` looked like the obvious suspect, and swapping every
+dependency for an explicit `project(":path")` changed nothing: the accessor had been resolving to
+the right project all along, and the component it pointed at was being dropped afterwards. That
+change is reverted; `TYPESAFE_PROJECT_ACCESSORS` stays. The lesson is that a resolution symptom
+is worth reading as resolution, and that "the declaration must be wrong" is a guess, not a
+diagnosis.
