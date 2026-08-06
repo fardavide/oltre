@@ -28,6 +28,7 @@ fun ColonyScreen(
 ) {
     Column(modifier = modifier.fillMaxSize()) {
         ResourceRail(uiState = uiState)
+        PowerStrip(uiState = uiState.energy)
         // The window can be any width — iPad, Split View, Stage Manager, a desktop window — so
         // the colony caps its content and centres it instead of stretching the cards.
         Column(

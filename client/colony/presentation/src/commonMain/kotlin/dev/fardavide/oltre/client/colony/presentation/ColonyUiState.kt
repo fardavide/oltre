@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.colony.presentation
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.EnergyBalance
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResourceKind
@@ -22,8 +23,19 @@ data class ColonyUiState(
     val crystalRatePerHour: String,
     val deuterium: String,
     val deuteriumRatePerHour: String,
+    val energy: EnergyUiState,
     val facilities: List<FacilityRowUiState>,
     val returningFleet: ReturningFleetUiState?,
+)
+
+// Energy is not shown as a fourth resource, because it is not one: it never accumulates, so a
+// stock and a per-hour rate would both be lies. It reads as a produced/consumed pair with the
+// consequence spelled out, since the consequence — every mine throttled — is the only reason a
+// player needs the number at all.
+data class EnergyUiState(
+    val reading: String,
+    val consequence: String,
+    val deficit: Boolean,
 )
 
 data class ReturningFleetUiState(
@@ -39,6 +51,9 @@ data class FacilityRowUiState(
     val costs: List<CostChipUiState>,
     val duration: String,
     val action: FacilityActionUiState,
+    // Set on the facilities a power shortage is actually throttling, so the cut is attributed to
+    // the rows losing output rather than only announced once at the top of the screen.
+    val throttled: Boolean = false,
 )
 
 data class CostChipUiState(
@@ -69,8 +84,15 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
     crystalRatePerHour = "+${PlaceholderBalance.effectiveCrystalProductionPerHour(buildings).groupedByThousands()}/h",
     deuterium = resources.deuterium.groupedByThousands(),
     deuteriumRatePerHour = "+${PlaceholderBalance.effectiveDeuteriumProductionPerHour(buildings).groupedByThousands()}/h",
+    energy = PlaceholderBalance.energyBalance(buildings).toUiState(),
     facilities = BuildingType.entries.map { toFacilityRow(it, now = now, timeZone = timeZone) },
     returningFleet = returningFleet?.toStrip(now),
+)
+
+private fun EnergyBalance.toUiState(): EnergyUiState = EnergyUiState(
+    reading = "${produced.groupedByThousands()} / ${consumed.groupedByThousands()}",
+    consequence = if (isDeficit) "every mine at $outputPercent%" else "+${surplus.groupedByThousands()} spare",
+    deficit = isDeficit,
 )
 
 private fun ReturningFleet.toStrip(now: Instant): ReturningFleetUiState {
@@ -125,6 +147,8 @@ private fun GameState.toFacilityRow(
             cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
         ),
         duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
+        throttled = PlaceholderBalance.energyBalance(buildings).isDeficit &&
+            PlaceholderBalance.energyConsumption(building, level) > 0,
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(

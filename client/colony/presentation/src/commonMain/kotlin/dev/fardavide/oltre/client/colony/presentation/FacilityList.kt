@@ -90,6 +90,23 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                             .background(Color.White.copy(alpha = 0.09f), RoundedCornerShape(4.dp))
                             .padding(horizontal = 5.dp, vertical = 2.dp),
                     )
+                    // Named rather than iconographic: an emoji would resolve to a different
+                    // typeface on macOS and Linux and break every baseline it appears in.
+                    if (row.throttled) {
+                        Text(
+                            text = "LOW PWR",
+                            color = OltreColors.warn,
+                            fontFamily = mono,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier
+                                .padding(start = 5.dp)
+                                .background(OltreColors.warn.copy(alpha = 0.16f), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 5.dp, vertical = 2.dp),
+                        )
+                    }
                 }
                 when (val action = row.action) {
                     is FacilityActionUiState.Locked -> Text(
