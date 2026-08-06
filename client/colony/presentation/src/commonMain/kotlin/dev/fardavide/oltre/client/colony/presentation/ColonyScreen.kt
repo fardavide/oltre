@@ -40,8 +40,10 @@ fun ColonyScreen(
                 modifier = Modifier
                     .widthIn(max = OltreLayout.maxContentWidth)
                     .fillMaxWidth()
-                    .padding(16.dp)
-                    .testTag(ColonyTestTags.CONTENT),
+                    // Ahead of the padding: a tag placed after it marks the padded interior, so
+                    // the bounds a test reads would be 32dp narrower than the column itself.
+                    .testTag(ColonyTestTags.CONTENT)
+                    .padding(16.dp),
             ) {
                 uiState.inProgress?.let { card ->
                     SectionLabel(text = "IN PROGRESS")
