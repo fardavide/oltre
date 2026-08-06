@@ -17,7 +17,7 @@ import org.junit.Test
 // to OltreLayout.maxContentWidth, and centred past it — because a 1000dp-wide facility row of
 // 13.5sp text is unreadable.
 @OptIn(ExperimentalTestApi::class)
-class ColonyScreenLayoutTest {
+class ColonyScreenLayoutBehaviourTest {
 
     @Test
     fun `content caps and centres in a window far wider than a phone`() {

@@ -40,6 +40,13 @@ Updated: 2026-08-06
   now carries the project path — see `decisions.md`, and expect the same for `presentation` and
   `domain` layers as they arrive.
 
+- **Test taxonomy + per-kind coverage reporting** — tests declare their kind by class-name
+  suffix (`…Test` / `…IntegrationTest` / `…ScreenshotTest` / `…BehaviourTest`),
+  `-Poltre.testCategory` filters the build to one kind, and the new **Coverage** CI job reports
+  line/branch coverage *per kind* with a delta against the last `main` run, as one rewritten-in-
+  place PR comment. Reporting only — no thresholds, not a required check. See `decisions.md` and
+  the `test-coverage` skill.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -82,6 +89,13 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   copy in `GameNotifications` is a placeholder that says what happened and that a decision is
   waiting.
 - No linter (detekt) configured yet — decide when code volume justifies it.
+- **No behaviour test touches anything.** Every Compose test passes `onUpgrade = {}`, so the
+  tap-to-upgrade path — the only interaction in the game — is covered by `core` unit tests and
+  by nothing that renders. The Robot harness and the first interaction tests are prompted out to
+  a desktop session in `.claude/prompts/robot-behaviour-tests.md` (the pattern is ported from
+  BandLab, which no agent session here can read).
+- **The `protect-main` ruleset payload is unchanged.** The new Coverage job is deliberately not
+  required; if that ever changes, the ruleset has to change with it.
 - **Agent sessions cannot build.** The remote environment's egress policy blocks
   `dl.google.com`, so Gradle cannot resolve AGP and `./gradlew build` fails before compiling
   anything; `maven.google.com` only redirects there. CI is the gate for agent-written code, and

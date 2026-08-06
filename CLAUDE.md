@@ -19,6 +19,7 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 | `architecture` | Module map, dependency rule, adding a feature module |
 | `versioning` | Version bump + changelog, real file paths |
 | `screenshot-testing` | Roborazzi record/verify workflow, baseline policy |
+| `test-coverage` | The four test kinds, naming convention, per-kind coverage and the PR report |
 
 ## Stack (decided — do not substitute)
 
@@ -48,6 +49,12 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 - Desktop app (dev loop): `./gradlew :client:shell:run`
 - Screenshots: `./gradlew verifyRoborazziDesktop` / `recordRoborazziDesktop`
 - Sim harness: `./gradlew :sim:run`
+- Coverage: `./gradlew koverHtmlReport` — one kind only: `-Poltre.testCategory=behaviour`
+
+Tests come in four kinds and say which by class-name suffix — `…Test` (unit),
+`…IntegrationTest`, `…ScreenshotTest`, `…BehaviourTest`. Behaviour tests drive Compose through
+**Robots**, never raw node queries in the test body. CI reports coverage per kind on every PR.
+See the `test-coverage` skill.
 
 All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
 no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.

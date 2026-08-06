@@ -398,3 +398,35 @@ the right project all along, and the component it pointed at was being dropped a
 change is reverted; `TYPESAFE_PROJECT_ACCESSORS` stays. The lesson is that a resolution symptom
 is worth reading as resolution, and that "the declaration must be wrong" is a guess, not a
 diagnosis.
+
+## A test says its kind in its name, and coverage is measured per kind
+
+Coverage as one blended percentage answers no question anyone has. "78% covered" cannot
+distinguish a codebase whose UI is exercised only by screenshot baselines from one where every
+tap is driven, and those are very different codebases — the first passes its whole suite with
+`onUpgrade = {}` wired to nothing, which is exactly where this project was when the reporting
+was built.
+
+So coverage is measured **once per kind of test**: unit, integration, screenshot, behaviour.
+`-Poltre.testCategory` filters every `Test` task in the build, Kover reports on whatever ran,
+and CI does five passes — the four kinds plus one unfiltered. Five Gradle passes is the slowest
+job in CI, and it buys the only number that can say *the behaviour tests reach 12% of the
+presentation module*.
+
+The kind is carried by the **class-name suffix** (`…IntegrationTest`, `…ScreenshotTest`,
+`…BehaviourTest`, plain `…Test` for unit). Rejected: a JUnit `@Tag` annotation, which is invisible
+in a file tree, a stack trace and a CI log — the three places the question actually comes up;
+and separate source sets, which would move a test away from the code it covers and multiply
+build files. The cost of the suffix is that a misnamed test is silently miscounted, which is why
+the taxonomy is a skill and not a comment.
+
+The delta on a PR comes from a GitHub Actions cache written only by `main` and read by every
+branch — no token, no external service, no third-party action. It compares against the last
+`main` run rather than the PR's merge base, which is a trend and not an audit; the report says
+so. Rejected: Codecov and friends (an account and a token for a single-developer repo), and
+re-running the whole measurement on the merge base inside the PR job (ten Gradle passes to
+sharpen a number nobody gates on).
+
+**Nothing gates.** No thresholds, and the Coverage job is deliberately not a required check. A
+coverage minimum is a design decision with a number attached, and numbers are Davide's; the
+report exists so the trend is visible before anyone picks one.
