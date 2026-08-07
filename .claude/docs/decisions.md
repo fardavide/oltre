@@ -989,3 +989,53 @@ round 5 and in `:sim:run`'s new home-system table. Two of those answers changed 
 Three remain open and are listed with the rest in `status.md`: whether a near miss should look
 different from a hopeless one, whether a relay should state an effect no mechanic can confer, and
 who holds an `Occupied` world before multiplayer exists to hold one.
+
+## Coverage ratchets to 95%, then stops ratcheting
+
+The Coverage job reported and gated nothing: a PR could drop line coverage and merge green, which
+made the report a thing to admire rather than a thing to obey. It is now a required check, and the
+whole rule is one comparison:
+
+```
+pass  ⟺  current ≥ min(last main run, 95%)
+```
+
+Below 95% that is a plain ratchet — you may not leave the project worse than you found it. At or
+above 95% there is slack down to 95%. Davide's number, and the two halves answer different
+failures: without the ratchet nothing improves, and without the ceiling a project in the
+high nineties spends every PR arguing about a tenth of a point.
+
+**Patch coverage was the alternative, and it was the wrong trade here.** Gating on "the lines this
+PR touched must be ≥80% covered" is the industry-standard shape, it is drift-free by construction,
+and it never punishes adding well-tested code below the project average. It is also *weaker* than
+what we chose: at a mid-nineties baseline, "the total may not fall" demands roughly 95% on new
+code, not 80%. The cost is that a genuinely good 200-line slice at 90% fails the gate. That is
+understood and accepted — the slice brings its tests with it.
+
+**The drift objection mostly dissolves against `strict_required_status_checks_policy`.** The
+baseline is the last `main` run rather than the PR's own merge base, which sounds like it would
+blame a branch for `main`'s movement. It cannot survive to merge time: strict required checks mean
+a branch is up to date with `main` before it can merge, so at that moment the last `main` run *is*
+the merge base. Drift shows up in the deltas of a stale branch, never in the verdict that gates it.
+
+**Not `koverVerify`.** Kover's verification rules know absolute numbers, and this rule is a
+comparison against a baseline Kover cannot see. The gate lives in `.github/scripts/coverage.py`,
+which already holds the baseline for the delta.
+
+**Render and enforce are separate steps, in that order, with the comment between them.** A gate
+that fails before the report is posted tells you only that you are blocked. `render` writes
+`verdict.json` and exits 0; the comment goes up; `enforce` reads the verdict and exits 1. On a
+`main` push the gate does not run at all — the merge has happened, it can prevent nothing, and a
+red `main` for an unfixable number is the false alarm 0.0.13 already taught us to avoid. The
+baseline is stored before the gate for the same reason: `main` must keep tracking reality, or
+every later PR is measured against a number `main` no longer has.
+
+**The gate has tests, and the job that enforces it runs them first.** `.github/scripts/coverage.py`
+is dependency-free by design, but its arithmetic can now cost someone a merge, so
+`test_coverage.py` (pytest, 22 cases) covers the ratchet, the ceiling, the epsilon, the
+no-baseline skip and the enforce exit codes. `coverage.py` is loaded by path there, because
+`import coverage` finds the PyPI package of that name on any machine that has it.
+
+**Known hole: a cache miss skips the gate.** No restored baseline means a `skipped` verdict and a
+green job. The comment and the log both say so, but nothing blocks. Accepted for now — the
+alternative is failing PRs for an infrastructure hiccup that has nothing to do with their tests.

@@ -62,8 +62,8 @@ Updated: 2026-08-07 (0.0.15)
   suffix (`…Test` / `…IntegrationTest` / `…ScreenshotTest` / `…BehaviourTest`),
   `-Poltre.testCategory` filters the build to one kind, and the new **Coverage** CI job reports
   line/branch coverage *per kind* with a delta against the last `main` run, as one rewritten-in-
-  place PR comment. Reporting only — no thresholds, not a required check. See `decisions.md` and
-  the `test-coverage` skill.
+  place PR comment. Reporting only at first; it became a **required check** that fails when line
+  coverage falls below `min(last main run, 95%)`. See `decisions.md` and the `test-coverage` skill.
 
 - **0.0.14 the design system becomes a family of modules** — `:client:design` stops being one
   module and becomes a *directory* of layer modules, split the way Compose splits itself:
@@ -220,8 +220,9 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **`MainScaffoldBehaviourTest` still queries nodes directly** in its test bodies, which the
   taxonomy asks it not to. It predates the convention and is the migration target; the research
   module shows the shape.
-- **The `protect-main` ruleset payload is unchanged.** The new Coverage job is deliberately not
-  required; if that ever changes, the ruleset has to change with it.
+- **The coverage gate has a known hole: a cache miss skips it silently.** With no `main` baseline
+  restored, the verdict is `skipped` and the job goes green — the comment and log say so, but
+  nothing blocks. A PR merged during a cache eviction is a PR nothing measured.
 - **Agent sessions cannot build.** The remote environment's egress policy blocks
   `dl.google.com`, so Gradle cannot resolve AGP and `./gradlew build` fails before compiling
   anything; `maven.google.com` only redirects there. CI is the gate for agent-written code, and

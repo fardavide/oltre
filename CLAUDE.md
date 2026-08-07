@@ -24,7 +24,7 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 | `module-rules` | The eight build-enforced module rules; what a layout/dependency failure means |
 | `versioning` | Version bump + changelog, real file paths |
 | `screenshot-testing` | Roborazzi record/verify workflow, baseline policy |
-| `test-coverage` | The four test kinds, naming convention, per-kind coverage and the PR report |
+| `test-coverage` | The four test kinds, naming convention, per-kind coverage, the PR report and the merge gate |
 
 ## Stack (decided — do not substitute)
 
@@ -64,7 +64,8 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 
 Tests come in four kinds and say which by class-name suffix — `…Test` (unit),
 `…IntegrationTest`, `…ScreenshotTest`, `…BehaviourTest`. Behaviour tests drive Compose through
-**Robots**, never raw node queries in the test body. CI reports coverage per kind on every PR.
+**Robots**, never raw node queries in the test body. CI reports coverage per kind on every PR and
+**blocks the merge if line coverage falls** — a PR must clear `min(last main run, 95%)`.
 See the `test-coverage` skill.
 
 All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
