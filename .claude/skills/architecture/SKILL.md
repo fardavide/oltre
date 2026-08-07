@@ -34,8 +34,11 @@ when_to_use: >
   `client/save/data-testing` beside `client/save/data`, `core-testing/` beside `core/`. Never
   `:<module>:testing`, which is a child and breaks rule 1. A testing module inherits the layer it
   doubles, restrictions included. Never a repo-wide doubles module.
-- **Four module rules are enforced by the build**, and break the IDE sync rather than review: a
+- **Eight module rules are enforced by the build**, and break the IDE sync rather than review: a
   module cannot contain a module; `domain` cannot depend on `data` or `presentation`;
-  `presentation` cannot depend on `data`; `data` cannot depend on `presentation`. Layer is the
-  last segment of the Gradle path, so `:client:shell` and `:client:design` are not layers and are
-  not constrained. Read the `module-rules` skill before adding a module or a project dependency.
+  `presentation` cannot depend on `data`; `data` cannot depend on `presentation`; only a test
+  source set may reach a `-testing` module; `core` depends on no module; nothing depends on
+  `:client:shell`; `sim` and `server` never reach into `client/*`. Layer is the last segment of the
+  Gradle path, so `:client:shell` and `:client:design` are not layers and are not constrained by
+  2–4 — the shell may see every layer precisely because rule 7 stops anything seeing it. Read the
+  `module-rules` skill before adding a module or a project dependency.

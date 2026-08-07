@@ -616,12 +616,13 @@ is for.
 
 ## Module layout and layer dependencies are build rules, not review rules
 
-Davide's call (2026-08-07). Five rules, checked while Gradle configures so a violation breaks the
+Davide's call (2026-08-07). Eight rules, checked while Gradle configures so a violation breaks the
 **IDE sync** rather than waiting for a reviewer: a module cannot contain another module; `domain`
 cannot depend on `data` or `presentation`; `presentation` cannot depend on `data`; `data` cannot
-depend on `presentation`; and only a test source set may reach a `-testing` module. Rule 1 lives in
-`settings.gradle.kts` — the earliest point Gradle evaluates anything — and rules 2–5 in the root
-`build.gradle.kts`. Full statement and failure
+depend on `presentation`; only a test source set may reach a `-testing` module; `core` depends on
+no module; nothing depends on `:client:shell`; `sim` and `server` never reach into `client/*`.
+Rule 1 lives in `settings.gradle.kts` — the earliest point Gradle evaluates anything — and rules
+2–8 in the root `build.gradle.kts`. Full statement and failure
 messages: the `module-rules` skill.
 
 **The graph was already clean; what was broken was the writing.** The audit found no violating
@@ -670,6 +671,20 @@ iOS test targets stay legal; `commonMain` does not, and only the offending confi
 named in the failure. A testing module may depend on another from `main`: it is already fakes.
 A configuration counts as a test one if it starts with `test` or contains `Test` — matched on the
 camel hump, so a source set called `latest` is not quietly a place fakes are allowed.
+
+**The graph points inward, and both ends are sealed (rules 6–8).** Davide picked these three from
+the *Dependency rule* section of `architecture.md`, which until now was enforced only by nobody
+having typed the line. Rule 7 is the load-bearing one: it is what makes the shell's exemption from
+rules 2–4 *safe* rather than merely convenient — the shell may mix layers precisely because
+nothing depends on it, so what it mixes cannot travel. Remove rule 7 and the exemption is a hole.
+The **feature-module allowlist was rejected** in the same pass, because it would have made
+cross-feature a hard failure and reversed the case-by-case call above.
+
+Rule 7 **will fail the pending `androidApp` wrapper**, which `architecture.md` documents as
+depending on `:client:shell`. Written literally rather than with a speculative carve-out for
+platform entry points: the module does not exist, so the argument is better had when there is
+something real to have it about. The root project is exempt from 6–8 — it is the build, not a
+module, and it holds a `kover(...)` dependency on every module including the shell.
 
 **No unit tests, deliberately.** Build-script logic is not reachable from a test source set
 without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified

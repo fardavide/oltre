@@ -130,7 +130,13 @@ kover {
     }
 }
 
-// ── Rules 2–4: which layer may see which ──────────────────────────────────────────────────────
+// ── Rules 2–8: who may depend on whom ─────────────────────────────────────────────────────────
+//
+// Three shapes, checked together because they are all one question about the module graph:
+//
+//   2–4  which layer may see which
+//   5    fakes do not ship
+//   6–8  the graph points inward, and both ends of it are sealed
 //
 // A module's layer is the last segment of its Gradle path, so `:client:save:data` is data and
 // `:client:colony:presentation` is presentation. Three edges are forbidden, and each is forbidden
@@ -192,6 +198,10 @@ gradle.projectsEvaluated {
     // Edge -> the configurations that declare it. A module dependency is usually declared once,
     // but a KMP source-set pair (`commonMain` + `commonTest`) declares two, and naming both is
     // what makes the message point at a line rather than at a module.
+    //
+    // Subprojects only. The root is the build, not a module — and it is the aggregator, so it
+    // holds a `kover(...)` dependency on every module including `:client:shell`, which rule 7
+    // would otherwise read as something depending on the composition root.
     val edges = linkedMapOf<Pair<String, String>, MutableSet<String>>()
     rootProject.subprojects.forEach { subproject ->
         subproject.configurations.forEach { configuration ->
@@ -204,6 +214,39 @@ gradle.projectsEvaluated {
 
     val violations = edges.entries.mapNotNull { (edge, configurations) ->
         val (from, to) = edge
+
+        // Rules 6–8: the graph points inward, and the two ends of it are sealed. Each of the three
+        // is true today and held only by nobody having written the line yet.
+
+        // 6. `core` is the centre: every other module points at it, and it points at nothing.
+        // Absolute rather than main-source-only, unlike rule 5 — "core depends on nothing" is the
+        // invariant as written, and core hosts its own test helpers in `commonTest` already.
+        if (from == ":core") {
+            return@mapNotNull Triple(edge, "core may not depend on any module", configurations.toList())
+        }
+
+        // 7. The composition root is a sink. This is what makes the shell's exemption from rules
+        // 2–4 safe: it may see every layer precisely because nothing sees it, so the layers it
+        // mixes cannot travel anywhere. NOTE: the pending `androidApp` wrapper is documented as
+        // depending on `:client:shell` and will fail here. That is the rule doing its job — decide
+        // then whether a platform entry point is the one thing allowed through.
+        if (to == ":client:shell") {
+            return@mapNotNull Triple(
+                edge,
+                "nothing may depend on the composition root",
+                configurations.toList(),
+            )
+        }
+
+        // 8. The harness and the server run the simulation, not the app. Neither has any business
+        // in a client module, and both would silently gain a Compose dependency by reaching one.
+        if (from in setOf(":sim", ":server") && to.startsWith(":client")) {
+            return@mapNotNull Triple(
+                edge,
+                "${from.removePrefix(":")} may not depend on a client module",
+                configurations.toList(),
+            )
+        }
 
         // Rules 2–4. Test source sets count: a presentation module that reaches a data module only
         // from `commonTest` still compiles against it, still couples to it, and is exactly as

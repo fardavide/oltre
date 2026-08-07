@@ -32,7 +32,7 @@ declared.
 
 ## Module rules
 
-Five rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
+Eight rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
 the build. Full statement, failure messages and worked examples: the `module-rules` skill.
 
 1. **A module cannot contain another module** — a directory is either a folder or a module. When
@@ -48,8 +48,19 @@ the build. Full statement, failure messages and worked examples: the `module-rul
    A plain module cannot say "tests only" the way `testFixtures(projects.x)` does, so the build
    says it. A testing module may depend on another testing module from `main`: it is already
    fakes, so there is nothing to leak into.
+6. **`core` may not depend on any module.** It is the centre: everything points at it, it points
+   at nothing. Absolute, unlike rule 5 — core already hosts its own test helpers in `commonTest`.
+7. **Nothing may depend on `:client:shell`.** This is what makes the shell's exemption from rules
+   2–4 safe rather than merely convenient: it may see every layer precisely because nothing sees
+   it. The pending `androidApp` wrapper will fail this rule when it lands — deliberately, so the
+   carve-out gets argued over a real module rather than a hypothetical one.
+8. **`sim` and `server` may not depend on a `client/*` module.** Either would silently acquire a
+   Compose dependency by reaching one.
 
-Rules 2–5 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
+The root project is exempt from 6–8: it is the build rather than a module, and it holds a
+`kover(...)` dependency on every module including `:client:shell`.
+
+Rules 2–8 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
 `commonTest` dependency couples the modules exactly as much as a `commonMain` one. A module's
 layer is the last segment of its Gradle path, so only `domain`, `data` and `presentation` are
 layers; `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and are

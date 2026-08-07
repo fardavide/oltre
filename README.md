@@ -69,12 +69,14 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
-Five module rules are enforced by the build, and break an IDE sync rather than a review: a module
-cannot contain another module; `domain` cannot depend on `data` or `presentation`; `presentation`
-cannot depend on `data`; `data` cannot depend on `presentation`; and a `-testing` module can be
-reached only from a test source set, so fakes never ship. A module's layer is the last segment of
-its Gradle path, so `:client:shell` — the composition root, the one module that may see every
-layer — is not one.
+Eight module rules are enforced by the build, and break an IDE sync rather than a review. A module
+cannot contain another module. `domain` cannot depend on `data` or `presentation`, `presentation`
+cannot depend on `data`, `data` cannot depend on `presentation`. A `-testing` module can be reached
+only from a test source set, so fakes never ship. And the graph points inward with both ends
+sealed: `core` depends on nothing, nothing depends on `:client:shell`, and `sim`/`server` never
+reach into `client/*`. A module's layer is the last segment of its Gradle path, so `:client:shell`
+— the composition root, the one module that may see every layer, precisely because nothing sees
+it — is not one.
 
 ## Build
 

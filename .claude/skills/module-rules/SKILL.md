@@ -1,6 +1,6 @@
 ---
 name: module-rules
-description: Oltre's five module rules — a module cannot contain a module, domain/presentation/data may not see each other's forbidden side, and fakes may not ship. Enforced by the build, not by review.
+description: Oltre's eight module rules — layout, the layer edges, fakes that must not ship, and the sealed ends of the dependency graph. Enforced by the build, not by review.
 when_to_use: >
   Consult before creating a module or a directory that will hold one, before adding any
   `implementation(projects.…)` / `api(projects.…)` line to a build.gradle.kts, and whenever a
@@ -10,16 +10,21 @@ when_to_use: >
 
 # Module rules
 
-Five rules. All five fail the build **and the IDE sync** — they are checked while Gradle
+Eight rules. All eight fail the build **and the IDE sync** — they are checked while Gradle
 configures, not by a task you can forget to run and not by a reviewer who might not notice.
 
-| # | Rule | Checked in |
+| # | Rule | |
 |---|---|---|
-| 1 | A module cannot contain another module | `settings.gradle.kts` |
-| 2 | `domain` may not depend on `data` or `presentation` | root `build.gradle.kts` |
-| 3 | `presentation` may not depend on `data` | root `build.gradle.kts` |
-| 4 | `data` may not depend on `presentation` | root `build.gradle.kts` |
-| 5 | Only a test source set may reach a `-testing` module | root `build.gradle.kts` |
+| 1 | A module cannot contain another module | layout |
+| 2 | `domain` may not depend on `data` or `presentation` | layers |
+| 3 | `presentation` may not depend on `data` | layers |
+| 4 | `data` may not depend on `presentation` | layers |
+| 5 | Only a test source set may reach a `-testing` module | fakes |
+| 6 | `core` may not depend on any module | direction |
+| 7 | Nothing may depend on `:client:shell` | direction |
+| 8 | `sim` and `server` may not depend on a `client/*` module | direction |
+
+Rule 1 is checked in `settings.gradle.kts`, rules 2–8 in the root `build.gradle.kts`.
 
 ## Rule 1 — a directory is either a folder or a module
 
@@ -103,6 +108,30 @@ Only the offending configurations are named. Declare an edge from both `api` and
 A configuration counts as a test one if it starts with `test` or contains `Test` — matched on the
 camel hump rather than on `contains("test")`, so a source set called `latest` does not quietly
 become a place fakes are allowed.
+
+## Rules 6–8 — the graph points inward, and both ends are sealed
+
+Each was true the day it was written and held by nothing except nobody having typed the line.
+
+**6. `core` may not depend on any module.** It is the centre: everything points at it, it points
+at nothing. Absolute rather than main-source-only, unlike rule 5 — "core depends on nothing" is
+the invariant as written, and core already hosts its own test helpers in `commonTest`.
+
+**7. Nothing may depend on `:client:shell`.** This is what makes the shell's exemption from rules
+2–4 *safe* rather than merely convenient: it may see every layer precisely because nothing sees
+it, so the layers it mixes cannot travel. Take this rule away and the exemption becomes a hole.
+
+> **Known collision.** `architecture.md` documents a pending `androidApp` module that wraps
+> `:client:shell`. It will fail this rule the day it is added. That is deliberate — the rule was
+> written literally rather than with a speculative carve-out, so the question "is a platform entry
+> point the one thing allowed through?" gets asked when there is a real module to ask it about.
+
+**8. `sim` and `server` may not depend on a `client/*` module.** The harness and the server run the
+simulation, not the app; either would silently acquire a Compose dependency by reaching one.
+
+The **root project is exempt from all three**, because it is the build rather than a module — and
+it has to be: it holds a `kover(...)` dependency on every module including `:client:shell`, which
+rule 7 would otherwise read as a violation.
 
 ## What is not a layer
 
