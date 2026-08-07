@@ -7,7 +7,13 @@ core          KMP: jvm, iosArm64, iosSimulatorArm64, android. Pure model + rules
 sim           JVM CLI. Headless balancing harness; fast-forwards weeks in ms. Never ships.
 client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, Android):
   :client:shell    Composition root + entry points (desktop main, iOS framework)
-  :client:design   Theme / design tokens (palette from docs/ui-mockup.html)
+  :client:design/  The design system, as a directory of layer modules — split the way Compose
+                   splits itself, by dependency direction and rate of change:
+    :core          Tokens: palette (from docs/ui-mockup.html), theme, bundled font, layout caps
+    :icon          Drawn glyphs (Canvas paths, never an icon font — see screenshot-testing)
+    :component     Styled widgets with no single feature owner (cost chip, progress bar, …)
+    :format        How numbers and durations are written. No Compose reaches it
+    :testing       Test helpers for the modules above (Roborazzi options); main source set
   :client:<feature>:<layer>  One directory per feature, holding layer modules (presentation,
                              plus domain / data only where the feature requires them) — never
                              a monolithic feature module
@@ -26,9 +32,14 @@ androidApp    Thin Android app module wrapping :client:shell (pending, when Andr
 Dependencies point inward to `core`; `core` depends on **nothing** but `kotlinx-serialization`
 (justified in at 0.0.6 — the save format is a rule client and server must agree on; see
 [decisions.md](decisions.md)). `client/*`, `server` and `sim` depend on `core`; feature modules
-depend on `core` + `:client:design`; `:client:shell` composes the features. The module graph *is*
-the enforcement — a violating import fails to compile because the dependency simply is not
-declared.
+depend on `core` + whichever `:client:design:*` layers they actually use; `:client:shell` composes
+the features. The module graph *is* the enforcement — a violating import fails to compile because
+the dependency simply is not declared.
+
+A feature declares the design layers it uses and no more, so its build file says what kind of UI it
+is: Research declares no `:icon` because it draws no glyph, and the shell declares no `:component`
+because it draws chrome rather than rows. `:client:design:component` is the one design module that
+depends on `core`, for `ResourceKind` alone — see [decisions.md](decisions.md).
 
 ## Core purity (the load-bearing invariants)
 

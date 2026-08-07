@@ -7,17 +7,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.text.font.FontWeight
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.OltreLayout
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.BuildingType
 
 @Composable
@@ -55,17 +51,4 @@ fun ColonyScreen(
             }
         }
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        color = OltreColors.textTertiary,
-        fontFamily = oltreMono(),
-        fontSize = 10.5.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.4.sp,
-        modifier = Modifier.padding(bottom = 9.dp, start = 2.dp),
-    )
 }

@@ -7,7 +7,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 

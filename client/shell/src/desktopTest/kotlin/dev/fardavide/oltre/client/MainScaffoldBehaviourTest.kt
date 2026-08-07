@@ -10,7 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.core.OltreTheme
 import org.junit.Test
 
 // The bar is the one piece of navigation every later screen hangs off, so what it has to get

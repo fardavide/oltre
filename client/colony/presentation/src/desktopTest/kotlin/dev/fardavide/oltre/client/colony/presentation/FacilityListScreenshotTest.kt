@@ -4,7 +4,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.ResourceKind

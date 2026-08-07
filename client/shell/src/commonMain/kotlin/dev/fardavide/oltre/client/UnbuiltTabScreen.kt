@@ -12,8 +12,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
 
 // What a tab shows before its slice lands. It is deliberately a real screen rather than a blank
 // one: a player who taps Galaxy has to learn that the tab exists and is not built yet, and an

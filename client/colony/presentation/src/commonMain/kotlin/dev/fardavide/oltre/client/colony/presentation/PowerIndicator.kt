@@ -19,8 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
 
 // Energy is a ratio between two numbers with a consequence attached, so it gets a length rather
 // than a sentence: a ratio is the one kind of quantity a bar is genuinely better at than a
