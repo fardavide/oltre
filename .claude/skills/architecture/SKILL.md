@@ -29,10 +29,10 @@ when_to_use: >
   literals. Decided values come from Notion or Davide.
 - **State changes are events appended to a log**, not mutations. If a change can't be expressed
   as an event, question the change.
-- Fakes: per-module test fixtures (or, for KMP modules that can't host fixtures, a **peer** module
-  in the same parent directory — `:client:save:testing` beside `:client:save:data`, never
-  `:client:save:data:testing`, which would be a module inside a module). Never a repo-wide doubles
-  module.
+- Fakes: per-module test fixtures. KMP modules can't host fixtures, so sharing one across a module
+  boundary needs a module of its own — **where that module goes is open** (`:<module>:testing` is
+  ruled out: it is a child, not a sibling, and rule 1 rejects it). Nothing needs one yet; ask
+  Davide when something does. Never a repo-wide doubles module.
 - **Four module rules are enforced by the build**, and break the IDE sync rather than review: a
   module cannot contain a module; `domain` cannot depend on `data` or `presentation`;
   `presentation` cannot depend on `data`; `data` cannot depend on `presentation`. Layer is the
