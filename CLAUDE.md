@@ -41,7 +41,8 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 2. State is an append-only event log, not in-place mutation.
 3. Never run a timer for game state; compute from the last-updated instant on foreground.
 4. `client/` is a directory of modules, never a monolith: `:client:shell` (composition root),
-   `:client:design` (theme), and one *directory* per feature holding layer modules
+   `:client:design` (a *directory* of design-system layer modules — `:core` tokens, `:icon`,
+   `:component`, `:format`, `:testing`), and one *directory* per feature holding layer modules
    (`:client:<feature>:presentation`, plus `:domain` / `:data` only when the feature needs them).
 5. A module cannot contain another module; `domain` cannot see `data` or `presentation`;
    `presentation` cannot see `data`; `data` cannot see `presentation`; only a test source set may

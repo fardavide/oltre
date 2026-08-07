@@ -158,6 +158,11 @@ Module rules: :client:research:presentation depends on :client:colony:presentati
 research feature sees the colony feature — features are meant not to. Worth a second look.
 ```
 
+**`design` is not a feature**, and is excluded by name. Since 0.0.14 the design system is a
+directory of layer modules, structurally identical to a feature, so the path alone reads it as one
+— but it is the opposite: shared vocabulary every feature is *meant* to depend on. Left in, it
+fired this warning nine times on a clean build, which is how a warning stops being read.
+
 Davide's call (2026-08-07): the rule is real — it is what sent the tab bar and the resource rail
 into the shell — but it has exceptions worth weighing one at a time, and a hard failure would
 decide them in advance. The warning appears on the build that introduces the edge, because that
@@ -165,11 +170,28 @@ is the build whose script change invalidated the configuration cache.
 
 ## Worked examples — the fixes that came with the rules
 
+**A module cannot grow a layer underneath it — so the module becomes a folder.** `:client:design`
+was a single module, and the design system needed five: tokens, icons, components, formatting, and
+the shared Roborazzi options. `:client:design:component` was impossible, because `client/design`
+held a `build.gradle.kts`. The fix is rule 1's canonical shape, and 0.0.14 did exactly it —
+`client/design` became a *folder* and all five landed as siblings inside it:
+
+```
+client/design                 ->  client/design/core        (:client:design:core)
+client/design/component  ✗        client/design/icon        (:client:design:icon)
+                                  client/design/component   (:client:design:component)
+                                  client/design/format      (:client:design:format)
+                                  client/design/screenshot-testing
+```
+
+The cost is the one the rule always charges for deferring: renaming `:client:design` meant moving
+every import of its package. Cheaper the earlier it is paid.
+
 **A testing module is a sibling named for what it doubles, never a child.** The convention read
 "KMP modules that cannot host fixtures get a sibling `:<module>:testing`", which is not a sibling
 at all — `:client:save:data:testing` is the directory `client/save/data/testing`, a module inside
-a module. Davide's replacement (2026-08-07) is a true sibling, taking the name of the module it
-doubles plus `-testing`:
+a module. Davide's replacement (2026-08-07) is a true sibling, taking the name of what it doubles
+plus `-testing`:
 
 ```
 client/save/data/testing  ->  client/save/data-testing     (:client:save:data-testing)
@@ -177,19 +199,26 @@ client/save/data/testing  ->  client/save/data-testing     (:client:save:data-te
                               core-testing                 (:core-testing)
 ```
 
-Nothing had been built on the old wording, so the fix was documents rather than a migration. Note
-what this is *not* for: inside a single module, `commonTest` already shares a fake and no module
-is involved — `FakeSaveFile` lives in `client/save/data/src/commonTest` and stays there. A testing
-module earns its existence only when a **second** module needs what it holds, because a test
-source set is not visible to consumers and KMP cannot host a test-fixtures source set.
+**And one module was built on the old wording before the rule landed.** 0.0.14 extracted the
+thrice-copied `oltreRoborazziOptions` into `:client:design:testing`. That name is rule-1 legal —
+`client/design` is a folder, so `testing` is a sibling of `core` and `icon`, not a child of
+anything — but it is not `<module>-testing`, and rule 5 matches on that suffix, so **nothing
+stopped a `commonMain` depending on it** and pulling Roborazzi into the shipped app. Davide's call
+was one shape rather than two, so it was renamed:
 
-**A module cannot grow a layer underneath it.** `PowerMark.kt` argues in its own comment for a
-shared UI-components module — it is drawn in both `:client:shell` and
-`:client:colony:presentation`, and a path is the kind of code where a typo compiles. That module
-cannot be `:client:design:components`, because `client/design` is a module. Either it is a new
-sibling under `client/`, or `client/design` becomes a folder holding
-`client/design/tokens` + `client/design/components` — and that second shape renames `:client:design`
-and every import of its package. Open; Davide's call when the slice lands.
+```
+client/design/testing  ->  client/design/screenshot-testing   (:client:design:screenshot-testing)
+```
+
+Which also reads better, because that module is the awkward case: it doubles nothing. It is shared
+screenshot *config*, so "named for what it doubles" has no answer and the name has to say what it
+is instead. Its package stays `dev.fardavide.oltre.client.design.testing` — a dash is not a legal
+package segment, and renaming it would touch eight imports to no effect.
+
+Note what a testing module is *not* for: inside a single module `commonTest` already shares a fake
+and no module is involved — `FakeSaveFile` lives in `client/save/data/src/commonTest` and stays
+there. One earns its existence only when a **second** module needs what it holds, because a test
+source set is not visible to consumers and KMP cannot host a test-fixtures source set.
 
 ## Adding a module
 

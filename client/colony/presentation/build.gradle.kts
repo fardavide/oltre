@@ -28,7 +28,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            implementation(projects.client.design)
+            implementation(projects.client.design.component)
+            implementation(projects.client.design.core)
+            implementation(projects.client.design.format)
+            implementation(projects.client.design.icon)
 
             implementation(libs.kotlinx.datetime)
 
@@ -42,6 +45,8 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
+                implementation(projects.client.design.screenshotTesting)
+
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
                 implementation(libs.roborazzi.compose.desktop)

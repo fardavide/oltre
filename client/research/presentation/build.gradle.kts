@@ -28,7 +28,11 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            implementation(projects.client.design)
+            // No `:client:design:icon` — research draws no glyph. The energy bolt belongs to the
+            // two screens that report power, and this is not one of them.
+            implementation(projects.client.design.component)
+            implementation(projects.client.design.core)
+            implementation(projects.client.design.format)
 
             implementation(libs.kotlinx.datetime)
 
@@ -42,6 +46,8 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
+                implementation(projects.client.design.screenshotTesting)
+
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
                 implementation(libs.roborazzi.compose.desktop)

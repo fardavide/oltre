@@ -127,7 +127,7 @@ def collect(args: argparse.Namespace) -> int:
 
 def percent(counter: dict | None) -> float | None:
     """None when there is nothing to cover — which is not the same as 0% and must not read
-    as it. `:client:design` has no branches; that is a dash, not a failing grade."""
+    as it. `:client:design:core` has no branches; that is a dash, not a failing grade."""
     if not counter:
         return None
     total = counter["covered"] + counter["missed"]

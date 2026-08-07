@@ -12,7 +12,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.core.Technology
 
 // A behaviour test says what the player did and what they should see; the Robot owns how. Keeping

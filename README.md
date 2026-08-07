@@ -120,6 +120,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.14 — 2026-08-07
+
+- **Nothing changed for the player.** This release is entirely internal: the pieces the Colony and
+  Research screens share — the bolt that marks a throttled rate, the coloured cost figures, the
+  progress bar under a job that is running, and the way the game writes durations and groups large
+  numbers — were each written out two or three times, once per screen. They are now written once.
+  Every screen draws exactly what it drew before, down to the pixel, and the screenshot tests are
+  what proves it: not one of them changed.
+- **Why it was worth doing anyway:** two copies of "what a price looks like" are two things that can
+  drift apart, and when they do, the Colony and Research screens start quietly disagreeing about how
+  the same number should read. That reads as the game being inconsistent rather than the code being
+  duplicated.
+
 ### 0.0.13 — 2026-08-06
 
 - **Research is playable.** The Research tab is real: one branch of three technologies —

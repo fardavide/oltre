@@ -7,8 +7,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
-import dev.fardavide.oltre.client.design.OltreLayout
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.core.OltreLayout
+import dev.fardavide.oltre.client.design.core.OltreTheme
 import kotlin.math.abs
 import kotlin.test.assertTrue
 import org.junit.Test

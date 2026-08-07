@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.research.presentation
 
+import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology

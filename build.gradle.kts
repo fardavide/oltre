@@ -62,8 +62,8 @@ allprojects {
         if (testCategory != null) {
             filter {
                 // Most modules hold no test of a given category — `:core` has no screenshots,
-                // `:client:design` has no tests at all — and a filtered run that matches nothing
-                // there is the expected outcome, not a failure.
+                // `:client:design:core` has no tests at all — and a filtered run that matches
+                // nothing there is the expected outcome, not a failure.
                 isFailOnNoMatchingTests = false
                 if (testCategory == "unit") {
                     includeTestsMatching("*Test")
@@ -87,7 +87,11 @@ dependencies {
     kover(projects.core)
     kover(projects.sim)
     kover(projects.server)
-    kover(projects.client.design)
+    kover(projects.client.design.component)
+    kover(projects.client.design.core)
+    kover(projects.client.design.format)
+    kover(projects.client.design.icon)
+    kover(projects.client.design.screenshotTesting)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
     kover(projects.client.notifications.data)
@@ -185,14 +189,20 @@ fun isTestingModule(projectPath: String): Boolean =
 // tests, so they may hold fakes too.
 fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name.contains("Test")
 
-// `:client:save:data` -> `save`. Null for anything that is not a client feature module, including
-// `:client:design` and `:client:shell` — those live directly under `client/`, so they have no
-// feature directory above them and cannot be one feature reaching into another.
+// `:client:save:data` -> `save`. Null for `:client:shell`, which lives directly under `client/` and
+// so has no feature directory above it.
+//
+// `design` is excluded by name, and has to be. Since 0.0.14 the design system is a directory of
+// layer modules — `:client:design:core`, `:icon`, `:component`, … — which is structurally
+// indistinguishable from a feature, so the path alone reads it as one. It is the opposite of a
+// feature: shared vocabulary that every feature is *meant* to depend on. Left in, it made the
+// cross-feature warning fire nine times on a clean build, which is how a warning stops being read.
 fun featureOf(projectPath: String): String? = projectPath
     .removePrefix(":")
     .split(':')
     .takeIf { it.size >= 3 && it.first() == "client" }
     ?.get(1)
+    ?.takeIf { it != "design" }
 
 gradle.projectsEvaluated {
     // Edge -> the configurations that declare it. A module dependency is usually declared once,

@@ -16,14 +16,20 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.OltreLayout
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.OltreLayout
+import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.icon.PowerMark
 
 // Chrome, like the tab bar below it, and here for the same reason: what it shows is the empire's,
 // not one screen's, and it frames every destination. It moved out of :client:colony:presentation
 // when Research landed as a second screen that shows it — a feature module cannot own a component
-// another feature needs, and :client:design is tokens rather than components.
+// another feature needs.
+//
+// It stays the shell's after 0.0.14 split the design system into layer modules. What went into
+// :client:design is what has no owner at all; the rail has one, and it is this module. Only the
+// bolt it draws was shared out, to :client:design:icon, because the *glyph* is owned by neither
+// this rail nor the colony's facility cards.
 @Composable
 internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Modifier) {
     // The bar itself is full-bleed — it reads as the top edge of the window — but its cells

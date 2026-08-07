@@ -35,7 +35,14 @@ plugins {
 include(":core")
 include(":sim")
 include(":client:colony:presentation")
-include(":client:design")
+// `:client:design` is a directory of layer modules, not a module — the same shape every feature
+// directory has. Compose's own split is the model: tokens, components and icons are separate
+// artifacts because they have different dependencies and different rates of change.
+include(":client:design:component")
+include(":client:design:core")
+include(":client:design:format")
+include(":client:design:icon")
+include(":client:design:screenshot-testing")
 include(":client:notifications:data")
 include(":client:research:presentation")
 include(":client:save:data")

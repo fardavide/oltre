@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings

@@ -37,7 +37,11 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.core)
             implementation(projects.client.colony.presentation)
-            implementation(projects.client.design)
+            // No `:client:design:component` — the shell draws chrome (the rail, the tab bar), and
+            // none of the row-level components a screen is built from.
+            implementation(projects.client.design.core)
+            implementation(projects.client.design.format)
+            implementation(projects.client.design.icon)
             implementation(projects.client.notifications.data)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
@@ -62,6 +66,8 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
+                implementation(projects.client.design.screenshotTesting)
+
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
                 implementation(libs.roborazzi.compose.desktop)
