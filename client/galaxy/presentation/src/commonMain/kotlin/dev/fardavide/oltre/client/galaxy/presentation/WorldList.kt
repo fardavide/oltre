@@ -25,7 +25,7 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 // Every world is the same card: the coordinate, the verdict word, the orbit band on the right, and
 // whatever the verdict earns beneath it. The verdict word takes the only colour on the row.
 @Composable
-internal fun WorldList(bands: List<OrbitBandUiState>, modifier: Modifier = Modifier) {
+internal fun WorldList(bands: List<OrbitBandUiState>, compact: Boolean, modifier: Modifier = Modifier) {
     Column(modifier = modifier.fillMaxWidth()) {
         bands.forEach { band ->
             SectionLabel(text = band.band.heading.uppercase())
@@ -33,14 +33,14 @@ internal fun WorldList(bands: List<OrbitBandUiState>, modifier: Modifier = Modif
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 13.dp),
             ) {
-                band.rows.forEach { row -> WorldRow(row = row) }
+                band.rows.forEach { row -> WorldRow(row = row, compact = compact) }
             }
         }
     }
 }
 
 @Composable
-private fun WorldRow(row: WorldRowUiState) {
+private fun WorldRow(row: WorldRowUiState, compact: Boolean) {
     // The one row that is not a card. It is not tappable, so it does not get the surface every
     // tappable thing in the app has — a hairline and no fill instead.
     if (row.verdict is VerdictUiState.Relay) {
@@ -62,7 +62,13 @@ private fun WorldRow(row: WorldRowUiState) {
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(row = row)
+        Header(row = row, compact = compact)
+        // At 320dp the yield leaves the header rather than being cut by it: a coordinate, a verdict
+        // word, a yield and an orbit tag do not fit on one line at that width, and the header's
+        // ellipsis would land on the *number* — "BARREN yield 0…". Abbreviation may drop a noun; it
+        // may never truncate a figure, which is the one thing on the row a player is comparing.
+        val movedYield = if (compact) row.verdict.yieldLabel() else null
+        movedYield?.let { Detail(text = it, color = OltreColors.textSecondary) }
         when (val verdict = row.verdict) {
             is VerdictUiState.Home -> {
                 Detail(text = verdict.axes, color = OltreColors.textSecondary)
@@ -90,7 +96,7 @@ private fun WorldRow(row: WorldRowUiState) {
 }
 
 @Composable
-private fun Header(row: WorldRowUiState) {
+private fun Header(row: WorldRowUiState, compact: Boolean) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
@@ -116,13 +122,15 @@ private fun Header(row: WorldRowUiState) {
                 maxLines = 1,
                 softWrap = false,
             )
-            row.verdict.yieldLabel()?.let { label ->
+            row.verdict.yieldLabel().takeIf { !compact }?.let { label ->
                 Text(
                     text = label,
                     color = OltreColors.textTertiary,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
                     maxLines = 1,
+                    // Never reached at either width the app ships against — the compact branch
+                    // above moves this line out of the header rather than letting it be cut.
                     overflow = TextOverflow.Ellipsis,
                 )
             }

@@ -12,10 +12,13 @@ import dev.fardavide.oltre.core.GalaxyState
 // something real — the first version of this file drifted from the mapper's own formatting within
 // an hour, and the screenshots quietly rendered numbers the app would never produce.
 //
-// `everyVerdictUiState` stays hand-written because it has to: on the shipped seed the home system
-// is Home plus three Blocked, so Barren, Settleable, Occupied and a relay have no real example to
-// draw from — and a suite that only covered what today's seed happens to generate would stop
-// covering the design the moment the seed changed.
+// `everyVerdictUiState` stays hand-written because it has to: under *this* seed the home system is
+// Home plus three Blocked, so Barren, Settleable, Occupied and a relay have no example to draw from
+// here. **There is no such thing as the shipped seed** — the shell mints one per colony from the
+// instant it was founded, so every player's galaxy is different, and a suite that only covered what
+// one seed happens to generate would be covering an accident. The mapper's own Barren and
+// Settleable branches are exercised against real generated worlds in `GalaxyUiStateTest`, which is
+// where that belongs; this fixture exists so the *screen* has all seven states in one frame.
 
 private val galaxy: GalaxyState = GalaxyState.initial(GalaxySeed(20_260_807))
 

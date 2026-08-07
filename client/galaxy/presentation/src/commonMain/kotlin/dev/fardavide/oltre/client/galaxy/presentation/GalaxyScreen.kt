@@ -97,7 +97,11 @@ internal fun GalaxyPage(
                 ) {
                     SystemMap(map = uiState.map)
                 }
-                WorldList(bands = uiState.bands, modifier = Modifier.padding(top = 13.dp))
+                WorldList(
+                    bands = uiState.bands,
+                    compact = compact,
+                    modifier = Modifier.padding(top = 13.dp),
+                )
             }
         }
     }

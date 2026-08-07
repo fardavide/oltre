@@ -216,4 +216,26 @@ class GalaxyScreenBehaviourTest {
             assertReads("DIM · 4 WORLDS")
         }
     }
+
+    @Test
+    fun `a yield leaves the header at 320dp rather than being cut in half by it`() {
+        // A coordinate, a verdict word, a yield and an orbit tag do not fit on one line at 320dp,
+        // and the header's ellipsis landed on the *number* — "BARREN yield 0…". Abbreviation may
+        // drop a noun; it may never truncate a figure, which is the one thing on the row a player
+        // is comparing against another world.
+        //
+        // A node query cannot see an ellipsis — Compose semantics carry the whole string whatever
+        // is painted — so this asserts the *structural* fix instead: at 320dp the yield is a line
+        // of its own, and at 393dp it is not. The baselines are what watch the pixels.
+        galaxyScreen(uiState = everyVerdictUiState, width = SLIDE_OVER_WIDTH) {
+            assertRowReads(9, "yield 0.81")
+            assertRowReads(9, "Passes every band, worth it at 0.90")
+            assertRowReads(11, "yield 1.12")
+            assertRowReads(11, "metal 1.21")
+        }
+        galaxyScreen(uiState = everyVerdictUiState, width = PHONE_WIDTH) {
+            assertRowReads(9, "yield 0.81")
+            assertRowReads(11, "yield 1.12")
+        }
+    }
 }

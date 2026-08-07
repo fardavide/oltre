@@ -177,9 +177,10 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
      mechanic that does not exist and cannot until multiplayer. It ships as **placeholder copy**,
      marked as such in `GalaxyUiState.kt`, like the notification copy and the unbuilt tabs'.
   3. **Who holds an `Occupied` world?** Nothing generates one — the three scripted empires are
-     slice #9 — so at ship time the screen only ever shows Home, Blocked and Unsurveyed. The
-     verdict is built and covered by a hand-written frame; the naming, and whether a holder carries
-     a date, are open.
+     slice #9 — so it is the only verdict a player cannot reach today. The verdict is built and
+     covered by a hand-written frame; the naming, and whether a holder carries a date, are open.
+     (`Barren` and `Settleable` *are* reachable: the seed is minted per colony, and 2–3% of worlds
+     pass every band, so roughly one colony in a dozen sees one in its own home system.)
 - **Every `Blocked` row points at a Research tab that cannot sell what it names.** All three
   adaptation ladders are unbuilt, so the sentence is true and the purchase does not exist. The
   connection the design is after does not close until the adaptation technologies land — which is

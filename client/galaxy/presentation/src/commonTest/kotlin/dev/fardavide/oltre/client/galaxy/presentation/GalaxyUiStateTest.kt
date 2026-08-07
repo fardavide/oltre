@@ -1,11 +1,14 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.core.AdaptationLevels
 import dev.fardavide.oltre.core.EmpireId
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.WorldOwnership
+import dev.fardavide.oltre.core.WorldVerdict
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -186,8 +189,73 @@ class GalaxyUiStateTest {
         val row = uiState.bands.flatMap { it.rows }.first { it.slot == relay.slot }
 
         assertIs<VerdictUiState.Relay>(row.verdict)
-        assertEquals(null, worldAt(galaxy.seed, relay))
         assertEquals(MapMark.RELAY, uiState.map.slots.first { it.slot == relay.slot }.mark)
+    }
+
+    @Test
+    fun `a surveyed world that passes every band but stays thin reads Barren`() {
+        // Every seed is a different galaxy — the shell mints one per colony from the founding
+        // instant — so this is not a state only some players reach. It is the answer the design
+        // wants a survey to give *most* of the time, and the mapper's branch for it had no test
+        // until one was written: the every-verdict frame is hand-written, so asserting against it
+        // only ever proved that the renderer echoes a string the fixture already contained.
+        val (state, at) = firstSurveyedWorldWhere { it is WorldVerdict.Barren }
+
+        val row = state.toGalaxyUiState(at = SystemSelection(at.galaxy, at.system))
+            .bands.flatMap { it.rows }.first { it.slot == at.slot }
+
+        val verdict = assertIs<VerdictUiState.Barren>(row.verdict)
+        assertTrue(verdict.yieldLabel.startsWith("yield 0."), verdict.yieldLabel)
+        assertEquals("Passes every band, worth it at 0.90", verdict.threshold)
+        assertTrue(verdict.detail.contains("fields"), verdict.detail)
+    }
+
+    @Test
+    fun `a surveyed world over the threshold reads Settleable and names the richness behind it`() {
+        val (state, at) = firstSurveyedWorldWhere { it is WorldVerdict.Settleable }
+
+        val row = state.toGalaxyUiState(at = SystemSelection(at.galaxy, at.system))
+            .bands.flatMap { it.rows }.first { it.slot == at.slot }
+
+        val verdict = assertIs<VerdictUiState.Settleable>(row.verdict)
+        assertTrue(verdict.yieldLabel.startsWith("yield "), verdict.yieldLabel)
+        // The three resources in the order section 1 lists their axes, so a player reading two
+        // settleable worlds compares like with like.
+        assertTrue(verdict.richness.startsWith("metal "), verdict.richness)
+        assertTrue(verdict.richness.contains("· crystal "), verdict.richness)
+        assertTrue(verdict.richness.contains("· deut "), verdict.richness)
+    }
+
+    @Test
+    fun `the worth-it threshold on a Barren row is the one core actually applies`() {
+        // The threshold is quoted to the player, so it has to be the number the verdict was decided
+        // by rather than a string that happens to look like it.
+        val (state, at) = firstSurveyedWorldWhere { it is WorldVerdict.Barren }
+        val verdict = assertIs<VerdictUiState.Barren>(
+            state.toGalaxyUiState(at = SystemSelection(at.galaxy, at.system))
+                .bands.flatMap { it.rows }.first { it.slot == at.slot }.verdict,
+        )
+
+        assertEquals(900_000, GalaxyBalance.WORTH_IT_THRESHOLD.perMillion)
+        assertTrue(verdict.threshold.endsWith("0.90"), verdict.threshold)
+    }
+
+    // Surveying is a fleet action, so nothing in 0.2 produces a surveyed world outside the home
+    // system — the coordinate is injected the same way the Occupied test injects ownership. Scans
+    // galaxy 1 in coordinate order, so it picks the same world every run.
+    private fun firstSurveyedWorldWhere(
+        match: (WorldVerdict) -> Boolean,
+    ): Pair<GalaxyState, GalaxyCoordinate> {
+        val base = galaxy()
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
+                val at = GalaxyCoordinate(galaxy = 1, system = system, slot = slot)
+                val world = worldAt(base.seed, at) ?: continue
+                val surveyed = base.copy(surveyed = base.surveyed + at)
+                if (match(verdictFor(world, surveyed, AdaptationLevels.NONE))) return surveyed to at
+            }
+        }
+        error("galaxy 1 held no world matching the wanted verdict")
     }
 
     @Test

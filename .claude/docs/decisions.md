@@ -965,10 +965,14 @@ edit there.
 Three of its six calls were data the build already had, and the answers are in `balance-log.md`
 round 5 and in `:sim:run`'s new home-system table. Two of those answers changed the screen:
 
-- **The real home system is Home plus three Blocked** — not the Blocked / Barren / Blocked mix the
-  design assumed. So at ship time, on the shipped seed, `Barren` and `Settleable` never render.
-  That is a finding about the *screen*, and it is why the screenshot suite carries a hand-written
-  every-verdict frame rather than only what the seed produces.
+- **The home system of the seed the sim uses is Home plus three Blocked** — not the Blocked /
+  Barren / Blocked mix the design assumed. That is why the screenshot suite carries a hand-written
+  every-verdict frame as well as two generated ones.
+  **Corrected after review:** an earlier version of this entry said `Barren` and `Settleable`
+  "never render at ship time on the shipped seed". There is no shipped seed — `GameSession.resume`
+  mints one per colony from the founding instant, so every player's galaxy differs, and with 2–3%
+  of worlds passing every band roughly one colony in a dozen opens the Galaxy tab on a Barren or
+  Settleable row. The mapper's branches for both are covered against real generated worlds.
 - **The committed tolerance bands are wider than the design guessed** on temperature and pressure
   (−30 … +45 °C and 0.4 … 3.0 atm against its −95 … +58 and 0.35 … 1.40), so every Blocked sentence
   on the screen reads differently from the mockup's.
