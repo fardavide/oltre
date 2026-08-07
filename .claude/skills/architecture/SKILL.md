@@ -29,5 +29,12 @@ when_to_use: >
   literals. Decided values come from Notion or Davide.
 - **State changes are events appended to a log**, not mutations. If a change can't be expressed
   as an event, question the change.
-- Fakes: per-module test fixtures (or a sibling `:<module>:testing` for KMP modules that can't
-  host fixtures). Never a repo-wide doubles module.
+- Fakes: per-module test fixtures (or, for KMP modules that can't host fixtures, a **peer** module
+  in the same parent directory — `:client:save:testing` beside `:client:save:data`, never
+  `:client:save:data:testing`, which would be a module inside a module). Never a repo-wide doubles
+  module.
+- **Four module rules are enforced by the build**, and break the IDE sync rather than review: a
+  module cannot contain a module; `domain` cannot depend on `data` or `presentation`;
+  `presentation` cannot depend on `data`; `data` cannot depend on `presentation`. Layer is the
+  last segment of the Gradle path, so `:client:shell` and `:client:design` are not layers and are
+  not constrained. Read the `module-rules` skill before adding a module or a project dependency.

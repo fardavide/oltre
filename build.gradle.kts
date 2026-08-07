@@ -129,3 +129,99 @@ kover {
         }
     }
 }
+
+// ── Rules 2–4: which layer may see which ──────────────────────────────────────────────────────
+//
+// A module's layer is the last segment of its Gradle path, so `:client:save:data` is data and
+// `:client:colony:presentation` is presentation. Three edges are forbidden, and each is forbidden
+// for its own reason rather than for symmetry:
+//
+//   domain       -> data, presentation   domain is the feature's rules; it defines the interfaces
+//                                        data implements and knows nothing of a screen.
+//   presentation -> data                 a screen talks to domain, never to a store or a socket;
+//                                        the day a feature grows a domain layer, a presentation
+//                                        that reached past it has to be rewritten, not rewired.
+//   data         -> presentation         obvious, and cheap to keep obvious.
+//
+// Only those three names are layers. `:core`, `:sim`, `:server`, `:client:design` and
+// `:client:shell` are not, and are deliberately unconstrained here: the composition root is the
+// one module that may see every layer — that is the whole of its job — and the graph already
+// stops it from being anything else, because nothing depends on it. Rule 1 (a module cannot
+// contain a module) is checked in `settings.gradle.kts`, where it fails the sync earliest.
+//
+// Checked at configuration time, not in a task, so a violation fails the IDE sync as well as the
+// build. Configuration is skipped on a configuration-cache hit, which is the behaviour we want:
+// the check re-runs exactly when a build script changes, which is exactly when an edge can appear.
+val forbiddenLayerDependencies = mapOf(
+    "domain" to setOf("data", "presentation"),
+    "presentation" to setOf("data"),
+    "data" to setOf("presentation"),
+)
+
+fun layerOf(projectPath: String): String? =
+    projectPath.substringAfterLast(':').takeIf { it in setOf("domain", "data", "presentation") }
+
+// `:client:save:data` -> `save`. Null for anything that is not a client feature module, including
+// `:client:design` and `:client:shell` — those live directly under `client/`, so they have no
+// feature directory above them and cannot be one feature reaching into another.
+fun featureOf(projectPath: String): String? = projectPath
+    .removePrefix(":")
+    .split(':')
+    .takeIf { it.size >= 3 && it.first() == "client" }
+    ?.get(1)
+
+gradle.projectsEvaluated {
+    // Edge -> the configurations that declare it. A module dependency is usually declared once,
+    // but a KMP source-set pair (`commonMain` + `commonTest`) declares two, and naming both is
+    // what makes the message point at a line rather than at a module.
+    val edges = linkedMapOf<Pair<String, String>, MutableSet<String>>()
+    rootProject.subprojects.forEach { subproject ->
+        subproject.configurations.forEach { configuration ->
+            configuration.dependencies.withType<ProjectDependency>().forEach { dependency ->
+                edges.getOrPut(subproject.path to dependency.path) { sortedSetOf() }
+                    .add(configuration.name)
+            }
+        }
+    }
+
+    // Test source sets count. A presentation module that reaches a data module only from
+    // `commonTest` still compiles against it, still couples to it, and is exactly as expensive to
+    // unpick later.
+    val violations = edges.keys.filter { (from, to) ->
+        val fromLayer = layerOf(from) ?: return@filter false
+        layerOf(to) in forbiddenLayerDependencies.getValue(fromLayer)
+    }
+
+    if (violations.isNotEmpty()) {
+        throw GradleException(
+            buildString {
+                appendLine("Module dependency rules violated:")
+                appendLine()
+                violations.forEach { edge ->
+                    val (from, to) = edge
+                    appendLine("  $from -> $to")
+                    appendLine("    ${layerOf(from)} may not depend on ${layerOf(to)}")
+                    appendLine("    declared in: ${edges.getValue(edge).joinToString()}")
+                }
+                append("See the `module-rules` skill.")
+            },
+        )
+    }
+
+    // Features never depend on each other — an existing architecture rule, and the one that sent
+    // the tab bar and the resource rail into the shell. Reported rather than enforced, at Davide's
+    // call (2026-08-07): it has real exceptions to weigh case by case, and a hard failure would
+    // decide them in advance. It surfaces on the build that introduces the edge, because that is
+    // the build whose script change invalidated the configuration cache.
+    edges.keys
+        .filter { (from, to) ->
+            val fromFeature = featureOf(from) ?: return@filter false
+            featureOf(to)?.let { it != fromFeature } == true
+        }
+        .forEach { (from, to) ->
+            logger.warn(
+                "Module rules: $from depends on $to, so the ${featureOf(from)} feature sees the " +
+                    "${featureOf(to)} feature — features are meant not to. Worth a second look.",
+            )
+        }
+}

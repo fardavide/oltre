@@ -69,6 +69,12 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
+Four module rules are enforced by the build, and break an IDE sync rather than a review: a module
+cannot contain another module; `domain` cannot depend on `data` or `presentation`; `presentation`
+cannot depend on `data`; `data` cannot depend on `presentation`. A module's layer is the last
+segment of its Gradle path, so `:client:shell` — the composition root, the one module that may see
+every layer — is not one.
+
 ## Build
 
 ```bash

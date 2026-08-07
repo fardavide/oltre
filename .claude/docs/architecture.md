@@ -30,6 +30,30 @@ depend on `core` + `:client:design`; `:client:shell` composes the features. The 
 the enforcement — a violating import fails to compile because the dependency simply is not
 declared.
 
+## Module rules
+
+Four rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
+the build. Full statement, failure messages and worked examples: the `module-rules` skill.
+
+1. **A module cannot contain another module** — a directory is either a folder or a module. When
+   a module needs a second beside it, the parent becomes a folder and both become siblings:
+   `dir/moduleA` + `dir/moduleA/moduleB` → `dir/sub-dir/moduleA` + `dir/sub-dir/moduleB`.
+   Checked in `settings.gradle.kts`, against the disk rather than the `include` list, so a module
+   directory that was never included is caught too.
+2. **`domain` may not depend on `data` or `presentation`.**
+3. **`presentation` may not depend on `data`.**
+4. **`data` may not depend on `presentation`.**
+
+Rules 2–4 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
+`commonTest` dependency couples the modules exactly as much as a `commonMain` one. A module's
+layer is the last segment of its Gradle path, so only `domain`, `data` and `presentation` are
+layers; `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and are
+unconstrained. That is deliberate for the shell: the composition root is the one module allowed
+to see every layer, which is why nothing depends on it.
+
+Separately, **a feature depending on another feature is warned about, not rejected** — the rule is
+real, but its exceptions are worth weighing one at a time.
+
 ## Core purity (the load-bearing invariants)
 
 The canonical, full statement lives in [brief.md](brief.md) — this is a faithful summary, not a
@@ -50,8 +74,12 @@ second authority:
 ## Test doubles (repo-wide, not client-only)
 
 Handwritten fakes via per-module Gradle test fixtures where the module type supports them; a
-KMP module that cannot host fixtures gets a sibling `:<module>:testing` module owned by the same
-layer. Never one repo-wide doubles module.
+KMP module that cannot host fixtures gets a **peer** module in the same parent directory —
+`:client:save:testing` beside `:client:save:data`, owned by the same feature. Never
+`:client:save:data:testing`: that is a module inside a module and the build rejects it (see
+*Module rules* above). A module with no feature folder above it (`:core`) has no peer slot, so
+it would take a top-level sibling directory (`core-testing/`) rather than a child. Never one
+repo-wide doubles module.
 
 **Backtick test names in `commonTest` may not contain `, . ; : / \ < > [ ]`.** Kotlin/Native
 rejects them (`Name contains illegal characters`), so a comma in a test name compiles on the JVM,

@@ -57,6 +57,12 @@ that owns the interface (`java-test-fixtures` / AGP `testFixtures`), consumed as
 which lacks a fixtures concept. KMP modules that cannot host fixtures get a sibling
 `:<module>:testing` module — still per-owner.
 
+**Amended 2026-08-07:** `:<module>:testing` is not a sibling, it is a child —
+`:client:save:data:testing` is the directory `client/save/data/testing`, a module inside a module,
+which the layout rule now rejects. The shape was never built, so nothing migrated. Read it as a
+**peer in the same parent directory**: `:client:save:testing` beside `:client:save:data`. See
+*Module layout and layer dependencies are build rules* below.
+
 ## Screenshot tests: Roborazzi against the desktop target
 
 Davide's choice at kickstart. JVM-based, runs on the desktop target (the dev loop) and on ubuntu
@@ -606,3 +612,49 @@ module) is the next slice's to do, not this one's: it is a build-layout change w
 with research. The cost chip and its ui-state are duplicated between the colony and research
 presentation modules at twelve lines, which is a cheaper price than reopening what `:client:design`
 is for.
+
+## Module layout and layer dependencies are build rules, not review rules
+
+Davide's call (2026-08-07). Four rules, checked while Gradle configures so a violation breaks the
+**IDE sync** rather than waiting for a reviewer: a module cannot contain another module; `domain`
+cannot depend on `data` or `presentation`; `presentation` cannot depend on `data`; `data` cannot
+depend on `presentation`. Rule 1 lives in `settings.gradle.kts` — the earliest point Gradle
+evaluates anything — and rules 2–4 in the root `build.gradle.kts`. Full statement and failure
+messages: the `module-rules` skill.
+
+**The graph was already clean; what was broken was the writing.** The audit found no violating
+dependency anywhere in the nine modules. It found the *convention* for testing modules mandating a
+rule-1 violation in three places (this file, `architecture.md`, the `architecture` skill), and the
+next module due to land — the shared `oltreRoborazziOptions` — being the one that would have hit
+it. Nothing was built on the old wording, so the fix was three documents.
+
+**Layer is the last path segment, which is what makes the shell exempt without an allowlist.**
+Only `domain`, `data` and `presentation` are layers. `:client:shell` holds real Compose UI *and*
+depends on `:client:save:data` and `:client:notifications:data` — and that is the composition
+root's job, which is also why nothing depends on it. Rejected: splitting the shell's UI into a
+`:client:main:presentation` (moves ~600 lines and four screenshot baselines to overturn two
+decisions taken on their own merits — navigation at 0.0.11, the rail at 0.0.12), and inverting
+`GameStore`/`GameNotifications` behind interfaces to make the shell obey rule 3. Naming the rules
+after layers means the exemption costs no allowlist and no annotation: a module is constrained
+exactly when it calls itself a layer.
+
+**Features seeing each other warns rather than fails.** Davide's call in the same pass: the rule is
+real — it is what sent the tab bar and the resource rail into the shell — but its exceptions are
+worth weighing one at a time, and a hard failure decides them in advance. The warning surfaces on
+the build that introduces the edge, because that is the build whose script change invalidates the
+configuration cache.
+
+**Rule 1 reads the disk, and how it reads it is load-bearing.** Scanning for `build.gradle.kts`
+rather than walking the `include` list catches a module directory created and never included.
+The first implementation used `File.walkTopDown()` and was wrong in a way that only showed up
+under test: the walk is not tracked as a configuration-cache input, so adding a nested module
+while no build script changed reused the cache entry and passed. Explicit `listFiles()` calls
+from the script body *are* tracked. Verified both ways before landing.
+
+**No unit tests, deliberately.** Build-script logic is not reachable from a test source set
+without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified
+instead against a throwaway Gradle build carrying the identical rule code — every forbidden edge,
+a test-only dependency, a nested module directory, the shell's allowed edges, the cross-feature
+warning, and Oltre's real nine-module graph — plus `./gradlew help` on this repo to prove rule 1
+runs before anything else does. If the rules grow past this, `buildSrc` + TestKit is the next
+step, not more sandboxes.
