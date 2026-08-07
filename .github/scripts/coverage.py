@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Turn Kover + JUnit XML into a per-test-kind coverage summary, and that summary into a
-Markdown report with a delta against a baseline.
+"""Turn Kover + JUnit XML into a per-test-kind coverage summary, that summary into a Markdown
+report with a delta against a baseline, and that delta into a merge verdict.
 
-Two subcommands, because measuring and reporting happen at different times: `collect` runs once
-per test category (right after the Gradle pass that produced the XML, before the next pass
-overwrites it), `render` runs once at the end against the accumulated summary.
+Three subcommands, because measuring, reporting and gating happen at different times: `collect`
+runs once per test category (right after the Gradle pass that produced the XML, before the next
+pass overwrites it), `render` runs once at the end against the accumulated summary, and `enforce`
+runs last of all — after the comment is posted, so a blocked PR carries the reason why.
 
     coverage.py collect --category unit --kover-xml build/reports/kover/report.xml \
         --results-root . --out build/coverage/summary.json
     coverage.py render --current build/coverage/summary.json \
-        --baseline build/coverage/baseline/summary.json --out build/coverage/comment.md
+        --baseline build/coverage/baseline/summary.json --out build/coverage/comment.md \
+        --verdict-out build/coverage/verdict.json
+    coverage.py enforce --verdict build/coverage/verdict.json
 
-Deliberately dependency-free: it runs on whatever Python the runner already has.
+Deliberately dependency-free: it runs on whatever Python the runner already has. Its gate
+arithmetic is tested in `test_coverage.py`, which needs pytest and runs in the same CI job.
 """
 
 from __future__ import annotations
@@ -39,6 +43,17 @@ LABELS = {
 COUNTERS = ["LINE", "BRANCH", "INSTRUCTION", "METHOD", "CLASS"]
 
 COMMENT_MARKER = "<!-- oltre-coverage-report -->"
+
+# The level above which line coverage is allowed to fall. Below it the gate is a plain ratchet —
+# a PR may not leave the project worse than it found it; above it there is slack, because holding
+# a high-nineties number to the decimal buys nothing and turns every merge into a negotiation.
+# Both halves are one comparison: a PR must clear `min(baseline, FLOOR)`. Davide's number.
+COVERAGE_FLOOR = 95.0
+
+# The gate judges to the precision the table prints. Without this a 0.01-point drop would fail a
+# PR whose own report shows the delta as "±0" — the same tolerance `format_delta` uses to decide
+# a number has not moved, so the verdict can never contradict the row above it.
+GATE_EPSILON = 0.05
 
 
 # --- collect ---------------------------------------------------------------------------------
@@ -211,6 +226,65 @@ def uncovered_lines(summary: dict) -> int | None:
     return counter["missed"] if counter else None
 
 
+# --- gate ------------------------------------------------------------------------------------
+#
+# One number gates the merge: line coverage of the whole suite. Branch coverage moves for reasons
+# that are not regressions, and a per-kind row moves when a test is renamed from one kind to
+# another — neither is something a PR should be blocked on.
+
+
+def total_line_coverage(summary: dict) -> float | None:
+    return percent(summary.get("categories", {}).get("all", {}).get("line"))
+
+
+def required_coverage(baseline: float | None, floor: float) -> float | None:
+    """What this run has to clear — `None` when there is no baseline to ratchet against.
+
+    Below the floor the baseline is the bar, so coverage can only go up. Above it the floor is
+    the bar, so coverage can come back down but never through it.
+    """
+    if baseline is None:
+        return None
+    return min(baseline, floor)
+
+
+def gate_verdict(current: float | None, baseline: float | None, floor: float) -> dict:
+    required = required_coverage(baseline, floor)
+    if current is None or required is None:
+        status = "skipped"
+    elif current >= required - GATE_EPSILON:
+        status = "pass"
+    else:
+        status = "fail"
+    return {
+        "status": status,
+        "current": current,
+        "baseline": baseline,
+        "required": required,
+        "floor": floor,
+    }
+
+
+def verdict_sentence(verdict: dict) -> str:
+    """The line the PR comment leads with — the only part of the report anyone has to act on."""
+    if verdict["status"] == "skipped":
+        return (
+            "⚠️ **The coverage gate did not run** — there is no `main` baseline to compare "
+            "against, so nothing was enforced."
+        )
+    current, required = verdict["current"], verdict["required"]
+    if verdict["status"] == "pass":
+        return (
+            f"✅ **Coverage gate passed** — {current:.1f}% line coverage, against the "
+            f"{required:.1f}% this PR had to hold."
+        )
+    return (
+        f"❌ **Coverage gate failed** — line coverage is {current:.1f}%, below the "
+        f"{required:.1f}% this PR has to hold. Cover what this branch added, or raise the "
+        f"project above {verdict['floor']:.1f}%, where coverage is allowed to fall again."
+    )
+
+
 def render(args: argparse.Namespace) -> int:
     current = json.loads(Path(args.current).read_text())
     baseline_path = Path(args.baseline) if args.baseline else None
@@ -225,6 +299,15 @@ def render(args: argparse.Namespace) -> int:
         "|---|---|---|---|",
     ]
     lines += category_rows(current, baseline)
+    lines.append("")
+
+    # Directly under the table, because it is the one line that can cost someone a merge.
+    verdict = gate_verdict(
+        current=total_line_coverage(current),
+        baseline=total_line_coverage(baseline) if has_baseline else None,
+        floor=args.floor,
+    )
+    lines.append(verdict_sentence(verdict))
     lines.append("")
 
     missed = uncovered_lines(current)
@@ -264,8 +347,9 @@ def render(args: argparse.Namespace) -> int:
         )
     lines.append("")
     lines.append(
-        "<sub>Reporting only, no threshold gates the build. "
-        "Categories are class-name suffixes; see the `test-coverage` skill.</sub>"
+        f"<sub>The **All tests** line number may not fall below the last `main` run, and may "
+        f"never fall below {args.floor:.0f}%. Categories are class-name suffixes; see the "
+        f"`test-coverage` skill.</sub>"
     )
 
     text = "\n".join(lines) + "\n"
@@ -273,6 +357,39 @@ def render(args: argparse.Namespace) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text)
     print(text)
+
+    # Written rather than returned as an exit code: the comment has to reach the PR before the
+    # gate closes, so `enforce` is a separate step that runs after it.
+    if args.verdict_out:
+        verdict_out = Path(args.verdict_out)
+        verdict_out.parent.mkdir(parents=True, exist_ok=True)
+        verdict_out.write_text(json.dumps(verdict, indent=2, sort_keys=True) + "\n")
+    return 0
+
+
+# --- enforce ---------------------------------------------------------------------------------
+
+
+def enforce(args: argparse.Namespace) -> int:
+    path = Path(args.verdict)
+    if not path.is_file():
+        # No verdict means `render` never ran. Silence is not consent.
+        print(f"No verdict at {path} — the report step did not run.", file=sys.stderr)
+        return 1
+
+    verdict = json.loads(path.read_text())
+    status = verdict.get("status")
+    if status == "fail":
+        print(
+            f"Coverage gate failed: {verdict['current']:.1f}% line coverage is below the "
+            f"{verdict['required']:.1f}% this branch has to hold.",
+            file=sys.stderr,
+        )
+        return 1
+    if status == "skipped":
+        print("Coverage gate skipped: no baseline to compare against.")
+        return 0
+    print(f"Coverage gate passed: {verdict['current']:.1f}% line coverage.")
     return 0
 
 
@@ -292,11 +409,17 @@ def main(argv: list[str]) -> int:
     collect_parser.add_argument("--ref", default="")
     collect_parser.set_defaults(func=collect)
 
-    render_parser = sub.add_parser("render", help="write the Markdown report")
+    render_parser = sub.add_parser("render", help="write the Markdown report and the verdict")
     render_parser.add_argument("--current", required=True)
     render_parser.add_argument("--baseline")
     render_parser.add_argument("--out", required=True)
+    render_parser.add_argument("--verdict-out")
+    render_parser.add_argument("--floor", type=float, default=COVERAGE_FLOOR)
     render_parser.set_defaults(func=render)
+
+    enforce_parser = sub.add_parser("enforce", help="exit non-zero if the gate failed")
+    enforce_parser.add_argument("--verdict", required=True)
+    enforce_parser.set_defaults(func=enforce)
 
     args = parser.parse_args(argv)
     return args.func(args)

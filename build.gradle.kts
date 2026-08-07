@@ -120,9 +120,9 @@ kover {
             }
         }
         total {
-            // Reporting only — no thresholds. A coverage gate is a design decision with a
-            // number attached, and numbers are Davide's; the PR comment exists so the trend is
-            // visible before anyone picks one.
+            // No `koverVerify` rule here, and not for lack of a threshold: the gate is a
+            // comparison against the last `main` run, which Kover cannot see. It lives in
+            // `.github/scripts/coverage.py`, which has the baseline. See the `test-coverage` skill.
             xml {
                 onCheck = false
                 xmlFile = layout.buildDirectory.file("reports/kover/report.xml")

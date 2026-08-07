@@ -33,7 +33,8 @@
           { "context": "Build (JVM & Android)" },
           { "context": "Unit tests" },
           { "context": "Screenshot tests" },
-          { "context": "iOS framework" }
+          { "context": "iOS framework" },
+          { "context": "Coverage" }
         ]
       }
     }

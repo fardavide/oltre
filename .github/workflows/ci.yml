@@ -55,9 +55,11 @@ jobs:
           name: roborazzi-diffs
           path: '**/build/outputs/roborazzi/'
 
-  # Reports, does not gate. Kept out of the required checks on purpose: five Gradle passes is
-  # the slowest job here, and a number nobody has agreed on yet has no business blocking a
-  # merge. When Davide picks thresholds, `koverVerify` is where they go.
+  # Reports *and* gates. The rule is one comparison — line coverage of the whole suite must clear
+  # `min(last main run, 95%)` — so below 95% a PR may not leave the project worse than it found
+  # it, and above 95% it has slack. Required check: five Gradle passes make this the slowest job
+  # here, but it runs alongside `iOS framework`, which is just as slow, so gating on it costs
+  # nothing on the critical path. The threshold lives in `coverage.py` (`COVERAGE_FLOOR`).
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
@@ -84,6 +86,13 @@ jobs:
           key: oltre-coverage-v1-${{ github.sha }}
           restore-keys: oltre-coverage-v1-
 
+      # The gate's arithmetic decides whether a PR can merge, so it is verified by the job that
+      # enforces it — before it is enforced, and cheaply enough that it never justifies skipping.
+      - name: Test the coverage script
+        run: |
+          python3 -m pip install --quiet pytest
+          python3 -m pytest .github/scripts -q
+
       - name: Measure coverage per test category
         run: .github/scripts/measure-coverage.sh
 
@@ -92,7 +101,8 @@ jobs:
           python3 .github/scripts/coverage.py render \
             --current build/coverage/summary.json \
             --baseline .coverage-baseline/summary.json \
-            --out build/coverage/comment.md
+            --out build/coverage/comment.md \
+            --verdict-out build/coverage/verdict.json
 
       - name: Publish to the run summary
         run: cat build/coverage/comment.md >> "$GITHUB_STEP_SUMMARY"
@@ -132,6 +142,15 @@ jobs:
         with:
           path: .coverage-baseline
           key: oltre-coverage-v1-${{ github.sha }}
+
+      # Last, so a blocked PR already carries the comment that explains why. Pull requests only:
+      # on a `main` push the merge has happened and the gate can prevent nothing, and turning
+      # `main` red for a number no revert-free action can fix is a false alarm, not a signal.
+      # The baseline above is stored first for the same reason — `main` must keep tracking
+      # reality, or every later PR is measured against a number `main` no longer has.
+      - name: Enforce the coverage gate
+        if: github.event_name == 'pull_request'
+        run: python3 .github/scripts/coverage.py enforce --verdict build/coverage/verdict.json
 
   ios:
     name: iOS framework

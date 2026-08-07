@@ -87,12 +87,47 @@ held up entirely by tests that render it, which is true and worth knowing. A hig
 number is never on its own evidence that an interaction is tested.
 
 The baseline is a GitHub Actions cache written only by `main` (`oltre-coverage-v1-<sha>`), read
-by every branch. Consequences worth knowing:
+by every branch. **No baseline, no delta** — the report says so rather than showing zeros.
 
-- **A PR sees deltas against the last `main` run, not against its own merge base.** If `main`
-  has moved on, the delta includes that drift. Read it as a trend, not as an audit.
-- **No baseline, no delta** — the report says so rather than showing zeros.
-- The job is **not a required check** and sets **no thresholds**. A coverage gate is a design
-  decision with a number attached, and numbers are Davide's; the report exists so the trend is
-  visible before anyone picks one. When thresholds arrive, `koverVerify` is where they go, and
-  the `protect-main` ruleset payload has to be updated in the same change.
+## The gate
+
+The Coverage job is a **required check**, and it fails when line coverage falls. One comparison
+says the whole rule:
+
+```
+pass  ⟺  current ≥ min(last main run, 95%)
+```
+
+Below 95% that is a plain ratchet — a PR may not leave the project worse than it found it. At or
+above 95% there is slack down to 95%, because holding a high-nineties number to the decimal buys
+nothing and turns every merge into a negotiation. The floor is `COVERAGE_FLOOR` in
+`.github/scripts/coverage.py`; it is Davide's number, and changing it needs him.
+
+What this means when you write code, and it is stricter than it sounds: with the project in the
+mid-nineties, **new code has to be covered about as well as the project average** or it drags the
+total down. A 200-line feature at 90% covered fails the gate even though 90% is a decent number.
+Budget for the tests in the same slice, not the next one.
+
+Details that matter when it fires:
+
+- **It gates the `All tests` line number only.** Branch coverage moves for reasons that are not
+  regressions, and a per-kind row moves when a test is renamed from one kind to another; neither
+  should block a merge.
+- **It judges to one decimal** (`GATE_EPSILON`), the precision the table prints, so the verdict
+  can never contradict the `±0` in the row above it.
+- **Pull requests only.** On a `main` push the merge has already happened, so a red `main` there
+  would be a false alarm rather than a signal — and the baseline is stored *before* the gate runs,
+  so `main` keeps tracking reality even on a run that would have failed.
+- **The drift caveat is smaller than it looks.** The baseline is the last `main` run rather than
+  the PR's merge base, but `protect-main` sets `strict_required_status_checks_policy`, so a branch
+  is up to date with `main` before it can merge — at merge time the last `main` run *is* the merge
+  base. Drift shows up in the deltas of an out-of-date branch, not in the verdict that gates it.
+- **A cache miss disables the gate silently-ish.** With no baseline the verdict is `skipped` and
+  the job passes; the comment and the log both say so, but nothing goes red. This is the known
+  hole — a PR merged during a cache eviction is a PR nothing measured.
+- `coverage.py`'s gate arithmetic is tested (`.github/scripts/test_coverage.py`, pytest), and the
+  Coverage job runs those tests before it measures anything.
+- The gate lives in `coverage.py`, **not** in `koverVerify` — it needs the baseline, and Kover's
+  own verification rules only know about absolute numbers.
+- The `protect-main` ruleset payload lists `Coverage` among the required contexts. Keep the
+  committed payload and the applied ruleset in sync.
