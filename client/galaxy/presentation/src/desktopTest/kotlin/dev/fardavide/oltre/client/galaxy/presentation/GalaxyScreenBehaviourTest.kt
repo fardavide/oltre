@@ -134,6 +134,29 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
+    fun `Blocked states its worth and the bar it would be measured against`() {
+        // 98% of surveyed worlds read Blocked, so this is the row that most needs what Barren's
+        // threshold sentence does: a scale, so the answer reads as the design rather than as bad
+        // luck. The yield beside it is what makes the count mean something — this world clears the
+        // bar, and only the technology stands between.
+        galaxyScreen(uiState = homeSystemUiState) {
+            assertRowReads(8, "yield 1.05")
+            assertRowReads(8, "Fails 2 of 3 bands, worth it at 0.92")
+            assertRowReads(13, "Fails 3 of 3 bands, worth it at 0.92")
+        }
+    }
+
+    @Test
+    fun `the screen says the ladders its blocked rows point at are not built yet`() {
+        // The technology on a blocked row is a purchase Research cannot sell: all three adaptation
+        // ladders are unbuilt. Marked PLACEHOLDER in the mapper, in the voice the unbuilt tabs use.
+        galaxyScreen(uiState = homeSystemUiState) {
+            assertReads("Adaptation research lands later.")
+            assertReads("You are at level 0.")
+        }
+    }
+
+    @Test
     fun `an unsurveyed world gives away nothing but its coordinate and its orbit`() {
         // The honest default: on the day this ships almost every world reads exactly this, and a
         // row that leaked a trait would have performed the survey the player has not paid for.

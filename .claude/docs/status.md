@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-07 (0.0.15)
+Updated: 2026-08-07 (0.0.16)
 
 ## Landed
 
@@ -106,6 +106,12 @@ Updated: 2026-08-07 (0.0.15)
   empty-state baseline moved to Shipyard. See `decisions.md` for why the system selector is the
   feature's state rather than the shell's, and for the three design calls still open.
 
+- **0.0.16 the Blocked row explains itself** — presentation only, no balance number touched. The
+  row states its yield as well as its cost, counts the bands it fails against the same 0.92 bar
+  `Barren` quotes, drops the accent from a technology Research cannot sell, and the header carries
+  a PLACEHOLDER line saying the adaptation ladders are not built. Both copy calls were Davide's,
+  delegated to the build. See `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -187,6 +193,11 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   adaptation ladders are unbuilt, so the sentence is true and the purchase does not exist. The
   connection the design is after does not close until the adaptation technologies land — which is
   its own slice, and Davide's call per the galaxy sheet's own open list.
+  **Half-answered at 0.0.16**: the screen no longer pretends otherwise — the technology lost the
+  accent that made it look tappable, and the header says "Adaptation research lands later. You are
+  at level 0." The row also states its yield and counts the bands it fails against the bar `Barren`
+  names, so a screen of BLOCKED reads as the distribution rather than as bad luck. What is still
+  open is the purchase itself.
 
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.

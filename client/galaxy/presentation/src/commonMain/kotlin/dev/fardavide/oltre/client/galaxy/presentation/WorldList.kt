@@ -80,6 +80,7 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean) {
             VerdictUiState.Unsurveyed -> Unit
             is VerdictUiState.Blocked -> {
                 BlockedAxes(failures = verdict.failures)
+                Detail(text = verdict.calibration, color = OltreColors.textSecondary)
                 Detail(text = verdict.detail, color = OltreColors.textTertiary)
             }
             is VerdictUiState.Barren -> {
@@ -165,12 +166,14 @@ private fun BlockedAxes(failures: List<BlockedAxisUiState>) {
                     lineHeight = 15.sp,
                     modifier = Modifier.weight(1f),
                 )
-                // Accent, because it is the only thing on this screen that points at another tab.
-                // Every empire is at level 0 today, so all of these are purchases that do not exist
-                // yet — the row is a promise, and the accent is what makes it look like one.
+                // Not accent, and that is the correction: accent is the screen's only "go tap this"
+                // signal, and Research sells PHOTOVOLTAICS, EXTRACTION and ENRICHMENT — never one of
+                // these. Dressing an unbuyable ladder as a call to action sends the player to a tab
+                // that cannot answer. It reads as what it is until the ladders exist: the name of
+                // the thing that would land this world.
                 Text(
                     text = failure.technology,
-                    color = OltreColors.accent,
+                    color = OltreColors.textSecondary,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
                     lineHeight = 15.sp,
@@ -253,7 +256,10 @@ private fun VerdictUiState.hue(): Color = when (this) {
     is VerdictUiState.Relay -> OltreColors.accent
 }
 
+// Every surveyed verdict that has one, which now includes `Blocked`: a row that named the cost and
+// never the worth was half a verdict, and on this screen it was the half the player sees most.
 private fun VerdictUiState.yieldLabel(): String? = when (this) {
+    is VerdictUiState.Blocked -> yieldLabel
     is VerdictUiState.Barren -> yieldLabel
     is VerdictUiState.Settleable -> yieldLabel
     else -> null

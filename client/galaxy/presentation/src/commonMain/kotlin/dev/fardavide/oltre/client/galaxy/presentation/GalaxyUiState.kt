@@ -49,6 +49,10 @@ data class GalaxyUiState(
     // number or a name — and it is authored rather than left to an ellipsis, because "4 WO…" is the
     // layout admitting defeat where "DIM · 4" is the screen still saying something true.
     val compactDetail: String,
+    // Constant, and it stays on the header rather than on the rows that earn it: every `Blocked`
+    // row names a technology, and there are more of them on this screen than anything else, so the
+    // one place the caveat is said once is above them all.
+    val adaptationState: String,
     val atFirstSystem: Boolean,
     val atLastSystem: Boolean,
     val isHome: Boolean,
@@ -92,7 +96,18 @@ sealed interface VerdictUiState {
 
     // Never empty, and in `HostilityAxis` order rather than by the size of the gap, so the third
     // line is in the same place on every three-axis world.
-    data class Blocked(val failures: List<BlockedAxisUiState>, val detail: String) : VerdictUiState {
+    //
+    // It carries a yield and a calibration line for the same reason `Barren` does, and it needs
+    // them more: 98% of surveyed worlds read `Blocked`, so this is the verdict a player meets over
+    // and over. Without the yield the row stated a cost and never a worth; without the count and
+    // the bar, a screen of them reads as bad luck rather than as the design — which is the exact
+    // job `Barren`'s threshold sentence already does.
+    data class Blocked(
+        val failures: List<BlockedAxisUiState>,
+        val yieldLabel: String,
+        val calibration: String,
+        val detail: String,
+    ) : VerdictUiState {
         init {
             require(failures.isNotEmpty()) { "a blocked row must name at least one axis" }
         }
@@ -124,6 +139,23 @@ data class BlockedAxisUiState(
 // states an effect no mechanic can yet confer — there is no way to hold one until multiplayer — so
 // this is the line the design flagged as its fifth open call.
 private const val RELAY_EFFECT = "+18% range while held"
+
+// PLACEHOLDER copy, on the same terms as `RELAY_EFFECT` above and the unbuilt tabs' one-liners,
+// and in the same voice — "Ship construction lands here." Every `Blocked` row names an adaptation
+// technology, and Research sells three technologies, none of which is one of those: the ladders are
+// their own slice and Davide's call per the galaxy sheet's open list. So the sentence on the row is
+// true and cannot be acted on, and the screen says which of those two it is. It goes when the
+// ladders land, not before.
+// Second person because the rows are already in it — "you tolerate 1.40 g" — and because the fact
+// that matters to a player reading a blocked row is where *they* stand. It is also what keeps the
+// line unwrapped at 393dp: "Every empire is at level 0." broke after "level", which leaves "0."
+// alone on a line and reads as a defect rather than as a wrap.
+private const val ADAPTATION_STATE = "Adaptation research lands later. You are at level 0."
+
+// Written once because `Blocked` and `Barren` both quote it, and two rows on one screen disagreeing
+// about the bar would be the screen contradicting itself. It is the number `verdictFor` actually
+// decides by, not a string that looks like it.
+private val WORTH_IT_AT = "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()}"
 
 internal fun GalaxyState.toGalaxyUiState(
     at: SystemSelection,
@@ -162,6 +194,7 @@ internal fun GalaxyState.toGalaxyUiState(
         coordinate = "${at.galaxy}:${at.system}",
         detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
         compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
+        adaptationState = ADAPTATION_STATE,
         atFirstSystem = at.system <= 1,
         atLastSystem = at.system >= GalaxyBalance.SYSTEMS_PER_GALAXY,
         isHome = at.galaxy == home.galaxy && at.system == home.system,
@@ -210,11 +243,17 @@ private fun WorldVerdict.toUiState(traits: WorldTraits): VerdictUiState = when (
     WorldVerdict.Unsurveyed -> VerdictUiState.Unsurveyed
     is WorldVerdict.Blocked -> VerdictUiState.Blocked(
         failures = failures.map { it.toUiState() },
+        yieldLabel = "yield ${traits.yieldLabel()}",
+        // The count comes from the row rather than from a table, and the bar is the one `Barren`
+        // quotes — a blocked world reading its yield against the same 0.92 is what turns the row
+        // into the shopping list the sheet asked for: the world is worth taking, the band is not
+        // wide enough yet, and the line above says what widens it.
+        calibration = "Fails ${failures.size} of ${HostilityAxis.entries.size} bands, $WORTH_IT_AT",
         detail = listOfNotNull(traits.fieldsLabel(), traits.hazardLabel(null)).joinToString(SEPARATOR),
     )
     WorldVerdict.Barren -> VerdictUiState.Barren(
         yieldLabel = "yield ${traits.yieldLabel()}",
-        threshold = "Passes every band, worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()}",
+        threshold = "Passes every band, $WORTH_IT_AT",
         detail = listOfNotNull(traits.fieldsLabel(), traits.hazardLabel(null)).joinToString(SEPARATOR),
     )
     is WorldVerdict.Settleable -> VerdictUiState.Settleable(

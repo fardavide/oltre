@@ -46,6 +46,7 @@ internal val everyVerdictUiState = GalaxyUiState(
     coordinate = "2:118",
     detail = "BRIGHT · 6 worlds",
     compactDetail = "BRIGHT · 6",
+    adaptationState = "Adaptation research lands later. You are at level 0.",
     atFirstSystem = false,
     atLastSystem = false,
     isHome = false,
@@ -102,6 +103,10 @@ internal val everyVerdictUiState = GalaxyUiState(
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Blocked(
                         failures = listOf(blocked("gravity", "2.40", "1.40", "g", "Gravitic 9")),
+                        // Over the bar its own calibration line names, which is the pillar in one
+                        // row: the good ground is behind the technology nobody has bought.
+                        yieldLabel = "yield 1.04",
+                        calibration = "Fails 1 of 3 bands, worth it at 0.92",
                         detail = "118 fields · ion storms",
                     ),
                 ),

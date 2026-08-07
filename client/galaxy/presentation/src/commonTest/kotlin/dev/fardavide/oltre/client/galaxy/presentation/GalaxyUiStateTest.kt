@@ -98,6 +98,45 @@ class GalaxyUiStateTest {
     }
 
     @Test
+    fun `a blocked world states what it is worth and not only what it costs`() {
+        // The pillar on one row: all three of the home system's blocked worlds out-yield the
+        // worth-it threshold, so what stands between the player and them is a technology rather
+        // than the world. A row that named the cost and never the worth left that unsaid.
+        val uiState = galaxy().toGalaxyUiState(at = homeSelection())
+        val blocked = assertIs<VerdictUiState.Blocked>(
+            uiState.bands.flatMap { it.rows }.first { it.slot == 8 }.verdict,
+        )
+
+        // Over the 0.92 its own calibration line names, which is the pillar in one row.
+        assertEquals("yield 1.05", blocked.yieldLabel)
+    }
+
+    @Test
+    fun `a blocked world counts the bands it fails against the same bar Barren names`() {
+        // Barren's threshold sentence is what makes a bad answer read as a scale rather than as
+        // bad luck, and 98% of surveyed worlds are Blocked — so it is the verdict that needs the
+        // calibration most. The bar is the one core actually applies, quoted identically on both.
+        val uiState = galaxy().toGalaxyUiState(at = homeSelection())
+        val rows = uiState.bands.flatMap { it.rows }
+
+        val twoAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 8 }.verdict)
+        val threeAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 13 }.verdict)
+
+        assertEquals("Fails 2 of 3 bands, worth it at 0.92", twoAxes.calibration)
+        assertEquals("Fails 3 of 3 bands, worth it at 0.92", threeAxes.calibration)
+    }
+
+    @Test
+    fun `the header says the ladders every blocked row points at are not built yet`() {
+        // Every `Blocked` row names a technology Research cannot sell, because all three adaptation
+        // ladders are unbuilt. The sentence on the row is true; the screen owes the player the
+        // reason it cannot be acted on.
+        val uiState = galaxy().toGalaxyUiState(at = homeSelection())
+
+        assertEquals("Adaptation research lands later. You are at level 0.", uiState.adaptationState)
+    }
+
+    @Test
     fun `the unit is written once on the tolerance and not on the reading`() {
         // Both numbers are the same axis and therefore the same unit, and the four characters that
         // saves are what keep the technology on the line at 393dp.
