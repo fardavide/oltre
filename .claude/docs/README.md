@@ -6,9 +6,13 @@
 | [architecture.md](architecture.md) | Module map, dependency rule and how it is enforced |
 | [decisions.md](decisions.md) | Why — ADR-style, newest last |
 | [status.md](status.md) | Where the project is: slices landed, what's next, pending setup |
+| [balance-log.md](balance-log.md) | Every tuning round: the feedback in Davide's words, what moved, what to watch |
+| [galaxy-sheet.md](galaxy-sheet.md) | The settled design for slices 4 and 5 — trait axes, coordinates, generation, the target distribution |
 
-Work that a remote agent session cannot do — anything needing a Gradle build, or a repo only the
-desktop machine has — is written up as a ready-to-paste prompt in [`../prompts/`](../prompts/).
+Work that a remote agent session cannot do — anything needing a Gradle build, UI of any kind, or
+a repo only the desktop machine has — is written up as a ready-to-paste prompt. See
+[`../rules/session-roles.md`](../rules/session-roles.md) for which session may do what, and
+[`../prompts/`](../prompts/) for the standing ones.
 
 ## For agents
 
@@ -17,4 +21,6 @@ desktop machine has — is written up as a ready-to-paste prompt in [`../prompts
 - When a choice that would be expensive to reverse is made (with or by Davide), append it to
   `decisions.md` in the same PR, including the rejected alternative.
 - When a slice lands, update `status.md` in the same PR.
-- Notion is read-only. If it looks wrong or stale, say so in chat.
+- Notion is **not** read-only — Davide changed that on 2026-08-06. Agents read *and* write the
+  Oltre page: record what the build learned, append and annotate, date every entry, never
+  overwrite his calls. See `brief.md`, which is authoritative on the rules for writing there.

@@ -14,16 +14,24 @@ data class GameState(
     // limited by resources and research is limited by time, which is what gives the two screens
     // different characters.
     val activeResearch: ResearchJob?,
+    // The seed and what the player has changed about the map — never the worlds themselves. See
+    // `GalaxyState`.
+    val galaxy: GalaxyState,
     val returningFleet: ReturningFleet?,
     val eventLog: List<Event>,
 ) {
     companion object {
-        fun initial(): GameState = GameState(
+
+        // The galaxy seed is a required argument rather than a default, because a default is how
+        // every player quietly ends up in the same galaxy. Core cannot mint one — it reads no clock
+        // and no random source — so the composition root does, once, at genesis.
+        fun initial(galaxySeed: GalaxySeed): GameState = GameState(
             resources = PlaceholderBalance.startingResources(),
             buildings = Buildings.initial(),
             builds = emptyMap(),
             research = Research.initial(),
             activeResearch = null,
+            galaxy = GalaxyState.initial(galaxySeed),
             returningFleet = null,
             eventLog = emptyList(),
         )

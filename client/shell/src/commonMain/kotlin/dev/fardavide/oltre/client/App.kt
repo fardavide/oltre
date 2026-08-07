@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.colony.presentation.ColonyScreen
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.research.presentation.ResearchScreen
@@ -129,6 +130,11 @@ fun App(
                             },
                         )
                     },
+                    // No callback and no ui-state mapping here, unlike the two above: the galaxy
+                    // is read-only in 0.2 — surveying is a fleet action and colonisation is slice
+                    // #10 — and which system is on screen is the feature's own navigation rather
+                    // than the shell's.
+                    galaxy = { GalaxyScreen(galaxy = current.state.galaxy) },
                 )
             }
         }

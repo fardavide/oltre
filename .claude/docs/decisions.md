@@ -808,3 +808,184 @@ a test-only dependency, a nested module directory, the shell's allowed edges, th
 warning, and Oltre's real nine-module graph — plus `./gradlew help` on this repo to prove rule 1
 runs before anything else does. If the rules grow past this, `buildSrc` + TestKit is the next
 step, not more sandboxes.
+
+## The galaxy is a seed, not a map: schema 4 stores what the player changed
+
+The galaxy decision sheet (2026-08-07) is the design and 0.0.15 is an implementation of it, the way
+0.0.12 implemented the research sheet. What is worth carrying forward is the handful of choices the
+sheet left to the build, and the one place its own numbers disagree with each other.
+
+**Nothing about the galaxy is serialised except the seed and the player's own edits.** 4,700 worlds
+of traits would dwarf the entire rest of the snapshot, so `GalaxyState` is a seed, the home
+coordinate, the surveyed set and a list of who holds what — and `worldAt(seed, coordinate)`
+regenerates any world on demand. `GameSaveTest` asserts that no trait name ever appears in the
+encoded save, because the day one does is the day the format stopped being affordable.
+
+**Two generation properties are load-bearing and both are tested rather than trusted.** *Locality* —
+a world is generated without touching its neighbours — is what lets slice 5's `Canvas` render a
+viewport lazily instead of holding a galaxy in memory. *Sub-stream stability* — every axis is drawn
+from its own named stream, hashed from the world's seed and an axis tag — is what stops the next
+three slices rerolling everyone's map when they add a field to `World`. The obvious implementation,
+a single sequential generator per world, silently breaks the second one; `GalaxySubStreamTest` exists
+to fail loudly when someone writes it. The hash is SplitMix64's finalizer written out rather than
+`kotlin.random.Random`, because the map is part of the save format and a stdlib generator whose
+internals changed would reroll every installed player's galaxy.
+
+**Every axis is an integer in a named unit — milli-g, milli-atm, whole °C — not a `Double`.** The
+same reason the rest of core is integer: `advance` has to give the same answer on the JVM, on
+Kotlin/Native and on the server, and a galaxy that differs by one unit between platforms is a
+different galaxy. Rejected: doubles with a documented tolerance, which makes every pinned test a
+question about the last bit.
+
+**`GameState.initial` takes a galaxy seed rather than defaulting one.** A default is precisely how
+every player ends up in the same galaxy, and core cannot mint one — it reads no clock and no random
+source. So the composition root does: `resume` seeds the map from the instant the colony was founded,
+which keeps it a pure function of its arguments. The ~60 existing tests that do not care which map
+they get keep their no-argument call through an extension on the companion declared in `commonTest`,
+so the terseness is available to tests and unavailable to production. Rejected: a default seed
+(silently identical galaxies), and editing 60 call sites to pass one (a mechanical diff that would
+have buried the change it was attached to).
+
+**Schema 4 migrates 3, and the migration mints its seed from the save's own `lastUpdatedAt`.** The
+galaxy is purely additive — a colony saved before the map existed has surveyed nothing and holds
+nothing but its home world, which is what a fresh `GalaxyState` says — so this migrates rather than
+retires, the default the persistence entry above sets for a change that is only shape. The seed has
+to come from the file's contents because a migration is a pure function: a seed drawn at random would
+hand the player a different galaxy every time the app reopened, until the first commit happened to
+write one down. Two saves from different instants still get different maps.
+
+**Ownership is a list of records, not a map keyed by coordinate.** JSON cannot use a structured
+object as a key at all; the alternative was `allowStructuredMapKeys`, which changes how the *whole*
+save format encodes maps — every entry becoming a flat `[key, value]` array — to buy an unreadable
+save. Rejected for one field's convenience.
+
+**`advance()` is untouched and no hook was left for it.** Nothing about the galaxy changes with time
+in 0.2: it is fixed the instant the seed is minted, and surveying and ownership change through the
+save's galaxy state rather than through the clock. Said in a comment in `GalaxyGeneration.kt` so the
+next session does not add a speculative per-tick entry point.
+
+### One §9 target was unreachable by any constants, so the target moved and the axes rebalanced
+
+The sheet says its §9 targets outrank its §8 constants, so the constants should move when they miss.
+They do miss — and one of the targets cannot be reached by moving them. Measured over all 15,000
+slots: `passes every band` 2.63% against a 1–2% target, `fails exactly one axis` **17.55% against a
+35–45% target**, `passes and clears 0.90` 0.71% against ≤0.5%.
+
+The middle row is not a tuning miss. With three independent axes the first row is `abc` and the
+middle one is `ab + ac + bc − 3abc`; holding `abc` inside 1–2% caps the middle row near **16%** for
+any three comparable axes. Reaching 35% needs pass rates around 0.06 / 0.58 / 0.59 — one axis
+blocking 94% of worlds and two waving everything through, which is the single-habitability-score
+design §1 rejected, arrived at from the other side.
+
+**Davide's call, delegated to the build (2026-08-07): keep the three comparable axes and correct the
+target.** Gravity went 0.55…1.45 g → **0.65…1.40**, pressure 0.4…3.0 atm → **0.5…2.6**, and the
+worth-it threshold 0.90 → **0.92**. Temperature was left alone — it was already the tightest axis,
+and its band is the one tied to the slot formula that makes position a trait — so the other two were
+brought *down to meet it*. All three now gate **25.9 / 25.3 / 25.0** per cent, which is the property
+§1 actually needs and which hitting the old row 2 would have destroyed.
+
+Result: `passes every band` **1.81%**, `fails exactly one` **13.88%** against a corrected 12–18%,
+`settleable` **0.35%**, and each adaptation level still roughly doubles the settleable count
+(17 → 40 → 105 → 218). [balance-log.md](balance-log.md) round 5 has the write-up and says which
+lever to reach for if it plays wrong — the threshold for scarcity, all three bands together for the
+"come back later" pile, never one band alone.
+
+**The yield model was never touched, because it was right.** Its own unrun prediction of a median
+passing world at "~0.84" measured 0.85. What was wrong was which worlds pass, not what they are
+worth — which is why the last row moved by raising the threshold rather than by reweighting
+richness. Hazards landed on 45.6% of worlds, as specified.
+
+### Smaller calls the sheet did not make, all recorded in the balance log
+
+Star class distribution (equal thirds assumed — nearly free, because each class's habitable orbits
+shift with its offset), where home is (the first world walking from a seeded start that the unaided
+species tolerates), and what `Settleable` carries (the raw yield score, because "the yield grade" is
+named in §3 but its bands never are). Each is marked as assumed at the point in the code where it is
+made, rather than left to look decided.
+
+Also flagged rather than fixed: `Coordinates(galaxy, system, position)` already exists for
+`ReturningFleet.origin` and is now a weaker twin of `GalaxyCoordinate`, which is bounded to the real
+coordinate space. Folding the two together is a fleets change and slice #7 owns fleets.
+
+## `./gradlew build` was failing on `main`, on an edge nobody declared
+
+Found while building 0.0.15 and verified against a clean checkout: the module dependency rules
+rejected `:core -> :client:*` for all nine client modules, declared in
+`swiftPMDependenciesForLockFilesMetadataClasspathDependencies`. The Kotlin plugin's SwiftPM export
+hangs that configuration on every module and fills it with every project in the build, so the rule
+read it as core depending on the whole client.
+
+This is the second artefact of exactly this kind — the first was Kover's self-edge, recorded above —
+and the same lesson: **the rule is about what a build file declares, and a plugin-created
+configuration declares nothing.** Filtering to declarable configurations does not help (this one is
+declarable), so it is excluded by name beside the self-edge filter.
+
+Worth knowing *why it went unnoticed*: the configuration is only realised once the iOS targets are,
+so `./gradlew :core:jvmTest` and every narrower task stayed green, and CI's own jobs never provoked
+it. A rule that runs at configuration time can therefore be broken for every developer running the
+documented build command while every required check passes.
+
+## The Galaxy screen is the orbit page, and the system selector is the feature's own
+
+Claude Design returned two directions for slice 5 and recommended the first; 0.0.15 builds it. Both
+replaced the mockup's `◀ 2:118 ▶` stepper, which is 250 taps to cross a galaxy and 1,000 to cross
+the map. What separated them was **what the map is a map of.**
+
+**1a, the orbit page — one system, its fifteen orbits drawn once, hot to cold.** Chosen because on
+the day this ships 1b's galaxy field is 250 dots of which one is yours and six are relays, which is
+a picture of how much you do not know. 1a's map has four dots and is still working: it shows the
+eleven *empty* slots and therefore the shape of a system, it puts the hot end and the cold end on
+screen together, and it is the only place a player can learn that slot 13 means cold without a
+sentence telling them. The galaxy field becomes the better screen the week fleets ship and the map
+starts filling in — which is an argument for building it then, as the zoom-out it is asking to be.
+
+**Which system is on screen is the galaxy feature's state, not the shell's.** Navigation between
+tabs lives in the composition root because a tab set names every feature and only the shell may see
+them all. That argument does not reach a system selector, which names nothing outside this module —
+so `GalaxyScreen` holds it, and `GalaxyPage` beneath it is the stateless half the screenshots and
+the robot drive. It is the first screen in the app with state of its own, and the split is what
+keeps it testable.
+
+**The map is a Canvas, for the reason `PowerMark` is.** A circle from a shaped `Box` resolves
+through the platform's shape renderer, and baselines are recorded on macOS and verified on Linux.
+The star is the one gradient in the app and earns it by being a lit sphere.
+
+**Fixtures for the two real systems are generated, not hand-written** — the opposite of the choice
+`:client:research:presentation` made, and deliberately. Research freezes its fixtures so a baseline
+moves only when the *screen* moves; here the generation constants are themselves pinned value by
+value by `GalaxyBalanceTest` and `GalaxyDistributionTest`, so a change that moves these numbers is a
+design decision that *should* redraw the images. The hand-written version drifted from the mapper's
+own formatting within the hour and rendered numbers the app would never produce. `everyVerdictUiState`
+stays hand-written because it has to: Barren, Settleable, Occupied and a relay have no real example
+on the shipped seed.
+
+**A value and its unit are joined by U+00A0.** The blocked line is the longest on the screen and
+does wrap at 393dp on a three-axis world — the design expects that at 320dp and tolerates it here —
+but breaking between a number and its unit leaves "atm" alone on a line, which reads as a defect
+rather than as a wrap. The character is invisible in a diff, so the source says so where it is used.
+
+**Galaxy left `OltreTab.pendingWork`,** so the shell's `unbuilt_tab_galaxy` baseline is gone and
+Shipyard inherits the empty-state coverage. Two destinations are still unbuilt and the test that
+covers them filters on `pendingWork` rather than naming tabs, so the next slice to land needs no
+edit there.
+
+### What the design asked for and what the build could answer
+
+Three of its six calls were data the build already had, and the answers are in `balance-log.md`
+round 5 and in `:sim:run`'s new home-system table. Two of those answers changed the screen:
+
+- **The home system of the seed the sim uses is Home plus three Blocked** — not the Blocked /
+  Barren / Blocked mix the design assumed. That is why the screenshot suite carries a hand-written
+  every-verdict frame as well as two generated ones.
+  **Corrected after review:** an earlier version of this entry said `Barren` and `Settleable`
+  "never render at ship time on the shipped seed". There is no shipped seed — `GameSession.resume`
+  mints one per colony from the founding instant, so every player's galaxy differs, and with 2–3%
+  of worlds passing every band roughly one colony in a dozen opens the Galaxy tab on a Barren or
+  Settleable row. The mapper's branches for both are covered against real generated worlds.
+- **The committed tolerance bands are wider than the design guessed** on temperature and pressure
+  (−30 … +45 °C and 0.4 … 3.0 atm against its −95 … +58 and 0.35 … 1.40), so every Blocked sentence
+  on the screen reads differently from the mockup's.
+
+Three remain open and are listed with the rest in `status.md`: whether a near miss should look
+different from a hopeless one, whether a relay should state an effect no mechanic can confer, and
+who holds an `Occupied` world before multiplayer exists to hold one.

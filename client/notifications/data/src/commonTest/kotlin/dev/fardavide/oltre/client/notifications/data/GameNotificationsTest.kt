@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.notifications.data
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
@@ -31,7 +32,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler).sync(GameState.initial(), now = EPOCH)
+        GameNotifications(scheduler).sync(freshState(), now = EPOCH)
 
         // then
         assertEquals(emptyList(), scheduler.scheduled)
@@ -57,7 +58,7 @@ class GameNotificationsTest {
     fun `a returning fleet is announced at the instant it lands`() = runTest {
         // given
         val scheduler = FakeNotificationScheduler()
-        val state = GameState.initial().copy(returningFleet = fleetArrivingAt(EPOCH + 3.hours))
+        val state = freshState().copy(returningFleet = fleetArrivingAt(EPOCH + 3.hours))
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
@@ -163,7 +164,7 @@ class GameNotificationsTest {
         assertEquals(1, scheduler.scheduled.size)
 
         // when the build has since completed and nothing is in flight
-        notifications.sync(GameState.initial(), now = EPOCH + 1.hours)
+        notifications.sync(freshState(), now = EPOCH + 1.hours)
 
         // then the whole set is replaced rather than amended
         assertEquals(emptyList(), scheduler.scheduled)
@@ -194,7 +195,7 @@ class GameNotificationsTest {
                 deuterium = stock.deuterium + cost.deuterium,
             )
         }
-        return buildings.fold(GameState.initial().copy(resources = total)) { state, building ->
+        return buildings.fold(freshState().copy(resources = total)) { state, building ->
             assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = EPOCH)).state
         }
     }
@@ -203,7 +204,7 @@ class GameNotificationsTest {
     // the four lines it takes to make one.
     private fun researching(
         technology: Technology,
-        on: GameState = GameState.initial(),
+        on: GameState = freshState(),
     ): GameState {
         val toLevel = TechLevel(on.research.levelOf(technology).value + 1)
         val cost = ResearchBalance.researchCost(technology, toLevel)
@@ -213,6 +214,10 @@ class GameNotificationsTest {
         )
         return assertIs<StartResearchResult.Started>(startResearch(ready, technology, at = EPOCH)).state
     }
+
+    // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
+    // every colony in the same galaxy. Alerts do not care which map they are scheduled over.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 
     private fun fleetArrivingAt(instant: Instant): ReturningFleet = ReturningFleet(
         ships = mapOf(ShipType.CARGO to 14),

@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.save.data
 
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSave
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
@@ -47,10 +48,10 @@ class GameStoreTest {
         // given
         val file = FakeSaveFile()
         val store = GameStore(file)
-        val later = GameSnapshot(lastUpdatedAt = EPOCH + 3.hours, state = GameState.initial())
+        val later = GameSnapshot(lastUpdatedAt = EPOCH + 3.hours, state = freshState())
 
         // when
-        store.save(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        store.save(GameSnapshot(lastUpdatedAt = EPOCH, state = freshState()))
         store.save(later)
 
         // then
@@ -74,7 +75,7 @@ class GameStoreTest {
             GameSnapshot(
                 schemaVersion = GameSave.SCHEMA_VERSION + 1,
                 lastUpdatedAt = EPOCH,
-                state = GameState.initial(),
+                state = freshState(),
             ),
         )
 
@@ -100,9 +101,13 @@ class GameStoreTest {
         assertNull(GameStore(FakeSaveFile("")).load())
     }
 
+    // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
+    // every colony in the same galaxy. The store writes whatever map it is handed.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
+
     private fun midBuildState(): GameState {
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
-        val funded = GameState.initial().copy(
+        val funded = freshState().copy(
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
         )
         return assertIs<StartUpgradeResult.Started>(

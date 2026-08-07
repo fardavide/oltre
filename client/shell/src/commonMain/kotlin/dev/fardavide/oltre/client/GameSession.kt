@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.advance
@@ -20,7 +21,12 @@ internal data class GameSession(val state: GameState, val lastUpdatedAt: Instant
 // travelled from another machine — is clamped rather than rejected, because core's advance
 // refuses to run backwards and losing a colony over a clock skew would be absurd.
 internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
-    if (saved == null) return GameSession(GameState.initial(), now)
+    // A new colony needs a galaxy, and a galaxy needs a seed that core cannot mint for itself —
+    // it reads no clock and no random source. The composition root is where the clock already
+    // is, so the instant the colony was founded becomes the seed of the map it was founded in.
+    // Derived rather than drawn, deliberately: `resume` stays a pure function of its arguments,
+    // which is what keeps it testable and what stops a retry handing back a different galaxy.
+    if (saved == null) return GameSession(GameState.initial(GalaxySeed(now.toEpochMilliseconds())), now)
     val to = maxOf(now, saved.lastUpdatedAt)
     return GameSession(advance(saved.state, from = saved.lastUpdatedAt, to = to), to)
 }

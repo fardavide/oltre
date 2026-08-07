@@ -54,6 +54,7 @@ class MainScaffoldLayoutBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text("colony-under-test") },
                         research = { Text("research-under-test") },
+                        galaxy = { Text("galaxy-under-test") },
                     )
                 }
             }

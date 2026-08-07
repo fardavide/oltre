@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.Resources
@@ -18,7 +19,7 @@ class ResourceRailUiStateTest {
     @Test
     fun `metal stock is grouped by thousands`() {
         // given
-        val state = GameState.initial().copy(resources = Resources.of(metal = 482_910))
+        val state = freshState().copy(resources = Resources.of(metal = 482_910))
 
         // then
         assertEquals("482,910", state.toResourceRailUiState().metal)
@@ -27,7 +28,7 @@ class ResourceRailUiStateTest {
     @Test
     fun `metal rate reflects the mine level`() {
         // given
-        val state = GameState.initial().let {
+        val state = freshState().let {
             it.copy(buildings = it.buildings.withLevel(BuildingType.METAL_MINE, BuildingLevel(2)))
         }
 
@@ -38,7 +39,7 @@ class ResourceRailUiStateTest {
     @Test
     fun `all three resources appear with stock and rate`() {
         // given
-        val state = GameState.initial().copy(
+        val state = freshState().copy(
             resources = Resources.of(metal = 1_000, crystal = 2_000, deuterium = 3_000),
         )
 
@@ -57,7 +58,7 @@ class ResourceRailUiStateTest {
     @Test
     fun `the rate the rail shows is the one research has already raised`() {
         // given the same colony with two levels of Extraction - 90 and 30 per hour times 1_08^2
-        val state = GameState.initial().copy(
+        val state = freshState().copy(
             research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(2)),
         )
 
@@ -72,7 +73,7 @@ class ResourceRailUiStateTest {
     @Test
     fun `an energy deficit shows in the rate rather than only in the simulation`() {
         // given mines that have outrun the plant
-        val state = GameState.initial().let {
+        val state = freshState().let {
             it.copy(buildings = it.buildings.withLevel(BuildingType.METAL_MINE, BuildingLevel(9)))
         }
 
@@ -80,4 +81,8 @@ class ResourceRailUiStateTest {
         assertEquals("+221/h", state.toResourceRailUiState().metalRatePerHour)
         assertTrue(state.toResourceRailUiState().throttled)
     }
+
+    // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
+    // every colony in the same galaxy. The rail shows empire-wide stocks and no part of the map.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 }

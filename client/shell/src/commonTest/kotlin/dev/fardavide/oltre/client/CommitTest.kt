@@ -7,6 +7,7 @@ import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.SaveFile
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
@@ -76,7 +77,9 @@ class CommitTest {
 
     private fun midBuild(): GameState {
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
-        val funded = GameState.initial().copy(
+        // A galaxy seed is required rather than defaulted, so production cannot found every colony
+        // in the same galaxy. Which one this test gets does not matter.
+        val funded = GameState.initial(GalaxySeed(20_260_807)).copy(
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
         )
         return assertIs<StartUpgradeResult.Started>(

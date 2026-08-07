@@ -4,6 +4,7 @@ import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchJob
@@ -25,7 +26,7 @@ class ResearchUiStateTest {
     @Test
     fun `the branch is three rows in a fixed order`() {
         // given
-        val uiState = GameState.initial().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
+        val uiState = freshState().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         // then
         assertEquals(
@@ -234,9 +235,14 @@ class ResearchUiStateTest {
         builds = emptyMap(),
         research = research,
         activeResearch = activeResearch,
+        galaxy = freshState().galaxy,
         returningFleet = null,
         eventLog = emptyList(),
     )
+
+    // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
+    // every colony in the same galaxy. The Research screen draws none of it.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 
     // Past the deuterium wall, which is where the branch opens.
     private fun gated(robotics: Int = 1): Buildings =

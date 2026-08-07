@@ -120,6 +120,32 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.15 — 2026-08-07
+
+- **The galaxy exists.** Four galaxies of 250 systems, fifteen orbits each — about 4,700 worlds, all
+  of them generated from a single number saved with your colony. Nothing is stored but that number
+  and what you have changed, so the map is the same every time you open the game and costs the save
+  file nothing.
+- **An easy world is a poor world.** Every world has a temperature, a gravity and an atmospheric
+  pressure, and the same extremes that make one hostile are what make it rich: the coldest worlds
+  hold the deuterium, the heaviest hold the metal, the thickest atmospheres hold the crystal. Each
+  of the three blocks about three worlds in four, so which hostility you learn to survive first is
+  a real choice rather than a ladder.
+- **You can see the whole sky, and almost none of it in detail.** Coordinates, star class and who
+  holds a world are free from the first launch. Everything else needs a survey, which needs fleets —
+  so for now your home system is the only place you know anything about.
+- **The Galaxy tab is real.** One system fills the screen: its fifteen orbits drawn once, left to
+  right, hot to cold, with the worlds it holds listed underneath. The map shows the empty slots too,
+  which is how you learn that the outer orbits are the cold ones without being told.
+- **A world you cannot settle tells you what would change that.** "gravity 1.78, you tolerate
+  1.40 g — Gravitic 4" is the whole sentence, one line per axis that fails. Your own home system is
+  likely to hold two or three of them, richer than home every one: the good ground is behind
+  technology nobody has bought yet. Those adaptation technologies are not built, so for now it is a
+  shopping list you cannot spend against.
+- **Roughly one world in three hundred is worth settling before you research anything** — about
+  four in your home galaxy. Surveying is supposed to disappoint; a world that passes every test and
+  is still too thin to bother with says so, and says what it would have needed.
+
 ### 0.0.14 — 2026-08-07
 
 - **Nothing changed for the player.** This release is entirely internal: the pieces the Colony and

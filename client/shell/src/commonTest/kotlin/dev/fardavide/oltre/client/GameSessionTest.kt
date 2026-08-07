@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
@@ -28,22 +29,33 @@ class GameSessionTest {
         // when
         val session = resume(saved = null, now = now)
 
-        // then
-        assertEquals(GameState.initial(), session.state)
+        // then — the galaxy is seeded from the instant the colony was founded, so the whole state
+        // is a function of `now` and nothing else.
+        assertEquals(GameState.initial(GalaxySeed(now.toEpochMilliseconds())), session.state)
         assertEquals(now, session.lastUpdatedAt)
+    }
+
+    @Test
+    fun `two colonies founded at different instants get different galaxies`() {
+        // A default seed would have handed every player the same map, which is exactly why
+        // `GameState.initial` takes one rather than defaulting it.
+        val mine = resume(saved = null, now = EPOCH + 5.hours).state.galaxy
+        val theirs = resume(saved = null, now = EPOCH + 9.hours).state.galaxy
+
+        assertTrue(mine.seed != theirs.seed, "two launches must not share a galaxy seed")
     }
 
     @Test
     fun `reopening the app credits every hour it was closed`() {
         // given
-        val saved = GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial())
+        val saved = GameSnapshot(lastUpdatedAt = EPOCH, state = freshState())
         val reopenedAt = EPOCH + 8.hours
 
         // when
         val session = resume(saved, now = reopenedAt)
 
         // then
-        assertEquals(advance(GameState.initial(), from = EPOCH, to = reopenedAt), session.state)
+        assertEquals(advance(freshState(), from = EPOCH, to = reopenedAt), session.state)
         assertEquals(reopenedAt, session.lastUpdatedAt)
     }
 
@@ -67,7 +79,7 @@ class GameSessionTest {
     @Test
     fun `a save from the future is clamped instead of losing the colony`() {
         // given — the device clock moved backwards between sessions
-        val saved = GameSnapshot(lastUpdatedAt = EPOCH + 10.hours, state = GameState.initial())
+        val saved = GameSnapshot(lastUpdatedAt = EPOCH + 10.hours, state = freshState())
 
         // when
         val session = resume(saved, now = EPOCH)
@@ -92,7 +104,7 @@ class GameSessionTest {
     @Test
     fun `a tick that only accrued resources is not worth saving`() {
         // given
-        val before = GameSession(GameState.initial(), EPOCH)
+        val before = GameSession(freshState(), EPOCH)
 
         // when
         val after = GameSession(advance(before.state, from = EPOCH, to = EPOCH + 1.hours), EPOCH + 1.hours)
@@ -116,13 +128,18 @@ class GameSessionTest {
 
     private fun midBuild(): GameState {
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
-        val funded = GameState.initial().copy(
+        val funded = freshState().copy(
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
         )
         return assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = EPOCH),
         ).state
     }
+
+    // `GameState.initial` takes a galaxy seed rather than defaulting one, so that production cannot
+    // quietly found every colony in the same galaxy. Tests that do not care which map they get say
+    // so once, here.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 
     private companion object {
         val EPOCH = Instant.fromEpochMilliseconds(0)

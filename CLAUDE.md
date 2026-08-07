@@ -11,6 +11,10 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 - `.claude/docs/architecture.md` + `.claude/docs/decisions.md` — before any non-trivial change.
 - `.claude/docs/balance-log.md` — before touching any balance number: what was already tried,
   what playing it felt like, what is still open. Add a round there whenever tuning lands.
+- `.claude/rules/session-roles.md` — **which session you are and what you may touch.** A cloud
+  session may not write UI; hand-offs between sessions are ready-to-paste prompts.
+- `.claude/docs/galaxy-sheet.md` — the settled design for slices 4 and 5 (the galaxy). Read it
+  before writing a line of generation; it is the design, not a proposal.
 - Design decisions (balance numbers, mechanics, scope) are Davide's. If Notion doesn't answer,
   ask — never invent.
 

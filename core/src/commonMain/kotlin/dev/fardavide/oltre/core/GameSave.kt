@@ -42,10 +42,12 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 4 — the galaxy: a seed, the home coordinate, the surveyed set and who holds what. Never the
+    //     worlds themselves — they are regenerated from the seed, see `GalaxyGeneration.kt`.
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 3
+    const val SCHEMA_VERSION: Int = 4
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -76,7 +78,31 @@ object GameSave {
                 "activeResearch" to JsonNull,
             )
         },
+        // 3 -> 4: the galaxy is purely additive in the same sense research was — a colony saved
+        // before the map existed has surveyed nothing and holds nothing but its own home world,
+        // which is exactly what a fresh `GalaxyState` says. So this migrates rather than retires,
+        // the default the persistence entry sets for a change that is only shape.
+        3 to { root ->
+            root.withState(
+                "galaxy" to json.encodeToJsonElement(
+                    GalaxyState.serializer(),
+                    GalaxyState.initial(seedFor(root)),
+                ),
+            )
+        },
     )
+
+    // The migration mints a galaxy, and a migration is a *pure function* — so the seed cannot come
+    // from a clock or a random source. It is derived from the save's own `lastUpdatedAt` instead,
+    // which is what makes decoding the same file twice hand back the same map. That is not a nicety:
+    // a seed drawn at random would give the player a different galaxy every time the app reopened,
+    // until the first commit happened to write one down.
+    private fun seedFor(root: JsonObject): GalaxySeed {
+        val stamp = (root["lastUpdatedAt"] as? JsonPrimitive)?.content.orEmpty()
+        var hash = 0L
+        for (character in stamp) hash = hash * 31 + character.code
+        return GalaxySeed(hash)
+    }
 
     fun encode(snapshot: GameSnapshot): String = json.encodeToString(snapshot)
 
