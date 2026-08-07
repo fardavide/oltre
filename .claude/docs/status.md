@@ -99,22 +99,31 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | ~~1~~ | ~~**Tab bar**~~ | Landed at 0.0.11 | — |
 | ~~2~~ | ~~**Research: core**~~ | Landed at 0.0.12 | — |
 | ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
-| 4 | **Galaxy: procgen** | Seeded generation of hundreds of systems with world traits, pure and reproducible from a seed in the save | **Yes** — trait axes and how they read |
-| 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | No, once #4 lands |
+| 4 | **Galaxy: procgen** | Seeded generation of hundreds of systems with world traits, pure and reproducible from a seed in the save | ~~Yes~~ — **settled**, `galaxy-sheet.md` |
+| 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | Systems settled in the sheet; the *visual* design is a Claude Design round trip |
 | 6 | **Shipyard: core + screen** | The 4 v1 ship types, built from the shipyard, held in one empire-wide pool | **Yes** — the ship set (today's `CARGO/FIGHTER/CRUISER/COLONY_SHIP` are placeholders) |
 | 7 | **Fleets: outbound** | Sending a fleet: distance as travel time, an outbound leg, the Fleets tab. The return leg already exists | **Yes** — travel-time formula, fuel |
 | 8 | **Combat** | Seeded `resolve(a, b, seed)` and a battle report in the event log | **Yes** — the combat model |
 | 9 | **AI empires** | 3 scripted empires that grow and raid, driven from `advance` | **Yes** — how visible, how aggressive |
 | 10 | **Colonisation** | Settling a second world; the outpost → settlement → self-sufficient lifecycle | **Yes** — the pillar's rules |
 
-Five of the eight v1 features are done. With research landed, **every remaining slice is blocked on
-a design call except #5, which is blocked on #4** — so the sequencing question is answered by
-whichever of #4 (galaxy trait axes), #6 (the real ship set) and #8 (the combat model) Davide
-decides first. The build cannot pick for him.
+Five of the eight v1 features are done. **Slices 4 and 5 are unblocked** as of 2026-08-07:
+Davide asked the build to settle the galaxy's open questions, and
+[`galaxy-sheet.md`](galaxy-sheet.md) is the result — trait axes, coordinate space, the two
+visibility tiers, generation constants and the target distribution. It is the design, in the same
+shape as the 0.1 research sheet, and every line in it is Davide's to overrule.
 
-The research slice is worth copying as a shape: a decision sheet that answers the design questions
-*and* argues the alternatives it rejected turned two slices into an implementation with no invented
-numbers in it. The same sheet for the galaxy's trait axes would unblock #4 and #5 together.
+Sequencing after that is still his: #6 (the real ship set) and #8 (the combat model) each need a
+call before they can start, and #7/#9/#10 sit behind them.
+
+Why the galaxy went first, recorded so it is not re-litigated: #7 needs destinations, #9 needs
+somewhere to put three empires and #10 needs a second world to settle, so all three are dead
+letters until a map exists. #8 is the only remaining slice that is genuinely independent — and
+combat with nothing to fight over is a system without a reason.
+
+The research slice was copied as a shape: a decision sheet that answers the design questions *and*
+argues the alternatives it rejected turned two slices into an implementation with no invented
+numbers in it.
 
 Colonisation (#10) is called a **core pillar** on Notion but is not in the eight-item v1 list;
 carried here because the pressures that replace hard caps (upkeep, logistics, distance decay,
