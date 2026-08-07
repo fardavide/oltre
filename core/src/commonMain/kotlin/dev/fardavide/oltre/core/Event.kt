@@ -45,6 +45,25 @@ sealed interface Event {
         override val at: Instant,
     ) : Event
 
+    // The adaptation branch's own pair rather than a wider `Research*`: what changed is not a
+    // production multiplier, and a log a player will one day read as "while you were away" has to
+    // be able to say which of the two kinds of thing happened.
+    @Serializable
+    @SerialName("AdaptationStarted")
+    data class AdaptationStarted(
+        val technology: AdaptationTechnology,
+        val toLevel: TechLevel,
+        override val at: Instant,
+    ) : Event
+
+    @Serializable
+    @SerialName("AdaptationCompleted")
+    data class AdaptationCompleted(
+        val technology: AdaptationTechnology,
+        val newLevel: TechLevel,
+        override val at: Instant,
+    ) : Event
+
     @Serializable
     @SerialName("FleetReturned")
     data class FleetReturned(

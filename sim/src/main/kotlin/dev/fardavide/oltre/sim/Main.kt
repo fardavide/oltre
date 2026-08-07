@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.sim
 
+import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -11,9 +13,11 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
+import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.Uniform
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
@@ -37,6 +41,7 @@ private const val SIM_GALAXY_SEED: Long = 20_260_807
 fun main() {
     printCurveTable()
     printResearchTable()
+    printAdaptationTable()
     printGalaxyReport()
     printGreedyWeek()
 }
@@ -221,6 +226,70 @@ private fun printResearchTable() {
         println()
     }
 }
+
+// The adaptation branch's table, printed the same way and for the same reason. What a level *buys*
+// is not here — it is in the galaxy report above, which already prints the settleable count at each
+// level; this is what reaching that level costs and how long it takes, which is the half that was
+// missing until 0.0.17.
+//
+// The priced column is the point of the table: the three ladders cost exactly the same at the
+// game's 1 : 2 : 3, in three different currencies. If that column ever stops being flat across the
+// three, the sheet's §4 argument has quietly stopped being true.
+private fun printAdaptationTable() {
+    println("## Adaptation ladders")
+    println()
+    println("Requires ${AdaptationBalance.requirementFor(AdaptationTechnology.THERMAL)}, all three.")
+    println()
+    for (technology in AdaptationTechnology.entries) {
+        println("### $technology")
+        println()
+        println("| Level | metal | crystal | deuterium | priced 1:2:3 | at Robotics 4 | at Robotics 8 |")
+        println("|---|---|---|---|---|---|---|")
+        for (level in 1..10) {
+            val techLevel = TechLevel(level)
+            val cost = AdaptationBalance.adaptationCost(technology, techLevel)
+            val priced = cost.metal + 2 * cost.crystal + 3 * cost.deuterium
+            println(
+                "| $level | ${cost.metal.grouped()} | ${cost.crystal.grouped()} | ${cost.deuterium.grouped()} " +
+                    "| ${priced.grouped()} " +
+                    "| ${AdaptationBalance.adaptationDuration(technology, techLevel, BuildingLevel(4)).label()} " +
+                    "| ${AdaptationBalance.adaptationDuration(technology, techLevel, BuildingLevel(8)).label()} |",
+            )
+        }
+        println()
+    }
+    // Where each ladder stops buying anything, measured off the *published* extremes of the
+    // generator rather than off a sample — a sampled galaxy can miss its own coldest world by a
+    // degree and report a level too low. `AdaptationBalanceTest` pins the same three numbers.
+    println("Saturation — past this level every world the generator can produce already passes:")
+    println()
+    println("| Ladder | Saturates at |")
+    println("|---|---|")
+    for ((axis, extremes) in AXIS_EXTREMES) {
+        val saturates = extremes.maxOf { GalaxyBalance.levelThatTolerates(axis, it) }
+        println("| ${axis.adaptation} | $saturates |")
+    }
+    println()
+}
+
+// The ends of each axis's published range, from the sheet's §8 generation table: temperature is
+// `220 - 28 x slot + starOffset + jitter` at its two corners, gravity is `0.15 + 2.6 u²` and
+// pressure is `12 u³` at u = 0 and u = 1.
+private val AXIS_EXTREMES: List<Pair<HostilityAxis, List<Int>>> = listOf(
+    HostilityAxis.TEMPERATURE to listOf(
+        GalaxyBalance.temperature(GalaxyBalance.SLOTS_PER_SYSTEM, StarClass.DIM, -GalaxyBalance.TEMPERATURE_JITTER)
+            .celsius,
+        GalaxyBalance.temperature(1, StarClass.BRIGHT, GalaxyBalance.TEMPERATURE_JITTER).celsius,
+    ),
+    HostilityAxis.GRAVITY to listOf(
+        GalaxyBalance.gravity(Uniform(0)).milliG,
+        GalaxyBalance.gravity(Uniform.MAX).milliG,
+    ),
+    HostilityAxis.PRESSURE to listOf(
+        GalaxyBalance.pressure(Uniform(0)).milliAtm,
+        GalaxyBalance.pressure(Uniform.MAX).milliAtm,
+    ),
+)
 
 // Rounded to the nearest minute, matching how the decision sheet's tables are written. The UI
 // ceils instead, so a chip can read a minute longer — deliberate, and the colony's convention.

@@ -42,12 +42,14 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 5 — the adaptation branch: three more levels on `research`, and `activeAdaptation` — the same
+    //     empire-wide slot `activeResearch` uses, held by the other branch.
     // 4 — the galaxy: a seed, the home coordinate, the surveyed set and who holds what. Never the
     //     worlds themselves — they are regenerated from the seed, see `GalaxyGeneration.kt`.
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 4
+    const val SCHEMA_VERSION: Int = 5
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -90,6 +92,27 @@ object GameSave {
                 ),
             )
         },
+        // 4 -> 5: the adaptation branch, additive in exactly the sense the two hops above were —
+        // an empire saved before the ladders existed has climbed none of them and has nothing
+        // running, which is what three zeroes and an empty slot say. Third time the answer is
+        // migrate rather than retire, and for the third time because the change is only shape.
+        4 to { root ->
+            // The three ladders are *added to* the research record rather than replacing it: unlike
+            // the 2 -> 3 hop, `research` already exists here and carries three applied levels the
+            // player earned. Encoding a fresh `Research` would reset them.
+            val existing: Map<String, JsonElement> =
+                (root["state"] as? JsonObject)?.get("research") as? JsonObject ?: emptyMap()
+            root.withState(
+                "research" to JsonObject(existing + ADAPTATION_AT_ZERO.filterKeys { it !in existing }),
+                "activeAdaptation" to JsonNull,
+            )
+        },
+    )
+
+    private val ADAPTATION_AT_ZERO: Map<String, JsonElement> = mapOf(
+        "thermal" to JsonPrimitive(0),
+        "gravitic" to JsonPrimitive(0),
+        "atmospheric" to JsonPrimitive(0),
     )
 
     // The migration mints a galaxy, and a migration is a *pure function* — so the seed cannot come

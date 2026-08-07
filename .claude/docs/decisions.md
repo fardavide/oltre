@@ -1080,3 +1080,76 @@ Out of scope and still open: adding the three adaptation technologies to Researc
 his call per the galaxy sheet), and any survey action (slice #7). Until the first of those lands the
 sentence on the row stays a shopping list nobody can spend against — which is now stated rather than
 implied.
+
+## The adaptation ladders become a second branch, sharing one slot
+
+0.0.17, `core` only. The galaxy sheet named three adaptation technologies, specified exactly what
+each level widens, and then deliberately left the technologies themselves to "the slice that adds
+them". Every `Blocked` world has been pointing at a purchase that did not exist ever since. This is
+that slice, written up as [`adaptation-sheet.md`](adaptation-sheet.md) in the same shape as the 0.1
+research and 0.2 galaxy sheets — **the calls in it are Davide's to overrule**, and the two most
+worth overruling are named at the end of this entry.
+
+**A second branch, not rows four to six.** The applied branch is three multipliers on a per-hour
+rate and every part of its row says so — a current percentage, a next percentage, a subject ending
+in the word *output*. An adaptation level does not multiply anything; it widens a band, in °C, in g,
+in atm. One list cannot carry both without making two kinds of thing look like one. The second
+argument is what each is bought *against*: applied research against a colony you can watch,
+adaptation against a map you cannot. So `AdaptationTechnology` keeps its own enum, its own
+`AdaptationBalance` and its own `AdaptationJob`, and `Technology` stays at three.
+
+**One slot, shared, and that sharing is the mechanic.** 0.1 wrote down that the single slot is
+research's only scarcity. Give the adaptation branch its own and the answer is always "run both",
+and the ladder that changes the map costs nothing to push. Sharing it means every adaptation level
+is paid for in production levels the player did not buy. `startResearch` and `startAdaptation` both
+refuse on `researchSlotFreesAt != null`.
+
+**Two nullable fields with a `require`, not one sealed project.** This is the one place in `core`
+where a rule is checked rather than made unrepresentable, and it is deliberate rather than lazy: a
+sealed `ActiveProject` would make every existing reader of `activeResearch` — the Research screen's
+row mapper, the notification set, `futureEvents` — answer for a project it does not render, in a
+slice whose screen work is a separate hand-off to a local session. The invariant runs in
+`GameState.init`, so it is checked on every construction including every decode; a hand-edited save
+claiming both projects fails as a `DecodeResult.Failure` rather than being half-read. The sheet
+records that this reason has a shelf life and says when to revisit it.
+
+**The gate is Robotics Factory 4, the same for all three.** Three gates that differ would decide
+the first ladder for the player, and the galaxy sheet's whole argument for three ladders is that
+*which one you push first* is a real choice. Robotics adds no concept (it already gates the applied
+branch at level 1) and is a purchase they want anyway, since it shortens every project including
+these. Level 4 rather than 1 so the branch opens after the player has met the Galaxy screen.
+
+Rejected, and worth not re-litigating: **gating on having surveyed a `Blocked` world**. It reads as
+the design's own logic — the map teaches the branch — but it gates nothing. 98.2% of surveyed worlds
+are blocked, so a home system of four fails to contain one about once in thirty million; the
+requirement would be met at genesis, before the player had done anything.
+
+**All three ladders cost the same, in three different currencies** — 4,800 at the game's 1 : 2 : 3,
+compounding at the same ×1.5 every building and technology uses. Each is priced in the resource its
+own axis makes rich: Gravitic in metal, Atmospheric in crystal, Thermal in the deuterium the
+research branch already made scarce. So the ladder a player can afford first is the one their colony
+is already good at, and the one that would fix the shortage they actually have is the one they
+cannot yet pay for. The identical priced total is what keeps that a preference rather than a right
+answer, and `AdaptationBalanceTest` pins it as a property rather than as three literals.
+
+**Save schema 5 migrates 4**, the third hop in a row that migrates rather than retires. The one
+thing this hop must not do is what the 2 → 3 hop does: encoding a fresh `Research` would carry the
+three new ladders across *and reset the two levels the player earned*, because unlike at version 2
+the `research` object already exists. The migration adds the missing keys instead, and a test says
+so by name.
+
+**Nothing a player can see changed, and no screenshot baseline moved.** A cloud session may not
+write UI (`session-roles.md`), and this is a cloud session: the Research screen does not sell the
+three ladders and the Galaxy screen still passes `AdaptationLevels.NONE`, so 0.0.16's PLACEHOLDER
+header — "Adaptation research lands later. You are at level 0." — is still true of the shipped
+build. `verdictFor(world, state)` exists as the one-argument-shorter call the screen should switch
+to, and the hand-off prompt for the local session names it. Two compile-forced edits outside `core`
+were unavoidable and are the whole of the diff outside it: a `when` branch in
+`:client:notifications:data` for the new future event, and one `activeAdaptation = null` in each of
+two presentation *test* fixtures.
+
+Left open and stated in the sheet: whether the two branches share one screen or get two (a design
+call before the local session can start); whether the shared slot should become a sealed
+`ActiveProject` once the screen renders both; and whether a ladder past its saturation level — 17
+Thermal, 12 Gravitic, 11 Atmospheric — should be capped or merely labelled. No cap was added: it
+would be a new concept bought to prevent a purchase nobody has a reason to make.

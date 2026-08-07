@@ -235,6 +235,9 @@ class ResearchUiStateTest {
         builds = emptyMap(),
         research = research,
         activeResearch = activeResearch,
+        // The other half of the same slot. The Research screen does not render the adaptation
+        // branch yet, so every case here leaves it empty.
+        activeAdaptation = null,
         galaxy = freshState().galaxy,
         returningFleet = null,
         eventLog = emptyList(),

@@ -22,6 +22,12 @@ sealed interface FutureEvent {
         override val at: Instant,
     ) : FutureEvent
 
+    data class AdaptationCompletes(
+        val technology: AdaptationTechnology,
+        val toLevel: TechLevel,
+        override val at: Instant,
+    ) : FutureEvent
+
     data class FleetArrives(
         val origin: Coordinates,
         val ships: Map<ShipType, Int>,
@@ -39,13 +45,19 @@ fun futureEvents(state: GameState): List<FutureEvent> {
     val project = state.activeResearch?.let { job ->
         FutureEvent.ResearchCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
     }
+    // The other half of the same slot. Only one of the two can be set, so at most one of these two
+    // lines ever contributes — but both are read, because a derivation that assumed which branch
+    // holds the slot would silently stop predicting the day that assumption changed.
+    val ladder = state.activeAdaptation?.let { job ->
+        FutureEvent.AdaptationCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
+    }
     val arrival = state.returningFleet?.let { fleet ->
         FutureEvent.FleetArrives(origin = fleet.origin, ships = fleet.ships, at = fleet.arrivesAt)
     }
     // Ties are broken exactly the way `advance` applies them — build completions in building
-    // order, then the research completion, then the arrival — so this list and the event log it
-    // predicts never disagree on order.
-    return (builds + listOfNotNull(project) + listOfNotNull(arrival))
+    // order, then the research completion, then the adaptation completion, then the arrival — so
+    // this list and the event log it predicts never disagree on order.
+    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + listOfNotNull(arrival))
         .sortedWith(compareBy({ it.at }, { it.tieBreak() }))
 }
 
@@ -53,5 +65,6 @@ private fun FutureEvent.tieBreak(): Int = when (this) {
     is FutureEvent.BuildCompletes -> building.ordinal
     // Immediately after the last possible build, whatever the building set grows to.
     is FutureEvent.ResearchCompletes -> BuildingType.entries.size
+    is FutureEvent.AdaptationCompletes -> BuildingType.entries.size + 1
     is FutureEvent.FleetArrives -> Int.MAX_VALUE
 }

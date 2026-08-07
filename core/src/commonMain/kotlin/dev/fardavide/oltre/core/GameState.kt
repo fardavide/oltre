@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.core
 
 import kotlinx.serialization.Serializable
+import kotlin.time.Instant
 
 @Serializable
 data class GameState(
@@ -14,12 +15,33 @@ data class GameState(
     // limited by resources and research is limited by time, which is what gives the two screens
     // different characters.
     val activeResearch: ResearchJob?,
+    // **The same slot**, held by the other branch. At most one of these two is ever set; the rule
+    // is in `init` below. Two fields rather than one sealed project because the branches carry
+    // different subjects and a sum type here would make every existing reader of `activeResearch`
+    // answer for a project it does not render — the 0.3 adaptation sheet's §2 says so, and says
+    // the reason has a shelf life.
+    val activeAdaptation: AdaptationJob?,
     // The seed and what the player has changed about the map — never the worlds themselves. See
     // `GalaxyState`.
     val galaxy: GalaxyState,
     val returningFleet: ReturningFleet?,
     val eventLog: List<Event>,
 ) {
+    init {
+        // The single slot is research's only scarcity — 0.1 wrote it down in as many words — so a
+        // second branch that ran alongside it would mean the answer is always "run both" and the
+        // ladder that changes the map would cost nothing to push. This is the one place in `core`
+        // where a rule is checked rather than made unrepresentable; it is checked on every
+        // construction, which includes every decode, so a hand-edited save fails here.
+        require(activeResearch == null || activeAdaptation == null) {
+            "the research slot holds one project: was $activeResearch and $activeAdaptation"
+        }
+    }
+
+    // What is holding the slot, whichever branch it belongs to. Null means it is free now.
+    val researchSlotFreesAt: Instant?
+        get() = activeResearch?.completesAt ?: activeAdaptation?.completesAt
+
     companion object {
 
         // The galaxy seed is a required argument rather than a default, because a default is how
@@ -31,6 +53,7 @@ data class GameState(
             builds = emptyMap(),
             research = Research.initial(),
             activeResearch = null,
+            activeAdaptation = null,
             galaxy = GalaxyState.initial(galaxySeed),
             returningFleet = null,
             eventLog = emptyList(),

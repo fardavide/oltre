@@ -120,6 +120,21 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.17 — 2026-08-07
+
+- **Nothing on screen changes in this build.** The three adaptation ladders every blocked world
+  points at are now built and playable in the simulation, but no screen sells them yet — the
+  Research tab still shows three technologies and the Galaxy tab still says you are at level 0.
+  The screens are the next slice.
+- **What landed underneath:** Thermal, Gravitic and Atmospheric Adaptation are real technologies.
+  Each level widens the tolerance band on its own axis, so a world blocked on gravity stops being
+  blocked at the level its row already names. All three open on a level 4 Robotics Factory, all
+  three cost the same — priced in the resource their own axis makes rich — and all three compete
+  for your single research slot, so climbing one costs the production technology you did not
+  research instead.
+- **Colonies carry forward.** Saves from 0.0.16 migrate: your research levels survive untouched and
+  the three ladders start at zero.
+
 ### 0.0.16 — 2026-08-07
 
 - **A blocked world now says what it is worth, not only what it costs.** The yield sits beside the

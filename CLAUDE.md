@@ -15,6 +15,9 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
   session may not write UI; hand-offs between sessions are ready-to-paste prompts.
 - `.claude/docs/galaxy-sheet.md` — the settled design for slices 4 and 5 (the galaxy). Read it
   before writing a line of generation; it is the design, not a proposal.
+- `.claude/docs/adaptation-sheet.md` — the settled design for the three adaptation ladders: why they
+  are a second branch, what they cost, and why they share the one research slot. Read it before
+  touching `AdaptationBalance` or putting the branch on a screen.
 - Design decisions (balance numbers, mechanics, scope) are Davide's. If Notion doesn't answer,
   ask — never invent.
 

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-07 (0.0.16)
+Updated: 2026-08-07 (0.0.17)
 
 ## Landed
 
@@ -112,6 +112,20 @@ Updated: 2026-08-07 (0.0.16)
   a PLACEHOLDER line saying the adaptation ladders are not built. Both copy calls were Davide's,
   delegated to the build. See `decisions.md`.
 
+- **0.0.17 the adaptation branch (`core` only)** — the open call the galaxy sheet left behind, and the
+  thing that made every `Blocked` row a shopping list nobody could spend against. Written up as
+  [`adaptation-sheet.md`](adaptation-sheet.md), the third decision sheet in the same shape. Thermal,
+  Gravitic and Atmospheric Adaptation are **a second branch rather than rows four to six** — an
+  adaptation level widens a band in °C / g / atm and the applied branch's whole row vocabulary is
+  percentages of a per-hour rate — and they **share the one empire-wide research slot**, so climbing
+  a ladder costs the production technology that was not researched instead. One shared gate
+  (Robotics Factory 4), one cost curve (×1.5, as everything), and all three priced identically at
+  1 : 2 : 3 **in three different currencies**, each in the resource its own axis makes rich. Save
+  **schema 5 migrates 4** — and the hop *adds to* the research record rather than re-encoding it, or
+  it would reset the levels the player earned. `verdictFor(world, state)` is the new one-call form
+  the screen should use. See `decisions.md` and `balance-log.md` round 6.
+  **Nothing a player can see changed** — see below.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -140,6 +154,12 @@ shape as the 0.1 research sheet, and every line in it is Davide's to overrule.
 
 Sequencing after that is still his: #6 (the real ship set) and #8 (the combat model) each need a
 call before they can start, and #7/#9/#10 sit behind them.
+
+**The adaptation branch was never a numbered slice** and it is now half-built: the galaxy sheet left
+it as an open call rather than a row in this table, 0.0.17 settled it and built the `core` half, and
+the screen half is a local session's job with a design call in front of it (see *Pending* below).
+It sits between #5 and #6 in every practical sense — it is what makes slice #5's screen mean
+something — so it should be finished before another slice starts.
 
 Why the galaxy went first, recorded so it is not re-litigated: #7 needs destinations, #9 needs
 somewhere to put three empires and #10 needs a second world to settle, so all three are dead
@@ -189,15 +209,28 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
      covered by a hand-written frame; the naming, and whether a holder carries a date, are open.
      (`Barren` and `Settleable` *are* reachable: the seed is minted per colony, and 2–3% of worlds
      pass every band, so roughly one colony in a dozen sees one in its own home system.)
-- **Every `Blocked` row points at a Research tab that cannot sell what it names.** All three
-  adaptation ladders are unbuilt, so the sentence is true and the purchase does not exist. The
-  connection the design is after does not close until the adaptation technologies land — which is
-  its own slice, and Davide's call per the galaxy sheet's own open list.
-  **Half-answered at 0.0.16**: the screen no longer pretends otherwise — the technology lost the
-  accent that made it look tappable, and the header says "Adaptation research lands later. You are
-  at level 0." The row also states its yield and counts the bands it fails against the bar `Barren`
-  names, so a screen of BLOCKED reads as the distribution rather than as bad luck. What is still
-  open is the purchase itself.
+- **THE NEXT THING TO BUILD, AND IT NEEDS A LOCAL SESSION: the two screens that sell the
+  adaptation branch.** 0.0.17 built the whole branch in `core` — it is startable, priced, timed,
+  saved and tested — and then could not put it on screen, because a cloud session may not write UI
+  (`session-roles.md`). So the shipped build is unchanged: the Research tab still renders
+  `Technology.entries`, which is still three rows, and `GalaxyUiState` still takes
+  `adaptation: AdaptationLevels = AdaptationLevels.NONE` and is still called without it. **0.0.16's
+  header copy — "Adaptation research lands later. You are at level 0." — is still true, and stops
+  being true the moment the Research screen renders the ladders.** Two things are needed and one of
+  them is a design call:
+  1. **A design call first: do the two branches share the Research screen or not?** A second
+     section, a segmented control, and a separate tab are all live; the model does not care. The
+     adaptation row cannot reuse `EffectUiState` as it stands — there is no "+47% of output" to
+     show, only "−30 … +45 °C → −44 … +59 °C".
+  2. **Then the wiring, which is small.** `startAdaptation(state, technology, at)` mirrors
+     `startResearch` exactly; `AdaptationBalance` answers cost, duration and requirement; the
+     Galaxy screen switches to `verdictFor(world, state)` and the header copy goes. Screenshot
+     baselines move on both screens, which is the other half of why this is not a cloud job.
+- ~~**Every `Blocked` row points at a Research tab that cannot sell what it names.**~~ — the
+  *purchase* landed at 0.0.17 (above); what is left is the screen that offers it. 0.0.16 had
+  half-answered the copy side: the technology lost the accent that made it look tappable, the header
+  said the ladders were not built, and the row states its yield and counts the bands it fails
+  against the bar `Barren` names.
 
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.

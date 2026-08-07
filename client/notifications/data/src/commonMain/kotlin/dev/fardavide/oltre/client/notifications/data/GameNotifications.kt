@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.FutureEvent
@@ -50,6 +51,17 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = "The lab is free — pick what your empire researches next.",
         at = at,
     )
+    is FutureEvent.AdaptationCompletes -> LocalNotification(
+        // A separate id space from research even though the two share one slot, because the id is
+        // derived from the thing it is about — and the two branches are not the same thing. Sharing
+        // "research-…" would also collide the day a ladder and a technology are named alike.
+        id = "adaptation-${technology.name}",
+        title = "${technology.displayName()} reached level ${toLevel.value}",
+        // The only notification in the game that is about somewhere else. What changed is not the
+        // colony but which worlds it could stand on, so the sentence points at the Galaxy tab.
+        body = "Worlds you could not settle may have opened up — check the galaxy.",
+        at = at,
+    )
     is FutureEvent.FleetArrives -> LocalNotification(
         id = "fleet-arrival",
         title = "Your fleet has landed",
@@ -77,6 +89,15 @@ private fun Technology.displayName(): String = when (this) {
     Technology.PHOTOVOLTAICS -> "Photovoltaics"
     Technology.EXTRACTION -> "Extraction"
     Technology.ENRICHMENT -> "Enrichment"
+}
+
+// Spelled out in full, with the word the Galaxy screen's blocked rows drop to save eleven
+// characters they do not have. A lock screen has the room, and "Gravitic reached level 3" on its
+// own does not say what kind of thing climbed.
+private fun AdaptationTechnology.displayName(): String = when (this) {
+    AdaptationTechnology.THERMAL -> "Thermal Adaptation"
+    AdaptationTechnology.GRAVITIC -> "Gravitic Adaptation"
+    AdaptationTechnology.ATMOSPHERIC -> "Atmospheric Adaptation"
 }
 
 private fun Coordinates.label(): String = "[$galaxy:$system:$position]"

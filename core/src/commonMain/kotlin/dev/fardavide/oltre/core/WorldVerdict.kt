@@ -5,12 +5,14 @@ package dev.fardavide.oltre.core
 // do, and 5–10 minute sessions cannot afford it — and so was a single 0–100 score, which hides
 // *which* axis blocks, the only actionable part.
 
-// How far the empire's tolerance has been stretched on each axis. Not serialised and not part of
-// `Research`: the three adaptation technologies are named by the sheet but adding them is a
-// research-branch change and a separate call, so in 0.2 every empire sits at `NONE` and a `Blocked`
-// world stays blocked. That is honest — it is why this slice does not pretend to deliver
-// colonisation — and the widening is modelled anyway, because `Blocked` cannot name the level that
-// would fix it without knowing what a level buys.
+// How far the empire's tolerance has been stretched on each axis. Not serialised, because it is a
+// *view* of something that is: since 0.0.17 the three ladders are real technologies and their
+// levels live in `Research`, so this is what `Research.adaptationLevels()` hands back and never a
+// number of its own. It stayed a separate type rather than becoming three fields on `Tolerance`
+// because `levelThatTolerates` has to answer for a level the empire does not hold yet.
+//
+// `NONE` is therefore no longer where every empire permanently sits — it is genesis, and the thing
+// the player spends the adaptation branch to leave.
 data class AdaptationLevels(
     val thermal: Int,
     val gravitic: Int,
@@ -94,6 +96,13 @@ sealed interface WorldVerdict {
 
     data class Settleable(val score: YieldScore) : WorldVerdict
 }
+
+// What a caller holding the whole state should use, and the only one that can be wrong in an
+// interesting way: pass `AdaptationLevels.NONE` by hand and every world stays as blocked as it was
+// at genesis however deep the empire has climbed. The three-argument form below stays public
+// because `levelThatTolerates` and the sim both have to ask about levels nobody holds.
+fun verdictFor(world: World, state: GameState): WorldVerdict =
+    verdictFor(world, state.galaxy, state.research.adaptationLevels())
 
 // The one entry point the screen needs. Pure: the galaxy state says what the player has changed,
 // the world says what the seed generated, and nothing here reads a clock.

@@ -57,6 +57,9 @@ enum class Hazard {
     RADIATION_BELT,
 }
 
+// Enum names are on-disk identifiers in every save from schema 5 onwards — an `AdaptationJob` names
+// one — so adding a constant is free and renaming one is a schema break, exactly as for `Technology`.
+@Serializable
 enum class AdaptationTechnology { THERMAL, GRAVITIC, ATMOSPHERIC }
 
 // The sheet's central table, in the type system: every axis that makes a world hostile is the axis
