@@ -22,6 +22,9 @@ class GalaxyUiStateTest {
 
         assertEquals("3:165", uiState.coordinate)
         assertEquals("DIM · 4 worlds", uiState.detail)
+        // A Slide Over pane drops the noun rather than truncating it — a width decision, not a
+        // change of voice: the star class and the count both survive.
+        assertEquals("DIM · 4", uiState.compactDetail)
         assertTrue(uiState.isHome)
         assertEquals("250 systems", uiState.scope)
     }

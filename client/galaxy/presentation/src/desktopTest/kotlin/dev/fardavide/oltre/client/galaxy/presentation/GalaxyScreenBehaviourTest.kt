@@ -206,8 +206,13 @@ class GalaxyScreenBehaviourTest {
         galaxyScreen(uiState = homeSystemUiState, width = SLIDE_OVER_WIDTH) {
             assertRowReads(13, "temperature −196, you tolerate −30")
             assertRowReads(13, "Atmospheric 1")
-            // The header keeps the star class and the world count rather than dropping a noun,
-            // because there is nothing here that abbreviating would buy back.
+            // The header drops the trailing noun rather than letting an ellipsis eat it: at 320dp
+            // "DIM · 4 WORLDS" does not fit, and "DIM · 4 WO…" is the layout admitting defeat.
+            assertReads("DIM · 4")
+            assertNothingReads("DIM · 4 WORLDS")
+        }
+        // and it keeps the noun wherever there is room for it
+        galaxyScreen(uiState = homeSystemUiState, width = PHONE_WIDTH) {
             assertReads("DIM · 4 WORLDS")
         }
     }

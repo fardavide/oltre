@@ -44,6 +44,11 @@ data class GalaxyUiState(
     val scope: String,
     val coordinate: String,
     val detail: String,
+    // A 320dp Slide Over pane drops the trailing noun, exactly as the Research effect line does.
+    // Abbreviation is a width decision rather than a change of voice: what goes is a noun, never a
+    // number or a name — and it is authored rather than left to an ellipsis, because "4 WO…" is the
+    // layout admitting defeat where "DIM · 4" is the screen still saying something true.
+    val compactDetail: String,
     val atFirstSystem: Boolean,
     val atLastSystem: Boolean,
     val isHome: Boolean,
@@ -155,7 +160,8 @@ internal fun GalaxyState.toGalaxyUiState(
         },
         scope = "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
         coordinate = "${at.galaxy}:${at.system}",
-        detail = detailFor(starClass, worlds.count { it.value != null }),
+        detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
+        compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
         atFirstSystem = at.system <= 1,
         atLastSystem = at.system >= GalaxyBalance.SYSTEMS_PER_GALAXY,
         isHome = at.galaxy == home.galaxy && at.system == home.system,
@@ -173,7 +179,8 @@ internal fun GalaxyState.toGalaxyUiState(
 // The star class sits in the header rather than on every row, because a class is a property of the
 // system. It also shifts the whole system's temperature curve by ±40 °C, which is why the map's
 // band strip means something different in a BRIGHT system than in a DIM one.
-private fun detailFor(starClass: StarClass, worlds: Int): String {
+private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): String {
+    if (compact) return "${starClass.name} · $worlds"
     val plural = if (worlds == 1) "world" else "worlds"
     return "${starClass.name} · $worlds $plural"
 }

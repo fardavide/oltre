@@ -42,6 +42,7 @@ internal val everyVerdictUiState = GalaxyUiState(
     scope = "250 systems",
     coordinate = "2:118",
     detail = "BRIGHT · 6 worlds",
+    compactDetail = "BRIGHT · 6",
     atFirstSystem = false,
     atLastSystem = false,
     isHome = false,

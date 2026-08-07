@@ -38,6 +38,7 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 @Composable
 internal fun GalaxyNav(
     uiState: GalaxyUiState,
+    compact: Boolean,
     onSelectGalaxy: (Int) -> Unit,
     onStepSystem: (Int) -> Unit,
     onGoHome: () -> Unit,
@@ -68,7 +69,7 @@ internal fun GalaxyNav(
                 testTag = GalaxyTestTags.STEP_BACK,
                 onClick = { onStepSystem(-1) },
             )
-            CoordinateField(uiState = uiState, modifier = Modifier.weight(1f))
+            CoordinateField(uiState = uiState, compact = compact, modifier = Modifier.weight(1f))
             StepButton(
                 label = "+",
                 enabled = !uiState.atLastSystem,
@@ -114,7 +115,7 @@ private fun GalaxyTabs(galaxies: List<GalaxyTabUiState>, onSelectGalaxy: (Int) -
 }
 
 @Composable
-private fun CoordinateField(uiState: GalaxyUiState, modifier: Modifier) {
+private fun CoordinateField(uiState: GalaxyUiState, compact: Boolean, modifier: Modifier) {
     val mono = oltreMono()
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -133,12 +134,14 @@ private fun CoordinateField(uiState: GalaxyUiState, modifier: Modifier) {
             softWrap = false,
         )
         Text(
-            text = uiState.detail.uppercase(),
+            text = if (compact) uiState.compactDetail.uppercase() else uiState.detail.uppercase(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 9.5.sp,
             letterSpacing = 1.sp,
             maxLines = 1,
+            // The ellipsis stays as the last resort it is — `compactDetail` is what stops it being
+            // reached at the one width the app actually has to survive.
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f).padding(start = 8.dp),
         )
