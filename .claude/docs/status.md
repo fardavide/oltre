@@ -137,7 +137,10 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   ÷ 1 + Robotics for construction) should ever be made to agree — which would be a rebalance of
   the colony, not of research.
 - ~~**`oltreRoborazziOptions` is now in three modules**~~ — done at 0.0.14: it lives in
-  `:client:design:testing`, along with the rest of the design-system extraction.
+  `:client:design:screenshot-testing`, along with the rest of the design-system extraction. (It
+  landed as `:client:design:testing` and was renamed when the module rules landed — rule 5 matches
+  on the `-testing` suffix, so the original name left nothing stopping a `commonMain` from
+  depending on it.)
 - **Open design question for Davide:** what a notification *says* is player-facing content. The
   copy in `GameNotifications` is a placeholder that says what happened and that a decision is
   waiting. The same applies to the unbuilt tabs' one-liners in `OltreTab.pendingWork`, which say
