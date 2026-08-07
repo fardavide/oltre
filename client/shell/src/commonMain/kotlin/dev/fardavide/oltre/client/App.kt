@@ -12,7 +12,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.colony.presentation.ColonyScreen
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
-import dev.fardavide.oltre.client.design.OltreTheme
+import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.research.presentation.ResearchScreen

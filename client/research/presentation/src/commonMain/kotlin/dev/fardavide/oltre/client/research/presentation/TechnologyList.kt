@@ -4,12 +4,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -23,9 +20,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.oltreMono
-import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.Technology
 
 // The facility list is the model and the row adds exactly one line to it. Reading order is
@@ -205,40 +203,4 @@ private fun EffectLine(effect: EffectUiState, compact: Boolean) {
             overflow = TextOverflow.Ellipsis,
         )
     }
-}
-
-@Composable
-private fun ProgressBar(percent: Int) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp)
-            .height(3.dp)
-            .background(Color.White.copy(alpha = 0.09f), RoundedCornerShape(2.dp)),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(percent / 100f)
-                .fillMaxHeight()
-                .background(OltreColors.accent, RoundedCornerShape(2.dp)),
-        )
-    }
-}
-
-// The colony's chip, duplicated rather than shared: features never depend on each other, and
-// twelve lines is a cheaper price than the shared-component module a third caller would justify.
-// Colour is the affordability channel — red is the one you are short of.
-@Composable
-private fun CostChip(chip: CostChipUiState) {
-    val tint = when (chip.kind) {
-        ResourceKind.METAL -> OltreColors.metal
-        ResourceKind.CRYSTAL -> OltreColors.crystal
-        ResourceKind.DEUTERIUM -> OltreColors.deuterium
-    }
-    Text(
-        text = chip.amount,
-        color = if (chip.short) OltreColors.danger else tint,
-        fontFamily = oltreMono(),
-        fontSize = 10.5.sp,
-    )
 }

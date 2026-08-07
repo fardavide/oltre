@@ -1,5 +1,10 @@
 package dev.fardavide.oltre.client.research.presentation
 
+import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.design.format.pad2
+import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResearchBalance
@@ -43,12 +48,6 @@ data class EffectUiState(
     // A 320dp Slide Over pane drops the trailing noun. The percentages and the resource names are
     // load-bearing; the word "output" is not.
     val compactSubject: String,
-)
-
-data class CostChipUiState(
-    val kind: ResourceKind,
-    val amount: String,
-    val short: Boolean,
 )
 
 sealed interface ResearchActionUiState {
@@ -180,27 +179,3 @@ private fun Int.toPercent(): String = "+$this%"
 
 private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
     takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }
-
-// The colony's conventions, deliberately unchanged: "1h 04m" / "42m", sub-minute durations rounded
-// up so a chip never reads 0m, and a zero-padded countdown. Copied rather than shared because
-// features never depend on each other.
-private fun Duration.toChipLabel(): String {
-    val totalMinutes = (inWholeSeconds + 59) / 60
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes.toString().padStart(2, '0')}m" else "${minutes}m"
-}
-
-private fun Long.toCountdown(): String {
-    val hours = this / 3600
-    val minutes = this % 3600 / 60
-    val seconds = this % 60
-    return "${hours.pad2()}:${minutes.pad2()}:${seconds.pad2()}"
-}
-
-private fun Long.pad2(): String = toString().padStart(2, '0')
-
-private fun Int.pad2(): String = toString().padStart(2, '0')
-
-private fun Long.groupedByThousands(): String =
-    toString().reversed().chunked(3).joinToString(",").reversed()

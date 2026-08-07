@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 
@@ -32,6 +33,3 @@ internal fun GameState.toResourceRailUiState(): ResourceRailUiState = ResourceRa
 )
 
 private fun Long.toRate(): String = "+${groupedByThousands()}/h"
-
-private fun Long.groupedByThousands(): String =
-    toString().reversed().chunked(3).joinToString(",").reversed()

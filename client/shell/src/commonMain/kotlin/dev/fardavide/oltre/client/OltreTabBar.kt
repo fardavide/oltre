@@ -24,9 +24,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.OltreLayout
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.OltreLayout
+import dev.fardavide.oltre.client.design.core.oltreMono
 
 // The mockup's five-destination bottom bar. Full-bleed like the resource rail — it reads as the
 // bottom edge of the window — with its tabs on the same centred column as the content above, so

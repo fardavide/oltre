@@ -4,14 +4,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.FlowRowScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -25,10 +22,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.OltreColors
-import dev.fardavide.oltre.client.design.oltreMono
+import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.icon.PowerMark
 import dev.fardavide.oltre.core.BuildingType
-import dev.fardavide.oltre.core.ResourceKind
 
 // Facility rows per the mockup: per-resource affordability by colour, a duration chip on every
 // unlockable row, time-until-affordable in the action slot instead of a dead button, and locked
@@ -229,37 +228,4 @@ private fun PowerTerm(power: FacilityPowerUiState) {
             modifier = Modifier.padding(start = 3.dp),
         )
     }
-}
-
-@Composable
-private fun ProgressBar(percent: Int) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 10.dp)
-            .height(3.dp)
-            .background(Color.White.copy(alpha = 0.09f), RoundedCornerShape(2.dp)),
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(percent / 100f)
-                .fillMaxHeight()
-                .background(OltreColors.accent, RoundedCornerShape(2.dp)),
-        )
-    }
-}
-
-@Composable
-private fun CostChip(chip: CostChipUiState) {
-    val tint = when (chip.kind) {
-        ResourceKind.METAL -> OltreColors.metal
-        ResourceKind.CRYSTAL -> OltreColors.crystal
-        ResourceKind.DEUTERIUM -> OltreColors.deuterium
-    }
-    Text(
-        text = chip.amount,
-        color = if (chip.short) OltreColors.danger else tint,
-        fontFamily = oltreMono(),
-        fontSize = 10.5.sp,
-    )
 }

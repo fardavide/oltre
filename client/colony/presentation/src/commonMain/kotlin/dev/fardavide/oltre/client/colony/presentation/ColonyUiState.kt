@@ -1,5 +1,10 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.design.format.pad2
+import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -14,7 +19,6 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.math.abs
-import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -75,12 +79,6 @@ data class FacilityRowUiState(
     // sits in the slot a card already uses to say what its next level is, which is why it is a
     // specification rather than a nag.
     val fix: String?,
-)
-
-data class CostChipUiState(
-    val kind: ResourceKind,
-    val amount: String,
-    val short: Boolean,
 )
 
 sealed interface FacilityActionUiState {
@@ -155,17 +153,6 @@ private fun ShipType.displayName(): String = when (this) {
     ShipType.CRUISER -> "cruiser"
     ShipType.COLONY_SHIP -> "colony ship"
 }
-
-private fun Long.toCountdown(): String {
-    val hours = this / 3600
-    val minutes = this % 3600 / 60
-    val seconds = this % 60
-    return "${hours.pad2()}:${minutes.pad2()}:${seconds.pad2()}"
-}
-
-private fun Long.pad2(): String = toString().padStart(2, '0')
-
-private fun Int.pad2(): String = toString().padStart(2, '0')
 
 private fun GameState.toFacilityRow(
     building: BuildingType,
@@ -250,14 +237,6 @@ private fun BuildJob.toUpgradingAction(now: Instant, timeZone: TimeZone): Facili
 private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
     takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }
 
-// Mockup style: "1h 04m" / "42m"; sub-minute durations round up so a chip never reads 0m.
-private fun Duration.toChipLabel(): String {
-    val totalMinutes = (inWholeSeconds + 59) / 60
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes.toString().padStart(2, '0')}m" else "${minutes}m"
-}
-
 internal fun BuildingType.displayName(): String = when (this) {
     BuildingType.METAL_MINE -> "Metal Mine"
     BuildingType.CRYSTAL_MINE -> "Crystal Mine"
@@ -266,6 +245,3 @@ internal fun BuildingType.displayName(): String = when (this) {
     BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
     BuildingType.NANITE_FACTORY -> "Nanite Factory"
 }
-
-private fun Long.groupedByThousands(): String =
-    toString().reversed().chunked(3).joinToString(",").reversed()

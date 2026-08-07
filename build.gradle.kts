@@ -62,8 +62,8 @@ allprojects {
         if (testCategory != null) {
             filter {
                 // Most modules hold no test of a given category — `:core` has no screenshots,
-                // `:client:design` has no tests at all — and a filtered run that matches nothing
-                // there is the expected outcome, not a failure.
+                // `:client:design:core` has no tests at all — and a filtered run that matches
+                // nothing there is the expected outcome, not a failure.
                 isFailOnNoMatchingTests = false
                 if (testCategory == "unit") {
                     includeTestsMatching("*Test")
@@ -87,7 +87,11 @@ dependencies {
     kover(projects.core)
     kover(projects.sim)
     kover(projects.server)
-    kover(projects.client.design)
+    kover(projects.client.design.component)
+    kover(projects.client.design.core)
+    kover(projects.client.design.format)
+    kover(projects.client.design.icon)
+    kover(projects.client.design.testing)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
     kover(projects.client.notifications.data)
