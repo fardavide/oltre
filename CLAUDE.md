@@ -17,6 +17,7 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 | Project skill | Use for |
 |---|---|
 | `architecture` | Module map, dependency rule, adding a feature module |
+| `module-rules` | The eight build-enforced module rules; what a layout/dependency failure means |
 | `versioning` | Version bump + changelog, real file paths |
 | `screenshot-testing` | Roborazzi record/verify workflow, baseline policy |
 | `test-coverage` | The four test kinds, naming convention, per-kind coverage and the PR report |
@@ -43,6 +44,11 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
    `:client:design` (a *directory* of design-system layer modules — `:core` tokens, `:icon`,
    `:component`, `:format`, `:testing`), and one *directory* per feature holding layer modules
    (`:client:<feature>:presentation`, plus `:domain` / `:data` only when the feature needs them).
+5. A module cannot contain another module; `domain` cannot see `data` or `presentation`;
+   `presentation` cannot see `data`; `data` cannot see `presentation`; only a test source set may
+   reach a `-testing` module; `core` depends on nothing, nothing depends on `:client:shell`, and
+   `sim`/`server` never reach into `client/*`. **Enforced by the build** — a violation fails the
+   IDE sync, not just review. See the `module-rules` skill.
 
 ## Build & test
 

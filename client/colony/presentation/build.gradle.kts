@@ -45,7 +45,7 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
-                implementation(projects.client.design.testing)
+                implementation(projects.client.design.screenshotTesting)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)

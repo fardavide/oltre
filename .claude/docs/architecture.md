@@ -13,7 +13,7 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
     :icon          Drawn glyphs (Canvas paths, never an icon font — see screenshot-testing)
     :component     Styled widgets with no single feature owner (cost chip, progress bar, …)
     :format        How numbers and durations are written. No Compose reaches it
-    :testing       Test helpers for the modules above (Roborazzi options); main source set
+    :screenshot-testing  Roborazzi options, shared by every screenshot test; main source set
   :client:<feature>:<layer>  One directory per feature, holding layer modules (presentation,
                              plus domain / data only where the feature requires them) — never
                              a monolithic feature module
@@ -41,6 +41,46 @@ is: Research declares no `:icon` because it draws no glyph, and the shell declar
 because it draws chrome rather than rows. `:client:design:component` is the one design module that
 depends on `core`, for `ResourceKind` alone — see [decisions.md](decisions.md).
 
+## Module rules
+
+Eight rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
+the build. Full statement, failure messages and worked examples: the `module-rules` skill.
+
+1. **A module cannot contain another module** — a directory is either a folder or a module. When
+   a module needs a second beside it, the parent becomes a folder and both become siblings:
+   `dir/moduleA` + `dir/moduleA/moduleB` → `dir/sub-dir/moduleA` + `dir/sub-dir/moduleB`.
+   Checked in `settings.gradle.kts`, against the disk rather than the `include` list, so a module
+   directory that was never included is caught too.
+2. **`domain` may not depend on `data` or `presentation`.**
+3. **`presentation` may not depend on `data`.**
+4. **`data` may not depend on `presentation`.**
+5. **Only a test source set may reach a `-testing` module** — `commonTest`, `desktopTest`,
+   `androidHostTest`, `testFixtures` and the iOS test targets all qualify; `commonMain` does not.
+   A plain module cannot say "tests only" the way `testFixtures(projects.x)` does, so the build
+   says it. A testing module may depend on another testing module from `main`: it is already
+   fakes, so there is nothing to leak into.
+6. **`core` may not depend on any module.** It is the centre: everything points at it, it points
+   at nothing. Absolute, unlike rule 5 — core already hosts its own test helpers in `commonTest`.
+7. **Nothing may depend on `:client:shell`.** This is what makes the shell's exemption from rules
+   2–4 safe rather than merely convenient: it may see every layer precisely because nothing sees
+   it. The pending `androidApp` wrapper will fail this rule when it lands — deliberately, so the
+   carve-out gets argued over a real module rather than a hypothetical one.
+8. **`sim` and `server` may not depend on a `client/*` module.** Either would silently acquire a
+   Compose dependency by reaching one.
+
+The root project is exempt from 6–8: it is the build rather than a module, and it holds a
+`kover(...)` dependency on every module including `:client:shell`.
+
+Rules 2–8 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
+`commonTest` dependency couples the modules exactly as much as a `commonMain` one. A module's
+layer is the last segment of its Gradle path, so only `domain`, `data` and `presentation` are
+layers; `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and are
+unconstrained. That is deliberate for the shell: the composition root is the one module allowed
+to see every layer, which is why nothing depends on it.
+
+Separately, **a feature depending on another feature is warned about, not rejected** — the rule is
+real, but its exceptions are worth weighing one at a time.
+
 ## Core purity (the load-bearing invariants)
 
 The canonical, full statement lives in [brief.md](brief.md) — this is a faithful summary, not a
@@ -60,9 +100,31 @@ second authority:
 
 ## Test doubles (repo-wide, not client-only)
 
-Handwritten fakes via per-module Gradle test fixtures where the module type supports them; a
-KMP module that cannot host fixtures gets a sibling `:<module>:testing` module owned by the same
-layer. Never one repo-wide doubles module.
+Handwritten fakes via per-module Gradle test fixtures where the module type supports them. Never
+one repo-wide doubles module.
+
+A test source set is not visible to consumers, so a fake that a **second** module needs has to
+live somewhere publishable. On JVM/Android that is a test-fixtures source set; KMP cannot host
+one, so there it is a module — a **sibling of the module it doubles, named for it**:
+
+```
+client/save/data       ->  client/save/data-testing      (:client:save:data-testing)
+client/featA/domain    ->  client/featA/domain-testing   (:client:featA:domain-testing)
+core                   ->  core-testing                  (:core-testing)
+```
+
+Davide's call (2026-08-07), replacing `:<module>:testing`, which named a *child* and breaks rule 1.
+A testing module **inherits the layer it doubles** and its restrictions with it — the layer check
+strips the `-testing` suffix — so `presentation-testing` cannot reach data either. Without that,
+the rule holds on the direct edge and leaks on the one hop through the fakes.
+
+**One shape, always `-testing`.** A module that doubles nothing — shared test *config* rather than
+a fake — still takes the suffix, and names what it is instead of what it doubles:
+`:client:design:screenshot-testing`. It landed at 0.0.14 as `:client:design:testing`, which rule 5
+did not recognise, so nothing stopped a `commonMain` pulling Roborazzi into the shipped app.
+
+Inside a single module none of this applies: `commonTest` is the answer and no module is involved.
+`FakeSaveFile` lives in `client/save/data/src/commonTest` and always will.
 
 **Backtick test names in `commonTest` may not contain `, . ; : / \ < > [ ]`.** Kotlin/Native
 rejects them (`Name contains illegal characters`), so a comma in a test name compiles on the JVM,

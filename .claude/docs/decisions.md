@@ -57,6 +57,13 @@ that owns the interface (`java-test-fixtures` / AGP `testFixtures`), consumed as
 which lacks a fixtures concept. KMP modules that cannot host fixtures get a sibling
 `:<module>:testing` module — still per-owner.
 
+**Amended 2026-08-07 (Davide):** `:<module>:testing` is not a sibling, it is a child —
+`:client:save:data:testing` is the directory `client/save/data/testing`, a module inside a module,
+which the layout rule now rejects. Read it as **a sibling named for what it doubles**:
+`client/save/data-testing`, `client/featA/domain-testing`, `core-testing`. The shape was never
+built, so nothing migrated. See *Module layout and layer dependencies are build rules* below for
+why such a module inherits the layer it doubles.
+
 ## Screenshot tests: Roborazzi against the desktop target
 
 Davide's choice at kickstart. JVM-based, runs on the desktop target (the dev loop) and on ubuntu
@@ -698,3 +705,102 @@ Xcode Cloud runs no test actions, so 0.0.13 shipped to TestFlight as the build i
 either way. **A red suite and a broken game are not the same thing**, and the repair therefore
 carried no version bump: the versioning skill reserves patch for corrections with user-visible
 effect, and this had none.
+
+## Module layout and layer dependencies are build rules, not review rules
+
+Davide's call (2026-08-07). Eight rules, checked while Gradle configures so a violation breaks the
+**IDE sync** rather than waiting for a reviewer: a module cannot contain another module; `domain`
+cannot depend on `data` or `presentation`; `presentation` cannot depend on `data`; `data` cannot
+depend on `presentation`; only a test source set may reach a `-testing` module; `core` depends on
+no module; nothing depends on `:client:shell`; `sim` and `server` never reach into `client/*`.
+Rule 1 lives in `settings.gradle.kts` — the earliest point Gradle evaluates anything — and rules
+2–8 in the root `build.gradle.kts`. Full statement and failure
+messages: the `module-rules` skill.
+
+**The graph was already clean; what was broken was the writing.** The audit found no violating
+dependency anywhere in the nine modules. It found the *convention* for testing modules mandating a
+rule-1 violation in three places (this file, `architecture.md`, the `architecture` skill), and the
+next module due to land — the shared `oltreRoborazziOptions` — being the one that would have hit
+it. Nothing was built on the old wording, so the fix was three documents.
+
+**Layer is the last path segment, which is what makes the shell exempt without an allowlist.**
+Only `domain`, `data` and `presentation` are layers. `:client:shell` holds real Compose UI *and*
+depends on `:client:save:data` and `:client:notifications:data` — and that is the composition
+root's job, which is also why nothing depends on it. Rejected: splitting the shell's UI into a
+`:client:main:presentation` (moves ~600 lines and four screenshot baselines to overturn two
+decisions taken on their own merits — navigation at 0.0.11, the rail at 0.0.12), and inverting
+`GameStore`/`GameNotifications` behind interfaces to make the shell obey rule 3. Naming the rules
+after layers means the exemption costs no allowlist and no annotation: a module is constrained
+exactly when it calls itself a layer.
+
+**Features seeing each other warns rather than fails.** Davide's call in the same pass: the rule is
+real — it is what sent the tab bar and the resource rail into the shell — but its exceptions are
+worth weighing one at a time, and a hard failure decides them in advance. The warning surfaces on
+the build that introduces the edge, because that is the build whose script change invalidates the
+configuration cache.
+
+**Rule 1 reads the disk, and how it reads it is load-bearing.** Scanning for `build.gradle.kts`
+rather than walking the `include` list catches a module directory created and never included.
+The first implementation used `File.walkTopDown()` and was wrong in a way that only showed up
+under test: the walk is not tracked as a configuration-cache input, so adding a nested module
+while no build script changed reused the cache entry and passed. Explicit `listFiles()` calls
+from the script body *are* tracked. Verified both ways before landing.
+
+**A testing module is a sibling named for what it doubles, and inherits its layer.**
+`client/save/data-testing` beside `client/save/data`, `core-testing` beside `core` — Davide's
+call, replacing `:<module>:testing`, which named a child and breaks rule 1. The layer check
+strips the `-testing` suffix, so `presentation-testing` cannot reach data either: without that
+the rule holds on the direct edge and leaks on the one hop through the fakes, which is the whole
+of the hole. Nothing is built on this yet; it is the shape the next one takes.
+
+**Only a test source set may reach a `-testing` module (rule 5).** Davide's call, and the thing a
+plain module cannot say for itself: `testFixtures(projects.x)` is on the test classpath by
+construction, but `implementation(projects.saveDataTesting)` is on whatever classpath asked, and
+nothing about the line admits it is fakes. Read as *production* source sets, because the literal
+reading — no non-testing module may depend on a testing one at all — forbids the only thing a
+testing module is for. So `commonTest`, `desktopTest`, `androidHostTest`, `testFixtures` and the
+iOS test targets stay legal; `commonMain` does not, and only the offending configurations are
+named in the failure. A testing module may depend on another from `main`: it is already fakes.
+A configuration counts as a test one if it starts with `test` or contains `Test` — matched on the
+camel hump, so a source set called `latest` is not quietly a place fakes are allowed.
+
+**The graph points inward, and both ends are sealed (rules 6–8).** Davide picked these three from
+the *Dependency rule* section of `architecture.md`, which until now was enforced only by nobody
+having typed the line. Rule 7 is the load-bearing one: it is what makes the shell's exemption from
+rules 2–4 *safe* rather than merely convenient — the shell may mix layers precisely because
+nothing depends on it, so what it mixes cannot travel. Remove rule 7 and the exemption is a hole.
+The **feature-module allowlist was rejected** in the same pass, because it would have made
+cross-feature a hard failure and reversed the case-by-case call above.
+
+Rule 7 **will fail the pending `androidApp` wrapper**, which `architecture.md` documents as
+depending on `:client:shell`. Written literally rather than with a speculative carve-out for
+platform entry points: the module does not exist, so the argument is better had when there is
+something real to have it about. The root project is exempt from 6–8 — it is the build, not a
+module, and it holds a `kover(...)` dependency on every module including the shell.
+
+**One shape for testing modules, so `:client:design:testing` was renamed.** 0.0.14 landed it under
+the old wording, hours before this rule did. The name is rule-1 legal — `client/design` is a folder
+now, so `testing` is a sibling of `core` and `icon` — but rule 5 matches on the `-testing` suffix,
+so nothing stopped a `commonMain` depending on it and pulling Roborazzi into the shipped app.
+Davide chose one shape over teaching the rule two, so it is `:client:design:screenshot-testing`:
+it doubles nothing, so it names what it is. Rejected: widening the check to accept a bare
+`testing` segment, which costs nothing in the build but leaves two shapes to choose between.
+Its Kotlin package stays `dev.fardavide.oltre.client.design.testing` — a dash is not a legal
+package segment, and renaming it would touch eight imports to no effect.
+
+**A self-edge is not a dependency, and Kover creates one per module.** The first CI run failed
+every job with `:core -> :core` and `:client:shell -> :client:shell`, both `declared in: kover`.
+Kover is applied to every subproject and puts each into its own `kover` configuration, so every
+module declares a dependency on itself; read literally that is core depending on a module and
+something depending on the composition root. Self-edges are now dropped where the graph is
+collected. **This is the failure the sandbox was structurally unable to catch** — it mirrored the
+dependencies each build file *declares*, and this edge is injected by a plugin. The sandbox now
+applies Kover for that reason, which reproduced the failure exactly before the fix.
+
+**No unit tests, deliberately.** Build-script logic is not reachable from a test source set
+without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified
+instead against a throwaway Gradle build carrying the identical rule code — every forbidden edge,
+a test-only dependency, a nested module directory, the shell's allowed edges, the cross-feature
+warning, and Oltre's real nine-module graph — plus `./gradlew help` on this repo to prove rule 1
+runs before anything else does. If the rules grow past this, `buildSrc` + TestKit is the next
+step, not more sandboxes.

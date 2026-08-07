@@ -36,5 +36,16 @@ when_to_use: >
   literals. Decided values come from Notion or Davide.
 - **State changes are events appended to a log**, not mutations. If a change can't be expressed
   as an event, question the change.
-- Fakes: per-module test fixtures (or a sibling `:<module>:testing` for KMP modules that can't
-  host fixtures). Never a repo-wide doubles module.
+- Fakes: per-module test fixtures. KMP modules can't host fixtures, so sharing a fake across a
+  module boundary needs a module — a **sibling of the module it doubles, named for it**:
+  `client/save/data-testing` beside `client/save/data`, `core-testing/` beside `core/`. Never
+  `:<module>:testing`, which is a child and breaks rule 1. A testing module inherits the layer it
+  doubles, restrictions included. Never a repo-wide doubles module.
+- **Eight module rules are enforced by the build**, and break the IDE sync rather than review: a
+  module cannot contain a module; `domain` cannot depend on `data` or `presentation`;
+  `presentation` cannot depend on `data`; `data` cannot depend on `presentation`; only a test
+  source set may reach a `-testing` module; `core` depends on no module; nothing depends on
+  `:client:shell`; `sim` and `server` never reach into `client/*`. Layer is the last segment of the
+  Gradle path, so `:client:shell` and `:client:design` are not layers and are not constrained by
+  2–4 — the shell may see every layer precisely because rule 7 stops anything seeing it. Read the
+  `module-rules` skill before adding a module or a project dependency.
