@@ -120,6 +120,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.15 — 2026-08-07
+
+- **Nothing changed for the player.** This release is entirely internal: the rules about which
+  parts of the code are allowed to know about which other parts used to live in a document someone
+  had to remember to check. The build checks them now, so breaking one stops the project from
+  compiling instead of waiting to be spotted in review.
+- **Why it was worth doing anyway:** the reason a week of production is waiting for you the instant
+  you open the app is that the simulation is kept strictly apart from the screens that draw it and
+  the file it is saved into. That separation erodes one convenient shortcut at a time, and every
+  bit of it that goes is somewhere the colony you come back to could stop matching the colony you
+  left.
+
 ### 0.0.14 — 2026-08-07
 
 - **Nothing changed for the player.** This release is entirely internal: the pieces the Colony and
