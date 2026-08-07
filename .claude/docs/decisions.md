@@ -606,3 +606,95 @@ module) is the next slice's to do, not this one's: it is a build-layout change w
 with research. The cost chip and its ui-state are duplicated between the colony and research
 presentation modules at twelve lines, which is a cheaper price than reopening what `:client:design`
 is for.
+
+## `:client:design` is a family of layer modules, split the way Compose splits itself
+
+Davide's call, 2026-08-07, and the thing 0.0.14 exists to do. The 0.0.11 rule came due:
+`oltreRoborazziOptions` had reached three copies, and `PowerMark`, the cost chip and the ui-state
+formatters had each reached two — not by anyone duplicating deliberately, but because the resource
+rail moved to `:client:shell` at 0.0.12 and took half of each pair with it.
+
+**What actually expired was not the rule, it was its premise.** The tab-bar entry above says
+`:client:design` is a *token* module and "every visual component so far lives with the feature that
+owns it". That held while every component had one owner. `PowerMark` now has none: the rail is the
+shell's chrome and the facility card is the colony's, and the bolt belongs to neither. So the
+question was never "should we relax the rule", it was "where does a component with no owner live".
+
+Three options were put to Davide. He rejected **widening `:client:design` into one shared module**
+(it makes the module a bag: tokens, glyphs, widgets and string helpers with nothing in common but
+being shared) and **extracting only the test helper** (it fixes the copy that is at three and leaves
+the drawn glyph — the one where a typo compiles — in two). He chose a **granular family**, asking for
+the shape Compose uses on itself:
+
+| Module | Holds | Why it is separate |
+|---|---|---|
+| `:client:design:core` | `OltreColors`, `OltreTheme`, `oltreMono` + the bundled font, `OltreLayout` | The tokens. Everything else in the family depends on this and on nothing else. |
+| `:client:design:icon` | `PowerMark` | The `material-icons` seat: a corpus of hand-written vector paths that grows one entry at a time, and the one category where a typo compiles rather than failing. |
+| `:client:design:component` | `CostChip` + `CostChipUiState`, `ProgressBar`, `SectionLabel` | The `material3` seat: styled widgets with no single feature owner. |
+| `:client:design:format` | `toChipLabel`, `toCountdown`, `pad2`, `groupedByThousands` | **No Compose reaches it** — so it needs neither the plugin nor the compose compiler, and its tests are plain unit tests. A mechanical boundary, not a taxonomic one. |
+| `:client:design:testing` | `oltreRoborazziOptions` | The `:<module>:testing` sibling from the fixtures entry above, in the **main** source set — which is the whole reason the helper was copied three times. |
+
+The criterion is Compose's own, and it is worth stating because it is what decides the *next* one:
+**dependency direction and rate of change, not subject matter.** That is why `format` is split off
+over "it holds strings" and why `icon` is split off over "it holds pictures".
+
+`:client:design` therefore stops being a module and becomes a *directory* of layer modules — the
+same shape every feature directory already has, which is why the architecture needed no new concept
+to absorb it.
+
+**Categories deliberately not created**, because an empty category is how a design system starts
+lying about itself: `:motion` (nothing animates), `:layout` (`OltreLayout` is two constants and
+belongs in `core` until there are real layout composables), `:canvas` (the galaxy map is slice #5 —
+inventing its shape now is inventing).
+
+**The five `TabIcon` glyphs stayed in `:client:shell`.** Davide's call, against the consistency
+argument: they have exactly one caller, and the rule is that a component lives with its owner until
+a second module needs it. Being *the same kind of thing* as `PowerMark` is not the same as being
+shared, and moving them would have widened a diff whose whole claim is that nothing moved.
+
+**`SectionLabel` was shared because the two copies were two variants of one component** — identical
+in every token, differing only in Research appending a rule to the heading — which is the test
+Davide set for it. The shared version keeps the bare case out of the `Row` the two-part case needs:
+a `Row` around a single `Text` almost certainly measures the same, and "almost certainly" is not a
+claim an extraction that must not move a pixel is allowed to make.
+
+**`:client:design:component` takes an inward edge to `core`, for `ResourceKind` alone.** The palette
+in `:client:design:core` already names all three resources (`OltreColors.metal` / `.crystal` /
+`.deuterium`), so the design system already carries this vocabulary as strings; taking the real enum
+is strictly less duplication than that. Rejected: a design-owned tint enum, which buys independence
+from `core` by making every caller translate `ResourceKind` into it — reintroducing per feature
+exactly the drift the module exists to remove.
+
+**The proof that nothing moved is the baselines, and it only works in that order.** The six research
+baselines were recorded *before* the extraction commit (they had never been recorded at all — see
+below), so the extraction had to verify green against images it did not produce. A screenshot check
+that passes only because the baselines were re-recorded afterwards proves nothing; this one was set
+up so that any pixel movement is a failure rather than a re-record.
+
+## A merged PR is not a passed PR, and a dispatched run is not a required check
+
+`main` was red from 0.0.13 until 0.0.14 repaired it, and the way it got there is worth an entry
+because the mechanism is still live.
+
+PR #16 was merged at 22:10:21 while its checks were still running. They completed at 22:11:3x with
+**Unit tests, Screenshot tests and Coverage all failing**: `TestResourceRailUiState` never got the
+`throttled` argument that `ResourceRailUiState` gained when the rail moved into the shell, so
+`:client:shell:compileTestKotlinDesktop` did not compile — and all three of those jobs need the
+desktop test classes.
+
+**The `protect-main` ruleset did not stop it, and that is the part to remember.** The checks were
+attached to a `workflow_dispatch` run, and a dispatched run's check runs are not associated with the
+pull request for branch-protection purposes. The 0.0.12 entry above already recorded that
+`gh pr checks` misreports dispatched runs — what it missed is that the ruleset misreads them the same
+way, so the consequence is not a confusing display, it is **an open gate**. A PR whose checks were
+dispatched by hand is a PR with no enforced checks: read the conclusions yourself, from
+`repos/.../commits/<sha>/check-runs`, before merging.
+
+The second half was quieter: **the six research baselines were never recorded at all.** Record
+screenshots was never dispatched for #16, so `client/research/presentation/src/desktopTest/
+screenshots/` did not exist and `verifyRoborazziDesktop` had six missing goldens on top of the
+compile error. Both failures were invisible in the merged result because both live in test code —
+Xcode Cloud runs no test actions, so 0.0.13 shipped to TestFlight as the build it would have been
+either way. **A red suite and a broken game are not the same thing**, and the repair therefore
+carried no version bump: the versioning skill reserves patch for corrections with user-visible
+effect, and this had none.

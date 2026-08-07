@@ -19,12 +19,19 @@ when_to_use: >
 - **One directory per client feature, layer modules inside.** New feature = a directory under
   `client/` holding layer modules: `:client:<feature>:presentation` always, `:domain` / `:data`
   only when the feature actually needs them — no empty placeholder layers. Presentation depends
-  on `core` + `:client:design` (+ the feature's own domain/data). `:client:shell` is the only
-  module that sees all features; features never depend on each other — shared needs go down
-  into `core` or `:client:design`.
+  on `core` + the `:client:design:*` layers it actually uses (+ the feature's own domain/data).
+  `:client:shell` is the only module that sees all features; features never depend on each other —
+  shared needs go down into `core` or the design family.
+- **`:client:design` is a directory, not a module.** Its layers are `:core` (tokens, theme, font),
+  `:icon` (drawn glyphs), `:component` (styled widgets with no single feature owner), `:format`
+  (how numbers and durations are written — no Compose in it) and `:testing` (test helpers, in the
+  *main* source set). Declare only the ones you use. A component moves here when it has **no single
+  owner**, which is not the same as being used twice — the threshold is still two callers do not
+  justify sharing, a third does, and a component whose one owner is obvious stays with it.
 - **New module checklist:** add to `settings.gradle.kts`; copy the target set from
-  `:client:design`; namespace `dev.fardavide.oltre.client.<feature>.<layer>`; wire into
-  `:client:shell`.
+  `:client:design:core`; namespace `dev.fardavide.oltre.client.<feature>.<layer>`; wire into
+  `:client:shell`; **add it to the root `build.gradle.kts` `kover {}` list** — a module missing
+  there is silently absent from the coverage report.
 - **Placeholder balance numbers live in one marked place in `core`** — never scattered
   literals. Decided values come from Notion or Davide.
 - **State changes are events appended to a log**, not mutations. If a change can't be expressed

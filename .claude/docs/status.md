@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-06 (0.0.12)
+Updated: 2026-08-07 (0.0.14)
 
 ## Landed
 
@@ -65,6 +65,28 @@ Updated: 2026-08-06 (0.0.12)
   place PR comment. Reporting only — no thresholds, not a required check. See `decisions.md` and
   the `test-coverage` skill.
 
+- **0.0.14 the design system becomes a family of modules** — `:client:design` stops being one
+  module and becomes a *directory* of layer modules, split the way Compose splits itself:
+  `:core` (tokens, theme, font), `:icon` (`PowerMark`), `:component` (`CostChip` + its ui-state,
+  `ProgressBar`, `SectionLabel`), `:format` (`toChipLabel` / `toCountdown` / `pad2` /
+  `groupedByThousands`, with no Compose in it) and `:testing` (`oltreRoborazziOptions`, in the main
+  source set). Davide's call — the rejected options are in `decisions.md`. What forced it was not
+  the duplication count but the loss of ownership: the rail moving to the shell at 0.0.12 left
+  `PowerMark` and the cost chip with no owning feature. The tab glyphs deliberately stayed in the
+  shell (one caller). **Nothing a player can see changed, and no screenshot baseline moved** — the
+  baselines were recorded before the extraction commit, so the check had to verify rather than
+  re-record. Also repaired `main`, which had been red since 0.0.13 (below).
+
+- **0.0.14 repair — `main` was red from 0.0.13 and the ruleset did not catch it.** `#16` merged
+  while its checks were still running, and those runs were attached to a `workflow_dispatch` run,
+  which `protect-main` does not count as the required checks. Two things were broken, both in test
+  code only: `TestResourceRailUiState` never got the `throttled` argument (so
+  `:client:shell:compileTestKotlinDesktop` failed, taking down Unit tests, Screenshot tests *and*
+  Coverage), and the six research baselines had never been recorded at all. The shipped 0.0.13
+  build was unaffected — Xcode Cloud runs no test actions — so the repair carried no version bump.
+  See `decisions.md`: **a dispatched run is not a required check**, so read conclusions from
+  `repos/.../commits/<sha>/check-runs` before merging.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -114,10 +136,8 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   technology in 0.2; and whether the two Robotics divisors (÷ 1 + 0.08 × Robotics for research,
   ÷ 1 + Robotics for construction) should ever be made to agree — which would be a rebalance of
   the colony, not of research.
-- **`oltreRoborazziOptions` is now in three modules**, which is the threshold `decisions.md` set
-  for extracting it. It needs a module of its own (KMP source sets cannot host test fixtures);
-  deliberately not done inside the research slice, because it is a build-layout change with
-  nothing to do with research.
+- ~~**`oltreRoborazziOptions` is now in three modules**~~ — done at 0.0.14: it lives in
+  `:client:design:testing`, along with the rest of the design-system extraction.
 - **Open design question for Davide:** what a notification *says* is player-facing content. The
   copy in `GameNotifications` is a placeholder that says what happened and that a decision is
   waiting. The same applies to the unbuilt tabs' one-liners in `OltreTab.pendingWork`, which say

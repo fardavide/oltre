@@ -36,15 +36,23 @@ when_to_use: >
 - **Never use platform font families** (`FontFamily.Monospace`, default sans) in any composable
   a screenshot covers: macOS and Linux resolve them to different typefaces, and baselines
   recorded locally fail on CI with glyph-level diffs no honest threshold absorbs (learned on the
-  very first baseline, 2026-08-05). Use the bundled family from `:client:design` (`oltreMono()`,
+  very first baseline, 2026-08-05). Use the bundled family from `:client:design:core`
+  (`oltreMono()`,
   JetBrains Mono, OFL) — bundle further weights/families there when needed.
 - Cross-OS drift between macOS recording and Linux CI comes in two shapes, measured from the
   CI diff artifacts of runs 31072340252 and 31075759250 (2026-08-06): gradient/dither noise
   of ±1/255 spread across nearly every filled pixel (87% of the in-progress card), and glyph
   anti-aliasing drift of ≥10/255 on 2.4–5.6% of pixels — the ratio rises as the screenshot
   shrinks, because text dominates a small canvas (the 393×72 fleet strip measured 5.6%).
-  Both are absorbed by the shared `oltreRoborazziOptions()` (desktopTest):
+  Both are absorbed by the shared `oltreRoborazziOptions()`, which lives in
+  **`:client:design:testing`** (in its *main* source set, because KMP source sets cannot host test
+  fixtures — it was copied into three modules before 0.0.14 extracted it):
   `SimpleImageComparator(maxDistance = 0.007f)` ignores the sub-perceptual noise,
   `ThresholdValidator(0.08f)` budgets the glyph edges on the smallest text-dense component.
   Use it in every screenshot test; raise either constant only with a new CI diff image as
-  evidence, never speculatively.
+  evidence, never speculatively — and note that there is now one copy, so loosening it loosens
+  every baseline in the repo at once.
+- **A refactor that only moves UI code must not move a baseline.** Verify, do not re-record: if
+  `verifyRoborazziDesktop` fails after a pure move, the move changed the drawing, and that is a bug
+  in the move rather than a baseline that needs updating. Record *before* such a change so it has
+  something honest to verify against.
