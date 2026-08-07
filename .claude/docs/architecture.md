@@ -32,7 +32,7 @@ declared.
 
 ## Module rules
 
-Four rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
+Five rules, checked while Gradle configures, so a violation fails the **IDE sync** and not only
 the build. Full statement, failure messages and worked examples: the `module-rules` skill.
 
 1. **A module cannot contain another module** — a directory is either a folder or a module. When
@@ -43,8 +43,13 @@ the build. Full statement, failure messages and worked examples: the `module-rul
 2. **`domain` may not depend on `data` or `presentation`.**
 3. **`presentation` may not depend on `data`.**
 4. **`data` may not depend on `presentation`.**
+5. **Only a test source set may reach a `-testing` module** — `commonTest`, `desktopTest`,
+   `androidHostTest`, `testFixtures` and the iOS test targets all qualify; `commonMain` does not.
+   A plain module cannot say "tests only" the way `testFixtures(projects.x)` does, so the build
+   says it. A testing module may depend on another testing module from `main`: it is already
+   fakes, so there is nothing to leak into.
 
-Rules 2–4 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
+Rules 2–5 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
 `commonTest` dependency couples the modules exactly as much as a `commonMain` one. A module's
 layer is the last segment of its Gradle path, so only `domain`, `data` and `presentation` are
 layers; `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and are

@@ -1,6 +1,6 @@
 ---
 name: module-rules
-description: Oltre's four module rules — a module cannot contain a module, and domain/presentation/data may not see each other's forbidden side. Enforced by the build, not by review.
+description: Oltre's five module rules — a module cannot contain a module, domain/presentation/data may not see each other's forbidden side, and fakes may not ship. Enforced by the build, not by review.
 when_to_use: >
   Consult before creating a module or a directory that will hold one, before adding any
   `implementation(projects.…)` / `api(projects.…)` line to a build.gradle.kts, and whenever a
@@ -10,7 +10,7 @@ when_to_use: >
 
 # Module rules
 
-Four rules. All four fail the build **and the IDE sync** — they are checked while Gradle
+Five rules. All five fail the build **and the IDE sync** — they are checked while Gradle
 configures, not by a task you can forget to run and not by a reviewer who might not notice.
 
 | # | Rule | Checked in |
@@ -19,6 +19,7 @@ configures, not by a task you can forget to run and not by a reviewer who might 
 | 2 | `domain` may not depend on `data` or `presentation` | root `build.gradle.kts` |
 | 3 | `presentation` may not depend on `data` | root `build.gradle.kts` |
 | 4 | `data` may not depend on `presentation` | root `build.gradle.kts` |
+| 5 | Only a test source set may reach a `-testing` module | root `build.gradle.kts` |
 
 ## Rule 1 — a directory is either a folder or a module
 
@@ -73,6 +74,35 @@ presentation module reach data *through* it. Without the suffix strip the rule h
 edge and leaks on the one hop through the fakes, which is the only hole this shape opens. It reads
 the right way round too: a fake of a domain interface has no more business knowing about a store
 than the domain does.
+
+## Rule 5 — fakes do not ship
+
+A `-testing` module may be reached **only from a test source set**. That is the one thing a plain
+module cannot say for itself: `testFixtures(projects.x)` is on the test classpath by construction,
+but `implementation(projects.saveDataTesting)` is on whatever classpath asked, and nothing about
+the dependency line admits it is fakes. So the build says it instead.
+
+```
+Module dependency rules violated:
+
+  :client:shell -> :core-testing
+    a testing module may only be reached from a test source set — fakes must not ship
+    declared in: commonMainImplementation
+```
+
+What stays legal, and must: **any** test source set reaching **any** testing module —
+`commonTest`, `desktopTest`, `androidHostTest`, `testFixtures`, an iOS test target. Consuming a
+testing module from a test is the entire reason one exists, since `commonTest` is invisible to
+consumers and KMP cannot host a test-fixtures source set. A testing module may also depend on
+another testing module from its *main* source set: it is already fakes, so there is nothing to
+leak into.
+
+Only the offending configurations are named. Declare an edge from both `api` and
+`testImplementation` and the failure points at `api` alone.
+
+A configuration counts as a test one if it starts with `test` or contains `Test` — matched on the
+camel hump rather than on `contains("test")`, so a source set called `latest` does not quietly
+become a place fakes are allowed.
 
 ## What is not a layer
 

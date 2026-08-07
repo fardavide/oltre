@@ -169,6 +169,16 @@ fun layerOf(projectPath: String): String? = projectPath
     .removeSuffix("-testing")
     .takeIf { it in setOf("domain", "data", "presentation") }
 
+fun isTestingModule(projectPath: String): Boolean =
+    projectPath.substringAfterLast(':').endsWith("-testing")
+
+// Matched on the camel hump rather than on `contains("test")`, so a source set called `latest`
+// does not quietly become a place fakes are allowed. Covers every shape in the build:
+// `testImplementation` (JVM), `commonTestImplementation` / `desktopTestApi` (KMP),
+// `androidHostTestImplementation` (AGP), and `testFixtures*` — fixtures exist to be consumed by
+// tests, so they may hold fakes too.
+fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name.contains("Test")
+
 // `:client:save:data` -> `save`. Null for anything that is not a client feature module, including
 // `:client:design` and `:client:shell` — those live directly under `client/`, so they have no
 // feature directory above them and cannot be one feature reaching into another.
@@ -192,12 +202,37 @@ gradle.projectsEvaluated {
         }
     }
 
-    // Test source sets count. A presentation module that reaches a data module only from
-    // `commonTest` still compiles against it, still couples to it, and is exactly as expensive to
-    // unpick later.
-    val violations = edges.keys.filter { (from, to) ->
-        val fromLayer = layerOf(from) ?: return@filter false
-        layerOf(to) in forbiddenLayerDependencies.getValue(fromLayer)
+    val violations = edges.entries.mapNotNull { (edge, configurations) ->
+        val (from, to) = edge
+
+        // Rules 2–4. Test source sets count: a presentation module that reaches a data module only
+        // from `commonTest` still compiles against it, still couples to it, and is exactly as
+        // expensive to unpick later.
+        val fromLayer = layerOf(from)
+        if (fromLayer != null && layerOf(to) in forbiddenLayerDependencies.getValue(fromLayer)) {
+            return@mapNotNull Triple(
+                edge,
+                "$fromLayer may not depend on ${layerOf(to)}",
+                configurations.toList(),
+            )
+        }
+
+        // Rule 5. Only the *shipping* configurations are the violation — a test source set reaching
+        // a testing module is the entire reason testing modules exist, since a `commonTest` is
+        // invisible to consumers and KMP cannot host a test-fixtures source set. What the rule
+        // stops is `commonMain` doing it, which is how fakes end up inside the app: a plain module
+        // is on the compile classpath of whoever asks, and unlike `testFixtures` nothing about the
+        // dependency itself says "tests only".
+        val shipping = configurations.filterNot(::isTestConfiguration)
+        if (!isTestingModule(from) && isTestingModule(to) && shipping.isNotEmpty()) {
+            return@mapNotNull Triple(
+                edge,
+                "a testing module may only be reached from a test source set — fakes must not ship",
+                shipping,
+            )
+        }
+
+        null
     }
 
     if (violations.isNotEmpty()) {
@@ -205,11 +240,11 @@ gradle.projectsEvaluated {
             buildString {
                 appendLine("Module dependency rules violated:")
                 appendLine()
-                violations.forEach { edge ->
+                violations.forEach { (edge, reason, configurations) ->
                     val (from, to) = edge
                     appendLine("  $from -> $to")
-                    appendLine("    ${layerOf(from)} may not depend on ${layerOf(to)}")
-                    appendLine("    declared in: ${edges.getValue(edge).joinToString()}")
+                    appendLine("    $reason")
+                    appendLine("    declared in: ${configurations.joinToString()}")
                 }
                 append("See the `module-rules` skill.")
             },

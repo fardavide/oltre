@@ -616,11 +616,12 @@ is for.
 
 ## Module layout and layer dependencies are build rules, not review rules
 
-Davide's call (2026-08-07). Four rules, checked while Gradle configures so a violation breaks the
+Davide's call (2026-08-07). Five rules, checked while Gradle configures so a violation breaks the
 **IDE sync** rather than waiting for a reviewer: a module cannot contain another module; `domain`
 cannot depend on `data` or `presentation`; `presentation` cannot depend on `data`; `data` cannot
-depend on `presentation`. Rule 1 lives in `settings.gradle.kts` — the earliest point Gradle
-evaluates anything — and rules 2–4 in the root `build.gradle.kts`. Full statement and failure
+depend on `presentation`; and only a test source set may reach a `-testing` module. Rule 1 lives in
+`settings.gradle.kts` — the earliest point Gradle evaluates anything — and rules 2–5 in the root
+`build.gradle.kts`. Full statement and failure
 messages: the `module-rules` skill.
 
 **The graph was already clean; what was broken was the writing.** The audit found no violating
@@ -658,6 +659,17 @@ call, replacing `:<module>:testing`, which named a child and breaks rule 1. The 
 strips the `-testing` suffix, so `presentation-testing` cannot reach data either: without that
 the rule holds on the direct edge and leaks on the one hop through the fakes, which is the whole
 of the hole. Nothing is built on this yet; it is the shape the next one takes.
+
+**Only a test source set may reach a `-testing` module (rule 5).** Davide's call, and the thing a
+plain module cannot say for itself: `testFixtures(projects.x)` is on the test classpath by
+construction, but `implementation(projects.saveDataTesting)` is on whatever classpath asked, and
+nothing about the line admits it is fakes. Read as *production* source sets, because the literal
+reading — no non-testing module may depend on a testing one at all — forbids the only thing a
+testing module is for. So `commonTest`, `desktopTest`, `androidHostTest`, `testFixtures` and the
+iOS test targets stay legal; `commonMain` does not, and only the offending configurations are
+named in the failure. A testing module may depend on another from `main`: it is already fakes.
+A configuration counts as a test one if it starts with `test` or contains `Test` — matched on the
+camel hump, so a source set called `latest` is not quietly a place fakes are allowed.
 
 **No unit tests, deliberately.** Build-script logic is not reachable from a test source set
 without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified
