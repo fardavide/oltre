@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-07 (0.0.14)
+Updated: 2026-08-07 (0.0.15)
 
 ## Landed
 
@@ -87,6 +87,17 @@ Updated: 2026-08-07 (0.0.14)
   See `decisions.md`: **a dispatched run is not a required check**, so read conclusions from
   `repos/.../commits/<sha>/check-runs` before merging.
 
+- **0.0.15 galaxy procgen (slice 4)** — `core` gains the whole map, built to the galaxy decision
+  sheet. `GalaxyCoordinate` / `StarClass` / `World` / `WorldTraits` / `Hazard` / `Tolerance` /
+  `WorldVerdict`, a decided `GalaxyBalance` beside `ResearchBalance`, and
+  `worldAt(seed, coordinate)` — O(1), reads no neighbours, draws every axis from its own named
+  sub-stream so a later slice adding a trait cannot reroll anyone's map. Save **schema 4 migrates
+  3**, storing the seed, the home coordinate, the surveyed set and who holds what, and never a
+  world. `advance()` is untouched and deliberately has no hook. `:sim:run` prints the distribution
+  against the sheet's §9 targets; `GalaxyDistributionTest` pins it.
+  **One §9 target is unmet and is Davide's to settle** — see below and `balance-log.md` round 5.
+  Also repaired `./gradlew build`, which was failing on `main` before this slice started.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -99,8 +110,8 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | ~~1~~ | ~~**Tab bar**~~ | Landed at 0.0.11 | — |
 | ~~2~~ | ~~**Research: core**~~ | Landed at 0.0.12 | — |
 | ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
-| 4 | **Galaxy: procgen** | Seeded generation of hundreds of systems with world traits, pure and reproducible from a seed in the save | ~~Yes~~ — **settled**, `galaxy-sheet.md` |
-| 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | Systems settled in the sheet; the *visual* design is a Claude Design round trip |
+| ~~4~~ | ~~**Galaxy: procgen**~~ | Landed at 0.0.15 | — |
+| 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | Systems settled in the sheet; the *visual* design is a Claude Design round trip, **in flight** |
 | 6 | **Shipyard: core + screen** | The 4 v1 ship types, built from the shipyard, held in one empire-wide pool | **Yes** — the ship set (today's `CARGO/FIGHTER/CRUISER/COLONY_SHIP` are placeholders) |
 | 7 | **Fleets: outbound** | Sending a fleet: distance as travel time, an outbound leg, the Fleets tab. The return leg already exists | **Yes** — travel-time formula, fuel |
 | 8 | **Combat** | Seeded `resolve(a, b, seed)` and a battle report in the event log | **Yes** — the combat model |
@@ -130,6 +141,25 @@ carried here because the pressures that replace hard caps (upkeep, logistics, di
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
 
 ## Pending / not yet set up
+
+- **Open design question for Davide, and the one that blocks finishing the galaxy's balance: the
+  sheet's §9 `fails exactly one axis` target of 35–45% cannot be reached.** Measured 17.55%, and no
+  choice of constants gets there while the three axes stay comparable — the arithmetic and a
+  recommendation are in `balance-log.md` round 5. Two smaller rows are also modestly over target
+  (`passes every band` 2.63% vs 1–2%, `settleable` 0.71% vs ≤0.5%) and are held with it, because
+  tightening them pushes the middle row further down. Nothing is blocked on the answer except the
+  final constants: the code, the save format and the screen all work either way.
+- **Three smaller calls the sheet did not make** are assumed and marked as such in the code, listed
+  in `balance-log.md` round 5: the star class distribution (equal thirds), where home is, and what
+  `Settleable` carries.
+- **`GameState.initial` now requires a galaxy seed**, and the five client test modules each declare
+  their own one-line `freshState()` helper as a result. That is the duplication `:core-testing`
+  (named in `architecture.md`, never built) exists to remove — the threshold the repo uses is "a
+  third caller justifies a module", and this is five. Deliberately not built in this slice: it is a
+  build-layout change with nothing to do with the galaxy.
+- **`Coordinates` and `GalaxyCoordinate` are now twins.** The old one carries
+  `ReturningFleet.origin` and is unbounded; the new one is bounded to the real coordinate space.
+  Folding them together is a fleets change, so slice #7 owns it.
 
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.

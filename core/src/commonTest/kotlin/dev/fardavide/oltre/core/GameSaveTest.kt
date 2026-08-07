@@ -64,12 +64,20 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":3,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """{"schemaVersion":4,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
                 """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
-                """"activeResearch":null,"returningFleet":null,"eventLog":[]}}""",
+                """"activeResearch":null,""" +
+                // The whole galaxy, in one line: a seed, where home is, the handful of worlds the
+                // home system holds, and who owns what. Four thousand seven hundred worlds of
+                // traits are absent on purpose — they are regenerated from that seed.
+                """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+                """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+                """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+                """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+                """"returningFleet":null,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -424,8 +432,14 @@ class GameSaveTest {
         // when
         val resumed = advance(decoded.state, from = decoded.lastUpdatedAt, to = EPOCH + 6.hours)
 
-        // then
-        assertEquals(advance(GameState.initial(), from = EPOCH, to = EPOCH + 6.hours), resumed)
+        // then — everything the clock touches, which is the whole claim. The galaxy is compared
+        // separately below rather than here: a migrated save mints its seed from its own
+        // `lastUpdatedAt`, so it is deliberately not the seed a fresh colony gets.
+        val fresh = advance(GameState.initial(), from = EPOCH, to = EPOCH + 6.hours)
+        assertEquals(fresh.resources, resumed.resources)
+        assertEquals(fresh.buildings, resumed.buildings)
+        assertEquals(fresh.builds, resumed.builds)
+        assertEquals(fresh.eventLog, resumed.eventLog)
     }
 
     @Test
@@ -452,9 +466,137 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 3 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":3"""), rewritten)
+        // then — and from then on it is a version 4 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":4"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
+    }
+
+    @Test
+    fun `the version 3 fixture is the string 0_0_14 actually wrote`() {
+        // Byte-for-byte the string 0.0.14 pinned in `the on-disk shape is pinned`, with the stock of
+        // a colony not yet opened. A fixture written from memory would only prove that made-up JSON
+        // migrates, which is the one thing nobody needs to know.
+        assertEquals(
+            """{"schemaVersion":3,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+                """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+                """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+                """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
+                """"activeResearch":null,"returningFleet":null,"eventLog":[]}}""",
+            VERSION_3_IDLE,
+        )
+    }
+
+    @Test
+    fun `a version 3 colony is carried forward rather than reset`() {
+        // The galaxy is purely additive, exactly as research was: a colony saved before the map
+        // existed has surveyed nothing and holds nothing but its own home world, which is what a
+        // fresh GalaxyState says. So there is no number to invent and nothing to rescale.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_IDLE)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(EmpireId.PLAYER, decoded.state.galaxy.holderOf(decoded.state.galaxy.home))
+    }
+
+    @Test
+    fun `a migrated colony wakes up with its own home system surveyed and nothing else`() {
+        // Two tiers, from the first launch: charted everywhere, surveyed only at home. That is what
+        // makes the screen browsable on the day it ships without pretending fleets exist.
+        val galaxy = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_IDLE)).snapshot.state.galaxy
+
+        assertTrue(galaxy.home in galaxy.surveyed, "home must be surveyed")
+        assertTrue(
+            galaxy.surveyed.all { it.galaxy == galaxy.home.galaxy && it.system == galaxy.home.system },
+            "nothing outside the home system may start surveyed, was ${galaxy.surveyed}",
+        )
+        // and every surveyed coordinate really holds a world
+        assertTrue(galaxy.surveyed.all { worldAt(galaxy.seed, it) != null })
+    }
+
+    @Test
+    fun `the same version 3 save migrates to the same galaxy every time`() {
+        // The load-bearing property of minting the seed from the save's own contents rather than
+        // from a clock: a player who reopens the app before the first commit is written must not be
+        // handed a different map each time.
+        val once = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_IDLE)).snapshot.state.galaxy
+        val again = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_IDLE)).snapshot.state.galaxy
+
+        assertEquals(once, again)
+    }
+
+    @Test
+    fun `two version 3 saves from different instants get different galaxies`() {
+        // and the flip side: the seed still varies, so two players do not share a map.
+        val mine = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_IDLE)).snapshot.state.galaxy
+        val theirs = assertIs<DecodeResult.Success>(
+            GameSave.decode(VERSION_3_IDLE.replace("1970-01-01T00:00:00Z", "1999-12-31T23:59:59Z")),
+        ).snapshot.state.galaxy
+
+        assertTrue(mine.seed != theirs.seed, "two save instants must not mint the same seed")
+    }
+
+    @Test
+    fun `a played version 3 colony keeps everything it had`() {
+        // given a save with levelled buildings, a stock, a build running, research done and running,
+        // a fleet inbound and an event log — everything the migration must carry across untouched
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_3_FULL)).snapshot
+
+        // then
+        assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
+        assertEquals(500L, decoded.state.resources.metal)
+        assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
+        assertEquals(TechLevel(3), decoded.state.research.extraction)
+        assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
+        assertEquals(1, decoded.state.eventLog.size)
+        assertEquals(
+            Coordinates(galaxy = 2, system = 117, position = 9),
+            checkNotNull(decoded.state.returningFleet).origin,
+        )
+    }
+
+    @Test
+    fun `a galaxy survives a round trip with its seed and everything the player changed`() {
+        // given a colony that has surveyed a world outside its home system and taken it
+        val fresh = GameState.initial()
+        val taken = GalaxyCoordinate(galaxy = fresh.galaxy.home.galaxy, system = 200, slot = 5)
+        val state = fresh.copy(
+            galaxy = fresh.galaxy.copy(
+                surveyed = fresh.galaxy.surveyed + taken,
+                ownership = fresh.galaxy.ownership + WorldOwnership(at = taken, holder = EmpireId("kepler")),
+            ),
+        )
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        // then
+        assertEquals(snapshot, decoded)
+        assertEquals(EmpireId("kepler"), decoded.state.galaxy.holderOf(taken))
+        assertTrue(taken in decoded.state.galaxy.surveyed)
+    }
+
+    @Test
+    fun `the worlds themselves are never written to disk`() {
+        // The reason the save can afford a galaxy at all. If a trait name ever appears in the
+        // encoded string, something started serialising the map.
+        val encoded = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+
+        for (absent in listOf("gravity", "pressure", "temperature", "richness", "fields", "hazard")) {
+            assertTrue(!encoded.contains(absent, ignoreCase = true), "$absent leaked into the save: $encoded")
+        }
+    }
+
+    @Test
+    fun `a save whose galaxy claims someone else owns home decodes to a failure`() {
+        // given — hand-edited so the home world is held by another empire, which GalaxyState forbids
+        val tampered = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+            .replace(""""holder":"player"""", """"holder":"kepler"""")
+
+        // when / then
+        assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
     }
 
     private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
@@ -509,6 +651,32 @@ class GameSaveTest {
             """"solarPlant":2,"roboticsFactory":0,"naniteFactory":0},""" +
             """"builds":{"METAL_MINE":{"building":"METAL_MINE","toLevel":5,""" +
             """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"}},""" +
+            """"returningFleet":{"ships":{"CARGO":14},""" +
+            """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
+            """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
+            """"at":"1970-01-01T00:00:00Z"}]}}"""
+
+        // Frozen captures of the 0.0.14 on-disk format — the saves sitting on the builds that
+        // shipped between 0.0.12 and 0.0.14. Read them, never rewrite them.
+        const val VERSION_3_IDLE = """{"schemaVersion":3,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
+            """"activeResearch":null,"returningFleet":null,"eventLog":[]}}"""
+
+        // A version 3 colony that had actually been played, research included — the branch that
+        // 0.0.12 added is the thing this format has and version 2 did not.
+        const val VERSION_3_FULL = """{"schemaVersion":3,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":1,"naniteFactory":0},""" +
+            """"builds":{"METAL_MINE":{"building":"METAL_MINE","toLevel":5,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"}},""" +
+            """"research":{"photovoltaics":2,"extraction":3,"enrichment":0},""" +
+            """"activeResearch":{"technology":"EXTRACTION","toLevel":4,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T05:00:00Z"},""" +
             """"returningFleet":{"ships":{"CARGO":14},""" +
             """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
             """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +

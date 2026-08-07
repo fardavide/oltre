@@ -1,0 +1,237 @@
+package dev.fardavide.oltre.core
+
+import kotlin.jvm.JvmInline
+
+// A uniform draw in 0 … 1, carried as an integer over a fixed basis so the trait formulas below
+// stay exact integer arithmetic on every platform. Inclusive of 1 at the top, which is what lets
+// the published ranges land on their round numbers — gravity really reaches 2.75 g rather than
+// stopping a thousandth short of it. The 1-in-10,001 bias that buys is far below anything the
+// distribution targets can see.
+@JvmInline
+value class Uniform(val ofBasis: Int) {
+    init {
+        require(ofBasis in 0..BASIS) { "a uniform draw must be between 0 and $BASIS, was $ofBasis" }
+    }
+
+    companion object {
+        const val BASIS: Int = 10_000
+        val MAX: Uniform = Uniform(BASIS)
+        fun ofPercent(percent: Int): Uniform = Uniform(percent * BASIS / 100)
+    }
+}
+
+// DECIDED balance, not placeholders — the same standing `ResearchBalance` has, and for the same
+// reason: every number here comes from the galaxy decision sheet, and `GalaxyBalanceTest` pins its
+// published tables value by value. Changing one of these is a design change, not a refactor.
+//
+// The shape of the galaxy, in one paragraph: **an easy world is a poor world.** Three hostility
+// axes — temperature, gravity, pressure — each checked against a tolerance band the player widens
+// with a separate adaptation ladder, and richness *derived* from those same three axes rather than
+// rolled independently. That derivation is the whole pillar: if richness were independent the
+// galaxy would contain easy-and-rich worlds and every other consideration would collapse into
+// "take those". Hazards are named flags rather than a fourth axis, and the yield score exists to
+// make the median world that passes every band score *below* the worth-it threshold, so surveying
+// usually returns "not worth it".
+object GalaxyBalance {
+
+    // ── The coordinate space ─────────────────────────────────────────────────────────────────
+    const val GALAXIES: Int = 4
+    const val SYSTEMS_PER_GALAXY: Int = 250
+    const val SLOTS_PER_SYSTEM: Int = 15
+    const val TOTAL_SLOTS: Int = GALAXIES * SYSTEMS_PER_GALAXY * SLOTS_PER_SYSTEM
+
+    // A slot holds a world more often in the middle of a system than at its edges, which averages
+    // 4.75 worlds per system and ~4,750 galaxy-wide. The inner band is also where the temperature
+    // formula puts the habitable orbits, so the worlds worth looking at are where the worlds are.
+    private const val INNER_SLOT_FIRST: Int = 4
+    private const val INNER_SLOT_LAST: Int = 10
+    private const val INNER_OCCUPANCY_PERCENT: Int = 45
+    private const val OUTER_OCCUPANCY_PERCENT: Int = 20
+
+    fun occupancyPercent(slot: Int): Int =
+        if (slot in INNER_SLOT_FIRST..INNER_SLOT_LAST) INNER_OCCUPANCY_PERCENT else OUTER_OCCUPANCY_PERCENT
+
+    // One system in 40 carries a relay in an unoccupied slot. Inert in 0.2 — no holding mechanic is
+    // designed, and the screen may label one but may not make it tappable. It is generated anyway
+    // because the *stream* has to exist from the start: a relay added in two years' time shifts
+    // nothing only if nothing else was ever drawn from its sub-seed.
+    const val RELAY_SYSTEM_IN: Int = 40
+
+    // ── Temperature: a function of the orbit, which is why the coordinate is worth having ────
+    //
+    // Position *is* a trait, so the charted map is readable before anything has been surveyed and
+    // "the outer slots are where the deuterium is" becomes something a player learns rather than
+    // something the UI tells them.
+    const val TEMPERATURE_JITTER: Int = 20
+    private const val TEMPERATURE_AT_ORBIT_ZERO: Int = 220
+    private const val TEMPERATURE_FALL_PER_SLOT: Int = 28
+
+    fun starOffset(starClass: StarClass): Int = when (starClass) {
+        StarClass.DIM -> -40
+        StarClass.STANDARD -> 0
+        StarClass.BRIGHT -> 40
+    }
+
+    // ASSUMED, NOT DECIDED. The sheet gives each star class its temperature offset but never says
+    // how often each one occurs, so this slice takes equal thirds and says so rather than burying
+    // it. The choice is close to free: because the habitable orbits shift with the offset, each
+    // class ends up passing the temperature band on ~25% of its worlds either way, so the galaxy's
+    // distribution barely moves. Recorded as an open call in `balance-log.md`.
+    fun starClass(ofThree: Int): StarClass = when (ofThree) {
+        0 -> StarClass.DIM
+        1 -> StarClass.STANDARD
+        else -> StarClass.BRIGHT
+    }
+
+    fun temperature(slot: Int, starClass: StarClass, jitter: Int): Temperature = Temperature(
+        TEMPERATURE_AT_ORBIT_ZERO - TEMPERATURE_FALL_PER_SLOT * slot + starOffset(starClass) + jitter,
+    )
+
+    // ── Gravity and pressure: skewed, so the extremes stay rare ──────────────────────────────
+    private const val GRAVITY_FLOOR_MILLI_G: Int = 150
+    private const val GRAVITY_SPAN_MILLI_G: Int = 2_600
+    const val MAX_GRAVITY_MILLI_G: Int = GRAVITY_FLOOR_MILLI_G + GRAVITY_SPAN_MILLI_G
+
+    // 0.15 + 2.6 u², so the median world is ~0.8 g and a 2 g world is genuinely uncommon.
+    fun gravity(uniform: Uniform): Gravity {
+        val u = uniform.ofBasis.toLong()
+        val basis = Uniform.BASIS.toLong()
+        return Gravity((GRAVITY_FLOOR_MILLI_G + GRAVITY_SPAN_MILLI_G * u * u / (basis * basis)).toInt())
+    }
+
+    private const val PRESSURE_SPAN_MILLI_ATM: Int = 12_000
+
+    // 12 u³ — cubic rather than quadratic, so a thick atmosphere is rarer than a heavy world. That
+    // is deliberate: crystal is the resource the sheet wanted hardest to reach.
+    fun pressure(uniform: Uniform): Pressure {
+        val u = uniform.ofBasis.toLong()
+        val basis = Uniform.BASIS.toLong()
+        return Pressure((PRESSURE_SPAN_MILLI_ATM * u * u * u / (basis * basis * basis)).toInt())
+    }
+
+    // The one thing an axis does beyond the tolerance check and richness, because it has an obvious
+    // home and no other: heavy worlds are big worlds. Gravity is therefore the cost and the reward
+    // twice over — rich in metal, roomy, and the hardest to stand on.
+    private const val FIELDS_FLOOR: Int = 80
+    private const val FIELDS_SPAN: Int = 180
+
+    fun fields(gravity: Gravity): Int = FIELDS_FLOOR + FIELDS_SPAN * gravity.milliG / MAX_GRAVITY_MILLI_G
+
+    // ── Richness: derived from the axes, never rolled ────────────────────────────────────────
+    const val RICHNESS_BASIS: Int = 1_000_000
+    private const val RICHNESS_FLOOR: Int = 600_000
+    private const val RICHNESS_SPAN: Int = 500_000
+    private const val RICHNESS_MIN: Int = 600_000
+    private const val RICHNESS_MAX: Int = 1_600_000
+
+    // The value of each axis at which its resource reaches 1.1 — the reference points the sheet's
+    // three formulas are written against.
+    private const val METAL_REFERENCE_GRAVITY: Int = 1_400
+    private const val CRYSTAL_REFERENCE_PRESSURE: Int = 3_000
+    private const val DEUTERIUM_REFERENCE_TEMPERATURE: Int = 20
+    private const val DEUTERIUM_REFERENCE_SPAN: Int = 60
+
+    fun metalRichness(gravity: Gravity): Richness =
+        richnessAbove(RICHNESS_SPAN.toLong() * gravity.milliG / METAL_REFERENCE_GRAVITY)
+
+    fun crystalRichness(pressure: Pressure): Richness =
+        richnessAbove(RICHNESS_SPAN.toLong() * pressure.milliAtm / CRYSTAL_REFERENCE_PRESSURE)
+
+    // The coldest worlds hold the deuterium, which is the resource the research branch already made
+    // scarce. The branch that gates research is therefore gated by the map.
+    fun deuteriumRichness(temperature: Temperature): Richness = richnessAbove(
+        RICHNESS_SPAN.toLong() * (DEUTERIUM_REFERENCE_TEMPERATURE - temperature.celsius) / DEUTERIUM_REFERENCE_SPAN,
+    )
+
+    // Clamped at both ends and it matters at both: pressure reaches 12 atm and temperature reaches
+    // -260 °C, either of which runs the raw formula far past the band. Without the clamp a single
+    // extreme world would outscore every balanced one.
+    private fun richnessAbove(span: Long): Richness =
+        Richness((RICHNESS_FLOOR + span).coerceIn(RICHNESS_MIN.toLong(), RICHNESS_MAX.toLong()).toInt())
+
+    // ── Yield: is this world worth taking ────────────────────────────────────────────────────
+    //
+    // Each richness weighted by that resource's share of the reference colony's *priced* output —
+    // the 698 / 224 / 72 per hour at 1 : 2 : 3 from `balance-log.md`, which is 51 / 33 / 16. So the
+    // score means "worth it to this economy" rather than "big numbers".
+    const val METAL_WEIGHT_PERCENT: Int = 51
+    const val CRYSTAL_WEIGHT_PERCENT: Int = 33
+    const val DEUTERIUM_WEIGHT_PERCENT: Int = 16
+    private const val HAZARD_PENALTY: Int = 50_000
+
+    // The median world that passes every tolerance band scores below this, so **the median
+    // settleable world is Barren** — by construction, because that is the design. If a survey
+    // usually paid off, surveying would be a tax rather than a decision.
+    val WORTH_IT_THRESHOLD: YieldScore = YieldScore(900_000)
+
+    fun yieldScore(traits: WorldTraits): YieldScore {
+        val weighted = METAL_WEIGHT_PERCENT.toLong() * traits.metalRichness.perMillion +
+            CRYSTAL_WEIGHT_PERCENT.toLong() * traits.crystalRichness.perMillion +
+            DEUTERIUM_WEIGHT_PERCENT.toLong() * traits.deuteriumRichness.perMillion
+        return YieldScore((weighted / 100 - HAZARD_PENALTY.toLong() * traits.hazards.size).toInt())
+    }
+
+    // ── Hazards ──────────────────────────────────────────────────────────────────────────────
+    const val ONE_HAZARD_PERCENT: Int = 35
+    const val TWO_HAZARD_PERCENT: Int = 10
+
+    // ── Tolerance: what the species handles, and what each ladder buys ───────────────────────
+    private const val BASE_TEMPERATURE_MIN: Int = -30
+    private const val BASE_TEMPERATURE_MAX: Int = 45
+    private const val BASE_GRAVITY_MIN: Int = 550
+    private const val BASE_GRAVITY_MAX: Int = 1_450
+    private const val BASE_PRESSURE_MIN: Int = 400
+    private const val BASE_PRESSURE_MAX: Int = 3_000
+
+    const val THERMAL_WIDENING_PER_LEVEL: Int = 14
+    const val GRAVITIC_LOWER_WIDENING_PER_LEVEL: Int = 50
+    const val GRAVITIC_UPPER_WIDENING_PER_LEVEL: Int = 120
+    const val ATMOSPHERIC_LOWER_WIDENING_PER_LEVEL: Int = 60
+    const val ATMOSPHERIC_UPPER_WIDENING_PER_LEVEL: Int = 900
+
+    // Each level widens exactly its own axis. That separation is the mechanic — an empire that
+    // pushed Thermal and one that pushed Gravitic are looking at two different maps.
+    fun tolerance(adaptation: AdaptationLevels): Tolerance = Tolerance(
+        temperature = ToleranceBand(
+            min = BASE_TEMPERATURE_MIN - THERMAL_WIDENING_PER_LEVEL * adaptation.thermal,
+            max = BASE_TEMPERATURE_MAX + THERMAL_WIDENING_PER_LEVEL * adaptation.thermal,
+        ),
+        gravity = ToleranceBand(
+            min = BASE_GRAVITY_MIN - GRAVITIC_LOWER_WIDENING_PER_LEVEL * adaptation.gravitic,
+            max = BASE_GRAVITY_MAX + GRAVITIC_UPPER_WIDENING_PER_LEVEL * adaptation.gravitic,
+        ),
+        pressure = ToleranceBand(
+            min = BASE_PRESSURE_MIN - ATMOSPHERIC_LOWER_WIDENING_PER_LEVEL * adaptation.atmospheric,
+            max = BASE_PRESSURE_MAX + ATMOSPHERIC_UPPER_WIDENING_PER_LEVEL * adaptation.atmospheric,
+        ),
+    )
+
+    // The lowest level of `axis.adaptation` whose band contains `value` — 0 when the unaided
+    // species already tolerates it. This is what lets a `Blocked` verdict read as a shopping list
+    // rather than as a wall, and every value the generator can produce is reachable: the widest
+    // gap in the published ranges is the coldest orbit, which 17 levels of Thermal closes.
+    fun levelThatTolerates(axis: HostilityAxis, value: Int): Int {
+        val unaided = tolerance(AdaptationLevels.NONE).bandOf(axis)
+        return when {
+            value < unaided.min -> ceilDiv(unaided.min - value, lowerWideningPerLevel(axis))
+            value > unaided.max -> ceilDiv(value - unaided.max, upperWideningPerLevel(axis))
+            else -> 0
+        }
+    }
+
+    private fun lowerWideningPerLevel(axis: HostilityAxis): Int = when (axis) {
+        HostilityAxis.TEMPERATURE -> THERMAL_WIDENING_PER_LEVEL
+        HostilityAxis.GRAVITY -> GRAVITIC_LOWER_WIDENING_PER_LEVEL
+        HostilityAxis.PRESSURE -> ATMOSPHERIC_LOWER_WIDENING_PER_LEVEL
+    }
+
+    // Deliberately not the same as the lower widening on two of the three axes: a level of Gravitic
+    // buys more headroom above than below, because the heavy worlds are the ones worth reaching.
+    private fun upperWideningPerLevel(axis: HostilityAxis): Int = when (axis) {
+        HostilityAxis.TEMPERATURE -> THERMAL_WIDENING_PER_LEVEL
+        HostilityAxis.GRAVITY -> GRAVITIC_UPPER_WIDENING_PER_LEVEL
+        HostilityAxis.PRESSURE -> ATMOSPHERIC_UPPER_WIDENING_PER_LEVEL
+    }
+
+    private fun ceilDiv(numerator: Int, denominator: Int): Int = (numerator + denominator - 1) / denominator
+}

@@ -217,16 +217,27 @@ gradle.projectsEvaluated {
     // on itself. Read literally that is `:core` depending on a module and something depending on
     // `:client:shell`, and rules 6 and 7 failed the whole build on it. A module depending on
     // itself is an aggregation artefact rather than a dependency, and cannot violate any rule here.
+    //
+    // The Kotlin plugin's SwiftPM export is the second artefact of this kind, and it is excluded by
+    // name for the same reason the self-edge is dropped: it is not an edge anybody declared.
+    // `swiftPMDependenciesForLockFilesMetadataClasspathDependencies` is hung on every module and
+    // collects *every project in the build*, so `:core` was reported as depending on all nine client
+    // modules and `./gradlew build` failed on a graph nobody had touched. It is only realised once
+    // the iOS targets are, which is why `:core:jvmTest` stayed green and the whole build did not —
+    // and why this went unnoticed: CI's own jobs never provoked it either.
+    val ignoredConfigurations = setOf("swiftPMDependenciesForLockFiles")
     val edges = linkedMapOf<Pair<String, String>, MutableSet<String>>()
     rootProject.subprojects.forEach { subproject ->
-        subproject.configurations.forEach { configuration ->
-            configuration.dependencies.withType<ProjectDependency>()
-                .filter { it.path != subproject.path }
-                .forEach { dependency ->
-                    edges.getOrPut(subproject.path to dependency.path) { sortedSetOf() }
-                        .add(configuration.name)
-                }
-        }
+        subproject.configurations
+            .filterNot { configuration -> ignoredConfigurations.any { configuration.name.startsWith(it) } }
+            .forEach { configuration ->
+                configuration.dependencies.withType<ProjectDependency>()
+                    .filter { it.path != subproject.path }
+                    .forEach { dependency ->
+                        edges.getOrPut(subproject.path to dependency.path) { sortedSetOf() }
+                            .add(configuration.name)
+                    }
+            }
     }
 
     val violations = edges.entries.mapNotNull { (edge, configurations) ->

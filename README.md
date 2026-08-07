@@ -120,6 +120,22 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.15 — 2026-08-07
+
+- **The galaxy exists.** Four galaxies of 250 systems, fifteen orbits each — about 4,700 worlds, all
+  of them generated from a single number saved with your colony. Nothing is stored but that number
+  and what you have changed, so the map is the same every time you open the game and costs the save
+  file nothing.
+- **An easy world is a poor world.** Every world has a temperature, a gravity and an atmospheric
+  pressure, and the same extremes that make one hostile are what make it rich: the coldest worlds
+  hold the deuterium, the heaviest hold the metal, the thickest atmospheres hold the crystal. Roughly
+  one world in two hundred is worth settling before you have researched anything.
+- **You can see the whole sky, and almost none of it in detail.** Coordinates, star class and who
+  holds a world are free from the first launch. Everything else needs a survey, which needs fleets —
+  so for now your home system is the only place you know anything about.
+- **Nothing to look at yet.** This release is the simulation only; the Galaxy tab is still an empty
+  state. The screen is the next slice.
+
 ### 0.0.14 — 2026-08-07
 
 - **Nothing changed for the player.** This release is entirely internal: the pieces the Colony and

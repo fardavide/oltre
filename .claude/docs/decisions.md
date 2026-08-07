@@ -808,3 +808,110 @@ a test-only dependency, a nested module directory, the shell's allowed edges, th
 warning, and Oltre's real nine-module graph — plus `./gradlew help` on this repo to prove rule 1
 runs before anything else does. If the rules grow past this, `buildSrc` + TestKit is the next
 step, not more sandboxes.
+
+## The galaxy is a seed, not a map: schema 4 stores what the player changed
+
+The galaxy decision sheet (2026-08-07) is the design and 0.0.15 is an implementation of it, the way
+0.0.12 implemented the research sheet. What is worth carrying forward is the handful of choices the
+sheet left to the build, and the one place its own numbers disagree with each other.
+
+**Nothing about the galaxy is serialised except the seed and the player's own edits.** 4,700 worlds
+of traits would dwarf the entire rest of the snapshot, so `GalaxyState` is a seed, the home
+coordinate, the surveyed set and a list of who holds what — and `worldAt(seed, coordinate)`
+regenerates any world on demand. `GameSaveTest` asserts that no trait name ever appears in the
+encoded save, because the day one does is the day the format stopped being affordable.
+
+**Two generation properties are load-bearing and both are tested rather than trusted.** *Locality* —
+a world is generated without touching its neighbours — is what lets slice 5's `Canvas` render a
+viewport lazily instead of holding a galaxy in memory. *Sub-stream stability* — every axis is drawn
+from its own named stream, hashed from the world's seed and an axis tag — is what stops the next
+three slices rerolling everyone's map when they add a field to `World`. The obvious implementation,
+a single sequential generator per world, silently breaks the second one; `GalaxySubStreamTest` exists
+to fail loudly when someone writes it. The hash is SplitMix64's finalizer written out rather than
+`kotlin.random.Random`, because the map is part of the save format and a stdlib generator whose
+internals changed would reroll every installed player's galaxy.
+
+**Every axis is an integer in a named unit — milli-g, milli-atm, whole °C — not a `Double`.** The
+same reason the rest of core is integer: `advance` has to give the same answer on the JVM, on
+Kotlin/Native and on the server, and a galaxy that differs by one unit between platforms is a
+different galaxy. Rejected: doubles with a documented tolerance, which makes every pinned test a
+question about the last bit.
+
+**`GameState.initial` takes a galaxy seed rather than defaulting one.** A default is precisely how
+every player ends up in the same galaxy, and core cannot mint one — it reads no clock and no random
+source. So the composition root does: `resume` seeds the map from the instant the colony was founded,
+which keeps it a pure function of its arguments. The ~60 existing tests that do not care which map
+they get keep their no-argument call through an extension on the companion declared in `commonTest`,
+so the terseness is available to tests and unavailable to production. Rejected: a default seed
+(silently identical galaxies), and editing 60 call sites to pass one (a mechanical diff that would
+have buried the change it was attached to).
+
+**Schema 4 migrates 3, and the migration mints its seed from the save's own `lastUpdatedAt`.** The
+galaxy is purely additive — a colony saved before the map existed has surveyed nothing and holds
+nothing but its home world, which is what a fresh `GalaxyState` says — so this migrates rather than
+retires, the default the persistence entry above sets for a change that is only shape. The seed has
+to come from the file's contents because a migration is a pure function: a seed drawn at random would
+hand the player a different galaxy every time the app reopened, until the first commit happened to
+write one down. Two saves from different instants still get different maps.
+
+**Ownership is a list of records, not a map keyed by coordinate.** JSON cannot use a structured
+object as a key at all; the alternative was `allowStructuredMapKeys`, which changes how the *whole*
+save format encodes maps — every entry becoming a flat `[key, value]` array — to buy an unreadable
+save. Rejected for one field's convenience.
+
+**`advance()` is untouched and no hook was left for it.** Nothing about the galaxy changes with time
+in 0.2: it is fixed the instant the seed is minted, and surveying and ownership change through the
+save's galaxy state rather than through the clock. Said in a comment in `GalaxyGeneration.kt` so the
+next session does not add a speculative per-tick entry point.
+
+### The sheet's §9 targets cannot all be met, and the constants were not moved to chase them
+
+The sheet says its §9 targets outrank its §8 constants, so the constants should move when they miss.
+They do miss — and one of the targets cannot be reached by moving them. Measured over all 15,000
+slots: `passes every band` 2.63% against a 1–2% target, `fails exactly one axis` **17.55% against a
+35–45% target**, `passes and clears 0.90` 0.71% against ≤0.5%.
+
+The middle row is not a tuning miss. With three independent axes the first row is `abc` and the
+middle one is `ab + ac + bc − 3abc`; holding `abc` inside 1–2% caps the middle row near **16%** for
+any three comparable axes. Reaching 35% needs pass rates around 0.06 / 0.58 / 0.59 — one axis
+blocking 94% of worlds and two waving everything through, which is the single-habitability-score
+design §1 rejected, arrived at from the other side. Moving a band to hit it would overturn §1 without
+saying so, so **the constants stand and the conflict is Davide's to settle**;
+[balance-log.md](balance-log.md) round 5 carries the measurement, the arithmetic and a
+recommendation. `GalaxyDistributionTest` pins what the constants actually produce and says in its own
+comment that it is doing so.
+
+Three of the sheet's other claims land almost exactly, which is why the model is worth keeping: the
+median world that passes every band scores **0.84** against the 0.90 threshold (the sheet predicted
+"~0.84" without running it), so the median settleable world is `Barren` by construction; each
+adaptation level roughly doubles the settleable count; hazards land on 45.6% of worlds.
+
+### Smaller calls the sheet did not make, all recorded in the balance log
+
+Star class distribution (equal thirds assumed — nearly free, because each class's habitable orbits
+shift with its offset), where home is (the first world walking from a seeded start that the unaided
+species tolerates), and what `Settleable` carries (the raw yield score, because "the yield grade" is
+named in §3 but its bands never are). Each is marked as assumed at the point in the code where it is
+made, rather than left to look decided.
+
+Also flagged rather than fixed: `Coordinates(galaxy, system, position)` already exists for
+`ReturningFleet.origin` and is now a weaker twin of `GalaxyCoordinate`, which is bounded to the real
+coordinate space. Folding the two together is a fleets change and slice #7 owns fleets.
+
+## `./gradlew build` was failing on `main`, on an edge nobody declared
+
+Found while building 0.0.15 and verified against a clean checkout: the module dependency rules
+rejected `:core -> :client:*` for all nine client modules, declared in
+`swiftPMDependenciesForLockFilesMetadataClasspathDependencies`. The Kotlin plugin's SwiftPM export
+hangs that configuration on every module and fills it with every project in the build, so the rule
+read it as core depending on the whole client.
+
+This is the second artefact of exactly this kind — the first was Kover's self-edge, recorded above —
+and the same lesson: **the rule is about what a build file declares, and a plugin-created
+configuration declares nothing.** Filtering to declarable configurations does not help (this one is
+declarable), so it is excluded by name beside the self-edge filter.
+
+Worth knowing *why it went unnoticed*: the configuration is only realised once the iOS targets are,
+so `./gradlew :core:jvmTest` and every narrower task stayed green, and CI's own jobs never provoked
+it. A rule that runs at configuration time can therefore be broken for every developer running the
+documented build command while every required check passes.

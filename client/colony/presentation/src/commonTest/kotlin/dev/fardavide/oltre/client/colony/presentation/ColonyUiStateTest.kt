@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
@@ -429,6 +430,9 @@ class ColonyUiStateTest {
         builds = emptyMap(),
         research = Research.initial(),
         activeResearch = null,
+        // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot
+        // found every colony in the same galaxy. The Colony screen draws none of it.
+        galaxy = GameState.initial(GalaxySeed(20_260_807)).galaxy,
         returningFleet = null,
         eventLog = emptyList(),
     )

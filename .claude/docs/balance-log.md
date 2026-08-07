@@ -239,3 +239,84 @@ Still open, deliberately:
 Durations were **not** touched for buildings, so the 0.0.8 watch item stands: deep building levels
 are still gated almost entirely by resources rather than by clock.
 
+
+## Round 5 — 0.0.15, the galaxy (2026-08-07)
+
+No play-test feedback yet: nothing is playable until the screen lands in slice 5. This round exists
+because the galaxy decision sheet published a table of constants (§8) *and* a table of targets (§9),
+said the targets outrank the constants, and the constants had never been run. `:sim:run` now prints
+the distribution, so this is a measurement rather than an expectation.
+
+These numbers are **decided, not placeholders** — like `ResearchBalance` and unlike
+`PlaceholderBalance` — so they live in `core/.../GalaxyBalance.kt` and `GalaxyBalanceTest` pins the
+sheet's §8 tables value by value.
+
+Shape: three hostility axes (temperature, gravity, pressure), each checked against a tolerance band
+that its own adaptation ladder widens; richness **derived** from those same axes rather than rolled;
+hazards as named flags; a yield score that weights each richness by 51 / 33 / 16 — the reference
+colony's priced output from round 3 — minus 5% per hazard, against a worth-it threshold of 0.90.
+
+### What the sheet's own constants actually produce
+
+Seed 20260807, all 15,000 slots, 4,746 worlds. Regenerate with `./gradlew :sim:run`.
+
+| Outcome | §9 target | Measured | Verdict |
+|---|---|---|---|
+| Passes every band | 1 – 2% | **2.63%** | over |
+| Fails exactly one axis | 35 – 45% | **17.55%** | far under |
+| Fails two or three | the rest | 79.81% | — |
+| Passes and clears 0.90 | ≤ 0.5% | **0.71%** | over |
+
+| Axis | Tolerated at level 0 | Passes | Rich in |
+|---|---|---|---|
+| Temperature | −30 … 45 °C | 25.85% | deuterium |
+| Gravity | 0.55 … 1.45 g | 31.47% | metal |
+| Pressure | 0.4 … 3.0 atm | 30.46% | crystal |
+
+**Three of the sheet's claims land almost exactly.** The median world that passes every band scores
+**0.84** against the 0.90 threshold — the sheet predicted "~0.84" without running it — so the median
+settleable world really is `Barren` by construction. Each adaptation level roughly doubles the
+settleable count for the first few (34 → 80 → 164 → 299). Hazards land on 45.6% of worlds. Home for
+this seed is `[3:165:7]`, a world the unaided species tolerates.
+
+### The one row that cannot be hit, and why it is not a tuning problem
+
+`fails exactly one axis` is at 17.55% against a 35–45% target, and **no choice of constants reaches
+it while three comparable axes are kept.** The two rows constrain each other. With independent pass
+rates *a*, *b*, *c*, the first row is `abc` and the second is `ab + ac + bc − 3abc`. Holding `abc`
+inside 1–2% puts each axis near 0.22–0.27, which caps the second row at about **16%**. The most
+*balanced* pass rates that reach 35% at all are roughly **0.06 / 0.58 / 0.59** — one axis blocking
+94% of worlds while the other two wave nearly everything through.
+
+That is a galaxy with one ladder that matters and two that do not, which is the single-habitability-
+score design §1 rejected, reached from the other direction. So the constants were **not** moved to
+chase it: which target gives way is a design call, and moving a tolerance band to hit row 2 would
+quietly overturn §1's argument for three axes. Recorded here, open below.
+
+Also noticed while implementing, and worth a line because it is the design's showcase sentence: §3
+illustrates `Blocked` with *"gravity 2.4 g, you tolerate 1.45 g. Gravitic Adaptation 3 would land
+it."* Against §8's own widening of +0.12 g per level, 2.4 g needs **level 8**, not 3. Either the
+sentence is illustrative or the widening should be nearer +0.32 g/level. The code computes the level
+from the constants, so it currently says 8.
+
+### Still open, and costing nothing until answered
+
+- **The `fails exactly one axis` target.** Recommendation: keep the three comparable axes and correct
+  §9's row to what that shape can produce (~15–20%), then tighten slightly to bring rows 1 and 4
+  inside their bands. The alternative — one narrow axis and two wide ones — buys the 35–45% figure at
+  the cost of the mechanic the axes exist for.
+- **Rows 1 and 4 are modestly over** (2.63% vs 1–2%, 0.71% vs ≤0.5%). Both close with a small
+  tightening of any one band, but tightening also pushes row 2 further down, which is why they are
+  held until the row above is settled. The sheet expected ~24 settleable worlds galaxy-wide; there
+  are 34.
+- **Star class distribution.** The sheet gives each class its temperature offset but never how often
+  each occurs. Equal thirds is assumed and marked as such in `GalaxyBalance.starClass`. Nearly free:
+  because the habitable orbits shift with the offset, each class passes the temperature band on ~25%
+  of its worlds either way.
+- **Where home is.** The sheet does not say. Genesis walks systems from a seeded start and takes the
+  first world the unaided species tolerates, which is close to a tautology for a homeworld but is
+  still a rule nobody chose.
+- **What `Settleable` carries.** §3 says "the yield grade"; grades are never defined, so it carries
+  the raw score and the screen can band it. Bands are a design call for slice 5.
+- **Whether `Barren` should say how close it was.** It carries nothing today, per §3. The screen may
+  want the score, the way the power card states the ratio before the consequence.
