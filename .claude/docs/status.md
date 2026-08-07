@@ -150,13 +150,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
-- **Open design question for Davide, and the one that blocks finishing the galaxy's balance: the
-  sheet's §9 `fails exactly one axis` target of 35–45% cannot be reached.** Measured 17.55%, and no
-  choice of constants gets there while the three axes stay comparable — the arithmetic and a
-  recommendation are in `balance-log.md` round 5. Two smaller rows are also modestly over target
-  (`passes every band` 2.63% vs 1–2%, `settleable` 0.71% vs ≤0.5%) and are held with it, because
-  tightening them pushes the middle row further down. Nothing is blocked on the answer except the
-  final constants: the code, the save format and the screen all work either way.
+- ~~**The sheet's §9 `fails exactly one axis` target of 35–45% cannot be reached**~~ — settled
+  2026-08-07, Davide delegating the call: the three comparable axes were kept and the target
+  corrected to 12–18%, which is what that shape produces. Gravity and pressure were tightened to
+  meet temperature (all three now gate ~25%) and the worth-it threshold went to 0.92. Every §9 row
+  is now met. See `balance-log.md` round 5 for what to move if it plays wrong.
+- **Watch next balance round:** 17 settleable worlds galaxy-wide, ~4 per galaxy — inside the ≤0.5%
+  bound but stricter than the sheet's illustrative "~24". The lever if the first settleable world
+  takes too long to find is the **worth-it threshold**, not the tolerance bands, which now carry
+  the axis balance.
 - **Three smaller calls the sheet did not make** are assumed and marked as such in the code, listed
   in `balance-log.md` round 5: the star class distribution (equal thirds), where home is, and what
   `Settleable` carries.

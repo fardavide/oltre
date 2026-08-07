@@ -72,7 +72,7 @@ class WorldVerdictTest {
     fun `a surveyed world over the threshold reads Settleable and carries its score`() {
         // Hostile on every axis but still inside the bands, which is exactly where the good ground
         // is: at the edge of what the species can take.
-        val world = worldWith(NEIGHBOUR, temperature = -30, gravity = 1_450, pressure = 3_000)
+        val world = worldWith(NEIGHBOUR, temperature = -30, gravity = 1_400, pressure = 2_600)
 
         val verdict = assertIs<WorldVerdict.Settleable>(verdictFor(world, surveyedGalaxy(), AdaptationLevels.NONE))
         assertTrue(
@@ -85,7 +85,7 @@ class WorldVerdictTest {
     fun `the mild world scores below the hostile one`() {
         // The pillar, asserted rather than asserted about: an easy world is a poor world.
         val mild = worldWith(NEIGHBOUR, temperature = 0, gravity = 1_000, pressure = 1_000)
-        val harsh = worldWith(NEIGHBOUR, temperature = -30, gravity = 1_450, pressure = 3_000)
+        val harsh = worldWith(NEIGHBOUR, temperature = -30, gravity = 1_400, pressure = 2_600)
 
         assertTrue(GalaxyBalance.yieldScore(mild.traits).perMillion < GalaxyBalance.yieldScore(harsh.traits).perMillion)
     }
@@ -100,9 +100,9 @@ class WorldVerdictTest {
         val failure = verdict.failures.single()
         assertEquals(HostilityAxis.GRAVITY, failure.axis)
         assertEquals(2_400, failure.worldValue)
-        assertEquals(1_450, failure.toleratedBound)
-        // 950 milli-g over the band at 120 per level
-        assertEquals(8, failure.closedAtLevel)
+        assertEquals(1_400, failure.toleratedBound)
+        // 1,000 milli-g over the band at 120 per level
+        assertEquals(9, failure.closedAtLevel)
         assertEquals(AdaptationTechnology.GRAVITIC, failure.axis.adaptation)
     }
 
@@ -115,9 +115,9 @@ class WorldVerdictTest {
             verdictFor(world, surveyedGalaxy(), AdaptationLevels.NONE),
         ).failures.single()
         assertEquals(HostilityAxis.PRESSURE, failure.axis)
-        assertEquals(400, failure.toleratedBound)
-        // 300 milli-atm under the band at 60 per level
-        assertEquals(5, failure.closedAtLevel)
+        assertEquals(500, failure.toleratedBound)
+        // 400 milli-atm under the band at 60 per level
+        assertEquals(7, failure.closedAtLevel)
     }
 
     @Test
@@ -137,9 +137,9 @@ class WorldVerdictTest {
         val world = worldWith(NEIGHBOUR, temperature = 0, gravity = 2_400, pressure = 1_000)
         val galaxy = surveyedGalaxy()
 
-        assertIs<WorldVerdict.Blocked>(verdictFor(world, galaxy, AdaptationLevels(thermal = 8, gravitic = 0, atmospheric = 8)))
+        assertIs<WorldVerdict.Blocked>(verdictFor(world, galaxy, AdaptationLevels(thermal = 9, gravitic = 0, atmospheric = 9)))
         assertIs<WorldVerdict.Settleable>(
-            verdictFor(world, galaxy, AdaptationLevels(thermal = 0, gravitic = 8, atmospheric = 0)),
+            verdictFor(world, galaxy, AdaptationLevels(thermal = 0, gravitic = 9, atmospheric = 0)),
         )
     }
 
@@ -150,8 +150,8 @@ class WorldVerdictTest {
         val world = worldWith(NEIGHBOUR, temperature = 0, gravity = 2_400, pressure = 1_000)
         val galaxy = surveyedGalaxy()
 
-        assertIs<WorldVerdict.Blocked>(verdictFor(world, galaxy, AdaptationLevels(0, gravitic = 7, atmospheric = 0)))
-        assertIs<WorldVerdict.Settleable>(verdictFor(world, galaxy, AdaptationLevels(0, gravitic = 8, atmospheric = 0)))
+        assertIs<WorldVerdict.Blocked>(verdictFor(world, galaxy, AdaptationLevels(0, gravitic = 8, atmospheric = 0)))
+        assertIs<WorldVerdict.Settleable>(verdictFor(world, galaxy, AdaptationLevels(0, gravitic = 9, atmospheric = 0)))
     }
 
     @Test

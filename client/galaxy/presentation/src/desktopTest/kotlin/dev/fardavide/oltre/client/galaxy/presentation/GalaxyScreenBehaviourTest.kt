@@ -101,8 +101,8 @@ class GalaxyScreenBehaviourTest {
         // The unit is cut off each expectation because the mapper joins it with a non-breaking
         // space, which is invisible in a diff and would make these read as flaky.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(8, "gravity 1.78, you tolerate 1.45")
-            assertRowReads(8, "Gravitic 3")
+            assertRowReads(8, "gravity 1.78, you tolerate 1.40")
+            assertRowReads(8, "Gravitic 4")
             assertRowReads(8, "temperature −40, you tolerate −30")
             assertRowReads(8, "Thermal 1")
         }
@@ -124,10 +124,10 @@ class GalaxyScreenBehaviourTest {
     fun `the technology drops the word Adaptation that Research spells out`() {
         // Same object, two strings, and the reason is width: all three technologies end in the
         // same word, so it carries nothing and costs eleven characters this row does not have.
-        // Scoped to the row: two of the home system's three blocked worlds want Gravitic 3, which
-        // is itself worth knowing — the same purchase unlocks both.
+        // Scoped to the row, because "Gravitic" appears on all three of the home system's blocked
+        // worlds — at three different levels, which is itself the shopping list working.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(8, "Gravitic 3")
+            assertRowReads(8, "Gravitic 4")
             assertRowReads(10, "Gravitic 3")
             assertNothingReads("Gravitic Adaptation")
         }
@@ -156,7 +156,7 @@ class GalaxyScreenBehaviourTest {
         // makes a run of them read as calibration rather than as bad luck.
         galaxyScreen(uiState = everyVerdictUiState) {
             assertRowReads(9, "yield 0.81")
-            assertRowReads(9, "Passes every band, worth it at 0.90")
+            assertRowReads(9, "Passes every band, worth it at 0.92")
         }
     }
 
@@ -229,7 +229,7 @@ class GalaxyScreenBehaviourTest {
         // of its own, and at 393dp it is not. The baselines are what watch the pixels.
         galaxyScreen(uiState = everyVerdictUiState, width = SLIDE_OVER_WIDTH) {
             assertRowReads(9, "yield 0.81")
-            assertRowReads(9, "Passes every band, worth it at 0.90")
+            assertRowReads(9, "Passes every band, worth it at 0.92")
             assertRowReads(11, "yield 1.12")
             assertRowReads(11, "metal 1.21")
         }

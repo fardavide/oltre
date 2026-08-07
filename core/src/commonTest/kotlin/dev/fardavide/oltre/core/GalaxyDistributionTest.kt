@@ -9,26 +9,25 @@ import kotlin.test.assertTrue
 // made the galaxy generous: every other galaxy test would still pass with a map where half the
 // worlds were worth settling.
 //
-// ── One target is not met, deliberately, and is waiting on Davide ────────────────────────────
+// ── One of the sheet's targets was corrected rather than chased ──────────────────────────────
 //
-// The sheet's section 9 asks for two things at once that three comparable axes cannot both give:
+// Section 9 originally asked for two things at once that three comparable axes cannot both give:
 //
-//   passes every band     1 – 2%      measured 2.63%
-//   fails exactly one     35 – 45%    measured 17.55%
+//   passes every band     1 – 2%      now 1.81%
+//   fails exactly one     35 – 45%    now 13.88%, and the target is now 12 – 18%
 //
 // Those two rows constrain each other. With three independent axes passing at rates a, b, c, the
 // first row is `abc` and the second is `ab + ac + bc - 3abc`. Holding `abc` inside 1–2% caps the
 // second row at about **16%** whenever the three axes are near each other — and the most balanced
 // pass rates that reach 35% at all are roughly 0.06 / 0.58 / 0.59, which means one axis blocking
 // 94% of worlds while the other two wave almost everything through. That is a galaxy with one
-// ladder that matters and two that do not, which is the single-habitability-score design that
-// section 1 rejected, arrived at from the other direction.
+// ladder that matters and two that do not, which is the single-habitability-score design section 1
+// rejected, arrived at from the other direction.
 //
-// So the constants have NOT been moved to chase it: which target gives way is a design call, not a
-// tuning exercise, and moving a tolerance band to hit row 2 would quietly overturn section 1. The
-// bands below therefore pin **what the sheet's own constants produce**, which is what makes this a
-// regression guard today, and `balance-log.md` round 5 carries the open call. Once Davide rules,
-// the numbers here change with the constants — that is the point of them being written down.
+// Davide's call, delegated to the build (2026-08-07): keep the three comparable axes and correct
+// the row. Gravity and pressure were tightened to meet temperature — all three now gate ~25% — and
+// the worth-it threshold went to 0.92, which thins the settleable share without changing which
+// worlds pass. `balance-log.md` round 5 is the write-up.
 class GalaxyDistributionTest {
 
     @Test
@@ -49,7 +48,10 @@ class GalaxyDistributionTest {
         val settleable = worlds.count { it.verdictAtLevelZero() is WorldVerdict.Settleable }
         val share = settleable * 10_000 / worlds.size
 
-        assertTrue(share in 40..90, "expected 0.4–0.9% of worlds settleable, got ${share / 100.0}%")
+        // The sheet's bound is <= 0.5%; the retune at 0.0.15 lands at 0.35%, roughly one world in
+        // 290 worth taking on day one. Stricter than the sheet's illustrative "~24 galaxy-wide"
+        // (it is 17), and the worth-it threshold is the lever if that ever plays too sparse.
+        assertTrue(share in 20..50, "expected 0.2–0.5% of worlds settleable, got ${share / 100.0}%")
     }
 
     @Test
@@ -79,11 +81,12 @@ class GalaxyDistributionTest {
             HostilityAxis.entries.count { axis -> world.traits.axisValue(axis) !in unaided.bandOf(axis) }
         }
 
-        // Pinned at what the sheet's constants produce. The 35–45% the sheet asks for on the middle
-        // row is the open call — see the class comment.
-        assertTrue(percentOf(failures.count { it == 0 }, worlds.size) in 200..300, "passes every band")
-        assertTrue(percentOf(failures.count { it == 1 }, worlds.size) in 1_500..2_000, "fails exactly one")
-        assertTrue(percentOf(failures.count { it >= 2 }, worlds.size) in 7_700..8_300, "fails two or three")
+        // `passes every band` is inside the sheet's own 1–2%. `fails exactly one` is pinned at what
+        // three comparable axes can actually produce — the sheet's 35–45% was corrected to 12–18%
+        // at 0.0.15 rather than chased, because reaching it needs one axis blocking 94% of worlds.
+        assertTrue(percentOf(failures.count { it == 0 }, worlds.size) in 100..200, "passes every band")
+        assertTrue(percentOf(failures.count { it == 1 }, worlds.size) in 1_200..1_800, "fails exactly one")
+        assertTrue(percentOf(failures.count { it >= 2 }, worlds.size) in 8_100..8_700, "fails two or three")
     }
 
     @Test
@@ -143,7 +146,7 @@ class GalaxyDistributionTest {
 
         assertTrue(worlds.size in 4_500..5_000, "second seed generated ${worlds.size} worlds")
         assertTrue(
-            settleable * 10_000 / worlds.size in 40..90,
+            settleable * 10_000 / worlds.size in 20..50,
             "second seed made ${settleable * 10_000 / worlds.size} settleable per 10,000",
         )
     }

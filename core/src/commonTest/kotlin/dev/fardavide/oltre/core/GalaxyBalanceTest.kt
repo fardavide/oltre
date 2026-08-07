@@ -171,18 +171,23 @@ class GalaxyBalanceTest {
     }
 
     @Test
-    fun `the worth-it threshold is 0_90`() {
+    fun `the worth-it threshold is 0_92`() {
         // Deliberately above the score of the median world that passes every band, so that the
         // median settleable world is Barren. Notion — surveying should frequently return not worth it.
-        assertEquals(YieldScore(900_000), GalaxyBalance.WORTH_IT_THRESHOLD)
+        // Raised from 0.90 at 0.0.15: it is the one lever that thins the settleable share without
+        // changing which worlds pass, so the three axes keep their comparable pass rates.
+        assertEquals(YieldScore(920_000), GalaxyBalance.WORTH_IT_THRESHOLD)
     }
 
     @Test
     fun `tolerance at adaptation level 0 is what the species handles unaided`() {
+        // Gravity and pressure were tightened at 0.0.15 so all three axes gate a comparable share
+        // — 25.9 / 25.3 / 25.0 per cent — which is what makes three adaptation ladders three
+        // decisions rather than one gate and two ornaments. See `balance-log.md` round 5.
         val unaided = GalaxyBalance.tolerance(AdaptationLevels.NONE)
         assertEquals(ToleranceBand(-30, 45), unaided.temperature)
-        assertEquals(ToleranceBand(550, 1_450), unaided.gravity)
-        assertEquals(ToleranceBand(400, 3_000), unaided.pressure)
+        assertEquals(ToleranceBand(650, 1_400), unaided.gravity)
+        assertEquals(ToleranceBand(500, 2_600), unaided.pressure)
     }
 
     @Test
@@ -191,15 +196,15 @@ class GalaxyBalanceTest {
         // two empires differ. A level of Thermal must not move the gravity band.
         val thermal = GalaxyBalance.tolerance(AdaptationLevels(thermal = 1, gravitic = 0, atmospheric = 0))
         assertEquals(ToleranceBand(-44, 59), thermal.temperature)
-        assertEquals(ToleranceBand(550, 1_450), thermal.gravity)
-        assertEquals(ToleranceBand(400, 3_000), thermal.pressure)
+        assertEquals(ToleranceBand(650, 1_400), thermal.gravity)
+        assertEquals(ToleranceBand(500, 2_600), thermal.pressure)
 
         val gravitic = GalaxyBalance.tolerance(AdaptationLevels(thermal = 0, gravitic = 1, atmospheric = 0))
         assertEquals(ToleranceBand(-30, 45), gravitic.temperature)
-        assertEquals(ToleranceBand(500, 1_570), gravitic.gravity)
+        assertEquals(ToleranceBand(600, 1_520), gravitic.gravity)
 
         val atmospheric = GalaxyBalance.tolerance(AdaptationLevels(thermal = 0, gravitic = 0, atmospheric = 1))
-        assertEquals(ToleranceBand(340, 3_900), atmospheric.pressure)
+        assertEquals(ToleranceBand(440, 3_500), atmospheric.pressure)
         assertEquals(ToleranceBand(-30, 45), atmospheric.temperature)
     }
 

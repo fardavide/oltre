@@ -39,7 +39,7 @@ internal val edgeOfTheGalaxyUiState: GalaxyUiState = galaxy.toGalaxyUiState(
     at = SystemSelection(galaxy = 1, system = 1),
 )
 
-// The precedence, top to bottom, including the four states the shipped seed cannot show.
+// The precedence, top to bottom, including the four states this seed's home system cannot show.
 internal val everyVerdictUiState = GalaxyUiState(
     galaxies = (1..4).map { GalaxyTabUiState(label = "G$it", galaxy = it, selected = it == 2) },
     scope = "250 systems",
@@ -101,7 +101,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 8,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Blocked(
-                        failures = listOf(blocked("gravity", "2.40", "1.45", "g", "Gravitic 8")),
+                        failures = listOf(blocked("gravity", "2.40", "1.40", "g", "Gravitic 9")),
                         detail = "118 fields · ion storms",
                     ),
                 ),
@@ -111,7 +111,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Barren(
                         yieldLabel = "yield 0.81",
-                        threshold = "Passes every band, worth it at 0.90",
+                        threshold = "Passes every band, worth it at 0.92",
                         detail = "96 fields · tidally locked",
                     ),
                 ),

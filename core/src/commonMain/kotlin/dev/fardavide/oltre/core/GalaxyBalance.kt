@@ -162,7 +162,13 @@ object GalaxyBalance {
     // The median world that passes every tolerance band scores below this, so **the median
     // settleable world is Barren** — by construction, because that is the design. If a survey
     // usually paid off, surveying would be a tax rather than a decision.
-    val WORTH_IT_THRESHOLD: YieldScore = YieldScore(900_000)
+    //
+    // Raised from 0.90 at 0.0.15. Tightening the two tolerance bands landed `passes every band`
+    // inside 1–2% but left `passes and clears 0.90` at 0.58% against a ≤0.5% bound, and the
+    // threshold is the one lever that moves that row *without* touching which worlds pass — so the
+    // three axes keep the comparable pass rates §1 needs. The property it exists for still holds
+    // with room to spare: the median passing world scores 0.85.
+    val WORTH_IT_THRESHOLD: YieldScore = YieldScore(920_000)
 
     fun yieldScore(traits: WorldTraits): YieldScore {
         val weighted = METAL_WEIGHT_PERCENT.toLong() * traits.metalRichness.perMillion +
@@ -176,12 +182,28 @@ object GalaxyBalance {
     const val TWO_HAZARD_PERCENT: Int = 10
 
     // ── Tolerance: what the species handles, and what each ladder buys ───────────────────────
+    //
+    // Gravity and pressure were tightened at 0.0.15 — 0.55…1.45 g became 0.65…1.40, and 0.4…3.0 atm
+    // became 0.5…2.6 — after `:sim:run` measured the sheet's own §8 constants against its §9
+    // targets for the first time. Davide's call, delegated to the build on 2026-08-07; the round is
+    // written up in `balance-log.md`.
+    //
+    // Why these two and not temperature: temperature was already the tightest axis at 25.4%, and
+    // its band is the one tied to the slot formula that makes position a trait. Bringing the other
+    // two **down to meet it** — 25.5% and 25.4% — lands `passes every band` inside 1–2% and
+    // `settleable` under 0.5%, and leaves all three axes gating a near-identical share. That last
+    // part is the point: §1's whole argument for three ladders is that *which one you push first*
+    // is a real choice, which stops being true the moment one axis blocks everything.
+    //
+    // The yield model was deliberately not touched. Its own prediction — a median passing world at
+    // 0.84 against a 0.90 threshold — landed almost exactly, so the thing that was wrong was which
+    // worlds pass, not what they are worth.
     private const val BASE_TEMPERATURE_MIN: Int = -30
     private const val BASE_TEMPERATURE_MAX: Int = 45
-    private const val BASE_GRAVITY_MIN: Int = 550
-    private const val BASE_GRAVITY_MAX: Int = 1_450
-    private const val BASE_PRESSURE_MIN: Int = 400
-    private const val BASE_PRESSURE_MAX: Int = 3_000
+    private const val BASE_GRAVITY_MIN: Int = 650
+    private const val BASE_GRAVITY_MAX: Int = 1_400
+    private const val BASE_PRESSURE_MIN: Int = 500
+    private const val BASE_PRESSURE_MAX: Int = 2_600
 
     const val THERMAL_WIDENING_PER_LEVEL: Int = 14
     const val GRAVITIC_LOWER_WIDENING_PER_LEVEL: Int = 50

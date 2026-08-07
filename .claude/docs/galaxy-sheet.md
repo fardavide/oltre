@@ -186,13 +186,21 @@ has no galaxy, so migration mints a seed and marks the home system surveyed.
 
 ## 8. The numbers
 
+**Revised 2026-08-07, after the constants were measured for the first time** — see §9 and
+`balance-log.md` round 5. Gravity and pressure were tightened to meet temperature, which was
+already the tightest axis; the worth-it threshold went from 0.90 to 0.92. Nothing else moved.
+
 Tolerance bands at adaptation level 0 — what the species handles unaided:
 
-| Axis | Tolerated at level 0 | Each level widens by |
-|---|---|---|
-| Temperature | −30 … +45 °C | ∓14 °C |
-| Gravity | 0.55 … 1.45 g | −0.05 / +0.12 g |
-| Pressure | 0.4 … 3.0 atm | −0.06 / +0.9 atm |
+| Axis | Tolerated at level 0 | Each level widens by | Passes |
+|---|---|---|---|
+| Temperature | −30 … +45 °C | ∓14 °C | 25.9% |
+| Gravity | 0.65 … 1.40 g *(was 0.55 … 1.45)* | −0.05 / +0.12 g | 25.3% |
+| Pressure | 0.5 … 2.6 atm *(was 0.4 … 3.0)* | −0.06 / +0.9 atm | 25.0% |
+
+The three pass rates being within half a point of each other is the point, not a coincidence: §1's
+argument for three ladders is that *which one you push first* is a real choice, and that stops
+being true the moment one axis gates most of the galaxy.
 
 Generation:
 
@@ -219,27 +227,47 @@ output — the 698 / 224 / 72 per hour at 1 : 2 : 3 from `balance-log.md`, which
 yield = 0.51 × metal + 0.33 × crystal + 0.16 × deuterium − 0.05 × hazardCount
 ```
 
-**Worth-it threshold: 0.90.** The median world that passes every tolerance band scores ~0.84, so
-**the median settleable world is Barren** — by construction, because that is the design.
+**Worth-it threshold: 0.92** *(was 0.90)*. The median world that passes every tolerance band scores
+**0.85** — measured, and the sheet's own unrun guess was "~0.84" — so **the median settleable world
+is Barren** by construction, because that is the design. The threshold was raised because it is the
+one lever that thins the settleable share *without* changing which worlds pass, and so without
+disturbing the three comparable pass rates above.
 
 ## 9. The distribution is the design, and the sim proves it
 
 These are the targets. The constants in §8 exist to hit them; if the sim disagrees, **the
-constants move, not the targets.**
+constants move, not the targets** — with one exception, recorded below, where a target turned out
+to be unreachable by any constants.
 
 Across the whole galaxy at adaptation level 0:
 
-| Outcome | Target share of all worlds |
-|---|---|
-| Passes every band (`Settleable` or `Barren`) | **1 – 2%** |
-| Fails exactly one axis — the "come back later" pile | **35 – 45%** |
-| Fails two or three — effectively never | the rest |
-| Passes *and* clears 0.90 — genuinely worth taking | **≤ 0.5%** |
+| Outcome | Target share of all worlds | Measured |
+|---|---|---|
+| Passes every band (`Settleable` or `Barren`) | **1 – 2%** | 1.81% |
+| Fails exactly one axis — the "come back later" pile | **12 – 18%** *(was 35 – 45%)* | 13.88% |
+| Fails two or three — effectively never | the rest | 84.3% |
+| Passes *and* clears the threshold — genuinely worth taking | **≤ 0.5%** | 0.35% |
 
-Which lands at **roughly one world in two hundred worth settling on day one**: ~24 galaxy-wide,
-~6 in your home galaxy, one or two within early reach. And each adaptation level should roughly
-**double** the settleable count for the first few levels, so the tech has a visible payoff on the
-map.
+Which lands at **roughly one world in three hundred worth settling on day one**: 17 galaxy-wide,
+4 in your home galaxy, one or two within early reach. Each adaptation level roughly **doubles** the
+settleable count for the first few levels (17 → 40 → 105 → 218), so the tech has a visible payoff
+on the map.
+
+### The one target that had to change, and why
+
+**`Fails exactly one axis` was 35 – 45%, and no choice of constants reaches it.** Davide's call,
+delegated to the build on 2026-08-07 after the first measurement.
+
+The first two rows constrain each other. With three independent axes passing at rates *a*, *b*, *c*,
+row 1 is `abc` and row 2 is `ab + ac + bc − 3abc`. Holding `abc` inside 1 – 2% caps row 2 at about
+**16%** whenever the three axes are near each other. The most *balanced* pass rates that reach 35%
+at all are roughly **0.06 / 0.58 / 0.59** — one axis blocking 94% of worlds while the other two wave
+nearly everything through.
+
+That is a galaxy with one ladder that matters and two that do not: the single-habitability-score
+design §1 rejected, arrived at from the other side. So the row was corrected to what a three-ladder
+galaxy actually produces, and §1 stands. If the "come back later" pile ever needs to be bigger, the
+lever is **not** this row — it is widening all three bands together, which raises row 1 with it.
 
 `:sim:run` prints the actual distribution against this table. A `GalaxyDistributionTest` asserts a
 large seeded sample stays inside the bands — the same treatment `ResearchBalanceTest` gives the

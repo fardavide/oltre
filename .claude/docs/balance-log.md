@@ -320,3 +320,53 @@ from the constants, so it currently says 8.
   the raw score and the screen can band it. Bands are a design call for slice 5.
 - **Whether `Barren` should say how close it was.** It carries nothing today, per §3. The screen may
   want the score, the way the power card states the ratio before the consequence.
+
+### Resolved — the constants moved, and one target moved with them
+
+Davide delegated the call to the build (2026-08-07): **keep three comparable axes and correct the
+target.** What changed, and nothing else did:
+
+| Constant | Was | Now | Why |
+|---|---|---|---|
+| Gravity band at level 0 | 0.55 … 1.45 g | **0.65 … 1.40 g** | to meet temperature's pass rate |
+| Pressure band at level 0 | 0.4 … 3.0 atm | **0.5 … 2.6 atm** | same |
+| Worth-it threshold | 0.90 | **0.92** | thins the settleable share without changing which worlds pass |
+| §9 `fails exactly one axis` | 35 – 45% | **12 – 18%** | unreachable — see below |
+
+**Temperature was left alone on purpose.** It was already the tightest axis at 25.9%, and its band
+is the one tied to the slot formula that makes position a trait. Bringing the other two *down to
+meet it* is what lands the distribution while leaving all three gating a near-identical share —
+25.9 / 25.3 / 25.0. That last part is the whole point: §1's argument for three ladders is that
+*which one you push first* is a real choice, which stops being true the moment one axis blocks
+most of the galaxy.
+
+**The yield model was not touched.** Its own prediction — a median passing world at ~0.84 — measured
+0.85 before any change, so what was wrong was which worlds pass, not what they are worth. Raising
+the threshold to 0.92 keeps the median passing world Barren with room to spare.
+
+| Outcome | Target | Before | After |
+|---|---|---|---|
+| Passes every band | 1 – 2% | 2.63% | **1.81%** |
+| Fails exactly one axis | 12 – 18% (was 35 – 45%) | 17.55% | **13.88%** |
+| Passes and clears the threshold | ≤ 0.5% | 0.71% | **0.35%** |
+| Each level doubles the settleable count | roughly | 34 → 80 → 164 | **17 → 40 → 105 → 218** |
+
+**Why the middle target moved instead of the constants.** Rows 1 and 2 constrain each other: with
+three independent axes passing at *a*, *b*, *c*, row 1 is `abc` and row 2 is `ab + ac + bc − 3abc`.
+Holding `abc` inside 1 – 2% caps row 2 near **16%** for any three comparable axes. The most balanced
+pass rates that reach 35% are ~0.06 / 0.58 / 0.59 — one axis blocking 94% of worlds. That is the
+single-habitability-score design §1 rejected, from the other side, so the row was corrected rather
+than chased.
+
+### Watch next round
+
+- **17 settleable worlds galaxy-wide, ~4 per galaxy.** Inside the ≤0.5% bound with margin, but
+  stricter than the sheet's illustrative "~24 galaxy-wide, ~6 in your home galaxy". If the first
+  settleable world takes too long to find, **the lever is the worth-it threshold** (0.92 → 0.91
+  buys roughly a third more) and not the tolerance bands, which are now carrying the axis balance.
+- **The "come back later" pile is 13.9%.** The sheet wanted it to be the bulk of the galaxy. It
+  cannot be, with this shape — so if surveying feels like it returns "hopeless" too often, the
+  honest fix is widening all three bands together and accepting more settleable worlds with it.
+- **Blocked worlds now name higher technology levels** — the home system's slot 8 went from
+  Gravitic 3 to Gravitic 4 — because the bands are tighter. Worth watching that the shopping list
+  still reads as a purchase rather than as a wall.

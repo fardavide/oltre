@@ -93,8 +93,8 @@ class GalaxyUiStateTest {
 
         assertEquals(listOf("temperature", "gravity"), blocked.failures.map { it.axis })
         assertEquals("1.78", blocked.failures[1].reading)
-        assertEquals("1.45 g", blocked.failures[1].tolerated.breakable())
-        assertEquals("Gravitic 3", blocked.failures[1].technology)
+        assertEquals("1.40 g", blocked.failures[1].tolerated.breakable())
+        assertEquals("Gravitic 4", blocked.failures[1].technology)
     }
 
     @Test
@@ -206,7 +206,7 @@ class GalaxyUiStateTest {
 
         val verdict = assertIs<VerdictUiState.Barren>(row.verdict)
         assertTrue(verdict.yieldLabel.startsWith("yield 0."), verdict.yieldLabel)
-        assertEquals("Passes every band, worth it at 0.90", verdict.threshold)
+        assertEquals("Passes every band, worth it at 0.92", verdict.threshold)
         assertTrue(verdict.detail.contains("fields"), verdict.detail)
     }
 
@@ -236,8 +236,8 @@ class GalaxyUiStateTest {
                 .bands.flatMap { it.rows }.first { it.slot == at.slot }.verdict,
         )
 
-        assertEquals(900_000, GalaxyBalance.WORTH_IT_THRESHOLD.perMillion)
-        assertTrue(verdict.threshold.endsWith("0.90"), verdict.threshold)
+        assertEquals(920_000, GalaxyBalance.WORTH_IT_THRESHOLD.perMillion)
+        assertTrue(verdict.threshold.endsWith("0.92"), verdict.threshold)
     }
 
     // Surveying is a fleet action, so nothing in 0.2 produces a surveyed world outside the home

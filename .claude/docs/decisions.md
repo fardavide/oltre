@@ -864,7 +864,7 @@ in 0.2: it is fixed the instant the seed is minted, and surveying and ownership 
 save's galaxy state rather than through the clock. Said in a comment in `GalaxyGeneration.kt` so the
 next session does not add a speculative per-tick entry point.
 
-### The sheet's §9 targets cannot all be met, and the constants were not moved to chase them
+### One §9 target was unreachable by any constants, so the target moved and the axes rebalanced
 
 The sheet says its §9 targets outrank its §8 constants, so the constants should move when they miss.
 They do miss — and one of the targets cannot be reached by moving them. Measured over all 15,000
@@ -875,16 +875,25 @@ The middle row is not a tuning miss. With three independent axes the first row i
 middle one is `ab + ac + bc − 3abc`; holding `abc` inside 1–2% caps the middle row near **16%** for
 any three comparable axes. Reaching 35% needs pass rates around 0.06 / 0.58 / 0.59 — one axis
 blocking 94% of worlds and two waving everything through, which is the single-habitability-score
-design §1 rejected, arrived at from the other side. Moving a band to hit it would overturn §1 without
-saying so, so **the constants stand and the conflict is Davide's to settle**;
-[balance-log.md](balance-log.md) round 5 carries the measurement, the arithmetic and a
-recommendation. `GalaxyDistributionTest` pins what the constants actually produce and says in its own
-comment that it is doing so.
+design §1 rejected, arrived at from the other side.
 
-Three of the sheet's other claims land almost exactly, which is why the model is worth keeping: the
-median world that passes every band scores **0.84** against the 0.90 threshold (the sheet predicted
-"~0.84" without running it), so the median settleable world is `Barren` by construction; each
-adaptation level roughly doubles the settleable count; hazards land on 45.6% of worlds.
+**Davide's call, delegated to the build (2026-08-07): keep the three comparable axes and correct the
+target.** Gravity went 0.55…1.45 g → **0.65…1.40**, pressure 0.4…3.0 atm → **0.5…2.6**, and the
+worth-it threshold 0.90 → **0.92**. Temperature was left alone — it was already the tightest axis,
+and its band is the one tied to the slot formula that makes position a trait — so the other two were
+brought *down to meet it*. All three now gate **25.9 / 25.3 / 25.0** per cent, which is the property
+§1 actually needs and which hitting the old row 2 would have destroyed.
+
+Result: `passes every band` **1.81%**, `fails exactly one` **13.88%** against a corrected 12–18%,
+`settleable` **0.35%**, and each adaptation level still roughly doubles the settleable count
+(17 → 40 → 105 → 218). [balance-log.md](balance-log.md) round 5 has the write-up and says which
+lever to reach for if it plays wrong — the threshold for scarcity, all three bands together for the
+"come back later" pile, never one band alone.
+
+**The yield model was never touched, because it was right.** Its own unrun prediction of a median
+passing world at "~0.84" measured 0.85. What was wrong was which worlds pass, not what they are
+worth — which is why the last row moved by raising the threshold rather than by reweighting
+richness. Hazards landed on 45.6% of worlds, as specified.
 
 ### Smaller calls the sheet did not make, all recorded in the balance log
 
