@@ -1039,3 +1039,44 @@ no-baseline skip and the enforce exit codes. `coverage.py` is loaded by path the
 **Known hole: a cache miss skips the gate.** No restored baseline means a `skipped` verdict and a
 green job. The comment and the log both say so, but nothing blocks. Accepted for now — the
 alternative is failing PRs for an infrastructure hiccup that has nothing to do with their tests.
+
+## A `Blocked` row states its worth, and stops pretending it can be bought
+
+0.0.16, presentation only. 98.2% of surveyed worlds are `Blocked` by design — `GalaxyDistributionTest`
+pins "passes every band" at 1.81% — so a home system is ~93% likely to show nothing but BLOCKED.
+**The verdict is correct and the screen did not explain it.** Four changes, none of which touches a
+`GalaxyBalance` number: the distribution is a settled call, `balance-log.md` round 5.
+
+**The row now says what the world is worth, not only what it costs.** `yieldLabel()` returned null
+for `Blocked`, so the one verdict a player meets over and over was the one that never priced itself.
+All three blocked worlds in the sim seed's home system out-yield the threshold, which is the pillar
+landing — and the row was the only place that could say so.
+
+**It counts the bands it fails against the bar `Barren` already names.** "Fails 2 of 3 bands, worth
+it at 0.92", beside "Passes every band, worth it at 0.92". Barren's threshold sentence is what makes
+a bad answer read as a scale rather than as bad luck, and `Blocked` is the verdict that needs it
+more. The clause is written once in the mapper for both: two rows on one screen disagreeing about
+the bar would be the screen contradicting itself. **No new number was invented** — the alternative
+copy quoted the measured 1.81% pass rate, which no `core` constant carries and which the sheet pins
+only as a 1–2% band.
+
+**The technology dropped from `OltreColors.accent` to `textSecondary`.** Accent is the screen's only
+"go tap this" signal, and Research sells PHOTOVOLTAICS, EXTRACTION and ENRICHMENT — never Thermal,
+Gravitic or Atmospheric. Dressing an unbuyable ladder as a call to action sends a player to a tab
+that cannot answer. 0.0.15's own comment argued the opposite ("the row is a promise, and the accent
+is what makes it look like one"); a promise the app cannot keep is what accent must not mean.
+
+**The header says which of the two it is:** *"Adaptation research lands later. You are at level 0."*
+PLACEHOLDER copy, marked as such beside `RELAY_EFFECT`, in the unbuilt tabs' voice. It sits on the
+header rather than on the rows because every blocked row would otherwise repeat it. Second person
+because the rows are already in it — "you tolerate 1.40 g" — and because "Every empire is at level 0."
+wrapped after "level" at 393dp, leaving "0." alone on a line.
+
+**Both copy calls were Davide's and were delegated to the build**, 2026-08-07, in the same shape as
+the balance round: the options were put with their costs and the answer was "decide for me". His to
+overrule, like every line of the sheet.
+
+Out of scope and still open: adding the three adaptation technologies to Research (its own slice,
+his call per the galaxy sheet), and any survey action (slice #7). Until the first of those lands the
+sentence on the row stays a shopping list nobody can spend against — which is now stated rather than
+implied.

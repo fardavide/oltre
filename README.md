@@ -120,6 +120,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.16 — 2026-08-07
+
+- **A blocked world now says what it is worth, not only what it costs.** The yield sits beside the
+  verdict, so a world you cannot reach is one you can price: most of the ones in your home system
+  are richer than home.
+- **A screen full of BLOCKED reads as the galaxy rather than as bad luck.** Each row counts the
+  bands it fails against the same bar a barren world names — "Fails 2 of 3 bands, worth it at
+  0.92" — so the answer has a scale behind it. Nearly every surveyed world fails at least one band,
+  and that is the design.
+- **The Galaxy tab admits that the technology it names cannot be bought yet.** The adaptation
+  ladders every blocked row points at are not built, so the header says so and the technology on
+  the row no longer wears the colour the app uses for "go and tap this".
+
 ### 0.0.15 — 2026-08-07
 
 - **The galaxy exists.** Four galaxies of 250 systems, fifteen orbits each — about 4,700 worlds, all
