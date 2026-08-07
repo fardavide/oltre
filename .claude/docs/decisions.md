@@ -788,6 +788,15 @@ it doubles nothing, so it names what it is. Rejected: widening the check to acce
 Its Kotlin package stays `dev.fardavide.oltre.client.design.testing` — a dash is not a legal
 package segment, and renaming it would touch eight imports to no effect.
 
+**A self-edge is not a dependency, and Kover creates one per module.** The first CI run failed
+every job with `:core -> :core` and `:client:shell -> :client:shell`, both `declared in: kover`.
+Kover is applied to every subproject and puts each into its own `kover` configuration, so every
+module declares a dependency on itself; read literally that is core depending on a module and
+something depending on the composition root. Self-edges are now dropped where the graph is
+collected. **This is the failure the sandbox was structurally unable to catch** — it mirrored the
+dependencies each build file *declares*, and this edge is injected by a plugin. The sandbox now
+applies Kover for that reason, which reproduced the failure exactly before the fix.
+
 **No unit tests, deliberately.** Build-script logic is not reachable from a test source set
 without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified
 instead against a throwaway Gradle build carrying the identical rule code — every forbidden edge,

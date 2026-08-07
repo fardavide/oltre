@@ -212,13 +212,20 @@ gradle.projectsEvaluated {
     // Subprojects only. The root is the build, not a module — and it is the aggregator, so it
     // holds a `kover(...)` dependency on every module including `:client:shell`, which rule 7
     // would otherwise read as something depending on the composition root.
+    // Self-edges are dropped, and they are not hypothetical: Kover is applied to every subproject
+    // and puts each one into its own `kover` configuration, so every module declares a dependency
+    // on itself. Read literally that is `:core` depending on a module and something depending on
+    // `:client:shell`, and rules 6 and 7 failed the whole build on it. A module depending on
+    // itself is an aggregation artefact rather than a dependency, and cannot violate any rule here.
     val edges = linkedMapOf<Pair<String, String>, MutableSet<String>>()
     rootProject.subprojects.forEach { subproject ->
         subproject.configurations.forEach { configuration ->
-            configuration.dependencies.withType<ProjectDependency>().forEach { dependency ->
-                edges.getOrPut(subproject.path to dependency.path) { sortedSetOf() }
-                    .add(configuration.name)
-            }
+            configuration.dependencies.withType<ProjectDependency>()
+                .filter { it.path != subproject.path }
+                .forEach { dependency ->
+                    edges.getOrPut(subproject.path to dependency.path) { sortedSetOf() }
+                        .add(configuration.name)
+                }
         }
     }
 

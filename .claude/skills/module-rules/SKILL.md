@@ -133,6 +133,12 @@ The **root project is exempt from all three**, because it is the build rather th
 it has to be: it holds a `kover(...)` dependency on every module including `:client:shell`, which
 rule 7 would otherwise read as a violation.
 
+**A module depending on itself is not a dependency.** Kover is applied to every subproject and
+puts each one into its own `kover` configuration, so every module declares an edge to itself. Read
+literally that is `:core` depending on a module and something depending on `:client:shell` — it
+failed all five CI jobs before self-edges were dropped. If you extend this check, remember that
+the graph contains plugin-injected edges as well as declared ones.
+
 ## What is not a layer
 
 `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` end in none of the three layer
