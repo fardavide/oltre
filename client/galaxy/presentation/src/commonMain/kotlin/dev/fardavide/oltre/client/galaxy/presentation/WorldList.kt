@@ -1,0 +1,252 @@
+package dev.fardavide.oltre.client.galaxy.presentation
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
+
+// Every world is the same card: the coordinate, the verdict word, the orbit band on the right, and
+// whatever the verdict earns beneath it. The verdict word takes the only colour on the row.
+@Composable
+internal fun WorldList(bands: List<OrbitBandUiState>, modifier: Modifier = Modifier) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        bands.forEach { band ->
+            SectionLabel(text = band.band.heading.uppercase())
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                modifier = Modifier.fillMaxWidth().padding(bottom = 13.dp),
+            ) {
+                band.rows.forEach { row -> WorldRow(row = row) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorldRow(row: WorldRowUiState) {
+    // The one row that is not a card. It is not tappable, so it does not get the surface every
+    // tappable thing in the app has — a hairline and no fill instead.
+    if (row.verdict is VerdictUiState.Relay) {
+        RelayRow(row = row, relay = row.verdict)
+        return
+    }
+
+    val home = row.verdict is VerdictUiState.Home
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                if (home) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
+                RoundedCornerShape(14.dp),
+            )
+            .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
+            .testTag(GalaxyTestTags.row(row.slot))
+            .padding(11.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Header(row = row)
+        when (val verdict = row.verdict) {
+            is VerdictUiState.Home -> {
+                Detail(text = verdict.axes, color = OltreColors.textSecondary)
+                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+            }
+            is VerdictUiState.Occupied -> Detail(text = verdict.holder, color = OltreColors.textSecondary)
+            // Two facts, both free: the coordinate and the orbit, both already in the header. The
+            // shortest card in the app, because a screen of them is the normal case.
+            VerdictUiState.Unsurveyed -> Unit
+            is VerdictUiState.Blocked -> {
+                BlockedAxes(failures = verdict.failures)
+                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+            }
+            is VerdictUiState.Barren -> {
+                Detail(text = verdict.threshold, color = OltreColors.textSecondary)
+                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+            }
+            is VerdictUiState.Settleable -> {
+                Detail(text = verdict.richness, color = OltreColors.textSecondary)
+                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+            }
+            is VerdictUiState.Relay -> Unit // answered above, before the card
+        }
+    }
+}
+
+@Composable
+private fun Header(row: WorldRowUiState) {
+    val mono = oltreMono()
+    Row(verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = row.coordinate,
+            color = OltreColors.text,
+            fontFamily = mono,
+            fontSize = 13.5.sp,
+            maxLines = 1,
+            softWrap = false,
+        )
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        ) {
+            Text(
+                text = row.verdict.word(),
+                color = row.verdict.hue(),
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.4.sp,
+                maxLines = 1,
+                softWrap = false,
+            )
+            row.verdict.yieldLabel()?.let { label ->
+                Text(
+                    text = label,
+                    color = OltreColors.textTertiary,
+                    fontFamily = mono,
+                    fontSize = 10.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        Text(
+            text = row.band.label.uppercase(),
+            color = row.band.hue(),
+            fontFamily = mono,
+            fontSize = 9.5.sp,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+}
+
+// One line per failing axis: the axis and its two readings on the left, the technology flush right
+// in its own column. The brief's sentence — "gravity 2.4 g, you tolerate 1.45 g, Gravitic
+// Adaptation 8 would land it" — wraps to three lines at 393dp, and three of those is the wall this
+// row must not be. It keeps the clause order and loses the verb.
+@Composable
+private fun BlockedAxes(failures: List<BlockedAxisUiState>) {
+    val mono = oltreMono()
+    Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
+        failures.forEach { failure ->
+            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "${failure.axis} ${failure.reading}, you tolerate ${failure.tolerated}",
+                    color = OltreColors.textSecondary,
+                    fontFamily = mono,
+                    fontSize = 10.5.sp,
+                    lineHeight = 15.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                // Accent, because it is the only thing on this screen that points at another tab.
+                // Every empire is at level 0 today, so all of these are purchases that do not exist
+                // yet — the row is a promise, and the accent is what makes it look like one.
+                Text(
+                    text = failure.technology,
+                    color = OltreColors.accent,
+                    fontFamily = mono,
+                    fontSize = 10.5.sp,
+                    lineHeight = 15.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelayRow(row: WorldRowUiState, relay: VerdictUiState.Relay) {
+    val mono = oltreMono()
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(14.dp))
+            .testTag(GalaxyTestTags.row(row.slot))
+            .padding(11.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = row.coordinate,
+                color = OltreColors.textSecondary,
+                fontFamily = mono,
+                fontSize = 13.5.sp,
+                maxLines = 1,
+                softWrap = false,
+            )
+            Text(
+                text = "RELAY",
+                color = OltreColors.accent,
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.4.sp,
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
+            )
+            Text(
+                text = "CONTESTED",
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 9.5.sp,
+                letterSpacing = 1.sp,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
+        Detail(text = relay.effect, color = OltreColors.textTertiary)
+    }
+}
+
+@Composable
+private fun Detail(text: String, color: Color) {
+    Text(text = text, color = color, fontFamily = oltreMono(), fontSize = 10.5.sp, lineHeight = 15.sp)
+}
+
+private fun VerdictUiState.word(): String = when (this) {
+    is VerdictUiState.Home -> "HOME"
+    is VerdictUiState.Occupied -> "OCCUPIED"
+    VerdictUiState.Unsurveyed -> "UNSURVEYED"
+    is VerdictUiState.Blocked -> "BLOCKED"
+    is VerdictUiState.Barren -> "BARREN"
+    is VerdictUiState.Settleable -> "SETTLEABLE"
+    is VerdictUiState.Relay -> "RELAY"
+}
+
+// No colour for Occupied or Barren: another empire holding a world is not a warning, and a thin
+// world is a fact rather than a state. Unsurveyed is faint but not dimmed — it keeps the full card.
+private fun VerdictUiState.hue(): Color = when (this) {
+    is VerdictUiState.Home -> OltreColors.accent
+    is VerdictUiState.Occupied -> OltreColors.textSecondary
+    VerdictUiState.Unsurveyed -> OltreColors.textTertiary
+    is VerdictUiState.Blocked -> OltreColors.danger
+    is VerdictUiState.Barren -> OltreColors.textSecondary
+    is VerdictUiState.Settleable -> OltreColors.ok
+    is VerdictUiState.Relay -> OltreColors.accent
+}
+
+private fun VerdictUiState.yieldLabel(): String? = when (this) {
+    is VerdictUiState.Barren -> yieldLabel
+    is VerdictUiState.Settleable -> yieldLabel
+    else -> null
+}

@@ -51,8 +51,20 @@ class MainScaffoldBehaviourTest {
         }
     }
 
+    @Test
+    fun `the Galaxy tab shows the galaxy screen rather than an empty state`() {
+        scaffold {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.GALAXY)).performClick()
+            onNodeWithText(GALAXY_MARKER).assertIsDisplayed()
+            onNodeWithText(COLONY_MARKER).assertDoesNotExist()
+            onNodeWithText(RESEARCH_MARKER).assertDoesNotExist()
+        }
+    }
+
     // The honest empty state is the whole point of shipping the bar before the screens: a tab
-    // that quietly re-showed the colony would read as a bug in the colony.
+    // that quietly re-showed the colony would read as a bug in the colony. Two tabs are still
+    // unbuilt — Galaxy left the list at 0.0.15 — and the filter is what keeps this test honest as
+    // they land rather than needing an edit per slice.
     @Test
     fun `an unbuilt tab says what will be there rather than showing a built screen`() {
         OltreTab.entries.filter { it.pendingWork != null }.forEach { tab ->
@@ -60,6 +72,7 @@ class MainScaffoldBehaviourTest {
                 onNodeWithTag(ShellTestTags.tab(tab)).performClick()
                 onNodeWithText(COLONY_MARKER).assertDoesNotExist()
                 onNodeWithText(RESEARCH_MARKER).assertDoesNotExist()
+                onNodeWithText(GALAXY_MARKER).assertDoesNotExist()
                 onNodeWithText(checkNotNull(tab.pendingWork)).assertIsDisplayed()
             }
         }
@@ -96,6 +109,7 @@ class MainScaffoldBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
+                        galaxy = { Text(GALAXY_MARKER) },
                     )
                 }
             }
@@ -109,5 +123,6 @@ class MainScaffoldBehaviourTest {
         // in them, and the shell's tests should not need a colony to assert navigation.
         const val COLONY_MARKER = "colony-under-test"
         const val RESEARCH_MARKER = "research-under-test"
+        const val GALAXY_MARKER = "galaxy-under-test"
     }
 }

@@ -42,6 +42,7 @@ kotlin {
             implementation(projects.client.design.core)
             implementation(projects.client.design.format)
             implementation(projects.client.design.icon)
+            implementation(projects.client.galaxy.presentation)
             implementation(projects.client.notifications.data)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)

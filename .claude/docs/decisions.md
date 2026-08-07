@@ -915,3 +915,64 @@ Worth knowing *why it went unnoticed*: the configuration is only realised once t
 so `./gradlew :core:jvmTest` and every narrower task stayed green, and CI's own jobs never provoked
 it. A rule that runs at configuration time can therefore be broken for every developer running the
 documented build command while every required check passes.
+
+## The Galaxy screen is the orbit page, and the system selector is the feature's own
+
+Claude Design returned two directions for slice 5 and recommended the first; 0.0.15 builds it. Both
+replaced the mockup's `◀ 2:118 ▶` stepper, which is 250 taps to cross a galaxy and 1,000 to cross
+the map. What separated them was **what the map is a map of.**
+
+**1a, the orbit page — one system, its fifteen orbits drawn once, hot to cold.** Chosen because on
+the day this ships 1b's galaxy field is 250 dots of which one is yours and six are relays, which is
+a picture of how much you do not know. 1a's map has four dots and is still working: it shows the
+eleven *empty* slots and therefore the shape of a system, it puts the hot end and the cold end on
+screen together, and it is the only place a player can learn that slot 13 means cold without a
+sentence telling them. The galaxy field becomes the better screen the week fleets ship and the map
+starts filling in — which is an argument for building it then, as the zoom-out it is asking to be.
+
+**Which system is on screen is the galaxy feature's state, not the shell's.** Navigation between
+tabs lives in the composition root because a tab set names every feature and only the shell may see
+them all. That argument does not reach a system selector, which names nothing outside this module —
+so `GalaxyScreen` holds it, and `GalaxyPage` beneath it is the stateless half the screenshots and
+the robot drive. It is the first screen in the app with state of its own, and the split is what
+keeps it testable.
+
+**The map is a Canvas, for the reason `PowerMark` is.** A circle from a shaped `Box` resolves
+through the platform's shape renderer, and baselines are recorded on macOS and verified on Linux.
+The star is the one gradient in the app and earns it by being a lit sphere.
+
+**Fixtures for the two real systems are generated, not hand-written** — the opposite of the choice
+`:client:research:presentation` made, and deliberately. Research freezes its fixtures so a baseline
+moves only when the *screen* moves; here the generation constants are themselves pinned value by
+value by `GalaxyBalanceTest` and `GalaxyDistributionTest`, so a change that moves these numbers is a
+design decision that *should* redraw the images. The hand-written version drifted from the mapper's
+own formatting within the hour and rendered numbers the app would never produce. `everyVerdictUiState`
+stays hand-written because it has to: Barren, Settleable, Occupied and a relay have no real example
+on the shipped seed.
+
+**A value and its unit are joined by U+00A0.** The blocked line is the longest on the screen and
+does wrap at 393dp on a three-axis world — the design expects that at 320dp and tolerates it here —
+but breaking between a number and its unit leaves "atm" alone on a line, which reads as a defect
+rather than as a wrap. The character is invisible in a diff, so the source says so where it is used.
+
+**Galaxy left `OltreTab.pendingWork`,** so the shell's `unbuilt_tab_galaxy` baseline is gone and
+Shipyard inherits the empty-state coverage. Two destinations are still unbuilt and the test that
+covers them filters on `pendingWork` rather than naming tabs, so the next slice to land needs no
+edit there.
+
+### What the design asked for and what the build could answer
+
+Three of its six calls were data the build already had, and the answers are in `balance-log.md`
+round 5 and in `:sim:run`'s new home-system table. Two of those answers changed the screen:
+
+- **The real home system is Home plus three Blocked** — not the Blocked / Barren / Blocked mix the
+  design assumed. So at ship time, on the shipped seed, `Barren` and `Settleable` never render.
+  That is a finding about the *screen*, and it is why the screenshot suite carries a hand-written
+  every-verdict frame rather than only what the seed produces.
+- **The committed tolerance bands are wider than the design guessed** on temperature and pressure
+  (−30 … +45 °C and 0.4 … 3.0 atm against its −95 … +58 and 0.35 … 1.40), so every Blocked sentence
+  on the screen reads differently from the mockup's.
+
+Three remain open and are listed with the rest in `status.md`: whether a near miss should look
+different from a hopeless one, whether a relay should state an effect no mechanic can confer, and
+who holds an `Occupied` world before multiplayer exists to hold one.

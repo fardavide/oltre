@@ -94,6 +94,7 @@ dependencies {
     kover(projects.client.design.screenshotTesting)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
+    kover(projects.client.galaxy.presentation)
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
     kover(projects.client.save.data)

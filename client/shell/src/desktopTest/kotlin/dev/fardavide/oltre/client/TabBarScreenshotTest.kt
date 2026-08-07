@@ -37,6 +37,9 @@ class TabBarScreenshotTest {
         captureBar(width = 393, selected = OltreTab.GALAXY, name = "tab_bar_galaxy_selected")
     }
 
+    // Galaxy carried this baseline until 0.0.15 gave it a real screen. Shipyard inherits it rather
+    // than the empty state losing its coverage — two destinations are still unbuilt, and the
+    // treatment they share is exactly what this pins.
     @Test
     fun `an unbuilt tab`() {
         runDesktopComposeUiTest(width = 393, height = 852) {
@@ -44,14 +47,14 @@ class TabBarScreenshotTest {
                 OltreTheme {
                     Surface {
                         UnbuiltTabScreen(
-                            tab = OltreTab.GALAXY,
-                            pendingWork = checkNotNull(OltreTab.GALAXY.pendingWork),
+                            tab = OltreTab.SHIPYARD,
+                            pendingWork = checkNotNull(OltreTab.SHIPYARD.pendingWork),
                         )
                     }
                 }
             }
             onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/unbuilt_tab_galaxy.png",
+                filePath = "src/desktopTest/screenshots/unbuilt_tab_shipyard.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }

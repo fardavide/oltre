@@ -133,8 +133,14 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - **You can see the whole sky, and almost none of it in detail.** Coordinates, star class and who
   holds a world are free from the first launch. Everything else needs a survey, which needs fleets —
   so for now your home system is the only place you know anything about.
-- **Nothing to look at yet.** This release is the simulation only; the Galaxy tab is still an empty
-  state. The screen is the next slice.
+- **The Galaxy tab is real.** One system fills the screen: its fifteen orbits drawn once, left to
+  right, hot to cold, with the worlds it holds listed underneath. The map shows the empty slots too,
+  which is how you learn that the outer orbits are the cold ones without being told.
+- **A world you cannot settle tells you what would change that.** "gravity 1.78, you tolerate
+  1.45 g — Gravitic 3" is the whole sentence, one line per axis that fails. Your own home system has
+  three of them, and all three are richer than home: the good ground is behind technology nobody has
+  bought yet. Those adaptation technologies are not built, so for now it is a shopping list you
+  cannot spend against.
 
 ### 0.0.14 — 2026-08-07
 

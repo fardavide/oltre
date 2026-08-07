@@ -98,6 +98,14 @@ Updated: 2026-08-07 (0.0.15)
   **One §9 target is unmet and is Davide's to settle** — see below and `balance-log.md` round 5.
   Also repaired `./gradlew build`, which was failing on `main` before this slice started.
 
+- **0.0.15 galaxy screen (slice 5)** — `:client:galaxy:presentation`, built to the Claude Design
+  page's recommended direction: **the orbit page**. One system fills the screen, its fifteen orbits
+  drawn once on a `Canvas` — hot to cold, empty slots included — with the worlds it holds listed
+  under it. Six baselines at 393dp and 320dp cover every verdict; `GalaxyScreenBehaviourTest` drives
+  the real interactions through `GalaxyRobot`. Galaxy left `OltreTab.pendingWork`, so the shell's
+  empty-state baseline moved to Shipyard. See `decisions.md` for why the system selector is the
+  feature's state rather than the shell's, and for the three design calls still open.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -111,7 +119,7 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | ~~2~~ | ~~**Research: core**~~ | Landed at 0.0.12 | — |
 | ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
 | ~~4~~ | ~~**Galaxy: procgen**~~ | Landed at 0.0.15 | — |
-| 5 | **Galaxy: screen** | Compose `Canvas` map over the tappable system list | Systems settled in the sheet; the *visual* design is a Claude Design round trip, **in flight** |
+| ~~5~~ | ~~**Galaxy: screen**~~ | Landed at 0.0.15 | — |
 | 6 | **Shipyard: core + screen** | The 4 v1 ship types, built from the shipyard, held in one empire-wide pool | **Yes** — the ship set (today's `CARGO/FIGHTER/CRUISER/COLONY_SHIP` are placeholders) |
 | 7 | **Fleets: outbound** | Sending a fleet: distance as travel time, an outbound leg, the Fleets tab. The return leg already exists | **Yes** — travel-time formula, fuel |
 | 8 | **Combat** | Seeded `resolve(a, b, seed)` and a battle report in the event log | **Yes** — the combat model |
@@ -160,6 +168,22 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **`Coordinates` and `GalaxyCoordinate` are now twins.** The old one carries
   `ReturningFleet.origin` and is unbounded; the new one is bounded to the real coordinate space.
   Folding them together is a fleets change, so slice #7 owns it.
+- **Three open calls from the Galaxy Design sheet**, none of which block anything:
+  1. **Does a near miss look different from a hopeless one?** 1.78 g against a 1.45 g band and
+     2.62 g against the same band read identically today except for the digits. A "close" treatment
+     would be useful and would also be the interface recommending a purchase, which nothing else in
+     the app does. The design left it out and said it was the omission it was least sure of.
+  2. **Should a relay state an effect it cannot confer?** "+18% range while held" is true of a
+     mechanic that does not exist and cannot until multiplayer. It ships as **placeholder copy**,
+     marked as such in `GalaxyUiState.kt`, like the notification copy and the unbuilt tabs'.
+  3. **Who holds an `Occupied` world?** Nothing generates one — the three scripted empires are
+     slice #9 — so at ship time the screen only ever shows Home, Blocked and Unsurveyed. The
+     verdict is built and covered by a hand-written frame; the naming, and whether a holder carries
+     a date, are open.
+- **Every `Blocked` row points at a Research tab that cannot sell what it names.** All three
+  adaptation ladders are unbuilt, so the sentence is true and the purchase does not exist. The
+  connection the design is after does not close until the adaptation technologies land — which is
+  its own slice, and Davide's call per the galaxy sheet's own open list.
 
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.

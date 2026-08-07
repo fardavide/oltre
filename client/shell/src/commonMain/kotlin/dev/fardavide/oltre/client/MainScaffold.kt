@@ -32,6 +32,7 @@ fun MainScaffold(
     resources: ResourceRailUiState,
     colony: @Composable () -> Unit,
     research: @Composable () -> Unit,
+    galaxy: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
@@ -41,7 +42,7 @@ fun MainScaffold(
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         ResourceRail(uiState = resources)
-        Destination(selected = selected, colony = colony, research = research)
+        Destination(selected = selected, colony = colony, research = research, galaxy = galaxy)
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }
 }
@@ -51,6 +52,7 @@ private fun ColumnScope.Destination(
     selected: OltreTab,
     colony: @Composable () -> Unit,
     research: @Composable () -> Unit,
+    galaxy: @Composable () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
@@ -58,8 +60,8 @@ private fun ColumnScope.Destination(
         when (selected) {
             OltreTab.COLONY -> colony()
             OltreTab.RESEARCH -> research()
+            OltreTab.GALAXY -> galaxy()
             OltreTab.SHIPYARD,
-            OltreTab.GALAXY,
             OltreTab.FLEETS,
             -> UnbuiltTabScreen(
                 tab = selected,
