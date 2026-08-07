@@ -14,10 +14,13 @@ import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
 import dev.fardavide.oltre.core.relayAt
+import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -124,7 +127,63 @@ private fun printGalaxyReport() {
         "Relays in $relays of ${GalaxyBalance.SYSTEMS_PER_GALAXY} systems of galaxy 1. " +
         "Home is [${home.galaxy}:${home.system}:${home.slot}].")
     println()
+
+    printHomeSystem(seed)
 }
+
+// The four worlds the player can actually see on day one. Every other world on the Galaxy screen
+// reads Unsurveyed, so these are the only surveyed rows that exist at ship time — which makes them
+// the screen's real content rather than an example of it, and worth printing whenever the
+// generation constants move.
+private fun printHomeSystem(seed: GalaxySeed) {
+    val galaxy = GalaxyState.initial(seed)
+    val home = galaxy.home
+
+    println("## The home system, world by world")
+    println()
+    println("Seed ${seed.value}, system ${home.galaxy}:${home.system}, " +
+        "${starClassAt(seed, home.galaxy, home.system)} star. Surveyed at genesis; nothing else is.")
+    println()
+    println("| Coordinate | Verdict | Temp | Gravity | Pressure | Fields | Yield | Hazards |")
+    println("|---|---|---|---|---|---|---|---|")
+    for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
+        val at = GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot)
+        val world = worldAt(seed, at) ?: continue
+        val traits = world.traits
+        val verdict = when (val v = verdictFor(world, galaxy, AdaptationLevels.NONE)) {
+            is WorldVerdict.Settleable -> "Settleable"
+            is WorldVerdict.Blocked -> "Blocked (${v.failures.size})"
+            is WorldVerdict.Occupied -> "Occupied"
+            WorldVerdict.Home -> "Home"
+            WorldVerdict.Barren -> "Barren"
+            WorldVerdict.Unsurveyed -> "Unsurveyed"
+        }
+        println(
+            "| [${at.galaxy}:${at.system}:${at.slot}] | $verdict | ${traits.temperature.celsius} °C " +
+                "| ${milli(traits.gravity.milliG)} g | ${milli(traits.pressure.milliAtm)} atm " +
+                "| ${traits.fields} | ${yieldLabel(GalaxyBalance.yieldScore(traits).perMillion)} " +
+                "| ${traits.hazards.joinToString().ifEmpty { "none" }} |",
+        )
+    }
+    println()
+
+    // Every sentence a `Blocked` row would render, which is the detail the screen is built around.
+    for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
+        val at = GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot)
+        val world = worldAt(seed, at) ?: continue
+        val blocked = verdictFor(world, galaxy, AdaptationLevels.NONE) as? WorldVerdict.Blocked ?: continue
+        for (failure in blocked.failures) {
+            val axis = failure.axis.name.lowercase()
+            println("[${at.galaxy}:${at.system}:${at.slot}] $axis ${failure.worldValue}, " +
+                "you tolerate ${failure.toleratedBound} — ${failure.axis.adaptation.name.lowercase()
+                    .replaceFirstChar { it.uppercase() }} ${failure.closedAtLevel} would land it")
+        }
+    }
+    println()
+}
+
+private fun milli(value: Int): String =
+    "${value / 1_000}.${(value % 1_000).toString().padStart(3, '0')}"
 
 private fun percent(part: Int, whole: Int): String {
     if (whole == 0) return "0.00%"
