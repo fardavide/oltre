@@ -57,11 +57,12 @@ that owns the interface (`java-test-fixtures` / AGP `testFixtures`), consumed as
 which lacks a fixtures concept. KMP modules that cannot host fixtures get a sibling
 `:<module>:testing` module — still per-owner.
 
-**Amended 2026-08-07:** `:<module>:testing` is not a sibling, it is a child —
+**Amended 2026-08-07 (Davide):** `:<module>:testing` is not a sibling, it is a child —
 `:client:save:data:testing` is the directory `client/save/data/testing`, a module inside a module,
-which the layout rule now rejects. The shape was never built, so nothing migrated. Read it as a
-**peer in the same parent directory**: `:client:save:testing` beside `:client:save:data`. See
-*Module layout and layer dependencies are build rules* below.
+which the layout rule now rejects. Read it as **a sibling named for what it doubles**:
+`client/save/data-testing`, `client/featA/domain-testing`, `core-testing`. The shape was never
+built, so nothing migrated. See *Module layout and layer dependencies are build rules* below for
+why such a module inherits the layer it doubles.
 
 ## Screenshot tests: Roborazzi against the desktop target
 
@@ -650,6 +651,13 @@ The first implementation used `File.walkTopDown()` and was wrong in a way that o
 under test: the walk is not tracked as a configuration-cache input, so adding a nested module
 while no build script changed reused the cache entry and passed. Explicit `listFiles()` calls
 from the script body *are* tracked. Verified both ways before landing.
+
+**A testing module is a sibling named for what it doubles, and inherits its layer.**
+`client/save/data-testing` beside `client/save/data`, `core-testing` beside `core` — Davide's
+call, replacing `:<module>:testing`, which named a child and breaks rule 1. The layer check
+strips the `-testing` suffix, so `presentation-testing` cannot reach data either: without that
+the rule holds on the direct edge and leaks on the one hop through the fakes, which is the whole
+of the hole. Nothing is built on this yet; it is the shape the next one takes.
 
 **No unit tests, deliberately.** Build-script logic is not reachable from a test source set
 without a `buildSrc`, which would add a compilation to every build to test forty lines. Verified

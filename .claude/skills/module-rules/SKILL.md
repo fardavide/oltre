@@ -43,9 +43,10 @@ property — the failure mode is silent.
 
 ## Rules 2–4 — which layer may see which
 
-A module's **layer is the last segment of its Gradle path**: `:client:save:data` is data,
-`:client:colony:presentation` is presentation. Only `domain`, `data` and `presentation` are
-layers. Each forbidden edge is forbidden for its own reason, not for symmetry:
+A module's **layer is the last segment of its Gradle path**, minus a `-testing` suffix:
+`:client:save:data` is data, `:client:colony:presentation` is presentation, and
+`:client:save:data-testing` is data too. Only `domain`, `data` and `presentation` are layers.
+Each forbidden edge is forbidden for its own reason, not for symmetry:
 
 - **`domain` → `data` / `presentation`.** Domain is the feature's rules; it *defines* the
   interfaces data implements and knows nothing of a screen.
@@ -65,6 +66,13 @@ Module dependency rules violated:
     presentation may not depend on data
     declared in: testImplementation
 ```
+
+**A testing module carries its subject's restrictions.** `:client:colony:presentation-testing`
+holds fakes for a presentation module, so it may not reach data either — and neither may a
+presentation module reach data *through* it. Without the suffix strip the rule holds on the direct
+edge and leaks on the one hop through the fakes, which is the only hole this shape opens. It reads
+the right way round too: a fake of a domain interface has no more business knowing about a store
+than the domain does.
 
 ## What is not a layer
 
@@ -98,24 +106,23 @@ is the build whose script change invalidated the configuration cache.
 
 ## Worked examples — the fixes that came with the rules
 
-**A testing module is a sibling of the module it doubles, never a child.** The convention read
+**A testing module is a sibling named for what it doubles, never a child.** The convention read
 "KMP modules that cannot host fixtures get a sibling `:<module>:testing`", which is not a sibling
 at all — `:client:save:data:testing` is the directory `client/save/data/testing`, a module inside
-a module. It is a peer layer beside `data`, in the feature folder:
+a module. Davide's replacement (2026-08-07) is a true sibling, taking the name of the module it
+doubles plus `-testing`:
 
 ```
-client/save/data/testing    ->   client/save/testing        (:client:save:testing)
+client/save/data/testing  ->  client/save/data-testing     (:client:save:data-testing)
+                              client/featA/domain-testing  (:client:featA:domain-testing)
+                              core-testing                 (:core-testing)
 ```
 
-Nothing had been built on the old wording yet, so the fix was three documents, not a migration.
-A module with no feature folder above it (`:core`) has no peer slot, so if it ever needs one it
-takes a top-level sibling directory — `core-testing/` — rather than growing a child.
-
-**Shared test config that belongs to nobody goes beside the features, not inside one.**
-`oltreRoborazziOptions()` is in its third identical copy (`:client:shell`,
-`:client:colony:presentation`, `:client:research:presentation`), which is the threshold
-`.claude/docs/decisions.md` set for extracting it. It doubles nothing, so it belongs to no
-feature: it lands as `:client:testing`, a sibling of `:client:design` and `:client:shell`.
+Nothing had been built on the old wording, so the fix was documents rather than a migration. Note
+what this is *not* for: inside a single module, `commonTest` already shares a fake and no module
+is involved — `FakeSaveFile` lives in `client/save/data/src/commonTest` and stays there. A testing
+module earns its existence only when a **second** module needs what it holds, because a test
+source set is not visible to consumers and KMP cannot host a test-fixtures source set.
 
 **A module cannot grow a layer underneath it.** `PowerMark.kt` argues in its own comment for a
 shared UI-components module — it is drawn in both `:client:shell` and

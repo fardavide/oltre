@@ -73,13 +73,26 @@ second authority:
 
 ## Test doubles (repo-wide, not client-only)
 
-Handwritten fakes via per-module Gradle test fixtures where the module type supports them; a
-KMP module that cannot host fixtures gets a **peer** module in the same parent directory —
-`:client:save:testing` beside `:client:save:data`, owned by the same feature. Never
-`:client:save:data:testing`: that is a module inside a module and the build rejects it (see
-*Module rules* above). A module with no feature folder above it (`:core`) has no peer slot, so
-it would take a top-level sibling directory (`core-testing/`) rather than a child. Never one
-repo-wide doubles module.
+Handwritten fakes via per-module Gradle test fixtures where the module type supports them. Never
+one repo-wide doubles module.
+
+A test source set is not visible to consumers, so a fake that a **second** module needs has to
+live somewhere publishable. On JVM/Android that is a test-fixtures source set; KMP cannot host
+one, so there it is a module — a **sibling of the module it doubles, named for it**:
+
+```
+client/save/data       ->  client/save/data-testing      (:client:save:data-testing)
+client/featA/domain    ->  client/featA/domain-testing   (:client:featA:domain-testing)
+core                   ->  core-testing                  (:core-testing)
+```
+
+Davide's call (2026-08-07), replacing `:<module>:testing`, which named a *child* and breaks rule 1.
+A testing module **inherits the layer it doubles** and its restrictions with it — the layer check
+strips the `-testing` suffix — so `presentation-testing` cannot reach data either. Without that,
+the rule holds on the direct edge and leaks on the one hop through the fakes.
+
+Inside a single module none of this applies: `commonTest` is the answer and no module is involved.
+`FakeSaveFile` lives in `client/save/data/src/commonTest` and always will.
 
 **Backtick test names in `commonTest` may not contain `, . ; : / \ < > [ ]`.** Kotlin/Native
 rejects them (`Name contains illegal characters`), so a comma in a test name compiles on the JVM,

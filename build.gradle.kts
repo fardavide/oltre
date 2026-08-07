@@ -158,8 +158,16 @@ val forbiddenLayerDependencies = mapOf(
     "data" to setOf("presentation"),
 )
 
-fun layerOf(projectPath: String): String? =
-    projectPath.substringAfterLast(':').takeIf { it in setOf("domain", "data", "presentation") }
+// A testing module is a sibling named after what it doubles — `:client:save:data-testing` beside
+// `:client:save:data` — so it carries that module's layer and that module's restrictions. Without
+// this, `presentation-testing` is not `presentation`, and a presentation module reaches data
+// through its own fakes: the rule holds on the direct edge and leaks on the one hop through.
+// It reads the right way round too — a fake of a domain interface has no more business knowing
+// about a store than the domain does.
+fun layerOf(projectPath: String): String? = projectPath
+    .substringAfterLast(':')
+    .removeSuffix("-testing")
+    .takeIf { it in setOf("domain", "data", "presentation") }
 
 // `:client:save:data` -> `save`. Null for anything that is not a client feature module, including
 // `:client:design` and `:client:shell` — those live directly under `client/`, so they have no
