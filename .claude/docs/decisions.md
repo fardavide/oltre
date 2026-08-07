@@ -639,7 +639,11 @@ the shape Compose uses on itself:
 | `:client:design:icon` | `PowerMark` | The `material-icons` seat: a corpus of hand-written vector paths that grows one entry at a time, and the one category where a typo compiles rather than failing. |
 | `:client:design:component` | `CostChip` + `CostChipUiState`, `ProgressBar`, `SectionLabel` | The `material3` seat: styled widgets with no single feature owner. |
 | `:client:design:format` | `toChipLabel`, `toCountdown`, `pad2`, `groupedByThousands` | **No Compose reaches it** — so it needs neither the plugin nor the compose compiler, and its tests are plain unit tests. A mechanical boundary, not a taxonomic one. |
-| `:client:design:testing` | `oltreRoborazziOptions` | The `:<module>:testing` sibling from the fixtures entry above, in the **main** source set — which is the whole reason the helper was copied three times. |
+| ~~`:client:design:testing`~~ `:client:design:screenshot-testing` | `oltreRoborazziOptions` | A testing module in the sense of the fixtures entry above, in the **main** source set — which is the whole reason the helper was copied three times. |
+
+**The testing module was renamed hours later**, when the module rules landed and rule 5 turned out
+to match on a `-testing` suffix this name did not have. See "One shape for testing modules" below —
+the row above is what 0.0.14 shipped, not what the tree holds now.
 
 The criterion is Compose's own, and it is worth stating because it is what decides the *next* one:
 **dependency direction and rate of change, not subject matter.** That is why `format` is split off

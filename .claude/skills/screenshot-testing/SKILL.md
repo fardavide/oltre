@@ -45,8 +45,11 @@ when_to_use: >
   anti-aliasing drift of ≥10/255 on 2.4–5.6% of pixels — the ratio rises as the screenshot
   shrinks, because text dominates a small canvas (the 393×72 fleet strip measured 5.6%).
   Both are absorbed by the shared `oltreRoborazziOptions()`, which lives in
-  **`:client:design:testing`** (in its *main* source set, because KMP source sets cannot host test
-  fixtures — it was copied into three modules before 0.0.14 extracted it):
+  **`:client:design:screenshot-testing`** (in its *main* source set, because KMP source sets cannot
+  host test fixtures — it was copied into three modules before 0.0.14 extracted it). Its Kotlin
+  package is `dev.fardavide.oltre.client.design.testing`, deliberately not matching the module name:
+  a dash is not a legal package segment. Consume it from a **test** source set only — rule 5 in the
+  `module-rules` skill, and the reason for the `-testing` suffix:
   `SimpleImageComparator(maxDistance = 0.007f)` ignores the sub-perceptual noise,
   `ThresholdValidator(0.08f)` budgets the glyph edges on the smallest text-dense component.
   Use it in every screenshot test; raise either constant only with a new CI diff image as
