@@ -13,7 +13,10 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StarClass
+import dev.fardavide.oltre.core.StartAdaptationResult
+import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -23,6 +26,8 @@ import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
+import dev.fardavide.oltre.core.startAdaptation
+import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
@@ -43,7 +48,105 @@ fun main() {
     printResearchTable()
     printAdaptationTable()
     printGalaxyReport()
+    printDemandReport()
     printGreedyWeek()
+    printWholeTreeRun()
+}
+
+// What the game *sells* against what the colony *makes*, in the same currency.
+//
+// The production ratio was set at 0.0.12 to match the early building tree's ~3:1 metal:crystal, and
+// `BalanceCurveTest` still pins it there. Two branches have shipped since — applied research at
+// 0.0.13 and the adaptation ladders at 0.0.17 — and neither costs anything like 3:1. This table is
+// what says whether the ratio the mines were tuned against is still the ratio the game charges.
+private fun printDemandReport() {
+    println("## Demand against income")
+    println()
+    println("Every purchasable thing in the game at its base (level-1) cost, by branch. The last")
+    println("column is the one that matters: how much metal the game asks for per unit of crystal.")
+    println()
+    println("| What you can buy | metal | crystal | deuterium | metal : crystal |")
+    println("|---|---|---|---|---|")
+
+    // The Nanite Factory is left out for the reason `BalanceCurveTest` leaves it out: at 20k/10k it
+    // is a different economy and would drown the ratio it is not part of.
+    val earlyTree = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+    val branches = listOf(
+        "Buildings (the early tree)" to earlyTree.map { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)) },
+        "Applied research" to Technology.entries.map { ResearchBalance.researchCost(it, TechLevel(1)) },
+        "Adaptation ladders" to AdaptationTechnology.entries.map { AdaptationBalance.adaptationCost(it, TechLevel(1)) },
+    )
+    for ((label, costs) in branches) {
+        printDemandRow(label, costs)
+    }
+    printDemandRow("**Everything, together**", branches.flatMap { it.second })
+    println()
+
+    val metal = PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))
+    val crystal = PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1))
+    val deuterium = PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(1))
+    println("Income, per hour at level 1 — and at every other level, since all three mines share " +
+        "the one +25% curve: **$metal / $crystal / $deuterium**, a metal : crystal of ${ratio(metal, crystal)}.")
+    println()
+
+    // The two mines put side by side in one currency, which is the only way to compare them: they
+    // cost different things and make different things. Priced at the game's own 1 : 2 : 3, the
+    // question "which upgrade is the better buy" has a single answer at every level.
+    println("### The two mines, priced against each other at 1 : 2 : 3")
+    println()
+    println("| Level | metal mine cost | pays back in | crystal mine cost | pays back in | crystal mine is |")
+    println("|---|---|---|---|---|---|")
+    for (level in listOf(1, 3, 5, 8, 10, 12, 15, 18, 20)) {
+        val metalPayback = pricedPaybackHours(BuildingType.METAL_MINE, level)
+        val crystalPayback = pricedPaybackHours(BuildingType.CRYSTAL_MINE, level)
+        println(
+            "| $level -> ${level + 1} | ${priced(nextCost(BuildingType.METAL_MINE, level)).grouped()} " +
+                "| ${metalPayback}h | ${priced(nextCost(BuildingType.CRYSTAL_MINE, level)).grouped()} " +
+                "| ${crystalPayback}h | ${ratio(crystalPayback, metalPayback)} worse |",
+        )
+    }
+    println()
+    println("Both curves are the same shape, so that last column is a constant: the crystal mine is")
+    println("the worse buy by the same factor at level 1 and at level 20. A player following payback")
+    println("never upgrades it, and a player who upgrades it anyway is paying a premium to do so.")
+    println()
+}
+
+private fun printDemandRow(label: String, costs: List<Resources>) {
+    val metal = costs.sumOf { it.metal }
+    val crystal = costs.sumOf { it.crystal }
+    val deuterium = costs.sumOf { it.deuterium }
+    println("| $label | ${metal.grouped()} | ${crystal.grouped()} | ${deuterium.grouped()} | ${ratio(metal, crystal)} |")
+}
+
+private fun nextCost(building: BuildingType, level: Int): Resources =
+    PlaceholderBalance.upgradeCost(building, BuildingLevel(level + 1))
+
+// The game's own exchange rate, the one the research and adaptation sheets price everything at.
+private fun priced(resources: Resources): Long =
+    resources.metal + 2 * resources.crystal + 3 * resources.deuterium
+
+private fun pricedPaybackHours(building: BuildingType, level: Int): Long {
+    val perHour = { at: Int ->
+        when (building) {
+            BuildingType.CRYSTAL_MINE -> 2 * PlaceholderBalance.crystalProductionPerHour(BuildingLevel(at))
+            else -> PlaceholderBalance.metalProductionPerHour(BuildingLevel(at))
+        }
+    }
+    return priced(nextCost(building, level)) / (perHour(level + 1) - perHour(level))
+}
+
+// One decimal place, which is all the precision a ratio like this carries meaning at.
+private fun ratio(numerator: Long, denominator: Long): String {
+    if (denominator == 0L) return "n/a"
+    val tenths = numerator * 10 / denominator
+    return "${tenths / 10}.${tenths % 10} : 1"
 }
 
 // The galaxy's actual distribution against the decision sheet's section 9 targets. Those targets
@@ -330,41 +433,192 @@ private fun printCurveTable() {
 
 private fun Long.grouped(): String = toString().reversed().chunked(3).joinToString(",").reversed()
 
-private fun printGreedyWeek() {
-    val start = Instant.fromEpochMilliseconds(0)
-    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
-    var now = start
-    // A power shortage scales every mine silently, so a week that looks slow can be a week spent
-    // throttled rather than a curve that is too flat. Counting it is what tells the two apart.
-    var throttledHours = 0
+// The three resources, as an answer to "what is stopping me buying this".
+private enum class Blocker { METAL, CRYSTAL, DEUTERIUM }
 
-    repeat(7 * 24) {
+private fun shortagesOf(cost: Resources, stock: Resources): Set<Blocker> = buildSet {
+    if (stock.metal < cost.metal) add(Blocker.METAL)
+    if (stock.crystal < cost.crystal) add(Blocker.CRYSTAL)
+    if (stock.deuterium < cost.deuterium) add(Blocker.DEUTERIUM)
+}
+
+// What a run measured, beyond the closing stock. `soleBlockerHours` is the reading this whole
+// harness was extended for: an hour counts for a resource when some purchase the strategy wants is
+// short of *that resource and nothing else* — the player has the rest of the price in the bank and
+// is waiting on one mine. A resource that never appears here is never what anyone is waiting for.
+private class Ledger {
+    var throttledHours: Int = 0
+    val soleBlockerHours: MutableMap<Blocker, Int> = Blocker.entries.associateWith { 0 }.toMutableMap()
+
+    // What the strategy actually paid, summed as it paid it. The ratio between these is the number
+    // the income curve should be tuned against — not the unweighted sum of base costs, which is a
+    // basket nobody buys in those proportions.
+    var spentMetal: Long = 0
+    var spentCrystal: Long = 0
+    var spentDeuterium: Long = 0
+
+    fun spend(cost: Resources) {
+        spentMetal += cost.metal
+        spentCrystal += cost.crystal
+        spentDeuterium += cost.deuterium
+    }
+
+    fun record(costs: List<Resources>, stock: Resources) {
+        for (blocker in Blocker.entries) {
+            if (costs.any { shortagesOf(it, stock) == setOf(blocker) }) {
+                soleBlockerHours[blocker] = soleBlockerHours.getValue(blocker) + 1
+            }
+        }
+    }
+}
+
+// Everything a strategy might buy this hour, priced, so the runner can both spend on it and report
+// what it could not afford. Buildings and projects are separate because the game buys them under
+// different rules — facilities in parallel, projects one at a time, empire-wide.
+private class Options(val buildings: List<Pair<BuildingType, Resources>>, val projects: List<Pair<Any, Resources>>)
+
+private fun optionsFor(state: GameState, plan: List<BuildingType>, withProjects: Boolean): Options {
+    // Sorted on raw metal + crystal rather than on the priced total, because this is the key the
+    // 0.0.12 greedy week was generated with and the balance log's closing line is quoted against
+    // it. A different key buys a different colony — switching to priced moved the week's closing
+    // metal by a third — so it stays put, and the whole-tree run below inherits it for the same
+    // reason: two runs that sort differently are not comparable with each other either.
+    val buildings = plan
+        .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
+        .sortedBy { (_, cost) -> cost.metal + cost.crystal }
+    if (!withProjects || state.researchSlotFreesAt != null) return Options(buildings, emptyList())
+
+    // Both branches compete for the one slot, so they are one list sorted by one key. Cheapest
+    // first, the same rule the buildings follow — a rule, not a judgement about which is better.
+    val applied = Technology.entries
+        .filter { ResearchBalance.requirementFor(it).isMetBy(state) }
+        .map { it as Any to ResearchBalance.researchCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
+    val ladders = AdaptationTechnology.entries
+        .filter { AdaptationBalance.requirementFor(it).isMetBy(state) }
+        .map { it as Any to AdaptationBalance.adaptationCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
+    return Options(buildings, (applied + ladders).sortedBy { (_, cost) -> priced(cost) })
+}
+
+// One hour-stepped run of one strategy. Shared by both reports below so the two differ in what they
+// buy and in nothing else — a comparison between two runners would measure the runners.
+private fun run(days: Int, plan: List<BuildingType>, withProjects: Boolean): Pair<GameState, Ledger> {
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    var now = Instant.fromEpochMilliseconds(0)
+    val ledger = Ledger()
+
+    repeat(days * 24) {
         val next = now + 1.hours
         state = advance(state, from = now, to = next)
         now = next
-        if (PlaceholderBalance.energyBalance(state.buildings, state.research).isDeficit) throttledHours++
+        // A power shortage scales every mine silently, so a week that looks slow can be a week
+        // spent throttled rather than a curve that is too flat. Counting it tells the two apart.
+        if (PlaceholderBalance.energyBalance(state.buildings, state.research).isDeficit) ledger.throttledHours++
 
-        val candidates = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
-        candidates
-            .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
-            .sortedBy { (_, cost) -> cost.metal + cost.crystal }
-            .forEach { (building, cost) ->
-                if (!state.resources.covers(cost)) return@forEach
-                when (val result = startUpgrade(state, building, at = now)) {
-                    is StartUpgradeResult.Started -> state = result.state
-                    StartUpgradeResult.AlreadyUpgrading,
-                    StartUpgradeResult.InsufficientResources,
-                    StartUpgradeResult.RequirementsNotMet,
-                    -> Unit // already building this facility, or outbid by an earlier start
-                }
+        val options = optionsFor(state, plan, withProjects)
+        for ((building, cost) in options.buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let {
+                state = it.state
+                ledger.spend(cost)
             }
-    }
+        }
+        for ((project, cost) in options.projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state; ledger.spend(cost) }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state; ledger.spend(cost) }
+            }
+        }
 
+        // Measured *after* spending, so what remains is genuinely unaffordable rather than merely
+        // not yet bought.
+        val remaining = optionsFor(state, plan, withProjects)
+        ledger.record((remaining.buildings + remaining.projects).map { it.second }, state.resources)
+    }
+    return state to ledger
+}
+
+private fun report(
+    label: String,
+    days: Int,
+    state: GameState,
+    ledger: Ledger,
+    plan: List<BuildingType>,
+    withProjects: Boolean,
+) {
     val energy = PlaceholderBalance.energyBalance(state.buildings, state.research)
-    println("after 7 days (parallel builds):")
+    println("$label — after $days days:")
     println("  metal=${state.resources.metal} crystal=${state.resources.crystal} deuterium=${state.resources.deuterium}")
     println("  buildings=${state.buildings}")
+    if (withProjects) println("  research=${state.research}")
     println("  energy=${energy.produced}/${energy.consumed} (mines at ${energy.outputPercent}%)")
-    println("  hours throttled by power: $throttledHours of ${7 * 24}")
+    println("  hours throttled by power: ${ledger.throttledHours} of ${days * 24}")
     println("  events=${state.eventLog.size} (starts + completions)")
+    println("  spent: metal=${ledger.spentMetal.grouped()} crystal=${ledger.spentCrystal.grouped()} " +
+        "deuterium=${ledger.spentDeuterium.grouped()} " +
+        "— a metal : crystal of ${ratio(ledger.spentMetal, ledger.spentCrystal)}, against income at " +
+        "${ratio(PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)),
+            PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1)))}")
+    println("  hours with a purchase blocked by that resource *alone*, of ${days * 24}:")
+    for (blocker in Blocker.entries) {
+        println("    ${blocker.name.lowercase().padEnd(9)} ${ledger.soleBlockerHours.getValue(blocker)}")
+    }
+
+    // The closing snapshot: every purchase still on the table and what is short for it. This is the
+    // sentence the player would write the complaint from.
+    println("  what it could buy next, and what is missing:")
+    val options = optionsFor(state, plan, withProjects)
+    for ((what, cost) in options.buildings + options.projects) {
+        val short = shortagesOf(cost, state.resources)
+        val name = when (what) {
+            is BuildingType -> "${what.name} ${state.buildings.levelOf(what).value + 1}"
+            else -> "$what"
+        }
+        val missing = if (short.isEmpty()) "affordable" else short.joinToString { blocker ->
+            val need = when (blocker) {
+                Blocker.METAL -> cost.metal - state.resources.metal
+                Blocker.CRYSTAL -> cost.crystal - state.resources.crystal
+                Blocker.DEUTERIUM -> cost.deuterium - state.resources.deuterium
+            }
+            "${need.grouped()} more ${blocker.name.lowercase()}"
+        }
+        println("    ${name.padEnd(34)} $missing")
+    }
+    println()
+}
+
+// The 0.0.12 baseline, unchanged in what it buys so its closing line stays comparable with every
+// round of the balance log: upgrade anything affordable once an hour, cheapest first, mines *and*
+// plant. What is new is the ledger underneath it.
+private fun printGreedyWeek() {
+    println("## A greedy week, mines and plant only")
+    println()
+    val plan = listOf(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE, BuildingType.SOLAR_PLANT)
+    val (state, ledger) = run(days = 7, plan = plan, withProjects = false)
+    report("greedy week (parallel builds)", 7, state, ledger, plan, withProjects = false)
+}
+
+// The same greedy rule let loose on everything the game actually sells — the Robotics Factory and
+// the Deuterium Synthesizer as well as the mines, and the shared research slot kept busy with
+// whichever project of either branch is cheapest.
+//
+// This is the run the crystal question needed. The week above buys only mines and plant, which are
+// the two most metal-heavy things in the game; it cannot see the demand that applied research and
+// the adaptation ladders put on crystal, because it never buys either. Fourteen days rather than
+// seven because the research branch does not open until the first Robotics Factory, which is
+// itself gated behind deuterium.
+private fun printWholeTreeRun() {
+    println("## A fortnight buying everything the game sells")
+    println()
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+    val (state, ledger) = run(days = 14, plan = plan, withProjects = true)
+    report("whole tree (parallel builds, one research slot)", 14, state, ledger, plan, withProjects = true)
 }

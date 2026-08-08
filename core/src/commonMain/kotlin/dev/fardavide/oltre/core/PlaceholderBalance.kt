@@ -17,12 +17,18 @@ object PlaceholderBalance {
     // tens of units an hour, so a stock is a number the player reads rather than a wall of
     // digits, and an upgrade cost is something they can hold in their head.
     //
-    // Metal is produced 3:1 against crystal because the early build tree *costs* ~3:1 — at the
-    // 2:1 it used to be, metal was the bottleneck for every decision no matter how the colony
-    // was played, while crystal piled up with nothing to spend it on. `BalanceCurveTest` ties
-    // this ratio to the cost curves so the two cannot drift apart again.
+    // Metal is produced 2.5:1 against crystal, tracking the 183:69 the *repeating* basket costs —
+    // a level of Metal Mine, Crystal Mine and Solar Plant, which is what a session actually buys.
+    //
+    // This ratio has now been wrong in both directions, which is why `BalanceCurveTest` bounds it
+    // from both. At 2:1 (before 0.0.12) metal was the permanent bottleneck. At 3:1 (0.0.12 to
+    // 0.1.0) crystal was: the target was averaged over the whole early tree, including the
+    // Robotics Factory and the Deuterium Synthesizer — the two most metal-heavy rows in the game,
+    // and the two you buy a handful of times rather than every session. `:sim:run` measured what
+    // that cost: 130 of a greedy week's 168 hours had a purchase blocked by crystal *alone*, and
+    // the week closed holding 49,544 metal it had nothing to spend on against 1,410 crystal.
     const val METAL_PRODUCTION_PER_HOUR: Long = 90
-    const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 30
+    const val CRYSTAL_PRODUCTION_PER_HOUR: Long = 36
     const val DEUTERIUM_PRODUCTION_PER_HOUR: Long = 15
 
     // Output compounds +25% per level, so an upgrade is a raise and never a doubling: level 10

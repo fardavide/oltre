@@ -72,10 +72,10 @@ class AdvanceResearchTest {
         val researchedCrystal = advance(researched, from = EPOCH, to = EPOCH + 1.hours).resources.crystal -
             researched.resources.crystal
 
-        // then - 90/h and 30/h at level 1, both times 1.08^2
+        // then - 90/h and 36/h at level 1, both times 1.08^2
         assertEquals(90L, plainMetal)
         assertEquals(104L, researchedMetal)
-        assertEquals(34L, researchedCrystal)
+        assertEquals(41L, researchedCrystal)
     }
 
     @Test

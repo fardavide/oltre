@@ -116,7 +116,18 @@ kover {
                 // `main()`. Both are process entry points exercised by running them
                 // (`:sim:run`, the server) — there is nothing for a test to hold on to, so
                 // leaving them in only depresses the total permanently.
-                classes("dev.fardavide.oltre.sim.MainKt", "dev.fardavide.oltre.server.MainKt")
+                //
+                // The **whole** sim package, not just its `MainKt`. `:sim` is a balancing harness
+                // that never ships; its output is read by a human and pasted into
+                // `.claude/docs/balance-log.md`, and every line of it is either a `println` or the
+                // arithmetic feeding one. Naming the file's class was too narrow: 0.1.1 added three
+                // top-level private types to `Main.kt` (a blocker enum, a ledger, an options
+                // holder), Kotlin compiled them to sibling class files rather than into `MainKt`,
+                // and they landed in the report as a brand-new package at 0% — 14 uncovered lines
+                // that failed the gate on a PR that had not touched a line of shipping code. A
+                // package exclusion says what was always meant.
+                packages("dev.fardavide.oltre.sim")
+                classes("dev.fardavide.oltre.server.MainKt")
             }
         }
         total {

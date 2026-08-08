@@ -9,10 +9,15 @@
 | [balance-log.md](balance-log.md) | Every tuning round: the feedback in Davide's words, what moved, what to watch |
 | [galaxy-sheet.md](galaxy-sheet.md) | The settled design for slices 4 and 5 — trait axes, coordinates, generation, the target distribution |
 
-Work that a remote agent session cannot do — anything needing a Gradle build, UI of any kind, or
-a repo only the desktop machine has — is written up as a ready-to-paste prompt. See
+Work that a remote agent session cannot do — UI of any kind, screenshot baselines, or a repo only
+the desktop machine has — is written up as a ready-to-paste prompt. See
 [`../rules/session-roles.md`](../rules/session-roles.md) for which session may do what, and
-[`../prompts/`](../prompts/) for the standing ones.
+[`../prompts/`](../prompts/) for the standing ones. A Gradle build is no longer on that list in
+full: `../tools/gradle-without-agp.sh` runs `:core` and `:sim` from a session where AGP cannot
+resolve, so domain and balance work can be tested rather than reasoned about.
+
+`../tools/` holds scripts an agent runs, as opposed to `../commands/` (what to do) and
+`../skills/` (how this project does a thing).
 
 ## For agents
 
