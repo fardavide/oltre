@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.core.AdaptationJob
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -159,6 +161,20 @@ class ResearchUiStateTest {
     }
 
     @Test
+    fun `a row waits on the slot when the other branch is the one holding it`() {
+        // given everything paid for and an adaptation ladder two hours from done
+        val row = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 300, crystal = 150, deuterium = 100),
+            activeAdaptation = ladder(completesAt = EPOCH + 2.hours),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - one slot, shared: a ladder holds it exactly as hard as a technology does, and a
+        // row that read only `activeResearch` would offer to start a project the model refuses.
+        assertEquals(ResearchActionUiState.AvailableIn("in 2h 00m"), row.action)
+    }
+
+    @Test
     fun `a resource the colony cannot produce at all reads as a dash`() {
         // given no Deuterium Synthesizer, so the deuterium a technology wants never arrives
         val row = colony(
@@ -229,15 +245,16 @@ class ResearchUiStateTest {
         research: Research = Research.initial(),
         resources: Resources = Resources.of(),
         activeResearch: ResearchJob? = null,
+        activeAdaptation: AdaptationJob? = null,
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
         builds = emptyMap(),
         research = research,
         activeResearch = activeResearch,
-        // The other half of the same slot. The Research screen does not render the adaptation
-        // branch yet, so every case here leaves it empty.
-        activeAdaptation = null,
+        // The other half of the same slot, and never set alongside `activeResearch` — `GameState`
+        // refuses that pair. What the rows have to answer for is a slot held by either branch.
+        activeAdaptation = activeAdaptation,
         galaxy = freshState().galaxy,
         returningFleet = null,
         eventLog = emptyList(),
@@ -258,6 +275,14 @@ class ResearchUiStateTest {
         technology: Technology = Technology.EXTRACTION,
     ): ResearchJob = ResearchJob(
         technology = technology,
+        toLevel = TechLevel(1),
+        startedAt = EPOCH,
+        completesAt = completesAt,
+    )
+
+    // The same slot, held by the branch this screen does not render.
+    private fun ladder(completesAt: Instant): AdaptationJob = AdaptationJob(
+        technology = AdaptationTechnology.GRAVITIC,
         toLevel = TechLevel(1),
         startedAt = EPOCH,
         completesAt = completesAt,

@@ -111,8 +111,11 @@ private fun GameState.toTechnologyRow(
 // that actually governs.
 private fun GameState.startOrWait(cost: Resources, now: Instant): ResearchActionUiState {
     val untilAffordable = timeUntilAffordable(resources, cost, buildings, research)
-    val untilSlotFrees = activeResearch
-        ?.let { it.completesAt - now }
+    // `researchSlotFreesAt`, not `activeResearch.completesAt`: the slot is empire-wide and shared
+    // with the adaptation branch, so a ladder holds it exactly as hard as a technology does.
+    // Reading one field would offer a Research button the model then refuses as `SlotBusy`.
+    val untilSlotFrees = researchSlotFreesAt
+        ?.let { it - now }
         ?.coerceAtLeast(Duration.ZERO)
         ?: Duration.ZERO
     val wait = maxOf(untilAffordable, untilSlotFrees)
