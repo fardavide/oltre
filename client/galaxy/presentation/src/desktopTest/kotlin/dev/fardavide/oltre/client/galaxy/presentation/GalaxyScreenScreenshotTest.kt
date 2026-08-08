@@ -63,6 +63,7 @@ class GalaxyScreenScreenshotTest {
                             onSelectGalaxy = {},
                             onStepSystem = {},
                             onGoHome = {},
+                        onOpenResearch = {},
                         )
                     }
                 }

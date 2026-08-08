@@ -64,12 +64,16 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":4,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """{"schemaVersion":5,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
-                """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
-                """"activeResearch":null,""" +
+                """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0,""" +
+                // The three adaptation ladders, in the same record as the three applied
+                // technologies: what the empire knows is one thing however it was learned.
+                """"thermal":0,"gravitic":0,"atmospheric":0},""" +
+                // Two fields, one slot — at most one of them is ever anything but null.
+                """"activeResearch":null,"activeAdaptation":null,""" +
                 // The whole galaxy, in one line: a seed, where home is, the handful of worlds the
                 // home system holds, and who owns what. Four thousand seven hundred worlds of
                 // traits are absent on purpose — they are regenerated from that seed.
@@ -466,8 +470,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 4 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":4"""), rewritten)
+        // then — and from then on it is a version 5 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":5"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -554,6 +558,94 @@ class GameSaveTest {
             Coordinates(galaxy = 2, system = 117, position = 9),
             checkNotNull(decoded.state.returningFleet).origin,
         )
+    }
+
+    @Test
+    fun `the version 4 fixture is the string 0_0_16 actually wrote`() {
+        // Byte-for-byte the string 0.0.16 pinned in `the on-disk shape is pinned`, with the stock of
+        // a colony not yet opened. A fixture written from memory would only prove that made-up JSON
+        // migrates, which is the one thing nobody needs to know.
+        assertEquals(
+            """{"schemaVersion":4,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+                """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+                """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+                """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+                """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
+                """"activeResearch":null,""" +
+                """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+                """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+                """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+                """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+                """"returningFleet":null,"eventLog":[]}}""",
+            VERSION_4_IDLE,
+        )
+    }
+
+    @Test
+    fun `a version 4 colony is carried forward with three ladders at zero and an empty slot`() {
+        // The adaptation branch is additive in exactly the sense research and the galaxy were: an
+        // empire saved before the ladders existed has climbed none of them and has nothing running.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_IDLE)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(AdaptationLevels.NONE, decoded.state.research.adaptationLevels())
+        assertEquals(null, decoded.state.activeAdaptation)
+    }
+
+    @Test
+    fun `the 4 to 5 hop adds to the research record rather than replacing it`() {
+        // The failure this exists to catch: encoding a fresh `Research` into the migrated save
+        // would carry the three new ladders across and silently reset the two levels the player
+        // actually earned. Unlike the 2 -> 3 hop, `research` already exists at version 4.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
+
+        assertEquals(TechLevel(2), decoded.state.research.photovoltaics)
+        assertEquals(TechLevel(3), decoded.state.research.extraction)
+        assertEquals(AdaptationLevels.NONE, decoded.state.research.adaptationLevels())
+    }
+
+    @Test
+    fun `a played version 4 colony keeps everything it had including the map`() {
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
+
+        // then
+        assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
+        assertEquals(500L, decoded.state.resources.metal)
+        assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
+        assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
+        assertEquals(GalaxySeed(20_260_807), decoded.state.galaxy.seed)
+        assertEquals(GalaxyCoordinate(galaxy = 3, system = 165, slot = 7), decoded.state.galaxy.home)
+        assertEquals(4, decoded.state.galaxy.surveyed.size)
+        assertEquals(1, decoded.state.eventLog.size)
+    }
+
+    @Test
+    fun `a version 4 save whose slot was busy still holds one project after the hop`() {
+        // The invariant the 4 -> 5 hop could break if it invented an adaptation job: version 4 has
+        // an applied project running, so the migrated state must leave the other field empty or
+        // `GameState.init` refuses to build it at all.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
+
+        assertEquals(
+            checkNotNull(decoded.state.activeResearch).completesAt,
+            decoded.state.researchSlotFreesAt,
+        )
+    }
+
+    @Test
+    fun `a save claiming both projects at once is refused rather than half-read`() {
+        // A hand-edited file, and the one shape `GameState.init` exists to reject. The failure has
+        // to be a Failure and not an exception escaping `decode`.
+        val both = GameSave.encode(
+            GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial().researching(Technology.EXTRACTION, EPOCH)),
+        ).replace(
+            """"activeAdaptation":null""",
+            """"activeAdaptation":{"technology":"THERMAL","toLevel":1,""" +
+                """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T03:00:00Z"}""",
+        )
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(both))
     }
 
     @Test
@@ -683,9 +775,46 @@ class GameSaveTest {
             """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
             """"at":"1970-01-01T00:00:00Z"}]}}"""
 
+        // Frozen captures of the 0.0.16 on-disk format — the saves sitting on the builds that
+        // shipped between 0.0.15 and 0.0.16, which are the first with a galaxy in them. Read them,
+        // never rewrite them.
+        const val VERSION_4_IDLE = """{"schemaVersion":4,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0},""" +
+            """"activeResearch":null,""" +
+            """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+            """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+            """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+            """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+            """"returningFleet":null,"eventLog":[]}}"""
+
+        // A version 4 colony that had actually been played, with a map it had started changing:
+        // three surveyed worlds beyond the home system is the thing this format has and version 3
+        // did not, and the research levels are what the 4 -> 5 hop must not reset.
+        const val VERSION_4_FULL = """{"schemaVersion":4,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":1,"naniteFactory":0},""" +
+            """"builds":{"METAL_MINE":{"building":"METAL_MINE","toLevel":5,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T00:50:00Z"}},""" +
+            """"research":{"photovoltaics":2,"extraction":3,"enrichment":0},""" +
+            """"activeResearch":{"technology":"EXTRACTION","toLevel":4,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T05:00:00Z"},""" +
+            """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+            """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+            """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+            """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+            """"returningFleet":{"ships":{"CARGO":14},""" +
+            """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
+            """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
+            """"at":"1970-01-01T00:00:00Z"}]}}"""
+
         // A colony that had actually been played: levelled buildings, a stock, a fleet on its
         // way home and an event log — everything the migration must carry across untouched.
-        const val VERSION_1_FULL = """{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+        const val VERSION_1_FULL ="""{"schemaVersion":1,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
             """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
             """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
             """"solarPlant":2,"roboticsFactory":0,"naniteFactory":0},""" +

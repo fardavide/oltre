@@ -12,7 +12,7 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
     // earliest due event, apply it, and recurse.
     val nextEventAt = (
         state.builds.values.map { it.completesAt } +
-            listOfNotNull(state.activeResearch?.completesAt) +
+            listOfNotNull(state.researchSlotFreesAt) +
             listOfNotNull(state.returningFleet?.arrivesAt)
         ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
@@ -28,8 +28,10 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     // the event log — everything up to the boundary has already accrued, and none of these
     // transitions reads another's result — but the log has to be reproducible, so the order is
     // fixed here and mirrored by `futureEvents`: build completions in building order, then the
-    // research completion, then the fleet arrival. Colony first, then the empire, then what
-    // arrives from outside it.
+    // research completion, then the adaptation completion, then the fleet arrival. Colony first,
+    // then the empire, then what arrives from outside it. The two research branches share one slot
+    // so only one of them can ever be due, but the order between them is still written down —
+    // a tie-break that depends on which case happens to be reachable is one a later slice breaks.
     val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
     for (job in completed) {
         next = next.copy(
@@ -51,6 +53,18 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
                 technology = project.technology,
                 newLevel = project.toLevel,
                 at = project.completesAt,
+            ),
+        )
+    }
+    val adaptation = next.activeAdaptation
+    if (adaptation != null && adaptation.completesAt == instant) {
+        next = next.copy(
+            research = next.research.withLevel(adaptation.technology, adaptation.toLevel),
+            activeAdaptation = null,
+            eventLog = next.eventLog + Event.AdaptationCompleted(
+                technology = adaptation.technology,
+                newLevel = adaptation.toLevel,
+                at = adaptation.completesAt,
             ),
         )
     }

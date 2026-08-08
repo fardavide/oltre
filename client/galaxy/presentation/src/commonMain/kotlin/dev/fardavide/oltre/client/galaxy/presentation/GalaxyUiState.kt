@@ -1,9 +1,12 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import dev.fardavide.oltre.core.AdaptationLevels
+import dev.fardavide.oltre.client.design.format.milli
+import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.client.design.format.perMillion
+import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
-import dev.fardavide.oltre.core.GalaxyState
+import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Hazard
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.StarClass
@@ -49,10 +52,6 @@ data class GalaxyUiState(
     // number or a name — and it is authored rather than left to an ellipsis, because "4 WO…" is the
     // layout admitting defeat where "DIM · 4" is the screen still saying something true.
     val compactDetail: String,
-    // Constant, and it stays on the header rather than on the rows that earn it: every `Blocked`
-    // row names a technology, and there are more of them on this screen than anything else, so the
-    // one place the caveat is said once is above them all.
-    val adaptationState: String,
     val atFirstSystem: Boolean,
     val atLastSystem: Boolean,
     val isHome: Boolean,
@@ -131,7 +130,11 @@ data class BlockedAxisUiState(
     val axis: String,
     val reading: String,
     val tolerated: String,
-    val technology: String,
+    // The ladder itself as well as the string it renders. The label is what the row prints; the
+    // enum is what the tap target is keyed by and what a later slice would deep-link with, and
+    // keeping it means the one place this row names a technology is not a bare string.
+    val technology: AdaptationTechnology,
+    val label: String,
 )
 
 // PLACEHOLDER copy, marked as such for the same reason the notification copy and the unbuilt tabs'
@@ -140,27 +143,31 @@ data class BlockedAxisUiState(
 // this is the line the design flagged as its fifth open call.
 private const val RELAY_EFFECT = "+18% range while held"
 
-// PLACEHOLDER copy, on the same terms as `RELAY_EFFECT` above and the unbuilt tabs' one-liners,
-// and in the same voice — "Ship construction lands here." Every `Blocked` row names an adaptation
-// technology, and Research sells three technologies, none of which is one of those: the ladders are
-// their own slice and Davide's call per the galaxy sheet's open list. So the sentence on the row is
-// true and cannot be acted on, and the screen says which of those two it is. It goes when the
-// ladders land, not before.
-// Second person because the rows are already in it — "you tolerate 1.40 g" — and because the fact
-// that matters to a player reading a blocked row is where *they* stand. It is also what keeps the
-// line unwrapped at 393dp: "Every empire is at level 0." broke after "level", which leaves "0."
-// alone on a line and reads as a defect rather than as a wrap.
-private const val ADAPTATION_STATE = "Adaptation research lands later. You are at level 0."
+// 0.0.16's PLACEHOLDER header line — "Adaptation research lands later. You are at level 0." — was
+// deleted here rather than replaced. It existed to account for an absence, and the absence ended
+// when Research started selling the three ladders; an absence that ends does not need a successor,
+// and keeping the slot alive would leave the header shaped by something no longer true.
+//
+// The honest candidate for the slot was where the empire actually stands — "Thermal 2 · Gravitic 0
+// · Atmospheric 1" — and the design rejected it for one reason worth keeping written down: a
+// tolerance band means nothing except against a reading. Every place a player needs one, the
+// reading is already beside it — "gravity 2.62, you tolerate 1.45 g" on the row below, and the
+// current band on the left of every adaptation row on Research. A standing total in a header would
+// answer a question nobody is holding at that moment, and would be the only header in Oltre
+// stating empire state that is not about what is on screen. The rail already does empire state.
 
 // Written once because `Blocked` and `Barren` both quote it, and two rows on one screen disagreeing
 // about the bar would be the screen contradicting itself. It is the number `verdictFor` actually
 // decides by, not a string that looks like it.
 private val WORTH_IT_AT = "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()}"
 
-internal fun GalaxyState.toGalaxyUiState(
-    at: SystemSelection,
-    adaptation: AdaptationLevels = AdaptationLevels.NONE,
-): GalaxyUiState {
+// The whole state rather than its `galaxy` half, and that is the fix 0.0.17 left for this slice:
+// `verdictFor(world, state)` reads the empire's real adaptation levels, where the two-argument form
+// took an `AdaptationLevels` that this mapper defaulted to `NONE`. With the ladders buyable, a
+// default of `NONE` would leave every world exactly as blocked as it was at genesis however deep
+// the player had climbed — the screen quietly refusing to show what they had bought.
+internal fun GameState.toGalaxyUiState(at: SystemSelection): GalaxyUiState {
+    val seed = galaxy.seed
     val starClass = starClassAt(seed, at.galaxy, at.system)
     val relay = relayAt(seed, at.galaxy, at.system)
     val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM).associateWith { slot ->
@@ -174,7 +181,7 @@ internal fun GalaxyState.toGalaxyUiState(
                 coordinate = coordinate.label(),
                 slot = slot,
                 band = OrbitBand.of(slot),
-                verdict = verdictFor(world, this, adaptation).toUiState(world.traits),
+                verdict = verdictFor(world, this).toUiState(world.traits),
             )
             coordinate == relay -> WorldRowUiState(
                 coordinate = coordinate.label(),
@@ -187,17 +194,16 @@ internal fun GalaxyState.toGalaxyUiState(
     }
 
     return GalaxyUiState(
-        galaxies = (1..GalaxyBalance.GALAXIES).map { galaxy ->
-            GalaxyTabUiState(label = "G$galaxy", galaxy = galaxy, selected = galaxy == at.galaxy)
+        galaxies = (1..GalaxyBalance.GALAXIES).map { index ->
+            GalaxyTabUiState(label = "G$index", galaxy = index, selected = index == at.galaxy)
         },
         scope = "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
         coordinate = "${at.galaxy}:${at.system}",
         detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
         compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
-        adaptationState = ADAPTATION_STATE,
         atFirstSystem = at.system <= 1,
         atLastSystem = at.system >= GalaxyBalance.SYSTEMS_PER_GALAXY,
-        isHome = at.galaxy == home.galaxy && at.system == home.system,
+        isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
         map = SystemMapUiState(
             slots = (1..GalaxyBalance.SLOTS_PER_SYSTEM).map { slot ->
                 MapSlotUiState(slot = slot, mark = markFor(rows.firstOrNull { it.slot == slot }))
@@ -271,10 +277,11 @@ private fun ToleranceFailure.toUiState(): BlockedAxisUiState = BlockedAxisUiStat
     axis = axis.name.lowercase(),
     reading = axis.reading(worldValue),
     tolerated = axis.tolerated(toleratedBound),
+    technology = axis.adaptation,
     // "Gravitic 9", not "Gravitic Adaptation 9". All three technologies here end in the same word,
     // so it carries nothing and costs eleven characters the row does not have. Research spells it
     // out; this row has no room, and the object is the same either way.
-    technology = "${axis.adaptation.name.lowercase().replaceFirstChar { it.uppercase() }} $closedAtLevel",
+    label = "${axis.adaptation.name.lowercase().replaceFirstChar { it.uppercase() }} $closedAtLevel",
 )
 
 private fun HostilityAxis.reading(value: Int): String = when (this) {
@@ -306,29 +313,6 @@ private fun WorldTraits.hazardLabel(ifNone: String?): String? = when {
 private fun Hazard.label(): String = name.lowercase().replace('_', ' ')
 
 private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
-
-// A true minus sign rather than a hyphen, matching the design. Every screen in this app is numbers
-// in a mono face, and a hyphen at this size reads as a dash between two figures.
-private fun Int.signed(): String = if (this < 0) "−${-this}" else "+$this"
-
-// Two decimal places, which is what keeps a blocked line's four numbers on one row at 393dp. The
-// scale is named by the caller rather than guessed from the magnitude: milli-g and parts-per-million
-// overlap in range, so a formatter that sniffed which it had been given would be right until the
-// day a world had a gravity of 0.15 g and a richness of 0.15.
-private fun Int.milli(): String = decimalOf(scale = 1_000)
-
-private fun Int.perMillion(): String = decimalOf(scale = 1_000_000)
-
-// Rounded half up rather than truncated, matching `ResearchBalance.effectPercent`: a pressure of
-// 0.016 atm reading as "0.01" understates a number the player is comparing against a band.
-private fun Int.decimalOf(scale: Int): String {
-    val magnitude = if (this < 0) -this else this
-    val sign = if (this < 0) "−" else ""
-    val hundredths = (magnitude % scale * 100 + scale / 2) / scale
-    // Rounding 0.999 up carries into the whole part, which the two halves have to agree about.
-    val whole = magnitude / scale + hundredths / 100
-    return "$sign$whole.${(hundredths % 100).toString().padStart(2, '0')}"
-}
 
 private const val SEPARATOR = " · "
 

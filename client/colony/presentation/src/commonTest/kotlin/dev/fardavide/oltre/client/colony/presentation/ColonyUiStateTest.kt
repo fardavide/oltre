@@ -430,6 +430,7 @@ class ColonyUiStateTest {
         builds = emptyMap(),
         research = Research.initial(),
         activeResearch = null,
+        activeAdaptation = null,
         // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot
         // found every colony in the same galaxy. The Colony screen draws none of it.
         galaxy = GameState.initial(GalaxySeed(20_260_807)).galaxy,

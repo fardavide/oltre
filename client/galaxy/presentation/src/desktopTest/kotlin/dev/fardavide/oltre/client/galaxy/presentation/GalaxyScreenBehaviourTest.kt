@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.core.AdaptationTechnology
 import kotlin.test.assertEquals
 import org.junit.Test
 
@@ -146,14 +147,42 @@ class GalaxyScreenBehaviourTest {
         }
     }
 
+    // The inverse of the test this replaces. 0.0.16 put a PLACEHOLDER line in the header saying the
+    // ladders were unbuilt; 0.0.18 builds them, so the line is deleted rather than reworded — it
+    // accounted for an absence, and nothing succeeds an absence that has ended. Pinned as an
+    // absence because a header that quietly grew the sentence back would be the screen lying again.
     @Test
-    fun `the screen says the ladders its blocked rows point at are not built yet`() {
-        // The technology on a blocked row is a purchase Research cannot sell: all three adaptation
-        // ladders are unbuilt. Marked PLACEHOLDER in the mapper, in the voice the unbuilt tabs use.
+    fun `the header no longer excuses a branch that now exists`() {
         galaxyScreen(uiState = homeSystemUiState) {
-            assertReads("Adaptation research lands later.")
-            assertReads("You are at level 0.")
+            assertNothingReads("Adaptation research lands later.")
+            assertNothingReads("You are at level 0.")
         }
+    }
+
+    // The other half of the same decision: the remedy is accent and tappable, or neither. An accent
+    // string that is not a target breaks the colour rule harder than 0.0.16's demotion did.
+    @Test
+    fun `tapping a blocked row's remedy asks for the tab that sells it`() {
+        var opened = 0
+
+        galaxyScreen(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
+            tapTheRemedy(slot = 8, technology = AdaptationTechnology.GRAVITIC)
+        }
+
+        assertEquals(1, opened)
+    }
+
+    // The target is the string, not the row: the row belongs to the world — survey now, claim
+    // later — so a whole-row deep link would take that away from what the player usually wants.
+    @Test
+    fun `tapping the rest of a blocked row asks for nothing`() {
+        var opened = 0
+
+        galaxyScreen(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
+            tapTheWorld(slot = 8)
+        }
+
+        assertEquals(0, opened)
     }
 
     @Test

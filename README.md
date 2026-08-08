@@ -120,6 +120,39 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.0.18 — 2026-08-08
+
+- **You can buy an adaptation ladder, and watch a world open up.** The Research tab grows a second
+  section — Thermal, Gravitic and Atmospheric, under the three production technologies — so the
+  ladder every blocked world has been naming is finally on sale. Buy the one a world asks for, wait
+  it out, and that world stops reading BLOCKED.
+- **Tap the technology on a blocked world to go and buy it.** "Gravitic 3" on the Galaxy tab is a
+  link now, and it lands on the section that sells it. It stopped looking tappable in 0.0.16 for
+  one reason — nothing sold it — and that reason is gone.
+- **One project at a time still means one, across both branches.** An adaptation ladder and a
+  production technology compete for the same slot, so starting either stops the other five rows,
+  and every one of them shows the same wait the running row is counting down. Climbing a ladder
+  costs you the production level you did not research.
+- **A ladder shows the band it widens.** "0.65 … 1.40 → 0.60 … 1.52 g" — what you tolerate now, and
+  what the next level would make it, in the same units the Galaxy tab measures worlds in.
+- **The Galaxy header stops apologising.** "Adaptation research lands later. You are at level 0."
+  was true until this build and is gone from it.
+
+### 0.0.17 — 2026-08-07
+
+- **Nothing on screen changes in this build.** The three adaptation ladders every blocked world
+  points at are now built and playable in the simulation, but no screen sells them yet — the
+  Research tab still shows three technologies and the Galaxy tab still says you are at level 0.
+  The screens are the next slice.
+- **What landed underneath:** Thermal, Gravitic and Atmospheric Adaptation are real technologies.
+  Each level widens the tolerance band on its own axis, so a world blocked on gravity stops being
+  blocked at the level its row already names. All three open on a level 4 Robotics Factory, all
+  three cost the same — priced in the resource their own axis makes rich — and all three compete
+  for your single research slot, so climbing one costs the production technology you did not
+  research instead.
+- **Colonies carry forward.** Saves from 0.0.16 migrate: your research levels survive untouched and
+  the three ladders start at zero.
+
 ### 0.0.16 — 2026-08-07
 
 - **A blocked world now says what it is worth, not only what it costs.** The yield sits beside the

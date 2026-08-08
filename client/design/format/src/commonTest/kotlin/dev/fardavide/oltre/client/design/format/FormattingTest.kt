@@ -67,4 +67,90 @@ class FormattingTest {
         assertEquals("07", 7.pad2())
         assertEquals("23", 23.pad2())
     }
+
+    // The physical quantities below were private to the Galaxy mapper until the adaptation branch
+    // put the same three axes on the Research screen. A band on Research is read against a world
+    // reading on Galaxy — "you tolerate 1.45 g" against "0.65 … 1.40 g" — so the two screens
+    // printing them two ways would not be a style question, it would be the app contradicting
+    // itself about a number the player is comparing.
+
+    @Test
+    fun `a signed integer takes a true minus rather than a hyphen`() {
+        assertEquals("−30", (-30).signed())
+        assertEquals("+45", 45.signed())
+    }
+
+    // Zero is not a negative quantity and reads as a gain, which is what the tolerance bands and
+    // the temperature readings both want.
+    @Test
+    fun `zero signs positive`() {
+        assertEquals("+0", 0.signed())
+    }
+
+    @Test
+    fun `a milli quantity is two decimal places`() {
+        assertEquals("1.40", 1_400.milli())
+        assertEquals("0.65", 650.milli())
+        assertEquals("2.60", 2_600.milli())
+    }
+
+    // Padded rather than trimmed, both halves of every band: a column of "1.4" over "0.65" stops
+    // being a column, and this face is tabular precisely so the decimal points line up.
+    @Test
+    fun `a trailing zero is kept so two readings align`() {
+        assertEquals("0.50", 500.milli())
+        assertEquals("3.50", 3_500.milli())
+    }
+
+    @Test
+    fun `a milli quantity carries its sign`() {
+        assertEquals("−0.05", (-50).milli())
+    }
+
+    @Test
+    fun `a per-million quantity is two decimal places on its own scale`() {
+        assertEquals("0.92", 920_000.perMillion())
+        assertEquals("1.00", 1_000_000.perMillion())
+    }
+
+    // Rounded half up rather than truncated, matching `ResearchBalance.effectPercent`: 0.016 atm
+    // reading as "0.01" understates a number being compared against a band.
+    @Test
+    fun `hundredths round half up`() {
+        assertEquals("0.02", 16.milli())
+    }
+
+    // The carry the two halves of the formatter have to agree about — a truncating whole part
+    // beside a rounding fraction prints 0.100 as "0.00".
+    @Test
+    fun `rounding a fraction up carries into the whole part`() {
+        assertEquals("1.00", 999.milli())
+    }
+
+    // The trimmed variant exists for exactly one line — the pressure band on a Research row — and
+    // for a width reason rather than a taste one. See `milliTrimmed`.
+    @Test
+    fun `a trimmed milli quantity drops the zeros it does not need`() {
+        assertEquals("0.5", 500.milliTrimmed())
+        assertEquals("2.6", 2_600.milliTrimmed())
+        assertEquals("3.5", 3_500.milliTrimmed())
+    }
+
+    @Test
+    fun `a trimmed milli quantity keeps the digits it does need`() {
+        assertEquals("0.44", 440.milliTrimmed())
+        assertEquals("1.52", 1_520.milliTrimmed())
+    }
+
+    // A whole number loses its point as well as its zeros, rather than reading "3." — which is the
+    // only case where trimming twice matters.
+    @Test
+    fun `a whole trimmed quantity drops the decimal point too`() {
+        assertEquals("3", 3_000.milliTrimmed())
+    }
+
+    @Test
+    fun `a trimmed milli quantity carries its sign`() {
+        assertEquals("−0.5", (-500).milliTrimmed())
+    }
 }

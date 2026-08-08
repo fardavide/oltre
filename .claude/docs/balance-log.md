@@ -370,3 +370,57 @@ than chased.
 - **Blocked worlds now name higher technology levels** — the home system's slot 8 went from
   Gravitic 3 to Gravitic 4 — because the bands are tighter. Worth watching that the shopping list
   still reads as a purchase rather than as a wall.
+
+## Round 6 — 0.0.17, what an adaptation level costs (2026-08-07)
+
+**Not a rebalance.** No existing number moved: not a `GalaxyBalance` constant, not a
+`ResearchBalance` table, not a `PlaceholderBalance` curve. Round 5's distribution is untouched and
+its "watch next round" list is still open and still unanswered. What this round adds is a price for
+something that already had an effect — the three adaptation ladders — and it is recorded here
+because it is the first set of numbers in the game that a player pays without seeing a per-hour rate
+change.
+
+The numbers and the arguments are in [`adaptation-sheet.md`](adaptation-sheet.md), settled by the
+build on Davide's "continue the development", in the same shape as the galaxy sheet's own delegated
+round. Every line is his to overrule.
+
+### What was chosen
+
+| Ladder | metal | crystal | deuterium | priced 1 : 2 : 3 |
+|---|---|---|---|---|
+| Thermal | 900 | 600 | 900 | **4,800** |
+| Gravitic | 2,400 | 900 | 200 | **4,800** |
+| Atmospheric | 850 | 1,600 | 250 | **4,800** |
+
+×1.5 per level, the game's one cost curve. Duration 240 minutes × level on research's gentle
+Robotics divisor — 3h 02m for level 1 at Robotics 4, 15h 09m for level 5. Gate: Robotics Factory 4,
+the same for all three. One shared research slot with the applied branch.
+
+**The one idea in the table:** each ladder is priced in the resource its own axis makes rich, and
+the three cost identically once priced at 1 : 2 : 3. So the choice of first ladder falls out of what
+the colony already has in the bank rather than out of which is cheapest — and the ladder that would
+fix the shortage a player actually has is the one they cannot yet pay for.
+
+### Reference points it was set against
+
+- Enrichment level 1, the priciest applied technology, is **2,500** priced. Adaptation level 1 is
+  **4,800** — the branch that changes the map is the expensive one, by a factor of about two.
+- Round 5's greedy week ends on 49,544 metal / 1,410 crystal / 2,520 deuterium. A metal-heavy colony
+  of that shape can afford **Gravitic 1** almost without noticing and cannot afford Thermal 1 at
+  all, which is the intended asymmetry landing on the only colony that has actually been measured.
+- Gravitic 12 — the level past which the ladder buys nothing — costs **415,000** priced, roughly
+  eight greedy weeks of metal. Saturation is priced out of reach rather than capped.
+
+### What to watch, and what to move first
+
+- **Does losing a production level to an adaptation level sting?** It should, and it should still be
+  worth it. If it never stings the base cost is too low; if it always loses, too high. **The base
+  cost is the lever, not the ×1.5 curve and not the widening** — the widening is carrying the
+  galaxy's axis balance and moving it re-opens round 5.
+- **Is Robotics 4 reachable at the moment a player first reads a blocked row?** Round 5's greedy
+  sim reached **Robotics 0** in a week, because it only ever bought mines and plant. Nothing
+  measures a player who buys Robotics. If the gate turns out to sit far past the first BLOCKED
+  screen, lowering it to 2 or 3 is cheaper than re-pricing anything.
+- **Nothing here has been played**, because no screen sells it yet. These numbers are arithmetic
+  against measured reference points, not feedback. The first round that can say anything real is the
+  one after the Research screen lands.

@@ -21,9 +21,11 @@ import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.delay
@@ -128,13 +130,32 @@ fun App(
                                     }
                                 }
                             },
+                            // The same path, the same shape, the same refusals. The two branches
+                            // differ in what they buy, not in how they are bought — and a busy
+                            // slot refuses both, whichever kind of project is holding it.
+                            onStartAdaptation = { technology ->
+                                act { state, at ->
+                                    when (val result = startAdaptation(state, technology, at = at)) {
+                                        is StartAdaptationResult.Started -> result.state
+                                        StartAdaptationResult.SlotBusy,
+                                        StartAdaptationResult.InsufficientResources,
+                                        StartAdaptationResult.RequirementsNotMet,
+                                        -> state
+                                    }
+                                }
+                            },
                         )
                     },
-                    // No callback and no ui-state mapping here, unlike the two above: the galaxy
-                    // is read-only in 0.2 — surveying is a fleet action and colonisation is slice
-                    // #10 — and which system is on screen is the feature's own navigation rather
-                    // than the shell's.
-                    galaxy = { GalaxyScreen(galaxy = current.state.galaxy) },
+                    // Still no ui-state mapping and still no game action: the galaxy is read-only —
+                    // surveying is a fleet action and colonisation is slice #10 — and which system
+                    // is on screen is the feature's own navigation rather than the shell's. What it
+                    // does ask for is the way to the Research tab, because a blocked world's
+                    // remedy is a tap target and only the scaffold can change destination. It takes
+                    // the whole state rather than the galaxy half, so a verdict reads the
+                    // adaptation levels the player has actually bought.
+                    galaxy = { openResearch ->
+                        GalaxyScreen(state = current.state, onOpenResearch = openResearch)
+                    },
                 )
             }
         }

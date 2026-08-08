@@ -20,6 +20,18 @@ class ResearchScreenScreenshotTest {
         capture(width = 393, uiState = beforeTheGateUiState, name = "research_before_the_gate")
     }
 
+    // The frame the whole design decision is for: both gates open, six rows, four of them startable
+    // and starting any one of them stopping the other five.
+    @Test
+    fun `both branches buyable at phone width`() {
+        capture(width = 393, uiState = gateOpenUiState, name = "research_gate_open")
+    }
+
+    @Test
+    fun `both branches buyable in a Slide Over window`() {
+        capture(width = 320, uiState = gateOpenUiState, name = "research_gate_open_slide_over")
+    }
+
     @Test
     fun `nothing running at phone width`() {
         capture(width = 393, uiState = nothingRunningUiState, name = "research_nothing_running")
@@ -47,18 +59,27 @@ class ResearchScreenScreenshotTest {
         capture(width = 320, uiState = oneProjectInFlightUiState, name = "research_in_flight_slide_over")
     }
 
-    // Comfortably taller than three rows plus the section label, with headroom. The screen
-    // scrolls, so a capture window that is too short does not overflow visibly — it silently
-    // clips the last row out of the baseline and asserts the truncation forever, which is exactly
-    // how the first tab-bar baseline went wrong. Erring tall costs a band of empty background;
-    // erring short costs the assertion. The emptiness is honest anyway: three rows leave most of
-    // a phone empty by design, and a branch that fills the screen is a branch with filler in it.
+    // Comfortably taller than six rows plus two section labels and the seam between them, with
+    // headroom. The screen scrolls, so a capture window that is too short does not overflow
+    // visibly — it silently clips the last row out of the baseline and asserts the truncation
+    // forever, which is exactly how the first tab-bar baseline went wrong. Erring tall costs a
+    // band of empty background; erring short costs the assertion.
+    //
+    // 420 was enough for one branch and is nowhere near enough for two. Measured rather than
+    // guessed, because the first attempt at this number was guessed and clipped the sixth row out
+    // of the baseline: a startable row is 106dp, not the 74dp the design's arithmetic used, so the
+    // worst case is 32dp of padding, two 33dp labels, six 106dp rows, five 8dp gaps and the 22dp
+    // seam — 788dp. 860 leaves the headroom the single-branch frame had.
+    //
+    // That 106dp is also why the real screen scrolls at 393x852 where the design expected it not
+    // to; see `decisions.md`. The baseline deliberately shows the whole screen anyway — it is the
+    // record of what the screen *is*, not of what one window happens to reveal.
     private fun capture(width: Int, uiState: ResearchUiState, name: String) {
-        runDesktopComposeUiTest(width = width, height = 420) {
+        runDesktopComposeUiTest(width = width, height = 860) {
             setContent {
                 OltreTheme {
                     Surface {
-                        ResearchScreen(uiState = uiState, onStartResearch = {})
+                        ResearchScreen(uiState = uiState, onStartResearch = {}, onStartAdaptation = {})
                     }
                 }
             }

@@ -41,16 +41,31 @@ value class TechLevel(val value: Int) {
 // The mirror of `Buildings`, and deliberately shaped the same way: named fields rather than a map,
 // so a technology that exists always has a level and the exhaustive `when`s below are the only
 // place the set is enumerated.
+//
+// **Two branches, one record.** The three applied technologies multiply a per-hour rate; the three
+// adaptation ladders widen a tolerance band and change nothing about production at all. They are
+// separate enums and separate balance objects — see `AdaptationBalance` and the 0.3 adaptation
+// sheet — but they share this record and the single slot on `GameState`, because what the empire
+// knows is one thing however it was learned.
 @Serializable
 data class Research(
     val photovoltaics: TechLevel,
     val extraction: TechLevel,
     val enrichment: TechLevel,
+    val thermal: TechLevel,
+    val gravitic: TechLevel,
+    val atmospheric: TechLevel,
 ) {
     fun levelOf(technology: Technology): TechLevel = when (technology) {
         Technology.PHOTOVOLTAICS -> photovoltaics
         Technology.EXTRACTION -> extraction
         Technology.ENRICHMENT -> enrichment
+    }
+
+    fun levelOf(technology: AdaptationTechnology): TechLevel = when (technology) {
+        AdaptationTechnology.THERMAL -> thermal
+        AdaptationTechnology.GRAVITIC -> gravitic
+        AdaptationTechnology.ATMOSPHERIC -> atmospheric
     }
 
     fun withLevel(technology: Technology, level: TechLevel): Research = when (technology) {
@@ -59,11 +74,29 @@ data class Research(
         Technology.ENRICHMENT -> copy(enrichment = level)
     }
 
+    fun withLevel(technology: AdaptationTechnology, level: TechLevel): Research = when (technology) {
+        AdaptationTechnology.THERMAL -> copy(thermal = level)
+        AdaptationTechnology.GRAVITIC -> copy(gravitic = level)
+        AdaptationTechnology.ATMOSPHERIC -> copy(atmospheric = level)
+    }
+
+    // The one bridge between the research branch and the map. `verdictFor` asks for this and for
+    // nothing else about the empire, so a world's verdict is a function of what has been researched
+    // and never of anything else the colony happens to be doing.
+    fun adaptationLevels(): AdaptationLevels = AdaptationLevels(
+        thermal = thermal.value,
+        gravitic = gravitic.value,
+        atmospheric = atmospheric.value,
+    )
+
     companion object {
         fun initial(): Research = Research(
             photovoltaics = TechLevel(0),
             extraction = TechLevel(0),
             enrichment = TechLevel(0),
+            thermal = TechLevel(0),
+            gravitic = TechLevel(0),
+            atmospheric = TechLevel(0),
         )
     }
 }
@@ -74,6 +107,19 @@ data class Research(
 @Serializable
 data class ResearchJob(
     val technology: Technology,
+    val toLevel: TechLevel,
+    val startedAt: Instant,
+    val completesAt: Instant,
+)
+
+// The adaptation branch's job, and deliberately a separate type rather than a `ResearchJob` with a
+// wider subject: the two branches are bought against different things — a colony you can watch,
+// and a map you cannot — and a sealed subject would make every existing reader of `activeResearch`
+// answer for a project it does not render. The single slot they share is enforced on `GameState`,
+// which is where the rule actually lives. See the 0.3 adaptation sheet, §2.
+@Serializable
+data class AdaptationJob(
+    val technology: AdaptationTechnology,
     val toLevel: TechLevel,
     val startedAt: Instant,
     val completesAt: Instant,

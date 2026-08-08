@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
 
 // A behaviour test says what the player did and what they should see; the Robot owns how. Keeping
@@ -23,13 +24,18 @@ internal fun researchScreen(
     uiState: ResearchUiState,
     width: Int = PHONE_WIDTH,
     onStartResearch: (Technology) -> Unit = {},
+    onStartAdaptation: (AdaptationTechnology) -> Unit = {},
     block: ResearchRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
         setContent {
             OltreTheme {
                 Surface {
-                    ResearchScreen(uiState = uiState, onStartResearch = onStartResearch)
+                    ResearchScreen(
+                        uiState = uiState,
+                        onStartResearch = onStartResearch,
+                        onStartAdaptation = onStartAdaptation,
+                    )
                 }
             }
         }
@@ -45,6 +51,33 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
 
     fun startResearching(technology: Technology) = apply {
         test.onNodeWithTag(ResearchTestTags.action(technology)).performClick()
+    }
+
+    // Overloads rather than one widened signature, for the reason `ResearchTestTags` is overloaded:
+    // a caller cannot ask about a row that does not exist, and the compiler says so.
+    fun startResearching(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).performClick()
+    }
+
+    fun assertBranchShows(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.row(technology)).assertIsDisplayed()
+    }
+
+    fun assertOffersResearch(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertTextEquals("Research")
+    }
+
+    fun assertWaits(technology: AdaptationTechnology, label: String) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertTextEquals(label)
+    }
+
+    fun assertOffersNothing(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertDoesNotExist()
+    }
+
+    fun assertRowReads(technology: AdaptationTechnology, text: String) = apply {
+        test.onNodeWithTag(ResearchTestTags.row(technology))
+            .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
     fun assertBranchShows(technology: Technology) = apply {

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-07 (0.0.16)
+Updated: 2026-08-08 (0.0.18)
 
 ## Landed
 
@@ -112,6 +112,36 @@ Updated: 2026-08-07 (0.0.16)
   a PLACEHOLDER line saying the adaptation ladders are not built. Both copy calls were Davide's,
   delegated to the build. See `decisions.md`.
 
+- **0.0.17 the adaptation branch (`core` only)** — the open call the galaxy sheet left behind, and the
+  thing that made every `Blocked` row a shopping list nobody could spend against. Written up as
+  [`adaptation-sheet.md`](adaptation-sheet.md), the third decision sheet in the same shape. Thermal,
+  Gravitic and Atmospheric Adaptation are **a second branch rather than rows four to six** — an
+  adaptation level widens a band in °C / g / atm and the applied branch's whole row vocabulary is
+  percentages of a per-hour rate — and they **share the one empire-wide research slot**, so climbing
+  a ladder costs the production technology that was not researched instead. One shared gate
+  (Robotics Factory 4), one cost curve (×1.5, as everything), and all three priced identically at
+  1 : 2 : 3 **in three different currencies**, each in the resource its own axis makes rich. Save
+  **schema 5 migrates 4** — and the hop *adds to* the research record rather than re-encoding it, or
+  it would reset the levels the player earned. `verdictFor(world, state)` is the new one-call form
+  the screen should use. See `decisions.md` and `balance-log.md` round 6.
+  **Nothing a player can see changed** — see below.
+
+- **0.0.18 the adaptation branch reaches the player (the screen half)** — the hand-off 0.0.17 wrote,
+  built to a Claude Design sheet that answered the one open call and both secondary ones. **A second
+  section on the Research tab**, not a segmented control and not a sixth destination: the argument is
+  that a control which shows one branch at a time is a control whose job is to hide the thing you are
+  giving up, and that with both on screen a running project explains itself — five rows read the same
+  wait and the sixth counts it down, and the two numbers verify each other with nothing added. The
+  adaptation row is the existing row with three different strings in it (band → band, unit), so both
+  branches now render through **one** composable rather than two that promise to match. Galaxy took
+  `verdictFor(world, state)`, so a verdict finally reads the levels the player bought; its blocked
+  rows' remedies went back to accent **and** became tap targets — one decision, since an accent
+  string that is not a target breaks the colour rule harder than the demotion did — and 0.0.16's
+  PLACEHOLDER header line was deleted rather than replaced. `signed()`/`milli()` moved to
+  `:client:design:format` so a band on Research and a reading on Galaxy cannot drift apart. Also
+  repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
+  and ten of 0.0.17's had one. See `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -140,6 +170,12 @@ shape as the 0.1 research sheet, and every line in it is Davide's to overrule.
 
 Sequencing after that is still his: #6 (the real ship set) and #8 (the combat model) each need a
 call before they can start, and #7/#9/#10 sit behind them.
+
+**The adaptation branch was never a numbered slice** and it is now finished: the galaxy sheet left
+it as an open call rather than a row in this table, 0.0.17 settled it and built the `core` half, and
+0.0.18 put it on screen. It sat between #5 and #6 in every practical sense — it is what makes slice
+#5's screen mean something — and #6 is now the next thing with nothing in front of it but its own
+design call.
 
 Why the galaxy went first, recorded so it is not re-litigated: #7 needs destinations, #9 needs
 somewhere to put three empires and #10 needs a second world to settle, so all three are dead
@@ -189,15 +225,22 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
      covered by a hand-written frame; the naming, and whether a holder carries a date, are open.
      (`Barren` and `Settleable` *are* reachable: the seed is minted per colony, and 2–3% of worlds
      pass every band, so roughly one colony in a dozen sees one in its own home system.)
-- **Every `Blocked` row points at a Research tab that cannot sell what it names.** All three
-  adaptation ladders are unbuilt, so the sentence is true and the purchase does not exist. The
-  connection the design is after does not close until the adaptation technologies land — which is
-  its own slice, and Davide's call per the galaxy sheet's own open list.
-  **Half-answered at 0.0.16**: the screen no longer pretends otherwise — the technology lost the
-  accent that made it look tappable, and the header says "Adaptation research lands later. You are
-  at level 0." The row also states its yield and counts the bands it fails against the bar `Barren`
-  names, so a screen of BLOCKED reads as the distribution rather than as bad luck. What is still
-  open is the purchase itself.
+- ~~**THE NEXT THING TO BUILD: the two screens that sell the adaptation branch.**~~ — **done at
+  0.0.18.** The design call went to Claude Design and came back as *a second section on the same
+  scrolling screen*; both screens landed with it, plus the deep link and the header deletion the
+  same sheet answered. Two of the design's own premises did not survive contact with Compose and are
+  recorded in `decisions.md`: the row is 106dp rather than 74dp, so six rows scroll a phone by about
+  105dp instead of fitting it; and the pressure band has to drop its trailing zeros or the unit is
+  ellipsised at 320dp. **What is still open from it:** whether a three-block world should list all
+  three remedies now that all three are accent and tappable — flagged by the design itself as the
+  loudest thing on the Galaxy screen, and tied to the still-open "does a near miss look different
+  from a hopeless one".
+
+- ~~**Every `Blocked` row points at a Research tab that cannot sell what it names.**~~ — the
+  *purchase* landed at 0.0.17 (above); what is left is the screen that offers it. 0.0.16 had
+  half-answered the copy side: the technology lost the accent that made it look tappable, the header
+  said the ladders were not built, and the row states its yield and counts the bands it fails
+  against the bar `Barren` names.
 
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.

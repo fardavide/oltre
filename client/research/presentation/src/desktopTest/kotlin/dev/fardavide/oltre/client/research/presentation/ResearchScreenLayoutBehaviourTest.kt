@@ -54,7 +54,11 @@ class ResearchScreenLayoutBehaviourTest {
         runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {
                 OltreTheme {
-                    ResearchScreen(uiState = oneProjectInFlightUiState, onStartResearch = {})
+                    ResearchScreen(
+                        uiState = oneProjectInFlightUiState,
+                        onStartResearch = {},
+                        onStartAdaptation = {},
+                    )
                 }
             }
 
