@@ -22,7 +22,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.AdaptationTechnology
@@ -109,12 +111,7 @@ private fun ProjectRow(
         modifier = Modifier
             .fillMaxWidth()
             .alpha(if (locked) 0.42f else 1f)
-            .border(
-                1.dp,
-                if (running != null) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
-                RoundedCornerShape(14.dp),
-            )
-            .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
+            .oltreCard(action.cardState())
             .testTag(rowTag)
             .padding(11.dp),
     ) {
@@ -225,6 +222,21 @@ private fun ProjectRow(
             ProgressBar(percent = running.progressPercent)
         }
     }
+}
+
+// What the card is made of is the design system's; which of its three states a project is in is
+// this feature's, and only this feature can say. It reads a production technology and an adaptation
+// ladder with the same four branches because ProjectRow draws them with the same composable — which
+// is what makes "a running ladder looks exactly like a running technology" a fact rather than two
+// promises. Exhaustive, so a fifth action cannot be added without deciding how its card reads.
+private fun ResearchActionUiState.cardState(): OltreCardState = when (this) {
+    ResearchActionUiState.Start -> OltreCardState.ACTIONABLE
+    // A locked row and a row waiting on its stocks are the same card: both are waiting, and the
+    // difference between them is already told by the dim and by the reason line.
+    is ResearchActionUiState.AvailableIn,
+    is ResearchActionUiState.Locked,
+    -> OltreCardState.WAITING
+    is ResearchActionUiState.Running -> OltreCardState.RUNNING
 }
 
 // "+36% → +47% metal · crystal output": current in secondary weight, next in body weight, using

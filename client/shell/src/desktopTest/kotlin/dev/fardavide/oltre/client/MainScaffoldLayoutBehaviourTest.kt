@@ -6,6 +6,7 @@ import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
@@ -46,6 +47,54 @@ class MainScaffoldLayoutBehaviourTest {
         assertRailColumn(windowWidth = 393, windowHeight = 852)
     }
 
+    // The rate moved up onto the stock's baseline, which bought the rail 12dp and cost it the one
+    // guarantee a stacked column gave for free: that the rate always had a line to itself. Six
+    // figures in a 320dp Slide Over pane is where the pair stops fitting, and there the rate has
+    // to fall *under* the stock rather than share the line with it.
+    //
+    // Measured as a width rather than as a bound, because the failure this guards is not the rate
+    // escaping its cell — it never does. A Row hands the stock the whole line and measures the
+    // rate into whatever is left, so the node stays inside the cell and inside the rail while the
+    // string inside it is cut in half. The only honest witness is the width the same rate takes
+    // when nothing is competing for the line.
+    @Test
+    fun `the rail draws every rate at full width in a Slide Over window`() {
+        val roomy = rateWidths(windowWidth = 1400)
+        val slideOver = rateWidths(windowWidth = 320)
+
+        RAIL_CELLS.forEach { name ->
+            val expected = checkNotNull(roomy[name])
+            val actual = checkNotNull(slideOver[name])
+            assertTrue(
+                abs((actual - expected).value) <= TOLERANCE.value,
+                "the $name rate is $actual wide in a 320dp window but $expected wide with room to " +
+                    "spare, so it was squeezed onto the stock's line instead of wrapping under it",
+            )
+        }
+    }
+
+    private fun rateWidths(windowWidth: Int): Map<String, Dp> {
+        val widths = mutableMapOf<String, Dp>()
+        runDesktopComposeUiTest(width = windowWidth, height = 834) {
+            setContent {
+                OltreTheme {
+                    MainScaffold(
+                        resources = sixFigureResourceRailUiState,
+                        colony = { Text("colony-under-test") },
+                        research = { Text("research-under-test") },
+                        galaxy = { Text("galaxy-under-test") },
+                    )
+                }
+            }
+
+            RAIL_CELLS.forEach { name ->
+                val bounds = onNodeWithTag(ShellTestTags.resourceRate(name), useUnmergedTree = true).getBoundsInRoot()
+                widths[name] = bounds.right - bounds.left
+            }
+        }
+        return widths
+    }
+
     private fun assertRailColumn(windowWidth: Int, windowHeight: Int) {
         runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {
@@ -82,5 +131,8 @@ class MainScaffoldLayoutBehaviourTest {
         // Layout rounds to whole pixels; a Dp of slack keeps the assertion about the layout rule
         // rather than about rounding.
         val TOLERANCE = 1.dp
+
+        // The captions as the rail states them, which is also how the cells are tagged.
+        val RAIL_CELLS = listOf("METAL", "CRYSTAL", "DEUTERIUM")
     }
 }

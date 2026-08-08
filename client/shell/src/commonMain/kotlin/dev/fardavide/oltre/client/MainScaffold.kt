@@ -67,6 +67,12 @@ private fun ColumnScope.Destination(
     onOpenResearch: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+        // Inside the destination box and first in it, so it sits under every screen and under none
+        // of the chrome: the rail and the tab bar are surfaces, and space does not show through a
+        // surface. It draws nothing that moves — no twinkle, no drift, no timer — because a frame
+        // that animates is a frame that has to still be right after the app was closed for two
+        // days, and this one is simply always the same.
+        Starfield()
         // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
         // impossible to reach by accident, and `pendingWork` is the table saying which those are.
         when (selected) {
