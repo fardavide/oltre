@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.AdaptationLevels
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -12,6 +13,7 @@ import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.PlaceholderBalance
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StarClass
@@ -24,6 +26,7 @@ import dev.fardavide.oltre.core.Uniform
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
+import dev.fardavide.oltre.core.futureEvents
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.startAdaptation
@@ -49,6 +52,7 @@ fun main() {
     printAdaptationTable()
     printGalaxyReport()
     printDemandReport()
+    printOpeningReport()
     printGreedyWeek()
     printWholeTreeRun()
 }
@@ -587,6 +591,253 @@ private fun report(
         println("    ${name.padEnd(34)} $missing")
     }
     println()
+}
+
+// The four times a day the brief designs for, as offsets from an 08:00 genesis: morning, lunch,
+// evening, bedtime. The overnight gap is the long one, which is the point — it is the gap the
+// notification loop has to survive.
+private val CHECK_IN_HOURS = listOf(0, 5, 11, 15)
+
+// What one check-in was worth, in the terms the player would describe it in: what had finished
+// while they were away, what they could choose between, and whether anything was still running
+// when they closed the app.
+private class CheckIn(
+    val label: String,
+    val finished: List<String>,
+    val couldBuy: List<String>,
+    val bought: List<String>,
+    val leftRunning: Int,
+    val nextLandsInMinutes: Long?,
+    // How far ahead this check-in booked the colony: the *last* thing it set running, not the
+    // first. This is the number the notification loop lives or dies on — a check-in that books
+    // 40 minutes of work cannot pull the player back at any useful hour, however many jobs it
+    // started.
+    val bookedMinutes: Long,
+) {
+    // The trip that was not worth making: nothing had happened, and nothing could be done about it.
+    val isDead: Boolean get() = finished.isEmpty() && couldBuy.isEmpty()
+
+    // A check-in with one option is not a decision, it is a chore. Counted separately from dead
+    // ones because the fix is different: a dead check-in wants more income, a forced one wants
+    // more things worth buying at that moment.
+    val isForced: Boolean get() = couldBuy.size == 1
+}
+
+// ── The opening, as the player meets it ──────────────────────────────────────────────────────
+//
+// Every other run in this harness is an hour-stepped bot: it acts 24 times a day and spends the
+// instant it can afford anything. That shape structurally cannot answer a complaint about the
+// *opening*, because what is being complained about is what a **check-in** offers — and a runner
+// that acts every hour never has one. It also cannot see idleness at all: a bot that buys hourly
+// keeps something running by construction, so the one thing the brief says the whole game is made
+// of ("local notifications at computed completion timestamps are the entire check-in loop") is the
+// one thing no report has ever measured.
+//
+// This runner acts only at the four times a day the brief designs for. The buying rule is the
+// greedy runs' rule, unchanged — everything affordable, cheapest first — so the only difference
+// between this and the fortnight below is *when* the player is allowed to act.
+private fun printOpeningReport() {
+    val days = 2
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    // Every interval something was in flight, so the gaps between them are the hours the colony
+    // stood still — and, identically, the hours no notification could fire.
+    val busy = mutableListOf<Pair<Instant, Instant>>()
+    val checkIns = mutableListOf<CheckIn>()
+
+    val offsets = (0 until days).flatMap { day -> CHECK_IN_HOURS.map { day * 24 + it } }
+    for (offset in offsets) {
+        val at = genesis + offset.hours
+        val before = state
+        state = advance(state, from = now, to = at)
+        now = at
+
+        val finished = finishedBetween(before, state)
+        val options = optionsFor(state, plan, withProjects = true)
+        val couldBuy = (options.buildings + options.projects)
+            .filter { (_, cost) -> state.resources.covers(cost) }
+            .map { (what, _) -> nameOf(what, state) }
+
+        val bought = mutableListOf<String>()
+        for ((building, cost) in options.buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { started ->
+                state = started.state
+                state.builds[building]?.let { job ->
+                    bought += "${short(building)} ${job.toLevel.value}"
+                    busy += now to job.completesAt
+                }
+            }
+        }
+        for ((project, cost) in options.projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+            state.researchSlotFreesAt?.let { freesAt ->
+                bought += "$project"
+                busy += now to freesAt
+            }
+        }
+
+        val pending = futureEvents(state)
+        checkIns += CheckIn(
+            label = clockLabel(offset),
+            finished = finished,
+            couldBuy = couldBuy,
+            bought = bought,
+            leftRunning = pending.size,
+            nextLandsInMinutes = pending.firstOrNull()?.let { (it.at - now).inWholeMinutes },
+            bookedMinutes = pending.lastOrNull()?.let { (it.at - now).inWholeMinutes } ?: 0,
+        )
+    }
+
+    println("## The opening, as the player meets it")
+    println()
+    println("Two days, four check-ins a day (08:00 / 13:00 / 19:00 / 23:00), buying everything")
+    println("affordable cheapest-first — the greedy runs' rule, restricted to when a player is")
+    println("actually looking. Genesis is the first check-in, so the colony starts with the player.")
+    println()
+    println("| Check-in | Finished while away | Could buy | Bought | Left running | Next lands in |")
+    println("|---|---|---|---|---|---|")
+    for (checkIn in checkIns) {
+        val next = checkIn.nextLandsInMinutes?.let { minutes -> "${minutes / 60}h ${(minutes % 60).toString().padStart(2, '0')}m" }
+            ?: "**nothing**"
+        println(
+            "| ${checkIn.label} | ${checkIn.finished.joinToString().ifEmpty { "—" }} " +
+                "| ${checkIn.couldBuy.size} | ${checkIn.bought.joinToString().ifEmpty { "**nothing**" }} " +
+                "| ${checkIn.leftRunning} | $next |",
+        )
+    }
+    println()
+
+    val totalMinutes = days * 24 * 60L
+    val idle = idleMinutes(busy, genesis, genesis + (days * 24).hours)
+    val longestIdle = longestIdleRun(busy, genesis, genesis + (days * 24).hours)
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Check-ins | ${checkIns.size} |")
+    println("| **Dead check-ins** (nothing finished, nothing affordable) | **${checkIns.count { it.isDead }}** |")
+    println("| Check-ins offering exactly one thing | ${checkIns.count { it.isForced }} |")
+    println("| Check-ins that left nothing running | ${checkIns.count { it.leftRunning == 0 }} |")
+    println("| Median options on the table | ${checkIns.map { it.couldBuy.size }.sorted()[checkIns.size / 2]} |")
+    println("| **Hours the colony had nothing in flight** | **${idle / 60}h of ${totalMinutes / 60}h " +
+        "(${percent((idle / 60).toInt(), (totalMinutes / 60).toInt())})** |")
+    println("| Longest unbroken silence | ${longestIdle / 60}h ${(longestIdle % 60).toString().padStart(2, '0')}m |")
+    val booked = checkIns.map { it.bookedMinutes }
+    println("| Work the busiest check-in booked | ${booked.max()} min |")
+    println("| Median work a check-in booked | ${booked.sorted()[booked.size / 2]} min |")
+    println()
+    println("That last pair is the reading the notification loop lives on. The brief calls local")
+    println("notifications *the entire check-in loop*: if the deepest a session can book is under an")
+    println("hour, every notification the game will ever send arrives while the player is still")
+    println("holding the phone, and nothing at all fires across the gap that needs covering.")
+    println()
+
+    val levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+    println("After 48 hours: ${state.buildings.summary()} — $levels levels total, " +
+        "research ${state.research.appliedSummary()}.")
+    println("Stock: ${state.resources.metal.grouped()} metal, ${state.resources.crystal.grouped()} crystal, " +
+        "${state.resources.deuterium.grouped()} deuterium.")
+    println()
+
+    // When each branch opens, which is the other half of "what is there to do". The Research tab is
+    // an empty room until the first Robotics Factory, and the adaptation ladders — the only thing
+    // that makes the Galaxy screen's blocked rows buyable — need Robotics 4 on top of that.
+    println("Gates, and when this run cleared them:")
+    println()
+    println("| Gate | Opens | Cleared |")
+    println("|---|---|---|")
+    val robotics = state.buildings.roboticsFactory.value
+    println("| Robotics Factory 1 | the Research tab | ${if (robotics >= 1) "yes" else "**no — still level $robotics at 48h**"} |")
+    println("| Robotics Factory 4 | the adaptation ladders, so every Blocked world | " +
+        "${if (robotics >= 4) "yes" else "**no — still level $robotics at 48h**"} |")
+    println()
+}
+
+private fun nameOf(what: Any, state: GameState): String = when (what) {
+    is BuildingType -> "${short(what)} ${state.buildings.levelOf(what).value + 1}"
+    else -> "$what"
+}
+
+private fun short(building: BuildingType): String = when (building) {
+    BuildingType.METAL_MINE -> "Metal"
+    BuildingType.CRYSTAL_MINE -> "Crystal"
+    BuildingType.DEUTERIUM_SYNTHESIZER -> "Deut"
+    BuildingType.SOLAR_PLANT -> "Solar"
+    BuildingType.ROBOTICS_FACTORY -> "Robotics"
+    BuildingType.NANITE_FACTORY -> "Nanite"
+}
+
+// Read off the records rather than off the event log, so this says what the player would *see* on
+// the facility rows — a level that went up — rather than what was appended.
+private fun finishedBetween(before: GameState, after: GameState): List<String> {
+    val buildings = BuildingType.entries
+        .filter { after.buildings.levelOf(it).value > before.buildings.levelOf(it).value }
+        .map { "${short(it)} ${after.buildings.levelOf(it).value}" }
+    val applied = Technology.entries
+        .filter { after.research.levelOf(it).value > before.research.levelOf(it).value }
+        .map { "$it ${after.research.levelOf(it).value}" }
+    val ladders = AdaptationTechnology.entries
+        .filter { after.research.levelOf(it).value > before.research.levelOf(it).value }
+        .map { "$it ${after.research.levelOf(it).value}" }
+    return buildings + applied + ladders
+}
+
+private fun Buildings.summary(): String = BuildingType.entries
+    .joinToString(" · ") { "${short(it).lowercase()} ${levelOf(it).value}" }
+
+private fun Research.appliedSummary(): String = Technology.entries
+    .joinToString(", ") { "${it.name.lowercase()} ${levelOf(it).value}" }
+
+// Total minutes inside the window covered by no job at all. Intervals are merged rather than
+// summed, because parallel builds overlap and a naive sum would report a busier colony than there
+// ever was.
+private fun idleMinutes(busy: List<Pair<Instant, Instant>>, from: Instant, to: Instant): Long {
+    var covered = 0L
+    var cursor = from
+    for ((start, end) in busy.sortedBy { it.first }) {
+        val effectiveStart = maxOf(start, cursor)
+        if (end <= effectiveStart) continue
+        val cappedEnd = minOf(end, to)
+        if (cappedEnd <= effectiveStart) continue
+        covered += (cappedEnd - effectiveStart).inWholeMinutes
+        cursor = cappedEnd
+    }
+    return (to - from).inWholeMinutes - covered
+}
+
+// The worst of it, rather than the average: two hours idle four times over reads very differently
+// from eight hours in one stretch, and it is the single stretch that decides whether the player
+// has a reason to open the app.
+private fun longestIdleRun(busy: List<Pair<Instant, Instant>>, from: Instant, to: Instant): Long {
+    var longest = 0L
+    var cursor = from
+    for ((start, end) in busy.sortedBy { it.first }) {
+        if (start > cursor) longest = maxOf(longest, (start - cursor).inWholeMinutes)
+        if (end > cursor) cursor = minOf(end, to)
+    }
+    return maxOf(longest, (to - cursor).inWholeMinutes)
+}
+
+// Day and wall-clock time from an offset in hours, so a row reads like a session rather than
+// like an index.
+private fun clockLabel(offsetHours: Int): String {
+    val hour = (8 + offsetHours) % 24
+    val day = 1 + (8 + offsetHours) / 24
+    return "d$day ${hour.toString().padStart(2, '0')}:00"
 }
 
 // The 0.0.12 baseline, unchanged in what it buys so its closing line stays comparable with every
