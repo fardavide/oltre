@@ -18,8 +18,10 @@ The root `build.gradle.kts` propagates it to every module.
 | Minor `0.X.0` | A feature slice lands | Agent, when the slice completes |
 | Major `X.0.0` | A big milestone | **Davide only — never propose, never apply** |
 
-**Standing override (Davide, 2026-08-05): bump only PATCH for now**, even for feature
-milestones — minor bumps resume when he says so.
+~~**Standing override (Davide, 2026-08-05): bump only PATCH for now**, even for feature
+milestones — minor bumps resume when he says so.~~ **Lifted by Davide on 2026-08-08** ("let's bump
+to 0.1.0"), which took 0.0.18 to 0.1.0 for the rail-v2 and depth-pass slice. The table above is
+live again: a feature slice takes a minor bump, and the agent initiates it.
 
 - Every bump carries a `## Changelog` entry in `README.md`, same PR, newest first, heading
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
@@ -28,8 +30,14 @@ milestones — minor bumps resume when he says so.
 - iOS: bump `MARKETING_VERSION` in `iosApp/project.yml` (single `settings.base` block) to match
   the new `oltre` version, then run `xcodegen generate` in `iosApp/` and commit the regenerated
   project **and its shared scheme**; never edit `project.pbxproj` by hand.
-  **If you cannot run xcodegen** (no macOS — every agent session so far), bump `project.yml`
-  anyway and say in the PR that the generated project is unregenerated. The *shipped* label is
+  **If you cannot run xcodegen** (no macOS), bump `project.yml` anyway and say in the PR that the
+  generated project is unregenerated. A *local* session on Davide's Mac can and should run it —
+  the 0.1.0 bump did, so "every agent session so far" is no longer true; check for the binary
+  before assuming you cannot.
+  **Check `project.yml` even when you are not the one bumping**: 0.0.18 moved the catalogue and
+  left `MARKETING_VERSION` at 0.0.17, so the two drifted for a whole release. The
+  `ci_pre_xcodebuild.sh` net meant nothing shipped mislabelled, which is exactly why the drift went
+  unnoticed — the net hides this class of mistake rather than preventing it. The *shipped* label is
   safe either way: `iosApp/ci_scripts/ci_pre_xcodebuild.sh` rewrites `MARKETING_VERSION` in the
   pbxproj from the `oltre` version in the catalogue on every Xcode Cloud build, added at 0.0.10
   after 0.0.8 shipped to TestFlight labelled 0.0.7. That safety net is not a licence to skip

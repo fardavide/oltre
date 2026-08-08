@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GameState
@@ -99,7 +100,7 @@ internal fun GalaxyPage(
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
+                        .background(oltreCardSurface, RoundedCornerShape(14.dp))
                         .testTag(GalaxyTestTags.MAP)
                         .padding(11.dp),
                 ) {

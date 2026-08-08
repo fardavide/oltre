@@ -23,7 +23,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.icon.PowerMark
@@ -54,13 +56,11 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .oltreCard(row.action.cardState())
+            // After the card, not before it — see the same ordering in TechnologyList. An alpha
+            // ahead of the fill dims the card and lets the starfield through a locked row; here
+            // the card stays solid and only its content recedes.
             .alpha(if (locked) 0.42f else 1f)
-            .border(
-                1.dp,
-                if (upgrading != null) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
-                RoundedCornerShape(14.dp),
-            )
-            .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -179,6 +179,19 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
             ProgressBar(percent = upgrading.progressPercent)
         }
     }
+}
+
+// What the card is made of is the design system's; which of its three states a facility is in is
+// this feature's, and only this feature can say. Exhaustive, so a fifth action cannot be added
+// without deciding how its card reads.
+private fun FacilityActionUiState.cardState(): OltreCardState = when (this) {
+    FacilityActionUiState.Upgrade -> OltreCardState.ACTIONABLE
+    // A locked facility and one waiting on its stocks are the same card: both are waiting, and the
+    // difference between them is already told by the dim and by the reason line.
+    is FacilityActionUiState.AffordableIn,
+    is FacilityActionUiState.Locked,
+    -> OltreCardState.WAITING
+    is FacilityActionUiState.Upgrading -> OltreCardState.RUNNING
 }
 
 // The card's second line: a handful of short terms separated by a gap, which wraps rather than

@@ -15,3 +15,17 @@ internal val testResourceRailUiState = ResourceRailUiState(
     deuteriumRatePerHour = "+72/h",
     throttled = false,
 )
+
+// The case the merged stock-and-rate line has to survive. Once the rate sits beside the stock
+// rather than under it, the pair is what has to fit the cell — and at 320dp, a third of that is
+// not enough for six figures plus a rate. These are the stocks the design measured the overflow
+// with, so they are the ones the assertion uses.
+internal val sixFigureResourceRailUiState = ResourceRailUiState(
+    metal = "147,169",
+    metalRatePerHour = "+12,400/h",
+    crystal = "89,412",
+    crystalRatePerHour = "+6,180/h",
+    deuterium = "112,006",
+    deuteriumRatePerHour = "+900/h",
+    throttled = false,
+)

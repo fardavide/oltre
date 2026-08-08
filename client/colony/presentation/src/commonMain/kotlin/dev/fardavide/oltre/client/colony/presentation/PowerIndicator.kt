@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -38,7 +39,7 @@ fun PowerIndicator(uiState: EnergyUiState, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
+            .background(oltreCardSurface, RoundedCornerShape(14.dp))
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp),
     ) {
