@@ -120,6 +120,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.1.1 — 2026-08-08
+
+- **Crystal accrues half again as fast: 30/h becomes 36/h at level 1, and every level above it
+  rises in step.** Crystal was the only thing anyone was ever waiting for. A week of play spent
+  130 of its 168 hours with an upgrade that was affordable in every currency except crystal, and
+  ended holding 49,544 metal with nothing to spend it on. The mines were tuned against the cost of
+  the whole early tree, which counts the Robotics Factory and the Deuterium Synthesizer — the two
+  most metal-heavy things in the game, and the two you buy a handful of times rather than every
+  session. They are now tuned against the basket you actually repeat: a level of Metal Mine,
+  Crystal Mine and Solar Plant.
+- **The Crystal Mine stops being the worst buy on the screen.** Priced against the Metal Mine it
+  paid back 1.6× slower at every level, so the answer to a crystal shortage was the least
+  rewarding upgrade available. It is now 1.3× — still the patient one, no longer a penalty.
+
 ### 0.1.0 — 2026-08-08
 
 - **The resource rail says the same thing in one line less.** Metal, Crystal and Deuterium each

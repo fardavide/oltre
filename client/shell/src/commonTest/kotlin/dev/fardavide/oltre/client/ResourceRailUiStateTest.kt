@@ -50,14 +50,14 @@ class ResourceRailUiStateTest {
         assertEquals("1,000", uiState.metal)
         assertEquals("+90/h", uiState.metalRatePerHour)
         assertEquals("2,000", uiState.crystal)
-        assertEquals("+30/h", uiState.crystalRatePerHour)
+        assertEquals("+36/h", uiState.crystalRatePerHour)
         assertEquals("3,000", uiState.deuterium)
         assertEquals("+15/h", uiState.deuteriumRatePerHour)
     }
 
     @Test
     fun `the rate the rail shows is the one research has already raised`() {
-        // given the same colony with two levels of Extraction - 90 and 30 per hour times 1_08^2
+        // given the same colony with two levels of Extraction - 90 and 36 per hour times 1_08^2
         val state = freshState().copy(
             research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(2)),
         )
@@ -67,7 +67,7 @@ class ResourceRailUiStateTest {
 
         // then - what the rail says has to be what advance will actually accrue
         assertEquals("+104/h", uiState.metalRatePerHour)
-        assertEquals("+34/h", uiState.crystalRatePerHour)
+        assertEquals("+41/h", uiState.crystalRatePerHour)
     }
 
     @Test

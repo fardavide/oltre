@@ -22,56 +22,61 @@ When a round of tuning lands:
 Do not delete a superseded round. A number that was tried and rejected is the most useful thing
 in this file.
 
-## Current curves (0.0.12)
+## Current curves (0.1.1)
 
-Level-1 output: **90 metal / 30 crystal / 15 deuterium per hour**. Output compounds **+25% per
+Level-1 output: **90 metal / 36 crystal / 15 deuterium per hour**. Output compounds **+25% per
 level**, cost compounds **+50% per level**, both floored to whole units at every step.
 
 | Level | metal/h | crystal/h | deut/h | metal mine cost (m/c) | payback of the next level |
 |---|---|---|---|---|---|
-| 1 | 90 | 30 | 15 | 60 / 15 | 4h |
-| 2 | 112 | 37 | 18 | 90 / 22 | 4h |
-| 3 | 140 | 46 | 22 | 135 / 33 | 5h |
-| 5 | 218 | 71 | 33 | 303 / 73 | 8h |
-| 8 | 425 | 137 | 63 | 1,021 / 244 | 14h |
-| 10 | 663 | 213 | 97 | 2,296 / 549 | 20h |
-| 12 | 1,035 | 332 | 151 | 5,166 / 1,234 | 30h |
-| 15 | 2,020 | 647 | 293 | 17,434 / 4,164 | 51h |
-| 18 | 3,945 | 1,262 | 571 | 58,839 / 14,053 | 89h |
-| 20 | 6,163 | 1,971 | 891 | 132,387 / 31,618 | 128h |
+| 1 | 90 | 36 | 15 | 60 / 15 | 4h |
+| 2 | 112 | 45 | 18 | 90 / 22 | 4h |
+| 3 | 140 | 56 | 22 | 135 / 33 | 5h |
+| 5 | 218 | 87 | 33 | 303 / 73 | 8h |
+| 8 | 425 | 168 | 63 | 1,021 / 244 | 14h |
+| 10 | 663 | 262 | 97 | 2,296 / 549 | 20h |
+| 12 | 1,035 | 408 | 151 | 5,166 / 1,234 | 30h |
+| 15 | 2,020 | 796 | 293 | 17,434 / 4,164 | 51h |
+| 18 | 3,945 | 1,553 | 571 | 58,839 / 14,053 | 89h |
+| 20 | 6,163 | 2,426 | 891 | 132,387 / 31,618 | 128h |
 
 Daily metal: 2,160 at level 1, 5,232 at level 5, 15,912 at level 10, 48,480 at level 15.
 
-Other levers as of 0.0.12: starting stock 500 metal / 300 crystal (no deuterium); build duration
+Other levers as of 0.1.1: starting stock 500 metal / 300 crystal (no deuterium); build duration
 is base-minutes × level, divided by 1 + robotics level; storage cap a flat 10M per resource;
 energy scales all mine output by produced/consumed on a deficit — and that scaling is now on
 screen rather than silent (round 3).
 
-> **Regenerated from `./gradlew :sim:run` (2026-08-06), and it needed no correction.** Rounds 2
-> and 3 both wrote this table by hand because `dl.google.com` was blocked in those sessions and
-> Gradle could not resolve AGP. The first session that could build re-ran the sim and every
-> figure above — all ten rows, both cost columns, the paybacks and the daily totals — came back
-> identical. The hand arithmetic held; the table is now machine-generated and can be trusted.
+> **Regenerated from `./gradlew :sim:run` (2026-08-08).** The crystal column is the only thing
+> round 7 moved; every metal figure, both cost columns, the paybacks and the daily totals are
+> unchanged from the 2026-08-06 run.
+>
+> Rounds 2 and 3 wrote this table by hand because `dl.google.com` was blocked in those sessions and
+> Gradle could not resolve AGP. It is blocked again for cloud sessions and round 7 hit it too — the
+> way through is a build overlay that keeps `:core` and `:sim` and drops the Android target and the
+> client modules, none of which the sim touches. The harness itself runs unmodified, so its output
+> is still machine-generated rather than retyped.
 
 A greedy week from a cold start, from the same run — upgrade anything affordable once an hour,
 cheapest first, mines *and* plant:
 
 ```
-after 7 days: metal=49,544 crystal=1,410 deuterium=2,520
-buildings: metal 15 · crystal 14 · deuterium 1 · solar 14 · robotics 0 · nanite 0
-energy: 700/310 (mines at 100%) — hours throttled by power: 0 of 168
-events: 80 (starts + completions)
+after 7 days: metal=720 crystal=9,677 deuterium=2,520
+buildings: metal 15 · crystal 15 · deuterium 1 · solar 14 · robotics 0 · nanite 0
+energy: 700/320 (mines at 100%) — hours throttled by power: 0 of 168
+events: 83 (starts + completions)
+spent: 158,259 metal / 60,712 crystal — 2.6 : 1, against income at 2.5 : 1
 ```
 
-**Zero throttled hours is the finding, and it is about the strategy, not the curve.** A player who
-treats the Solar Plant as just another cheap upgrade never meets the shortage at all — solar
-reached 14 alongside metal 15. Davide's colony hit 55% precisely because he was buying mines and
-not plant, which is the choice the mechanic exists to make visible. The sim as written cannot
+**Zero throttled hours is a finding about the strategy, not the curve** (round 3, still true). A
+player who treats the Solar Plant as just another cheap upgrade never meets the shortage at all —
+solar reached 14 alongside metal 15. Davide's colony hit 55% precisely because he was buying mines
+and not plant, which is the choice the mechanic exists to make visible. The sim as written cannot
 reproduce his session; a variant that never builds solar would be the one that measures the pain.
 
-Also worth noting from the same run: crystal ends at 1,410 against metal's 49,544, so after round
-3's raise metal is now the resource that piles up unspent. That is the mirror image of the
-complaint round 3 fixed, and it is the first evidence bearing on whether 90/h overshot.
+The same week before round 7 closed on **49,544 metal against 1,410 crystal**, with all three
+purchases on the table blocked by crystal and nothing else. That mountain of unspendable metal is
+what round 7 removed, and the closing line above is what it looks like now.
 
 ## Round 1 — 0.0.3, the first placeholders (2026-08-05)
 
@@ -424,3 +429,112 @@ fix the shortage a player actually has is the one they cannot yet pay for.
 - **Nothing here has been played**, because no screen sells it yet. These numbers are arithmetic
   against measured reference points, not feedback. The first round that can say anything real is the
   one after the Research screen lands.
+
+## Round 7 — 0.1.1, the resource everybody was waiting for (2026-08-08)
+
+Davide, after playing it:
+
+> "The cristal seems to be a bit too slow to farm. Don't take my work as right, run the sim and
+> judge by yourself. You can simply tell me that I'm wrong."
+
+He was right, and by more than "a bit". This is the first round where the sim was extended to
+answer the complaint rather than only to regenerate the tables, so the numbers below are
+measurements and not arithmetic.
+
+### What the sim was taught to measure
+
+Three additions to `:sim:run`, all of them things no previous round could see:
+
+1. **A sole-blocker ledger.** Each simulated hour, for every purchase the strategy wants, which
+   resources are short. An hour counts for a resource when some purchase is short of *that resource
+   and nothing else* — the player has the rest of the price in the bank and is waiting on one mine.
+2. **A spend ledger.** What a run actually paid, as it paid it. The ratio between those totals is
+   what the income curve should be tuned against; every previous round tuned against a *basket of
+   base costs* instead, which is a different number and, as it turns out, the wrong one.
+3. **A second strategy — "everything the game sells".** The 0.0.12 greedy week buys mines and plant
+   and nothing else, which are the two most metal-heavy things in the game. It structurally cannot
+   see what applied research and the adaptation ladders ask of crystal, because it never buys
+   either. The new run buys every building, and keeps the shared slot busy with whichever project
+   of either branch is cheapest.
+
+The 0.0.12 week is otherwise untouched, down to its sort key, so its closing line still reproduces
+byte for byte and stays comparable with rounds 3 to 6.
+
+### The finding
+
+| Measured at 90 / 30 | Greedy week (7d) | Whole tree (14d) |
+|---|---|---|
+| Hours with a purchase blocked by **crystal alone** | **130 of 168** | **306 of 336** |
+| Hours blocked by metal alone | 20 | 15 |
+| Hours blocked by deuterium alone | 0 | 168 |
+| Closing stock | 49,544 metal / **1,410 crystal** | 248,130 metal / **5,740 crystal** |
+| Realised spend, metal : crystal | 2.8 : 1 | 2.2 : 1 |
+
+Both runs end with *every* purchase on the table blocked by crystal and nothing else, next to a
+mountain of metal with nothing to buy. That is Davide's sentence, measured.
+
+**Why, when round 3 tied the ratio to the cost curves precisely so this could not happen?** Because
+it tied it to the wrong basket. `BalanceCurveTest` averaged the level-1 cost of the whole early
+tree — and that basket includes the Robotics Factory (3.3 : 1) and the Deuterium Synthesizer
+(3 : 1), the two most metal-heavy rows in the game and the two a player buys a handful of times in
+a game rather than a level of every session. Including them as equals pulled the target from the
+2.65 : 1 the *repeating* basket costs up to 3.06 : 1, and production was set to match.
+
+Two branches have shipped since, and neither costs anything like 3 : 1 — applied research is
+1.1 : 1 and the adaptation ladders are 1.3 : 1. So the gap widened after round 3 rather than
+holding.
+
+A second, independent symptom of the same thing: priced at the game's own 1 : 2 : 3, **the Crystal
+Mine paid back 1.6× slower than the Metal Mine at every single level** — the curves are the same
+shape, so the factor is a constant. The answer to a crystal shortage was the worst purchase in the
+game.
+
+### What changed
+
+**`CRYSTAL_PRODUCTION_PER_HOUR` 30 → 36, and nothing else.** Income goes from 3.0 : 1 to 2.5 : 1,
+which is what the repeating basket costs (183 : 69) and the middle of every spend ratio measured
+(2.0 – 2.8 : 1). Metal stays the plentiful basic material, which is how Davide described it in
+round 3; it stops being the *only* plentiful one.
+
+`BalanceCurveTest` now bounds the ratio **in both directions** and against the repeating basket.
+The one-sided bound it replaces could only ever catch metal being too poor — the 0.0.12 failure —
+and waved through metal being too rich, which is this one.
+
+| After, at 90 / 36 | Greedy week (7d) | Whole tree (14d) |
+|---|---|---|
+| Blocked by crystal alone | 130 → **0** | 306 → **190** |
+| Blocked by metal alone | 20 → 167 | 15 → 116 |
+| Closing stock | **720 / 9,677** | 179,352 / 5,763 |
+| Realised spend, metal : crystal | 2.6 : 1 | 2.4 : 1 |
+| Crystal Mine payback penalty | 1.6× → **1.3×** | — |
+
+The fortnight also gets materially further in the same 14 days — Robotics 8 → 10, Metal Mine
+16 → 18, every ladder 4 → 5 — which is the idle metal finally being spent rather than new income.
+
+### Watch next round, and what to move first
+
+- **The lever is `CRYSTAL_PRODUCTION_PER_HOUR` alone, and 33 – 37 are all defensible.** The
+  two-sided test admits 32 – 37; 36 was chosen as the midpoint of measured demand. If crystal now
+  feels *loose*, 34 is the smaller step; the shape of the finding does not change anywhere in that
+  band.
+- **The greedy week now flips to metal-blocked (167 of 168 hours), and that is expected rather
+  than a new bug.** A greedy strategy spends to zero every hour, so it is always blocked on
+  *something*; the reading is which, and how much sits idle. Idle metal falling from 49,544 to 720
+  is the result. The week is also lumpy — costs step ×1.5, so affordability is chunky and a single
+  run swings hard on small changes. **The fortnight is the more reliable signal**; do not tune off
+  the week alone.
+- **Deuterium is now the second-worst blocker** — 168 of the fortnight's 336 hours, and the run
+  ends unable to afford Robotics 11 for want of 6,422 of it. Round 4 made deuterium "the price" on
+  purpose, so this may be working as designed, but nothing has ever measured it. It is the obvious
+  candidate for round 8.
+- **The Crystal Mine is still the slower buy (1.3×)** and probably should be — you buy it because
+  you need crystal, not because it pays back. Recorded so the next session knows it was seen and
+  left alone. The lever, if it ever matters, is its 48 / 24 base cost, not the production curve.
+- **Round 3's standing question is now answered, and the answer is no.** It asked whether the
+  metal raise to 90/h was needed at all, and proposed trying 60/h again. Dropping metal would fix
+  the *ratio* without making crystal one unit faster — it answers a complaint about the game being
+  too fast, which is not the complaint that was made. Measured for completeness: at 60 / 30 the
+  fortnight is metal-blocked 322 hours of 336. Filed as tried-and-rejected.
+- **Nothing here has been played yet.** These are sim measurements against a greedy strategy, not a
+  session. The first round that can say anything about how it *feels* is the one after Davide plays
+  0.1.1.

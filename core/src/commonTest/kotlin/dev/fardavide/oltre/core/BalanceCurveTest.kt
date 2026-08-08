@@ -23,30 +23,40 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `metal is produced in the proportion the early build tree demands it`() {
-        // given everything a first week actually builds — the Nanite Factory is a different
-        // economy and would drown the ratio it is not part of
-        val earlyTree = listOf(
+    fun `metal is produced in the proportion the colony is actually upgraded in`() {
+        // given the three facilities a player buys a level of *every session* — the basket that
+        // repeats, not the whole tree. The Robotics Factory (3.3:1) and the Deuterium Synthesizer
+        // (3:1) are bought a handful of times each in a game and are the two most metal-heavy rows
+        // in it; averaging them in as equals is what pulled this target up to ~3:1 at 0.0.12, and
+        // a colony upgraded at that ratio starves for crystal while metal piles up unspent. The
+        // Nanite Factory is out for the same reason it always was: a different economy.
+        val basket = listOf(
             BuildingType.METAL_MINE,
             BuildingType.CRYSTAL_MINE,
-            BuildingType.DEUTERIUM_SYNTHESIZER,
             BuildingType.SOLAR_PLANT,
-            BuildingType.ROBOTICS_FACTORY,
         )
-        val demandedMetal = earlyTree.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).metal }
-        val demandedCrystal = earlyTree.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).crystal }
+        val demandedMetal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).metal }
+        val demandedCrystal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).crystal }
 
         // when
         val producedMetal = PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))
         val producedCrystal = PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1))
 
-        // then production must roughly track demand, within a tenth. Metal used to be produced
-        // 2:1 against crystal while the early tree costs ~3:1, which made it the permanent
-        // bottleneck however the colony was played — crystal piled up unspent while metal starved.
+        // then production must track that demand within a tenth **in both directions**. The
+        // one-sided bound this replaces could only ever catch metal being too poor, which is the
+        // 0.0.12 failure; it waved through metal being too rich, which is the 0.1.0 one. `:sim:run`
+        // measures the same thing end to end: at 90:30 the greedy week spends 130 of its 168 hours
+        // with a purchase blocked by crystal *alone*, holding 49,544 idle metal it cannot use.
         assertTrue(
             producedMetal * demandedCrystal * 10 >= demandedMetal * producedCrystal * 9,
-            "metal production ($producedMetal:$producedCrystal) must track the " +
-                "$demandedMetal:$demandedCrystal the early tree demands",
+            "metal production ($producedMetal:$producedCrystal) is too poor in metal against the " +
+                "$demandedMetal:$demandedCrystal the colony is upgraded in",
+        )
+        assertTrue(
+            producedMetal * demandedCrystal * 10 <= demandedMetal * producedCrystal * 11,
+            "metal production ($producedMetal:$producedCrystal) is too rich in metal against the " +
+                "$demandedMetal:$demandedCrystal the colony is upgraded in — crystal becomes the " +
+                "only thing anyone waits for, and metal accumulates with nothing to buy",
         )
     }
 
@@ -55,8 +65,8 @@ class BalanceCurveTest {
         // then
         assertEquals(90L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1)))
         assertEquals(663L, PlaceholderBalance.metalProductionPerHour(BuildingLevel(10)))
-        assertEquals(30L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1)))
-        assertEquals(213L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(10)))
+        assertEquals(36L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(1)))
+        assertEquals(262L, PlaceholderBalance.crystalProductionPerHour(BuildingLevel(10)))
         assertEquals(15L, PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(1)))
         assertEquals(97L, PlaceholderBalance.deuteriumProductionPerHour(BuildingLevel(10)))
     }
