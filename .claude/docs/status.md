@@ -242,6 +242,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   said the ladders were not built, and the row states its yield and counts the bands it fails
   against the bar `Barren` names.
 
+- **The adaptation band line overflows at 320dp from Atmospheric 8 upward**, and the unit is what
+  gets ellipsised — "0.02 … 9.8 → −0.04 … 10.7 a…". Measured against the committed baseline, not
+  inferred. Levels 8–11 are ones the design expects a player to reach (saturation is 11, and no cap
+  was added). Three ways out, all of them Davide's call, in `decisions.md` under *Left open*. Nothing
+  automated will catch it: a behaviour test reads the semantics string, which stays complete.
+- **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
+  a three-axis card is airier than the design drew it. Overrule if it reads loose.
+
 - Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
   stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;

@@ -194,10 +194,22 @@ private fun BlockedAxes(slot: Int, failures: List<BlockedAxisUiState>, onOpenRes
                     lineHeight = 15.sp,
                     maxLines = 1,
                     softWrap = false,
+                    // **The padding is inside the clickable, and that ordering is the whole point.**
+                    // A 10.5sp line box is 15dp tall; every other target in the app is 30–32dp —
+                    // the Research button is 11sp plus 7dp of vertical padding, the steppers are
+                    // 32dp square. Put the padding before `clickable` and the hit rectangle is the
+                    // glyphs alone, which on the delivery target is a third of the 44pt iOS
+                    // minimum. Accent means "go tap this"; a target this small is the promise
+                    // breaking on contact, and a near miss lands on a card that is deliberately
+                    // not clickable, so nothing at all happens.
+                    //
+                    // The vertical padding is 6dp rather than the 7dp the Research button uses, so
+                    // that a three-axis card's lines still clear each other by the 5dp this Column
+                    // spaces them with rather than visibly loosening.
                     modifier = Modifier
-                        .padding(start = 10.dp)
                         .clickable(onClick = onOpenResearch)
-                        .testTag(GalaxyTestTags.adaptation(slot, failure.technology)),
+                        .testTag(GalaxyTestTags.adaptation(slot, failure.technology))
+                        .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
                 )
             }
         }

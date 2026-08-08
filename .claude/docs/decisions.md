@@ -1242,3 +1242,48 @@ failed. `FormattingTest` already carried a comment warning about exactly this. T
 that wrote them cannot build — the egress policy blocks AGP — and no PR was opened, so nothing
 caught it. **A cloud session's `core` work is not verified until a PR runs CI on it**, and opening
 one is the cheapest way to find out.
+
+### What an adversarial review of the slice found
+
+Four dimensions, every finding put to an independent verifier told to refute it; 7 of 12 claims were
+refuted and 5 survived. Four are fixed here; the fifth is a design call and is recorded rather than
+guessed at.
+
+**The remedy was a 15dp tap target, and it is the only way into the slice.** `.padding(...)` sat
+*before* `.clickable(...)`, so the hit rectangle was the glyphs alone — a 10.5sp line box — where
+every other target in the app is 30–32dp and iOS asks for 44pt. A near miss landed on a card that
+is deliberately not clickable, so nothing happened at all: no navigation, no feedback. The padding
+now sits inside the clickable, with 6dp above and below. It is the one interactive element in the
+client that had the modifiers in that order, and "accent means go tap this" is exactly the promise
+a target that size breaks. **The rows are 12dp taller as a result**, which is a visible change to
+the density the design drew — Davide's to overrule if the airier card reads wrong.
+
+**The gate-open frame showed a duration the balance never produces.** The design sheet's frame gave
+Photovoltaics 3 as "2h 35m"; at Robotics 4 it is 2h 17m. Taking a design's numbers verbatim is right
+for costs the sheet decided and wrong for durations the balance derives — and this one sat four rows
+above three ladders reading 3h 02m, which is the cross-row comparison the shared slot exists to make.
+Its two neighbours (Extraction 5 at 5h 41m, Enrichment 1 at 1h 54m) were correct and are unchanged.
+
+**Nothing tested an adaptation row above level 0**, the one level at which reading `research` and
+reading a hard-coded zero are indistinguishable. Replacing the mapper's level lookup with
+`TechLevel(0)` left the whole suite green while a player at Gravitic 4 would have seen "LV 0",
+the genesis band and level 1's price. Now pinned at level 4.
+
+**`ResearchScreen`'s KDoc still repeated the premise this slice disproved** — six rows fitting a
+phone — which is the arithmetic that already clipped a baseline once.
+
+### Left open: the band line runs out of room at deep pressure levels
+
+**Not fixed, because the fix is a design call.** `milliTrimmed` buys about two glyphs, and the
+pressure band grows with the ladder: measured against the committed 320dp baseline (6.8px advance,
+187px of usable column beside the ghost button), Atmospheric level 0 is 23 glyphs and fits, level 8
+is 26 and does not — the trailing unit is the only element carrying `Ellipsis`, so it absorbs the
+whole overflow and renders "a…". Levels 8–11 are levels the design expects a player chasing crystal
+worlds to hold; §4 puts saturation at 11 and declined a cap.
+
+So the 320dp fix this slice made is a fix for level 0, not for the ladder. The options, none of
+which this slice may pick on its own: let the band line wrap to two lines at 320dp (preserves every
+figure and the unit, costs the row's fixed height); drop the unit at 320dp for adaptation rows only
+(contradicts "one unit, stated once" and the sheet's "identical at every width"); or abbreviate the
+band itself past some level. The behaviour tests cannot catch it either way — `hasText` reads the
+semantics string, which stays complete when the glyphs are ellipsised.
