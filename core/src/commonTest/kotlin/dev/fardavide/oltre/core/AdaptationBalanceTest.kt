@@ -27,7 +27,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the gate is later than the applied branch's, so the galaxy is met first`() {
+    fun `the gate is later than the applied branch's so the galaxy is met first`() {
         val applied = ResearchBalance.requirementFor(Technology.PHOTOVOLTAICS)
         assertEquals(ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)), applied)
         assertTrue(
@@ -44,7 +44,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the three ladders cost exactly the same, in three different currencies`() {
+    fun `the three ladders cost exactly the same in three different currencies`() {
         // The load-bearing property of the whole cost table. Each ladder is priced in the resource
         // its own axis makes rich — Gravitic in metal, Atmospheric in crystal, Thermal in the
         // deuterium the research branch already made scarce — and the identical priced total is
@@ -56,13 +56,13 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `no two ladders are priced alike, or there would be nothing to choose between them`() {
+    fun `no two ladders are priced alike or there would be nothing to choose between them`() {
         val costs = AdaptationTechnology.entries.map { AdaptationBalance.adaptationCost(it, TechLevel(1)) }
         assertEquals(costs.size, costs.distinct().size, "three ladders that charge the same are one ladder")
     }
 
     @Test
-    fun `cost compounds fifty percent per level, the game's one cost curve`() {
+    fun `cost compounds fifty percent per level on the game's one cost curve`() {
         assertCost(AdaptationTechnology.THERMAL, level = 2, metal = 1_350, crystal = 900, deuterium = 1_350)
         assertCost(AdaptationTechnology.GRAVITIC, level = 2, metal = 3_600, crystal = 1_350, deuterium = 300)
         assertCost(AdaptationTechnology.ATMOSPHERIC, level = 2, metal = 1_275, crystal = 2_400, deuterium = 375)
@@ -98,7 +98,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `duration is the sheet's table, and equal across the three ladders`() {
+    fun `duration is the sheet's table and equal across the three ladders`() {
         for (technology in AdaptationTechnology.entries) {
             assertMinutes(technology, level = 1, robotics = 4, expected = 182)
             assertMinutes(technology, level = 3, robotics = 4, expected = 545)
@@ -121,7 +121,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `duration rides the research Robotics divisor, not construction's steeper one`() {
+    fun `duration rides the research Robotics divisor and never construction's steeper one`() {
         // Research keeps the gentle 25 / (25 + 2 x Robotics) its published tables were computed
         // against; construction halves a build at Robotics 1. Adaptation is research.
         val atZero = AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(0))

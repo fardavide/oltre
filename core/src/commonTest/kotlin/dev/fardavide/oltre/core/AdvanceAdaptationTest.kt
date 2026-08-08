@@ -130,7 +130,7 @@ class AdvanceAdaptationTest {
     }
 
     @Test
-    fun `futureEvents predicts the ladder, and predicts it in the log's order`() {
+    fun `futureEvents predicts the ladder and predicts it in the log's order`() {
         val started = GameState.initial().adapting(AdaptationTechnology.THERMAL, at = EPOCH)
         val completesAt = started.ladder().completesAt
 
@@ -199,7 +199,7 @@ class AdvanceAdaptationTest {
     )
 
     @Test
-    fun `verdicts read the empire's real levels, not a hard-coded zero`() {
+    fun `verdicts read the empire's real levels and never a hard-coded zero`() {
         // The failure this exists to catch is a caller passing `AdaptationLevels.NONE` by hand:
         // every world would stay as blocked as it was at genesis however deep the empire climbed.
         val state = GameState.initial().climbed(AdaptationTechnology.THERMAL, to = 9)

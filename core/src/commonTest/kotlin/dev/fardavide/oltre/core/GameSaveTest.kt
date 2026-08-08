@@ -605,7 +605,7 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a played version 4 colony keeps everything it had, map included`() {
+    fun `a played version 4 colony keeps everything it had including the map`() {
         // when
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
 

@@ -132,7 +132,7 @@ class StartAdaptationTest {
     }
 
     @Test
-    fun `the next level is priced from the level already held, not from one`() {
+    fun `the next level is priced from the level already held and never from one`() {
         val climbed = GameState.initial().climbed(AdaptationTechnology.GRAVITIC, to = 3)
         val ready = climbed.readyToAdapt(AdaptationTechnology.GRAVITIC)
 
