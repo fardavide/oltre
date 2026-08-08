@@ -58,7 +58,7 @@ class ResearchScreenScreenshotTest {
             setContent {
                 OltreTheme {
                     Surface {
-                        ResearchScreen(uiState = uiState, onStartResearch = {})
+                        ResearchScreen(uiState = uiState, onStartResearch = {}, onStartAdaptation = {})
                     }
                 }
             }

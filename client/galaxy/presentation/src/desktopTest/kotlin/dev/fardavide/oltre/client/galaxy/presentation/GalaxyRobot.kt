@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.core.AdaptationTechnology
 
 internal const val PHONE_WIDTH = 393
 internal const val SLIDE_OVER_WIDTH = 320
@@ -25,6 +26,7 @@ internal fun galaxyScreen(
     onSelectGalaxy: (Int) -> Unit = {},
     onStepSystem: (Int) -> Unit = {},
     onGoHome: () -> Unit = {},
+    onOpenResearch: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
@@ -36,6 +38,7 @@ internal fun galaxyScreen(
                         onSelectGalaxy = onSelectGalaxy,
                         onStepSystem = onStepSystem,
                         onGoHome = onGoHome,
+                        onOpenResearch = onOpenResearch,
                     )
                 }
             }
@@ -61,6 +64,11 @@ internal class GalaxyRobot(private val test: ComposeUiTest) {
 
     fun goHome() = apply {
         test.onNodeWithTag(GalaxyTestTags.HOME).performClick()
+    }
+
+    // The blocked row's remedy, which is a tap target again now that Research can sell it.
+    fun tapTheRemedy(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(GalaxyTestTags.adaptation(technology)).performClick()
     }
 
     fun assertShowsWorld(slot: Int) = apply {

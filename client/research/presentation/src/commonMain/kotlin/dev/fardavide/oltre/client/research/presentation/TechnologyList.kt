@@ -21,9 +21,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.ProgressBar
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 
 // The facility list is the model and the row adds exactly one line to it. Reading order is
@@ -37,20 +40,71 @@ internal fun TechnologyList(
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         technologies.forEach { row ->
-            TechnologyRow(row = row, compact = compact, onStartResearch = onStartResearch)
+            ProjectRow(
+                name = row.name,
+                level = row.level,
+                effect = row.effect,
+                costs = row.costs,
+                duration = row.duration,
+                action = row.action,
+                rowTag = ResearchTestTags.row(row.technology),
+                actionTag = ResearchTestTags.action(row.technology),
+                compact = compact,
+                onStart = { onStartResearch(row.technology) },
+            )
         }
     }
 }
 
+// The same call, three rows further down. **No new component and no change to the existing one** —
+// the band line is three different strings in the same three slots, so every alpha, weight and
+// colour is the applied row's. That is load-bearing rather than tidy: from three rows away a
+// running ladder is the answer to why nothing else can start, and it can only be read as that
+// answer if it looks exactly like a running technology.
 @Composable
-private fun TechnologyRow(
-    row: TechnologyRowUiState,
+internal fun AdaptationList(
+    ladders: List<AdaptationRowUiState>,
     compact: Boolean,
-    onStartResearch: (Technology) -> Unit,
+    onStartAdaptation: (AdaptationTechnology) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        ladders.forEach { row ->
+            ProjectRow(
+                name = row.name,
+                level = row.level,
+                effect = row.effect,
+                costs = row.costs,
+                duration = row.duration,
+                action = row.action,
+                rowTag = ResearchTestTags.row(row.technology),
+                actionTag = ResearchTestTags.action(row.technology),
+                compact = compact,
+                onStart = { onStartAdaptation(row.technology) },
+            )
+        }
+    }
+}
+
+// Takes the row's parts rather than either row type, which is what makes "identical" a fact rather
+// than a promise two composables make separately. The tags and the callback are passed in because
+// they are the only things the two branches genuinely differ about.
+@Composable
+private fun ProjectRow(
+    name: String,
+    level: TechLevel,
+    effect: EffectUiState,
+    costs: List<CostChipUiState>,
+    duration: String,
+    action: ResearchActionUiState,
+    rowTag: String,
+    actionTag: String,
+    compact: Boolean,
+    onStart: () -> Unit,
 ) {
     val mono = oltreMono()
-    val locked = row.action is ResearchActionUiState.Locked
-    val running = row.action as? ResearchActionUiState.Running
+    val locked = action is ResearchActionUiState.Locked
+    val running = action as? ResearchActionUiState.Running
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -61,7 +115,7 @@ private fun TechnologyRow(
                 RoundedCornerShape(14.dp),
             )
             .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
-            .testTag(ResearchTestTags.row(row.technology))
+            .testTag(rowTag)
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -70,7 +124,7 @@ private fun TechnologyRow(
                     // Every technology name is one word, so nothing here truncates at 320dp — but
                     // the guard stays, because a future name is not this slice's promise to keep.
                     Text(
-                        text = row.name,
+                        text = name,
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 13.5.sp,
@@ -80,7 +134,7 @@ private fun TechnologyRow(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     Text(
-                        text = "LV ${row.level.value}",
+                        text = "LV ${level.value}",
                         color = OltreColors.textSecondary,
                         fontFamily = mono,
                         fontSize = 10.sp,
@@ -93,7 +147,7 @@ private fun TechnologyRow(
                             .padding(horizontal = 5.dp, vertical = 2.dp),
                     )
                 }
-                when (val action = row.action) {
+                when (action) {
                     is ResearchActionUiState.Locked -> Text(
                         text = action.reason,
                         color = OltreColors.textSecondary,
@@ -114,14 +168,14 @@ private fun TechnologyRow(
                     ResearchActionUiState.Start,
                     is ResearchActionUiState.AvailableIn,
                     -> {
-                        EffectLine(effect = row.effect, compact = compact)
+                        EffectLine(effect = effect, compact = compact)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(top = 4.dp),
                         ) {
-                            row.costs.forEach { chip -> CostChip(chip = chip) }
+                            costs.forEach { chip -> CostChip(chip = chip) }
                             Text(
-                                text = row.duration,
+                                text = duration,
                                 color = OltreColors.textSecondary,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -130,7 +184,7 @@ private fun TechnologyRow(
                     }
                 }
             }
-            when (val action = row.action) {
+            when (action) {
                 ResearchActionUiState.Start -> Text(
                     text = "Research",
                     color = Color.White,
@@ -139,8 +193,8 @@ private fun TechnologyRow(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .background(OltreColors.accent, RoundedCornerShape(9.dp))
-                        .clickable { onStartResearch(row.technology) }
-                        .testTag(ResearchTestTags.action(row.technology))
+                        .clickable { onStart() }
+                        .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 is ResearchActionUiState.AvailableIn -> Text(
@@ -151,7 +205,7 @@ private fun TechnologyRow(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
-                        .testTag(ResearchTestTags.action(row.technology))
+                        .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 is ResearchActionUiState.Running -> Text(
@@ -162,7 +216,7 @@ private fun TechnologyRow(
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
                         .padding(start = 8.dp)
-                        .testTag(ResearchTestTags.action(row.technology)),
+                        .testTag(actionTag),
                 )
                 is ResearchActionUiState.Locked -> Unit
             }

@@ -1,7 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
+import dev.fardavide.oltre.core.GameState
 
 // Two of these come from the real generator and one does not, and the split is deliberate.
 //
@@ -22,20 +24,25 @@ import dev.fardavide.oltre.core.GalaxyState
 
 private val galaxy: GalaxyState = GalaxyState.initial(GalaxySeed(20_260_807))
 
+// A colony that has researched nothing, which is what the three generated frames below describe:
+// the mapper reads the empire's adaptation levels now, so it needs the whole state rather than the
+// map half of it.
+private val state: GameState = GameState.initial(galaxy.seed)
+
 // The home system exactly as generated: Home in slot 7, then three Blocked worlds, all three of
 // which out-yield the worth-it threshold. That is the pillar landing — the good ground is behind
 // the technology nobody has bought yet.
-internal val homeSystemUiState: GalaxyUiState = galaxy.toGalaxyUiState(
+internal val homeSystemUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
 )
 
 // The neighbour, and every system but one at ship time.
-internal val unsurveyedSystemUiState: GalaxyUiState = galaxy.toGalaxyUiState(
+internal val unsurveyedSystemUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system - 1),
 )
 
 // The first system of the first galaxy: the one place the back step has nothing to step to.
-internal val edgeOfTheGalaxyUiState: GalaxyUiState = galaxy.toGalaxyUiState(
+internal val edgeOfTheGalaxyUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = 1, system = 1),
 )
 
@@ -46,7 +53,6 @@ internal val everyVerdictUiState = GalaxyUiState(
     coordinate = "2:118",
     detail = "BRIGHT · 6 worlds",
     compactDetail = "BRIGHT · 6",
-    adaptationState = "Adaptation research lands later. You are at level 0.",
     atFirstSystem = false,
     atLastSystem = false,
     isHome = false,
@@ -102,7 +108,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 8,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Blocked(
-                        failures = listOf(blocked("gravity", "2.40", "1.40", "g", "Gravitic 9")),
+                        failures = listOf(blocked("gravity", "2.40", "1.40", "g", AdaptationTechnology.GRAVITIC, 9)),
                         // Over the bar its own calibration line names, which is the pillar in one
                         // row: the good ground is behind the technology nobody has bought.
                         yieldLabel = "yield 1.04",
@@ -149,12 +155,20 @@ private fun homeAxes(): String {
 
 // The unit is joined to its value by U+00A0 in the mapper, and a fixture that used an ordinary
 // space would render a line that wraps differently from the real one.
-private fun blocked(axis: String, reading: String, band: String, unit: String, technology: String) =
+private fun blocked(
+    axis: String,
+    reading: String,
+    band: String,
+    unit: String,
+    technology: AdaptationTechnology,
+    level: Int,
+) =
     BlockedAxisUiState(
         axis = axis,
         reading = reading,
         tolerated = band + ' ' + unit,
         technology = technology,
+        label = "${technology.name.lowercase().replaceFirstChar { it.uppercase() }} $level",
     )
 
 private fun marks(vararg occupied: Pair<Int, MapMark>): List<MapSlotUiState> {

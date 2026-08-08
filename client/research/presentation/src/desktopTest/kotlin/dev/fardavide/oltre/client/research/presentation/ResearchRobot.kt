@@ -13,6 +13,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
 
 // A behaviour test says what the player did and what they should see; the Robot owns how. Keeping
@@ -23,13 +24,18 @@ internal fun researchScreen(
     uiState: ResearchUiState,
     width: Int = PHONE_WIDTH,
     onStartResearch: (Technology) -> Unit = {},
+    onStartAdaptation: (AdaptationTechnology) -> Unit = {},
     block: ResearchRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
         setContent {
             OltreTheme {
                 Surface {
-                    ResearchScreen(uiState = uiState, onStartResearch = onStartResearch)
+                    ResearchScreen(
+                        uiState = uiState,
+                        onStartResearch = onStartResearch,
+                        onStartAdaptation = onStartAdaptation,
+                    )
                 }
             }
         }

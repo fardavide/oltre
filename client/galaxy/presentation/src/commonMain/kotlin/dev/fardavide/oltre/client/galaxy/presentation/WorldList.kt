@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,7 +26,12 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 // Every world is the same card: the coordinate, the verdict word, the orbit band on the right, and
 // whatever the verdict earns beneath it. The verdict word takes the only colour on the row.
 @Composable
-internal fun WorldList(bands: List<OrbitBandUiState>, compact: Boolean, modifier: Modifier = Modifier) {
+internal fun WorldList(
+    bands: List<OrbitBandUiState>,
+    compact: Boolean,
+    onOpenResearch: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Column(modifier = modifier.fillMaxWidth()) {
         bands.forEach { band ->
             SectionLabel(text = band.band.heading.uppercase())
@@ -33,14 +39,16 @@ internal fun WorldList(bands: List<OrbitBandUiState>, compact: Boolean, modifier
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth().padding(bottom = 13.dp),
             ) {
-                band.rows.forEach { row -> WorldRow(row = row, compact = compact) }
+                band.rows.forEach { row ->
+                    WorldRow(row = row, compact = compact, onOpenResearch = onOpenResearch)
+                }
             }
         }
     }
 }
 
 @Composable
-private fun WorldRow(row: WorldRowUiState, compact: Boolean) {
+private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () -> Unit) {
     // The one row that is not a card. It is not tappable, so it does not get the surface every
     // tappable thing in the app has — a hairline and no fill instead.
     if (row.verdict is VerdictUiState.Relay) {
@@ -79,7 +87,7 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean) {
             // shortest card in the app, because a screen of them is the normal case.
             VerdictUiState.Unsurveyed -> Unit
             is VerdictUiState.Blocked -> {
-                BlockedAxes(failures = verdict.failures)
+                BlockedAxes(failures = verdict.failures, onOpenResearch = onOpenResearch)
                 Detail(text = verdict.calibration, color = OltreColors.textSecondary)
                 Detail(text = verdict.detail, color = OltreColors.textTertiary)
             }
@@ -153,7 +161,7 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
 // Adaptation 8 would land it" — wraps to three lines at 393dp, and three of those is the wall this
 // row must not be. It keeps the clause order and loses the verb.
 @Composable
-private fun BlockedAxes(failures: List<BlockedAxisUiState>) {
+private fun BlockedAxes(failures: List<BlockedAxisUiState>, onOpenResearch: () -> Unit) {
     val mono = oltreMono()
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
         failures.forEach { failure ->
@@ -166,20 +174,30 @@ private fun BlockedAxes(failures: List<BlockedAxisUiState>) {
                     lineHeight = 15.sp,
                     modifier = Modifier.weight(1f),
                 )
-                // Not accent, and that is the correction: accent is the screen's only "go tap this"
-                // signal, and Research sells PHOTOVOLTAICS, EXTRACTION and ENRICHMENT — never one of
-                // these. Dressing an unbuyable ladder as a call to action sends the player to a tab
-                // that cannot answer. It reads as what it is until the ladders exist: the name of
-                // the thing that would land this world.
+                // Accent again, and tappable — one decision rather than two. 0.0.16 demoted this to
+                // textSecondary for exactly one reason, that Research could not sell what the string
+                // named, and this slice ends that reason. But restoring the colour alone would break
+                // the rule harder than the demotion did: accent is the screen's only "go tap this"
+                // signal, so an accent string that is not a target is worse than a tertiary string
+                // that is not a target. Ship both or ship neither.
+                //
+                // The target is the string, not the row: the row belongs to the world — survey now,
+                // claim later — and a whole-row deep link would take that away from the thing the
+                // player usually wants. It selects the Research tab and stops there. Under a second
+                // section on one screen the ADAPTATION rows are already on screen when they arrive,
+                // so there is no scroll target, no highlighted row and no arrival state to design.
                 Text(
-                    text = failure.technology,
-                    color = OltreColors.textSecondary,
+                    text = failure.label,
+                    color = OltreColors.accent,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
                     lineHeight = 15.sp,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier.padding(start = 10.dp),
+                    modifier = Modifier
+                        .padding(start = 10.dp)
+                        .clickable(onClick = onOpenResearch)
+                        .testTag(GalaxyTestTags.adaptation(failure.technology)),
                 )
             }
         }

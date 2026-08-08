@@ -2,8 +2,10 @@ package dev.fardavide.oltre.client.research.presentation
 
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -15,15 +17,26 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreLayout
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
 
-// One branch, three technologies, one project at a time. Three rows leave most of a phone empty
-// and that stays empty: a branch that fills the screen is a branch with filler in it. Past the
-// content cap the rows get air rather than columns — nothing reflows and nothing new appears.
+// Two branches, six technologies, one project at a time between them. One list with a seam in it —
+// not two screens, and not a screen with a switch on it. The seam should read the way the gap
+// between the facility list and the fleet strip reads on Colony: a change of subject inside one
+// instrument, rather than a change of place.
+//
+// Both branches are always visible, and that is the decision rather than a consequence of it. Six
+// rows fit a 393dp phone without scrolling, so when a project is in flight the five rows that
+// cannot start read the same wait and the sixth counts it down — on one screen, where the two
+// numbers verify each other with nothing added to carry the explanation. A segmented control would
+// buy three rows at a time, which is nothing, and spend a component the app does not have, a third
+// fixed band in the vertical budget, and the locked branch behind a tap. Past the content cap the
+// rows still get air rather than columns.
 @Composable
 fun ResearchScreen(
     uiState: ResearchUiState,
     onStartResearch: (Technology) -> Unit,
+    onStartAdaptation: (AdaptationTechnology) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -54,6 +67,25 @@ fun ResearchScreen(
                     technologies = uiState.technologies,
                     compact = compact,
                     onStartResearch = onStartResearch,
+                )
+                // 22dp — the value that clears the fleet strip on Colony, which is what the system
+                // already spends to mean "different subject". Not a divider and not a hairline:
+                // the two branches are one list, and a rule through it would make them two. A
+                // Spacer rather than a modifier on the label, because `SectionLabel` renders the
+                // Colony's baselines too and this slice may not move its measurements.
+                Spacer(modifier = Modifier.height(22.dp))
+                SectionLabel(
+                    text = "ADAPTATION",
+                    // A pointer rather than a rule of its own, and unchanged at 320dp because
+                    // "slot" is the shortest true noun and has nothing to cut. Repeating "one
+                    // project at a time" here would read as one of each — the exact
+                    // misunderstanding the rule above exists to prevent.
+                    rule = "the same slot",
+                )
+                AdaptationList(
+                    ladders = uiState.adaptation,
+                    compact = compact,
+                    onStartAdaptation = onStartAdaptation,
                 )
             }
         }

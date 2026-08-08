@@ -27,12 +27,17 @@ import androidx.compose.ui.Modifier
 // exists — the tabs with no parameter are the ones that are not built. `resources` is the
 // exception that proves it: the rail is chrome rather than a feature, framing every destination
 // exactly as the tab bar does.
+// `galaxy` takes a parameter the other two do not: the way to the Research tab. A blocked world
+// names the ladder that would land it, and since 0.0.18 that string is a tap target — but which
+// destination is showing is the scaffold's state, so the galaxy cannot select a tab and must be
+// handed the ability to ask. It stays a lambda rather than becoming a hoisted `selected` because
+// the feature has no opinion about tabs beyond "take me to that one".
 @Composable
 fun MainScaffold(
     resources: ResourceRailUiState,
     colony: @Composable () -> Unit,
     research: @Composable () -> Unit,
-    galaxy: @Composable () -> Unit,
+    galaxy: @Composable (onOpenResearch: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
@@ -42,7 +47,13 @@ fun MainScaffold(
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
         ResourceRail(uiState = resources)
-        Destination(selected = selected, colony = colony, research = research, galaxy = galaxy)
+        Destination(
+            selected = selected,
+            colony = colony,
+            research = research,
+            galaxy = galaxy,
+            onOpenResearch = { selected = OltreTab.RESEARCH },
+        )
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }
 }
@@ -52,7 +63,8 @@ private fun ColumnScope.Destination(
     selected: OltreTab,
     colony: @Composable () -> Unit,
     research: @Composable () -> Unit,
-    galaxy: @Composable () -> Unit,
+    galaxy: @Composable (onOpenResearch: () -> Unit) -> Unit,
+    onOpenResearch: () -> Unit,
 ) {
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
@@ -60,7 +72,7 @@ private fun ColumnScope.Destination(
         when (selected) {
             OltreTab.COLONY -> colony()
             OltreTab.RESEARCH -> research()
-            OltreTab.GALAXY -> galaxy()
+            OltreTab.GALAXY -> galaxy(onOpenResearch)
             OltreTab.SHIPYARD,
             OltreTab.FLEETS,
             -> UnbuiltTabScreen(

@@ -30,10 +30,14 @@ kotlin {
             implementation(projects.core)
             // No `:client:design:icon` — the galaxy draws its own map, and a star and fifteen
             // orbit dots are this screen's geometry rather than a glyph any other screen wants.
-            // No `:client:design:format` either: nothing here is a duration or a cost, and the
-            // one thing it does format — a milli-unit as a decimal — has one caller.
             implementation(projects.client.design.component)
             implementation(projects.client.design.core)
+            // `:client:design:format` was declined at 0.0.15 on the grounds that the one thing this
+            // screen formats — a milli-unit as a decimal — had a single caller. It has two since
+            // the adaptation branch put the same three axes on Research: a band there is read
+            // against a reading here, so the two screens writing them differently would be the app
+            // contradicting itself about a number the player is comparing.
+            implementation(projects.client.design.format)
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

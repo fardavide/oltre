@@ -78,21 +78,11 @@ internal fun GalaxyNav(
             )
             HomeButton(isHome = uiState.isHome, onGoHome = onGoHome)
         }
-        // Sentence case and tertiary, which is the voice the unbuilt tabs use for the same job:
-        // saying what is not built yet without dressing it as a thing to do. It sits under the
-        // coordinate rather than on the rows because every blocked row would otherwise repeat it,
-        // and it wraps rather than abbreviating — a caveat that lost half its words would be worse
-        // than no caveat.
-        // 9.5sp is the nav's own tertiary size — the one the scope and the star class already use —
-        // and it is also what keeps both sentences on one line at 393dp. At 320dp it wraps, which
-        // is the same thing the blocked rows do at that width.
-        Text(
-            text = uiState.adaptationState,
-            color = OltreColors.textTertiary,
-            fontFamily = oltreMono(),
-            fontSize = 9.5.sp,
-            lineHeight = 14.sp,
-        )
+        // 0.0.16's third line — "Adaptation research lands later. You are at level 0." — is gone
+        // rather than replaced. It was PLACEHOLDER copy accounting for an absence, and Research
+        // now sells the three ladders it said were not built. Nothing takes the slot: see the note
+        // in `GalaxyUiState` for why a standing "Thermal 2 · Gravitic 0" total was rejected. The
+        // header is back to the galaxy tabs and the coordinate field, which is what it was before.
     }
 }
 

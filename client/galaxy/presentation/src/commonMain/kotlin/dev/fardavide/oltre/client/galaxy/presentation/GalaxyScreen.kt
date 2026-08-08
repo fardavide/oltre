@@ -23,7 +23,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.GalaxyBalance
-import dev.fardavide.oltre.core.GalaxyState
+import dev.fardavide.oltre.core.GameState
 
 // The Galaxy tab. One system fills the screen: the map is its fifteen orbits drawn once, left to
 // right, hot to cold, and the list below carries only the slots that hold something.
@@ -33,20 +33,27 @@ import dev.fardavide.oltre.core.GalaxyState
 // selector names only the galaxy, and nothing outside this module has an opinion about it. So this
 // composable is the one screen in the app that holds state, and `GalaxyPage` below is the stateless
 // half the screenshots and the robot drive.
+// The whole state rather than its `galaxy` half since 0.0.18: a world's verdict is a function of
+// what the empire has researched as well as of the seed, and `verdictFor(world, state)` is the call
+// that reads both. `onOpenResearch` is the one thing this screen asks the shell for — a blocked
+// row's technology is a tap target now that Research can sell it.
 @Composable
-fun GalaxyScreen(galaxy: GalaxyState, modifier: Modifier = Modifier) {
-    var at by remember(galaxy.seed) {
-        mutableStateOf(SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system))
+fun GalaxyScreen(state: GameState, onOpenResearch: () -> Unit, modifier: Modifier = Modifier) {
+    var at by remember(state.galaxy.seed) {
+        mutableStateOf(SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system))
     }
     GalaxyPage(
-        uiState = galaxy.toGalaxyUiState(at = at),
+        uiState = state.toGalaxyUiState(at = at),
         onSelectGalaxy = { selected -> at = at.copy(galaxy = selected) },
         // Clamped rather than wrapped: 250 is the edge of a galaxy, and a stepper that jumps from
         // the last system to the first would be a different move than the one it looks like.
         onStepSystem = { step ->
             at = at.copy(system = (at.system + step).coerceIn(1, GalaxyBalance.SYSTEMS_PER_GALAXY))
         },
-        onGoHome = { at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system) },
+        onGoHome = {
+            at = SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system)
+        },
+        onOpenResearch = onOpenResearch,
         modifier = modifier,
     )
 }
@@ -57,6 +64,7 @@ internal fun GalaxyPage(
     onSelectGalaxy: (Int) -> Unit,
     onStepSystem: (Int) -> Unit,
     onGoHome: () -> Unit,
+    onOpenResearch: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -100,6 +108,7 @@ internal fun GalaxyPage(
                 WorldList(
                     bands = uiState.bands,
                     compact = compact,
+                    onOpenResearch = onOpenResearch,
                     modifier = Modifier.padding(top = 13.dp),
                 )
             }
