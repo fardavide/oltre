@@ -605,6 +605,11 @@ private class CheckIn(
     val label: String,
     val finished: List<String>,
     val couldBuy: List<String>,
+    // The same options as `couldBuy`, kept typed, because *how many* things are on the table and
+    // *how many kinds* of thing are on the table are different questions and only the second one
+    // answers "there is nothing to do but press a button". Five facility rows are five taps of one
+    // verb; a facility and a technology are a choice between two shapes of decision.
+    val kinds: Set<String>,
     val bought: List<String>,
     val leftRunning: Int,
     val nextLandsInMinutes: Long?,
@@ -663,9 +668,17 @@ private fun printOpeningReport() {
 
         val finished = finishedBetween(before, state)
         val options = optionsFor(state, plan, withProjects = true)
-        val couldBuy = (options.buildings + options.projects)
+        val affordable = (options.buildings + options.projects)
             .filter { (_, cost) -> state.resources.covers(cost) }
-            .map { (what, _) -> nameOf(what, state) }
+            .map { (what, _) -> what }
+        val couldBuy = affordable.map { nameOf(it, state) }
+        val kinds = affordable.map { what ->
+            when (what) {
+                is BuildingType -> "build"
+                is AdaptationTechnology -> "adapt"
+                else -> "research"
+            }
+        }.toSet()
 
         val bought = mutableListOf<String>()
         for ((building, cost) in options.buildings) {
@@ -697,6 +710,7 @@ private fun printOpeningReport() {
             label = clockLabel(offset),
             finished = finished,
             couldBuy = couldBuy,
+            kinds = kinds,
             bought = bought,
             leftRunning = pending.size,
             nextLandsInMinutes = pending.firstOrNull()?.let { (it.at - now).inWholeMinutes },
@@ -710,14 +724,15 @@ private fun printOpeningReport() {
     println("affordable cheapest-first — the greedy runs' rule, restricted to when a player is")
     println("actually looking. Genesis is the first check-in, so the colony starts with the player.")
     println()
-    println("| Check-in | Finished while away | Could buy | Bought | Left running | Next lands in |")
-    println("|---|---|---|---|---|---|")
+    println("| Check-in | Finished while away | Could buy | Kinds | Bought | Left running | Next lands in |")
+    println("|---|---|---|---|---|---|---|")
     for (checkIn in checkIns) {
         val next = checkIn.nextLandsInMinutes?.let { minutes -> "${minutes / 60}h ${(minutes % 60).toString().padStart(2, '0')}m" }
             ?: "**nothing**"
         println(
             "| ${checkIn.label} | ${checkIn.finished.joinToString().ifEmpty { "—" }} " +
-                "| ${checkIn.couldBuy.size} | ${checkIn.bought.joinToString().ifEmpty { "**nothing**" }} " +
+                "| ${checkIn.couldBuy.size} | ${checkIn.kinds.sorted().joinToString("+").ifEmpty { "—" }} " +
+                "| ${checkIn.bought.joinToString().ifEmpty { "**nothing**" }} " +
                 "| ${checkIn.leftRunning} | $next |",
         )
     }
@@ -733,6 +748,12 @@ private fun printOpeningReport() {
     println("| Check-ins offering exactly one thing | ${checkIns.count { it.isForced }} |")
     println("| Check-ins that left nothing running | ${checkIns.count { it.leftRunning == 0 }} |")
     println("| Median options on the table | ${checkIns.map { it.couldBuy.size }.sorted()[checkIns.size / 2]} |")
+    // The count above and the count below are the difference between "there is plenty on the
+    // table" and "there is plenty to *do*". Five facility rows are one verb pressed five times.
+    println("| **Check-ins offering one kind of thing only** | **${checkIns.count { it.kinds.size <= 1 }} of ${checkIns.size}** |")
+    val secondVerb = offsets.zip(checkIns).firstOrNull { (_, checkIn) -> checkIn.kinds.size >= 2 }
+    println("| A second kind of decision first exists | " +
+        "${secondVerb?.let { "${it.first}h in (${it.second.label})" } ?: "**never, in 48h**"} |")
     println("| **Hours the colony had nothing in flight** | **${idle / 60}h of ${totalMinutes / 60}h " +
         "(${percent((idle / 60).toInt(), (totalMinutes / 60).toInt())})** |")
     println("| Longest unbroken silence | ${longestIdle / 60}h ${(longestIdle % 60).toString().padStart(2, '0')}m |")
