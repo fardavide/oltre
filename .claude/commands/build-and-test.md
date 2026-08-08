@@ -12,6 +12,18 @@ its output verbatim (do not summarise an error away):
 
 Both must pass before any PR is opened. These are the same gates CI enforces as required checks.
 
+**From a session that cannot resolve AGP** (Claude Code on the web — `dl.google.com` is 403 there,
+so both commands above fail during configuration), run what can still be verified rather than
+nothing:
+
+```
+.claude/tools/gradle-without-agp.sh :core:jvmTest :sim:test
+```
+
+That covers `:core` — which is where domain and balance work lives — and leaves `client/*` to CI.
+Say plainly in the PR which modules were verified locally and which were not. See
+`.claude/rules/session-roles.md`.
+
 Coverage is reported, not gated: CI's **Coverage** job runs `.github/scripts/measure-coverage.sh`
 and comments the per-test-kind table on the PR. Run it locally only when you want the numbers —
 it is five Gradle passes. A single kind is cheap: `./gradlew check -Poltre.testCategory=behaviour`.

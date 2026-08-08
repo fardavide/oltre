@@ -13,9 +13,11 @@ from something real rather than from policy.
 
 Two hard facts, not preferences:
 
-1. **A cloud session cannot build.** The remote environment's egress policy blocks
-   `dl.google.com`, so Gradle never resolves AGP and `./gradlew build` fails before compiling
-   anything (see `status.md`). UI written there is unverified by definition.
+1. **A cloud session cannot build anything that needs AGP.** The remote environment's egress
+   policy answers 403 to `dl.google.com`, and every route to the Android Gradle Plugin ends there
+   — `maven.google.com` redirects to it, the Gradle Plugin Portal redirects to Maven Central, and
+   Google does not publish AGP to Maven Central (see `status.md`). Every `client/*` module applies
+   AGP, so UI written there is unverified by definition.
 2. **A cloud session cannot reach Claude Design.** `DesignSync` needs an interactive
    `/design-login`, which needs a terminal. So the design it would be implementing is not
    readable from inside the session.
@@ -23,6 +25,30 @@ Two hard facts, not preferences:
 Compose it cannot compile, screenshots it cannot record, against a design it cannot see. Domain
 code has none of those problems: `core` is pure, its tests are the specification, and CI is the
 gate.
+
+### It *can* build and run `:core` and `:sim` — use it
+
+"A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`
+depends only on `:core` and consumes its **JVM** target; AGP is in `:core` only to publish an
+Android target the sim never looks at. Restricted to those two modules with the Android target
+dropped, Gradle resolves everything it needs from Maven Central and the real harness runs
+unmodified:
+
+```
+.claude/tools/gradle-without-agp.sh :sim:run
+.claude/tools/gradle-without-agp.sh :core:jvmTest :sim:test
+```
+
+The script swaps in a minimal overlay for the three build files, runs Gradle, and always restores
+the real ones — it refuses to start if they have uncommitted changes, because the restore is a
+hard `git checkout --`. Nothing it writes is ever committed.
+
+This is what round 7 of the balance log was measured with, and the 0.0.12 greedy week reproduced
+byte for byte through it. **So a cloud session doing balance or domain work should run the tests
+and the sim rather than reasoning about the numbers** — rounds 2 and 3 wrote their tables by hand
+against this same blockage, and hand arithmetic is not a measurement. It changes nothing about
+UI: `client/*` still cannot be compiled, and screenshot baselines still go through the manual
+Record job.
 
 ## Hand-offs are prompts, in a code block
 

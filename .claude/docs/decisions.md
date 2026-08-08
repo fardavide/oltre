@@ -1287,3 +1287,51 @@ figure and the unit, costs the row's fixed height); drop the unit at 320dp for a
 (contradicts "one unit, stated once" and the sheet's "identical at every width"); or abbreviate the
 band itself past some level. The behaviour tests cannot catch it either way — `hasText` reads the
 semantics string, which stays complete when the glyphs are ellipsised.
+
+## A cloud session runs `:core` and `:sim` through a build overlay (2026-08-08, 0.1.1)
+
+**"A cloud session cannot build" was written down as a hard fact and it was too strong.** It is
+true of anything that applies AGP, which is every `client/*` module and `:core`'s Android target —
+`dl.google.com` answers 403 to the remote environment, `maven.google.com` redirects there, the
+Gradle Plugin Portal redirects to Maven Central, and Google does not publish AGP to Maven Central.
+There is no way through for the client, and there never was.
+
+But `:sim` depends only on `:core`, and consumes its **JVM** target. AGP is in `:core` purely to
+publish an Android target the sim never reads. Restricted to those two modules with the Android
+target dropped, every dependency resolves from Maven Central and the harness runs unmodified.
+`.claude/tools/gradle-without-agp.sh` does that: it generates a minimal overlay for the three build
+files, runs Gradle, and restores the real ones on every exit path.
+
+**Why this is worth a decision entry rather than a script nobody mentions.** Rounds 2 and 3 of the
+balance log wrote their tables *by hand* because of this blockage, and said so; a later session
+that could build re-ran them and confirmed the arithmetic had held. That is a coin flip nobody
+should be asked to make again. Round 7 needed measurements the arithmetic could not produce at all
+— which resource blocks a purchase, in which hour, across 336 hours of two strategies — and got
+them from this script. The 0.0.12 greedy week reproduced through it byte for byte, which is the
+evidence that the overlay changes nothing about what runs.
+
+Rejected alternatives:
+
+- **Mirror AGP from a third-party host** (Aliyun, Huawei and others proxy Google's Maven). It would
+  fix the whole build, and it means executing build plugins fetched from an unvetted mirror. Not
+  for a balance measurement, and not silently.
+- **Make the root `plugins {}` block conditional** so AGP loads only when resolvable. This is a
+  permanent change to the real build to serve one environment, and it fights the reason every
+  plugin is declared at the root in the first place — one classloader, no BuildService clashes.
+- **Bypass Gradle with `kotlinc`.** `CLAUDE.md` forbids it, and rightly: the sim would then be
+  compiled by something other than the toolchain that compiles it everywhere else.
+
+The script is deliberately not wired into `./gradlew`, any CI job, or any default path. CI builds
+the whole project normally and remains the gate. **The real build files are never modified in a
+commit** — the script refuses to start if they carry uncommitted changes, because its restore is a
+hard `git checkout --` that would discard them.
+
+### The same PR found a hole in the coverage exclusions
+
+`kover`'s excludes named `dev.fardavide.oltre.sim.MainKt` — the file's class — to keep a harness
+that never ships from depressing the project total. Adding three top-level private types to
+`Main.kt` (an enum, a ledger, an options holder) put them in *sibling* class files, outside that
+name, and they arrived in the report as a new package at 0%: 14 uncovered lines, and a failed
+coverage gate on a PR that had not touched a line of shipping code. Now excluded by package, which
+is what the comment always meant. Worth knowing generally: **a class-name exclusion in Kover does
+not cover a file, it covers a class**, and Kotlin puts top-level declarations wherever it likes.

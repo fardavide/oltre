@@ -285,8 +285,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The coverage gate has a known hole: a cache miss skips it silently.** With no `main` baseline
   restored, the verdict is `skipped` and the job goes green — the comment and log say so, but
   nothing blocks. A PR merged during a cache eviction is a PR nothing measured.
-- **Agent sessions cannot build.** The remote environment's egress policy blocks
-  `dl.google.com`, so Gradle cannot resolve AGP and `./gradlew build` fails before compiling
-  anything; `maven.google.com` only redirects there. CI is the gate for agent-written code, and
-  screenshot baselines go through the manual Record job. Not a repo problem — do not "fix" it in
-  the build files.
+- **Agent sessions cannot build anything that needs AGP.** The remote environment's egress policy
+  answers 403 to `dl.google.com`, so Gradle cannot resolve AGP and `./gradlew build` fails before
+  compiling anything; `maven.google.com` only redirects there, the Gradle Plugin Portal redirects
+  to Maven Central, and Google does not publish AGP to Maven Central. CI is the gate for
+  agent-written code, and screenshot baselines go through the manual Record job. Not a repo
+  problem — do not "fix" it in the build files.
+  **They can, however, build and run `:core` and `:sim`**, which is most of what a domain or
+  balance session needs: `.claude/tools/gradle-without-agp.sh :sim:run`. The sim consumes `:core`'s
+  JVM target and AGP is in `:core` only for an Android target it never reads, so a two-module
+  overlay compiles the same sources and runs the same harness. Added at 0.1.1, when round 7 of the
+  balance log needed a measurement rather than arithmetic; the 0.0.12 greedy week reproduced
+  through it byte for byte. See `.claude/rules/session-roles.md`.
