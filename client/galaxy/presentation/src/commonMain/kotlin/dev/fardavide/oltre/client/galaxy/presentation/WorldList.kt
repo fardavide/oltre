@@ -20,6 +20,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -65,7 +66,7 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () 
                 if (home) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
                 RoundedCornerShape(14.dp),
             )
-            .background(Color.White.copy(alpha = 0.045f), RoundedCornerShape(14.dp))
+            .background(oltreCardSurface, RoundedCornerShape(14.dp))
             .testTag(GalaxyTestTags.row(row.slot))
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),

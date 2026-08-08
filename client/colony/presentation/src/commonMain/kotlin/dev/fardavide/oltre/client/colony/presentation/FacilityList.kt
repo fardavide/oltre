@@ -56,8 +56,11 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (locked) 0.42f else 1f)
             .oltreCard(row.action.cardState())
+            // After the card, not before it — see the same ordering in TechnologyList. An alpha
+            // ahead of the fill dims the card and lets the starfield through a locked row; here
+            // the card stays solid and only its content recedes.
+            .alpha(if (locked) 0.42f else 1f)
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

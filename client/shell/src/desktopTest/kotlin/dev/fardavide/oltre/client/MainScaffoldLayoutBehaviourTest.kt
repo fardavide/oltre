@@ -1,12 +1,16 @@
 package dev.fardavide.oltre.client
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
@@ -57,42 +61,44 @@ class MainScaffoldLayoutBehaviourTest {
     // rate into whatever is left, so the node stays inside the cell and inside the rail while the
     // string inside it is cut in half. The only honest witness is the width the same rate takes
     // when nothing is competing for the line.
+    // Both widths are measured in ONE composition, and that is not tidiness — it is the difference
+    // between a test and a coin toss. `oltreMono()` resolves its faces through compose-resources,
+    // which loads them asynchronously; two separately-built scenes can therefore measure the same
+    // string against two different typefaces, the fallback in whichever one rendered before the
+    // font arrived. Comparing widths to a dp across that race failed once on a cold JVM and then
+    // passed nine times running, which is the worst way for a test to be wrong. One scene sees one
+    // typeface, whatever it is, so the comparison is about the layout and nothing else.
     @Test
     fun `the rail draws every rate at full width in a Slide Over window`() {
-        val roomy = rateWidths(windowWidth = 1400)
-        val slideOver = rateWidths(windowWidth = 320)
-
-        RAIL_CELLS.forEach { name ->
-            val expected = checkNotNull(roomy[name])
-            val actual = checkNotNull(slideOver[name])
-            assertTrue(
-                abs((actual - expected).value) <= TOLERANCE.value,
-                "the $name rate is $actual wide in a 320dp window but $expected wide with room to " +
-                    "spare, so it was squeezed onto the stock's line instead of wrapping under it",
-            )
-        }
-    }
-
-    private fun rateWidths(windowWidth: Int): Map<String, Dp> {
-        val widths = mutableMapOf<String, Dp>()
-        runDesktopComposeUiTest(width = windowWidth, height = 834) {
+        runDesktopComposeUiTest(width = 1400, height = 834) {
             setContent {
                 OltreTheme {
-                    MainScaffold(
-                        resources = sixFigureResourceRailUiState,
-                        colony = { Text("colony-under-test") },
-                        research = { Text("research-under-test") },
-                        galaxy = { Text("galaxy-under-test") },
-                    )
+                    Column {
+                        // Capped, so the cell has all the room the design ever gives it.
+                        Box(modifier = Modifier.width(OltreLayout.maxContentWidth)) {
+                            ResourceRail(uiState = sixFigureResourceRailUiState)
+                        }
+                        // A Slide Over pane, where a third of the width has to hold six figures
+                        // and a rate.
+                        Box(modifier = Modifier.width(SLIDE_OVER_WIDTH)) {
+                            ResourceRail(uiState = sixFigureResourceRailUiState)
+                        }
+                    }
                 }
             }
 
             RAIL_CELLS.forEach { name ->
-                val bounds = onNodeWithTag(ShellTestTags.resourceRate(name), useUnmergedTree = true).getBoundsInRoot()
-                widths[name] = bounds.right - bounds.left
+                val rates = onAllNodesWithTag(ShellTestTags.resourceRate(name), useUnmergedTree = true)
+                val roomy = rates[0].getBoundsInRoot().let { it.right - it.left }
+                val slideOver = rates[1].getBoundsInRoot().let { it.right - it.left }
+                assertTrue(
+                    abs((slideOver - roomy).value) <= TOLERANCE.value,
+                    "the $name rate is $slideOver wide in a $SLIDE_OVER_WIDTH pane but $roomy wide " +
+                        "with room to spare, so it was squeezed onto the stock's line instead of " +
+                        "wrapping under it",
+                )
             }
         }
-        return widths
     }
 
     private fun assertRailColumn(windowWidth: Int, windowHeight: Int) {
@@ -134,5 +140,8 @@ class MainScaffoldLayoutBehaviourTest {
 
         // The captions as the rail states them, which is also how the cells are tagged.
         val RAIL_CELLS = listOf("METAL", "CRYSTAL", "DEUTERIUM")
+
+        // The narrowest window the app has to survive.
+        val SLIDE_OVER_WIDTH = 320.dp
     }
 }

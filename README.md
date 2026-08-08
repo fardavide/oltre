@@ -120,6 +120,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.1.0 — 2026-08-08
+
+- **The resource rail says the same thing in one line less.** Metal, Crystal and Deuterium each
+  carry their own colour as a small orb beside the name, and the hourly rate moves up alongside the
+  stock instead of sitting under it. The bar gives the 12dp back to whatever screen is below it. In
+  a narrow window the rate drops under the stock rather than being cut off — which is the one thing
+  the old three-line bar could never get wrong, and the new one had to be taught.
+- **Six identical rectangles become a foreground and a background.** Every row catches a light
+  along its top edge, and what a row can do now sets how bright it sits: one you can start comes
+  forward, one waiting on stocks or on a prerequisite falls back, and the one in flight is the only
+  lit thing on the screen. From four rows away that is the answer to "why can nothing else start".
+- **The two Research branches read as two bands.** "TECHNOLOGIES · one project at a time" and
+  "ADAPTATION · the same slot" now carry their clause out to the right edge with a hairline
+  between, instead of two runs of grey text stacked above two lists.
+- **There are stars behind the game.** A fixed starfield sits under every screen and under none of
+  the chrome, so the black reads as space rather than as absence. It does not move, does not
+  twinkle, and does not cost anything while the app is closed.
+
 ### 0.0.18 — 2026-08-08
 
 - **You can buy an adaptation ladder, and watch a world open up.** The Research tab grows a second

@@ -110,9 +110,15 @@ private fun ProjectRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .alpha(if (locked) 0.42f else 1f)
             .oltreCard(action.cardState())
             .testTag(rowTag)
+            // After the card, not before it, and that ordering is the whole point: an alpha placed
+            // ahead of the fill dims the card itself, which turns the one opaque thing on the
+            // screen translucent again and lets the starfield through it. A locked row would then
+            // have stars inside it, reading as dust on the card rather than as space behind it —
+            // the exact effect the opaque fills exist to prevent. Here the card stays solid and
+            // only what is written on it recedes.
+            .alpha(if (locked) 0.42f else 1f)
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

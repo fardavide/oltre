@@ -37,13 +37,33 @@ fun Modifier.oltreCard(state: OltreCardState): Modifier = this
     .border(1.dp, state.bevel(), SHAPE)
     .background(state.fill(), SHAPE)
 
+// The white 4.5% that every card in the app carried before this pass, composited over the same
+// base as the three fills above — and carrying the same caveat about which base that is.
+//
+// It exists for the surfaces that are cards but have no state to report: the galaxy's world rows
+// and its system map, the colony's power indicator. They keep their own borders and take no bevel,
+// because the depth pass was reviewed against Research and Colony rows and extending its light to
+// the rest of the app is a design call rather than a bug fix. What is *not* optional is the
+// opacity: the starfield sits under every destination now, and an alpha fill lets it through, so
+// leaving these translucent would put stars inside a world row. Use this, or use `oltreCard` —
+// never a raw alpha over the background.
+val oltreCardSurface = Color(0xFF101218)
+
 private val SHAPE = RoundedCornerShape(14.dp)
 
 // Opaque, and that is a knowing exception to "everything above the background is an alpha
 // overlay". The starfield behind the content column is the reason: an alpha fill lets the stars
-// through the card, where they read as dust on its surface and fight the lit edge above. Each of
-// these is the alpha fill it replaces composited over OltreColors.background, so over the flat
-// window it is the same colour it always was.
+// through the card, where they read as dust on its surface and fight the lit edge above.
+//
+// **These are the handoff's literal values, and its stated derivation does not hold.** Each is the
+// alpha fill it replaces composited over `OltreColors.background` (#05070D), which the handoff
+// says makes it "visually identical over the flat window". It is not: `App.kt` wraps the whole app
+// in a Material `Surface`, which takes `OltreColors.surface` (#0A0E18) from the theme, so the
+// window behind these cards is the lighter of the two. Composited over the colour actually there,
+// the old white 4.5% was #151922 — five to ten units per channel brighter than what is written
+// here. The values are kept as specified because the handoff calls them final and recomputing them
+// would be inventing colours nobody approved; the discrepancy is Davide's to settle. If the base
+// is ever corrected, every fill in this file and `oltreCardSurface` move together.
 private fun OltreCardState.fill(): Color = when (this) {
     // white 6% over background
     OltreCardState.ACTIONABLE -> Color(0xFF14161C)
