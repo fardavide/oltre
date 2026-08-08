@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-07 (0.0.17)
+Updated: 2026-08-08 (0.0.18)
 
 ## Landed
 
@@ -126,6 +126,22 @@ Updated: 2026-08-07 (0.0.17)
   the screen should use. See `decisions.md` and `balance-log.md` round 6.
   **Nothing a player can see changed** — see below.
 
+- **0.0.18 the adaptation branch reaches the player (the screen half)** — the hand-off 0.0.17 wrote,
+  built to a Claude Design sheet that answered the one open call and both secondary ones. **A second
+  section on the Research tab**, not a segmented control and not a sixth destination: the argument is
+  that a control which shows one branch at a time is a control whose job is to hide the thing you are
+  giving up, and that with both on screen a running project explains itself — five rows read the same
+  wait and the sixth counts it down, and the two numbers verify each other with nothing added. The
+  adaptation row is the existing row with three different strings in it (band → band, unit), so both
+  branches now render through **one** composable rather than two that promise to match. Galaxy took
+  `verdictFor(world, state)`, so a verdict finally reads the levels the player bought; its blocked
+  rows' remedies went back to accent **and** became tap targets — one decision, since an accent
+  string that is not a target breaks the colour rule harder than the demotion did — and 0.0.16's
+  PLACEHOLDER header line was deleted rather than replaced. `signed()`/`milli()` moved to
+  `:client:design:format` so a band on Research and a reading on Galaxy cannot drift apart. Also
+  repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
+  and ten of 0.0.17's had one. See `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -155,11 +171,11 @@ shape as the 0.1 research sheet, and every line in it is Davide's to overrule.
 Sequencing after that is still his: #6 (the real ship set) and #8 (the combat model) each need a
 call before they can start, and #7/#9/#10 sit behind them.
 
-**The adaptation branch was never a numbered slice** and it is now half-built: the galaxy sheet left
+**The adaptation branch was never a numbered slice** and it is now finished: the galaxy sheet left
 it as an open call rather than a row in this table, 0.0.17 settled it and built the `core` half, and
-the screen half is a local session's job with a design call in front of it (see *Pending* below).
-It sits between #5 and #6 in every practical sense — it is what makes slice #5's screen mean
-something — so it should be finished before another slice starts.
+0.0.18 put it on screen. It sat between #5 and #6 in every practical sense — it is what makes slice
+#5's screen mean something — and #6 is now the next thing with nothing in front of it but its own
+design call.
 
 Why the galaxy went first, recorded so it is not re-litigated: #7 needs destinations, #9 needs
 somewhere to put three empires and #10 needs a second world to settle, so all three are dead
@@ -209,23 +225,17 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
      covered by a hand-written frame; the naming, and whether a holder carries a date, are open.
      (`Barren` and `Settleable` *are* reachable: the seed is minted per colony, and 2–3% of worlds
      pass every band, so roughly one colony in a dozen sees one in its own home system.)
-- **THE NEXT THING TO BUILD, AND IT NEEDS A LOCAL SESSION: the two screens that sell the
-  adaptation branch.** 0.0.17 built the whole branch in `core` — it is startable, priced, timed,
-  saved and tested — and then could not put it on screen, because a cloud session may not write UI
-  (`session-roles.md`). So the shipped build is unchanged: the Research tab still renders
-  `Technology.entries`, which is still three rows, and `GalaxyUiState` still takes
-  `adaptation: AdaptationLevels = AdaptationLevels.NONE` and is still called without it. **0.0.16's
-  header copy — "Adaptation research lands later. You are at level 0." — is still true, and stops
-  being true the moment the Research screen renders the ladders.** Two things are needed and one of
-  them is a design call:
-  1. **A design call first: do the two branches share the Research screen or not?** A second
-     section, a segmented control, and a separate tab are all live; the model does not care. The
-     adaptation row cannot reuse `EffectUiState` as it stands — there is no "+47% of output" to
-     show, only "−30 … +45 °C → −44 … +59 °C".
-  2. **Then the wiring, which is small.** `startAdaptation(state, technology, at)` mirrors
-     `startResearch` exactly; `AdaptationBalance` answers cost, duration and requirement; the
-     Galaxy screen switches to `verdictFor(world, state)` and the header copy goes. Screenshot
-     baselines move on both screens, which is the other half of why this is not a cloud job.
+- ~~**THE NEXT THING TO BUILD: the two screens that sell the adaptation branch.**~~ — **done at
+  0.0.18.** The design call went to Claude Design and came back as *a second section on the same
+  scrolling screen*; both screens landed with it, plus the deep link and the header deletion the
+  same sheet answered. Two of the design's own premises did not survive contact with Compose and are
+  recorded in `decisions.md`: the row is 106dp rather than 74dp, so six rows scroll a phone by about
+  105dp instead of fitting it; and the pressure band has to drop its trailing zeros or the unit is
+  ellipsised at 320dp. **What is still open from it:** whether a three-block world should list all
+  three remedies now that all three are accent and tappable — flagged by the design itself as the
+  loudest thing on the Galaxy screen, and tied to the still-open "does a near miss look different
+  from a hopeless one".
+
 - ~~**Every `Blocked` row points at a Research tab that cannot sell what it names.**~~ — the
   *purchase* landed at 0.0.17 (above); what is left is the screen that offers it. 0.0.16 had
   half-answered the copy side: the technology lost the accent that made it look tappable, the header

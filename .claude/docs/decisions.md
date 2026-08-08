@@ -1153,3 +1153,92 @@ call before the local session can start); whether the shared slot should become 
 `ActiveProject` once the screen renders both; and whether a ladder past its saturation level — 17
 Thermal, 12 Gravitic, 11 Atmospheric — should be capped or merely labelled. No cap was added: it
 would be a new concept bought to prevent a purchase nobody has a reason to make.
+
+## Both branches on one screen, and the two premises that did not survive Compose
+
+0.0.18, presentation only, built to a Claude Design sheet that answered the open call 0.0.17 left
+and both of the secondary questions with it. No balance number is touched.
+
+**A second section on the same scrolling screen**, not a segmented control and not a sixth
+destination. The design's reason is not the one the brief expected — it is not that a second section
+puts the explanation one scroll away, it is that when a project is in flight five rows read the same
+wait and the sixth counts it down, on one screen, so the number verifies itself with nothing added
+to carry it. A control whose job is to show one branch at a time is a control whose job is to hide
+the thing you are giving up, and the trade *is* the mechanic. A sixth tab was rejected harder: five
+fixed tabs already overflow a 320dp pane, "Adaptation" abbreviates to nothing that exists elsewhere
+on the screen to recover it from, and the bar is the honest list of what the game is — a destination
+beside Colony and Galaxy would say adaptation is a place rather than three projects competing for
+one slot.
+
+**Four of six rows dimmed at Robotics 3 is the argument for it, not against.** The Research tab
+already shipped that way — day one is three dimmed rows — and a second dimmed block does the same
+job one branch further out: before the map has shown a single hostile world, the screen has said
+that hostile worlds are something you buy your way past. Under a segmented control those rows are
+behind a tap, so the player learns nothing until they go looking for something they do not know
+exists.
+
+**One row composable, not two that match.** `TechnologyList` and `AdaptationList` both call one
+private `ProjectRow`, which takes the row's parts and its two tags rather than either row type. A
+running ladder has to look *exactly* like a running technology, because from three rows away it is
+the answer to why nothing else can start; two composables promising to stay identical is a promise,
+and one implementation is a fact. The ui-states stay two types — the branches carry different enums,
+and a sum type in the identity field would make every reader answer for a branch it does not render.
+
+**The blocked row's remedy is accent and tappable, or neither.** 0.0.16 demoted it to
+`textSecondary` for exactly one reason, that Research could not sell what it named, and this slice
+ends that reason. Restoring the colour alone would have broken the rule harder than the demotion
+did: accent means "go tap this" and nothing else, so an accent string that is not a target is worse
+than a tertiary string that is not one. The target is the string rather than the row, because the
+row belongs to the world — survey now, claim later. The link selects the Research tab and stops:
+under a second section the ladders are already on screen when the player arrives, so there is no
+scroll target, no highlighted row and no arrival state to design. `MainScaffold`'s `galaxy`
+parameter therefore takes a lambda the other destinations do not, since navigation is the
+composition root's.
+
+**The Galaxy header line is deleted, not replaced.** It accounted for an absence, and the absence
+ended. "Thermal 2 · Gravitic 0 · Atmospheric 1" was the honest candidate and it fails for one
+reason worth keeping: a tolerance band means nothing except against a reading, and every place the
+player needs one the reading is already beside it — on a blocked row, and on the left of every
+adaptation row. A standing total would be the only header in Oltre stating empire state that is not
+about what is on screen.
+
+**`verdictFor(world, state)`, and the defect it closes.** The mapper defaulted an `AdaptationLevels`
+to `NONE`, which was correct while nothing could raise it and would have become a screen quietly
+refusing to show what the player had bought. Two tests pin it: a world's failing axes shrink as the
+empire climbs, and a partly climbed ladder still names the level to *buy* rather than the one held.
+
+**`signed()` and `milli()` moved to `:client:design:format`.** That module's absence from the galaxy
+build file carried a comment saying the formatter had one caller. It has two now — a band on
+Research is read against a reading on Galaxy — and two screens writing the same axis two ways would
+be the app contradicting itself about a number the player is comparing.
+
+### The two premises the sheet got wrong, both found by rendering it
+
+Recorded because the sheet is the design and these are corrections to it, not to the build.
+
+**The row is 106dp, not 74dp.** The sheet's central arithmetic — six rows, two labels and the 22dp
+seam at ~610dp against ~708dp of content — used the mock's 74dp row hint. The real Compose row is
+106dp, so the true figure is ~788dp and a 393x852 phone scrolls by about 105dp. **Direction A
+survives**: five of the six rows and the countdown are still on screen together, which is the part
+that had to be true. What does not survive is "there is no scroll", which was how the sheet
+dismissed B and C — the honest version is that the scroll is small enough not to hide the
+explanation. The sheet's own trigger to revisit ("the day a branch grows past what a phone holds")
+is therefore closer than it thought. The same 74dp also made the first screenshot height guess clip
+the sixth row out of a baseline, which is the failure mode that test's comment already warned about.
+
+**The pressure band must drop its trailing zeros.** Padded to two decimals, "0.50 … 2.60 → 0.44 …
+3.50 atm" is 29 monospace characters against about 26 of usable width beside a ghost button at
+320dp, and what gets ellipsised is the unit: "3.50 a…". The sheet is internally inconsistent here —
+its stated precision rule says "no padding 0.5 to 0.50" and its pressure strings are trimmed, while
+its gravity strings are padded — and the width settles it in favour of what it drew. So temperature
+prints whole degrees, gravity keeps both decimals so its two bands read as a column, and pressure
+trims: its band spans an order of magnitude more than gravity's, so it carries a leading digit more
+and has no character to spare. `milliTrimmed` exists for that one line and says so. **Davide's to
+overrule** — the alternative is padding everywhere and letting the band line wrap at 320dp.
+
+**The branch did not build when this slice started.** Kotlin/Native forbids a comma inside a
+backticked declaration, and ten of 0.0.17's test names had one, so `:core:compileTestKotlinIosArm64`
+failed. `FormattingTest` already carried a comment warning about exactly this. The cloud session
+that wrote them cannot build — the egress policy blocks AGP — and no PR was opened, so nothing
+caught it. **A cloud session's `core` work is not verified until a PR runs CI on it**, and opening
+one is the cheapest way to find out.
