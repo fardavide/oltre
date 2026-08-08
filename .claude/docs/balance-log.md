@@ -538,3 +538,146 @@ The fortnight also gets materially further in the same 14 days — Robotics 8 �
 - **Nothing here has been played yet.** These are sim measurements against a greedy strategy, not a
   session. The first round that can say anything about how it *feels* is the one after Davide plays
   0.1.1.
+
+## Round 8 — 0.1.1, the check-in with one verb in it (2026-08-08)
+
+**No balance number moved this round.** It is a diagnosis, a benchmark and four rejected
+candidates. It is recorded at length because Davide asked for the feedback itself to be kept —
+*"Let's save those feedbacks I give you, so that we keep a benchmark"* — and because the thing it
+measures is the first one in this log that no amount of tuning fixes.
+
+### The feedback, verbatim
+
+> "Mi sembra che il gameplay sia un po lento e noioso in questi primi due giorni"
+
+Asked whether "slow" meant an empty colony or a slow rate of progress, he rejected both framings:
+
+> "Ho poche cose da fare. Solo premere un tasto"
+
+> "So che mancano varie feature, ma ci vuole parecchio per sbloccare anche quelle che ci sono. Il
+> che è buono, ma nel frattempo apri il gioco ogni 2/3 ore e premi solamente un tasto per
+> l'upgrade. Sarebbe bello avere altro da fare e controllare"
+
+> "Per essere chiari, non voglio rimuovere il senso di progressione, anzi! Ma vorrei avere qualcosa
+> in più da fare, anziché premere un tasto ed aspettare 2/3/4 ore"
+
+> "As said, I don't want the user to have nothing to do for hours, but I don't want it to be forced
+> to keep logging it either, to avoid to fall behind. It must be a balance"
+
+> "No. I don't wanna to remove parallel build! There's still a need to decide, as you will use
+> resources to chose which to upgrade, you can upgrade them all"
+
+**Read those five together before proposing anything**, because each one closes a door the others
+leave open. The complaint is not the rates, not the unlock pace, not the progression curve and not
+the absence of a construction cap. It is that a session contains **one verb**.
+
+### What the sim was taught to measure
+
+Every run in this harness before today is an hour-stepped greedy bot over 7 or 14 days. That shape
+cannot answer a complaint about the opening: what is being complained about is what a *check-in*
+offers, and a runner that acts 24 times a day never has one. It also cannot see idleness at all —
+a bot that buys hourly keeps something running by construction.
+
+`printOpeningReport` runs the same buying rule, restricted to four times a day (08:00 / 13:00 /
+19:00 / 23:00). Two of its columns are new kinds of reading rather than new numbers:
+
+- **Kinds, not count.** How many *sorts* of decision a check-in offers — a facility, a technology,
+  an adaptation ladder. Five facility rows are one verb pressed five times, and the old "how many
+  options" column called that five.
+- **What a check-in booked.** How far ahead the session set the colony working. The brief calls
+  local notifications *the entire check-in loop*; this is the number that loop lives on.
+
+### The finding
+
+| Reading | 0.1.1 |
+|---|---|
+| Dead check-ins (nothing finished, nothing affordable) | 0 of 8 |
+| Median options on the table | 5 |
+| **Check-ins offering one kind of thing only** | **6 of 8** |
+| **A second kind of decision first exists** | **29 hours in** |
+| Hours with nothing in flight | **42 of 48 (87.5%)** |
+| Longest unbroken silence | 8h 33m |
+| Work the busiest check-in booked | **72 min** |
+| Median work a check-in booked | 48 min |
+
+After 48 hours: metal 7 · crystal 7 · deuterium 3 · solar 6 · robotics 2 — 25 levels, Photovoltaics 1.
+
+Three things fall out, and only the first was suspected:
+
+1. **There is no shortage of things to buy.** Zero dead check-ins, five options at the median. The
+   round 3 and round 7 levers — metal per hour, crystal per hour — are not what is wrong, and
+   moving either would answer a complaint nobody made.
+2. **There is one verb for the first 29 hours.** The Research tab is an empty room until the first
+   Robotics Factory. The adaptation ladders need Robotics 4, which this run does not reach in two
+   days — so the Galaxy screen is read-only for the whole opening, and every `Blocked` row on it
+   is decoration. Of five tabs, one does anything on day one.
+3. **The colony is idle 87.5% of the time and the busiest session books 72 minutes.** Every
+   notification the game can send arrives while the player is still holding the phone; nothing at
+   all fires across the gaps. This is the round 2 watch item — *durations are the wrong shape* —
+   carried unactioned through rounds 3 and 4, which predicted it would bite at deep levels. It
+   bites hardest at level 1.
+
+### Four candidates, measured and rejected
+
+Kept in full, because each is the obvious idea and each is now known to be wrong.
+
+| Candidate | What it did | Verdict |
+|---|---|---|
+| **Cost-proportional durations** — `(metal + crystal) ÷ 3` minutes, OGame's shape | idle 87.5% → **64.6%**; busiest booking 72 → **224 min**; **identical 25 levels at 48h**; greedy week day 7 mines 15/15/14 → 12/12/11 | **Fixes the emptiness, not the complaint.** Same number of taps, fewer of them per session. Held. |
+| **Robotics Factory cheaper** — 400/120/200 → 300/90/120, to open Research sooner | second verb 29h → **24h**; still **6 of 8** one-kind check-ins; idle 87.5% → 85.4% | **Rejected.** Five hours for a cheapened gate, and Davide likes the unlock pace: *"ci vuole parecchio per sbloccare anche quelle che ci sono. Il che è buono"*. |
+| **One construction slot** | **11 levels at 48h** against 25; Research never opens at all; still 83% idle; 3,970 metal left unspent | **Rejected, and worse on every axis.** |
+| **Two construction slots** | 18 levels at 48h; second verb slips 29h → **39h**; 7 of 8 one-kind; 2,564 metal unspent | **Rejected.** |
+
+**Both caps are rejected by Davide directly, not only by the measurement:** *"I don't wanna to
+remove parallel build! There's still a need to decide, as you will use resources to chose which to
+upgrade, you can upgrade them all."* The scarcity that makes the colony a decision is the stock,
+not a slot. See `decisions.md` — this also closes the "should anything cap simultaneous
+construction" question that has been open since round 2.
+
+The two caps also fail for a reason worth keeping: a cap does not fill the gaps it creates. Early
+builds are short whatever the cap, so one slot spent 83% of the window empty *and* halved
+progress — it removed actions without adding a single hour of cover.
+
+### The constraint that any answer has to satisfy
+
+Davide's fourth line is the hard one, and it rules out the cheap fixes in both directions:
+
+> "I don't want the user to have nothing to do for hours, but I don't want it to be forced to keep
+> logging it either, to avoid to fall behind. It must be a balance"
+
+So whatever fills the gap must be **startable in a check-in and harmless to miss**. Anything that
+rewards logging in at hour 3 rather than hour 9 fails the second half; anything that idles until
+the player returns fails the first. That rules out timed pickups, decaying bonuses, and any
+mechanic whose value depends on reaction speed — the whole standard idle-game toolkit, in fact,
+which is built precisely to punish absence.
+
+### Still open — and it is a content question, not a balance one
+
+**No number in this file adds a second thing to do.** The honest reading of round 8 is that the
+opening is thin because four of the game's eight v1 features are unbuilt, and the two verbs that
+exist are gated behind a pace Davide wants kept. What is left to decide is which existing system
+grows a second verb first, and that is his call.
+
+The one this log can point at, because the save already carries it and nothing fills it:
+**surveying**. `GalaxyState.surveyed` is a per-world set, holds the home system at genesis and is
+never added to by anything — so the Galaxy tab shows four worlds forever and cannot be acted on.
+Its own comment already says *"surveying is a per-world fleet action from slice #7 onwards"*. A
+survey is startable in a check-in, lands hours later, is harmless to miss, gives the player
+something to *check* rather than another rate to raise, and costs no progression — which is every
+constraint above, met by a system that is half-built rather than by a new one.
+
+Whether that is slice #6's job, slice #7's, or something before both is a sequencing call.
+
+### Watch next round
+
+- **Round 7's nomination still stands and is untouched:** deuterium is the fortnight's second-worst
+  blocker, 180 hours of 336. This round did not look at it, because the complaint was not about a
+  resource.
+- **The duration curve is still the wrong shape**, now for the fourth round running, and now with a
+  measurement attached: it costs nothing in the first two days to fix (identical levels at hour 48)
+  and ~3 levels by day 7. It is held rather than rejected — it should ride along with whatever
+  fills the gaps, not go in alone, because on its own it trades taps for cover.
+- **The Robotics construction divisor is ÷(1 + level)** against research's ÷(1 + 0.08 × level): at
+  Robotics 4 builds are 5× faster and at Robotics 10 they are 11×, so any duration curve is
+  flattened by the building the player is buying anyway. Davide delegated this one to the sim; it
+  is measured, unresolved, and pointless to move until the duration shape is settled.

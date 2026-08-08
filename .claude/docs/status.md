@@ -255,10 +255,25 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
   is far out of reach — it binds nothing until very deep levels.
-- **Open design question for Davide:** should anything cap how many facilities build at once?
-  Nothing does today (resources are the only limiter), while Notion's expansion pressures call
-  for "limited simultaneous projects". Research answered half of it at 0.0.12 — one project at a
-  time, empire-wide — so the remaining question is only about *construction*.
+- ~~**Open design question for Davide:** should anything cap how many facilities build at once?~~ —
+  **answered 2026-08-08: no.** Upgrades stay parallel and the stock stays the only limiter, because
+  the decision the colony poses is what to spend on, and it is a real one because resources are
+  finite rather than because a slot is. Davide's call, against a session that proposed a cap. Both
+  candidates were measured first and both are worse on every axis — one slot halves progress, locks
+  out Research entirely and *still* leaves 83% of the window empty. See `decisions.md` and
+  `balance-log.md` round 8.
+
+- **THE NEXT THING TO DECIDE: a check-in has one verb in it.** Davide, 2026-08-08, playing 0.1.1:
+  *"Ho poche cose da fare. Solo premere un tasto"* — and, crucially, *"non voglio rimuovere il senso
+  di progressione, anzi!"* and *"I don't want the user to have nothing to do for hours, but I don't
+  want it to be forced to keep logging it either"*. Measured by the new opening report in `:sim:run`:
+  **6 of 8 check-ins over the first two days offer exactly one kind of decision**, the second kind
+  does not exist until hour 29, the colony has nothing in flight for 42 of 48 hours, and the busiest
+  session books 72 minutes of work. **No balance number fixes this** — four candidates were measured
+  and all four rejected (see `balance-log.md` round 8). It is a content call: which existing system
+  grows a second verb, and when. The cheapest candidate on the table is **surveying** —
+  `GalaxyState.surveyed` already exists, holds the home system at genesis, and is written to by
+  nothing, so the Galaxy tab shows four worlds forever and cannot be acted on.
 - **Open calls left by the research sheet**, recorded in `balance-log.md` and costing nothing
   until answered: compounding versus linear effects; whether Automation joins as a fourth
   technology in 0.2; and whether the two Robotics divisors (÷ 1 + 0.08 × Robotics for research,

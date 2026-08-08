@@ -1335,3 +1335,37 @@ name, and they arrived in the report as a new package at 0%: 14 uncovered lines,
 coverage gate on a PR that had not touched a line of shipping code. Now excluded by package, which
 is what the comment always meant. Worth knowing generally: **a class-name exclusion in Kover does
 not cover a file, it covers a class**, and Kotlin puts top-level declarations wherever it likes.
+
+## Nothing caps simultaneous construction: the stock is the scarcity (2026-08-08, 0.1.1)
+
+Open since round 2 of the balance log, listed in `status.md` as a design question for Davide, and
+answered by him on 2026-08-08 when a session proposed a construction cap as the fix for *"solo
+premere un tasto"*:
+
+> "No. I don't wanna to remove parallel build! There's still a need to decide, as you will use
+> resources to chose which to upgrade, you can upgrade them all"
+
+**Upgrades run in parallel, one job per facility, and resources are the only limiter.** The
+decision a colony screen poses is *what to spend the stock on*, and it is a real decision because
+the stock is finite — not because a slot is. A cap would replace a question the player answers
+with their whole balance sheet by a question they answer with a queue.
+
+Notion's expansion pressures call for "limited simultaneous *projects*", and research already
+answers that half: one project at a time, empire-wide, shared between the applied branch and the
+adaptation ladders. **Construction is deliberately the opposite**, and the contrast is the point —
+the colony is limited by resources and research is limited by time, which is what gives the two
+screens different characters (`GameState`'s own comment has said so since 0.0.12).
+
+Measured before the ruling, and kept because both are the obvious idea:
+
+| Candidate | Result over the first 48 hours |
+|---|---|
+| One construction slot | 11 building levels against 25; Research never opens at all; **still 83% of the window with nothing in flight**; 3,970 metal left unspent |
+| Two construction slots | 18 levels; the second kind of decision slips from 29h to 39h; 2,564 metal unspent |
+
+The measurement and the ruling agree, by different routes. A cap does not even buy what it was
+proposed for: early builds are short whatever the cap, so restricting them removed actions without
+adding a single hour of cover. See `balance-log.md` round 8.
+
+**What this does not settle:** the Nanite Factory, ships and fleets all queue work too, and none of
+them exists yet. This decision is about facility upgrades on the colony screen.
