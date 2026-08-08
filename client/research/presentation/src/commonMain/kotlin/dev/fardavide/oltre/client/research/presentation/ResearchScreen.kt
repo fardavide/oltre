@@ -25,13 +25,16 @@ import dev.fardavide.oltre.core.Technology
 // between the facility list and the fleet strip reads on Colony: a change of subject inside one
 // instrument, rather than a change of place.
 //
-// Both branches are always visible, and that is the decision rather than a consequence of it. Six
-// rows fit a 393dp phone without scrolling, so when a project is in flight the five rows that
-// cannot start read the same wait and the sixth counts it down — on one screen, where the two
-// numbers verify each other with nothing added to carry the explanation. A segmented control would
-// buy three rows at a time, which is nothing, and spend a component the app does not have, a third
-// fixed band in the vertical budget, and the locked branch behind a tap. Past the content cap the
-// rows still get air rather than columns.
+// Both branches are always visible, and that is the decision rather than a consequence of it: when
+// a project is in flight the five rows that cannot start read the same wait and the sixth counts it
+// down, on one screen, where the two numbers verify each other with nothing added to carry the
+// explanation. A segmented control would buy three rows at a time, which is nothing, and spend a
+// component the app does not have, a third fixed band in the vertical budget, and the locked branch
+// behind a tap. Past the content cap the rows still get air rather than columns.
+//
+// **Six rows do not quite fit a phone** — ~788dp against ~683dp of content at 393x852, so this
+// scrolls by about 105dp. The 0.3 design said they fit, on a 74dp row; the real row is 106dp. The
+// figure to re-derive any future budget from is the one in `ResearchUiState`, not the sheet's.
 @Composable
 fun ResearchScreen(
     uiState: ResearchUiState,

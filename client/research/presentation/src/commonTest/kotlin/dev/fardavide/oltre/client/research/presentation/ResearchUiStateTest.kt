@@ -280,6 +280,24 @@ class ResearchUiStateTest {
         rows.forEach { row -> assertEquals(row.effect.subject, row.effect.compactSubject) }
     }
 
+    // Every other ladder assertion holds a level-0 empire, which is the one level at which
+    // `research.levelOf(technology)` and a hard-coded zero are indistinguishable — so without this
+    // the mapper could read neither the level nor anything derived from it and stay green.
+    @Test
+    fun `a climbed ladder is priced timed and banded from the level already held`() {
+        // given an empire four levels up its gravity ladder
+        val row = adaptable(
+            research = Research.initial().withLevel(AdaptationTechnology.GRAVITIC, TechLevel(4)),
+        ).adaptationRowFor(AdaptationTechnology.GRAVITIC)
+
+        // then - the level, the band it bought, the band level 5 would buy, and level 5's price
+        assertEquals(TechLevel(4), row.level)
+        assertEquals("0.45 … 1.88", row.effect.current)
+        assertEquals("0.40 … 2.00", row.effect.next)
+        assertEquals("12,150", row.costs.first { it.kind == ResourceKind.METAL }.amount)
+        assertEquals("15h 10m", row.duration)
+    }
+
     @Test
     fun `a ladder at level 0 still shows the band it already tolerates`() {
         // given - the one behavioural difference from an applied row, and it falls out of the model
@@ -398,10 +416,12 @@ class ResearchUiStateTest {
     // whole decision is for, where four rows can be started and starting one stops the other five.
     private fun adaptable(
         buildings: Buildings = gated(robotics = 4),
+        research: Research = Research.initial(),
         activeResearch: ResearchJob? = null,
         activeAdaptation: AdaptationJob? = null,
     ): GameState = colony(
         buildings = buildings,
+        research = research,
         resources = Resources.of(metal = 4_000, crystal = 3_000, deuterium = 2_000),
         activeResearch = activeResearch,
         activeAdaptation = activeAdaptation,

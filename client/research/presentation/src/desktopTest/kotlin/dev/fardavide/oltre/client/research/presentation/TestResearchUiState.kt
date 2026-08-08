@@ -100,7 +100,11 @@ internal val gateOpenUiState = ResearchUiState(
             level = TechLevel(2),
             effect = photovoltaicsEffect(current = "+21%", next = "+33%"),
             costs = costs(metal = "675", crystal = "338", deuterium = "225", short = null),
-            duration = "2h 35m",
+            // 2h 17m, not the design sheet's 2h 35m: at Robotics 4 the balance really produces
+            // 137 minutes for Photovoltaics 3. A frame is only worth signing off if its numbers are
+            // the ones the game will offer — and this one sits four rows above three ladders
+            // reading 3h 02m, which is exactly the comparison the shared slot asks a player to make.
+            duration = "2h 17m",
             action = ResearchActionUiState.Start,
         ),
         TechnologyRowUiState(
