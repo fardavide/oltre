@@ -17,8 +17,11 @@ internal object GalaxyTestTags {
 
     fun galaxy(galaxy: Int): String = "galaxy-tab-$galaxy"
 
-    // Keyed by the ladder rather than by the string it renders, which is why the row carries the
-    // enum as well as its label: "Gravitic 9" is a level away from "Gravitic 8" and a tag that
-    // moved with the level would retarget itself every time the empire climbed.
-    fun adaptation(technology: AdaptationTechnology): String = "galaxy-adaptation-${technology.name.lowercase()}"
+    // Keyed by the slot *and* the ladder rather than by the string it renders. The enum rather than
+    // the label because "Gravitic 9" is a level away from "Gravitic 8", and a tag that moved with
+    // the level would retarget itself every time the empire climbed. The slot because a system
+    // routinely holds several worlds wanting the same ladder — the seed's own home system holds
+    // three — so the ladder alone would name three targets rather than one.
+    fun adaptation(slot: Int, technology: AdaptationTechnology): String =
+        "galaxy-adaptation-$slot-${technology.name.lowercase()}"
 }

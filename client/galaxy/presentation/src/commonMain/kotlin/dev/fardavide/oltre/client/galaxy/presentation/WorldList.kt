@@ -87,7 +87,7 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () 
             // shortest card in the app, because a screen of them is the normal case.
             VerdictUiState.Unsurveyed -> Unit
             is VerdictUiState.Blocked -> {
-                BlockedAxes(failures = verdict.failures, onOpenResearch = onOpenResearch)
+                BlockedAxes(slot = row.slot, failures = verdict.failures, onOpenResearch = onOpenResearch)
                 Detail(text = verdict.calibration, color = OltreColors.textSecondary)
                 Detail(text = verdict.detail, color = OltreColors.textTertiary)
             }
@@ -161,7 +161,7 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
 // Adaptation 8 would land it" — wraps to three lines at 393dp, and three of those is the wall this
 // row must not be. It keeps the clause order and loses the verb.
 @Composable
-private fun BlockedAxes(failures: List<BlockedAxisUiState>, onOpenResearch: () -> Unit) {
+private fun BlockedAxes(slot: Int, failures: List<BlockedAxisUiState>, onOpenResearch: () -> Unit) {
     val mono = oltreMono()
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
         failures.forEach { failure ->
@@ -197,7 +197,7 @@ private fun BlockedAxes(failures: List<BlockedAxisUiState>, onOpenResearch: () -
                     modifier = Modifier
                         .padding(start = 10.dp)
                         .clickable(onClick = onOpenResearch)
-                        .testTag(GalaxyTestTags.adaptation(failure.technology)),
+                        .testTag(GalaxyTestTags.adaptation(slot, failure.technology)),
                 )
             }
         }

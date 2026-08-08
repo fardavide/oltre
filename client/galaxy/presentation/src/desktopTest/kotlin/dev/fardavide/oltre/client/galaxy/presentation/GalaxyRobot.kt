@@ -10,6 +10,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.core.AdaptationTechnology
@@ -67,8 +68,13 @@ internal class GalaxyRobot(private val test: ComposeUiTest) {
     }
 
     // The blocked row's remedy, which is a tap target again now that Research can sell it.
-    fun tapTheRemedy(technology: AdaptationTechnology) = apply {
-        test.onNodeWithTag(GalaxyTestTags.adaptation(technology)).performClick()
+    fun tapTheRemedy(slot: Int, technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(GalaxyTestTags.adaptation(slot, technology)).performScrollTo().performClick()
+    }
+
+    // The rest of the card, which is not one: the row belongs to the world.
+    fun tapTheWorld(slot: Int) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(slot)).performScrollTo().performClick()
     }
 
     fun assertShowsWorld(slot: Int) = apply {

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
 import kotlin.test.assertEquals
 import org.junit.Test
@@ -94,6 +95,90 @@ class ResearchScreenBehaviourTest {
             // What you want mid-project is when, not what — and "→ LV 4" already says what.
             assertRowReads(Technology.PHOTOVOLTAICS, "done 11:23")
             assertNothingReads("Solar Plant output")
+        }
+    }
+
+    // ── The second branch, and the seam between them ─────────────────────────────────────────
+
+    @Test
+    fun `tapping Research on a ladder starts the ladder that was tapped`() {
+        // given
+        val started = mutableListOf<AdaptationTechnology>()
+
+        // when
+        researchScreen(uiState = gateOpenUiState, onStartAdaptation = { started += it }) {
+            assertOffersResearch(AdaptationTechnology.THERMAL)
+            startResearching(AdaptationTechnology.THERMAL)
+        }
+
+        // then
+        assertEquals(listOf(AdaptationTechnology.THERMAL), started.toList())
+    }
+
+    // The whole argument for one screen, driven: a technology in flight is what stops all three
+    // ladders, and the number every one of them shows is the number the countdown four rows up is
+    // counting. Nothing on the screen explains that, and nothing has to.
+    @Test
+    fun `a project in flight stops both branches with the same number on every row`() {
+        // given
+        val applied = mutableListOf<Technology>()
+        val ladders = mutableListOf<AdaptationTechnology>()
+
+        // when every row of both branches is tapped
+        researchScreen(
+            uiState = oneProjectInFlightUiState,
+            onStartResearch = { applied += it },
+            onStartAdaptation = { ladders += it },
+        ) {
+            assertCountsDown(Technology.PHOTOVOLTAICS, "01:12:44")
+            AdaptationTechnology.entries.forEach {
+                assertWaits(it, "in 1h 13m")
+                startResearching(it)
+            }
+            Technology.entries.forEach { startResearching(it) }
+        }
+
+        // then — one slot, shared, and the screen refuses on both sides of the seam
+        assertEquals(emptyList<Technology>(), applied.toList())
+        assertEquals(emptyList<AdaptationTechnology>(), ladders.toList())
+    }
+
+    @Test
+    fun `both branches are on screen before either gate opens`() {
+        // Four of six rows dimmed is what a new player meets, and the second block is the branch
+        // saying what it will want rather than a door being closed.
+        researchScreen(uiState = beforeTheGateUiState) {
+            AdaptationTechnology.entries.forEach {
+                assertBranchShows(it)
+                assertOffersNothing(it)
+                // The locked row does not explain what a tolerance band is. The place that teaches
+                // the concept is a blocked world on Galaxy, against a real reading.
+                assertRowReads(it, "Requires Robotics 4")
+            }
+            assertReads("ADAPTATION")
+            assertReads("the same slot")
+        }
+    }
+
+    @Test
+    fun `a ladder states the band it has and the band the next level buys`() {
+        researchScreen(uiState = gateOpenUiState) {
+            assertRowReads(AdaptationTechnology.THERMAL, "−30 … +45")
+            assertRowReads(AdaptationTechnology.THERMAL, "−44 … +59")
+            assertRowReads(AdaptationTechnology.THERMAL, "°C")
+        }
+    }
+
+    // The applied line sheds "output" at 320dp; a band line has nothing to shed, so it is the same
+    // string at both widths — as is the second section's rule, where "slot" is already the shortest
+    // true noun.
+    @Test
+    fun `a band line and the second rule are unchanged in a Slide Over pane`() {
+        researchScreen(uiState = gateOpenUiState, width = SLIDE_OVER_WIDTH) {
+            assertRowReads(AdaptationTechnology.GRAVITIC, "0.65 … 1.40")
+            assertRowReads(AdaptationTechnology.GRAVITIC, "0.60 … 1.52")
+            assertRowReads(AdaptationTechnology.ATMOSPHERIC, "atm")
+            assertReads("the same slot")
         }
     }
 

@@ -126,4 +126,31 @@ class FormattingTest {
     fun `rounding a fraction up carries into the whole part`() {
         assertEquals("1.00", 999.milli())
     }
+
+    // The trimmed variant exists for exactly one line — the pressure band on a Research row — and
+    // for a width reason rather than a taste one. See `milliTrimmed`.
+    @Test
+    fun `a trimmed milli quantity drops the zeros it does not need`() {
+        assertEquals("0.5", 500.milliTrimmed())
+        assertEquals("2.6", 2_600.milliTrimmed())
+        assertEquals("3.5", 3_500.milliTrimmed())
+    }
+
+    @Test
+    fun `a trimmed milli quantity keeps the digits it does need`() {
+        assertEquals("0.44", 440.milliTrimmed())
+        assertEquals("1.52", 1_520.milliTrimmed())
+    }
+
+    // A whole number loses its point as well as its zeros, rather than reading "3." — which is the
+    // only case where trimming twice matters.
+    @Test
+    fun `a whole trimmed quantity drops the decimal point too`() {
+        assertEquals("3", 3_000.milliTrimmed())
+    }
+
+    @Test
+    fun `a trimmed milli quantity carries its sign`() {
+        assertEquals("−0.5", (-500).milliTrimmed())
+    }
 }

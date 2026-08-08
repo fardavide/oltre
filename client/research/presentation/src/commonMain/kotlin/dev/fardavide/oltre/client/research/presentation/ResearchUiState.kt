@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.research.presentation
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.milli
+import dev.fardavide.oltre.client.design.format.milliTrimmed
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
@@ -32,12 +33,16 @@ import kotlinx.datetime.toLocalDateTime
 // level multiplies a per-hour rate and an adaptation level widens a band in °C, g or atm: sorting
 // them into one column would make two kinds of thing look like one.
 //
-// They fit. Six rows, two section labels and the 22dp seam between them measure ~610dp against
-// ~708dp of content on a 393x852 phone, so there is no scroll — which is what makes the shared slot
-// legible without a word of explanation. When a project is in flight, five rows read the same wait
-// and the sixth counts it down, on the same screen, and the two numbers verify each other. The day
-// a branch grows past what a phone holds, that stops being true and the segmented control the 0.3
-// design rejected is back on the table.
+// When a project is in flight, five rows read the same wait and the sixth counts it down, and the
+// two numbers verify each other with nothing added to carry the explanation. That is what one
+// screen buys and what neither a segmented control nor a sixth tab can buy at any price.
+//
+// **They very nearly fit and do not quite.** The 0.3 design put six rows at ~610dp against ~708dp
+// of content on a 393x852 phone; it measured the row at 74dp and the real Compose row is 106dp, so
+// the true figure is ~788dp and the screen scrolls by about 105dp. The argument survives — five of
+// the six rows and the countdown are on screen together, which is the part that has to be true —
+// but it is now an argument about a screen that scrolls a little, and the design sheet should know.
+// See `decisions.md`.
 data class ResearchUiState(
     val technologies: List<TechnologyRowUiState>,
     val adaptation: List<AdaptationRowUiState>,
@@ -301,13 +306,17 @@ private fun AdaptationTechnology.unit(): String = when (this) {
 // "…" is the one new glyph in the product and it appears in this line alone. An en dash is
 // unreadable against a leading minus — "−30–+45" — and the word "to" puts English inside a line of
 // numbers. It leaves exactly one glyph per relation: … means through, → means becomes.
+// Each axis at the precision the design specifies for it, which is not one rule because the three
+// axes do not have one width. Temperature is whole degrees. Gravity keeps both decimals, so its two
+// bands read as a column. Pressure drops the zeros it does not need — its band spans an order of
+// magnitude more than gravity's, so it carries a leading digit more, and padded it is the one line
+// in the app that does not fit at 320dp: the unit gets ellipsised to "a…". See `milliTrimmed`.
 private fun AdaptationTechnology.bandLabel(level: TechLevel): String {
     val band = GalaxyBalance.tolerance(levelsWithOnly(level)).bandOf(axis())
     return when (this) {
         AdaptationTechnology.THERMAL -> "${band.min.signed()} … ${band.max.signed()}"
-        AdaptationTechnology.GRAVITIC,
-        AdaptationTechnology.ATMOSPHERIC,
-        -> "${band.min.milli()} … ${band.max.milli()}"
+        AdaptationTechnology.GRAVITIC -> "${band.min.milli()} … ${band.max.milli()}"
+        AdaptationTechnology.ATMOSPHERIC -> "${band.min.milliTrimmed()} … ${band.max.milliTrimmed()}"
     }
 }
 

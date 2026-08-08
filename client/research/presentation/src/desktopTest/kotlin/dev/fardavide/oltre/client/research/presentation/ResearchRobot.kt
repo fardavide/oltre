@@ -53,6 +53,33 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(ResearchTestTags.action(technology)).performClick()
     }
 
+    // Overloads rather than one widened signature, for the reason `ResearchTestTags` is overloaded:
+    // a caller cannot ask about a row that does not exist, and the compiler says so.
+    fun startResearching(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).performClick()
+    }
+
+    fun assertBranchShows(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.row(technology)).assertIsDisplayed()
+    }
+
+    fun assertOffersResearch(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertTextEquals("Research")
+    }
+
+    fun assertWaits(technology: AdaptationTechnology, label: String) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertTextEquals(label)
+    }
+
+    fun assertOffersNothing(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.action(technology)).assertDoesNotExist()
+    }
+
+    fun assertRowReads(technology: AdaptationTechnology, text: String) = apply {
+        test.onNodeWithTag(ResearchTestTags.row(technology))
+            .assert(hasAnyDescendant(hasText(text, substring = true)))
+    }
+
     fun assertBranchShows(technology: Technology) = apply {
         test.onNodeWithTag(ResearchTestTags.row(technology)).assertIsDisplayed()
     }

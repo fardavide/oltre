@@ -266,7 +266,7 @@ class ResearchUiStateTest {
         // [value] -> [value] [what of]
         assertEquals(EffectUiState("−30 … +45", "−44 … +59", "°C", "°C"), rows[0].effect)
         assertEquals(EffectUiState("0.65 … 1.40", "0.60 … 1.52", "g", "g"), rows[1].effect)
-        assertEquals(EffectUiState("0.50 … 2.60", "0.44 … 3.50", "atm", "atm"), rows[2].effect)
+        assertEquals(EffectUiState("0.5 … 2.6", "0.44 … 3.5", "atm", "atm"), rows[2].effect)
     }
 
     // The applied line sheds "output" at 320dp because "output" is prose and prose has fat. A band
