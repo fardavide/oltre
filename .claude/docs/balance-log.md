@@ -814,3 +814,89 @@ change and it is Davide's — it is not needed for the verb to work.
   in alone.
 - **Round 7's nomination is still untouched:** deuterium is the fortnight's second-worst blocker,
   180 hours of 336.
+
+## Round 10 — 0.2.0, the duration curve finally lands (2026-08-09)
+
+Round 8 measured cost-proportional build durations, found them good, and **held** them on one
+condition: *"it should ride along with whatever fills the gaps, not go in alone, because on its own
+it trades taps for cover."* Round 9 built the thing that fills the gaps. This round lets the curve
+in behind it, and the two are measured together for the first time.
+
+### The change, in one line
+
+`upgradeDuration` was per-building minutes × level. It is now **(metal + crystal) ÷ 3 minutes**,
+still divided by (1 + Robotics), with a **five-minute floor applied after the divisor**.
+
+Three things about that shape, each load-bearing:
+
+- **Linear-in-level against cost compounding at +50% is why the old curve was wrong**, and it was
+  wrong from level one rather than at depth — which is what rounds 2 through 4 kept predicting and
+  round 8 finally caught. A Metal Mine 2 cost 112 metal-and-crystal and took 20 minutes; it now
+  takes 37.
+- **Deuterium is outside the sum**, as in OGame. It gates the Robotics Factory and therefore the
+  whole research branch, and pricing time in it too would make one scarcity govern two trade-offs
+  the player has to make separately.
+- **The floor is applied last, to what the player actually waits.** At Robotics 10 a first mine
+  level divides to under three minutes, which is a tap with a delay on it rather than a build. A
+  floor placed ahead of the divisor would let the divisor cut through it.
+
+### Round 8's numbers reproduce exactly
+
+Measured through `:sim:run`, no-probe opening, against round 8's held row:
+
+| Reading | 0.1.1 | round 8 predicted | measured now |
+|---|---|---|---|
+| Hours the colony had nothing in flight | 42 of 48 (87.5%) | 64.6% | **31 of 48 (64.58%)** |
+| Work the busiest check-in booked | 72 min | 224 min | **224 min** |
+| Building levels at 48h | 25 | 25 (identical) | **25** |
+| Longest unbroken silence | 8h 33m | — | 7h 08m |
+| Median work a check-in booked | 48 min | — | 125 min |
+| Greedy week, day 7 mines | 15 / 15 / 14 | 12 / 12 / 11 | **12 / 12 / 11** |
+
+Every figure round 8 published lands on the nose, including the one it only predicted at depth. The
+five-minute floor is new since round 8 and changes none of them, because it does not bind anywhere
+in the first 48 hours — the shortest build in the opening is 37 minutes at Robotics 0 and 12 at
+Robotics 2. It binds from roughly Robotics 8 upward, which is a fortnight away.
+
+### What the pair does together, which is the reading round 8 could not take
+
+| Reading | 0.1.1 | 0.1.2, probe only | **0.2.0, probe + curve** |
+|---|---|---|---|
+| Check-ins offering one kind of decision only | 6 of 8 | 0 of 8 | **0 of 8** |
+| A second kind of decision first exists | hour 29 | hour 0 | **hour 0** |
+| Hours with nothing at all in flight | 42 of 48 (87.5%) | 1 of 48 (2.1%) | **1 of 48 (2.1%)** |
+| **Hours the colony had nothing in flight** | 42 of 48 (87.5%) | 41 of 48 (85.4%) | **33 of 48 (68.75%)** |
+| Longest unbroken silence | 8h 33m | 0h 47m | **0h 47m** |
+| Building levels at 48h | 25 | 23 | **23** |
+
+**The row that moves is the one round 9 was careful not to claim.** Round 9 printed the colony's own
+idleness beside the probe's cover precisely so the new verb could not take credit for a complaint it
+does not touch — 85.4% against 87.5%, essentially unchanged. The curve is what touches it: 68.75%.
+The probe covers the player's attention, the curve covers the colony, and it took both to move both.
+
+The probe's own price is unchanged at 150 metal and still costs two levels of twenty-five.
+
+### One interaction worth writing down
+
+The combined run reaches **Robotics 2 and Photovoltaics 0**, where the probe-only run reached
+Robotics 1 and Photovoltaics 1. Same 23 building levels, differently shaped. Longer builds mean
+fewer completions per check-in, so the greedy cheapest-first rule has more stock free at each visit
+and spends it on the Robotics Factory rather than on the research it opens.
+
+That is the strategy reacting, not a regression — and it is a reminder that the opening report
+measures *one stated strategy*, not a player. Nothing here has been played.
+
+### Watch next round
+
+- **Deuterium is now the fortnight's worst blocker by a clear margin: 204 hours of 336**, up from
+  180. Crystal fell from 190 to 143 and metal rose from 116 to 137. Round 7 nominated deuterium and
+  this round makes the nomination harder to keep ignoring — but it also did not touch it, so the
+  move is the curve redistributing waiting rather than anything aimed at the resource.
+- **The greedy week is no longer resource-bound.** It closes with all three of its next purchases
+  affordable and 47,517 metal in the bank, where 0.1.1 closed blocked on metal for 167 of 168 hours.
+  Duration is the binding constraint at that depth now. That is what the change is *for*, and it is
+  also the first time a run has ended with nothing to decide because everything is already running.
+- **The floor has never been exercised by a measurement.** It binds around Robotics 8, and the
+  fortnight reaches Robotics 9 — so it is live in exactly one run and worth a look next round.
+- **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
+  strategy. The first round that can say how any of it *feels* is the one after the screen ships.
