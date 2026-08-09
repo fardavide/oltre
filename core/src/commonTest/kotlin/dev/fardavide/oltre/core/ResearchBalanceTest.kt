@@ -86,8 +86,8 @@ class ResearchBalanceTest {
         // The sheet's CUM DEUT column reads 4,156 because it sums the costs before rounding them;
         // a player pays six rounded levels, which is one unit more. The per-level table is the
         // one that has to match to the unit, and it does — this is what is actually charged.
-        assertEquals(3_789L, extractionToSix, "six levels of Extraction cost 3789 deuterium in total")
-        assertEquals(11_369L, extractionMetalToSix, "and 11369 metal - the first three levels carry the opening discount")
+        assertEquals(3_662L, extractionToSix, "six levels of Extraction cost 3662 deuterium in total")
+        assertEquals(10_984L, extractionMetalToSix, "and 10984 metal - the first three levels carry the opening discount")
     }
 
     @Test
@@ -97,12 +97,13 @@ class ResearchBalanceTest {
         assertEquals(900.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(10), idle))
         assertEquals(1_500.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(10), idle))
 
-        // And under it, the same third: "cheaper **and quicker**". A building got the second half
-        // for nothing because round 11 made its duration a function of its cost; this branch is a
-        // table times a level, so it had to be told.
-        assertEquals(20.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), idle))
-        assertEquals(30.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), idle))
-        assertEquals(50.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), idle))
+        // And under it, the same tenth: "cheaper **and quicker**", which this branch has always had
+        // to be told twice because its duration is a table times a level rather than a function of
+        // what it costs. Since round 16 the buildings are told twice as well — a duration read off
+        // a discounted cost falls by the *root* of the discount, which is not what "quicker" means.
+        assertEquals(6.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), idle))
+        assertEquals(9.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), idle))
+        assertEquals(15.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), idle))
     }
 
     @Test
@@ -134,11 +135,11 @@ class ResearchBalanceTest {
 
         // Levels 1 to 3 carry the opening discount, so the sheet's column is what they would have
         // cost rather than what they cost. Same divisor, applied after it.
-        assertEquals(15L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), robotics).roundedMinutes())
-        assertEquals(50L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(2), robotics).roundedMinutes())
-        assertEquals(106L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(3), robotics).roundedMinutes())
-        assertEquals(23L, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), robotics).roundedMinutes())
-        assertEquals(38L, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), robotics).roundedMinutes())
+        assertEquals(5L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), robotics).roundedMinutes())
+        assertEquals(36L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(2), robotics).roundedMinutes())
+        assertEquals(95L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(3), robotics).roundedMinutes())
+        assertEquals(7L, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), robotics).roundedMinutes())
+        assertEquals(11L, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), robotics).roundedMinutes())
     }
 
     @Test
@@ -232,8 +233,12 @@ class ResearchBalanceTest {
     //
     // Written out here rather than read from `openingDiscount` so the fixture stays a statement of
     // what the game charges instead of an echo of the code that charges it.
+    //
+    // The divisor went 3 to 10 on 2026-08-09 — *"I still feel the early game is WAAAY too slow!
+    // Let's try a 10x boost, instead of 3x as we did"* — and this is the whole of what that means
+    // here: `span` is 3 levels, so level 1 pays `3 / 30` of the sheet and level 3 pays `21 / 30`.
     private fun discounted(fullPrice: Long, level: Int): Long =
-        if (level >= 4) fullPrice else fullPrice * (3 + 2 * (level - 1)) / 9
+        if (level >= 4) fullPrice else fullPrice * (3 + 9 * (level - 1)) / 30
 
     private fun Duration.roundedMinutes(): Long = (inWholeSeconds + 30) / 60
 

@@ -51,11 +51,13 @@ class AdaptationBalanceTest {
         // what keeps that a preference rather than a right answer. If this stops being flat, the
         // sheet's section 4 argument has quietly stopped being true.
         //
-        // *Exact* equality was a property of the undiscounted level-1 table — 4,800 each. Since the
-        // opening discount reached this branch it is equality to within **two units in sixteen
-        // hundred**, because a third of three differently-shaped baskets does not floor to three
-        // equal totals. Asserted as a proportion across the ramp and past it, so the property is
-        // checked where it is now true rather than only where it used to be exact.
+        // *Exact* equality is a property of the undiscounted level-1 table — 4,800 each — and a
+        // discount that floors three differently-shaped baskets independently is not obliged to
+        // preserve it. At the 3x divisor it did not, quite: the three came out two units apart in
+        // sixteen hundred. At 10x they are exactly equal again at level 1, and three units apart in
+        // seven and a half thousand at level 3. Which is luck rather than design, so this stays a
+        // proportion asserted across the ramp and past it rather than an equality that happens to
+        // hold at the divisor of the day.
         for (level in 1..5) {
             val totals = AdaptationTechnology.entries
                 .map { priced(AdaptationBalance.adaptationCost(it, TechLevel(level))) }
@@ -116,8 +118,8 @@ class AdaptationBalanceTest {
         }
 
         // The two ends, written out, so a ratio that holds while both sides drift says so.
-        assertEquals(830L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1))))
-        assertEquals(1_600L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1))))
+        assertEquals(250L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1))))
+        assertEquals(480L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1))))
         assertEquals(8_439L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(4))))
         assertEquals(16_202L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(4))))
     }
@@ -142,13 +144,13 @@ class AdaptationBalanceTest {
     fun `duration is the sheet's table and equal across the three ladders`() {
         for (technology in AdaptationTechnology.entries) {
             // Levels 1 and 3 carry the opening discount; 5 and 8 are the sheet's own figures.
-            assertMinutes(technology, level = 1, robotics = 4, expected = 61)
-            assertMinutes(technology, level = 3, robotics = 4, expected = 424)
+            assertMinutes(technology, level = 1, robotics = 4, expected = 18)
+            assertMinutes(technology, level = 3, robotics = 4, expected = 382)
             assertMinutes(technology, level = 5, robotics = 4, expected = 909)
             assertMinutes(technology, level = 8, robotics = 4, expected = 1_455)
 
-            assertMinutes(technology, level = 1, robotics = 8, expected = 49)
-            assertMinutes(technology, level = 3, robotics = 8, expected = 341)
+            assertMinutes(technology, level = 1, robotics = 8, expected = 15)
+            assertMinutes(technology, level = 3, robotics = 8, expected = 307)
             assertMinutes(technology, level = 5, robotics = 8, expected = 732)
             assertMinutes(technology, level = 8, robotics = 8, expected = 1_171)
         }
@@ -169,9 +171,10 @@ class AdaptationBalanceTest {
         val atZero = AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(0))
         val atOne = AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(1))
 
-        // 80 rather than the sheet's 240: level 1 is the deepest step of the opening discount.
-        assertEquals(80L, atZero.inWholeMinutes)
-        assertEquals(80L * 25 / 27, atOne.inWholeMinutes, "a level of Robotics must not halve it")
+        // 24 rather than the sheet's 240: level 1 is the deepest step of the opening discount, and
+        // since the divisor went to 10 the deepest step is exactly a tenth.
+        assertEquals(24L, atZero.inWholeMinutes)
+        assertEquals(24L * 25 / 27, atOne.inWholeMinutes, "a level of Robotics must not halve it")
     }
 
     @Test
@@ -222,7 +225,7 @@ class AdaptationBalanceTest {
     // schedule the applied branch uses. Spelled out here rather than read from `openingDiscount`,
     // so the fixture states what the game charges instead of echoing the code that charges it.
     private fun discounted(fullPrice: Long, level: Int): Long =
-        if (level >= 4) fullPrice else fullPrice * (3 + 2 * (level - 1)) / 9
+        if (level >= 4) fullPrice else fullPrice * (3 + 9 * (level - 1)) / 30
 
     // Rounded to the nearest minute, the same arithmetic `:sim:run` prints the table with — so the
     // sheet, the harness and this test are three views of one number rather than three numbers.

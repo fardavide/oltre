@@ -216,17 +216,19 @@ class ColonyUiStateTest {
         assertEquals(BuildingLevel(1), metalMine.level)
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "37", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "9", short = true),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "19", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "4", short = true),
             ),
             metalMine.costs,
         )
-        // 37 and 9 rather than the full-price 90 and 22: since 0.2.3 the opening is sold at a
-        // third of full price at level 1, climbing in equal steps to full price at level 9. Four
-        // minutes per root of the 46 between them gives the duration — since 0.2.2 a build takes as
-        // long as *earning* it does, so the row's clock is derived from its price rather than from
-        // a per-building constant, and the discount shortens both at once.
-        assertEquals("24m", metalMine.duration)
+        // 19 and 4 rather than the full-price 90 and 22: since 0.2.7 the opening is sold at a
+        // **tenth** of full price, climbing in equal steps to full price at level 9.
+        //
+        // The clock rides a ramp of its own and a steeper one — two thirds a level, converging on
+        // the same level 9 — because Davide asked for the first taps in minutes rather than as a
+        // multiple: "a 2/3 min build time at the very first levels". Four minutes per root of the
+        // *full* 112 is 40, and two thirds of that seven times over is this.
+        assertEquals("2m", metalMine.duration)
     }
 
     @Test
@@ -252,9 +254,10 @@ class ColonyUiStateTest {
 
     @Test
     fun `durations of an hour or more read as hours and padded minutes`() {
-        // given deuterium synth 3 → level 4, which costs 441 metal and 147 crystal after the
-        // opening discount and therefore takes 96 minutes at robotics 0 — four minutes per root of
-        // the 588 between them
+        // given deuterium synth 3 → level 4, which costs 331 metal and 110 crystal after the
+        // opening discount and takes 16 minutes at robotics 0 — four minutes per root of the *full*
+        // 1,009 is 124, then the clock's own two-thirds-a-level ramp, five levels short of full
+        // price. The dearest row in the opening is still the longest wait in it, by design
         val state = colony(
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(3)),
         )
@@ -263,7 +266,7 @@ class ColonyUiStateTest {
         val synth = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER)
 
         // then
-        assertEquals("1h 36m", synth.duration)
+        assertEquals("16m", synth.duration)
     }
 
     @Test

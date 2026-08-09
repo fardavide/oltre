@@ -243,10 +243,11 @@ class ResearchUiStateTest {
         val slow = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
         val quick = colony(buildings = gated(robotics = 4)).rowFor(Technology.PHOTOVOLTAICS)
 
-        // then - level 1 is the deepest step of the opening discount, so 20 minutes rather than
-        // the sheet's 60, then the divisor: 20 x 25/27 at Robotics 1 and 20 x 25/33 at Robotics 4
-        assertEquals("19m", slow.duration)
-        assertEquals("16m", quick.duration)
+        // then - level 1 is the deepest step of the opening discount, and since that discount went
+        // to 10x it is 6 minutes rather than the sheet's 60, then the divisor: 6 x 25/27 at
+        // Robotics 1 and 6 x 25/33 at Robotics 4, each ceiled to the minute the chip shows.
+        assertEquals("6m", slow.duration)
+        assertEquals("5m", quick.duration)
     }
 
     // ── The adaptation branch ────────────────────────────────────────────────────────────────
@@ -345,11 +346,11 @@ class ResearchUiStateTest {
         // then - the sheet's table: gravity makes heavy worlds and heavy worlds are rich in metal
         assertEquals(
             listOf(
-                // A third of the sheet's 2,400 / 900 / 200 at level 1, and still overwhelmingly
+                // A tenth of the sheet's 2,400 / 900 / 200 at level 1, and still overwhelmingly
                 // metal — the discount scales all three alike, so the shape the sheet chose survives.
-                CostChipUiState(kind = ResourceKind.METAL, amount = "800", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "300", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "66", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "240", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "90", short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "20", short = false),
             ),
             row.costs,
         )
@@ -409,12 +410,12 @@ class ResearchUiStateTest {
         val atGate = adaptable().adaptationRowFor(AdaptationTechnology.THERMAL)
         val deeper = adaptable(buildings = gated(robotics = 8)).adaptationRowFor(AdaptationTechnology.THERMAL)
 
-        // then - level 1 carries the opening discount, so 80 base minutes rather than the sheet's
-        // 240, then the divisor: 80 x 25/33 at Robotics 4 and 80 x 25/41 at Robotics 8. Both ceil
+        // then - level 1 carries the opening discount, so 24 base minutes rather than the sheet's
+        // 240, then the divisor: 24 x 25/33 at Robotics 4 and 24 x 25/41 at Robotics 8. Both ceil
         // rather than round, because a duration that rounded down would promise a project sooner
         // than it can finish.
-        assertEquals("1h 01m", atGate.duration)
-        assertEquals("49m", deeper.duration)
+        assertEquals("19m", atGate.duration)
+        assertEquals("15m", deeper.duration)
     }
 
     @Test

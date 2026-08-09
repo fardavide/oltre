@@ -158,6 +158,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.7 — 2026-08-09
+
+- **The first hour of a colony is a different game.** Upgrades in the opening cost a tenth of what
+  they used to, and the first taps finish in two or three minutes rather than twenty. A player who
+  sits with the app for ten minutes now watches seven things finish instead of nothing at all.
+- **The discount and the clock both run out, and they run out where the galaxy opens.** By the ninth
+  level of a mine the price is the price it always was and a build is back to half an hour, so
+  nothing about the middle or the late game has moved — the whole change is spent on the opening,
+  which is where it was needed.
+- **The research and adaptation branches are on the same tenth**, so a technology never quietly
+  becomes the expensive way to spend an opening the buildings are discounting.
+
 ### 0.2.6 — 2026-08-09
 
 - **The debug menu's two verbs now take a hold rather than a tap**, and the button fills across as
