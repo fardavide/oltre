@@ -120,6 +120,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.1.2 — 2026-08-09
+
+- **Nothing on screen changes in this build.** The galaxy can now be explored — you send a probe
+  to a star system, it flies for hours, and when it lands every world around that star stops
+  reading "Unsurveyed" — but no screen offers the dispatch yet. The Galaxy tab still shows the
+  four worlds of your home system and nothing else. The screen is the next slice.
+- **What landed underneath:** a fourth thing you can do, and the first one aimed at a place rather
+  than at a row in a list. A probe costs 150 metal flat however far it goes; only the flight time
+  changes with distance, from half an hour to the system next door up to a night's worth across
+  the galaxy. So the question it asks is "how long will I be away" — and a player about to be gone
+  nine hours has a better answer than one who is not.
+- **Probes never expire and never punish you for being away.** A landed report waits as long as you
+  need it to, nothing decays, and a system you already know cannot be paid for twice.
+- **Research will tell you what exploring was for:** each adaptation ladder can now say how many of
+  the worlds you have found its next level would unlock, so the choice between Thermal, Gravitic
+  and Atmospheric stops being arbitrary once you have seen more than your own back garden.
+- Saves from 0.1.1 carry forward untouched, including every world you had already surveyed.
+
 ### 0.1.1 — 2026-08-08
 
 - **Crystal accrues half again as fast: 30/h becomes 36/h at level 1, and every level above it

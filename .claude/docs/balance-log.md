@@ -681,3 +681,136 @@ Whether that is slice #6's job, slice #7's, or something before both is a sequen
   Robotics 4 builds are 5× faster and at Robotics 10 they are 11×, so any duration curve is
   flattened by the building the player is buying anyway. Davide delegated this one to the sim; it
   is measured, unresolved, and pointless to move until the duration shape is settled.
+
+## Round 9 — 0.1.2, the second verb (2026-08-09)
+
+Round 8 ended with a diagnosis and no fix: *"No number in this file adds a second thing to do."*
+This is the round that adds one. Davide answered three design calls on 2026-08-09 and the build
+measured the rest; every number below came out of `:sim:run` rather than out of an argument.
+
+### What he decided
+
+| Call | Answer |
+|---|---|
+| Add exploration as a second thing to do? | **Yes — dispatch probes.** The alternative on the table was longer build durations alone, which fixes the emptiness without adding anything to do. |
+| Should systems differ from one another? | **Yes — star class should matter**, so "where do I look" is a real question. |
+| Should what you find be useful straight away? | **Yes — it guides research**, rather than being a bookmark for a colonisation slice that does not exist. |
+
+### What was built (`core` only — no screen yet)
+
+`startSurvey(state, target, at)`. The same `(state, subject, at) -> Result` shape as the other
+three verbs, and different in every way that matters: the subject is a **`SystemAddress`** rather
+than one of twelve enum rows, the payload is **knowledge** rather than a rate, and the **player
+picks the completion instant** by choosing how far to aim.
+
+Three shape decisions, each load-bearing rather than convenient:
+
+- **Flat cost, distance only in the duration.** Verified against the generator: a system index
+  enters *none* of `GalaxyBalance`'s trait functions and reaches `GalaxyGeneration` only as a hash
+  salt. Expected payload is therefore identical galaxy-wide, so a distance-scaled cost would make
+  far probes strictly dominated — more money, more time, the same information — **and would tax the
+  player who is away longest**, which is precisely what Davide refused.
+- **Metal only.** Deuterium buys the Robotics Factory, which opens Research at level 1 and the
+  ladders at level 4. Pricing the new verb in that currency would add verb two by deleting verb
+  three. Round 7 closed its fortnight on 179,352 unspent metal: this is what that metal is for.
+- **No Robotics divisor.** Construction divides by (1 + Robotics), research by (1 + 0.08 × Robotics),
+  a probe by nothing. Its duration is the one number in the game that is purely the player's own
+  choice, and a divisor would let a building quietly shorten cover the player deliberately bought.
+
+Probes run **in parallel**, limited by metal alone — the construction rule Davide settled on
+2026-08-08, applied rather than re-litigated. **Nothing gates the verb**: one whose job is to exist
+at hour zero cannot sit behind a building, and the unlock pace he likes is protected from the price
+side instead.
+
+Also `adaptationShortlist(state)`: per ladder, how many **surveyed** worlds the next level would
+unlock and how many of those clear the worth-it bar. This is call 3, and it is what stops waiting
+from being better than exploring — `surveyed` is monotone and `verdictFor` re-derives against
+current levels, so without a consumer the optimal play is "not yet".
+
+### The price, swept rather than chosen
+
+One dispatch per check-in, aimed at the longest flight that still lands before the next one, bought
+**before** the buildings so the levels it costs are visible rather than hidden behind a full queue.
+
+| metal | levels at 48h | probes | what it costs |
+|---|---|---|---|
+| — | 25 | — | the round 8 baseline |
+| 100 | 24 | 8 | one level |
+| **150** | **23** | **8** | **two levels, Robotics 1 instead of 2** |
+| 200 | 22 | 8 | three levels |
+| 300 | 19 | 8 | six levels |
+| 500 | 16 | 7 | nine levels, **and Research never opens at all** |
+
+**Every reading the verb exists for is identical from 100 to 300** — eight dispatches, zero
+one-kind check-ins, 540 minutes booked by the busiest session. So the price buys exactly one thing:
+how much progression a dispatch costs. **150 is the midpoint of the defensible band (100 – 200).**
+500 was the first guess and it is simply wrong.
+
+### What it moves
+
+| Reading | 0.1.1 | 0.1.2 at 150 metal |
+|---|---|---|
+| Check-ins offering one kind of decision only | 6 of 8 | **0 of 8** |
+| A second kind of decision first exists | hour 29 | **hour 0** |
+| Hours with nothing at all in flight | 42 of 48 (87.5%) | **1 of 48 (2.1%)** |
+| Longest unbroken silence | 8h 33m | **0h 47m** |
+| Work the busiest check-in booked | 72 min | **540 min** |
+| Median work a check-in booked | 48 min | **360 min** |
+| Building levels at 48h | 25 | 23 |
+| Worlds known at 48h | 4 | **32** |
+
+**Two of those rows are honest and one is a trap, so the report prints both.** A probe in flight
+does not make a mine busier: the *colony's* own idleness is 85.4% against 87.5%, essentially
+unchanged. What the probe covers is the **player's attention**, and collapsing the two into one
+number would let the new verb take credit for a complaint it does not touch. The lever for the
+colony standing still is still the held cost-proportional duration curve from round 8.
+
+The greedy week and the fortnight are untouched and still reproduce byte for byte — 720 / 9,677 and
+179,352 / 5,763 — so rounds 3 to 8 stay comparable.
+
+### Call 2 answered itself, and the constants did not move
+
+The recommendation was to widen the star class temperature offset to create a per-system gradient.
+**Measuring first showed the ±40 °C offset already produces one**, so nothing in `GalaxyBalance`
+was touched — no tolerance band, no §9 row, no re-pinned table.
+
+| Star | Passes every band | Settleable | Mean metal | Mean crystal | Mean deuterium |
+|---|---|---|---|---|---|
+| DIM | 1.73% | **0.43%** | 0.95 | 1.00 | **1.06** |
+| STANDARD | 2.10% | 0.40% | 0.97 | 1.00 | 0.93 |
+| BRIGHT | 1.62% | **0.24%** | 0.95 | 1.00 | **0.82** |
+
+A **29% swing in mean deuterium richness** from dim to bright and a settleable rate nearly double
+at the dim end, both falling out of the offset the sheet already had: it moves orbit temperature,
+temperature derives deuterium richness and gates one of the three bands. And `starClassAt` is O(1)
+and needs no survey, so the prior is **already charted** — aiming a probe at a dim star because
+deuterium is short is a decision the map can support today.
+
+**The honest limit: metal and crystal are flat across all three classes**, because they derive from
+gravity and pressure and neither reads the star. A player short of deuterium has a reason to prefer
+a system; a player short of metal does not. Making all three axes vary per system is a real design
+change and it is Davide's — it is not needed for the verb to work.
+
+### Watch next round
+
+- **Nothing here has been played.** These are sim measurements against a stated strategy, not a
+  session. The first round that can say how it *feels* is the one after the screen lands.
+- **The strategy is a claim, not a fact.** "One probe per check-in, aimed at the gap ahead" is how
+  the mechanic is meant to be played. A player who dispatches greedily will pay more levels than
+  the table above says, and one who never dispatches pays none and gets none.
+- **The payload is thin for the first two days, by construction.** ~4.75 worlds per system, of which
+  0.35% clear the worth-it bar galaxy-wide: roughly 14 dispatches to see one `Barren` worth
+  remarking on and ~60 to see one `Settleable`. The shortlist is the consumer, and it is gated at
+  Robotics 4, which round 8 measured as unreached at 48 hours. **In the exact window Davide
+  complained about, this buys a second decision and a notification that is not about a mine — it
+  does not buy a payoff.** That is the trade, stated rather than hidden.
+- **`notificationsFor` has no cap and iOS keeps only the 64 soonest-firing requests.** The in-flight
+  ceiling was 8 before this round and probes make it unbounded. Nothing is broken today at one
+  dispatch per check-in; a player who dispatches thirty would start evicting the *latest* pending
+  requests, which is where long build and research completions live. Engineering item, owned by the
+  slice that puts the dispatch on screen.
+- **Round 8's held change is still held.** Cost-proportional build durations fix the colony's own
+  idleness at zero cost in the first two days. It should ride along with the screen rather than go
+  in alone.
+- **Round 7's nomination is still untouched:** deuterium is the fortnight's second-worst blocker,
+  180 hours of 336.

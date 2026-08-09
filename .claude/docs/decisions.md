@@ -1369,3 +1369,56 @@ adding a single hour of cover. See `balance-log.md` round 8.
 
 **What this does not settle:** the Nanite Factory, ships and fleets all queue work too, and none of
 them exists yet. This decision is about facility upgrades on the colony screen.
+
+## The probe: surveying is a colony action, permanently shipless (2026-08-09, 0.1.2)
+
+Davide asked for a second thing to do in a check-in (`balance-log.md` rounds 8 and 9). Surveying
+won because `GalaxyState.surveyed` already existed, was written to by nothing, and made the whole
+Galaxy tab unactionable. The question this entry settles is **what performs a survey**, because
+three places in the repo said in writing that a fleet would.
+
+**A probe is dispatched by the colony, needs no ship, and slice #7's fleets will never survey.**
+
+Superseded, and kept so the reasoning survives:
+
+- `GalaxyState.surveyed`'s own comment: *"surveying is a per-world fleet action from slice #7
+  onwards."* Now: a per-**system** colony action from 0.1.2. The set is still per-world.
+- `galaxy-sheet.md` §5 and the comment in `App.kt` said the same. Both are overruled here rather
+  than left to drift.
+
+Why now rather than with slice #7:
+
+- **Slice #7 needs a design call Davide has not made** — the v1 ship set (`CARGO`/`FIGHTER`/
+  `CRUISER`/`COLONY_SHIP` are placeholders) and the travel-time formula. Waiting for it would leave
+  the opening with one verb for however long that takes.
+- **A `ShipType` constant is an on-disk identifier in every save.** Inventing a probe ship now would
+  pre-empt the ship-set call with a name nobody chose.
+- **It avoids the `Coordinates` / `GalaxyCoordinate` reconciliation** that `status.md` assigns to
+  slice #7. `SystemAddress` is a third type, deliberately: a survey is aimed at a star, and a
+  coordinate with a nullable slot would raise the question of what the other fourteen slots are.
+- OGame's own Discovery mission requires no ship either, and Oltre is in that lineage.
+
+**Deciding it now rather than deferring is the point.** A shipless probe that "might later become a
+fleet action" is a retcon waiting to happen; ruling that fleets never survey closes it.
+
+### What follows from it, and what does not
+
+- **Nothing gates the verb.** A second verb whose job is to exist at hour zero cannot sit behind a
+  building. The slow unlock pace Davide likes is protected from the price side (150 metal, swept in
+  round 9) rather than from the requirement side.
+- **Probes run in parallel**, limited by metal alone — the construction rule settled on 2026-08-08,
+  applied rather than re-litigated.
+- **Flat cost; distance is only in the duration.** The generator has no per-system gradient in its
+  *trait* functions, so a distance-scaled cost would make far probes strictly dominated and would
+  tax the player who is away longest. Reversing that is what turns distance into a schedule the
+  player chooses.
+- **`advance` breaks simultaneous landings on the target coordinate**, not on list order. Durations
+  are quantised in whole systems, so two probes sent to 117 and 119 from home 118 land on the same
+  millisecond — a tie is ordinary here, unlike everywhere else in the log, and insertion order is
+  extrinsic in exactly the way every other tie-break in this codebase avoids.
+- **Save schema 6 migrates 5** additively: one absent key. What a survey writes to has existed
+  since schema 4, so the hop adds the verb and not the record it fills.
+- **`GalaxyState.surveyedHomeSystem` became `occupiedWorldsIn`** and is now called by both genesis
+  and a landing. Not a tidy-up: the set a survey writes has to be exactly the set the player already
+  has for their own system, or "surveyed" would mean two different things depending on how it got
+  there.

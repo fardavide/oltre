@@ -263,7 +263,19 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   out Research entirely and *still* leaves 83% of the window empty. See `decisions.md` and
   `balance-log.md` round 8.
 
-- **THE NEXT THING TO DECIDE: a check-in has one verb in it.** Davide, 2026-08-08, playing 0.1.1:
+- **THE NEXT THING TO BUILD: the screen that dispatches a probe.** The `core` half landed at 0.1.2
+  and **nothing a player can reach changed** — `startSurvey` exists, `advance` lands probes,
+  `adaptationShortlist` derives what a ladder level would unlock, and no screen offers any of it.
+  What the local session needs to build: a dispatch action on the Galaxy system page (plus a way to
+  reach a distant system that is not 50 taps of a ±1 stepper — `GalaxyNav` is the risk to the
+  5–10 minute rule), an in-flight countdown, a landed state, an "already surveyed" state, and the
+  per-ladder shortlist line on Research. Round 8's **held** cost-proportional duration curve should
+  ride along with it: it fixes the colony's own idleness, which the probe deliberately does not.
+  See `balance-log.md` round 9 and `decisions.md`.
+
+- ~~**THE NEXT THING TO DECIDE: a check-in has one verb in it.**~~ — **decided 2026-08-09**, three
+  calls answered by Davide and the rest measured; the `core` half is built. Kept below because the
+  measurement is the benchmark round 9 is judged against. Davide, 2026-08-08, playing 0.1.1:
   *"Ho poche cose da fare. Solo premere un tasto"* — and, crucially, *"non voglio rimuovere il senso
   di progressione, anzi!"* and *"I don't want the user to have nothing to do for hours, but I don't
   want it to be forced to keep logging it either"*. Measured by the new opening report in `:sim:run`:
