@@ -312,7 +312,55 @@ class GameNotificationsTest {
         assertEquals(first.scheduled, second.scheduled)
     }
 
-    private fun building(vararg buildings: BuildingType): GameState {
+    @Test
+    fun `an unskipped colony books its alerts at the instants the simulation computed`() = runTest {
+        // The default, and every colony until somebody shakes the phone: game time and real time
+        // are the same clock, so the translation is the identity and nothing moves.
+        val scheduler = FakeNotificationScheduler()
+        val state = building(BuildingType.METAL_MINE)
+
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        assertEquals(state.builds.getValue(BuildingType.METAL_MINE).completesAt, scheduler.scheduled.single().at)
+    }
+
+    @Test
+    fun `a skipped colony books its alerts at the instant the device will actually reach them`() = runTest {
+        // The failure this exists to stop: the alert instants come out of the simulation in *game*
+        // time, and a colony skipped four hours forward computes them four hours ahead of the clock
+        // the operating system fires on. Booked untranslated, every alert is four hours late — the
+        // check-in loop, which on iPhone is the entire game, broken by the debug menu.
+        val scheduler = FakeNotificationScheduler()
+        val skippedBy = 4.hours
+        val gameNow = EPOCH + skippedBy
+        val state = building(BuildingType.METAL_MINE, at = gameNow)
+        val completesAt = state.builds.getValue(BuildingType.METAL_MINE).completesAt
+
+        GameNotifications(scheduler).sync(state, now = gameNow, toRealTime = { it - skippedBy })
+
+        assertEquals(completesAt - skippedBy, scheduler.scheduled.single().at)
+    }
+
+    @Test
+    fun `translating moves every alert without reordering any of them`() = runTest {
+        // The translation is applied after the set is chosen, so the rules that choose it — drop
+        // what is already due, trim the far landings to iOS's ceiling — still run in the clock the
+        // simulation computed them in. Monotone, so the set that reaches the platform is the same
+        // set with a different origin.
+        val plain = FakeNotificationScheduler()
+        val skipped = FakeNotificationScheduler()
+        val state = building(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE)
+
+        GameNotifications(plain).sync(state, now = EPOCH)
+        GameNotifications(skipped).sync(state, now = EPOCH, toRealTime = { it - 4.hours })
+
+        assertEquals(plain.scheduled.map { it.id }, skipped.scheduled.map { it.id })
+        assertEquals(plain.scheduled.map { it.at - 4.hours }, skipped.scheduled.map { it.at })
+    }
+
+    // `at` is the instant the upgrades are started, which for a skipped colony is not EPOCH — the
+    // whole point of the translation tests is a colony whose own clock is ahead of the wall one.
+    private fun building(vararg buildings: BuildingType, at: Instant = EPOCH): GameState {
         val total = buildings.fold(Resources.of()) { stock, building ->
             val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(2))
             Resources.of(
@@ -322,7 +370,7 @@ class GameNotificationsTest {
             )
         }
         return buildings.fold(freshState().copy(resources = total)) { state, building ->
-            assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = EPOCH)).state
+            assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = at)).state
         }
     }
 
