@@ -15,14 +15,41 @@ All rights reserved. No license is granted for reuse of this code.
 <img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/shell/src/desktopTest/screenshots/unbuilt_tab_galaxy.png" alt="The Galaxy tab, saying what will be there" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and six unsurveyed worlds" width="320">
 </td>
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — one of the three destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
+<td align="center"><b>Galaxy</b> — a system you have never been to: the reach band across the top, its fifteen orbits, and a probe you can send for 150 metal and half an hour of flight.</td>
 </tr>
 </table>
+
+### Sending a probe
+
+A dispatch costs 150 metal wherever it goes, so the only thing you are choosing is a **duration** —
+which is why the band across the top is a ruler measured in hours rather than a list of coordinates.
+All 250 systems of the galaxy at once, one tick each: short and faint for a dim star, tall and
+bright for a bright one, blue for yours and amber for a probe already out there. The marks say how
+long a flight to that part of the map would take, so the question the screen answers is *what can I
+reach in the nine hours I am about to be asleep?*
+
+The galaxy is not symmetric around you, and the ruler says so without a word of copy: from a home
+near one edge, the hour marks simply run out on that side.
+
+Drag the band to move; tap one of the seven cells to open a system. The cell beside the lit one is
+what the ± stepper used to be — still one tap, except it now tells you what you are stepping onto
+before you step. Crossing a galaxy used to be 249 taps.
+
+Everything the probe says lands in the card that owns the star it is about: the price and the
+flight, then a countdown, then what it found.
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
+
+**"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
+the same breath as the count rather than burying it — a run of them should read as calibration, not
+as bad luck.
 
 One branch, three technologies, one project at a time — running, waiting on the deuterium,
 and waiting on the lab:
