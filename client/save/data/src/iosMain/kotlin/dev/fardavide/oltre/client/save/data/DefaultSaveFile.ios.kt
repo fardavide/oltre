@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.save.data
 
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
@@ -42,6 +43,11 @@ private class IosSaveFile(private val path: String) : SaveFile {
 
     // No temporary sibling to sweep up, unlike the JVM copies: `atomically` is Foundation's own
     // write-then-move and it cleans up after itself.
+    //
+    // The opt-in is for the `error` parameter and nothing else: Foundation's out-parameter is a
+    // `CPointer`, so passing even `null` to it is cinterop. It is the only line in this file that
+    // touches one — `read` and `write` go through NSData, which needs no pointer.
+    @OptIn(ExperimentalForeignApi::class)
     override suspend fun clear() {
         withContext(Dispatchers.Default) {
             // The error is discarded rather than inspected, per SaveFile.clear — and the commonest
