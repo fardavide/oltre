@@ -117,6 +117,15 @@ it. The split, then:
 | buildable in a cloud session | `:core`, `:sim`, `:client:save:data`, `:client:notifications:data`, `:client:design:format`, `:client:debug:domain`, `:client:debug:data` |
 | not buildable | every Compose module — `:client:shell`, `:client:*:presentation`, `:client:design:{core,icon,component}` |
 
+**The overlay drops the iOS targets too, and that is a second blind spot rather than a footnote.**
+`:core` compiles for Kotlin/Native on CI and not here, so a rule that only Kotlin/Native enforces
+passes locally and fails on the PR. Measured at 0.2.7: a backticked test name in `core/commonTest`
+containing a **comma** compiles on JVM and is rejected outright by the Native compiler — *"Name
+contains illegal characters"* — which took out four of the five CI jobs from one line. Note the
+asymmetry that makes it easy to miss: the same comma is fine in a `desktopTest` source set, and
+there are two such names in `client/colony/presentation` today. So it is `commonTest` in a module
+with an iOS target that has the stricter rule, and `:core:jvmTest` going green says nothing about it.
+
 The practical consequence is worth stating plainly: **a cloud session should push the logic of a
 feature down into a module it can test**, and leave the Compose layer as thin as it will go. That is
 why the debug menu's clock, its skip target, its report and its shake judgement are all in

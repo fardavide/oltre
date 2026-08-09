@@ -118,10 +118,14 @@ class BalanceCurveTest {
     @Test
     fun `the opening is discounted and the discount runs out rather than being given back`() {
         // Davide, 2026-08-09: "Everything must be cheaper and quicker across the board, until first
-        // expedition ... starting about 3x at the start of the game, and arrive to 1x at the moment
-        // you can have the first expedition." He named the moment: when the galaxy becomes
-        // actionable, which is the adaptation ladders at Robotics 4 — and `:sim:run` puts the mines
-        // at level 8 or 9 when that lands, which is where full price starts.
+        // expedition ... arrive to 1x at the moment you can have the first expedition." He named the
+        // moment: when the galaxy becomes actionable, which is the adaptation ladders at Robotics 4.
+        //
+        // The *depth* of the ramp then moved once, later the same day — "I still feel the early game
+        // is WAAAY too slow! Let's try a 10x boost, instead of 3x as we did" — and only the depth:
+        // full price still starts at level 9, because `:sim:run` still puts the mines at 8 or 9 when
+        // Robotics 4 lands. At 10x it lands sooner (hour 33 rather than hour 54) and the mines get
+        // there sooner with it, so the two moved together and the convergence level did not have to.
         //
         // Three properties, and the third is what makes it a ramp rather than a price cut.
         val undiscounted = { level: Int ->
@@ -130,11 +134,11 @@ class BalanceCurveTest {
             value
         }
 
-        // 1. Level one is exactly a third of full price — the "3x" he asked for.
+        // 1. Level one is exactly a tenth of full price — the "10x" he asked for.
         assertEquals(
-            undiscounted(1) / 3,
+            undiscounted(1) / 10,
             PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(1)).metal,
-            "level 1 must cost a third of full price",
+            "level 1 must cost a tenth of full price",
         )
 
         // 2. The deep curve is handed back exactly. Not approximately: the same integers it had
@@ -150,14 +154,21 @@ class BalanceCurveTest {
         // 3. Inside the ramp the curve climbs *faster* than ×1.5, because each level also gives
         //    back a share of the discount — and it must never stall or fall, which integer rounding
         //    on small numbers is entirely capable of doing. The slope falls as the discount runs
-        //    out, from ×1.85 at the first step to ×1.64 at the last.
+        //    out, from ×3.17 at the first step to ×1.69 at the last.
+        //
+        //    That first step is what a deeper ramp costs, and it is worth naming rather than
+        //    burying: at 3x it was ×1.85, at 10x it is ×3.17, and the arithmetic says it must be —
+        //    a linear recovery over the same 8 levels hands back `(divisor − 1) / span` extra on
+        //    the first step whatever else changes. The alternative is a longer ramp, which is
+        //    `FULL_PRICE_LEVEL`, which is the landmark, which is Davide's. Nothing here can soften
+        //    the slope without moving the landmark, so the bound is widened honestly instead.
         for (level in 1 until 9) {
             val current = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level)).metal
             val next = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1)).metal
             assertTrue(next > current, "level ${level + 1} ($next) must cost more than level $level ($current)")
             assertTrue(
-                next * 100 >= current * 150 && next * 100 <= current * 190,
-                "level $level to ${level + 1} steps $current -> $next, outside x1.5 to x1.9",
+                next * 100 >= current * 150 && next * 100 <= current * 320,
+                "level $level to ${level + 1} steps $current -> $next, outside x1.5 to x3.2",
             )
         }
     }
@@ -218,7 +229,12 @@ class BalanceCurveTest {
         // admit the 3..5 band round 11 swept and pin the 4 it chose: at 3 the build is only 0.57
         // of the earning and the colony idles as it did before round 10, at 5 it reaches 1.41 and
         // the complaint comes back.
-        for (level in 2..20) {
+        //
+        // **From level 9 up, which is where round 11 was aiming.** Below it the opening speed-up
+        // breaks this identity on purpose and the test below is the one that holds it to account;
+        // running both bands through one loop would have let a deliberate divergence and an
+        // accidental one wear the same bound.
+        for (level in 9..20) {
             val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
             // The colony that buys this level is producing at the one below it, on both mines,
             // because the duration sum is metal and crystal and so the income compared with it
@@ -242,22 +258,102 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `every building reads its duration off the same root`() {
+    fun `the opening builds faster than it earns and closes the gap by the landmark`() {
+        // The deliberate half of the divergence above, and the reason the opening speed-up exists.
+        // Davide, 2026-08-09: *"I want a 2/3 min build time at the very first levels, then 30min
+        // should be ok when you can use Galaxy ... we need to give some adrenaline to users."*
+        //
+        // A build that took as long as earning it does would put the first Metal Mine at ten
+        // minutes rather than two, so inside the ramp the clock is cut below its own income on
+        // purpose — and then handed back, geometrically, so that by the level the galaxy opens at
+        // the two have converged and round 11's rule takes over with nothing to correct.
+        //
+        // Both ends are asserted because only the pair says "ramp": the first without the second is
+        // a game with no waits in it, and the second without the first is the game Davide has now
+        // twice called too slow.
+        val ratio = { level: Int ->
+            val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+            val perHour = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level - 1)) +
+                PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
+            val earning = (cost.metal + cost.crystal) * 60 / perHour
+            val building = PlaceholderBalance
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0))
+                .inWholeMinutes
+            building to earning
+        }
+
+        // 1. Every level of the ramp builds strictly quicker than the income that pays for it.
+        for (level in 2 until 9) {
+            val (building, earning) = ratio(level)
+            assertTrue(
+                building < earning,
+                "level $level builds in $building min against $earning min of income — the opening " +
+                    "is supposed to outrun its own economy, that is what the speed-up is for",
+            )
+        }
+
+        // 2. And the gap closes rather than persisting: a fifth at the first tap, past half by the
+        //    last level of the ramp. Without this the speed-up could deepen without bound and every
+        //    assertion above would still pass.
+        val (firstBuild, firstEarning) = ratio(2)
+        val (lastBuild, lastEarning) = ratio(8)
+        assertTrue(
+            firstBuild * 4 <= firstEarning,
+            "the first tap builds in $firstBuild min against $firstEarning min of income — the " +
+                "opening has stopped being quick enough to feel like one",
+        )
+        assertTrue(
+            lastBuild * 2 >= lastEarning,
+            "the last level of the ramp builds in $lastBuild min against $lastEarning min of " +
+                "income — the speed-up is still wide open where it should have converged",
+        )
+    }
+
+    @Test
+    fun `every building reads its duration off the same root of the same full price`() {
         // One rule, not a per-building table: the cheapest row and the dearest are the same
         // function of what they cost, so a row cannot drift out of shape on its own. Stated here
         // as the rule itself rather than as a proportion, because with a root the ratio between
         // two rows is no longer constant — that is the point of it, and it is why the previous
         // shape could be checked with a division and this one cannot.
+        //
+        // **The root is taken of the full price and the ramp applied afterwards**, which is round
+        // 16's correction. Taking it of the discounted price instead — which is what shipped from
+        // round 13 to 15 — divides the wait by the *root* of the discount while dividing the price
+        // by the discount, so a build inside the ramp quietly stops taking as long as earning it
+        // does. At 3x that was a 1.73x overrun; at 10x it would be 3.16x, in exactly the stretch of
+        // the game the ramp exists to speed up. The property below is the fix stated directly, and
+        // `a build takes about as long as earning it does` is the same fix stated as its consequence.
         for (level in 2..20) {
             for (building in BuildingType.entries) {
-                val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level))
+                val full = PlaceholderBalance.fullPriceCost(building, BuildingLevel(level))
                 assertEquals(
-                    4 * isqrt(cost.metal + cost.crystal),
+                    sped(4 * isqrt(full.metal + full.crystal), level),
                     PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(0)).inWholeMinutes,
                     "$building $level",
                 )
             }
         }
+    }
+
+    // The opening *speed-up*, written out rather than read from `openingSpeedUp` for the same
+    // reason `isqrt` below is: a test that calls the arithmetic it is checking agrees with it
+    // however wrong that arithmetic is. Two thirds a level below 9, carried exactly and rounded
+    // half up once — deliberately the slow obvious loop.
+    //
+    // Note that this is *not* the ramp the price rides. The price recovers linearly from a tenth;
+    // the clock recovers geometrically, because Davide asked for the first taps in minutes ("2/3
+    // min") and a linear recovery cannot charge less than `full / span` at level 2 whatever its
+    // divisor — 5 minutes where the ask was 2. Same convergence level, two shapes.
+    private fun sped(fullPriceMinutes: Long, level: Int): Long {
+        if (level >= 9) return fullPriceMinutes
+        var top = fullPriceMinutes
+        var bottom = 1L
+        repeat(9 - level) {
+            top *= 2
+            bottom *= 3
+        }
+        return (top + bottom / 2) / bottom
     }
 
     @Test
@@ -268,10 +364,10 @@ class BalanceCurveTest {
         // deuterium as well would make one scarcity govern two trade-offs the player has to make
         // separately, so the duration sum is metal and crystal, as OGame's is.
         for (building in listOf(BuildingType.ROBOTICS_FACTORY, BuildingType.NANITE_FACTORY)) {
-            val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(4))
-            assertTrue(cost.deuterium > 0, "the fixture needs a row that costs deuterium")
+            val full = PlaceholderBalance.fullPriceCost(building, BuildingLevel(4))
+            assertTrue(full.deuterium > 0, "the fixture needs a row that costs deuterium")
             assertEquals(
-                4 * isqrt(cost.metal + cost.crystal),
+                sped(4 * isqrt(full.metal + full.crystal), 4),
                 PlaceholderBalance.upgradeDuration(building, BuildingLevel(4), BuildingLevel(0)).inWholeMinutes,
                 "$building must not be slowed by the resource that gates research",
             )
@@ -295,14 +391,14 @@ class BalanceCurveTest {
         // *after* the divisor, so the divisor cannot cut through it.
         val instant = PlaceholderBalance
             .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(10))
-        assertEquals(5, instant.inWholeMinutes)
+        assertEquals(2, instant.inWholeMinutes)
 
         for (robotics in 0..20) {
             for (building in BuildingType.entries) {
                 assertTrue(
                     PlaceholderBalance
                         .upgradeDuration(building, BuildingLevel(2), BuildingLevel(robotics))
-                        .inWholeMinutes >= 5,
+                        .inWholeMinutes >= 2,
                     "$building at robotics $robotics",
                 )
             }
@@ -317,7 +413,7 @@ class BalanceCurveTest {
         // depth rather than at the door.
         val first = PlaceholderBalance
             .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
-        assertTrue(first.inWholeMinutes in 5..60, "the first upgrade was ${first.inWholeMinutes} minutes")
+        assertTrue(first.inWholeMinutes in 2..60, "the first upgrade was ${first.inWholeMinutes} minutes")
     }
 
     @Test

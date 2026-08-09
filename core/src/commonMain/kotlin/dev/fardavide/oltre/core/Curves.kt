@@ -57,7 +57,7 @@ internal fun compound(base: Long, steps: Int, numerator: Long, denominator: Long
 // actually wants to say — *how cheap at the start* and *where does it stop* — and `core` has no
 // fractional anything. Linear needs neither: the multiplier is at most `3 × (fullPriceLevel − 1)`,
 // so unlike a carried power this cannot leave Long however deep the caller goes.
-internal const val OPENING_DISCOUNT_DIVISOR: Long = 3
+internal const val OPENING_DISCOUNT_DIVISOR: Long = 10
 
 internal fun openingDiscount(fullPrice: Long, level: Int, fullPriceLevel: Int): Long {
     if (fullPriceLevel <= 1 || level >= fullPriceLevel) return fullPrice
@@ -67,6 +67,43 @@ internal fun openingDiscount(fullPrice: Long, level: Int, fullPriceLevel: Int): 
     val share = span + (OPENING_DISCOUNT_DIVISOR - 1) * (level - 1)
     return checkedTimes(fullPrice, share) { "openingDiscount($fullPrice, level $level)" } /
         (OPENING_DISCOUNT_DIVISOR * span)
+}
+
+// ── The opening speed-up: the same ramp for the clock, in a shape the price could not use ────
+//
+// Davide, 2026-08-09, after the 10x price ramp above: *"I want a 2/3 min build time at the very
+// first levels, then 30min should be ok when you can use Galaxy. Very long time in mid-late are ok,
+// but now we need to give some adrenaline to users."*
+//
+// Two anchors, and the first one is out of `openingDiscount`'s reach — not by a choice of constant
+// but arithmetically. A linear recovery hands back an equal share each level, so at level 2 it can
+// never charge less than `span / (divisor × span)` → `1 / span` of full price however large the
+// divisor grows. A first Metal Mine upgrade is 40 full-price minutes over a span of 8, so **5
+// minutes is the floor of that whole family** and the ask was two. Widening the span pushes the
+// second anchor out instead: it is level 9 at Robotics 4 that makes "30 minutes at the galaxy"
+// true, and a longer ramp is still discounting there.
+//
+// A geometric recovery has the extra steepness exactly where it is wanted, because it compounds:
+// **two thirds per level below `fullPriceLevel`**. The first taps land at 2 to 5 minutes, level 9
+// is untouched full price, and the curve between them is the adrenaline — 2, 2, 4, 8, 15, 27, 52,
+// 93 minutes at Robotics 0, which the factory then divides again.
+//
+// Round 14 rejected geometric for the *price* and that stands: it wanted a fractional root between
+// "how cheap at the start" and "where does it stop", and `core` has no fractional anything. This is
+// not that problem. Davide named the two ends in minutes, 2/3 per level hits both, and it is a
+// rational the integer curve carries exactly. The number of steps is bounded by `fullPriceLevel`,
+// which is what keeps `exactGeometric` inside a Long here.
+internal const val OPENING_SPEEDUP_NUMERATOR: Long = 2
+internal const val OPENING_SPEEDUP_DENOMINATOR: Long = 3
+
+internal fun openingSpeedUp(fullPriceMinutes: Long, level: Int, fullPriceLevel: Int): Long {
+    if (fullPriceLevel <= 1 || level >= fullPriceLevel) return fullPriceMinutes
+    return exactGeometric(
+        fullPriceMinutes,
+        fullPriceLevel - level,
+        OPENING_SPEEDUP_NUMERATOR,
+        OPENING_SPEEDUP_DENOMINATOR,
+    )
 }
 
 // Geometric growth carried exactly and rounded once, half up. Used for the research costs, whose

@@ -207,20 +207,34 @@ object PlaceholderBalance {
     private const val FULL_PRICE_LEVEL: Int = 9
 
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
+        val full = fullPriceCost(building, toLevel)
+        fun priced(resource: Long): Long = openingDiscount(resource, toLevel.value, FULL_PRICE_LEVEL)
+        return Resources.of(
+            metal = priced(full.metal),
+            crystal = priced(full.crystal),
+            deuterium = priced(full.deuterium),
+        )
+    }
+
+    // What the row costs with the ramp taken off — the curve as it stands from `FULL_PRICE_LEVEL`
+    // upward, evaluated at any level. Split out because **the duration reads off this one and the
+    // price reads off the discounted one**, which is the whole of round 16's construction change;
+    // see `upgradeDuration`.
+    //
+    // `internal` rather than private only so `BalanceCurveTest` can state the duration rule against
+    // it. That is the same standard the test already held the rule to — it read the *cost* off this
+    // object and wrote the *root* out by hand — and the ramp is now written out by hand beside it.
+    internal fun fullPriceCost(building: BuildingType, toLevel: BuildingLevel): Resources {
         require(toLevel.value in 1..MAX_UPGRADE_LEVEL) {
             "upgrade cost is only defined up to level $MAX_UPGRADE_LEVEL, asked for $toLevel"
         }
         val steps = toLevel.value - 1
         val base = baseCost(building)
-        fun priced(resource: Long): Long = openingDiscount(
-            compound(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            toLevel.value,
-            FULL_PRICE_LEVEL,
-        )
+        fun full(resource: Long): Long = compound(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR)
         return Resources.of(
-            metal = priced(base.metal),
-            crystal = priced(base.crystal),
-            deuterium = priced(base.deuterium),
+            metal = full(base.metal),
+            crystal = full(base.crystal),
+            deuterium = full(base.deuterium),
         )
     }
 
@@ -271,22 +285,54 @@ object PlaceholderBalance {
         return root
     }
 
-    // Nothing is instant, however deep the Robotics Factory goes. At Robotics 10 a first mine level
-    // divides to under three minutes, which is not a build — it is a tap with a delay on it, and it
-    // would quietly undo at depth exactly the emptiness this curve exists to fill.
-    private val MINIMUM_UPGRADE_DURATION: Duration = 5.minutes
+    // Nothing is instant, however deep the Robotics Factory goes or however steep the opening
+    // speed-up gets. **Two minutes rather than the five it was until 0.2.7**, and the number is
+    // Davide's rather than the build's: *"I want a 2/3 min build time at the very first levels."*
+    // Five would have been the answer to that question instead of the curve's, since the first
+    // taps now land at two to five minutes and a five-minute floor would flatten the whole of the
+    // opening's shape into one value. Two is the bottom of the band he named, so it bounds the
+    // curve without becoming it.
+    private val MINIMUM_UPGRADE_DURATION: Duration = 2.minutes
 
+    // ── The clock gets its own ramp, because it was asked for in minutes ────────────────────────
+    //
+    // Round 13 shipped the opening discount and got the early builds shortened "for free", because
+    // round 11 had made duration a function of cost. Free, and **wrong by exactly the square root**:
+    // the price fell by the ramp's factor while the wait fell by its root, so inside the ramp a
+    // build no longer took as long as earning it did — it took `1 / sqrt(discount)` times longer.
+    // At the 3x that shipped, the opening's builds ran **1.73x long** against the income paying for
+    // them; at 10x it would have been 3.16x. Which is to say the thing the ramp set out to speed up
+    // was, in the one unit the player actually waits in, the part of the game furthest behind its
+    // own rule. So the root is taken of `fullPriceCost` and a ramp applied to the **minutes**,
+    // which is how `ResearchBalance` and `AdaptationBalance` have always done theirs.
+    //
+    // **The ramp it applies is not the price's.** Davide, 2026-08-09: *"I want a 2/3 min build time
+    // at the very first levels, then 30min should be ok when you can use Galaxy ... we need to give
+    // some adrenaline to users."* Two anchors in minutes, and the linear ramp cannot reach the
+    // first — see `openingSpeedUp`, which is where the arithmetic for that is written down. So the
+    // price recovers linearly from a tenth and the clock recovers geometrically at two thirds a
+    // level, both converging on the same `FULL_PRICE_LEVEL` so there is still one landmark rather
+    // than two.
+    //
+    // What that costs is worth stating plainly, because it is a rule of round 11's being bent on
+    // purpose: inside the ramp a build is now deliberately *shorter* than the time it takes to earn
+    // it — a fifth of it at level 2, closing to nine tenths by level 9. That is the adrenaline, in
+    // the one number it can be measured in. Round 11's identity is untouched where it was aimed,
+    // from `FULL_PRICE_LEVEL` up, and `BalanceCurveTest` now asserts the two halves separately
+    // rather than averaging a deliberate divergence into a bound that admits it by accident.
     fun upgradeDuration(
         building: BuildingType,
         toLevel: BuildingLevel,
         roboticsFactory: BuildingLevel,
     ): Duration {
-        val cost = upgradeCost(building, toLevel)
-        val base = (MINUTES_PER_ROOT_COST * rootOf(cost.metal + cost.crystal)).minutes
+        val fullPrice = fullPriceCost(building, toLevel)
+        val fullMinutes = MINUTES_PER_ROOT_COST * rootOf(fullPrice.metal + fullPrice.crystal)
+        val base = openingSpeedUp(fullMinutes, toLevel.value, FULL_PRICE_LEVEL).minutes
         // The floor is applied last, to what the player actually waits — not to the base before the
         // divisor. A Robotics Factory that shortens a build below the floor has bought all the
         // shortening there is; a floor placed ahead of it would let the divisor cut *through* the
-        // minimum and put instant builds back at depth.
+        // minimum and put instant builds back at depth. The speed-up is inside it for the same
+        // reason — at two thirds a level the first Metal Mine works out at a minute and a quarter.
         return maxOf(MINIMUM_UPGRADE_DURATION, base / (1 + roboticsFactory.value))
     }
 

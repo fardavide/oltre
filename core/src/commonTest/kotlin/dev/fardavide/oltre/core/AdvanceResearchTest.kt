@@ -143,19 +143,20 @@ class AdvanceResearchTest {
 
         // when a span is accrued entirely before, and an hour entirely after, the completion
         //
-        // Twenty minutes rather than an hour because the opening discount reaches research too:
-        // Extraction 1 is 30 base minutes now and lands in 27m 46s at the Robotics 1 the fixture
-        // clears the gate with. The assertion below is the guard on that, so if the discount moves
-        // again this test says so rather than quietly measuring the wrong side of the completion.
-        val beforeStart = advance(started, from = EPOCH, to = EPOCH + 20.minutes)
+        // Four minutes rather than an hour because the opening discount reaches research too, and
+        // it moved again at round 16: Extraction 1 is 9 base minutes now and lands in 8m 20s at the
+        // Robotics 1 the fixture clears the gate with. The assertion below is the guard on that, so
+        // if the discount moves again this test says so rather than quietly measuring the wrong
+        // side of the completion.
+        val beforeStart = advance(started, from = EPOCH, to = EPOCH + 4.minutes)
         val beforeMetal = beforeStart.resources.metal - started.resources.metal
         val afterStart = advance(started, from = EPOCH, to = completesAt)
         val afterMetal = advance(afterStart, from = completesAt, to = completesAt + 1.hours).resources.metal -
             afterStart.resources.metal
 
         // then - the project has to finish before it produces anything
-        assertTrue(completesAt > EPOCH + 20.minutes, "the fixture must not complete inside the window")
-        assertEquals(30L, beforeMetal)
+        assertTrue(completesAt > EPOCH + 4.minutes, "the fixture must not complete inside the window")
+        assertEquals(6L, beforeMetal)
         assertEquals(97L, afterMetal)
     }
 

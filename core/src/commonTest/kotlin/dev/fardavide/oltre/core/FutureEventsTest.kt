@@ -180,15 +180,21 @@ class FutureEventsTest {
 
     @Test
     fun `upcoming events come back in the order they will happen`() {
-        // given a fleet landing between two build completions
+        // given a fleet landing between two build completions.
+        //
+        // The Deuterium Synthesizer rather than the Robotics Factory as the slow half: at the 10x
+        // opening discount a first Robotics Factory and a second Metal Mine both come out at eight
+        // minutes, and two completions at the same instant are what the *next* test is about. The
+        // synthesizer is the cheapest row that still lands well clear of the mine.
         val t0 = Instant.fromEpochMilliseconds(0)
         val state = GameState.initial()
-            .fundedFor(BuildingType.METAL_MINE, BuildingType.ROBOTICS_FACTORY)
+            .fundedFor(BuildingType.METAL_MINE, BuildingType.DEUTERIUM_SYNTHESIZER)
             .started(BuildingType.METAL_MINE, at = t0)
-            .started(BuildingType.ROBOTICS_FACTORY, at = t0)
+            .started(BuildingType.DEUTERIUM_SYNTHESIZER, at = t0)
             .let { started ->
                 val betweenTheTwo = started.completionOf(BuildingType.METAL_MINE) +
-                    (started.completionOf(BuildingType.ROBOTICS_FACTORY) - started.completionOf(BuildingType.METAL_MINE)) / 2
+                    (started.completionOf(BuildingType.DEUTERIUM_SYNTHESIZER) -
+                        started.completionOf(BuildingType.METAL_MINE)) / 2
                 started.copy(
                     returningFleet = ReturningFleet(
                         ships = mapOf(ShipType.CARGO to 1),

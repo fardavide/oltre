@@ -1590,3 +1590,178 @@ than leaving the margin to be rediscovered.
   early, which pulls that forward rather than pushing it back.
 - **`TechLevel.MAX` at 30 is three levels from the arithmetic ceiling** for the dearest adaptation
   base. Fine today, and now asserted, but it is the number to check before anyone raises it.
+
+## Round 16 — 0.2.7, the opening gets a pulse (2026-08-09)
+
+Two instructions, an hour apart, and the second one is the round. The first moved a constant; the
+second described a game and turned out not to be reachable by moving that constant at all.
+
+### The feedback, verbatim
+
+> "We did balancing recently, but I still feel the early game is WAAAY too slow! Let's try a 10x
+> boost, instead of 3x as we did, especially constructions times"
+
+> "I want a 2/3 min build time at the very first levels, then 30min should be ok when you can use
+> Galaxy. Very long time in mid-late are ok, but now we need to give some adrenaline to users"
+
+### What shipped, in three parts
+
+**1. `OPENING_DISCOUNT_DIVISOR` 3 → 10.** The linear ramp is unchanged in shape and
+`FULL_PRICE_LEVEL` is unchanged at 9 — measured rather than assumed, see below. Level 1 of the
+Metal Mine is 6 metal against a full price of 60.
+
+**2. The clock stopped riding the price's ramp by the square root, which was a bug wearing a
+feature's clothes.** Round 13 got the early builds shortened "for free" because round 11 had made
+duration a function of cost — and free is exactly what it was worth. The price fell by the ramp's
+factor and the wait by its *root*, so inside the ramp a build no longer took as long as earning it
+did: it took `1 / sqrt(discount)` times longer. At the shipped 3x that is **1.73x**, at 10x it would
+have been **3.16x**. The stretch of the game round 13 set out to speed up was, in the only unit a
+player waits in, the part furthest behind its own rule. The root is now taken of `fullPriceCost` and
+a ramp applied to the minutes, which is what `ResearchBalance` and `AdaptationBalance` have always
+done.
+
+That is also the round's cheapest piece of evidence: `a build takes about as long as earning it
+does` **fails at level 2** under the old arrangement at a 10x divisor, and passes under the new one.
+The test caught the shape before the sim measured it.
+
+**3. The clock's ramp is geometric where the price's is linear, and this is the part that was
+asked for.** Davide named two anchors in minutes, and the first is outside the linear family's
+reach — not by a choice of constant but arithmetically. A linear recovery hands back an equal share
+per level, so at level 2 it charges `(span + D − 1) / (D · span)`, which **cannot fall below
+`1 / span`** however large `D` grows. A first Metal Mine upgrade is 40 full-price minutes over a
+span of 8, so 5 minutes is the floor of that entire family and the ask was 2. Widening the span
+reaches the first anchor and loses the second: it is level 9 at Robotics 4 that makes "30 minutes at
+the galaxy" true, and a longer ramp is still discounting there.
+
+Geometric compounds, so the extra steepness sits where it is wanted: **two thirds per level below
+`FULL_PRICE_LEVEL`**, same convergence level, so there is still one landmark rather than two.
+`MINIMUM_UPGRADE_DURATION` went 5 minutes → **2**, because at 5 the floor would have been the answer
+to Davide's question instead of the curve's.
+
+Round 14 rejected geometric for the *price* and that stands unchanged — it wanted a fractional root
+between "how cheap at the start" and "where does it stop", and `core` has no fractional anything.
+This is not that problem: the two ends were named in minutes, 2/3 a level hits both, and the integer
+curve carries it exactly.
+
+### The build clock, before and after
+
+Metal Mine, at Robotics 0 — and in the last column at the Robotics level a colony actually holds
+when it buys that level, which is the number the player sees.
+
+| Level | 0.2.6 | 0.2.7 | full price | felt, at the Robotics of the day |
+|---|---|---|---|---|
+| 1 | 20m | **2m** | 32m | 2m (R0) |
+| 2 | 24m | **2m** | 40m | 2m (R0) |
+| 3 | 36m | **4m** | 48m | 2m (R1) |
+| 4 | 48m | **8m** | 60m | 4m (R1) |
+| 5 | 1h 00m | **15m** | 76m | 5m (R2) |
+| 6 | 1h 20m | **27m** | 92m | 6m (R3) |
+| 7 | 1h 44m | **52m** | 116m | 10m (R4) |
+| 8 | 2h 16m | **1h 33m** | 140m | 18m (R4) |
+| 9 | 2h 52m | 2h 52m | 172m | **34m (R4)** |
+
+Both anchors land: the first taps are 2–5 minutes across every facility (Metal 2, Crystal 2, Solar
+3, Robotics 3, Deuterium 5), and the level the galaxy opens on is 34 minutes.
+
+### The reading that justifies it, and the report that had to be written to get it
+
+**Every existing report in `:sim:run` was blind to this change**, and that is worth recording rather
+than glossing. They all check in every three hours, so a facility advances at most one level per
+visit and a duration only matters if it exceeds the gap. Against that cadence a two-minute build and
+a fifty-minute one are the same reading — which is why day-1 through day-7 progression is *identical*
+before and after part 3 landed (20 / 32 / 39 / 43 / 57 building levels either way).
+
+So `printFirstSitting` is new: one-minute resolution, everything affordable started on any free
+facility, one hour from genesis. It measures the session a player stays inside, which is what
+"adrenaline" is a property of.
+
+| Reading | 0.2.6 | **0.2.7** |
+|---|---|---|
+| Completions watched inside 10 minutes | **0** | **7** |
+| inside 30 minutes | 2 | 9 |
+| inside the hour | 6 | 10 |
+| Building levels after 10 minutes | 4 | **11** |
+| after 30 minutes | 6 | 13 |
+| Longest stretch with nothing landing | 24m | **8m** |
+
+**A player's first ten minutes went from nothing at all to seven things finishing.** That is the
+whole round in one row.
+
+### What the cost half bought, which is much less
+
+| Reading | 0.2.6 | 0.2.7 |
+|---|---|---|
+| Building levels, day 1 | 17 | 20 |
+| day 2 | 28 | 32 |
+| day 4 | 40 | 43 |
+| day 7 | 55 | 57 |
+| Research opens | hour 12 | **hour 6** |
+| Robotics 4, so the ladders and every Blocked world | hour 54 (d3) | **hour 33 (d2)** |
+| Projects finished by day 4 | 10 | 13 |
+
+**A 10x discount bought about 8% more progression on day 4 than a 3x one did**, and the sweep says
+that is not a tuning failure — it is saturation. `FULL_PRICE_LEVEL` swept at the 10x divisor:
+
+| `FULL_PRICE_LEVEL` | day 1 | day 2 | day 3 | day 4 | day 7 | Robotics 4 |
+|---|---|---|---|---|---|---|
+| **9 — shipped** | 20 | 32 | 39 | 43 | 57 | hour 33 |
+| 11 | 21 | 34 | 41 | 46 | 59 | hour 33 |
+| 13 | 22 | 35 | 43 | 49 | 61 | hour 27 |
+| 16 | 23 | 37 | 46 | 51 | 64 | hour 27 |
+
+Nearly doubling the ramp's length buys 8 levels on day 4 and pushes the discount deep into levels
+Davide said should be full price. **9 stays**, and it stays for the reason round 14 chose it rather
+than by inertia: the landmark moved forward with the discount, so the mines are still at 8–9 when
+Robotics 4 lands.
+
+### Why cost saturates, measured — and the lever nobody has pulled
+
+The colony is not short of money in the opening and it is not short of time. It is short of
+**check-ins**. `startUpgrade` refuses a facility that is already building, so a visit can advance
+each facility by exactly one level; six facilities × eight visits is the ceiling, and no discount
+touches it. The opening report says the rest: **the colony has nothing in flight for 95.83% of the
+first 48 hours** (87.50% at 0.2.6, 91.66% at the cost change alone), the longest unbroken silence is
+8h 52m, and the median check-in books **9 minutes** of work.
+
+Which is the honest shape of the thing: this round made the first *session* dense and the days
+between them emptier. Both are consequences of the same change and only one of them was asked for.
+**The lever that would raise progression per real-world day is a build queue** — letting one visit
+book several levels of a facility — and that is a mechanic, so it is Davide's, not the build's. It
+is named here because two rounds have now ended by concluding "the next lever is income", and this
+measurement says it is not income.
+
+### What it cost
+
+- **Fifteen tests moved**, all of them numbers rather than shapes, plus three fixtures that were
+  measuring something adjacent and broke on the timings: `FutureEventsTest` needed a pair of builds
+  that no longer tie at 8 minutes, `StartUpgradeTest`'s Robotics divisor needed a level deep enough
+  that a third of it clears the 2-minute floor, and `AdvanceResearchTest`'s window went from 20
+  minutes to 4.
+- **`BalanceCurveTest`'s earning-time rule is now two tests, not one.** Round 11's identity holds
+  from level 9 up, and inside the ramp a new test asserts the divergence is *deliberate and closing*
+  — every ramp level builds strictly faster than the income paying for it, a fifth of it at the
+  first tap, past half by the last level of the ramp. One loop over both bands would have let a
+  deliberate divergence and an accidental one wear the same bound.
+- **`fullPriceCost` is `internal` rather than private**, so the duration rule can be stated against
+  it. Same standard the test already held: it read the cost off production code and wrote the root
+  out by hand; it now writes the ramp out by hand too.
+- **The adaptation ladders' priced totals are exactly equal again at level 1** — 480 each, where a
+  third of three differently-shaped baskets came out two units apart. That is luck, not design, so
+  the assertion stays a proportion.
+- **The ramp's first cost step is now ×3.17** where it was ×1.85, and the `BalanceCurveTest` bound
+  widened to admit it. That is what a deeper linear ramp over a fixed span costs and there is no
+  setting of the divisor that avoids it.
+
+### Watch next round
+
+- **Still nothing played.** Six rounds have now shipped on one session's feedback, and the last two
+  were each corrected within the hour.
+- **The idleness between check-ins is now the biggest open item in this file**, ahead of crystal at
+  depth. 95.83% with nothing in flight is the highest this file has ever recorded, and it is the
+  direct cost of the change that was asked for.
+- **Crystal at depth is untouched** and still structural: the two branches cost ~1.1 : 1 and
+  ~1.3 : 1 where the mines cost 2.5 : 1.
+- **The dials, in the order they are likely to be wanted:** `OPENING_SPEEDUP_NUMERATOR`/
+  `_DENOMINATOR` in `Curves.kt` (2/3 — the clock's steepness), `MINIMUM_UPGRADE_DURATION` in
+  `PlaceholderBalance` (2 minutes — the floor of the whole game), then `FULL_PRICE_LEVEL` (9) with
+  the sweep above, and `OPENING_DISCOUNT_DIVISOR` (10 — the price only).

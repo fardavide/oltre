@@ -91,8 +91,10 @@ class GameSessionTest {
 
     @Test
     fun `a session round trips through its snapshot`() {
-        // given — still mid-build at the saved instant, so resuming has nothing to apply
-        val session = GameSession(state = midBuild(), lastUpdatedAt = EPOCH + 5.minutes)
+        // given — still mid-build at the saved instant, so resuming has nothing to apply. One
+        // minute rather than five: a second Metal Mine is a two-minute build since 0.2.7, so five
+        // would land the completion and this would be testing resume-applies-a-build instead.
+        val session = GameSession(state = midBuild(), lastUpdatedAt = EPOCH + 1.minutes)
 
         // when
         val restored = resume(session.toSnapshot(), now = session.lastUpdatedAt)

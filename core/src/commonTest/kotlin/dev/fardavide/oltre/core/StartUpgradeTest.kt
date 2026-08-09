@@ -113,10 +113,15 @@ class StartUpgradeTest {
 
     @Test
     fun `the robotics factory shortens build durations`() {
-        // given
+        // given a mine deep enough for the divisor to have something to divide. Since the opening
+        // discount went to 10x a second Metal Mine is an eight-minute build, and a third of eight
+        // minutes is under the five-minute floor — so at level 2 this would assert the floor and
+        // call it the factory. Level 6 is the first that clears it at Robotics 2.
         val now = Instant.fromEpochMilliseconds(0)
-        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
-        val slow = GameState.initial().copy(
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(6))
+        val initial = GameState.initial()
+        val slow = initial.copy(
+            buildings = initial.buildings.copy(metalMine = BuildingLevel(5)),
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
         )
         val fast = slow.copy(
@@ -130,7 +135,7 @@ class StartUpgradeTest {
             .state.jobOf(BuildingType.METAL_MINE)
 
         // then
-        val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
+        val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(6), BuildingLevel(0))
         assertEquals(now + base, slowJob.completesAt)
         assertEquals(now + base / 3, fastJob.completesAt)
     }

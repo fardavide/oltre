@@ -55,6 +55,7 @@ private const val SIM_GALAXY_SEED: Long = 20_260_807
 fun main() {
     printCurveTable()
     printEarlyBuildTable()
+    printFirstSitting()
     printResearchTable()
     printAdaptationTable()
     printGalaxyReport()
@@ -489,6 +490,93 @@ private fun printCurveTable() {
 // Every other table in this harness is about a curve. This one is about a single moment: the player
 // taps a row and closes the app. It prints what that costs them in waiting, at the Robotics levels
 // an opening colony really has, for the four facilities a session actually repeats.
+// ── The first sitting, minute by minute ──────────────────────────────────────────────────────
+//
+// Every other report in this file models a player who taps and leaves: the cadence is three hours,
+// so a facility advances at most one level per visit and the *duration* of a build can only matter
+// if it exceeds the gap. Which means none of them can see the thing 0.2.7 was asked for — Davide,
+// 2026-08-09: *"I want a 2/3 min build time at the very first levels ... we need to give some
+// adrenaline to users."* Adrenaline is a property of a session the player stays inside, and against
+// a three-hour cadence a two-minute build and a fifty-minute one are the same reading.
+//
+// So this one keeps the player in the app. One minute of resolution, buying anything affordable on
+// any free facility, for an hour. What it counts is what the phone is actually doing while it is
+// being held: completions the player *watches* land rather than finds waiting next time.
+private fun printFirstSitting() {
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    var now = genesis
+    val log = mutableListOf<String>()
+    var completions = 0
+    val completionsBy = mutableMapOf(10 to 0, 30 to 0, 60 to 0)
+    val levelsBy = mutableMapOf<Int, Int>()
+    var longestStare = 0L
+    var lastSomethingHappened = 0
+
+    for (minute in 0..60) {
+        val at = genesis + minute.minutes
+        val before = state
+        state = advance(state, from = now, to = at)
+        now = at
+
+        val finished = finishedBetween(before, state)
+        if (finished.isNotEmpty()) {
+            completions += finished.size
+            completionsBy.keys.filter { minute <= it }.forEach { completionsBy[it] = completionsBy.getValue(it) + finished.size }
+            log += "| ${minute}m | ${finished.joinToString(", ")} | — |"
+            longestStare = maxOf(longestStare, (minute - lastSomethingHappened).toLong())
+            lastSomethingHappened = minute
+        }
+
+        val bought = mutableListOf<String>()
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            val name = nameOf(building, state)
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let {
+                state = it.state
+                bought += name
+            }
+        }
+        if (bought.isNotEmpty()) {
+            log += "| ${minute}m | — | ${bought.joinToString(", ")} |"
+            lastSomethingHappened = minute
+        }
+        levelsBy[minute] = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+    }
+
+    println("## The first sitting — a player who does not put the phone down")
+    println()
+    println("One-minute resolution, everything affordable started on any free facility, for one")
+    println("hour from genesis. Every other report here checks in every three hours, which cannot")
+    println("tell a two-minute build from a fifty-minute one; this is the one that can.")
+    println()
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Completions watched inside 10 minutes | **${completionsBy.getValue(10)}** |")
+    println("| inside 30 minutes | **${completionsBy.getValue(30)}** |")
+    println("| inside the hour | **${completionsBy.getValue(60)}** |")
+    println("| Building levels after 10 minutes | ${levelsBy.getValue(10)} |")
+    println("| after 30 minutes | ${levelsBy.getValue(30)} |")
+    println("| after the hour | ${levelsBy.getValue(60)} |")
+    println("| Longest stretch with nothing landing | ${longestStare}m |")
+    println("| Facilities the colony ends the hour with | ${state.buildings.summary()} |")
+    println()
+    println("Minute by minute — what landed while they watched, and what they started because of it:")
+    println()
+    println("| At | Landed | Started |")
+    println("|---|---|---|")
+    log.take(40).forEach(::println)
+    if (log.size > 40) println("| … | ${log.size - 40} more rows | |")
+    println()
+}
+
 private fun printEarlyBuildTable() {
     val repeating = listOf(
         BuildingType.METAL_MINE,
