@@ -282,18 +282,36 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.1**, and both stubs
   that were waiting on it are filled in: `AndroidSaveLocation.directory` and the notification
   scheduler.
-- **Nothing has run the Android build on a device.** CI compiles the APK on every PR and the
-  release job signs and publishes it, but no session in this project has installed one and looked
-  at it. **This is the largest unverified surface in the repository** — everything Android was
-  written by a cloud session that cannot compile a line of it. The first install is the first test
-  of five things nothing else covers:
-  1. the bundled font actually reaching the APK (CMP-9547, see `decisions.md`);
-  2. edge-to-edge and `WindowInsets.safeDrawing` agreeing on a device with a gesture bar;
-  3. the save surviving an update rather than only in theory;
-  4. an alarm actually firing, and the status-bar icon reading as a mark rather than a smudge;
-  5. `BootReceiver` surviving a real reboot — the riskiest of the five, because a receiver that
-     throws at boot is a crash dialog on every start-up. It catches everything it can, but nothing
-     has proven that on a device.
+- ~~**Nothing has run the Android build on a device.**~~ — **run at 0.2.1**, on an emulator rather
+  than a handset (nothing else was attached). Four of the five checks the entry above listed are
+  answered, and the emulator is a real answer for them: they are about APK packaging, install
+  semantics and a genuine Android boot, none of which a handset does differently.
+  1. **The bundled font reaches the APK.** Renders in JetBrains Mono, and on the *signed release*
+     build as well as the debug one — so CMP-9547's `androidResources { enable = true }` holds
+     where it actually matters.
+  2. **Edge to edge agrees.** The resource rail clears the status bar and the tab bar clears the
+     gesture bar. The one thing an emulator cannot answer: a cutout or a punch-hole.
+  3. **The save survives an update.** Installed the signed release APK, started two builds, then
+     installed the same APK over the top: same colony, same two completion times, countdowns
+     carried on. This is what the real key buys, and it is now measured rather than argued.
+  4. **An alarm is booked correctly** — one `RTC_WAKEUP` per notification, aimed at
+     `NotificationReceiver`, at the instant the card counts down to, with the id persisted in
+     `SharedPreferences`. **Whether it fires, and whether the status-bar icon reads as a mark, is
+     still open**; see the entry below.
+  5. **`BootReceiver` survives a real reboot** — the riskiest of the five, and it holds. It starts
+     as a broadcast process, does not crash, and the alarm is pending again afterwards.
+- **What an alarm does when it fires is still unverified.** The receiver is `exported="false"`, so
+  `adb broadcast` reaches it with zero receivers, and a Play-image emulator refuses `date`, so the
+  clock cannot be wound forward — which leaves waiting out a real build as the only way in. That
+  also means **nobody has looked at `ic_notification` on a status bar**, which is the one visual
+  asset in this repository a cloud session drew and the one `decisions.md` says to overrule if it
+  reads as a smudge.
+- **The Android platform edge is excluded from Kover**, as of 0.2.1: the scheduler, its `Context`
+  holder and the receiver join `MainActivity`, `OltreApplication` and `BootReceiver`, which were
+  excluded when they landed. Left in, they failed the merge gate at 93.1%. The policy was already
+  `decisions.md`'s — a platform edge with no seam a test can reach — but only half of it had been
+  applied. **What replaces the test is the install above**, which is a standing obligation on a
+  local session rather than something CI will ever catch.
 - **The notification copy is still PLACEHOLDER**, now on two platforms rather than one, and the
   notification channel's name and description in `NotificationReceiver` join it — those are shown
   in Android's own settings, so they are player-facing too.
