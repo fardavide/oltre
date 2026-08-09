@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The whole of the Android app that is not the shell. `android:name` below crosses a module
+  boundary: MainActivity is compiled into `:client:shell`, beside the desktop `main()` and the
+  iOS `MainViewController()`, and manifest merging resolves the name at build time. Renaming the
+  class therefore breaks the build here rather than at the call site — there is no call site.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+      allowBackup is left on deliberately. The save is a JSON snapshot in the app's private
+      files directory, so Android's own auto-backup carries a colony across a reinstall or a new
+      phone — which is the behaviour a player of an idle game expects, and the closest thing the
+      game has to iCloud sync until a server exists.
+    -->
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Oltre">
+
+        <!--
+          configChanges is declared so a rotation reconfigures the composition instead of
+          recreating the Activity. Recreation is survivable — the state is on disk and the rest
+          is recomputed from the clock — but it re-reads the save and flashes an empty frame on
+          the way through, and the game is built to never show a number it has not caught up.
+        -->
+        <activity
+            android:name="dev.fardavide.oltre.client.MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density|uiMode|fontScale|locale|layoutDirection"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
