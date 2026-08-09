@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The whole of the Android app that is not the shell. Every `android:name` below crosses a module
+  boundary into `:client:shell`, which this module depends on directly — so the names resolve on
+  the compile classpath and a rename breaks the build here rather than at a call site; there are
+  no call sites. A component whose class arrives *transitively* cannot be named here at all, and
+  is declared by its own module instead: see the note where the notification receiver used to be.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- API 33+. Below it, notifications post without asking. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Android drops every scheduled alarm on reboot, so without this the game goes quiet until
+      the player next opens it — and a player who is not opening it is exactly who the alerts are
+      for. `BootReceiver` recomputes the schedule from the save.
+
+      Deliberately *not* SCHEDULE_EXACT_ALARM: see `DefaultNotificationScheduler.android.kt` for
+      why inexact alarms are the right trade for a game whose builds run for hours.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
+      allowBackup is left on deliberately. The save is a JSON snapshot in the app's private
+      files directory, so Android's own auto-backup carries a colony across a reinstall or a new
+      phone — which is the behaviour a player of an idle game expects, and the closest thing the
+      game has to iCloud sync until a server exists.
+    -->
+    <application
+        android:name="dev.fardavide.oltre.client.OltreApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Oltre">
+
+        <!--
+          configChanges is declared so a rotation reconfigures the composition instead of
+          recreating the Activity. Recreation is survivable — the state is on disk and the rest
+          is recomputed from the clock — but it re-reads the save and flashes an empty frame on
+          the way through, and the game is built to never show a number it has not caught up.
+        -->
+        <activity
+            android:name="dev.fardavide.oltre.client.MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|density|uiMode|fontScale|locale|layoutDirection"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          `NotificationReceiver` is declared by `:client:notifications:data`, in that module's own
+          manifest, and merged in from there — it is the one component this app module cannot name,
+          because it arrives transitively through the shell's `implementation` edge and so is on
+          the runtime classpath but not this module's compile classpath.
+        -->
+
+        <!--
+          exported="false" and still reached: BOOT_COMPLETED is a protected broadcast, which the
+          system delivers regardless, and false is what stops anything else impersonating it.
+        -->
+        <receiver
+            android:name="dev.fardavide.oltre.client.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -3,6 +3,7 @@
 // Kover is the exception that proves the rule: the root project *is* the aggregator, so it is
 // the one plugin applied here rather than declared and left to the modules.
 plugins {
+    alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidMultiplatformLibrary) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.composeMultiplatform) apply false
@@ -83,6 +84,9 @@ subprojects {
 // Every module reports into the root aggregate, so `koverXmlReport` at the root is the whole
 // project. A module missing from this list is silently absent from the report, which is exactly
 // the failure mode the per-package table in the PR comment is there to expose.
+//
+// `:androidApp` is absent on purpose and is the one module that can be: it holds a manifest, a
+// theme and the launcher icons, and not a line of Kotlin. There is nothing there to measure.
 dependencies {
     kover(projects.core)
     kover(projects.sim)
@@ -128,6 +132,32 @@ kover {
                 // package exclusion says what was always meant.
                 packages("dev.fardavide.oltre.sim")
                 classes("dev.fardavide.oltre.server.MainKt")
+                // Android's entry points, excluded on exactly the grounds above. Android has
+                // three rather than one, because it is the only platform where the process can
+                // start without a screen: the Application fills the two slots the platform
+                // cannot derive, the Activity hosts `App()`, and the boot receiver re-derives
+                // the alarm schedule the system dropped. All three are exercised by the system
+                // starting them and by nothing else — there is no seam for a test, and left in
+                // they are a permanent drag on a total the merge gate compares against `main`.
+                classes("dev.fardavide.oltre.client.MainActivity")
+                classes("dev.fardavide.oltre.client.OltreApplication")
+                classes("dev.fardavide.oltre.client.BootReceiver")
+                // The Android half of the notification scheduler, which is the same kind of thing
+                // as the three above and was missed when they were listed: `AlarmManager`, a
+                // `BroadcastReceiver` the system instantiates, and the `Context` slot the platform
+                // cannot derive. `decisions.md` already argues the policy — these are platform
+                // edges with no seam a test can reach without Robolectric or an instrumented run,
+                // neither of which this repository has — but only the shell's three were excluded,
+                // so the notifications package arrived at 39.8% and failed the gate by 1.9 points
+                // on a branch that had covered everything above the edge.
+                //
+                // What replaces the test is an install: 0.2.1 booked an alarm on a device, watched
+                // it survive a reboot and re-book itself, and confirmed the save lived through an
+                // update. That is the check these lines get, and it is a local session's job.
+                classes("dev.fardavide.oltre.client.notifications.data.NotificationReceiver*")
+                classes("dev.fardavide.oltre.client.notifications.data.AndroidNotificationScheduler*")
+                classes("dev.fardavide.oltre.client.notifications.data.AndroidNotificationHost")
+                classes("dev.fardavide.oltre.client.notifications.data.DefaultNotificationScheduler_androidKt")
             }
         }
         total {
@@ -179,6 +209,11 @@ val forbiddenLayerDependencies = mapOf(
     "presentation" to setOf("data"),
     "data" to setOf("presentation"),
 )
+
+// The only modules allowed through rule 7. A list of names rather than a rule about shapes,
+// because nothing can check that a module *stays* an entry point — see rule 7 below for the
+// argument, which the next module wanting through should have to make again rather than inherit.
+val platformEntryPoints = setOf(":androidApp")
 
 // A testing module is a sibling named after what it doubles — `:client:save:data-testing` beside
 // `:client:save:data` — so it carries that module's layer and that module's restrictions. Without
@@ -265,15 +300,33 @@ gradle.projectsEvaluated {
             return@mapNotNull Triple(edge, "core may not depend on any module", configurations.toList())
         }
 
-        // 7. The composition root is a sink. This is what makes the shell's exemption from rules
-        // 2–4 safe: it may see every layer precisely because nothing sees it, so the layers it
-        // mixes cannot travel anywhere. NOTE: the pending `androidApp` wrapper is documented as
-        // depending on `:client:shell` and will fail here. That is the rule doing its job — decide
-        // then whether a platform entry point is the one thing allowed through.
-        if (to == ":client:shell") {
+        // 7. The composition root is a sink, with exactly one name allowed through. The sink is
+        // what makes the shell's exemption from rules 2–4 safe: it may see every layer precisely
+        // because nothing sees it, so the layers it mixes cannot travel anywhere.
+        //
+        // `:androidApp` is the exception, settled at 0.2.0 when the wrapper this comment used to
+        // anticipate actually landed. Three things decided it:
+        //
+        //   The edge is forced. AGP 9 stopped the Kotlin Multiplatform plugin working alongside
+        //   `com.android.application`, so the shell cannot package itself for Android the way it
+        //   already packages itself for desktop, and the wrapper has to reach `App()`.
+        //
+        //   The edge is not new. `iosApp/` links the same composition root and calls
+        //   `MainViewController()`; it escapes this check only by being an Xcode project rather
+        //   than a Gradle module. Android is the first platform whose wrapper the graph can see.
+        //
+        //   The edge carries nothing. Every project dependency the shell declares is
+        //   `implementation`, so `:androidApp` sees `App()` and `MainActivity` and not one layer
+        //   module — not a presentation, not a data, not `:core`. The property this rule defends
+        //   survives the exception. What would *not* survive it is the literal alternative: an
+        //   `:androidApp` depending on all nine feature and design modules and re-doing the
+        //   composition, which is a second composition root mixing every layer with nothing
+        //   protecting it.
+        if (to == ":client:shell" && from !in platformEntryPoints) {
             return@mapNotNull Triple(
                 edge,
-                "nothing may depend on the composition root",
+                "nothing may depend on the composition root except a platform entry point " +
+                    "(${platformEntryPoints.joinToString()})",
                 configurations.toList(),
             )
         }

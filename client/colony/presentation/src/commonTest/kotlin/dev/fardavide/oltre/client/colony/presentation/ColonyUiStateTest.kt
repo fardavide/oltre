@@ -221,9 +221,9 @@ class ColonyUiStateTest {
             ),
             metalMine.costs,
         )
-        // 37 and 9 rather than the full-price 90 and 22: since 0.2.2 the opening is sold at a
+        // 37 and 9 rather than the full-price 90 and 22: since 0.2.3 the opening is sold at a
         // third of full price at level 1, climbing in equal steps to full price at level 9. Four
-        // minutes per root of the 46 between them gives the duration — since 0.2.1 a build takes as
+        // minutes per root of the 46 between them gives the duration — since 0.2.2 a build takes as
         // long as *earning* it does, so the row's clock is derived from its price rather than from
         // a per-building constant, and the discount shortens both at once.
         assertEquals("24m", metalMine.duration)

@@ -9,6 +9,11 @@ build/
 # Android
 local.properties
 captures/
+# Signing keys never enter the repository — the release workflow decodes one from a secret into
+# the runner's temp directory. This is the net under that rule, not the rule itself.
+*.jks
+*.keystore
+keystore.properties
 
 # IDE
 .idea/

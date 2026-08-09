@@ -121,12 +121,22 @@ it — is not one.
 ## Run
 
 ```bash
-./gradlew :client:shell:run     # desktop client (dev loop)
+./gradlew :client:shell:run          # desktop client (dev loop)
+./gradlew :androidApp:installDebug   # Android, on a connected device or emulator
 ./gradlew :sim:run        # balancing harness
 ./gradlew :server:run     # server stub
 ```
 
-iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
+iOS: open `iosApp/` in Xcode. The project is generated — edit `project.yml` and run `xcodegen
+generate` rather than touching `project.pbxproj`.
+
+## Install
+
+Android builds are published as GitHub Releases. Take the latest APK from
+[Releases](https://github.com/fardavide/oltre/releases) and open it on the phone; Android asks
+once for permission to install from your browser. Updates install over the top.
+
+iPhone builds go to TestFlight on every merge to `main`.
 
 ## Icon
 
@@ -148,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.2.3 — 2026-08-09
+### 0.2.4 — 2026-08-09
 
 - **The adaptation ladders join the opening discount.** They were the one thing left at full price,
   which made the first ladder cost nearly six times the technology beside it — a wall exactly where
@@ -162,7 +172,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   before it capped it at your storage. It now caps the time instead, so a full store is a full store
   whether you were gone a week or a century.
 
-### 0.2.2 — 2026-08-09
+### 0.2.3 — 2026-08-09
 
 - **The whole opening is on a discount.** Everything you can buy in the first days costs exactly a
   third of its full price at level one — a first Metal Mine level is 20 metal instead of 60, the
@@ -180,7 +190,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   like everything else.
 - Resource production is untouched. Mines produce exactly what they produced yesterday.
 
-### 0.2.1 — 2026-08-09
+### 0.2.2 — 2026-08-09
 
 - **Upgrades stopped outgrowing your income.** A build used to take as long as it *cost*, and
   because costs climb faster than mines do, the wait ran away from you: a sixth Metal Mine level
@@ -192,6 +202,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   a six-and-three-quarter-hour wait for a single tap; now it costs neither, and the worst wait in
   those two days is 2h 20m.
 - Same progress after two days as before, and rather more after a week.
+### 0.2.1 — 2026-08-09
+
+- **Oltre runs on Android.** The whole game, on any phone running Android 8.0 or newer — the same
+  colony, research and galaxy the desktop and iPhone builds have, with the save kept in the app's
+  own storage and carried across a reinstall by Android's backup.
+- **Every version is downloadable.** Merging to `main` now publishes a GitHub Release with the APK
+  attached, the way it already ships the iPhone build to TestFlight. The release page carries this
+  changelog and the commit it was built from; the download is a direct link that installs from a
+  phone browser with nothing else needed.
+- **The game tells you when to come back on Android too.** The same alerts iPhone has — a build
+  finished, the lab is free, a fleet has landed — booked in advance at the instants the
+  simulation already computed, and re-derived from your colony after a reboot. Android may hold
+  one back by a few minutes while the phone is dozing; nothing else about them differs.
+- Saves from 0.2.0 carry forward untouched.
 
 ### 0.2.0 — 2026-08-09
 

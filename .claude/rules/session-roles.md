@@ -26,6 +26,28 @@ Compose it cannot compile, screenshots it cannot record, against a design it can
 code has none of those problems: `core` is pure, its tests are the specification, and CI is the
 gate.
 
+### The one exception: a platform entry point is not UI
+
+`MainActivity` was written by a cloud session at 0.2.0, with Davide's call, and it contains a
+Compose call — `setContent { App() }`. The line the rule draws is between **making a visual
+decision** and **hosting one that already exists**: an entry point attaches a save directory, goes
+edge to edge and hands the platform the `App()` the design already settled. There is no design to
+read, nothing to record a baseline of, and CI's Build job compiles the APK on every pull request,
+so it is not unverified in the way a Compose screen would be.
+
+The same session then drew `ic_notification.xml`, which is unambiguously a visual asset and the
+only one in the repository a cloud session authored. It is defensible for one reason — Android
+masks a status-bar icon to a flat silhouette, so the choice was between a reduction of the
+existing mark and shipping the launcher artwork as a white blob — and it is flagged in
+`decisions.md` and `status.md` as overrulable rather than settled. **A second one would not be
+defensible.** If a platform needs artwork again, that is a prompt for Claude Design.
+
+This does not widen anything else. A screen, a component, a baseline or a `presentation` module is
+still off limits to a cloud session, and the reasons in this section are unchanged. And note what
+the exception could not cover: **nobody has run the Android build on a device**, which is a local
+session's job — see the *Pending* entries in `status.md`, which now list five things the first
+install is the first test of.
+
 ### It *can* build and run `:core` and `:sim` — use it
 
 "A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`

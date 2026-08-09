@@ -31,6 +31,13 @@ kotlin {
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
         }
+
+        // See `:client:design:core`, which holds the resources this one only generates an empty
+        // accessor for. Enabled here too so the two modules cannot disagree the day the shell
+        // bundles something of its own.
+        androidResources {
+            enable = true
+        }
     }
 
     sourceSets {
@@ -59,6 +66,12 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
+        }
+        androidMain.dependencies {
+            // `MainActivity` and nothing else. The Activity is the platform's entry point, so it
+            // needs the platform's Compose host (`setContent`) and its edge-to-edge call; the
+            // rest of the Android app is a manifest in `:androidApp`.
+            implementation(libs.androidx.activity.compose)
         }
         val desktopMain by getting {
             dependencies {

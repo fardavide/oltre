@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+      The theme exists for the frames before Compose draws anything. The window background is
+      `OltreColors.background` written out as a hex — the same #05070D the launcher artwork is
+      drawn against — because a cold start on the platform default paints a white rectangle
+      first, and the game is entirely dark. It is the one place in the repo that repeats a
+      design token, and it repeats it because res/values cannot see Kotlin.
+
+      The bars are transparent because `MainActivity` calls `enableEdgeToEdge()` and
+      `MainScaffold` already pads itself with `WindowInsets.safeDrawing` — the insets are the
+      frame's job on every platform, and Android is no exception.
+    -->
+    <style name="Theme.Oltre" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#FF05070D</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <!--
+          API 27, and minSdk is 26. Kept rather than split into `values-v27` because `false` is
+          also the platform default: API 26 ignores an attribute it does not know, and what it
+          falls back to is this same value. The annotation says that to lint, which would
+          otherwise fail the build on a line that changes nothing anywhere it is not honoured.
+        -->
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
+</resources>

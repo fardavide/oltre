@@ -22,7 +22,7 @@ When a round of tuning lands:
 Do not delete a superseded round. A number that was tried and rejected is the most useful thing
 in this file.
 
-## Current curves (0.2.2)
+## Current curves (0.2.4)
 
 Level-1 output: **90 metal / 36 crystal / 15 deuterium per hour**. Output compounds **+25% per
 level**, cost compounds **+50% per level**, both floored to whole units at every step — and from
@@ -45,7 +45,7 @@ applied research. The cost column below is what the player pays.
 
 Daily metal: 2,160 at level 1, 5,232 at level 5, 15,912 at level 10, 48,480 at level 15.
 
-Other levers as of 0.2.1: starting stock 500 metal / 300 crystal (no deuterium); **build duration
+Other levers as of 0.2.4: starting stock 500 metal / 300 crystal (no deuterium); **build duration
 is 4 × √(metal + crystal) minutes, divided by 1 + robotics level, with a five-minute floor applied
 last** (round 11 — base-minutes × level until round 10, then cost ÷ 3 for one release); storage cap
 a flat 10M per resource; energy scales all mine output by produced/consumed on a deficit — and that
@@ -912,7 +912,7 @@ measures *one stated strategy*, not a player. Nothing here has been played.
 - **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
   strategy. The first round that can say how any of it *feels* is the one after the screen ships.
 
-## Round 11 — 0.2.1, the wait that outgrew the earning (2026-08-09)
+## Round 11 — 0.2.2, the wait that outgrew the earning (2026-08-09)
 
 Round 10's "still nothing here has been played" lasted one day. Davide played 0.2.0 and the first
 thing he said was about the curve it landed.
@@ -1029,7 +1029,7 @@ hours before level 8 and 81.25% of the opening still has the colony busy.
 
 ### What it moves
 
-| Reading | 0.2.0 | 0.2.1 |
+| Reading | 0.2.0 | 0.2.2 |
 |---|---|---|
 | Median wait a tap booked (3h cadence) | 1h 33m | **0h 50m** |
 | Longest wait a tap booked | 2h 53m | **1h 28m** |
@@ -1248,9 +1248,9 @@ in `AdaptationBalance` — a *decided* sheet, not a placeholder — so it is not
 - **Round 11's held item stands:** the colony's own idleness is 81.25% and `MINUTES_PER_ROOT_COST`
   is the one notch either way.
 
-## Round 13 — 0.2.2, the opening goes on a discount that runs out (2026-08-09)
+## Round 13 — 0.2.3, the opening goes on a discount that runs out (2026-08-09)
 
-> **Superseded within the hour by round 14, which shipped in the same unreleased 0.2.2.** The
+> **Superseded within the hour by round 14, which shipped in the same unreleased 0.2.3.** The
 > *shape* below stands and is the design; two things about it were wrong and are corrected there —
 > it reached the buildings only, and its recovery was geometric with a convergence level chosen
 > before Davide had named the landmark. Kept in full, because what it measured is still the
@@ -1297,7 +1297,7 @@ straight at it.
 
 ### What it does, measured
 
-| Reading | 0.2.1 | 0.2.2 |
+| Reading | 0.2.2 | 0.2.3 |
 |---|---|---|
 | **Building levels at day 1** | 13 | **18** |
 | day 2 | 22 | **30** |
@@ -1324,7 +1324,7 @@ not, and no setting of this lever reaches it:
 
 | Ramp | level-1 discount | day 1 | day 2 | day 3 | day 4 | pace to day 4 |
 |---|---|---|---|---|---|---|
-| none — 0.2.1 | — | 13 | 22 | 29 | 36 | 1.0× |
+| none — 0.2.2 | — | 13 | 22 | 29 | 36 | 1.0× |
 | 9/10 to level 8 | 2.09× | 16 | 26 | 34 | 39 | ~1.2× |
 | **9/10 to level 11 — shipped** | **2.87×** | **18** | **30** | **39** | **44** | **~1.5×** |
 | 8/9 to level 11 | 3.25× | 19 | 33 | 40 | 44 | ~1.6× |
@@ -1351,7 +1351,7 @@ rather than by a crash.
 ### What it cost, stated rather than buried
 
 - **Crystal is the fortnight's blocker again, and worse than before round 7:** 214 sole-blocker
-  hours of 336 and **305 of 336 short-at-all** (against 245 in 0.2.1), closing on 245,573 metal
+  hours of 336 and **305 of 336 short-at-all** (against 245 in 0.2.2), closing on 245,573 metal
   against **521 crystal**, with all five next purchases short of crystal and nothing else. The
   cause is not the ramp's shape — realised spend is 2.4 : 1 against income at 2.5 : 1, which is
   round 7's target met — it is that the colony now gets far deeper into the two crystal-heaviest
@@ -1378,7 +1378,7 @@ rather than by a crash.
 - **`FULL_PRICE_LEVEL` is the dial and 16 is its hard ceiling.** Round 11's
   `MINUTES_PER_ROOT_COST` is still the duration dial and still at 4.
 
-## Round 14 — 0.2.2, the discount reaches the whole game (2026-08-09)
+## Round 14 — 0.2.3, the discount reaches the whole game (2026-08-09)
 
 Round 13 shipped the ramp on the buildings and Davide's correction arrived before it was merged.
 Same unreleased version, so this is the shape that actually ships.
@@ -1456,7 +1456,7 @@ table times a level.
 
 ### Measured
 
-| Reading | 0.2.1 (no ramp) | round 13 (buildings only) | **round 14 (across the board)** |
+| Reading | 0.2.2 (no ramp) | round 13 (buildings only) | **round 14 (across the board)** |
 |---|---|---|---|
 | Building levels, day 1 | 13 | 18 | **17** |
 | day 2 | 22 | 30 | **28** |
@@ -1504,7 +1504,7 @@ against 4.
   job per facility. If the first days should be faster still, the next lever is income — which is
   the one thing Davide has ruled out twice.
 
-## Round 15 — 0.2.3, the cliff at the branch, and arithmetic that cannot wrap (2026-08-09)
+## Round 15 — 0.2.4, the cliff at the branch, and arithmetic that cannot wrap (2026-08-09)
 
 Two things, one of which is not a balance change at all.
 
