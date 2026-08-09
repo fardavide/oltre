@@ -167,9 +167,18 @@ object PlaceholderBalance {
     // 1 and hand back the whole late game with it.
     //
     // What is left is the shape nobody had tried: **a discount on the early levels that decays to
-    // nothing.** Full price is unchanged from `FULL_PRICE_LEVEL` upward — the deep curve is the
-    // same curve it has been since round 2 — and below it every cost is multiplied by
-    // (9/10)^(levels remaining to full price), which is ~0.35 at level 1 and climbs back to 1.
+    // nothing** — `openingDiscount` in `Curves.kt`, a third of full price at level 1 climbing in
+    // equal steps to full price at `FULL_PRICE_LEVEL`. Above that the curve is the same curve it
+    // has been since round 2, integer for integer.
+    //
+    // It is in `Curves.kt` rather than here because **all three cost tables answer to it**. Round
+    // 13 shipped it on the buildings alone and Davide's correction was immediate — *"Everything
+    // must be cheaper and quicker across the board"* — which was fair: `ResearchBalance` and
+    // `AdaptationBalance` are separate objects with separate curves, and discounting a mine while
+    // leaving a technology at full price is not a cheaper opening, it is a changed ratio between
+    // the two. The applied branch now carries the same discount. The adaptation ladders do not, and
+    // that is not an omission: the landmark *is* the moment they become buyable, so their level 1
+    // sits exactly on the boundary where the discount has already run out.
     //
     // Two consequences that are the point rather than side effects:
     //
@@ -179,30 +188,23 @@ object PlaceholderBalance {
     //   unreachable by any of the three levers aimed straight at it.
     // - **It shortens the early builds too, for free**, because round 11 made duration a function
     //   of cost. A third of the price is 0.58 of the clock, and no second constant had to move.
+    //   Research had to be told separately, because its duration is a table rather than a function
+    //   of what it costs.
     //
-    // The growth *rate* inside the ramp is steeper than the ×1.5 outside it — ×1.667 a level, since
-    // each step also gives back a tenth of the discount. That is the cost of converging, and it is
-    // the right place to pay it: the early levels are cheap in absolute terms even while climbing
-    // fast, and the player who feels the slope is one who already has three verbs to spend on.
-    private const val FULL_PRICE_LEVEL: Int = 11
-    private const val DISCOUNT_RECOVERY_NUMERATOR: Long = 9
-    private const val DISCOUNT_RECOVERY_DENOMINATOR: Long = 10
-
-    // `exactGeometric` rather than `compound`, and this is not a preference: flooring a tenth off a
-    // small number ten times over is catastrophic where flooring a half off a large one is not.
-    // The Metal Mine's 15 crystal comes out at 5 carried exactly and **2** floored per step, which
-    // is a different game. Steps are bounded by `FULL_PRICE_LEVEL`, which is what keeps the exact
-    // numerator inside Long — the bound `exactGeometric` documents and demands of every caller.
-    private fun openingPrice(fullPrice: Long, toLevel: BuildingLevel): Long {
-        val stepsToFullPrice = FULL_PRICE_LEVEL - toLevel.value
-        if (stepsToFullPrice <= 0) return fullPrice
-        return exactGeometric(
-            fullPrice,
-            stepsToFullPrice,
-            DISCOUNT_RECOVERY_NUMERATOR,
-            DISCOUNT_RECOVERY_DENOMINATOR,
-        )
-    }
+    // The growth *rate* inside the ramp is steeper than the ×1.5 outside it — between ×1.9 and
+    // ×1.6, falling as the discount runs out. That is the cost of converging, and it is the right
+    // place to pay it: the early levels are cheap in absolute terms even while climbing fast, and
+    // the player who feels the slope is one who already has three verbs to spend on.
+    // **Nine, because that is where a colony's mines stand when the galaxy opens.** The landmark
+    // Davide named is Robotics Factory 4 — where a probe's findings become buyable — and `:sim:run`
+    // puts the mines at level 8 or 9 at the moment that lands. So the mines reach full price and
+    // the galaxy becomes actionable together, which is the sentence *"1x at the moment you can have
+    // the first expedition"* turned into a level.
+    //
+    // The Robotics Factory rides the same schedule rather than converging at its own 4th level, and
+    // that is deliberate: it is the building that opens the landmark, so keeping it cheap past the
+    // landmark's own level is what brings the landmark forward.
+    private const val FULL_PRICE_LEVEL: Int = 9
 
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
         require(toLevel.value in 1..MAX_UPGRADE_LEVEL) {
@@ -210,16 +212,15 @@ object PlaceholderBalance {
         }
         val steps = toLevel.value - 1
         val base = baseCost(building)
+        fun priced(resource: Long): Long = openingDiscount(
+            compound(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            toLevel.value,
+            FULL_PRICE_LEVEL,
+        )
         return Resources.of(
-            metal = openingPrice(compound(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR), toLevel),
-            crystal = openingPrice(
-                compound(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-                toLevel,
-            ),
-            deuterium = openingPrice(
-                compound(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-                toLevel,
-            ),
+            metal = priced(base.metal),
+            crystal = priced(base.crystal),
+            deuterium = priced(base.deuterium),
         )
     }
 

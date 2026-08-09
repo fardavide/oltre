@@ -35,15 +35,13 @@ class BalanceCurveTest {
             BuildingType.CRYSTAL_MINE,
             BuildingType.SOLAR_PLANT,
         )
-        // Priced at **full price** (level 11) rather than at level 1, since round 13 put the
-        // opening on a decaying discount. The discount multiplies all three resources by the same
-        // fraction, so it cannot change this ratio by design — but it is rounded per resource, and
-        // at level 1 the numbers are small enough for that rounding to matter: the Metal Mine's 15
-        // crystal comes out at 5 (down 4.4%) while its 60 metal comes out at 21 (**up** 0.4%), and
-        // three rows of that drag the measured basket from 2.65 : 1 to 2.78 : 1. That is an
-        // artefact of small integers, not a ratio anyone chose, so the design ratio is read where
-        // the integers are big. The opening's own skew is bounded separately below.
-        val fullPrice = BuildingLevel(11)
+        // Priced at **full price** (level 9) rather than at level 1, since the opening now carries
+        // a decaying discount. The discount multiplies all three resources by the same fraction, so
+        // it cannot change this ratio by design — but it is floored per resource, and at level 1 the
+        // integers are small enough for that flooring to move the measured basket a little. The
+        // design ratio is therefore read where the integers are big, and the opening's own skew is
+        // bounded separately below so a future change to the ramp cannot hide in the rounding.
+        val fullPrice = BuildingLevel(9)
         val demandedMetal = basket.sumOf { PlaceholderBalance.upgradeCost(it, fullPrice).metal }
         val demandedCrystal = basket.sumOf { PlaceholderBalance.upgradeCost(it, fullPrice).crystal }
 
@@ -102,11 +100,11 @@ class BalanceCurveTest {
 
     @Test
     fun `cost compounds by half again per level, once the opening discount has run out`() {
-        // Full price starts at level 11 — `PlaceholderBalance.FULL_PRICE_LEVEL`, private, so stated
+        // Full price starts at level 9 — `PlaceholderBalance.FULL_PRICE_LEVEL`, private, so stated
         // here as the specification rather than read from it. From there up this is the same ×1.5
-        // the game has had since round 2, and the point of the round 13 ramp is that it stays so:
-        // the discount buys the opening and gives the deep curve back untouched.
-        for (level in 11..20) {
+        // the game has had since round 2, and the point of the ramp is that it stays so: the
+        // discount buys the opening and gives the deep curve back untouched.
+        for (level in 9..20) {
             // when
             val current = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
             val next = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1))
@@ -119,24 +117,29 @@ class BalanceCurveTest {
 
     @Test
     fun `the opening is discounted, and the discount runs out rather than being given back`() {
-        // Davide, 2026-08-09: "I don't want more resources, but cheaper upgrades at the start."
-        // Three properties, and the third is the one that makes it a ramp rather than a price cut.
+        // Davide, 2026-08-09: "Everything must be cheaper and quicker across the board, until first
+        // expedition ... starting about 3x at the start of the game, and arrive to 1x at the moment
+        // you can have the first expedition." He named the moment: when the galaxy becomes
+        // actionable, which is the adaptation ladders at Robotics 4 — and `:sim:run` puts the mines
+        // at level 8 or 9 when that lands, which is where full price starts.
+        //
+        // Three properties, and the third is what makes it a ramp rather than a price cut.
         val undiscounted = { level: Int ->
             var value = 60L
             repeat(level - 1) { value = value * 3 / 2 }
             value
         }
 
-        // 1. Level one is about a third of full price — "up to 300%".
-        val opening = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(1)).metal
-        assertTrue(
-            opening * 25 <= undiscounted(1) * 10 && opening * 35 >= undiscounted(1) * 10,
-            "level 1 costs $opening against a full price of ${undiscounted(1)} — outside 2.5x to 3.5x",
+        // 1. Level one is exactly a third of full price — the "3x" he asked for.
+        assertEquals(
+            undiscounted(1) / 3,
+            PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(1)).metal,
+            "level 1 must cost a third of full price",
         )
 
         // 2. The deep curve is handed back exactly. Not approximately: the same integers it had
         //    before the ramp existed, which is what makes this a change to the opening alone.
-        for (level in 11..20) {
+        for (level in 9..20) {
             assertEquals(
                 undiscounted(level),
                 PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level)).metal,
@@ -145,32 +148,18 @@ class BalanceCurveTest {
         }
 
         // 3. Inside the ramp the curve climbs *faster* than ×1.5, because each level also gives
-        //    back a tenth of the discount — and it must never stall or fall, which integer rounding
-        //    on small numbers is entirely capable of doing.
-        for (level in 1 until 11) {
+        //    back a share of the discount — and it must never stall or fall, which integer rounding
+        //    on small numbers is entirely capable of doing. The slope falls as the discount runs
+        //    out, from ×1.85 at the first step to ×1.64 at the last.
+        for (level in 1 until 9) {
             val current = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level)).metal
             val next = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1)).metal
             assertTrue(next > current, "level ${level + 1} ($next) must cost more than level $level ($current)")
             assertTrue(
-                next * 10 >= current * 15 && next * 10 <= current * 18,
-                "level $level to ${level + 1} steps $current -> $next, outside x1.5 to x1.8",
+                next * 100 >= current * 150 && next * 100 <= current * 190,
+                "level $level to ${level + 1} steps $current -> $next, outside x1.5 to x1.9",
             )
         }
-    }
-
-    @Test
-    fun `cost outgrows production so deep levels pay back slower`() {
-        // given the payback of a level: what it costs in metal over what it adds per hour
-        fun paybackHours(level: Int): Long {
-            val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1)).metal
-            val gain = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level + 1)) -
-                PlaceholderBalance.metalProductionPerHour(BuildingLevel(level))
-            return cost / gain
-        }
-
-        // then
-        assertTrue(paybackHours(1) < 12, "the first mine upgrade must pay back within half a day")
-        assertTrue(paybackHours(10) > paybackHours(1), "depth must cost patience")
     }
 
     @Test

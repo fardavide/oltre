@@ -73,12 +73,23 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the branch is the expensive one — level 1 costs nearly twice the priciest technology`() {
-        val enrichment = priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1)))
-        val thermal = priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1)))
+    fun `the branch is the expensive one — nearly twice the priciest technology at full price`() {
+        // Compared at level 4, where neither carries the opening discount. Below it the applied
+        // branch is discounted and this branch is not, which is not an oversight: the discount ends
+        // where the galaxy becomes actionable, and the galaxy becomes actionable exactly when these
+        // three go on sale. Their level 1 sits on the boundary by construction.
+        val enrichment = priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(4)))
+        val thermal = priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(4)))
 
-        assertEquals(2_500L, enrichment)
+        assertEquals(8_439L, enrichment)
+        assertEquals(16_202L, thermal)
         assertTrue(thermal > enrichment * 3 / 2, "adaptation must cost meaningfully more, was $thermal vs $enrichment")
+
+        // The sheet's own reference point, unchanged: a ladder's first level is 4,800 priced.
+        assertEquals(4_800L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1))))
+        // And what the opening discount does to the step up into this branch — the widest gap in
+        // the game between two adjacent purchases, and the moment the training wheels come off.
+        assertEquals(830L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1))))
     }
 
     @Test

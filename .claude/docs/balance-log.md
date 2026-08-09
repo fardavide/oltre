@@ -26,17 +26,18 @@ in this file.
 
 Level-1 output: **90 metal / 36 crystal / 15 deuterium per hour**. Output compounds **+25% per
 level**, cost compounds **+50% per level**, both floored to whole units at every step — and from
-round 13 every cost below level 11 is multiplied by **(9/10)^(11 − level)**, so the opening is
-about a third of full price and climbs back to it. The cost column below is what the player pays.
+round 14 **every cost table in the game** carries the opening discount: exactly a third of full
+price at level 1, climbing in equal steps to full price at level 9 for buildings and level 4 for
+applied research. The cost column below is what the player pays.
 
 | Level | metal/h | crystal/h | deut/h | metal mine cost (m/c) | payback of the next level |
 |---|---|---|---|---|---|
-| 1 | 90 | 36 | 15 | 21 / 5 | 1h |
-| 2 | 112 | 45 | 18 | 35 / 9 | 2h |
-| 3 | 140 | 56 | 22 | 58 / 14 | 2h |
-| 5 | 218 | 87 | 33 | 161 / 39 | 4h |
-| 8 | 425 | 168 | 63 | 744 / 178 | 11h |
-| 10 | 663 | 262 | 97 | 2,066 / 494 | 20h |
+| 1 | 90 | 36 | 15 | 20 / 5 | 1h |
+| 2 | 112 | 45 | 18 | 37 / 9 | 2h |
+| 3 | 140 | 56 | 22 | 67 / 16 | 3h |
+| 5 | 218 | 87 | 33 | 202 / 48 | 6h |
+| 8 | 425 | 168 | 63 | 935 / 223 | 14h |
+| 10 | 663 | 262 | 97 | 2,296 / 549 | 20h |
 | 12 | 1,035 | 408 | 151 | 5,166 / 1,234 | 30h |
 | 15 | 2,020 | 796 | 293 | 17,434 / 4,164 | 51h |
 | 18 | 3,945 | 1,553 | 571 | 58,839 / 14,053 | 89h |
@@ -1249,6 +1250,12 @@ in `AdaptationBalance` — a *decided* sheet, not a placeholder — so it is not
 
 ## Round 13 — 0.2.2, the opening goes on a discount that runs out (2026-08-09)
 
+> **Superseded within the hour by round 14, which shipped in the same unreleased 0.2.2.** The
+> *shape* below stands and is the design; two things about it were wrong and are corrected there —
+> it reached the buildings only, and its recovery was geometric with a convergence level chosen
+> before Davide had named the landmark. Kept in full, because what it measured is still the
+> measurement that justified the shape.
+
 ### The feedback, verbatim
 
 > "I want the user to be able to gather resources and build quickly the first 2/3/4 days. And I'm
@@ -1370,3 +1377,129 @@ rather than by a crash.
   was corrected within a day of shipping by one session with a phone.
 - **`FULL_PRICE_LEVEL` is the dial and 16 is its hard ceiling.** Round 11's
   `MINUTES_PER_ROOT_COST` is still the duration dial and still at 4.
+
+## Round 14 — 0.2.2, the discount reaches the whole game (2026-08-09)
+
+Round 13 shipped the ramp on the buildings and Davide's correction arrived before it was merged.
+Same unreleased version, so this is the shape that actually ships.
+
+### The feedback, verbatim
+
+> "Wait, did you just make Metal cheaper???"
+
+> "Everything must be cheaper and quicker across the board, until first expedition. Lets say
+> starting about 3x and the start of the game, and arrive to 1x at the moment you can have the first
+> expedition"
+
+**The first line is a question and the answer was no** — round 13 discounted all three resources on
+all six buildings, and the Metal Mine was only the example row in the summary. **The second line is
+the correction, and it was right:** `ResearchBalance`, `AdaptationBalance` and `SurveyBalance` are
+separate objects with separate curves, and round 13 left all three at full price. Discounting a mine
+while leaving a technology alone is not a cheaper opening — it is a changed ratio between the two.
+
+Asked what "first expedition" meant, he chose **when the galaxy becomes actionable**: the adaptation
+ladders at Robotics Factory 4, the point where a probe's findings can be bought against rather than
+only read. (Worth recording, because it was offered as an option and rejected: the *first probe* is
+already dispatchable at minute one — 150 metal against a 500-metal start — so that reading would
+have left the ramp no room at all.)
+
+### What changed from round 13
+
+| | round 13 | round 14 |
+|---|---|---|
+| Recovery | geometric, ×10/9 a level | **linear, equal steps** |
+| Level-1 discount | 2.87× | **exactly 3×** |
+| Buildings reach full price | level 11 | **level 9** |
+| Applied research | full price throughout | **discounted to level 4, cost *and* duration** |
+| Adaptation ladders | full price | full price — see below |
+| Lives in | `PlaceholderBalance` | **`Curves.kt`**, beside `compound` and `exactGeometric` |
+
+**Linear rather than geometric** because geometric needs a fractional root between the two things
+anyone wants to say — *how cheap at the start* and *where does it stop* — and `core` has no
+fractional anything. Linear needs neither, and it cannot overflow: the multiplier is at most
+`3 × (fullPriceLevel − 1)`, where round 13's carried power priced the Nanite Factory at **−70
+deuterium** the moment the convergence level reached 18.
+
+**Level 9 for buildings, because that is where the mines stand when the galaxy opens.** Measured,
+not chosen: `:sim:run` puts the colony at metal 9 / crystal 9 on day 3 and Robotics 4 at hour 54.
+The mines reach full price and the galaxy becomes actionable in the same session, which is
+*"arrive to 1x at the moment you can have the first expedition"* turned into a level.
+
+**Level 4 for applied research**, because the branch opens at Robotics 1 and the discount ends at
+Robotics 4, and the colony gets through two or three technology levels between them.
+
+**The adaptation ladders are not discounted, and that is the definition rather than an omission.**
+The landmark *is* the moment they become buyable, so their level 1 sits exactly on the boundary
+where the discount has already run out. The probe is not discounted either, for a duller reason: it
+is a flat cost with no ladder to ramp along — every probe is the first probe.
+
+### What ships
+
+| Metal Mine | full price | now |
+|---|---|---|
+| 1 | 60 / 15 | **20 / 5** — exactly 3× |
+| 3 | 135 / 33 | 67 / 16 |
+| 5 | 303 / 73 | 202 / 48 |
+| 8 | 1,021 / 244 | 935 / 223 |
+| 9 and deeper | unchanged | unchanged |
+
+| Applied research | full price | now |
+|---|---|---|
+| Photovoltaics 1 | 300 / 150 / 100, 60 min | **100 / 50 / 33, 20 min** |
+| Extraction 1 | 600 / 400 / 200, 90 min | **200 / 133 / 66, 30 min** |
+| Enrichment 1 | 500 / 700 / 200, 150 min | **166 / 233 / 66, 50 min** |
+| level 4 and deeper | unchanged | unchanged |
+
+Research needed telling twice — cost *and* duration — because a building got the second half for
+nothing when round 11 made its duration a function of its cost, and this branch's duration is a
+table times a level.
+
+### Measured
+
+| Reading | 0.2.1 (no ramp) | round 13 (buildings only) | **round 14 (across the board)** |
+|---|---|---|---|
+| Building levels, day 1 | 13 | 18 | **17** |
+| day 2 | 22 | 30 | **28** |
+| day 3 | 29 | 39 | **36** |
+| day 4 | 36 | 44 | **41** |
+| day 7 | 50 | 56 | **55** |
+| **Projects finished by day 4** | ~4 | 4 | **9** |
+| by day 7 | 12 | 15 | **17** |
+| Research opens | hour 27 | hour 12 | **hour 12 (day 1)** |
+| Ladders open | hour 99 | hour 51 | **hour 54 (day 3)** |
+| Median *kinds* offered, opening | 2 | 3 | **3** |
+| Median wait a tap booked | 0h 50m | 0h 30m | **0h 34m** |
+| Levels at 48h, 3h cadence | 26 | 34 | **32 (robotics 4)** |
+
+**Fewer building levels than round 13 and more than twice the projects.** That is the correction
+doing its job: round 13's ramp was longer and building-only, so it bought levels; this one is
+shorter and reaches the branch, so the same opening buys a wider game. Day 4 finishes 9 projects
+against 4.
+
+### What it cost
+
+- **Three tests on two *decided* sheets changed.** `ResearchBalanceTest` says in as many words that
+  its tables may only move if the sheet moved, *"which is Davide's call, not a refactor"* — he made
+  it. The published tables stay in the fixture verbatim as the **full** price and the test applies
+  the documented discount to them, so the sheet is still visible as the design.
+- **The step into the adaptation branch is now the widest in the game**: Enrichment 1 is 830 priced
+  and Thermal 1 is 4,800, a factor of 5.8 where it used to be 1.9. That is the training wheels
+  coming off at exactly the landmark, and it is asserted rather than left to be discovered.
+- **The `AdvanceResearchTest` fixture had to shrink its window** from an hour to twenty minutes,
+  because Extraction 1 now lands in 27m 46s.
+- **Crystal at depth is untouched and still the biggest open item** — 308 of 336 hours short-at-all
+  in the fortnight, closing on 220,878 metal against 4,798 crystal. Realised spend is 2.5 : 1
+  against income at 2.5 : 1, so this is not a ratio error; it is the two branches costing ~1.1 : 1
+  and ~1.3 : 1 where the mines cost 2.5 : 1.
+
+### Watch next round
+
+- **Nothing here has been played**, and the last two rounds were both corrected within a day of a
+  session with a phone.
+- **The dials, in the order they are likely to be wanted:** `FULL_PRICE_LEVEL` in
+  `PlaceholderBalance` (9) and in `ResearchBalance` (4), then `OPENING_DISCOUNT_DIVISOR` in
+  `Curves.kt` (3 — the "3×"). All three are one-line changes with the sweep in round 13 for shape.
+- **Discounting cannot buy much more pace.** Round 13 swept it: even a 4.86× opening discount only
+  doubles day-4 progress, because free upgrades still leave the colony waiting on income and on one
+  job per facility. If the first days should be faster still, the next lever is income — which is
+  the one thing Davide has ruled out twice.
