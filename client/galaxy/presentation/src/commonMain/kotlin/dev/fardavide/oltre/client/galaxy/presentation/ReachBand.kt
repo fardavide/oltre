@@ -35,7 +35,6 @@ import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.StarClass
-import kotlin.math.roundToInt
 
 // Three parts stacked where the ±1 stepper used to be: a strip of all 250 systems with the free
 // half of the charted tier drawn on it, an hour ruler measured from your own star, and a row of
@@ -77,10 +76,12 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
     ) {
         val step = maxWidth / GalaxyBalance.SYSTEMS_PER_GALAXY
         val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
-        // Rounded to a whole system: a drag that resolved to a fraction would put the lens between
-        // two stars, and there is no such place.
+        // **Which cell contains the touch, not which boundary is nearest.** Rounding instead of
+        // flooring shifts the whole mapping by half a system: at 1.44dp a tick, touching the left
+        // half of a tick's cell would select its neighbour, and on a control whose entire job is
+        // "put the lens where I pointed" that is the one error it cannot afford.
         val systemAt = { x: Float ->
-            (x / widthPx * GalaxyBalance.SYSTEMS_PER_GALAXY + 1).roundToInt()
+            ((x / widthPx * GalaxyBalance.SYSTEMS_PER_GALAXY).toInt() + 1)
                 .coerceIn(1, GalaxyBalance.SYSTEMS_PER_GALAXY)
         }
         Box(

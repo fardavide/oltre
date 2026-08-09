@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -42,24 +42,34 @@ internal fun ProbeAction(
                 offer = uiState.offer,
                 compact = compact,
                 action = {
-                    // Draws at 30dp and claims 44dp of touch, exactly as the facility Upgrade
-                    // button does. Nothing else in the footer is tappable, so there is nothing for
-                    // the expanded area to collide with.
-                    Text(
-                        text = if (compact) uiState.compactLabel else uiState.label,
-                        color = Color.White,
-                        fontFamily = oltreMono(),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        softWrap = false,
+                    // **Draws 30dp and claims 44dp**, which is two boxes rather than one: the
+                    // minimum height and the click go on the *outer* Box, and the accent fill goes
+                    // on the text inside it. Put `defaultMinSize` ahead of `background` on a single
+                    // node and the fill grows to 44dp too — a button half again as tall as every
+                    // other button in the app, which is what the first version of this shipped as.
+                    //
+                    // Nothing else in the footer is tappable, so there is nothing for the expanded
+                    // area to collide with.
+                    Box(
+                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .defaultMinSize(minHeight = TOUCH_MINIMUM)
-                            .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                            .heightIn(min = TOUCH_MINIMUM)
                             .clickable(onClick = onDispatch)
-                            .testTag(GalaxyTestTags.DISPATCH)
-                            .padding(horizontal = 11.dp, vertical = 7.dp),
-                    )
+                            .testTag(GalaxyTestTags.DISPATCH),
+                    ) {
+                        Text(
+                            text = if (compact) uiState.compactLabel else uiState.label,
+                            color = Color.White,
+                            fontFamily = oltreMono(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            softWrap = false,
+                            modifier = Modifier
+                                .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                                .padding(horizontal = 11.dp, vertical = 7.dp),
+                        )
+                    }
                 },
             )
             is ProbeActionUiState.Unaffordable -> Offer(
