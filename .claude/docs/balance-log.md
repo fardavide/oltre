@@ -1120,14 +1120,127 @@ whose bigger half was rows sitting busy for three to seven hours, which is what 
 - **The colony's own idleness is back to 81.25%** and is now the row round 10 will be judged on.
   If it turns out to matter, **the lever is `MINUTES_PER_ROOT_COST`, and 5 is the one notch up** —
   it costs 2h 55m as the uninformed player's worst tap and buys back 4 points of idleness.
-- **"Before have access to explorations" may be literal, and if so it is a UI finding, not a balance
-  one.** Dispatch is ungated in `core` and affordable from the starting 500 metal — but the Galaxy
-  tab opens on the **home system, surveyed at genesis**, whose footer draws the sentence "Surveyed
-  at genesis" and no button. A new player's first visit to the Galaxy tab is a screen with nothing
-  to press; the verb only appears after they move the reach band to a neighbour. That would explain
-  his phrasing exactly, and no number in this file can fix it. Handed to a local session.
-- **Deuterium is still the fortnight's worst blocker** at 192 hours of 336, nominated in round 7 and
-  untouched through rounds 8, 9, 10 and now 11. Crystal has fallen right back (143 → 58), so
-  deuterium is now clear of the field.
+- ~~**"Before have access to explorations" may be a UI finding.**~~ Investigated during this round
+  and **closed by Davide the same day: not a balance item, and no change wanted.** Recorded only so
+  a later session does not re-derive it — dispatch is ungated in `core` and affordable from the
+  starting 500 metal, but the Galaxy tab opens on the home system, surveyed at genesis, whose
+  footer is the sentence "Surveyed at genesis" with no offer attached. Nothing in this file can or
+  should move for it.
+- ~~**Deuterium is still the fortnight's worst blocker** at 192 hours of 336 … crystal has fallen
+  right back (143 → 58), so deuterium is now clear of the field.~~ **Corrected by round 12 the same
+  day: do not quote these figures.** The sole-blocker ledger is unstable at this resolution — a
+  one-unit change to deuterium income, touching crystal's curve not at all, moves crystal's count
+  between 41 and 221. The 58 above is an outlier at the shipped constant, not a fall. Deuterium
+  being the worst blocker survives the correction; "clear of the field" does not.
 - **The floor is still untested by measurement** (round 10's note stands): at 4 × root it binds
   below ~150 metal-and-crystal at Robotics 9, which no run here reaches.
+
+## Round 12 — the round that moved nothing, and why that is the finding (2026-08-09)
+
+**No balance number moved.** Davide asked to continue balancing after round 11 shipped, and the
+census he commissioned pointed at gates rather than curves. Three levers were swept against that,
+and the sweep answered a different question than the one it was asked: **the reading rounds 7
+through 11 were all tuned against is not stable at the resolution they read it at.**
+
+Everything below is `:sim:run`. Nothing here is arithmetic.
+
+### The chain the census pointed at
+
+Round 11's census: 47.4% of the opening's actions refused by an unmet requirement against 5.1% by
+price. `printGateClock` follows that to its cause, at the three-hour cadence over seven days.
+
+| Robotics Factory level | Reached | Opens |
+|---|---|---|
+| 1 | **hour 27 (day 2)** | Photovoltaics, Extraction — the Research tab |
+| 2 | hour 48 (day 3) | — |
+| 3 | hour 75 (day 4) | — |
+| 4 | **hour 99 (day 5)** | all three adaptation ladders — every `Blocked` world |
+| 10 | **never in seven days** | the Nanite Factory |
+
+**Every gate below Nanite is a Robotics Factory level, and the Robotics Factory is the only
+repeating row priced in deuterium.** It was unaffordable at **35 of 42 check-ins**, and deuterium
+was the shortage at **all 35** — metal at 2, crystal at 0. So the second and third verbs of a
+five-verb game sit behind one resource.
+
+That is a stable measurement: it moves smoothly and in the right direction under every lever
+(Robotics at 150 deuterium → Robotics 4 at hour 81; income at 18/h → hour 84).
+
+### What the sweep found instead
+
+| Deuterium/h | sole-blocker m/c/d | short *at all* m/c/d |
+|---|---|---|
+| 12 | 180 / **41** / 222 | 334 / 252 / **336** |
+| 13 | 139 / **149** / 207 | 241 / 250 / **335** |
+| 14 | 118 / **183** / 184 | 188 / 252 / **334** |
+| **15 — shipped** | 180 / **58** / 192 | 319 / 245 / **334** |
+| 16 | 104 / **200** / 162 | 181 / 272 / **333** |
+| 18 | 109 / 175 / 139 | 202 / 263 / **333** |
+| 21 | 92 / 213 / 96 | 160 / 276 / **328** |
+
+**Read the crystal column of the left-hand table.** Crystal's curve is not touched by any of these
+runs, and its sole-blocker count goes 41, 149, 183, **58**, 200 — non-monotone, swinging by 142
+hours of 336 on single-unit changes to an unrelated constant. That is not a curve responding; it is
+a different trajectory. The cause is structural rather than a bug: *"short of this resource **and
+nothing else**"* is a knife-edge on which purchase happens to be next, and a small income change
+reorders the queue.
+
+`Ledger` now records **`shortHours`** beside `soleBlockerHours` — the same question without the word
+*alone*. It cannot say who to blame, which is what the sole ledger is for, but it does not flip on a
+single unit. **Tune against the second; read the first afterwards.**
+
+### Two things that survive the correction, and one that does not
+
+- **Does not survive:** round 11's *"crystal has fallen right back (143 → 58), so deuterium is now
+  clear of the field."* 58 is the outlier at the shipped constant; its neighbours give 149 to 200.
+  That bullet is struck through in round 11 above. Round 7's crystal finding is unaffected — 130 of
+  168 hours is far outside this noise band, which is why it was safe to act on and this was not.
+- **Survives, and is stronger than before:** deuterium is short for *something* in **328 to 336 of
+  336 hours at every income from 12 to 21/h**. Raising the rate by 75% buys eight hours. So
+  **deuterium income is not the lever for deuterium being a blocker** — demand outruns any rate the
+  mine can reach, because the Robotics Factory compounds at ×1.5 against a synthesizer at ×1.25.
+  That is round 11's duration divergence again, on the resource axis, and there is no root to take.
+- **Survives:** the gate clock. Day 5 for the adaptation ladders is the one number here worth a
+  decision.
+
+### Why nothing was moved
+
+- **No lever touches the window that was complained about.** The two-day gate share is **47.43% in
+  every single variant** — including both lowered ladder gates. Its floor is set by the ladders and
+  Nanite being gated at all, plus research for the first 27 hours; nothing short of ungating a
+  branch reaches it. **Median kinds offered in the opening is 2 under every candidate.** Round 8
+  concluded "no number in this file adds a second thing to do"; this is the same conclusion arrived
+  at by exhaustion rather than by argument, and round 9's answer — a verb gated by nothing — is
+  still the only one that has ever worked.
+- **Every deuterium lever overshoots into crystal.** Opening the ladders earlier raises crystal's
+  robust count monotonically (245 → 264 at Robotics 3 → 291 at Robotics 2) because the ladders are
+  the crystal-heaviest thing in the game. Round 7 set crystal income against the *repeating* basket;
+  these levers change what the basket is.
+- **Round 8 recorded that Davide likes the unlock pace**, in his own words. Nothing measured here
+  contradicts him, so the calls below are his rather than the build's.
+
+### On the table for Davide, with numbers rather than a recommendation
+
+**The adaptation ladders' Robotics 4 gate.** Round 6 chose it "so the branch opens after the player
+has met the Galaxy screen and read a `BLOCKED` row", and pre-authorised this exact review: *"If the
+gate turns out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper than
+re-pricing anything."* It has: **hour 99, day 5.**
+
+| Gate | Ladders open | Gate share over 7 days | Crystal short *at all* |
+|---|---|---|---|
+| **Robotics 4 — shipped** | day 5 | 30.03% | 245 of 336 |
+| Robotics 3 | day 4 | 26.73% | 264 |
+| Robotics 2 | day 3 | 22.89% | 291 |
+
+None of the three changes the first two days. It is a mid-game call, not an opening one, and it is
+in `AdaptationBalance` — a *decided* sheet, not a placeholder — so it is not the build's to move.
+
+### Watch next round
+
+- **The gate clock is the harness's stable instrument now; the sole-blocker ledger is not.** Any
+  future round quoting sole-blocker hours should quote `shortHours` beside them, and should not read
+  a difference of under ~50 hours as a signal at all.
+- **Nanite is unreachable in a week** and its row is locked on the Colony screen throughout. Whether
+  a facility nobody can reach for a fortnight should occupy a permanent row is a design question,
+  not a balance one.
+- **Round 11's held item stands:** the colony's own idleness is 81.25% and `MINUTES_PER_ROOT_COST`
+  is the one notch either way.

@@ -62,6 +62,7 @@ fun main() {
     printOpeningReport()
     printCheckInPressureReport()
     printInteractionCensus()
+    printGateClock()
     printGreedyWeek()
     printWholeTreeRun()
 }
@@ -552,6 +553,19 @@ private class Ledger {
     var throttledHours: Int = 0
     val soleBlockerHours: MutableMap<Blocker, Int> = Blocker.entries.associateWith { 0 }.toMutableMap()
 
+    // The same question asked without the word *alone*, and it exists because the sole-blocker
+    // ledger turned out to be brittle. Round 12 swept deuterium income by **one unit** — 15 to 16,
+    // a 6.7% change — and crystal's sole-blocker count went from 58 hours of 336 to 200. That is
+    // not a curve responding; it is a different trajectory. The cause is structural: "short of this
+    // resource *and nothing else*" is a knife-edge on which purchase happens to be next, and a
+    // small income change reorders the queue, so the reading jumps rather than moves.
+    //
+    // This one counts an hour for a resource whenever *some* wanted purchase is short of it, alone
+    // or not. It cannot say who to blame, which is what the sole ledger was for — but it does not
+    // flip on a single unit, so it is the one to tune against and the sole ledger is the one to
+    // read afterwards.
+    val shortHours: MutableMap<Blocker, Int> = Blocker.entries.associateWith { 0 }.toMutableMap()
+
     // What the strategy actually paid, summed as it paid it. The ratio between these is the number
     // the income curve should be tuned against — not the unweighted sum of base costs, which is a
     // basket nobody buys in those proportions.
@@ -569,6 +583,9 @@ private class Ledger {
         for (blocker in Blocker.entries) {
             if (costs.any { shortagesOf(it, stock) == setOf(blocker) }) {
                 soleBlockerHours[blocker] = soleBlockerHours.getValue(blocker) + 1
+            }
+            if (costs.any { blocker in shortagesOf(it, stock) }) {
+                shortHours[blocker] = shortHours.getValue(blocker) + 1
             }
         }
     }
@@ -666,6 +683,13 @@ private fun report(
     println("  hours with a purchase blocked by that resource *alone*, of ${days * 24}:")
     for (blocker in Blocker.entries) {
         println("    ${blocker.name.lowercase().padEnd(9)} ${ledger.soleBlockerHours.getValue(blocker)}")
+    }
+    // Printed beside the sole ledger rather than instead of it: the sole one answers "who is to
+    // blame" and jumps on a single unit of income, this one answers "what is ever short" and does
+    // not. Tune against the second, read the first.
+    println("  hours with a purchase short of that resource *at all*, of ${days * 24}:")
+    for (blocker in Blocker.entries) {
+        println("    ${blocker.name.lowercase().padEnd(9)} ${ledger.shortHours.getValue(blocker)}")
     }
 
     // The closing snapshot: every purchase still on the table and what is short for it. This is the
@@ -1298,6 +1322,125 @@ private fun interactionCensus(days: Int, showTable: Boolean) {
         println("of those is fixed by tuning a number.")
         println()
     }
+}
+
+// ── The gate clock ───────────────────────────────────────────────────────────────────────────
+//
+// The census says 47% of the opening's actions are refused by an unmet requirement against 5% by
+// price. This is the follow-up question: *when do those requirements clear, and what is actually
+// holding them?*
+//
+// The answer is one building and one resource. Every gate in the game below Nanite is a Robotics
+// Factory level — 1 opens the Research tab, 4 opens all three adaptation ladders, 10 opens Nanite —
+// and the Robotics Factory is the only repeating row priced in deuterium, which round 7 nominated
+// as the worst blocker in the game and rounds 8 through 11 all left alone. So the second and third
+// verbs of a five-verb game are behind a single resource, and this table is how far behind.
+private fun printGateClock() {
+    val days = 7
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val firstMet = mutableMapOf<String, Int>()
+    val firstOffered = mutableMapOf<String, Int>()
+    val roboticsReached = mutableMapOf<Int, Int>()
+    // What the Robotics Factory was short of, each check-in it was not bought — the question
+    // "is it the deuterium?" asked of every visit rather than of the closing snapshot.
+    val roboticsShort = Blocker.entries.associateWith { 0 }.toMutableMap()
+    var roboticsBlockedCheckIns = 0
+
+    val offsets = (0 until days).flatMap { day -> FREQUENT_CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        for (level in 1..PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT) {
+            if (state.buildings.roboticsFactory.value >= level) roboticsReached.putIfAbsent(level, offset)
+        }
+        for (technology in Technology.entries) {
+            val met = ResearchBalance.requirementFor(technology).isMetBy(state)
+            val cost = ResearchBalance.researchCost(technology, TechLevel(state.research.levelOf(technology).value + 1))
+            if (met) firstMet.putIfAbsent("$technology", offset)
+            if (met && state.resources.covers(cost)) firstOffered.putIfAbsent("$technology", offset)
+        }
+        for (ladder in AdaptationTechnology.entries) {
+            val met = AdaptationBalance.requirementFor(ladder).isMetBy(state)
+            val cost = AdaptationBalance.adaptationCost(ladder, TechLevel(state.research.levelOf(ladder).value + 1))
+            if (met) firstMet.putIfAbsent("$ladder", offset)
+            if (met && state.resources.covers(cost)) firstOffered.putIfAbsent("$ladder", offset)
+        }
+
+        val roboticsCost = PlaceholderBalance
+            .upgradeCost(BuildingType.ROBOTICS_FACTORY, BuildingLevel(state.buildings.roboticsFactory.value + 1))
+        val short = shortagesOf(roboticsCost, state.resources)
+        if (short.isNotEmpty() && BuildingType.ROBOTICS_FACTORY !in state.builds) {
+            roboticsBlockedCheckIns++
+            for (blocker in short) roboticsShort[blocker] = roboticsShort.getValue(blocker) + 1
+        }
+
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+        }
+    }
+
+    fun hour(value: Int?): String = value?.let { "hour $it (d${it / 24 + 1})" } ?: "**never in ${days}d**"
+
+    println("## The gate clock")
+    println()
+    println("When each gate opened, at the three-hour cadence over $days days. \"Met\" is the")
+    println("requirement clearing; \"offered\" is the first check-in where it was also affordable.")
+    println()
+    println("| Robotics Factory level | Reached | Opens |")
+    println("|---|---|---|")
+    for (level in listOf(1, 2, 3, 4, 5, 10)) {
+        val opens = when (level) {
+            1 -> "Photovoltaics, Extraction — the Research tab"
+            4 -> "all three adaptation ladders — every Blocked world"
+            PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT -> "the Nanite Factory"
+            else -> "—"
+        }
+        println("| $level | ${hour(roboticsReached[level])} | $opens |")
+    }
+    println()
+    println("| Subject | Requirement met | First affordable |")
+    println("|---|---|---|")
+    for (technology in Technology.entries) {
+        println("| $technology | ${hour(firstMet["$technology"])} | ${hour(firstOffered["$technology"])} |")
+    }
+    for (ladder in AdaptationTechnology.entries) {
+        println("| $ladder | ${hour(firstMet["$ladder"])} | ${hour(firstOffered["$ladder"])} |")
+    }
+    println()
+    println("The Robotics Factory was unaffordable at **$roboticsBlockedCheckIns** of " +
+        "${offsets.size} check-ins. What it was short of, counted per check-in (a visit can be " +
+        "short of more than one):")
+    println()
+    for (blocker in Blocker.entries) {
+        println("- ${blocker.name.lowercase().padEnd(9)} ${roboticsShort.getValue(blocker)}")
+    }
+    println()
 }
 
 private fun Long.asWait(): String = "${this / 60}h ${(this % 60).toString().padStart(2, '0')}m"
