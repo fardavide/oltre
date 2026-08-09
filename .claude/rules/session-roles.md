@@ -83,9 +83,10 @@ unmodified:
 .claude/tools/gradle-without-agp.sh :core:jvmTest :sim:test
 ```
 
-The script swaps in a minimal overlay for the three build files, runs Gradle, and always restores
-the real ones — it refuses to start if they have uncommitted changes, because the restore is a
-hard `git checkout --`. Nothing it writes is ever committed.
+The script swaps in a minimal overlay for the build files it covers, runs Gradle, and always
+restores the real ones — by copy, from a backup it takes first, so an edited or not-yet-committed
+build file survives and a run killed outright is repaired by the next one. Nothing it writes is
+ever committed.
 
 This is what round 7 of the balance log was measured with, and the 0.0.12 greedy week reproduced
 byte for byte through it. **So a cloud session doing balance or domain work should run the tests
@@ -94,7 +95,7 @@ against this same blockage, and hand arithmetic is not a measurement.
 
 #### And more than those two — the line is Compose, not AGP (measured 2026-08-09)
 
-"`client/*` still cannot be compiled" stood here until 0.3.0 and was wrong. AGP is in a client
+"`client/*` still cannot be compiled" stood here until 0.2.2 and was wrong. AGP is in a client
 module only to publish an Android target; drop the target and a module with no Compose in it
 resolves everything it needs from Maven Central. `:client:save:data` was the first one tried and
 its tests ran green unmodified, so the script now covers every non-Compose module and the debug

@@ -48,7 +48,7 @@ import kotlin.time.Instant
 // the local notifications, ticks the UI, and holds the current session. Game state itself only
 // ever moves through core's advance/startUpgrade.
 //
-// Since 0.3.0 it reads the clock through a `DebugClock` rather than directly. At ×1 — every launch
+// Since 0.2.2 it reads the clock through a `DebugClock` rather than directly. At ×1 — every launch
 // until somebody shakes the phone — that is the identity function and nothing here behaves
 // differently; after a skip it is what keeps the colony running ahead of the wall clock instead of
 // frozen at the instant it was skipped to.

@@ -32,7 +32,7 @@ internal data class GameSession(
 // travelled from another machine — is clamped rather than rejected, because core's advance
 // refuses to run backwards and losing a colony over a clock skew would be absurd.
 //
-// Since 0.3.0 a save can be stamped in the future *on purpose*: skipping ahead writes the colony
+// Since 0.2.2 a save can be stamped in the future *on purpose*: skipping ahead writes the colony
 // down at the instant it was skipped to. The clamp still handles it correctly, but on its own it
 // would freeze the colony there until the wall clock caught up — so the caller derives a
 // `DebugClock` from the same saved instant and passes `now` already offset. See `DebugClock.resuming`.
