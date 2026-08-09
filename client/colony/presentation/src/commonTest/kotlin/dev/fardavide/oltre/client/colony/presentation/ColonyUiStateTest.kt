@@ -320,7 +320,7 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility carries its own target level countdown and progress`() {
-        // given a metal mine upgrade to 2 (37 minutes at robotics 0), five minutes in
+        // given a metal mine upgrade to 2 (24 minutes at robotics 0), five minutes in
         val t0 = Instant.fromEpochMilliseconds(0)
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
@@ -331,9 +331,9 @@ class ColonyUiStateTest {
         assertEquals(
             FacilityActionUiState.Upgrading(
                 toLevel = BuildingLevel(2),
-                countdown = "00:32:00",
-                progressPercent = 13,
-                doneAt = "done 00:37",
+                countdown = "00:19:00",
+                progressPercent = 20,
+                doneAt = "done 00:24",
             ),
             metalMine.action,
         )
@@ -357,7 +357,7 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility shows the local completion time`() {
-        // given a 37-minute build started 2026-08-06T10:00Z, viewed from UTC+2
+        // given a 24-minute build started 2026-08-06T10:00Z, viewed from UTC+2
         val t0 = Instant.parse("2026-08-06T10:00:00Z")
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
@@ -365,7 +365,7 @@ class ColonyUiStateTest {
         val action = started.rowFor(BuildingType.METAL_MINE, now = t0, timeZone = TimeZone.of("Europe/Rome")).action
 
         // then
-        assertEquals("done 12:37", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
+        assertEquals("done 12:24", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
     }
 
     @Test
