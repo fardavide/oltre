@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-08 (0.0.18)
+Updated: 2026-08-09 (0.2.0)
 
 ## Landed
 
@@ -142,6 +142,22 @@ Updated: 2026-08-08 (0.0.18)
   repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
   and ten of 0.0.17's had one. See `decisions.md`.
 
+- **0.2.0 Android delivery** — the game runs on Android, and every version publishes itself. The
+  wrapper `architecture.md` had anticipated since 0.0.1 finally landed, in the shape Davide chose:
+  `androidApp/` is a manifest, a theme and the launcher icons with **no Kotlin in it**, and
+  `MainActivity` sits in `client/shell/src/androidMain` beside the desktop `main()` and the iOS
+  `MainViewController()`. **Rule 7 got its carve-out** — an allowlist of one name — because AGP 9
+  will not let a KMP module apply `com.android.application`, because `iosApp/` has the identical
+  edge and escapes only by not being a Gradle module, and because the shell declares every
+  dependency as `implementation`, so the wrapper sees `App()` and no layer module at all.
+  Publishing mirrors iOS: a merge that changes the version fires `release-android.yml`, which
+  signs the APK with a real key from secrets, cuts the `v<version>` tag and attaches the APK to a
+  GitHub Release whose body is the README changelog entry. Two runtime traps were caught on the
+  way: Compose resources need `androidResources { enable = true }` or the fonts never reach the
+  APK (CMP-9547), and the new entry point had to be excluded from Kover or it would have failed
+  the coverage gate on its own PR. `AndroidSaveLocation` is now filled in; the notification
+  scheduler is still a no-op. See `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -250,8 +266,17 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
   a three-axis card is airier than the design drew it. Overrule if it reads loose.
 
-- Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
-  stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.
+- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.0.** Of the two
+  stubs waiting on it, `AndroidSaveLocation.directory` is filled in by `MainActivity`; **the
+  notification scheduler is still a no-op**, and is the one thing an Android player is missing.
+  What it needs is a slice of its own: the `POST_NOTIFICATIONS` prompt (API 33+), the exact-alarm
+  decision, and the copy — which is Davide's, like the iOS copy it would share.
+- **Nothing has run the Android build on a device.** CI compiles the APK on every PR and the
+  release job signs and publishes it, but no session in this project has installed one and looked
+  at it. The first install is also the first test of three things nothing else covers: that the
+  bundled font actually reaches the APK (see CMP-9547 in `decisions.md`), that edge-to-edge and
+  `WindowInsets.safeDrawing` agree on a device with a gesture bar, and that the save survives an
+  update rather than only in theory.
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
   is far out of reach — it binds nothing until very deep levels.

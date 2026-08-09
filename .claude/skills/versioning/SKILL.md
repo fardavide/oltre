@@ -26,7 +26,10 @@ live again: a feature slice takes a minor bump, and the agent initiates it.
 - Every bump carries a `## Changelog` entry in `README.md`, same PR, newest first, heading
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
   A bump with a stale changelog is a defect.
-- After the squash merge: `git tag v<version> && git push origin v<version>`.
+- After the squash merge the tag creates itself: `release-android.yml` fires on the `main` push
+  that changed the catalogue and creates `v<version>` along with the GitHub Release it hangs on.
+  Tag by hand only if that job did not run or failed — and if it failed, fix that instead, because
+  a missing tag means a missing Android release.
 - iOS: bump `MARKETING_VERSION` in `iosApp/project.yml` (single `settings.base` block) to match
   the new `oltre` version, then run `xcodegen generate` in `iosApp/` and commit the regenerated
   project **and its shared scheme**; never edit `project.pbxproj` by hand.
@@ -47,11 +50,22 @@ live again: a feature slice takes a minor bump, and the agent initiates it.
   `iosApp/ci_scripts/ci_pre_xcodebuild.sh` at build time. Bumping it by hand achieves nothing and
   invites a duplicate — App Store Connect refuses a build number that repeats within a release
   train (all builds sharing one `MARKETING_VERSION`).
-- When an Android app module lands, also bump its `versionCode` and record the path here.
+- **Android needs nothing bumped by hand.** `androidApp/build.gradle.kts` derives both from the
+  catalogue: `versionName` is the `oltre` version verbatim, and `versionCode` is
+  `major * 10_000 + minor * 100 + patch` (so 0.2.0 is 200). Every bump the table above allows
+  moves it upward, which is what the package manager requires of an update. It follows that the
+  version string must stay strict `X.Y.Z` — a suffix like `0.2.0-rc1` fails the build rather than
+  shipping a wrong code.
 
-## Merging to `main` publishes
+## Merging to `main` publishes — on both platforms
 
 Every squash merge to `main` triggers an Xcode Cloud archive that lands on TestFlight (internal
-testers) — see `.claude/docs/decisions.md`. So a merge is a release, not just a merge: the
-changelog entry and `MARKETING_VERSION` must be correct **before** the PR goes green, because the
-build ships the moment it merges. A build cannot be un-published; the fix is always a new build.
+testers). Since 0.2.0 a merge that changes the version also triggers `release-android.yml`, which
+builds a signed APK and publishes it as a GitHub Release — public, and the download link anyone is
+given. Both are in `.claude/docs/decisions.md`.
+
+So a merge is a release, not just a merge: the changelog entry and `MARKETING_VERSION` must be
+correct **before** the PR goes green, because the build ships the moment it merges. The changelog
+entry is doubly load-bearing now — it *is* the Android release body, and a version without one
+fails the release job rather than publishing an empty page. A build cannot be un-published; the
+fix is always a new build.

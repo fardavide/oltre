@@ -117,14 +117,20 @@ Each was true the day it was written and held by nothing except nobody having ty
 at nothing. Absolute rather than main-source-only, unlike rule 5 — "core depends on nothing" is
 the invariant as written, and core already hosts its own test helpers in `commonTest`.
 
-**7. Nothing may depend on `:client:shell`.** This is what makes the shell's exemption from rules
-2–4 *safe* rather than merely convenient: it may see every layer precisely because nothing sees
-it, so the layers it mixes cannot travel. Take this rule away and the exemption becomes a hole.
+**7. Nothing may depend on `:client:shell`, except `:androidApp`.** This is what makes the shell's
+exemption from rules 2–4 *safe* rather than merely convenient: it may see every layer precisely
+because nothing sees it, so the layers it mixes cannot travel. Take this rule away and the
+exemption becomes a hole.
 
-> **Known collision.** `architecture.md` documents a pending `androidApp` module that wraps
-> `:client:shell`. It will fail this rule the day it is added. That is deliberate — the rule was
-> written literally rather than with a speculative carve-out, so the question "is a platform entry
-> point the one thing allowed through?" gets asked when there is a real module to ask it about.
+> **The one carve-out.** `:androidApp` is allowed through, by name, since 0.2.0. The edge is
+> forced (AGP 9 will not let a KMP module apply `com.android.application`, so the shell cannot
+> package itself for Android the way it already packages itself for desktop), it is not new
+> (`iosApp/` links the same composition root and escapes only by being an Xcode project rather
+> than a Gradle module), and it carries nothing (the shell declares every project dependency as
+> `implementation`, so the wrapper sees `App()` and `MainActivity` and no layer module at all).
+> The allowlist is `platformEntryPoints` in the root build script. It is a list of names rather
+> than a rule about shapes — nothing can check that a module *stays* an entry point — so the next
+> module that wants through has to make the argument again rather than inherit this one.
 
 **8. `sim` and `server` may not depend on a `client/*` module.** The harness and the server run the
 simulation, not the app; either would silently acquire a Compose dependency by reaching one.

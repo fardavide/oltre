@@ -1335,3 +1335,146 @@ name, and they arrived in the report as a new package at 0%: 14 uncovered lines,
 coverage gate on a PR that had not touched a line of shipping code. Now excluded by package, which
 is what the comment always meant. Worth knowing generally: **a class-name exclusion in Kover does
 not cover a file, it covers a class**, and Kotlin puts top-level declarations wherever it likes.
+
+## Android ships as a GitHub Release, and its wrapper is the one thing allowed to see the shell (2026-08-09, 0.2.0)
+
+Davide asked for the quickest way to publish for Android and proposed a GitHub Release carrying
+the APK. That is what landed, and it is right for a reason worth writing down: **a release asset
+is a direct, unauthenticated `.apk` URL**. Tap it in a phone browser and the installer opens. The
+obvious cheaper option — upload the APK as a CI artifact on every run — fails at exactly that
+step: Actions artifacts are ZIPs behind a GitHub login, so a phone cannot install one without a
+desktop and a cable in between. The repository is public, so the release link needs no token and
+can be handed to anyone.
+
+Rejected, and worth re-reading before anyone proposes them again:
+
+- **Firebase App Distribution** — the true TestFlight analogue: testers get a push and install
+  from an app. It costs a Firebase project, a service-account JSON in secrets and a tester list to
+  keep. Worth it when there are testers who are not Davide; not worth it to install on your own
+  phone, where a URL is the same two taps.
+- **Play Console internal testing** — the eventual destination, and a heavier one: an account, a
+  listing, and app signing to arrange. Nothing about this decision blocks it later; the release
+  key below is the one Play would want.
+- **An APK artifact per CI run** — see above. Kept in mind as the thing to add if a build ever
+  needs sharing *before* it is a version.
+
+### The trigger is a version change on `main`, and the job is idempotent
+
+Merging to `main` already publishes on iOS. The Android half now matches: a push to `main` that
+touches `gradle/libs.versions.toml` runs `release-android.yml`, which reads the `oltre` version,
+asks whether `v<version>` is already released, and stops if it is. The path filter is exact about
+the *file* and deliberately imprecise about the *reason* — bumping Ktor touches the same
+catalogue — so the idempotence check, rather than the trigger, is what decides. It also creates
+the tag, which the versioning convention used to ask a human to push by hand.
+
+The release body is the README changelog entry for that version, extracted by
+`.github/scripts/android_release.py` and tested in `test_android_release.py`. **A version with no
+changelog entry raises rather than publishing an empty release** — the convention already
+required the entry; this is the step that stops it being optional, and it fails before the tag
+exists rather than after.
+
+### Signing is a real key in secrets, because the alternative eats the save
+
+CI's auto-generated debug keystore differs on every runner, so build N+1 will not install over
+build N: the player uninstalls first, and `filesDir` — which is where the save lives — goes with
+it. For a game whose entire proposition is progress accruing while it is closed, an update that
+wipes the colony is not a rough edge, it is the product failing. So the release is signed with one
+stable key, held as four secrets:
+
+```
+ANDROID_KEYSTORE_BASE64     base64 -w0 oltre-release.keystore
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+Generated once, and never in the repository:
+
+```bash
+keytool -genkeypair -v -keystore oltre-release.keystore -alias oltre \
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+**Losing this key means no future build can update an installed one.** Back it up somewhere that
+survives the laptop. Rejected: committing a fixed debug keystore, which would give stable
+signatures with no secrets to manage — but in a public repository it hands anyone the ability to
+sign an APK that updates over the real one, and it is a dead end for Play.
+
+`androidApp/build.gradle.kts` reads the four values through `providers.environmentVariable`, and
+falls back to an unsigned release when they are absent. That is what keeps `./gradlew assemble`
+working on a fork's pull request, where no secret is available. The workflow checks for the
+secrets *before* it builds, and refuses to publish an APK whose filename carries AGP's
+`-unsigned` suffix — the one thing this job must never do is ship a build that cannot install over
+the last one.
+
+### Rule 7 gets its carve-out, and it is an allowlist of one
+
+`architecture.md` had anticipated an `androidApp` wrapper since 0.0.1 and rule 7 was written
+literally so the question would be argued against a real module. Here it is, and the answer is
+that `:androidApp` is allowed through by name.
+
+The edge is **forced**. AGP 9 stopped the Kotlin Multiplatform plugin working alongside
+`com.android.application`, so the shell cannot be the Android application the way it already *is*
+the desktop application — `compose.desktop.application { }` sits in its own build file. The
+wrapper has to be a sibling Gradle module, and it has to reach `App()`.
+
+The edge is **not new**. `iosApp/` links `OltreClient.framework`, built by `:client:shell`, and
+calls `MainViewController()`. That is precisely the relationship rule 7 forbids; it escapes only
+because Xcode is not Gradle. Android is the first platform whose wrapper the module graph can
+see, not the first one to have this shape.
+
+The edge **carries nothing**. Every project dependency in the shell's build file is
+`implementation`, not `api`, so nothing is re-exported: `:androidApp` sees `App()` and
+`MainActivity`, and not one presentation, data or domain module — not even `:core`. Gradle already
+enforces what rule 7 defends; the rule is the belt to that braces.
+
+And the literal alternative is **worse**. To keep rule 7 as written, `:androidApp` would depend on
+the nine feature and design modules directly and re-do the composition: `MainScaffold`, the
+session, the save and notification wiring. That is a second composition root, mixing every layer,
+protected by nothing, drifting from the first every time a feature lands. The rule would hold on
+paper while the property it exists to protect was lost.
+
+Also rejected: **widening the rule to "any Android application module"**, which reads as a
+principle rather than an exception. Nothing can check that such a module stays an entry point, so
+the allowlist is `platformEntryPoints` — a set of names in the root build script. The next module
+that wants through has to make the argument again rather than inherit this one.
+
+### `MainActivity` lives in the shell, so the wrapper holds no Kotlin
+
+`androidApp/` is a build file, an `AndroidManifest.xml`, a theme and the launcher icons.
+`MainActivity` is in `client/shell/src/androidMain`, beside the desktop `main()` and the iOS
+`MainViewController()`, and the manifest names it across the module boundary as a string. Davide's
+call, over the conventional Android layout (Activity, manifest and icons together in the app
+module).
+
+Two things follow. All three platform entry points stay in one place, and the carve-out permits a
+module that *cannot* accumulate logic — the exception is narrow by construction rather than by
+promise. And `AndroidSaveLocation.directory = filesDir`, which has to run before the first save or
+`:client:save:data` throws, sits inside the composition root, where the rest of the save wiring
+already is. The cost is that renaming `MainActivity` fails at manifest merge rather than at
+compile time; there is no call site to break.
+
+The notification scheduler stays a no-op. `POST_NOTIFICATIONS`, the exact-alarm decision and what
+an alert *says* are their own slice with Davide's calls in it — an Android player gets the game
+and not the reminders, which is the honest half rather than a scheduler that silently books
+nothing.
+
+`allowBackup` is left on. The save is a JSON snapshot in private storage, so Android's own backup
+carries a colony to a new phone — the closest thing the game has to iCloud sync until a server
+exists.
+
+### Two traps this slice walked into, both invisible until runtime
+
+**Compose resources are not packaged into an Android APK** by AGP 9's Kotlin Multiplatform library
+plugin unless the resource pipeline is enabled explicitly (CMP-9547). `:client:design:core` bundles
+the three JetBrains Mono files behind `Res`, and without `androidResources { enable = true }` they
+compile, link and are then left out of the APK — a `MissingResourceException` on the first frame
+that asks for the font, which is every frame, because the type scale is the theme's. Enabled on
+both modules that declare `compose.components.resources`.
+
+**A new entry point is uncovered lines, and the coverage gate blocks on those.** `MainActivity` is
+excluded from Kover on exactly the grounds `sim` and the two `MainKt`s already are: a process
+entry point is exercised by launching the app, and there is nothing in it for a test to hold. Left
+in, it would have failed the merge gate on the PR that introduced it. `:androidApp` is absent from
+the `kover(...)` aggregate for a different reason — it holds no Kotlin, so there is nothing to
+measure.

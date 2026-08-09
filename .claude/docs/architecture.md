@@ -6,7 +6,8 @@
 core          KMP: jvm, iosArm64, iosSimulatorArm64, android. Pure model + rules.
 sim           JVM CLI. Headless balancing harness; fast-forwards weeks in ms. Never ships.
 client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, Android):
-  :client:shell    Composition root + entry points (desktop main, iOS framework)
+  :client:shell    Composition root + every platform's entry point (desktop main(), iOS
+                   MainViewController(), Android MainActivity)
   :client:design/  The design system, as a directory of layer modules — split the way Compose
                    splits itself, by dependency direction and rate of change:
     :core          Tokens: palette (from docs/ui-mockup.html), theme, bundled font, layout caps
@@ -23,8 +24,11 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
                              No presentation layer either, for the same reason: the UI it has
                              is the operating system's.
 server        JVM + Ktor. Compiling stub until multiplayer starts.
-iosApp/       Xcode wrapper around the client framework (pending, arrives with the iOS slice)
-androidApp    Thin Android app module wrapping :client:shell (pending, when Android delivery matters)
+iosApp/       Xcode wrapper around the client framework. An Info.plist, an asset catalogue and
+              a few lines of Swift hosting MainViewController(). Not a Gradle module
+androidApp    Android packaging of :client:shell. A manifest, a theme and the launcher icons —
+              no Kotlin at all; the manifest names MainActivity across the module boundary.
+              The one module allowed to depend on the composition root (rule 7)
 ```
 
 ## Dependency rule
@@ -61,10 +65,14 @@ the build. Full statement, failure messages and worked examples: the `module-rul
    fakes, so there is nothing to leak into.
 6. **`core` may not depend on any module.** It is the centre: everything points at it, it points
    at nothing. Absolute, unlike rule 5 — core already hosts its own test helpers in `commonTest`.
-7. **Nothing may depend on `:client:shell`.** This is what makes the shell's exemption from rules
-   2–4 safe rather than merely convenient: it may see every layer precisely because nothing sees
-   it. The pending `androidApp` wrapper will fail this rule when it lands — deliberately, so the
-   carve-out gets argued over a real module rather than a hypothetical one.
+7. **Nothing may depend on `:client:shell` except `:androidApp`.** This is what makes the shell's
+   exemption from rules 2–4 safe rather than merely convenient: it may see every layer precisely
+   because nothing sees it. The carve-out is an allowlist of one name, settled at 0.2.0 against
+   the real module rather than the hypothetical one this rule used to anticipate: AGP 9 will not
+   let a KMP module apply `com.android.application`, so the Android wrapper cannot be the shell
+   itself; `iosApp/` already has the same edge and escapes only by not being a Gradle module; and
+   every dependency the shell declares is `implementation`, so the wrapper sees `App()` and not
+   one layer module. The argument in full is in [decisions.md](decisions.md).
 8. **`sim` and `server` may not depend on a `client/*` module.** Either would silently acquire a
    Compose dependency by reaching one.
 

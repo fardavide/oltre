@@ -36,13 +36,13 @@ regenerate it, never hand-edit it.
 |---|---|
 | iOS | `iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/` |
 | Desktop | `client/shell/icons/oltre.{icns,ico,png}` |
-| Android | `art/icon/android/` — staged, see below |
+| Android | `art/icon/android/` — generated here, copied into `androidApp/src/main/res/` |
 
 ## Android
 
-There is no Android application module yet (`:client:shell` is an Android *library*), so the
-Android assets are generated but not wired into any build. `art/icon/android/README.md` says what
-to do with them when the module lands.
+The generator writes to `art/icon/android/`; the app module reads from its own source set, so the
+`mipmap-*/` directories and `values/ic_launcher_background.xml` are **copied** into
+`androidApp/src/main/res/` after a regeneration. `art/icon/android/README.md` has the two steps.
 
 The adaptive-icon foreground is the artwork with its background rect removed, and the background
 layer is the flat `#05070D` it was drawn against — so the two recompose to exactly the flat icon

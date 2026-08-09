@@ -93,12 +93,22 @@ it — is not one.
 ## Run
 
 ```bash
-./gradlew :client:shell:run     # desktop client (dev loop)
+./gradlew :client:shell:run          # desktop client (dev loop)
+./gradlew :androidApp:installDebug   # Android, on a connected device or emulator
 ./gradlew :sim:run        # balancing harness
 ./gradlew :server:run     # server stub
 ```
 
-iOS: pending Xcode wrapper (`iosApp/`), arrives with the iOS wiring slice.
+iOS: open `iosApp/` in Xcode. The project is generated — edit `project.yml` and run `xcodegen
+generate` rather than touching `project.pbxproj`.
+
+## Install
+
+Android builds are published as GitHub Releases. Take the latest APK from
+[Releases](https://github.com/fardavide/oltre/releases) and open it on the phone; Android asks
+once for permission to install from your browser. Updates install over the top.
+
+iPhone builds go to TestFlight on every merge to `main`.
 
 ## Icon
 
@@ -119,6 +129,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.2.0 — 2026-08-09
+
+- **Oltre runs on Android.** The whole game, on any phone running Android 8.0 or newer — the same
+  colony, research and galaxy the desktop and iPhone builds have, with the save kept in the app's
+  own storage and carried across a reinstall by Android's backup.
+- **Every version is downloadable.** Merging to `main` now publishes a GitHub Release with the APK
+  attached, the way it already ships the iPhone build to TestFlight. The release page carries this
+  changelog and the commit it was built from; the download is a direct link that installs from a
+  phone browser with nothing else needed.
+- Notifications still do nothing on Android. The alerts iOS books are derived and scheduled the
+  same way, but the Android scheduler is a stub until the permission and exact-alarm calls are
+  made — an Android player sees the game, not the reminders.
 
 ### 0.1.1 — 2026-08-08
 
