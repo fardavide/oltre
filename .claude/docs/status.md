@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-09 (0.3.0)
+Updated: 2026-08-09 (0.2.1)
 
 ## Landed
 
@@ -142,7 +142,7 @@ Updated: 2026-08-09 (0.3.0)
   repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
   and ten of 0.0.17's had one. See `decisions.md`.
 
-- **0.3.0 Android delivery** — the game runs on Android, and every version publishes itself. The
+- **0.2.1 Android delivery** — the game runs on Android, and every version publishes itself. The
   wrapper `architecture.md` had anticipated since 0.0.1 finally landed, in the shape Davide chose:
   `androidApp/` is a manifest, a theme and the launcher icons with **no Kotlin in it**, and
   `MainActivity` sits in `client/shell/src/androidMain` beside the desktop `main()` and the iOS
@@ -157,7 +157,7 @@ Updated: 2026-08-09 (0.3.0)
   APK (CMP-9547), and the new entry point had to be excluded from Kover or it would have failed
   the coverage gate on its own PR. See `decisions.md`.
 
-- **0.3.0 Android notifications, on Davide's call to stop holding them back** — the copy was
+- **0.2.1 Android notifications, on Davide's call to stop holding them back** — the copy was
   already shared, so there was no design call to wait for, only engineering. `replaceAll` books
   one `AlarmManager` alarm per notification and persists the ids it scheduled, because Android
   cannot be asked what is pending the way `UNUserNotificationCenter` can. **Inexact alarms**
@@ -279,7 +279,7 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
   a three-axis card is airier than the design drew it. Overrule if it reads loose.
 
-- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.3.0**, and both stubs
+- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.1**, and both stubs
   that were waiting on it are filled in: `AndroidSaveLocation.directory` and the notification
   scheduler.
 - **Nothing has run the Android build on a device.** CI compiles the APK on every PR and the

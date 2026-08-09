@@ -347,7 +347,7 @@ operations on one trigger because they answer the same question; separately they
 alert about the countdown you are watching is noise, and the checkable thing is that the right
 alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which would need a timer
 held for the whole wait — the exact mechanism this game is built to avoid — to buy a toast on the
-one platform that does not need one. **Android did nothing until 0.3.0**, when the app module
+one platform that does not need one. **Android did nothing until 0.2.1**, when the app module
 arrived to hold a `Context` and the API-33 permission; see *Android books its alerts through
 AlarmManager* below.
 
@@ -1423,7 +1423,7 @@ fleet action" is a retcon waiting to happen; ruling that fleets never survey clo
   has for their own system, or "surveyed" would mean two different things depending on how it got
   there.
 
-## Android ships as a GitHub Release, and its wrapper is the one thing allowed to see the shell (2026-08-09, 0.3.0)
+## Android ships as a GitHub Release, and its wrapper is the one thing allowed to see the shell (2026-08-09, 0.2.1)
 
 Davide asked for the quickest way to publish for Android and proposed a GitHub Release carrying
 the APK. That is what landed, and it is right for a reason worth writing down: **a release asset
@@ -1563,7 +1563,7 @@ in, it would have failed the merge gate on the PR that introduced it. `:androidA
 the `kover(...)` aggregate for a different reason — it holds no Kotlin, so there is nothing to
 measure.
 
-## Android books its alerts through AlarmManager, inexactly and on purpose (2026-08-09, 0.3.0)
+## Android books its alerts through AlarmManager, inexactly and on purpose (2026-08-09, 0.2.1)
 
 Davide's call, on being told the Android scheduler was a stub: *follow what you did for iOS.*
 Right, and the reason given for holding it back was wrong — the copy already exists in

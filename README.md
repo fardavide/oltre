@@ -158,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.3.0 — 2026-08-09
+### 0.2.1 — 2026-08-09
 
 - **Oltre runs on Android.** The whole game, on any phone running Android 8.0 or newer — the same
   colony, research and galaxy the desktop and iPhone builds have, with the save kept in the app's
