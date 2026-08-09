@@ -31,10 +31,29 @@ import kotlin.time.Duration.Companion.minutes
 // cover the player deliberately bought.
 object SurveyBalance {
 
-    // Flat, in metal. Affordable at genesis out of the 500 / 300 starting stock — at the real price
-    // of Metal Mine 2 and 3, which is exactly the tension the verb should carry on day one: the
-    // first dispatch costs levels, and it is still worth it.
-    const val COST_METAL: Long = 500
+    // Flat, in metal, and **measured rather than chosen**. `:sim:run`'s opening report was swept
+    // over five price points with one dispatch per check-in aimed at the gap ahead:
+    //
+    // | metal | building levels at 48h | probes | what it cost |
+    // |---|---|---|---|
+    // | — (no probes) | 25 | — | the 0.1.1 baseline |
+    // | 100 | 24 | 8 | one level |
+    // | **150** | **23** | **8** | **two levels, Robotics 1 instead of 2** |
+    // | 200 | 22 | 8 | three levels |
+    // | 300 | 19 | 8 | six levels |
+    // | 500 | 16 | 7 | nine levels, and Research never opens at all |
+    //
+    // **Every reading the verb exists for is identical from 100 to 300** — eight dispatches, zero
+    // check-ins with one kind of decision, 540 minutes booked by the busiest session. So the price
+    // buys exactly one thing: how much progression a dispatch costs. 150 is the midpoint of what is
+    // defensible, and 100 – 200 are all defensible; above 200 the verb starts eating the branch it
+    // is supposed to sit beside, and at 500 it eats Robotics and takes Research with it.
+    //
+    // Two levels of twenty-five over two days is the tension stated as a number: **the first
+    // dispatch costs levels, and it is still worth it.** It also leaves the opening intact — 500
+    // starting metal covers a probe *and* the first level of all three mines, so the day-one
+    // check-in gains a decision instead of trading one away.
+    const val COST_METAL: Long = 150
 
     fun cost(): Resources = Resources.of(metal = COST_METAL)
 

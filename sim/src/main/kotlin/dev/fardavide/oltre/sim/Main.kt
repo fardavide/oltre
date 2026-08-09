@@ -16,9 +16,12 @@ import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.SurveyBalance
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -31,6 +34,7 @@ import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
@@ -642,6 +646,36 @@ private class CheckIn(
 // greedy runs' rule, unchanged — everything affordable, cheapest first — so the only difference
 // between this and the fortnight below is *when* the player is allowed to act.
 private fun printOpeningReport() {
+    openingReport(withProbes = false)
+    openingReport(withProbes = true)
+}
+
+// A player who understands the verb aims it at the gap they are about to leave: the target whose
+// flight is as long as possible without overshooting the next check-in. That is the strategy the
+// mechanic exists for, and it is the one worth measuring — a greedy "dispatch everything
+// affordable" rule would measure a bot draining the colony's metal into probes it will never read.
+//
+// One probe per check-in, for the same reason. Nothing in the rules caps them; this is a statement
+// about how a person plays, not about what the game allows.
+private fun probeTargetFor(state: GameState, gapMinutes: Long): SystemAddress? {
+    val home = SystemAddress.of(state.galaxy.home)
+    var best: SystemAddress? = null
+    var bestMinutes = -1L
+    for (galaxy in 1..GalaxyBalance.GALAXIES) {
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val candidate = SystemAddress(galaxy = galaxy, system = system)
+            val minutes = SurveyBalance.duration(home, candidate).inWholeMinutes
+            if (minutes > gapMinutes || minutes <= bestMinutes) continue
+            if (state.surveys.any { it.target == candidate }) continue
+            if (state.galaxy.hasSurveyed(candidate)) continue
+            best = candidate
+            bestMinutes = minutes
+        }
+    }
+    return best
+}
+
+private fun openingReport(withProbes: Boolean) {
     val days = 2
     val plan = listOf(
         BuildingType.METAL_MINE,
@@ -654,13 +688,19 @@ private fun printOpeningReport() {
     var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
     val genesis = Instant.fromEpochMilliseconds(0)
     var now = genesis
-    // Every interval something was in flight, so the gaps between them are the hours the colony
-    // stood still — and, identically, the hours no notification could fire.
-    val busy = mutableListOf<Pair<Instant, Instant>>()
+    // Two ledgers, deliberately. `colonyBusy` is what round 8 measured — mines and the research
+    // slot — and a probe must not be allowed to improve it, because a probe in flight does not make
+    // a mine busier. `probeBusy` is the player's attention, which is the thing the notification loop
+    // actually covers. Reporting one number for both would let the new verb take credit for fixing
+    // the old complaint.
+    val colonyBusy = mutableListOf<Pair<Instant, Instant>>()
+    val probeBusy = mutableListOf<Pair<Instant, Instant>>()
     val checkIns = mutableListOf<CheckIn>()
+    var dispatched = 0
+    var spentOnProbes = 0L
 
     val offsets = (0 until days).flatMap { day -> CHECK_IN_HOURS.map { day * 24 + it } }
-    for (offset in offsets) {
+    for ((index, offset) in offsets.withIndex()) {
         val at = genesis + offset.hours
         val before = state
         state = advance(state, from = now, to = at)
@@ -671,23 +711,46 @@ private fun printOpeningReport() {
         val affordable = (options.buildings + options.projects)
             .filter { (_, cost) -> state.resources.covers(cost) }
             .map { (what, _) -> what }
-        val couldBuy = affordable.map { nameOf(it, state) }
+        val couldBuy = affordable.map { nameOf(it, state) }.toMutableList()
         val kinds = affordable.map { what ->
             when (what) {
                 is BuildingType -> "build"
                 is AdaptationTechnology -> "adapt"
                 else -> "research"
             }
-        }.toSet()
+        }.toMutableSet()
+
+        // The gap this check-in is about to leave behind. The last one of the run has no next
+        // check-in, so it is measured against the end of the window.
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        val probeTarget = if (withProbes) probeTargetFor(state, gapMinutes) else null
+        if (probeTarget != null && state.resources.covers(SurveyBalance.cost())) {
+            couldBuy += "probe ${probeTarget.galaxy}:${probeTarget.system}"
+            kinds += "survey"
+        }
 
         val bought = mutableListOf<String>()
+        // The probe is bought **first**, which is the pessimistic ordering on purpose: it models a
+        // player who decides to cover the gap and then spends what is left, so the levels it costs
+        // show up in the count below rather than being hidden behind a full building queue. If
+        // progression survives this ordering it survives any.
+        if (probeTarget != null) {
+            (startSurvey(state, probeTarget, at = now) as? StartSurveyResult.Started)?.let { started ->
+                state = started.state
+                val job = state.surveys.last()
+                bought += "probe ${probeTarget.galaxy}:${probeTarget.system}"
+                probeBusy += now to job.completesAt
+                dispatched++
+                spentOnProbes += SurveyBalance.COST_METAL
+            }
+        }
         for ((building, cost) in options.buildings) {
             if (!state.resources.covers(cost)) continue
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { started ->
                 state = started.state
                 state.builds[building]?.let { job ->
                     bought += "${short(building)} ${job.toLevel.value}"
-                    busy += now to job.completesAt
+                    colonyBusy += now to job.completesAt
                 }
             }
         }
@@ -701,7 +764,7 @@ private fun printOpeningReport() {
             }
             state.researchSlotFreesAt?.let { freesAt ->
                 bought += "$project"
-                busy += now to freesAt
+                colonyBusy += now to freesAt
             }
         }
 
@@ -718,11 +781,17 @@ private fun printOpeningReport() {
         )
     }
 
-    println("## The opening, as the player meets it")
+    println("## The opening, as the player meets it${if (withProbes) " — with probes" else ""}")
     println()
     println("Two days, four check-ins a day (08:00 / 13:00 / 19:00 / 23:00), buying everything")
     println("affordable cheapest-first — the greedy runs' rule, restricted to when a player is")
     println("actually looking. Genesis is the first check-in, so the colony starts with the player.")
+    if (withProbes) {
+        println()
+        println("Plus one probe per check-in, aimed at the longest flight that still lands before the")
+        println("next one — and bought **before** the buildings, so the levels it costs are visible")
+        println("rather than hidden behind a full queue.")
+    }
     println()
     println("| Check-in | Finished while away | Could buy | Kinds | Bought | Left running | Next lands in |")
     println("|---|---|---|---|---|---|---|")
@@ -739,8 +808,10 @@ private fun printOpeningReport() {
     println()
 
     val totalMinutes = days * 24 * 60L
-    val idle = idleMinutes(busy, genesis, genesis + (days * 24).hours)
-    val longestIdle = longestIdleRun(busy, genesis, genesis + (days * 24).hours)
+    val end = genesis + (days * 24).hours
+    val idle = idleMinutes(colonyBusy, genesis, end)
+    val longestIdle = longestIdleRun(colonyBusy + probeBusy, genesis, end)
+    val nothingAtAll = idleMinutes(colonyBusy + probeBusy, genesis, end)
     println("| Reading | Value |")
     println("|---|---|")
     println("| Check-ins | ${checkIns.size} |")
@@ -754,13 +825,27 @@ private fun printOpeningReport() {
     val secondVerb = offsets.zip(checkIns).firstOrNull { (_, checkIn) -> checkIn.kinds.size >= 2 }
     println("| A second kind of decision first exists | " +
         "${secondVerb?.let { "${it.first}h in (${it.second.label})" } ?: "**never, in 48h**"} |")
-    println("| **Hours the colony had nothing in flight** | **${idle / 60}h of ${totalMinutes / 60}h " +
-        "(${percent((idle / 60).toInt(), (totalMinutes / 60).toInt())})** |")
+    println("| Hours **the colony** had nothing in flight | ${idle / 60}h of ${totalMinutes / 60}h " +
+        "(${percent((idle / 60).toInt(), (totalMinutes / 60).toInt())}) |")
+    println("| **Hours with nothing at all in flight** | **${nothingAtAll / 60}h of ${totalMinutes / 60}h " +
+        "(${percent((nothingAtAll / 60).toInt(), (totalMinutes / 60).toInt())})** |")
     println("| Longest unbroken silence | ${longestIdle / 60}h ${(longestIdle % 60).toString().padStart(2, '0')}m |")
     val booked = checkIns.map { it.bookedMinutes }
     println("| Work the busiest check-in booked | ${booked.max()} min |")
     println("| Median work a check-in booked | ${booked.sorted()[booked.size / 2]} min |")
+    if (withProbes) {
+        println("| Probes dispatched | $dispatched, for ${spentOnProbes.grouped()} metal |")
+        println("| Systems known at 48h | ${state.galaxy.surveyed.size} worlds |")
+    }
     println()
+    if (withProbes) {
+        println("**The first two rows are the honest pair.** A probe in flight does not make a mine")
+        println("busier, so the colony's own idleness is exactly what it was — the second row is the")
+        println("one the new verb moves, and what it measures is the player's attention rather than")
+        println("the colony's. Reporting one number for both would let the probe take credit for")
+        println("fixing a complaint it does not touch.")
+        println()
+    }
     println("That last pair is the reading the notification loop lives on. The brief calls local")
     println("notifications *the entire check-in loop*: if the deepest a session can book is under an")
     println("hour, every notification the game will ever send arrives while the player is still")
