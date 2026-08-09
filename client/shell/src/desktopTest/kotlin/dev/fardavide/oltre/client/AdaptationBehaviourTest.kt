@@ -47,10 +47,11 @@ class AdaptationBehaviourTest {
 
             startTheOnlyProjectOffered()
 
-            // the ladder still takes real time, so nothing lands early. Atmospheric 1 is 61
-            // minutes at this colony's Robotics 4 — the sheet's 182 carrying the opening discount
-            // — so half an hour in it is still running and the world still reads as blocked.
-            letTimePass(by = 30.minutes)
+            // the ladder still takes real time, so nothing lands early. Atmospheric 1 is 18
+            // minutes at this colony's Robotics 4 — the sheet's 240 carrying an opening discount
+            // that went to a tenth at 0.2.7 — so ten minutes in it is still running and the world
+            // still reads as blocked. Half an hour would now be past the end of it.
+            letTimePass(by = 10.minutes)
             open(OltreTab.GALAXY)
             assertReads(REMEDY)
 

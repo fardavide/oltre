@@ -243,10 +243,10 @@ class ColonyUiStateTest {
         assertEquals(
             listOf(
                 // 400 / 120 / 200 at full price, here on the deepest step of the opening
-                // discount: level 1 pays exactly a third of it.
-                CostChipUiState(kind = ResourceKind.METAL, amount = "133", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "40", short = true),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "66", short = true),
+                // discount: level 1 pays exactly a tenth of it.
+                CostChipUiState(kind = ResourceKind.METAL, amount = "40", short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "12", short = true),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "20", short = true),
             ),
             robotics.costs,
         )
@@ -283,15 +283,15 @@ class ColonyUiStateTest {
 
     @Test
     fun `an unaffordable row shows the time until affordable instead of a dead button`() {
-        // given an empty stock: metal mine → 2 needs 37 metal (24m 40s at 90/h) and 9 crystal
-        // (15m), and the chip rounds the longer of the two up to the minute
+        // given an empty stock: metal mine → 2 needs 19 metal (12m 40s at 90/h) and 4 crystal
+        // (6m 40s at 36/h), and the chip rounds the longer of the two up to the minute
         val state = colony()
 
         // when
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("in 25m"), metalMine.action)
+        assertEquals(FacilityActionUiState.AffordableIn("in 13m"), metalMine.action)
     }
 
     @Test
@@ -323,20 +323,22 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility carries its own target level countdown and progress`() {
-        // given a metal mine upgrade to 2 (24 minutes at robotics 0), five minutes in
+        // given a metal mine upgrade to 2 — two minutes at robotics 0 since the opening speed-up,
+        // so the sample has to be twenty-four seconds in rather than five minutes to catch it
+        // running at all. Still the same fifth of the way through, which is what is asserted.
         val t0 = Instant.fromEpochMilliseconds(0)
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
         // when
-        val metalMine = started.rowFor(BuildingType.METAL_MINE, now = t0 + 5.minutes)
+        val metalMine = started.rowFor(BuildingType.METAL_MINE, now = t0 + 24.seconds)
 
         // then
         assertEquals(
             FacilityActionUiState.Upgrading(
                 toLevel = BuildingLevel(2),
-                countdown = "00:19:00",
+                countdown = "00:01:36",
                 progressPercent = 20,
-                doneAt = "done 00:24",
+                doneAt = "done 00:02",
             ),
             metalMine.action,
         )
@@ -360,7 +362,7 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility shows the local completion time`() {
-        // given a 24-minute build started 2026-08-06T10:00Z, viewed from UTC+2
+        // given a 2-minute build started 2026-08-06T10:00Z, viewed from UTC+2
         val t0 = Instant.parse("2026-08-06T10:00:00Z")
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
@@ -368,7 +370,7 @@ class ColonyUiStateTest {
         val action = started.rowFor(BuildingType.METAL_MINE, now = t0, timeZone = TimeZone.of("Europe/Rome")).action
 
         // then
-        assertEquals("done 12:24", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
+        assertEquals("done 12:02", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
     }
 
     @Test
