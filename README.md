@@ -120,6 +120,31 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.0 — 2026-08-09
+
+- **You can send a probe now.** The system page has a footer under the orbit map: what it costs
+  (150 metal, the same everywhere) and how long the flight takes to *this* star, which is the only
+  figure that changes. Tap Dispatch and it becomes a countdown, then a landing that tells you what
+  the probe found — usually that none of it was worth taking, which is the honest answer about
+  fifty-nine times in sixty.
+- **The ± buttons are gone, and good riddance.** Crossing a galaxy used to be 249 taps. In their
+  place is a band showing all 250 systems at once, marked with how long a flight to each one would
+  take — 1h, 2h, 3h — so you can answer the only question a dispatch really asks: *what can I reach
+  in the nine hours I am about to be asleep?* Each tick is a star, drawn short and faint for a dim
+  one and tall and bright for a bright one; yours is the blue one, and a probe in flight is amber.
+  Drag the band to move around, then tap one of the seven cells to open a system.
+- **The galaxy is not symmetric around you, and now the band says so** without a word of copy: if
+  your home sits near one edge, the hour marks simply run out on that side.
+- **Every build now takes as long as it costs**, instead of a flat time per level. Early upgrades
+  are longer — a first mine level is 37 minutes rather than 20 — and the colony stops standing
+  around: over the first two days it now has something in flight 31% of the time instead of 12%.
+  Same progress by day two, and about three levels fewer by day seven.
+- **Each adaptation ladder says what its next level would unlock** among the worlds you have
+  actually surveyed, and how few of them are worth taking.
+- **A probe that lands while you are away sends a notification** — and the game will no longer let a
+  crowd of probes push your long builds off the end of the notification queue.
+- Saves from 0.1.2 carry forward untouched.
+
 ### 0.1.2 — 2026-08-09
 
 - **Nothing on screen changes in this build.** The galaxy can now be explored — you send a probe
