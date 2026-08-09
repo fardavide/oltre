@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run Gradle against `:core` and `:sim` from a session that cannot resolve AGP.
+# Run Gradle against the modules that do not need AGP, from a session that cannot resolve it.
 #
 # WHY THIS EXISTS
 #
@@ -10,23 +10,40 @@
 # `plugins {}` block cannot resolve and *every* Gradle invocation fails during configuration,
 # including ones that touch no Android code at all.
 #
-# `:sim` depends only on `:core`, and it consumes `:core`'s **JVM** target. AGP is in `:core` only
-# to publish an Android target that the sim never looks at. So a build restricted to those two
-# modules, with the Android target dropped, compiles exactly the same `commonMain` sources and
-# runs exactly the same harness. That is what this script does: it swaps in a minimal overlay for
-# the three build files, runs Gradle, and always puts the real ones back.
+# AGP is in these modules only to publish an Android target. Drop that target and the same
+# `commonMain` sources compile against the JVM one, from Maven Central alone. That is what this
+# script does: it swaps in a minimal overlay for the build files below, runs Gradle, and always
+# puts the real ones back.
 #
-# WHAT IT IS NOT
+# WHAT IT COVERS, AND THE LINE IT CANNOT CROSS
 #
-# Not a way to build the client. `client/*` is Compose and genuinely needs AGP, and a cloud session
-# has no business writing UI anyway — see `.claude/rules/session-roles.md`. Not a fix for the
-# blocked egress either; the real build files are untouched in git and CI builds the whole project
-# normally. Nothing here should ever be committed into the actual build.
+# Everything without Compose. Measured, not assumed (2026-08-09): `:client:save:data` compiles and
+# its tests run green through this script. **Compose itself is a hard stop**, and the reason is not
+# AGP at all — `org.jetbrains.compose.ui:ui` depends transitively on `androidx.compose.runtime:
+# runtime-saveable`, `androidx.lifecycle:lifecycle-runtime` and `androidx.savedstate:savedstate`,
+# which are published to Google's Maven and nowhere else. So a *desktop-only* Compose module fails
+# to resolve exactly like an Android one does, and no overlay can fix it.
+#
+# The practical split for a cloud session, then:
+#
+#   buildable here      :core, :sim, :client:save:data, :client:notifications:data,
+#                       :client:design:format, :client:debug:domain, :client:debug:data
+#   not buildable here  every Compose module — :client:shell, :client:*:presentation,
+#                       :client:design:{core,icon,component}
+#
+# A cloud session doing domain work should therefore run the tests rather than reason about them.
+# UI it writes is still verified by CI's Build job and by the manual Record screenshots workflow,
+# never here. See `.claude/rules/session-roles.md`.
+#
+# The overlays are a hand-maintained mirror of the real build files. They carry only what the JVM
+# target needs, so they drift harmlessly when an Android-only or iOS-only line changes — and they
+# must be updated when a *dependency* does. Nothing here is ever committed into the actual build.
 #
 # USAGE
 #
 #   .claude/tools/gradle-without-agp.sh :sim:run
 #   .claude/tools/gradle-without-agp.sh :core:jvmTest :sim:test
+#   .claude/tools/gradle-without-agp.sh :client:debug:domain:desktopTest
 #   .claude/tools/gradle-without-agp.sh :core:jvmTest --tests '*BalanceCurveTest*'
 #
 set -uo pipefail
@@ -34,7 +51,17 @@ set -uo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO"
 
-FILES=(settings.gradle.kts build.gradle.kts core/build.gradle.kts)
+FILES=(
+  settings.gradle.kts
+  build.gradle.kts
+  core/build.gradle.kts
+  client/save/data/build.gradle.kts
+  client/notifications/data/build.gradle.kts
+  client/debug/domain/build.gradle.kts
+  client/debug/data/build.gradle.kts
+)
+
+BACKUP="$REPO/build/without-agp-backup"
 
 if [ $# -eq 0 ]; then
   echo "usage: $0 <gradle task> [more tasks/flags]" >&2
@@ -42,25 +69,44 @@ if [ $# -eq 0 ]; then
   exit 2
 fi
 
-# Refuse to run against edited build files rather than restoring over the top of someone's work —
-# the restore below is a hard `git checkout --`, which would discard them without asking. A tree
-# left swapped by a killed run also lands here, which is the right place for it to stop.
-if ! git diff --quiet -- "${FILES[@]}" || ! git diff --cached --quiet -- "${FILES[@]}"; then
-  echo "error: these build files have uncommitted changes:" >&2
-  git diff --name-only -- "${FILES[@]}" >&2
-  git diff --cached --name-only -- "${FILES[@]}" >&2
-  echo >&2
-  echo "This script swaps them out and restores with 'git checkout --', which would discard" >&2
-  echo "that work. Commit or stash it first. If a previous run was killed mid-flight, the" >&2
-  echo "overlay may still be in place — 'git checkout -- ${FILES[*]}' puts the real ones back." >&2
-  exit 1
+# Restore by copy rather than by `git checkout --`, which is what this used to do. Two reasons, and
+# the second is what forced the change: a `git checkout` restore cannot put back a build file that
+# is not committed yet, so the script could not be used while *building* a new module — which is
+# exactly when its tests are most worth running. Copying also means the script no longer has to
+# refuse to start against edited build files, since it never discards them.
+restore() {
+  for file in "${FILES[@]}"; do
+    if [ -f "$BACKUP/$file" ]; then
+      mkdir -p "$(dirname "$file")"
+      cp "$BACKUP/$file" "$file"
+    fi
+  done
+  rm -rf "$BACKUP"
+}
+
+# A run killed outright (SIGKILL, a dead container) leaves the tree swapped and the backup behind.
+# Restoring it here rather than refusing to start means the next run repairs the tree instead of
+# handing a human a puzzle — the backup is by definition the real file, so this cannot lose work.
+if [ -d "$BACKUP" ]; then
+  echo "note: a previous run left overlays in place; restoring the real build files first." >&2
+  restore
 fi
 
-restore() { git checkout -- "${FILES[@]}"; }
+mkdir -p "$BACKUP"
+for file in "${FILES[@]}"; do
+  if [ -f "$file" ]; then
+    mkdir -p "$BACKUP/$(dirname "$file")"
+    cp "$file" "$BACKUP/$file"
+  fi
+done
+
 trap restore EXIT INT TERM
 
 cat > settings.gradle.kts <<'OVERLAY'
 // OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+//
+// Rule 1's layout check is deliberately absent: it walks the whole tree and would fail on nothing
+// here, but it is the real settings file's job and this one exists only to narrow the build.
 rootProject.name = "oltre"
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
@@ -79,14 +125,30 @@ dependencyResolutionManagement {
 
 include(":core")
 include(":sim")
+include(":client:save:data")
+include(":client:notifications:data")
+include(":client:debug:domain")
+include(":client:debug:data")
 OVERLAY
 
 cat > build.gradle.kts <<'OVERLAY'
 // OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+// No Kover and no module-rule checks: the real root build file owns both, and CI runs it.
 plugins {
     alias(libs.plugins.kotlinJvm) apply false
     alias(libs.plugins.kotlinMultiplatform) apply false
     alias(libs.plugins.kotlinxSerialization) apply false
+}
+
+allprojects {
+    tasks.withType<Test>().configureEach {
+        testLogging {
+            exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+            showCauses = true
+            showExceptions = true
+            showStackTraces = true
+        }
+    }
 }
 OVERLAY
 
@@ -110,6 +172,101 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+        }
+    }
+}
+OVERLAY
+
+cat > client/save/data/build.gradle.kts <<'OVERLAY'
+// OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+}
+
+kotlin {
+    jvmToolchain(21)
+
+    jvm("desktop")
+
+    sourceSets {
+        commonMain.dependencies {
+            api(projects.core)
+
+            implementation(libs.kotlinx.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+    }
+}
+OVERLAY
+
+cat > client/notifications/data/build.gradle.kts <<'OVERLAY'
+// OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+}
+
+kotlin {
+    jvmToolchain(21)
+
+    jvm("desktop")
+
+    sourceSets {
+        commonMain.dependencies {
+            api(projects.core)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+        }
+    }
+}
+OVERLAY
+
+cat > client/debug/domain/build.gradle.kts <<'OVERLAY'
+// OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+}
+
+kotlin {
+    jvmToolchain(21)
+
+    jvm("desktop")
+
+    sourceSets {
+        commonMain.dependencies {
+            api(projects.core)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+    }
+}
+OVERLAY
+
+cat > client/debug/data/build.gradle.kts <<'OVERLAY'
+// OVERLAY — generated by .claude/tools/gradle-without-agp.sh, never committed.
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+}
+
+kotlin {
+    jvmToolchain(21)
+
+    jvm("desktop")
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(projects.client.debug.domain)
+
+            implementation(libs.kotlinx.coroutines.core)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
         }
     }
 }
