@@ -65,7 +65,7 @@ class SurveyBalanceTest {
     }
 
     @Test
-    fun `the price is flat, and it is metal`() {
+    fun `the price is flat and it is metal`() {
         // The one shape decision in this object: distance changes when a probe lands and never
         // what it costs, so a far probe is a longer buy rather than a worse one — and it never
         // competes with the deuterium that gates the Robotics Factory.

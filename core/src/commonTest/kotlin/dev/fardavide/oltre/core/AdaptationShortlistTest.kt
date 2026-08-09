@@ -10,7 +10,7 @@ class AdaptationShortlistTest {
         adaptationShortlist(state).single { it.technology == technology }
 
     @Test
-    fun `every ladder is listed, including the ones that would unlock nothing`() {
+    fun `every ladder is listed including the ones that would unlock nothing`() {
         // then a row reading zero is what makes the other two mean something
         assertEquals(
             AdaptationTechnology.entries.toList(),

@@ -30,6 +30,23 @@ sealed interface FutureEvent {
 
     data class SurveyLands(
         val target: SystemAddress,
+        // What the landing will chart, carried for the same reason `BuildCompletes` carries the
+        // level it will reach: a caller booking an alert in advance has to be able to say what it
+        // is about, and the only figure it may say is the one `advance` will actually log. Zero is
+        // a real answer — a star with fifteen empty slots is roughly one in 390 — and it is the
+        // one landing that has to be *said* differently, so the prediction has to be able to tell
+        // the two apart before either happens.
+        val worldsFound: Int,
+        // The honest half, and the reason a landing carries two numbers: round 9 measured ~14
+        // dispatches to see one world worth remarking on, so an alert that only counted worlds
+        // would oversell the verb thirteen times in fourteen.
+        //
+        // Measured against the fixed worth-it threshold rather than against the `Settleable`
+        // verdict, and for an alert booked hours ahead that distinction is load-bearing:
+        // `Settleable` re-derives against the empire's *current* adaptation levels, so a ladder
+        // bought mid-flight would quietly make a pending notification wrong. A yield against a
+        // constant cannot go stale between dispatch and landing.
+        val worthTaking: Int,
         override val at: Instant,
     ) : FutureEvent
 
@@ -56,8 +73,20 @@ fun futureEvents(state: GameState): List<FutureEvent> {
     val ladder = state.activeAdaptation?.let { job ->
         FutureEvent.AdaptationCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
     }
+    // Regenerated from the seed rather than stored, which is what every other reader of the galaxy
+    // does — and what makes the count here provably the one the landing branch of `advance` writes:
+    // both call `occupiedWorldsIn`, so there is no second rule to drift from.
     val probes = state.surveys.map { job ->
-        FutureEvent.SurveyLands(target = job.target, at = job.completesAt)
+        val charted = GalaxyState.occupiedWorldsIn(state.galaxy.seed, job.target)
+            .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
+        FutureEvent.SurveyLands(
+            target = job.target,
+            worldsFound = charted.size,
+            worthTaking = charted.count {
+                GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
+            },
+            at = job.completesAt,
+        )
     }
     val arrival = state.returningFleet?.let { fleet ->
         FutureEvent.FleetArrives(origin = fleet.origin, ships = fleet.ships, at = fleet.arrivesAt)

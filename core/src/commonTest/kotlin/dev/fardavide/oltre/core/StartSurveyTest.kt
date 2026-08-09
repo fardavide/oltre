@@ -105,7 +105,7 @@ class StartSurveyTest {
     }
 
     @Test
-    fun `probes run in parallel, because resources are the only limiter`() {
+    fun `probes run in parallel because resources are the only limiter`() {
         // given
         val state = rich()
 
@@ -131,7 +131,7 @@ class StartSurveyTest {
     }
 
     @Test
-    fun `the home system is already known, so it cannot be surveyed again`() {
+    fun `the home system is already known so it cannot be surveyed again`() {
         // given
         val state = rich()
 

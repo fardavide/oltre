@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.LadderShortlist
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -134,6 +135,7 @@ internal val gateOpenUiState = ResearchUiState(
             effect = bandEffect(current = "−30 … +45", next = "−44 … +59", unit = "°C"),
             costs = costs(metal = "900", crystal = "600", deuterium = "900", short = null),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.Start,
         ),
         AdaptationRowUiState(
@@ -143,6 +145,7 @@ internal val gateOpenUiState = ResearchUiState(
             effect = bandEffect(current = "0.65 … 1.40", next = "0.60 … 1.52", unit = "g"),
             costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = ResourceKind.METAL),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 36m"),
         ),
         AdaptationRowUiState(
@@ -152,6 +155,7 @@ internal val gateOpenUiState = ResearchUiState(
             effect = bandEffect(current = "0.5 … 2.6", next = "0.44 … 3.5", unit = "atm"),
             costs = costs(metal = "850", crystal = "1,600", deuterium = "250", short = null),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.Start,
         ),
     ),
@@ -173,6 +177,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             effect = bandEffect(current = "−30 … +45", next = "−44 … +59", unit = "°C"),
             costs = costs(metal = "900", crystal = "600", deuterium = "900", short = null),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
         ),
         AdaptationRowUiState(
@@ -182,6 +187,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             effect = bandEffect(current = "0.65 … 1.40", next = "0.60 … 1.52", unit = "g"),
             costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = null),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
         ),
         AdaptationRowUiState(
@@ -191,6 +197,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             effect = bandEffect(current = "0.5 … 2.6", next = "0.44 … 3.5", unit = "atm"),
             costs = costs(metal = "850", crystal = "1,600", deuterium = "250", short = null),
             duration = "3h 02m",
+            shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
         ),
     ),
@@ -242,6 +249,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         effect = bandEffect(current = "−30 … +45", next = "−44 … +59", unit = "°C"),
         costs = costs(metal = "900", crystal = "600", deuterium = "900", short = null),
         duration = "3h 02m",
+        shortlist = shortlist(unlocks = 0, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
     ),
     AdaptationRowUiState(
@@ -251,6 +259,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         effect = bandEffect(current = "0.65 … 1.40", next = "0.60 … 1.52", unit = "g"),
         costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = null),
         duration = "3h 02m",
+        shortlist = shortlist(unlocks = 5, worthTaking = 1),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
     ),
     AdaptationRowUiState(
@@ -260,9 +269,29 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         effect = bandEffect(current = "0.5 … 2.6", next = "0.44 … 3.5", unit = "atm"),
         costs = costs(metal = "850", crystal = "1,600", deuterium = "250", short = null),
         duration = "3h 02m",
+        shortlist = shortlist(unlocks = 3, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
     ),
 )
+
+// The counts are frozen by hand like every other number in this file, so a baseline moves only when
+// the *screen* moves. The sentence around them is not — it comes from the mapper, because the one
+// time a fixture in this repo wrote its own strings they drifted from the mapper's formatting within
+// the hour and the images asserted text the app would never produce.
+//
+// Three deliberately different answers across the three ladders, so one frame carries every shape
+// the line has: a pair worth reading, a run of unlocks with none over the bar, and a zero. The zero
+// is the point of the row existing at all — "Thermal unlocks nothing" is what makes the other two
+// mean something.
+private fun shortlist(unlocks: Int, worthTaking: Int) = LadderShortlist(
+    // Neither is drawn: the line names no technology and no level, both of which are already on the
+    // row above it. They are here because `LadderShortlist` is core's type and states the whole
+    // answer rather than the half this screen renders.
+    technology = AdaptationTechnology.THERMAL,
+    nextLevel = TechLevel(1),
+    unlocks = unlocks,
+    worthTaking = worthTaking,
+).toUiState()
 
 // The unit is the compact form of itself: a band line is digits, units and relations, so unlike the
 // applied line there is nothing in it a narrower window could drop.

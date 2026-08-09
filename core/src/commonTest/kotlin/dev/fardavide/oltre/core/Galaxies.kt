@@ -24,3 +24,17 @@ internal fun firstWorld(seed: GalaxySeed): World {
     }
     error("seed $seed generated no worlds at all")
 }
+
+// A system with a star and nothing around it. Roughly one in 390 — 0.55^7 x 0.80^8 against the two
+// slot occupancy rates — so it is rare, real, and the case a probe's "nothing to learn" landing
+// exists for. A test that needs one should not have to hope it picked one; same coordinate-order
+// scan as `firstWorld`, for the same reason.
+internal fun firstWorldlessSystem(seed: GalaxySeed): SystemAddress {
+    for (galaxy in 1..GalaxyBalance.GALAXIES) {
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val address = SystemAddress(galaxy = galaxy, system = system)
+            if (GalaxyState.occupiedWorldsIn(seed, address).isEmpty()) return address
+        }
+    }
+    error("seed $seed generated no empty system at all")
+}

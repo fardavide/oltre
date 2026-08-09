@@ -115,7 +115,7 @@ class AdvanceSurveyTest {
     }
 
     @Test
-    fun `two probes landing at the same instant are ordered by target, not by dispatch order`() {
+    fun `two probes landing at the same instant are ordered by target rather than by dispatch order`() {
         // given two systems equidistant from home in opposite directions, so their flights are the
         // same length to the millisecond
         val state = rich()
@@ -147,6 +147,71 @@ class AdvanceSurveyTest {
         val landing = pending.filterIsInstance<FutureEvent.SurveyLands>().single()
         assertEquals(to, landing.target)
         assertEquals(dispatched.surveys.single().completesAt, landing.at)
+    }
+
+    @Test
+    fun `a landing is predicted with the count the log will record`() {
+        // given the two derivations a notification is written from — what is going to happen, and
+        // what did. An alert booked in advance that named a different number from the event it
+        // announces would be the game contradicting itself on a lock screen, and the only way that
+        // cannot happen is for both to be read off the same state by the same rule.
+        val state = rich()
+        val to = target(state, systemsAway = 14)
+        val dispatched = state.dispatch(to)
+
+        // when
+        val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().single()
+        val logged = advance(dispatched, from = t0, to = t0 + 3.hours)
+            .eventLog.filterIsInstance<Event.SurveyCompleted>().single()
+
+        // then
+        assertTrue(logged.worldsFound > 0, "the fixture needs a target that holds worlds")
+        assertEquals(logged.worldsFound, predicted.worldsFound)
+    }
+
+    @Test
+    fun `a landing is predicted with how much of what it charts clears the bar`() {
+        // given the honest half of the payload, and the reason a landing needs two numbers rather
+        // than one: round 9 measured ~14 dispatches to see one world worth remarking on, so "four
+        // worlds charted" on its own is the alert overselling the verb thirteen times out of
+        // fourteen.
+        //
+        // The bar is the worth-it threshold rather than the `Settleable` verdict, and that is
+        // load-bearing for an alert booked hours ahead: `Settleable` re-derives against the
+        // empire's *current* adaptation levels, so a ladder bought mid-flight would silently make
+        // a pending notification wrong. A yield against a fixed threshold cannot go stale.
+        val state = rich()
+        val to = target(state, systemsAway = 14)
+        val dispatched = state.dispatch(to)
+        val expected = GalaxyState.occupiedWorldsIn(state.galaxy.seed, to)
+            .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
+            .count { GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion }
+
+        // when
+        val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().single()
+
+        // then
+        assertEquals(expected, predicted.worthTaking)
+        assertTrue(predicted.worthTaking <= predicted.worldsFound, "the honest half cannot exceed the whole")
+    }
+
+    @Test
+    fun `a star with nothing around it cannot be dispatched to at all`() {
+        // given the rare system whose fifteen slots are all empty — roughly one in 390. Whether a
+        // slot holds a world is *charted*, free and galaxy-wide, so there is genuinely nothing
+        // there a probe could learn, and `hasSurveyed` answers vacuously true.
+        //
+        // Pinned as a refusal rather than left to be discovered by a screen: a player must not be
+        // able to spend 150 metal and nine hours on a star to be told what the map already drew.
+        // What it costs is that a dispatch action has a sixth state to render, which is `nothing to
+        // survey` and emphatically not `already surveyed`.
+        val state = rich()
+
+        // then
+        assertEquals(
+            StartSurveyResult.AlreadySurveyed,
+            startSurvey(state, firstWorldlessSystem(state.galaxy.seed), at = t0),
+        )
     }
 
     @Test
