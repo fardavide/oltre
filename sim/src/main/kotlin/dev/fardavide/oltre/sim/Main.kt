@@ -26,6 +26,7 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.Uniform
+import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
@@ -233,6 +234,38 @@ private fun printGalaxyReport() {
             GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
         }
         println("| $level | ${passing.size.grouped()} (${percent(passing.size, worlds.size)}) | ${settleable.grouped()} |")
+    }
+    println()
+
+    // ── Does the map give a probe a reason to prefer one target over another? ────────────────
+    //
+    // The question design call 1 turns on, and it can only be answered by measurement. A system
+    // index enters none of `GalaxyBalance`'s trait functions, so the only thing that varies from
+    // system to system is the **star class** — which is charted before anything is surveyed, and is
+    // therefore the one prior a player could act on when aiming a probe. If the three classes
+    // produce materially different worlds, the gradient already exists and the work is to surface
+    // it. If they do not, "where to look" has one correct answer forever and the verb is scheduling
+    // rather than exploration.
+    println("### What a star class is worth knowing")
+    println()
+    println("| Star | Worlds | Passes every band | Settleable | Mean metal | Mean crystal | Mean deuterium |")
+    println("|---|---|---|---|---|---|---|")
+    for (starClass in StarClass.entries) {
+        val of = worlds.filter { it.starClass == starClass }
+        if (of.isEmpty()) continue
+        val passing = of.filter { world ->
+            HostilityAxis.entries.all { axis -> world.traits.axisValue(axis) in unaided.bandOf(axis) }
+        }
+        val settleable = passing.count {
+            GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
+        }
+        println(
+            "| $starClass | ${of.size.grouped()} | ${percent(passing.size, of.size)} " +
+                "| ${percent(settleable, of.size)} " +
+                "| ${meanRichness(of) { it.metalRichness.perMillion }} " +
+                "| ${meanRichness(of) { it.crystalRichness.perMillion }} " +
+                "| ${meanRichness(of) { it.deuteriumRichness.perMillion }} |",
+        )
     }
     println()
 
@@ -978,4 +1011,11 @@ private fun printWholeTreeRun() {
     )
     val (state, ledger) = run(days = 14, plan = plan, withProjects = true)
     report("whole tree (parallel builds, one research slot)", 14, state, ledger, plan, withProjects = true)
+}
+
+// Mean of one richness across a set of worlds, in the same 1.00 units the yield table reads in.
+private fun meanRichness(worlds: List<dev.fardavide.oltre.core.World>, of: (WorldTraits) -> Int): String {
+    if (worlds.isEmpty()) return "—"
+    val mean = worlds.sumOf { of(it.traits).toLong() } / worlds.size
+    return yieldLabel(mean.toInt())
 }
