@@ -63,16 +63,36 @@ object ResearchBalance {
     fun effectPercent(technology: Technology, level: TechLevel): Int =
         (((multiplier(technology, level) - MULTIPLIER_BASIS) * 100 + MULTIPLIER_BASIS / 2) / MULTIPLIER_BASIS).toInt()
 
+    // ── The opening discount reaches the branch too ──────────────────────────────────────────
+    //
+    // The published table below is still the design and `ResearchBalanceTest` still asserts it row
+    // by row; what changed on 2026-08-09 is that the table is now the **full** price, and the first
+    // three levels are sold below it. Davide's call, which is the only kind of call that may move
+    // these numbers: *"Everything must be cheaper and quicker across the board, until first
+    // expedition."*
+    //
+    // **Four, because the branch opens at Robotics 1 and the discount ends at Robotics 4.** Between
+    // those two the colony gets through two or three technology levels, so a ramp any longer would
+    // still be running when the galaxy opened and any shorter would be over before the branch was.
+    // The window is genuinely small — that is what it means for a branch to open two thirds of the
+    // way through the opening — and the discount is steepest exactly where the player meets it.
+    private const val FULL_PRICE_LEVEL: Int = 4
+
     fun researchCost(technology: Technology, toLevel: TechLevel): Resources {
         require(toLevel.value in 1..TechLevel.MAX) {
             "research cost is only defined for levels 1..${TechLevel.MAX}, asked for $toLevel"
         }
         val steps = toLevel.value - 1
         val base = baseCost(technology)
+        fun priced(resource: Long): Long = openingDiscount(
+            exactGeometric(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            toLevel.value,
+            FULL_PRICE_LEVEL,
+        )
         return Resources.of(
-            metal = exactGeometric(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            crystal = exactGeometric(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            deuterium = exactGeometric(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            metal = priced(base.metal),
+            crystal = priced(base.crystal),
+            deuterium = priced(base.deuterium),
         )
     }
 
@@ -86,7 +106,13 @@ object ResearchBalance {
             Technology.EXTRACTION -> 90
             Technology.ENRICHMENT -> 150
         }
-        return (base * toLevel.value).minutes * RESEARCH_ROBOTICS_NUMERATOR /
+        // "Cheaper **and quicker**" — and a building got the second half for nothing, because round
+        // 11 made its duration a function of its cost. This one is a table times a level, so it has
+        // to be told, and it is told on the base minutes *before* the Robotics divisor so the two
+        // reductions compose the way they read: the discount is the opening, the divisor is the
+        // factory.
+        val minutes = openingDiscount((base * toLevel.value).toLong(), toLevel.value, FULL_PRICE_LEVEL)
+        return minutes.minutes * RESEARCH_ROBOTICS_NUMERATOR /
             (RESEARCH_ROBOTICS_NUMERATOR + RESEARCH_ROBOTICS_PER_LEVEL * roboticsFactory.value)
     }
 

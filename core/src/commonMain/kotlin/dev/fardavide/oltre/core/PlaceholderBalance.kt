@@ -153,34 +153,123 @@ object PlaceholderBalance {
         return if (!energy.isDeficit) fullRate else fullRate * energy.produced / energy.consumed
     }
 
+    // ── The opening is on a discount, and the discount runs out ──────────────────────────────
+    //
+    // Davide, 2026-08-09, after round 11 shipped: *"I want the user to be able to gather resources
+    // and build quickly the first 2/3/4 days ... Actually I don't want more resources, but cheaper
+    // upgrades at the start."*
+    //
+    // Both halves of that sentence are load-bearing and they rule out the two obvious moves.
+    // **Not more resources**, so the production curve is untouched — round 3 raised metal and round
+    // 7 raised crystal, and a third income raise would inflate every payback in the game and undo
+    // the ratio `BalanceCurveTest` pins against the repeating basket. **Cheaper at the *start***, so
+    // not a lower base either: dividing `baseCost` would discount level 30 exactly as much as level
+    // 1 and hand back the whole late game with it.
+    //
+    // What is left is the shape nobody had tried: **a discount on the early levels that decays to
+    // nothing** — `openingDiscount` in `Curves.kt`, a third of full price at level 1 climbing in
+    // equal steps to full price at `FULL_PRICE_LEVEL`. Above that the curve is the same curve it
+    // has been since round 2, integer for integer.
+    //
+    // It is in `Curves.kt` rather than here because **all three cost tables answer to it**. Round
+    // 13 shipped it on the buildings alone and Davide's correction was immediate — *"Everything
+    // must be cheaper and quicker across the board"* — which was fair: `ResearchBalance` and
+    // `AdaptationBalance` are separate objects with separate curves, and discounting a mine while
+    // leaving a technology at full price is not a cheaper opening, it is a changed ratio between
+    // the two. The applied branch now carries the same discount. The adaptation ladders do not, and
+    // that is not an omission: the landmark *is* the moment they become buyable, so their level 1
+    // sits exactly on the boundary where the discount has already run out.
+    //
+    // Two consequences that are the point rather than side effects:
+    //
+    // - **It buys the second and third verbs as well as the levels.** Every gate in the game is a
+    //   Robotics Factory level and the Robotics Factory is discounted like everything else, so
+    //   round 12's gate clock moves without touching a single gate — which round 12 measured as
+    //   unreachable by any of the three levers aimed straight at it.
+    // - **It shortens the early builds too, for free**, because round 11 made duration a function
+    //   of cost. A third of the price is 0.58 of the clock, and no second constant had to move.
+    //   Research had to be told separately, because its duration is a table rather than a function
+    //   of what it costs.
+    //
+    // The growth *rate* inside the ramp is steeper than the ×1.5 outside it — between ×1.9 and
+    // ×1.6, falling as the discount runs out. That is the cost of converging, and it is the right
+    // place to pay it: the early levels are cheap in absolute terms even while climbing fast, and
+    // the player who feels the slope is one who already has three verbs to spend on.
+    // **Nine, because that is where a colony's mines stand when the galaxy opens.** The landmark
+    // Davide named is Robotics Factory 4 — where a probe's findings become buyable — and `:sim:run`
+    // puts the mines at level 8 or 9 at the moment that lands. So the mines reach full price and
+    // the galaxy becomes actionable together, which is the sentence *"1x at the moment you can have
+    // the first expedition"* turned into a level.
+    //
+    // The Robotics Factory rides the same schedule rather than converging at its own 4th level, and
+    // that is deliberate: it is the building that opens the landmark, so keeping it cheap past the
+    // landmark's own level is what brings the landmark forward.
+    private const val FULL_PRICE_LEVEL: Int = 9
+
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
         require(toLevel.value in 1..MAX_UPGRADE_LEVEL) {
             "upgrade cost is only defined up to level $MAX_UPGRADE_LEVEL, asked for $toLevel"
         }
         val steps = toLevel.value - 1
         val base = baseCost(building)
+        fun priced(resource: Long): Long = openingDiscount(
+            compound(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            toLevel.value,
+            FULL_PRICE_LEVEL,
+        )
         return Resources.of(
-            metal = compound(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            crystal = compound(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            deuterium = compound(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            metal = priced(base.metal),
+            crystal = priced(base.crystal),
+            deuterium = priced(base.deuterium),
         )
     }
 
-    // A build takes as long as it costs. OGame's shape, and the fix balance round 8 measured,
-    // held, and named four rounds running as *the* wrong thing about this game's pacing.
+    // A build takes about as long as **earning** it does. Round 10 said "as long as it costs" and
+    // divided the metal-and-crystal sum by three, which is OGame's shape and reads well; round 11
+    // is the correction, and the thing it corrects is a divergence rather than a level.
     //
-    // What it replaces was `per-building minutes x level` — linear in the level while cost
-    // compounds at +50%, so the two curves diverged from level one. A colony spent 87.5% of its
-    // first two days with nothing at all in flight and the busiest check-in booked 72 minutes of
-    // work: every notification the game could send arrived while the player was still holding the
-    // phone. **Round 8 measured this exact change at 87.5% -> 64.6% idle with an identical 25
-    // levels at 48 hours** — so it buys cover without costing progress, and it is why it was held
-    // rather than rejected: on its own it trades taps for cover, and it wanted the probe beside it.
+    // Cost compounds at +50% a level. Production compounds at +25%. So a duration read straight
+    // off the cost pulls away from the income that pays for it by x1.2 a level, from level one,
+    // without bound: the Metal Mine's sixth level cost 3h 07m of building against 1h 50m of
+    // earning, its eighth 7h 01m against 2h 39m, and its twentieth **911 hours against 24**. The
+    // Robotics Factory's divisor was the only thing pushing back, and it is the one facility that
+    // raises no rate, is priced in the slowest resource, and is therefore the one a player is most
+    // likely not to have — `:sim:run` measured a colony that never bought it waiting 6h 48m for a
+    // single tap on day two and finishing 48 hours two levels behind one that did.
     //
-    // Deuterium is deliberately outside the sum, as in OGame. It is the resource that gates the
-    // Robotics Factory and therefore the whole research branch, and pricing *time* in it too would
-    // make one scarcity govern two things the player has to trade off separately.
-    private const val COST_PER_MINUTE: Long = 3
+    // The root closes it, and the arithmetic is why rather than a coincidence: cost-over-income
+    // grows at 1.5 / 1.25 = **x1.2** a level, and the square root of a x1.5 curve grows at
+    // **x1.2247**. Cutting the duration from the root of the cost therefore tracks the time it
+    // takes to earn the thing at *every* depth — 0.75 of it at level 3, 1.13 at level 20, with no
+    // help from any building. `BalanceCurveTest` bounds that ratio on both sides, which is the
+    // check round 10's shape could not have passed at any constant.
+    //
+    // Four rather than three or five: `:sim:run` swept the band and every value in it answers
+    // Davide's complaint, so what the constant buys is how much of round 10's cover survives. At 3
+    // the colony idles 85.4% of its opening, which is where it was *before* round 10 — the change
+    // undone. At 5 the deepest tap on day two is back to 2h 55m for a player at Robotics 0, which
+    // is the complaint. At 4 no repeating facility passes two hours before level 8, and 81.25% of
+    // the opening still has the colony busy. Round 11 of `balance-log.md` has the sweep.
+    //
+    // Deuterium is deliberately outside the sum, as in OGame and as in round 10. It is the resource
+    // that gates the Robotics Factory and therefore the whole research branch, and pricing *time*
+    // in it too would make one scarcity govern two things the player has to trade off separately.
+    private const val MINUTES_PER_ROOT_COST: Long = 4
+
+    // Integer, and Newton's rather than `sqrt`: `core` is pure and must give the same answer on
+    // every platform it compiles for, and a float root that lands a hair under a perfect square
+    // would truncate to a different minute on one target than on another. Converges in a handful
+    // of steps and is only ever called on a cost.
+    private fun rootOf(value: Long): Long {
+        if (value <= 0) return 0
+        var root = value
+        var next = (root + 1) / 2
+        while (next < root) {
+            root = next
+            next = (root + value / root) / 2
+        }
+        return root
+    }
 
     // Nothing is instant, however deep the Robotics Factory goes. At Robotics 10 a first mine level
     // divides to under three minutes, which is not a build — it is a tap with a delay on it, and it
@@ -193,7 +282,7 @@ object PlaceholderBalance {
         roboticsFactory: BuildingLevel,
     ): Duration {
         val cost = upgradeCost(building, toLevel)
-        val base = ((cost.metal + cost.crystal) / COST_PER_MINUTE).minutes
+        val base = (MINUTES_PER_ROOT_COST * rootOf(cost.metal + cost.crystal)).minutes
         // The floor is applied last, to what the player actually waits — not to the base before the
         // divisor. A Robotics Factory that shortens a build below the floor has bought all the
         // shortening there is; a floor placed ahead of it would let the divisor cut *through* the

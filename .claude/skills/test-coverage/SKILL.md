@@ -25,6 +25,14 @@ Rules that follow from the table:
 
 - **`…Test` is the residue, not a catch-all.** A test that touches disk and is still called
   `…Test` is reported as a unit test, which makes the unit number a lie. Rename it.
+- **No commas in a backticked test name in `commonTest`.** Kotlin/Native rejects them —
+  `Name contains illegal characters: ","` — where the JVM accepts them happily, so
+  `:core:jvmTest` goes green locally and `:core:compileTestKotlinIosArm64` fails on CI, taking
+  the Build, Unit tests, Screenshot and Coverage jobs down with it. Learned the expensive way at
+  0.2.4, on six names in one push. A `desktopTest` or `androidUnitTest` name may contain one,
+  because no Native target ever compiles those source sets — which is why the two that exist in
+  `client/*` have never failed. Semicolons and colons are out for the same reason; an em dash,
+  an apostrophe and a full stop are all fine.
 - **A fake is not a boundary.** `GameStoreTest` drives the same store as
   `FileSaveFileIntegrationTest` but against `FakeSaveFile`; it is a unit test. What makes the
   other one integration is the real `File`.

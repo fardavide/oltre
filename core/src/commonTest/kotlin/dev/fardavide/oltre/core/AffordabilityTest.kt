@@ -49,9 +49,13 @@ class AffordabilityTest {
 
     @Test
     fun `time until affordable is the largest per-resource deficit over its effective rate`() {
-        // given an empty stock and initial buildings (90 metal + 30 crystal per hour);
-        // metal mine → 2 costs 90 metal (60 minutes) and 22 crystal (44 minutes)
-        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))
+        // given an empty stock and initial buildings (90 metal + 36 crystal per hour) and a price
+        // of 90 metal (60 minutes) against 22 crystal (37 minutes), so the answer is the metal.
+        //
+        // Stated as literals rather than read off `upgradeCost`, deliberately: this is a test of
+        // the *rule*, and tying it to a curve made it fail for the third time in three rounds of
+        // tuning that had nothing to do with affordability.
+        val cost = Resources.of(metal = 90, crystal = 22)
 
         // when
         val wait = timeUntilAffordable(Resources.of(), cost, Buildings.initial(), Research.initial())

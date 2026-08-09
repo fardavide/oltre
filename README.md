@@ -158,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.2.2 — 2026-08-09
+### 0.2.5 — 2026-08-09
 
 - **A debug menu, for developing the game rather than playing it.** Shake the phone to open it
   (Ctrl+D or Cmd+D on desktop). It can skip the colony forward to the next thing that happens —
@@ -167,9 +167,53 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   doing underneath: the two clocks, the save's version, the galaxy's seed, what is in flight.
 - It ships to everyone rather than to debug builds only, so that it works on TestFlight. Nothing
   opens it by accident, and skipping ahead is the only thing on it that changes the game.
-- Saves now record whether the menu has ever touched the colony. Saves from 0.2.1 carry forward
+- Saves now record whether the menu has ever touched the colony. Saves from 0.2.4 carry forward
   untouched and read as never debugged, which is what they are.
 
+### 0.2.4 — 2026-08-09
+
+- **The adaptation ladders join the opening discount.** They were the one thing left at full price,
+  which made the first ladder cost nearly six times the technology beside it — a wall exactly where
+  you first meet the galaxy. A first Thermal level is now 300/200/300 instead of 900/600/900, and the
+  ladders settle back to full price alongside the rest.
+- **Nothing in the game can quietly overflow any more.** Every cost, duration and stock is a 64-bit
+  integer, and a 64-bit integer that runs out does not fail — it comes back negative, and a negative
+  price is one the game reads as *free*. Every curve now refuses to produce one.
+- **A colony you leave for years no longer breaks on the way back.** Returning after a very long
+  absence — or with a device clock that has jumped — used to compute a number too large to hold
+  before it capped it at your storage. It now caps the time instead, so a full store is a full store
+  whether you were gone a week or a century.
+
+### 0.2.3 — 2026-08-09
+
+- **The whole opening is on a discount.** Everything you can buy in the first days costs exactly a
+  third of its full price at level one — a first Metal Mine level is 20 metal instead of 60, the
+  first Extraction is 200/133/66 instead of 600/400/200 — and the discount shrinks with every level
+  until it is gone. Deep upgrades cost exactly what they always did; only the opening moved.
+- **It runs out when the galaxy opens.** Full price arrives at facility level 9 and technology level
+  4, which is the same session the adaptation ladders unlock and your probes' findings become
+  something you can act on rather than only read.
+- **Research is cheaper *and* quicker early**, not just cheaper: the first Photovoltaics takes 20
+  minutes instead of an hour.
+- **You get about a day further in the same four days**, and roughly twice as much research done —
+  day four now finishes nine projects where it used to manage four.
+- **The Research tab opens on day one** instead of day two, and the adaptation ladders on day three
+  instead of day five. No requirement changed: the Robotics Factory is simply cheaper at the start
+  like everything else.
+- Resource production is untouched. Mines produce exactly what they produced yesterday.
+
+### 0.2.2 — 2026-08-09
+
+- **Upgrades stopped outgrowing your income.** A build used to take as long as it *cost*, and
+  because costs climb faster than mines do, the wait ran away from you: a sixth Metal Mine level
+  took 3h 07m to build against 1h 50m to earn, and a sixth Deuterium Synthesizer took twelve and a
+  half hours. A build now takes about as long as *earning* it does — 1h 32m and 3h 08m for those
+  two — and it stays that way at every depth instead of only near the start.
+- **You no longer have to have guessed that the Robotics Factory is the clock.** It still halves
+  your builds, but skipping it used to cost a player two building levels over the first two days and
+  a six-and-three-quarter-hour wait for a single tap; now it costs neither, and the worst wait in
+  those two days is 2h 20m.
+- Same progress after two days as before, and rather more after a week.
 ### 0.2.1 — 2026-08-09
 
 - **Oltre runs on Android.** The whole game, on any phone running Android 8.0 or newer — the same

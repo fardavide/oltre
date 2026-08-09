@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import org.junit.Test
 
@@ -46,13 +47,15 @@ class AdaptationBehaviourTest {
 
             startTheOnlyProjectOffered()
 
-            // the ladder is the length the sheet says it is, so nothing lands early
-            letTimePass(by = 2.hours)
+            // the ladder still takes real time, so nothing lands early. Atmospheric 1 is 61
+            // minutes at this colony's Robotics 4 — the sheet's 182 carrying the opening discount
+            // — so half an hour in it is still running and the world still reads as blocked.
+            letTimePass(by = 30.minutes)
             open(OltreTab.GALAXY)
             assertReads(REMEDY)
 
             // then, once it completes, the same world reads differently without a survey or a fleet
-            letTimePass(by = 2.hours)
+            letTimePass(by = 1.hours)
             assertReads(HOME_SYSTEM_BEST)
             // The yield rather than the verdict word: two worlds read SETTLEABLE once the empire
             // has climbed this far, and 1.23 is this one's. Slot 10 is still blocked on pressure
@@ -88,8 +91,10 @@ class AdaptationBehaviourTest {
     private fun onePressureBandShort(): GameState {
         val fresh = GameState.initial(GalaxySeed(20_260_807))
         return fresh.copy(
-            // Exactly Atmospheric 1's price, and under every other row's.
-            resources = Resources.of(metal = 850, crystal = 1_600, deuterium = 250),
+            // Exactly Atmospheric 1's price, and under every other row's. A third of the
+            // sheet's 850 / 1,600 / 250 since the opening discount reached this branch — the
+            // fixture is deliberately exact, so it follows the price rather than over-funding.
+            resources = Resources.of(metal = 283, crystal = 533, deuterium = 83),
             buildings = Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(4)),
             research = Research.initial()
                 .withLevel(Technology.PHOTOVOLTAICS, TechLevel(5))

@@ -83,14 +83,29 @@ class SkipAheadTest {
     fun `the soonest event wins when two facilities are building at once`() {
         // Builds run in parallel, one job per facility, so a colony can hold several completion
         // instants at the same time. The answer has to be the nearest of them.
+        //
+        // The second build is started *later* rather than alongside the first, and that is not
+        // incidental. Since the 0.2.3 opening discount two fresh mines cost the same and a build
+        // takes as long as it costs, so starting them together gives two identical instants — and
+        // against those, "the minimum" and "whichever came first" are the same answer, which is
+        // precisely the distinction this test exists to make.
+        //
+        // The stagger is **half of the first build's own duration** rather than a wall-clock figure,
+        // because a figure goes stale: 30 minutes was chosen against the pre-discount curves and
+        // silently became longer than the whole build, so the first one had already finished and
+        // there was never a second job. Read off the colony, it cannot: the second build always
+        // starts while the first is still running, at whatever the curves happen to say today.
+        val started = buildingColony()
+        val later = EPOCH + (soonest(started) - EPOCH) / 2
         val state = assertIs<StartUpgradeResult.Started>(
-            startUpgrade(buildingColony(), BuildingType.CRYSTAL_MINE, at = EPOCH),
+            startUpgrade(advance(started, from = EPOCH, to = later), BuildingType.CRYSTAL_MINE, at = later),
         ).state
         val pending = futureEvents(state).map { it.at }
 
         assertEquals(2, state.builds.size, "both facilities should be building, was ${state.builds.keys}")
+        assertEquals(2, pending.distinct().size, "the two completions should differ, were $pending")
 
-        val skip = skipAhead(state, now = EPOCH)
+        val skip = skipAhead(state, now = later)
 
         assertEquals(pending.min(), skip.to)
         assertTrue(pending.any { it > skip.to }, "the later completion should still be pending")

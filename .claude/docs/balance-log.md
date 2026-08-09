@@ -22,18 +22,21 @@ When a round of tuning lands:
 Do not delete a superseded round. A number that was tried and rejected is the most useful thing
 in this file.
 
-## Current curves (0.1.1)
+## Current curves (0.2.4)
 
 Level-1 output: **90 metal / 36 crystal / 15 deuterium per hour**. Output compounds **+25% per
-level**, cost compounds **+50% per level**, both floored to whole units at every step.
+level**, cost compounds **+50% per level**, both floored to whole units at every step — and from
+round 14 **every cost table in the game** carries the opening discount: exactly a third of full
+price at level 1, climbing in equal steps to full price at level 9 for buildings and level 4 for
+applied research. The cost column below is what the player pays.
 
 | Level | metal/h | crystal/h | deut/h | metal mine cost (m/c) | payback of the next level |
 |---|---|---|---|---|---|
-| 1 | 90 | 36 | 15 | 60 / 15 | 4h |
-| 2 | 112 | 45 | 18 | 90 / 22 | 4h |
-| 3 | 140 | 56 | 22 | 135 / 33 | 5h |
-| 5 | 218 | 87 | 33 | 303 / 73 | 8h |
-| 8 | 425 | 168 | 63 | 1,021 / 244 | 14h |
+| 1 | 90 | 36 | 15 | 20 / 5 | 1h |
+| 2 | 112 | 45 | 18 | 37 / 9 | 2h |
+| 3 | 140 | 56 | 22 | 67 / 16 | 3h |
+| 5 | 218 | 87 | 33 | 202 / 48 | 6h |
+| 8 | 425 | 168 | 63 | 935 / 223 | 14h |
 | 10 | 663 | 262 | 97 | 2,296 / 549 | 20h |
 | 12 | 1,035 | 408 | 151 | 5,166 / 1,234 | 30h |
 | 15 | 2,020 | 796 | 293 | 17,434 / 4,164 | 51h |
@@ -42,10 +45,11 @@ level**, cost compounds **+50% per level**, both floored to whole units at every
 
 Daily metal: 2,160 at level 1, 5,232 at level 5, 15,912 at level 10, 48,480 at level 15.
 
-Other levers as of 0.1.1: starting stock 500 metal / 300 crystal (no deuterium); build duration
-is base-minutes × level, divided by 1 + robotics level; storage cap a flat 10M per resource;
-energy scales all mine output by produced/consumed on a deficit — and that scaling is now on
-screen rather than silent (round 3).
+Other levers as of 0.2.4: starting stock 500 metal / 300 crystal (no deuterium); **build duration
+is 4 × √(metal + crystal) minutes, divided by 1 + robotics level, with a five-minute floor applied
+last** (round 11 — base-minutes × level until round 10, then cost ÷ 3 for one release); storage cap
+a flat 10M per resource; energy scales all mine output by produced/consumed on a deficit — and that
+scaling is now on screen rather than silent (round 3).
 
 > **Regenerated from `./gradlew :sim:run` (2026-08-08).** The crystal column is the only thing
 > round 7 moved; every metal figure, both cost columns, the paybacks and the daily totals are
@@ -907,3 +911,682 @@ measures *one stated strategy*, not a player. Nothing here has been played.
   level-1 rows to buy — a second colony, which is slice #10.
 - **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
   strategy. The first round that can say how any of it *feels* is the one after the screen ships.
+
+## Round 11 — 0.2.2, the wait that outgrew the earning (2026-08-09)
+
+Round 10's "still nothing here has been played" lasted one day. Davide played 0.2.0 and the first
+thing he said was about the curve it landed.
+
+### The feedback, verbatim
+
+> "Ok, I think I can tell that prices and build times, before have access to explorations, are way
+> too long! I open the game, most of the thing are red (not enough resources), and after I tap the
+> one or two thing I can upgrade I have to wait 2/3 hours!"
+
+> "It's fine to have high cost and long build time when you have more things to do, but before then
+> it's so frustrating"
+
+And, asked to make the harness count what a check-in offers:
+
+> "I'm not sure it's a good idea, but I was thinking we could count the possible interactions in the
+> benchmarks, to make sure users have 'things to do'?"
+
+**The second sentence is the specification.** He is not asking for a cheaper game — he asked twice
+in round 8 for the opposite (*"I dont want to be able to update things no stop"*, *"ci vuole
+parecchio per sbloccare anche quelle che ci sono. Il che è buono"*). He is asking for the weight to
+arrive **after** there is something else to do, not before.
+
+### What the sim was taught to measure
+
+Three additions, and the first two exist because every reading in this harness before today counts
+what a *strategy wanted to buy* — which is not what a player describes.
+
+1. **The screen, as a colour.** `printCheckInPressureReport` reads the six Colony rows the way a
+   person reads them at arm's length, **before** the check-in spends anything: how many are
+   building, how many are tappable, how many are red, how many are locked. Locked is counted apart
+   from red on purpose — the Nanite Factory below Robotics 10 draws as `Locked("Requires Robotics
+   10")`, dimmed with its requirement, and folding it into the red count would manufacture a
+   permanently-red row out of a row that is honestly saying "not yet".
+2. **A three-hour cadence.** Every opening report until now ran at the brief's four a day. Davide
+   has now twice described playing at two or three hours — *"apri il gioco ogni 2/3 ore"* in round
+   8 and *"wait 2/3 hours"* here — and a colony visited twice as often has banked half as much
+   each time. Also run against **a player who never buys the Robotics Factory**, which is not a
+   straw man: it is the only facility that raises no rate, it is priced in the slowest resource,
+   and nothing on the row says it is the building that halves every wait in the game.
+3. **The interaction census**, which is Davide's idea and gets its own section below.
+
+### The finding: the wait outgrew the earning, and it was always going to
+
+Cost compounds at +50% a level. Production compounds at +25%. Round 10 read the duration straight
+off the cost, so **the wait after a tap pulled away from the income that pays for it by ×1.2 a
+level, from level one, without bound.** The two clocks, Metal Mine, Robotics 0:
+
+| Level | cost (m+c) | 0.2.0 build | hours of income to afford it |
+|---|---|---|---|
+| 4 | 251 | 1h 23m | 1h 26m |
+| 5 | 376 | 2h 05m | 1h 43m |
+| 6 | 563 | **3h 07m** | 1h 50m |
+| 7 | 844 | **4h 41m** | 2h 30m |
+| 8 | 1,265 | **7h 01m** | 3h 00m |
+| 20 | 164,005 | **911h** | 23h 51m |
+
+**Level 4 is where they cross**, and after it the build is the binding wait for the rest of the
+game. Davide's "2/3 hours" is levels 5 to 7, which is where a colony is on day two — measured, not
+inferred. The Deuterium Synthesizer was worse still at 12h 36m for level 6, because its base cost
+is four times the Metal Mine's and round 10's rule made that four times the clock.
+
+The Robotics divisor was the only thing pushing back, and it decided the whole experience:
+
+| Three-hour cadence, 0.2.0 | buys Robotics | never buys Robotics |
+|---|---|---|
+| Median wait a tap booked | 1h 33m | **2h 29m** |
+| Longest wait a tap booked | 2h 53m | **6h 48m** |
+| Taps booking over two hours | 8 of 23 | 13 of 22 |
+| Building levels at 48h | 26 | **24** |
+
+A balance that swings that far on whether the player has worked out which building is secretly the
+clock is not a balance; it is a quiz.
+
+### What changed: the duration is cut from the **root** of the cost
+
+`upgradeDuration` was `(metal + crystal) ÷ 3` minutes. It is now **4 × √(metal + crystal)** minutes,
+still divided by (1 + Robotics), still with the five-minute floor applied last, and deuterium still
+outside the sum for round 10's reason.
+
+**The arithmetic is why, rather than a coincidence.** Cost-over-income grows at 1.5 / 1.25 = ×1.2 a
+level; the square root of a ×1.5 curve grows at ×1.2247. So a duration cut from the root tracks the
+time it takes to earn the thing *at every depth*, with no help from any building — 0.75 of it at
+level 3, 1.13 at level 20. `BalanceCurveTest` now bounds that ratio **on both sides**, which is a
+check round 10's shape could not have passed at any constant.
+
+Round 10's sentence was "a build takes as long as it costs". The correction is one word:
+**a build takes about as long as *earning* it does.**
+
+### The price, swept rather than chosen
+
+Six candidates through the real harness. `÷5` and `÷6` keep round 10's shape and only shift it.
+
+| Curve | 3h median | 3h longest | >2h | never-Robotics longest | its levels at 48h | colony idle |
+|---|---|---|---|---|---|---|
+| **÷3 — 0.2.0** | 1h 33m | 2h 53m | 8 of 23 | **6h 48m** | **24** | 68.75% |
+| ÷5 | 1h 07m | 1h 44m | 0 of 24 | 4h 13m | **24** | 79.16% |
+| ÷6 | 0h 56m | 1h 26m | 0 of 24 | 3h 30m | **24** | 83.33% |
+| root ×3 | 0h 37m | 1h 06m | 0 of 24 | 1h 45m | 26 | 85.41% |
+| **root ×4 — chosen** | **0h 50m** | **1h 28m** | **0 of 24** | **2h 20m** | **26** | **81.25%** |
+| root ×5 | 1h 02m | 1h 50m | 0 of 24 | 2h 55m | 26 | 77.08% |
+
+**Two things this table settles.** First, the constant was not the problem: doubling it to ÷6 still
+leaves the uninformed player waiting 3h 30m and still costs them two levels, because the divergence
+is exponential and a constant only moves where it bites. Second, the root **dominates** the
+constant on both axes at once — root ×5 has *less* colony idleness than ÷5 (77.08% against 79.16%)
+*and* a far better worst case. That is not a trade-off being taken; it is a better shape.
+
+**Four rather than three or five.** Every value in 3–5 answers the complaint, so the constant buys
+one thing: how much of round 10's cover survives. At 3 the colony idles 85.4% of its opening, which
+is where it was *before* round 10 — the change undone. At 5 the deepest tap on day two is back to
+2h 55m for a player at Robotics 0, which is the complaint. At 4 no repeating facility passes two
+hours before level 8 and 81.25% of the opening still has the colony busy.
+
+### What it moves
+
+| Reading | 0.2.0 | 0.2.2 |
+|---|---|---|
+| Median wait a tap booked (3h cadence) | 1h 33m | **0h 50m** |
+| Longest wait a tap booked | 2h 53m | **1h 28m** |
+| Taps booking over two hours | 8 of 23 | **0 of 24** |
+| Same, for a player who never buys Robotics | 13 of 22 | **4 of 23** |
+| Their longest wait | 6h 48m | **2h 20m** |
+| **Their building levels at 48h** | **24** | **26 — the same as the informed player's** |
+| Metal Mine 6 / 7 / 8 at Robotics 0 | 3h07 / 4h41 / 7h01 | **1h32 / 1h56 / 2h20** |
+| Deuterium Synthesizer 6 | 12h 36m | **3h 08m** |
+| Levels at 48h, four-a-day, no probe | 25 | **25** |
+| Hours with nothing **at all** in flight (with probe) | 2.08% | **2.08%** |
+| Longest unbroken silence | 0h 47m | **0h 47m** |
+| Work the busiest check-in booked (with probe) | 540 min | **540 min** |
+
+**The honest cost, stated rather than buried: the colony's own idleness goes back up**, 68.75% →
+81.25% at the four-a-day cadence, against 85.4% before round 10 ever ran. So round 11 hands back
+roughly three quarters of what round 10 bought on that one row. It is defensible only because of
+the row underneath it — *nothing at all in flight* is unchanged at 2.08% and the longest silence is
+unchanged at 47 minutes, because **the probe is what covers the player's attention and always was**
+(round 9 was careful not to let it claim otherwise; this is the same distinction paying off in the
+other direction). What round 10 was buying on the colony row was cover the notification loop no
+longer needs, at a price Davide could feel on every tap.
+
+Deeper, the change gives back most of what round 10 took: the greedy week goes 12/12/1/11 →
+**14/15/1/14** (0.1.1 was 15/15/1/14) and the fortnight 17/16/13/16/9 → **18/17/14/17/10**. The week
+is also resource-bound again — 167 of 168 hours blocked on metal alone, against 81 — which reverses
+round 10's note that it had become the first run to end "with nothing to decide because everything
+is already running". In the fortnight, crystal as a sole blocker falls hard (143 → 58 hours) while
+deuterium barely moves (204 → 192) and metal rises (137 → 180).
+
+### The interaction census — Davide's idea, and the trap it had to avoid
+
+He proposed counting the possible interactions. **The reason that is not trivially a good idea is
+already in this file:** round 8's harness printed *"median options on the table: 5"* for the exact
+opening he called boring, because five facility rows counted as five options when they were one verb
+pressed five times. A raw count is not a safety net — it is a number that goes up when you add rows.
+
+So `printInteractionCensus` enumerates every call `core` would accept at each check-in and reports
+**kinds first, count second**, with a probe counted as *one* verb rather than as the ~1,000 systems
+it could be aimed at. And for every call the game would refuse it records **why**, which is the part
+that turned out to be worth building:
+
+| Reading | over 2 days | over 7 days |
+|---|---|---|
+| Median actions offered | 6 | 5 |
+| Median *kinds* offered | 2 | 3 |
+| Check-ins offering one kind only | 0 of 12 | 2 of 42 |
+| Check-ins offering nothing at all | 0 of 12 | 0 of 42 |
+| **Median actions the stock actually stretched to** | **2** | **2** |
+| Refused for the price | **5.12%** | 22.16% |
+| Refused by a busy slot | **0.00%** | 5.12% |
+| Refused by an unmet requirement | **47.43%** | 30.03% |
+
+**The opening is gated, the week is priced.** Nearly half of every action the game has is refused in
+the first two days by a requirement rather than by a cost: all three adaptation ladders behind
+Robotics 4 for the whole window, all three applied technologies behind Robotics 1 for the first 27
+hours, Enrichment behind Extraction 3 after that, the Nanite Factory behind Robotics 10 forever.
+Price refuses 5%. Round 8 said this in words — *"the opening is thin because four of the game's
+eight v1 features are unbuilt, and the two verbs that exist are gated behind a pace Davide wants
+kept"* — and this is the first time it has a number.
+
+Two smaller things fell out of it:
+
+- **The shared research slot blocks nothing in the opening** (0.00%, rising to 5.12% over a week).
+  `GameState` calls the single slot "research's only scarcity"; for the first two days it is not
+  scarce, because projects are shorter than the gap between check-ins and the colony cannot afford
+  to keep it busy anyway.
+- **Two actions a check-in, all week.** "Offered" falls from 6 to 5 as costs outgrow the stock and
+  "kinds" rises from 2 to 3 as gates open, but what the stock *stretches to* is 2 at both. That is
+  Davide's "the one or two thing I can upgrade", and it is stable rather than decaying — which is
+  the argument for **not** touching prices this round.
+
+### Prices were not moved, and this is the evidence
+
+His sentence names prices as well as durations, so it was measured rather than assumed. At the
+three-hour cadence, before the check-in spends anything: **median 1 red row of 6**, worst case 2,
+median 4 tappable, and **0 of 12 check-ins offering one row or none**. The screen is not mostly red
+by count. What is true is that the stock stretches to about two of those rows — and that is the
+scarcity Davide asked for by name on 2026-08-08: *"There's still a need to decide, as you will use
+resources to chose which to upgrade."* Cutting prices would delete the decision to fix a perception
+whose bigger half was rows sitting busy for three to seven hours, which is what this round removed.
+
+### Watch next round, and what to move first
+
+- **The gate share is the number to act on, and it is not a curve.** 47% of the opening's actions
+  are refused by a requirement. The cheapest candidates, in order of how little they disturb: the
+  adaptation ladders' Robotics 4 gate (round 6 already nominated dropping it to 2 or 3 as "cheaper
+  than re-pricing anything"), and the Nanite Factory row, which is a permanently locked row on the
+  main screen for weeks. Both are Davide's calls — round 8 recorded that he *likes* the unlock pace,
+  so this is a note that the pace has a measurable cost, not an argument that it is wrong.
+- **The colony's own idleness is back to 81.25%** and is now the row round 10 will be judged on.
+  If it turns out to matter, **the lever is `MINUTES_PER_ROOT_COST`, and 5 is the one notch up** —
+  it costs 2h 55m as the uninformed player's worst tap and buys back 4 points of idleness.
+- ~~**"Before have access to explorations" may be a UI finding.**~~ Investigated during this round
+  and **closed by Davide the same day: not a balance item, and no change wanted.** Recorded only so
+  a later session does not re-derive it — dispatch is ungated in `core` and affordable from the
+  starting 500 metal, but the Galaxy tab opens on the home system, surveyed at genesis, whose
+  footer is the sentence "Surveyed at genesis" with no offer attached. Nothing in this file can or
+  should move for it.
+- ~~**Deuterium is still the fortnight's worst blocker** at 192 hours of 336 … crystal has fallen
+  right back (143 → 58), so deuterium is now clear of the field.~~ **Corrected by round 12 the same
+  day: do not quote these figures.** The sole-blocker ledger is unstable at this resolution — a
+  one-unit change to deuterium income, touching crystal's curve not at all, moves crystal's count
+  between 41 and 221. The 58 above is an outlier at the shipped constant, not a fall. Deuterium
+  being the worst blocker survives the correction; "clear of the field" does not.
+- **The floor is still untested by measurement** (round 10's note stands): at 4 × root it binds
+  below ~150 metal-and-crystal at Robotics 9, which no run here reaches.
+
+## Round 12 — the round that moved nothing, and why that is the finding (2026-08-09)
+
+**No balance number moved.** Davide asked to continue balancing after round 11 shipped, and the
+census he commissioned pointed at gates rather than curves. Three levers were swept against that,
+and the sweep answered a different question than the one it was asked: **the reading rounds 7
+through 11 were all tuned against is not stable at the resolution they read it at.**
+
+Everything below is `:sim:run`. Nothing here is arithmetic.
+
+### The chain the census pointed at
+
+Round 11's census: 47.4% of the opening's actions refused by an unmet requirement against 5.1% by
+price. `printGateClock` follows that to its cause, at the three-hour cadence over seven days.
+
+| Robotics Factory level | Reached | Opens |
+|---|---|---|
+| 1 | **hour 27 (day 2)** | Photovoltaics, Extraction — the Research tab |
+| 2 | hour 48 (day 3) | — |
+| 3 | hour 75 (day 4) | — |
+| 4 | **hour 99 (day 5)** | all three adaptation ladders — every `Blocked` world |
+| 10 | **never in seven days** | the Nanite Factory |
+
+**Every gate below Nanite is a Robotics Factory level, and the Robotics Factory is the only
+repeating row priced in deuterium.** It was unaffordable at **35 of 42 check-ins**, and deuterium
+was the shortage at **all 35** — metal at 2, crystal at 0. So the second and third verbs of a
+five-verb game sit behind one resource.
+
+That is a stable measurement: it moves smoothly and in the right direction under every lever
+(Robotics at 150 deuterium → Robotics 4 at hour 81; income at 18/h → hour 84).
+
+### What the sweep found instead
+
+| Deuterium/h | sole-blocker m/c/d | short *at all* m/c/d |
+|---|---|---|
+| 12 | 180 / **41** / 222 | 334 / 252 / **336** |
+| 13 | 139 / **149** / 207 | 241 / 250 / **335** |
+| 14 | 118 / **183** / 184 | 188 / 252 / **334** |
+| **15 — shipped** | 180 / **58** / 192 | 319 / 245 / **334** |
+| 16 | 104 / **200** / 162 | 181 / 272 / **333** |
+| 18 | 109 / 175 / 139 | 202 / 263 / **333** |
+| 21 | 92 / 213 / 96 | 160 / 276 / **328** |
+
+**Read the crystal column of the left-hand table.** Crystal's curve is not touched by any of these
+runs, and its sole-blocker count goes 41, 149, 183, **58**, 200 — non-monotone, swinging by 142
+hours of 336 on single-unit changes to an unrelated constant. That is not a curve responding; it is
+a different trajectory. The cause is structural rather than a bug: *"short of this resource **and
+nothing else**"* is a knife-edge on which purchase happens to be next, and a small income change
+reorders the queue.
+
+`Ledger` now records **`shortHours`** beside `soleBlockerHours` — the same question without the word
+*alone*. It cannot say who to blame, which is what the sole ledger is for, but it does not flip on a
+single unit. **Tune against the second; read the first afterwards.**
+
+### Two things that survive the correction, and one that does not
+
+- **Does not survive:** round 11's *"crystal has fallen right back (143 → 58), so deuterium is now
+  clear of the field."* 58 is the outlier at the shipped constant; its neighbours give 149 to 200.
+  That bullet is struck through in round 11 above. Round 7's crystal finding is unaffected — 130 of
+  168 hours is far outside this noise band, which is why it was safe to act on and this was not.
+- **Survives, and is stronger than before:** deuterium is short for *something* in **328 to 336 of
+  336 hours at every income from 12 to 21/h**. Raising the rate by 75% buys eight hours. So
+  **deuterium income is not the lever for deuterium being a blocker** — demand outruns any rate the
+  mine can reach, because the Robotics Factory compounds at ×1.5 against a synthesizer at ×1.25.
+  That is round 11's duration divergence again, on the resource axis, and there is no root to take.
+- **Survives:** the gate clock. Day 5 for the adaptation ladders is the one number here worth a
+  decision.
+
+### Why nothing was moved
+
+- **No lever touches the window that was complained about.** The two-day gate share is **47.43% in
+  every single variant** — including both lowered ladder gates. Its floor is set by the ladders and
+  Nanite being gated at all, plus research for the first 27 hours; nothing short of ungating a
+  branch reaches it. **Median kinds offered in the opening is 2 under every candidate.** Round 8
+  concluded "no number in this file adds a second thing to do"; this is the same conclusion arrived
+  at by exhaustion rather than by argument, and round 9's answer — a verb gated by nothing — is
+  still the only one that has ever worked.
+- **Every deuterium lever overshoots into crystal.** Opening the ladders earlier raises crystal's
+  robust count monotonically (245 → 264 at Robotics 3 → 291 at Robotics 2) because the ladders are
+  the crystal-heaviest thing in the game. Round 7 set crystal income against the *repeating* basket;
+  these levers change what the basket is.
+- **Round 8 recorded that Davide likes the unlock pace**, in his own words. Nothing measured here
+  contradicts him, so the calls below are his rather than the build's.
+
+### On the table for Davide, with numbers rather than a recommendation
+
+**The adaptation ladders' Robotics 4 gate.** Round 6 chose it "so the branch opens after the player
+has met the Galaxy screen and read a `BLOCKED` row", and pre-authorised this exact review: *"If the
+gate turns out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper than
+re-pricing anything."* It has: **hour 99, day 5.**
+
+| Gate | Ladders open | Gate share over 7 days | Crystal short *at all* |
+|---|---|---|---|
+| **Robotics 4 — shipped** | day 5 | 30.03% | 245 of 336 |
+| Robotics 3 | day 4 | 26.73% | 264 |
+| Robotics 2 | day 3 | 22.89% | 291 |
+
+None of the three changes the first two days. It is a mid-game call, not an opening one, and it is
+in `AdaptationBalance` — a *decided* sheet, not a placeholder — so it is not the build's to move.
+
+### Watch next round
+
+- **The gate clock is the harness's stable instrument now; the sole-blocker ledger is not.** Any
+  future round quoting sole-blocker hours should quote `shortHours` beside them, and should not read
+  a difference of under ~50 hours as a signal at all.
+- **Nanite is unreachable in a week** and its row is locked on the Colony screen throughout. Whether
+  a facility nobody can reach for a fortnight should occupy a permanent row is a design question,
+  not a balance one.
+- **Round 11's held item stands:** the colony's own idleness is 81.25% and `MINUTES_PER_ROOT_COST`
+  is the one notch either way.
+
+## Round 13 — 0.2.3, the opening goes on a discount that runs out (2026-08-09)
+
+> **Superseded within the hour by round 14, which shipped in the same unreleased 0.2.3.** The
+> *shape* below stands and is the design; two things about it were wrong and are corrected there —
+> it reached the buildings only, and its recovery was geometric with a convergence level chosen
+> before Davide had named the landmark. Kept in full, because what it measured is still the
+> measurement that justified the shape.
+
+### The feedback, verbatim
+
+> "I want the user to be able to gather resources and build quickly the first 2/3/4 days. And I'm
+> talking about up to 300% quickly. Actually I don't want more resources, but cheaper upgrades at
+> the start"
+
+**Both halves rule something out.** *Not more resources* kills the income lever — round 3 raised
+metal, round 7 raised crystal, and a third raise would inflate every payback in the game and break
+the ratio `BalanceCurveTest` pins against the repeating basket. *Cheaper at the **start*** kills the
+base-cost lever too: dividing `baseCost` discounts level 30 exactly as much as level 1 and hands
+back the whole late game with it.
+
+What is left is the shape nobody had tried in thirteen rounds: **a discount on the early levels that
+decays to nothing.**
+
+### The change
+
+`upgradeCost` multiplies every resource by **(9/10) ^ (FULL_PRICE_LEVEL − level)** below level 11,
+and by nothing at or above it. Level 1 is 0.35 of full price; level 10 is 0.9; level 11 and every
+level after it is the same integer it was before this round existed.
+
+Carried by `exactGeometric`, not `compound`, and that is not a preference: flooring a tenth off a
+small number ten times over is catastrophic where flooring a half off a large one is not. The Metal
+Mine's 15 crystal comes out at **5** carried exactly and **2** floored per step.
+
+| Metal Mine | full price | now | |
+|---|---|---|---|
+| 1 | 60 / 15 | **21 / 5** | 2.87× cheaper |
+| 3 | 135 / 33 | 58 / 14 | 2.33× |
+| 5 | 303 / 73 | 161 / 39 | 1.88× |
+| 8 | 1,021 / 244 | 744 / 178 | 1.37× |
+| 11 and deeper | unchanged | unchanged | 1.00× |
+
+**Two things came free, and both were the point.** Round 11 made duration a function of cost, so a
+third of the price is 0.58 of the clock with no second constant touched. And every gate in the game
+is a Robotics Factory level, so discounting the Robotics Factory moves round 12's gate clock without
+moving a single gate — which round 12 had just measured as unreachable by all three levers aimed
+straight at it.
+
+### What it does, measured
+
+| Reading | 0.2.2 | 0.2.3 |
+|---|---|---|
+| **Building levels at day 1** | 13 | **18** |
+| day 2 | 22 | **30** |
+| day 3 | 29 | **39** |
+| day 4 | 36 | **44** |
+| day 7 | 50 | **56** |
+| **Research opens** | hour 27 (day 2) | **hour 12 (day 1)** |
+| **Adaptation ladders open** | hour 99 (day 5) | **hour 51 (day 3)** |
+| Median *kinds* offered in the opening | 2 | **3** |
+| Median actions the stock stretched to | 2 | **3** |
+| Opening actions refused by an unmet requirement | 47.4% | **43.6%** |
+| Median wait a tap booked (3h cadence) | 0h 50m | **0h 30m** |
+| Longest wait a tap booked | 1h 28m | **1h 08m** |
+| Levels at 48h, 3h cadence | 26 (robotics 2) | **34 (robotics 4)** |
+
+The colony that reaches day 4 now would have taken **until day 6** before. The Research tab opens
+inside the first day rather than the second, and the ladders — with them every `Blocked` row on the
+Galaxy screen — arrive on day 3 rather than day 5.
+
+### "Up to 300%" — the honest reading, in both units
+
+**As a discount it lands exactly: 2.87× at level 1**, under the stated ceiling. As a *pace* it does
+not, and no setting of this lever reaches it:
+
+| Ramp | level-1 discount | day 1 | day 2 | day 3 | day 4 | pace to day 4 |
+|---|---|---|---|---|---|---|
+| none — 0.2.2 | — | 13 | 22 | 29 | 36 | 1.0× |
+| 9/10 to level 8 | 2.09× | 16 | 26 | 34 | 39 | ~1.2× |
+| **9/10 to level 11 — shipped** | **2.87×** | **18** | **30** | **39** | **44** | **~1.5×** |
+| 8/9 to level 11 | 3.25× | 19 | 33 | 40 | 44 | ~1.6× |
+| 9/10 to level 14 | 3.93× | 21 | 35 | 43 | 49 | ~1.9× |
+| 9/10 to level 16 | 4.86× | 23 | 38 | 46 | 53 | ~2.1× |
+
+**Discounting alone tops out near 2× pace by day 4, and the ceiling is arithmetic rather than a
+choice of constant.** Free upgrades would still leave the colony waiting on income and on one job
+per facility, and income is the thing Davide ruled out in the same sentence. Doubling the discount
+from 2.87× to 4.86× buys 9 levels on day 4; doubling it again would buy fewer. **The dial is
+`FULL_PRICE_LEVEL` and the rows above are what each notch costs** — say the word and it moves.
+
+### The bound that is load-bearing, and the bug it hid
+
+`FULL_PRICE_LEVEL` cannot go past **16**. The discount is carried exactly, so the numerator is
+`fullPrice × 9^(level−1)`; at 18 the Nanite Factory's deuterium overflows Long and prices at
+**−70**, which `covers()` reads as *free*. `Resources.of` caught it — at the point of use, in a
+running game, for the one row deep enough to overflow.
+
+`BalanceCurveTest` now walks every building across all forty levels and asserts every cost is
+positive and strictly rising, so the next session that reaches for that constant is told by CI
+rather than by a crash.
+
+### What it cost, stated rather than buried
+
+- **Crystal is the fortnight's blocker again, and worse than before round 7:** 214 sole-blocker
+  hours of 336 and **305 of 336 short-at-all** (against 245 in 0.2.2), closing on 245,573 metal
+  against **521 crystal**, with all five next purchases short of crystal and nothing else. The
+  cause is not the ramp's shape — realised spend is 2.4 : 1 against income at 2.5 : 1, which is
+  round 7's target met — it is that the colony now gets far deeper into the two crystal-heaviest
+  branches in the game (15 projects finished by day 7 against 12). **The ramp did not unbalance the
+  economy; it accelerated arrival at a part of it that was already unbalanced.**
+  This is a day-10-and-later problem, it was not touched, and round 7's lever is income — which is
+  the thing this round was told not to move. Round 14's obvious subject.
+- **Three tests changed shape rather than value**, and one of them was overdue: `AffordabilityTest`
+  read its fixture off `upgradeCost` and had now failed in three consecutive rounds of tuning that
+  had nothing to do with affordability. It states its own prices now.
+- **The basket ratio is read at full price now.** The discount multiplies all three resources
+  equally so it cannot change the ratio by design, but it rounds each independently, and at level 1
+  the integers are small enough to drag the measured basket from 2.65 : 1 to 2.78 : 1. The opening's
+  own skew is bounded separately at a fifth.
+
+### Watch next round
+
+- **Crystal at depth is now the biggest open item in this file**, ahead of deuterium. Both are
+  downstream of the same thing: the applied and adaptation branches cost roughly 1.1 : 1 and
+  1.3 : 1 where the mines cost 2.5 : 1, so every hour the player spends in the branches is an hour
+  the income ratio is wrong for. That is a structural mismatch and probably not a one-constant fix.
+- **Nothing here has been played.** Every figure is `:sim:run` against a stated strategy. Round 11
+  was corrected within a day of shipping by one session with a phone.
+- **`FULL_PRICE_LEVEL` is the dial and 16 is its hard ceiling.** Round 11's
+  `MINUTES_PER_ROOT_COST` is still the duration dial and still at 4.
+
+## Round 14 — 0.2.3, the discount reaches the whole game (2026-08-09)
+
+Round 13 shipped the ramp on the buildings and Davide's correction arrived before it was merged.
+Same unreleased version, so this is the shape that actually ships.
+
+### The feedback, verbatim
+
+> "Wait, did you just make Metal cheaper???"
+
+> "Everything must be cheaper and quicker across the board, until first expedition. Lets say
+> starting about 3x and the start of the game, and arrive to 1x at the moment you can have the first
+> expedition"
+
+**The first line is a question and the answer was no** — round 13 discounted all three resources on
+all six buildings, and the Metal Mine was only the example row in the summary. **The second line is
+the correction, and it was right:** `ResearchBalance`, `AdaptationBalance` and `SurveyBalance` are
+separate objects with separate curves, and round 13 left all three at full price. Discounting a mine
+while leaving a technology alone is not a cheaper opening — it is a changed ratio between the two.
+
+Asked what "first expedition" meant, he chose **when the galaxy becomes actionable**: the adaptation
+ladders at Robotics Factory 4, the point where a probe's findings can be bought against rather than
+only read. (Worth recording, because it was offered as an option and rejected: the *first probe* is
+already dispatchable at minute one — 150 metal against a 500-metal start — so that reading would
+have left the ramp no room at all.)
+
+### What changed from round 13
+
+| | round 13 | round 14 |
+|---|---|---|
+| Recovery | geometric, ×10/9 a level | **linear, equal steps** |
+| Level-1 discount | 2.87× | **exactly 3×** |
+| Buildings reach full price | level 11 | **level 9** |
+| Applied research | full price throughout | **discounted to level 4, cost *and* duration** |
+| Adaptation ladders | full price | full price — see below |
+| Lives in | `PlaceholderBalance` | **`Curves.kt`**, beside `compound` and `exactGeometric` |
+
+**Linear rather than geometric** because geometric needs a fractional root between the two things
+anyone wants to say — *how cheap at the start* and *where does it stop* — and `core` has no
+fractional anything. Linear needs neither, and it cannot overflow: the multiplier is at most
+`3 × (fullPriceLevel − 1)`, where round 13's carried power priced the Nanite Factory at **−70
+deuterium** the moment the convergence level reached 18.
+
+**Level 9 for buildings, because that is where the mines stand when the galaxy opens.** Measured,
+not chosen: `:sim:run` puts the colony at metal 9 / crystal 9 on day 3 and Robotics 4 at hour 54.
+The mines reach full price and the galaxy becomes actionable in the same session, which is
+*"arrive to 1x at the moment you can have the first expedition"* turned into a level.
+
+**Level 4 for applied research**, because the branch opens at Robotics 1 and the discount ends at
+Robotics 4, and the colony gets through two or three technology levels between them.
+
+**The adaptation ladders are not discounted, and that is the definition rather than an omission.**
+The landmark *is* the moment they become buyable, so their level 1 sits exactly on the boundary
+where the discount has already run out. The probe is not discounted either, for a duller reason: it
+is a flat cost with no ladder to ramp along — every probe is the first probe.
+
+### What ships
+
+| Metal Mine | full price | now |
+|---|---|---|
+| 1 | 60 / 15 | **20 / 5** — exactly 3× |
+| 3 | 135 / 33 | 67 / 16 |
+| 5 | 303 / 73 | 202 / 48 |
+| 8 | 1,021 / 244 | 935 / 223 |
+| 9 and deeper | unchanged | unchanged |
+
+| Applied research | full price | now |
+|---|---|---|
+| Photovoltaics 1 | 300 / 150 / 100, 60 min | **100 / 50 / 33, 20 min** |
+| Extraction 1 | 600 / 400 / 200, 90 min | **200 / 133 / 66, 30 min** |
+| Enrichment 1 | 500 / 700 / 200, 150 min | **166 / 233 / 66, 50 min** |
+| level 4 and deeper | unchanged | unchanged |
+
+Research needed telling twice — cost *and* duration — because a building got the second half for
+nothing when round 11 made its duration a function of its cost, and this branch's duration is a
+table times a level.
+
+### Measured
+
+| Reading | 0.2.2 (no ramp) | round 13 (buildings only) | **round 14 (across the board)** |
+|---|---|---|---|
+| Building levels, day 1 | 13 | 18 | **17** |
+| day 2 | 22 | 30 | **28** |
+| day 3 | 29 | 39 | **36** |
+| day 4 | 36 | 44 | **41** |
+| day 7 | 50 | 56 | **55** |
+| **Projects finished by day 4** | ~4 | 4 | **9** |
+| by day 7 | 12 | 15 | **17** |
+| Research opens | hour 27 | hour 12 | **hour 12 (day 1)** |
+| Ladders open | hour 99 | hour 51 | **hour 54 (day 3)** |
+| Median *kinds* offered, opening | 2 | 3 | **3** |
+| Median wait a tap booked | 0h 50m | 0h 30m | **0h 34m** |
+| Levels at 48h, 3h cadence | 26 | 34 | **32 (robotics 4)** |
+
+**Fewer building levels than round 13 and more than twice the projects.** That is the correction
+doing its job: round 13's ramp was longer and building-only, so it bought levels; this one is
+shorter and reaches the branch, so the same opening buys a wider game. Day 4 finishes 9 projects
+against 4.
+
+### What it cost
+
+- **Three tests on two *decided* sheets changed.** `ResearchBalanceTest` says in as many words that
+  its tables may only move if the sheet moved, *"which is Davide's call, not a refactor"* — he made
+  it. The published tables stay in the fixture verbatim as the **full** price and the test applies
+  the documented discount to them, so the sheet is still visible as the design.
+- **The step into the adaptation branch is now the widest in the game**: Enrichment 1 is 830 priced
+  and Thermal 1 is 4,800, a factor of 5.8 where it used to be 1.9. That is the training wheels
+  coming off at exactly the landmark, and it is asserted rather than left to be discovered.
+- **The `AdvanceResearchTest` fixture had to shrink its window** from an hour to twenty minutes,
+  because Extraction 1 now lands in 27m 46s.
+- **Crystal at depth is untouched and still the biggest open item** — 308 of 336 hours short-at-all
+  in the fortnight, closing on 220,878 metal against 4,798 crystal. Realised spend is 2.5 : 1
+  against income at 2.5 : 1, so this is not a ratio error; it is the two branches costing ~1.1 : 1
+  and ~1.3 : 1 where the mines cost 2.5 : 1.
+
+### Watch next round
+
+- **Nothing here has been played**, and the last two rounds were both corrected within a day of a
+  session with a phone.
+- **The dials, in the order they are likely to be wanted:** `FULL_PRICE_LEVEL` in
+  `PlaceholderBalance` (9) and in `ResearchBalance` (4), then `OPENING_DISCOUNT_DIVISOR` in
+  `Curves.kt` (3 — the "3×"). All three are one-line changes with the sweep in round 13 for shape.
+- **Discounting cannot buy much more pace.** Round 13 swept it: even a 4.86× opening discount only
+  doubles day-4 progress, because free upgrades still leave the colony waiting on income and on one
+  job per facility. If the first days should be faster still, the next lever is income — which is
+  the one thing Davide has ruled out twice.
+
+## Round 15 — 0.2.4, the cliff at the branch, and arithmetic that cannot wrap (2026-08-09)
+
+Two things, one of which is not a balance change at all.
+
+> "Adjust the Enrichment and Thermal matter."
+> "Also lets find a solution to overflow, the game must be solid against large numbers for super
+> lategame"
+
+### The cliff
+
+Round 14 gave the applied branch the opening discount and left the adaptation ladders at full price,
+on the argument that the landmark *is* the moment the ladders become buyable, so their level 1 sits
+exactly on the boundary. The argument is true and the result was a cliff: **Enrichment 1 at 830
+priced against Thermal 1 at 4,800 — a step of 5.8× where the sheet designed 1.9×**, arriving exactly
+where the player first meets the galaxy.
+
+The fix is not a new number. The two branches **share one research slot** and are meant to be weighed
+against each other, so they have to be on the same side of the discount at every level. Adaptation
+now uses `ResearchBalance`'s own `FULL_PRICE_LEVEL` of 4, for cost and duration alike:
+
+| Priced 1 : 2 : 3 | Enrichment | Thermal | ratio |
+|---|---|---|---|
+| level 1 | 830 | **1,600** | 1.93 |
+| level 2 | 2,080 | **4,000** | 1.92 |
+| level 3 | 4,375 | **8,400** | 1.92 |
+| level 4 — full price | 8,439 | 16,202 | 1.92 |
+
+The sheet's ratio now holds at **every** level rather than at the one depth a single pair of numbers
+would have pinned, and `AdaptationBalanceTest` asserts it as a ratio for that reason.
+
+**What it cost.** Exact equality between the three ladders was a property of the undiscounted
+level-1 table — 4,800 each. A third of three differently-shaped baskets does not floor to three
+equal totals, so it is now equality to within **two units in sixteen hundred**, asserted as a
+proportion across the ramp and past it. And the discount runs a little past the landmark, since
+these levels are bought from Robotics 4 onward — a soft edge instead of a cliff, which is what was
+asked for.
+
+Nothing else moved: Robotics 4 still lands at hour 54, and day 4 goes 41 building levels to 40 with
+projects 9 to 10.
+
+### Overflow
+
+**Not a balance round.** No curve moved for it; it is the standing guarantee that none of them can
+silently produce a free purchase.
+
+Three real surfaces, found by looking rather than by guessing:
+
+1. **The accrual, and this is the one that would have bitten a real save.**
+   `stock + ratePerHour × elapsedMilliseconds` clamped to the store afterwards is correct arithmetic
+   and unsafe storage: the clamp is 3.6e13 and the product it clamps is unbounded. A deep colony and
+   a long absence — or a device clock that jumped, or a save whose `lastUpdatedAt` is far in the past
+   — wraps the intermediate negative, and `Resources`' own non-negative guard turns that into a
+   **crash on load**. `accrue` now works out how many milliseconds it would take to *fill* the
+   store and clamps the **time**, so the product can never exceed the headroom plus an hour's
+   production whatever the span is. Verified by reverting the fix and watching the new test fail.
+2. **`exactGeometric`** carries `base × numerator^steps` and documented that every caller must bound
+   `steps` — a comment, not a guarantee. It was safe only because `TechLevel.MAX` is 30, with three
+   levels of margin nobody had measured.
+3. **`openingDiscount`** was the one that already went wrong: carried as an exact power in round 13,
+   a convergence level of 18 priced the Nanite Factory at **−70 deuterium**.
+
+Every multiplication in a curve now goes through `checkedTimes`, which **throws rather than
+saturates** — a cost of Long.MAX is not a cost anyone designed, it is a wrong answer wearing a
+plausible face, and it would be spent against rather than crashed on. The error names the curve and
+the level, so the next session to push a cap past what Long can hold finds out at the point of
+definition instead of at the point of use.
+
+`OverflowSafetyTest` is the standing proof: every building and every project walked to the deepest
+level the game defines, asserting positive and computable; every duration likewise; the accrual
+driven at a thousand years; and the composability property re-checked either side of the store
+filling, because the clamp changed *how* the sum is reached.
+
+**The real ceiling, now that it is known:** `Resources.of` refuses anything above 2.56e12 whole
+units, which the Nanite Factory's metal reaches around level 46. `MAX_UPGRADE_LEVEL` is 40, so the
+declared cap sits six levels inside the arithmetic one — and a test now pins the two together rather
+than leaving the margin to be rediscovered.
+
+### Watch next round
+
+- **Still nothing played since 0.2.0.** Four rounds have shipped on one session's feedback.
+- **Crystal at depth is untouched and still the biggest open balance item** — the two branches cost
+  ~1.1 : 1 and ~1.3 : 1 where the mines cost 2.5 : 1, so every hour in the branches is an hour the
+  income ratio is wrong for. Discounting both branches together makes them slightly more attractive
+  early, which pulls that forward rather than pushing it back.
+- **`TechLevel.MAX` at 30 is three levels from the arithmetic ceiling** for the dearest adaptation
+  base. Fine today, and now asserted, but it is the number to check before anyone raises it.
