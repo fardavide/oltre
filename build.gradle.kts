@@ -98,6 +98,9 @@ dependencies {
     kover(projects.client.design.screenshotTesting)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
+    kover(projects.client.debug.data)
+    kover(projects.client.debug.domain)
+    kover(projects.client.debug.presentation)
     kover(projects.client.galaxy.presentation)
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
@@ -158,6 +161,15 @@ kover {
                 classes("dev.fardavide.oltre.client.notifications.data.AndroidNotificationScheduler*")
                 classes("dev.fardavide.oltre.client.notifications.data.AndroidNotificationHost")
                 classes("dev.fardavide.oltre.client.notifications.data.DefaultNotificationScheduler_androidKt")
+                // The accelerometer, which is the same kind of thing again: a `SensorManager`, a
+                // listener the platform calls, and the `Context` slot Android cannot derive. What
+                // the shake *means* is `ShakeMonitor` in `:client:debug:domain`, which is pure and
+                // covered by eight tests — deliberately, so that what is excluded here is only the
+                // wiring that reads a device and divides by gravity. The iOS half is not listed
+                // because Kover never sees a Kotlin/Native target at all.
+                classes("dev.fardavide.oltre.client.debug.data.AndroidShakeDetector*")
+                classes("dev.fardavide.oltre.client.debug.data.AndroidShakeHost")
+                classes("dev.fardavide.oltre.client.debug.data.DefaultShakeDetector_androidKt")
             }
         }
         total {

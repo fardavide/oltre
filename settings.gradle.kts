@@ -35,6 +35,12 @@ plugins {
 include(":core")
 include(":sim")
 include(":client:colony:presentation")
+// The debug menu, and the first feature in the build to hold all three layers: what an action
+// decides is arithmetic (`domain`), the accelerometer is a device service (`data`), and the sheet
+// is a screen (`presentation`).
+include(":client:debug:data")
+include(":client:debug:domain")
+include(":client:debug:presentation")
 // `:client:design` is a directory of layer modules, not a module — the same shape every feature
 // directory has. Compose's own split is the model: tokens, components and icons are separate
 // artifacts because they have different dependencies and different rates of change.
