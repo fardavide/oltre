@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <!--
       The theme exists for the frames before Compose draws anything. The window background is
       `OltreColors.background` written out as a hex — the same #05070D the launcher artwork is
@@ -16,6 +16,12 @@
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">false</item>
-        <item name="android:windowLightNavigationBar">false</item>
+        <!--
+          API 27, and minSdk is 26. Kept rather than split into `values-v27` because `false` is
+          also the platform default: API 26 ignores an attribute it does not know, and what it
+          falls back to is this same value. The annotation says that to lint, which would
+          otherwise fail the build on a line that changes nothing anywhere it is not honoured.
+        -->
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
     </style>
 </resources>

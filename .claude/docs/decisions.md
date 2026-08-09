@@ -1563,6 +1563,34 @@ in, it would have failed the merge gate on the PR that introduced it. `:androidA
 the `kover(...)` aggregate for a different reason — it holds no Kotlin, so there is nothing to
 measure.
 
+### And two more the first local build found, both of them `lintDebug` errors (2026-08-09, 0.2.1)
+
+Neither is runtime, which is why the section above missed them: `:androidApp:lintDebug` is part of
+`build`, so a cloud session that cannot run AGP cannot see them either. Both failed on the first
+build anyone ran.
+
+**A manifest can only name a class its own module can see at compile time.** `NotificationReceiver`
+was declared in `androidApp/`'s manifest, and it is the one component that cannot be: `:androidApp`
+depends on `:client:shell`, which depends on `:client:notifications:data` as `implementation`. That
+edge puts the class on the *runtime* classpath — so the receiver really would have been in the APK
+and really would have fired — but not on the app module's *compile* classpath, where lint looks.
+`MissingClass`, on a name that was never wrong.
+
+The fix is the one the module already argues for its own status-bar icon: the module that owns the
+component declares it, in `client/notifications/data/src/androidMain/AndroidManifest.xml`, and
+manifest merging folds it into the application. `MainActivity`, `OltreApplication` and
+`BootReceiver` stay named in `androidApp/` — they come from `:client:shell`, which is a *direct*
+dependency, so they resolve on the compile classpath and a rename still breaks the build. The rule
+this leaves behind: **a component whose class arrives transitively is declared by its own module**,
+and the distinction is the dependency graph, not taste.
+
+**`android:windowLightNavigationBar` is API 27 and `minSdk` is 26.** `NewApi`, and the value was
+`false` — which is also what API 26 falls back to, since a platform ignores a theme attribute it
+does not know. So the line changes nothing anywhere it is not honoured, and it is annotated
+`tools:targetApi="27"` rather than split into a `values-v27` copy of the whole style or deleted.
+Deleting it would have been the same bytes and a worse comment: the theme states both bar
+appearances on purpose, and the pair reads as a pair.
+
 ## Android books its alerts through AlarmManager, inexactly and on purpose (2026-08-09, 0.2.1)
 
 Davide's call, on being told the Android scheduler was a stub: *follow what you did for iOS.*

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The receiver is declared here rather than in `androidApp/` because this is the module that
+  owns the class — the same argument `build.gradle.kts` already makes about the status-bar icon.
+  Manifest merging folds it into the application's manifest, so the app is unchanged by it.
+
+  It is also the only place the declaration *can* go. `:androidApp` depends on `:client:shell`,
+  which depends on this module as `implementation`: the receiver reaches the APK on the runtime
+  classpath, but it is not on the app module's compile classpath, so a name written over there
+  resolves at runtime and fails `MissingClass` at lint time. Declared here, the class and the
+  string that names it sit in one module and a rename breaks the build.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+
+        <!-- Raises one alert when its alarm fires. Nothing else sends it anything. -->
+        <receiver
+            android:name="dev.fardavide.oltre.client.notifications.data.NotificationReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

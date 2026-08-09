@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
   The whole of the Android app that is not the shell. Every `android:name` below crosses a module
-  boundary: the classes are compiled into `:client:shell` and `:client:notifications:data`, and
-  manifest merging resolves the names at build time. Renaming one therefore breaks the build here
-  rather than at a call site — there are no call sites.
+  boundary into `:client:shell`, which this module depends on directly — so the names resolve on
+  the compile classpath and a rename breaks the build here rather than at a call site; there are
+  no call sites. A component whose class arrives *transitively* cannot be named here at all, and
+  is declared by its own module instead: see the note where the notification receiver used to be.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
@@ -51,10 +52,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Raises one alert when its alarm fires. Nothing else sends it anything. -->
-        <receiver
-            android:name="dev.fardavide.oltre.client.notifications.data.NotificationReceiver"
-            android:exported="false" />
+        <!--
+          `NotificationReceiver` is declared by `:client:notifications:data`, in that module's own
+          manifest, and merged in from there — it is the one component this app module cannot name,
+          because it arrives transitively through the shell's `implementation` edge and so is on
+          the runtime classpath but not this module's compile classpath.
+        -->
 
         <!--
           exported="false" and still reached: BOOT_COMPLETED is a protected broadcast, which the
