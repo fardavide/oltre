@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.core.AdaptationBalance
+import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -13,6 +15,7 @@ import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
@@ -20,6 +23,7 @@ import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.futureEvents
+import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
@@ -358,18 +362,144 @@ class GameNotificationsTest {
         assertEquals(plain.scheduled.map { it.at - 4.hours }, skipped.scheduled.map { it.at })
     }
 
+    @Test
+    fun `every facility is announced by its full name`() = runTest {
+        // Six names, written out rather than abbreviated the way the Colony row abbreviates them,
+        // and until now only two of the six had ever been rendered by a test. They are lock-screen
+        // copy: the one place the game speaks to a player who is not looking at it, and the one
+        // place a wrong string cannot be noticed by whoever wrote it.
+        val expected = mapOf(
+            BuildingType.METAL_MINE to "Metal Mine",
+            BuildingType.CRYSTAL_MINE to "Crystal Mine",
+            BuildingType.DEUTERIUM_SYNTHESIZER to "Deuterium Synthesizer",
+            BuildingType.SOLAR_PLANT to "Solar Plant",
+            BuildingType.ROBOTICS_FACTORY to "Robotics Factory",
+            BuildingType.NANITE_FACTORY to "Nanite Factory",
+        )
+        assertEquals(BuildingType.entries.toSet(), expected.keys, "a facility was added without a name")
+
+        for ((building, name) in expected) {
+            val scheduler = FakeNotificationScheduler()
+            // The two factories start at level 0 and the four others at 1, so the level reached is
+            // read off the job the colony actually started rather than restated here. The Nanite
+            // Factory is also gated behind Robotics 10, which the colony is given so that all six
+            // names can actually be rendered — the gate is the tech tree, not the subject here.
+            val state = building(building, on = withNaniteGate())
+            val toLevel = state.builds.getValue(building).toLevel.value
+            GameNotifications(scheduler).sync(state, now = EPOCH)
+
+            val notification = scheduler.scheduled.single()
+            assertEquals("$name reached level $toLevel", notification.title)
+        }
+    }
+
+    @Test
+    fun `every technology is announced by its own name`() = runTest {
+        val expected = mapOf(
+            Technology.PHOTOVOLTAICS to "Photovoltaics",
+            Technology.EXTRACTION to "Extraction",
+            Technology.ENRICHMENT to "Enrichment",
+        )
+        assertEquals(Technology.entries.toSet(), expected.keys, "a technology was added without a name")
+
+        for ((technology, name) in expected) {
+            val scheduler = FakeNotificationScheduler()
+            // Enrichment sits behind Extraction 3, so the branch has to be climbed far enough for
+            // each technology to be startable at all — the gate is the tree, not an obstacle here.
+            val gated = freshState().copy(
+                research = freshState().research.withLevel(Technology.EXTRACTION, TechLevel(3)),
+            )
+            val state = researching(technology, on = gated)
+            val toLevel = checkNotNull(state.activeResearch).toLevel.value
+            GameNotifications(scheduler).sync(state, now = EPOCH)
+
+            assertEquals("$name reached level $toLevel", scheduler.scheduled.single().title)
+        }
+    }
+
+    @Test
+    fun `a finished ladder says which kind of thing climbed and points at the galaxy`() = runTest {
+        // The whole adaptation branch of this file had never been rendered — no test had ever put a
+        // ladder in flight — so both the name and the sentence below were held up by the compiler
+        // alone. The name is spelled out in full on purpose: "Gravitic reached level 1" does not say
+        // what sort of thing that is, and this is the one alert that is about somewhere else.
+        val expected = mapOf(
+            AdaptationTechnology.THERMAL to "Thermal Adaptation",
+            AdaptationTechnology.GRAVITIC to "Gravitic Adaptation",
+            AdaptationTechnology.ATMOSPHERIC to "Atmospheric Adaptation",
+        )
+        assertEquals(AdaptationTechnology.entries.toSet(), expected.keys, "a ladder was added without a name")
+
+        for ((technology, name) in expected) {
+            val scheduler = FakeNotificationScheduler()
+            GameNotifications(scheduler).sync(adapting(technology), now = EPOCH)
+
+            val notification = scheduler.scheduled.single()
+            assertEquals("$name reached level 1", notification.title)
+            assertEquals("adaptation-${technology.name}", notification.id)
+            assertTrue("galaxy" in notification.body, "body was '${notification.body}'")
+        }
+    }
+
+    @Test
+    fun `a ladder and a technology never share an id`() = runTest {
+        // The reason the two branches have separate id spaces: replacing the pending set is only
+        // idempotent while the ids are unique, and the day a ladder and a technology are named alike
+        // a shared space would silently drop one of them.
+        val research = FakeNotificationScheduler()
+        val adaptation = FakeNotificationScheduler()
+
+        GameNotifications(research).sync(researching(Technology.EXTRACTION), now = EPOCH)
+        GameNotifications(adaptation).sync(adapting(AdaptationTechnology.THERMAL), now = EPOCH)
+
+        assertTrue(research.scheduled.single().id.startsWith("research-"))
+        assertTrue(adaptation.scheduled.single().id.startsWith("adaptation-"))
+    }
+
+    // Robotics at the level the Nanite Factory asks for, so every facility in the game can be put
+    // into flight by one loop rather than five plus a special case.
+    private fun withNaniteGate(): GameState = freshState().let { state ->
+        state.copy(
+            buildings = state.buildings.withLevel(
+                BuildingType.ROBOTICS_FACTORY,
+                BuildingLevel(PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT),
+            ),
+        )
+    }
+
+    // The gate and the price, so a test reads as "a colony climbing a ladder" rather than as the
+    // four lines it takes to make one. The applied branch's helper next door, in the other branch.
+    private fun adapting(technology: AdaptationTechnology): GameState {
+        val on = freshState()
+        val toLevel = TechLevel(on.research.levelOf(technology).value + 1)
+        val cost = AdaptationBalance.adaptationCost(technology, toLevel)
+        val ready = on.copy(
+            buildings = on.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, AdaptationBalance.GATE),
+            resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
+        )
+        return assertIs<StartAdaptationResult.Started>(startAdaptation(ready, technology, at = EPOCH)).state
+    }
+
     // `at` is the instant the upgrades are started, which for a skipped colony is not EPOCH — the
     // whole point of the translation tests is a colony whose own clock is ahead of the wall one.
-    private fun building(vararg buildings: BuildingType, at: Instant = EPOCH): GameState {
+    private fun building(
+        vararg buildings: BuildingType,
+        at: Instant = EPOCH,
+        on: GameState = freshState(),
+    ): GameState {
+        // Priced at each facility's *own* next level rather than at a flat level 2. The two
+        // factories start at 0 and a colony given the Nanite gate starts Robotics at 10, so a flat
+        // figure either overfunds or — for Robotics 11 — funds nowhere near enough.
         val total = buildings.fold(Resources.of()) { stock, building ->
-            val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(2))
+            val next = BuildingLevel(on.buildings.levelOf(building).value + 1)
+            val cost = PlaceholderBalance.upgradeCost(building, next)
             Resources.of(
                 metal = stock.metal + cost.metal,
                 crystal = stock.crystal + cost.crystal,
                 deuterium = stock.deuterium + cost.deuterium,
             )
         }
-        return buildings.fold(freshState().copy(resources = total)) { state, building ->
+        return buildings.fold(on.copy(resources = total)) { state, building ->
             assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = at)).state
         }
     }

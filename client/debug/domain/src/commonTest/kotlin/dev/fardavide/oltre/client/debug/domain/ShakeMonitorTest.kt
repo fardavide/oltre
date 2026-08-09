@@ -85,6 +85,21 @@ class ShakeMonitorTest {
     }
 
     @Test
+    fun `the three constants are a coherent gesture rather than three separate guesses`() {
+        // Not taste, arithmetic. If the gap between jolts were as long as the window, the required
+        // number of them could never fit inside it and the gesture would be unperformable at any
+        // vigour — so the relationship below is what makes the other tests possible at all.
+        assertTrue(
+            ShakeMonitor.JOLT_GAP * (ShakeMonitor.JOLTS_REQUIRED - 1) < ShakeMonitor.WINDOW,
+            "${ShakeMonitor.JOLTS_REQUIRED} jolts ${ShakeMonitor.JOLT_GAP} apart do not fit in ${ShakeMonitor.WINDOW}",
+        )
+        // Above a brisk pick-up (~1.4 g) so the menu does not open in a pocket, and below the ~3 g
+        // of a deliberate shake so that it opens when asked.
+        assertTrue(ShakeMonitor.THRESHOLD_G > 1.4, "was ${ShakeMonitor.THRESHOLD_G}")
+        assertTrue(ShakeMonitor.THRESHOLD_G < 3.0, "was ${ShakeMonitor.THRESHOLD_G}")
+    }
+
+    @Test
     fun `sampling is a value so the same monitor gives the same answer twice`() {
         val monitor = ShakeMonitor().sample(3.0, at = EPOCH)
 
