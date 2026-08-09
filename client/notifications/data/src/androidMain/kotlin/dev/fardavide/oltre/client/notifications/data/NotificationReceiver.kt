@@ -13,8 +13,11 @@ import android.content.Intent
 // the component, and it is as small as it can be — the alert's text arrived with the intent, and
 // nothing here reads game state.
 //
-// Declared in `androidApp/src/main/AndroidManifest.xml`, like `MainActivity`: the manifest names
-// classes from the modules it packages.
+// Declared in this module's own `src/androidMain/AndroidManifest.xml` and merged into the app's,
+// unlike `MainActivity`, which `androidApp/` names directly. The difference is the dependency
+// graph rather than a preference: `:androidApp` sees `:client:shell` directly, but reaches this
+// module only through the shell's `implementation` edge — so a name written over there resolves
+// at runtime and fails `MissingClass` at lint time.
 class NotificationReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
