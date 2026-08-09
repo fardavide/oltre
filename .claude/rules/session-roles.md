@@ -35,10 +35,18 @@ edge to edge and hands the platform the `App()` the design already settled. Ther
 read, nothing to record a baseline of, and CI's Build job compiles the APK on every pull request,
 so it is not unverified in the way a Compose screen would be.
 
-This does not widen anything. A screen, a component, a baseline or a `presentation` module is
+The same session then drew `ic_notification.xml`, which is unambiguously a visual asset and the
+only one in the repository a cloud session authored. It is defensible for one reason — Android
+masks a status-bar icon to a flat silhouette, so the choice was between a reduction of the
+existing mark and shipping the launcher artwork as a white blob — and it is flagged in
+`decisions.md` and `status.md` as overrulable rather than settled. **A second one would not be
+defensible.** If a platform needs artwork again, that is a prompt for Claude Design.
+
+This does not widen anything else. A screen, a component, a baseline or a `presentation` module is
 still off limits to a cloud session, and the reasons in this section are unchanged. And note what
 the exception could not cover: **nobody has run the Android build on a device**, which is a local
-session's job — see the last two entries under *Pending* in `status.md`.
+session's job — see the *Pending* entries in `status.md`, which now list five things the first
+install is the first test of.
 
 ### It *can* build and run `:core` and `:sim` — use it
 

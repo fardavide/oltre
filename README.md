@@ -139,9 +139,10 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   attached, the way it already ships the iPhone build to TestFlight. The release page carries this
   changelog and the commit it was built from; the download is a direct link that installs from a
   phone browser with nothing else needed.
-- Notifications still do nothing on Android. The alerts iOS books are derived and scheduled the
-  same way, but the Android scheduler is a stub until the permission and exact-alarm calls are
-  made — an Android player sees the game, not the reminders.
+- **The game tells you when to come back on Android too.** The same alerts iPhone has — a build
+  finished, the lab is free, a fleet has landed — booked in advance at the instants the
+  simulation already computed, and re-derived from your colony after a reboot. Android may hold
+  one back by a few minutes while the phone is dozing; nothing else about them differs.
 
 ### 0.1.1 — 2026-08-08
 

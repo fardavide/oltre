@@ -1,11 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The whole of the Android app that is not the shell. `android:name` below crosses a module
-  boundary: MainActivity is compiled into `:client:shell`, beside the desktop `main()` and the
-  iOS `MainViewController()`, and manifest merging resolves the name at build time. Renaming the
-  class therefore breaks the build here rather than at the call site — there is no call site.
+  The whole of the Android app that is not the shell. Every `android:name` below crosses a module
+  boundary: the classes are compiled into `:client:shell` and `:client:notifications:data`, and
+  manifest merging resolves the names at build time. Renaming one therefore breaks the build here
+  rather than at a call site — there are no call sites.
 -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- API 33+. Below it, notifications post without asking. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!--
+      Android drops every scheduled alarm on reboot, so without this the game goes quiet until
+      the player next opens it — and a player who is not opening it is exactly who the alerts are
+      for. `BootReceiver` recomputes the schedule from the save.
+
+      Deliberately *not* SCHEDULE_EXACT_ALARM: see `DefaultNotificationScheduler.android.kt` for
+      why inexact alarms are the right trade for a game whose builds run for hours.
+    -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <!--
       allowBackup is left on deliberately. The save is a JSON snapshot in the app's private
@@ -14,6 +26,7 @@
       game has to iCloud sync until a server exists.
     -->
     <application
+        android:name="dev.fardavide.oltre.client.OltreApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -37,5 +50,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Raises one alert when its alarm fires. Nothing else sends it anything. -->
+        <receiver
+            android:name="dev.fardavide.oltre.client.notifications.data.NotificationReceiver"
+            android:exported="false" />
+
+        <!--
+          exported="false" and still reached: BOOT_COMPLETED is a protected broadcast, which the
+          system delivers regardless, and false is what stops anything else impersonating it.
+        -->
+        <receiver
+            android:name="dev.fardavide.oltre.client.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

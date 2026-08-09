@@ -132,12 +132,16 @@ kover {
                 // package exclusion says what was always meant.
                 packages("dev.fardavide.oltre.sim")
                 classes("dev.fardavide.oltre.server.MainKt")
-                // The Android entry point, excluded on exactly the grounds above: it is a
-                // process entry point exercised by launching the app, and the four lines in it
-                // are the platform's — attach a save directory, go edge to edge, host `App()`.
-                // Nothing a test can hold on to, and left in it is a permanent drag on a total
-                // the merge gate compares against `main`.
+                // Android's entry points, excluded on exactly the grounds above. Android has
+                // three rather than one, because it is the only platform where the process can
+                // start without a screen: the Application fills the two slots the platform
+                // cannot derive, the Activity hosts `App()`, and the boot receiver re-derives
+                // the alarm schedule the system dropped. All three are exercised by the system
+                // starting them and by nothing else — there is no seam for a test, and left in
+                // they are a permanent drag on a total the merge gate compares against `main`.
                 classes("dev.fardavide.oltre.client.MainActivity")
+                classes("dev.fardavide.oltre.client.OltreApplication")
+                classes("dev.fardavide.oltre.client.BootReceiver")
             }
         }
         total {

@@ -155,8 +155,21 @@ Updated: 2026-08-09 (0.2.0)
   GitHub Release whose body is the README changelog entry. Two runtime traps were caught on the
   way: Compose resources need `androidResources { enable = true }` or the fonts never reach the
   APK (CMP-9547), and the new entry point had to be excluded from Kover or it would have failed
-  the coverage gate on its own PR. `AndroidSaveLocation` is now filled in; the notification
-  scheduler is still a no-op. See `decisions.md`.
+  the coverage gate on its own PR. See `decisions.md`.
+
+- **0.2.0 Android notifications, on Davide's call to stop holding them back** — the copy was
+  already shared, so there was no design call to wait for, only engineering. `replaceAll` books
+  one `AlarmManager` alarm per notification and persists the ids it scheduled, because Android
+  cannot be asked what is pending the way `UNUserNotificationCenter` can. **Inexact alarms**
+  (`setAndAllowWhileIdle`): an exact one needs a permission denied by default since API 33 and
+  grantable only from system settings, and Doze holding an alert for minutes is affordable when
+  builds run for hours. `BootReceiver` re-derives the schedule from the save after a reboot, which
+  iOS needs no counterpart for. The permission is asked on the first frame, exactly as on iOS.
+  `OltreApplication` fills the save directory and the Context before any component runs — Android
+  is the only platform whose process can start with no screen. New status-bar icon in
+  `:client:notifications:data`, reduced from the master's own arc. No test, matching the iOS and
+  desktop schedulers: the seam is above the platform edge, and `GameNotificationsTest` already
+  holds it. See `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 
@@ -266,17 +279,24 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
   a three-axis card is airier than the design drew it. Overrule if it reads loose.
 
-- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.0.** Of the two
-  stubs waiting on it, `AndroidSaveLocation.directory` is filled in by `MainActivity`; **the
-  notification scheduler is still a no-op**, and is the one thing an Android player is missing.
-  What it needs is a slice of its own: the `POST_NOTIFICATIONS` prompt (API 33+), the exact-alarm
-  decision, and the copy — which is Davide's, like the iOS copy it would share.
+- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.0**, and both stubs
+  that were waiting on it are filled in: `AndroidSaveLocation.directory` and the notification
+  scheduler.
 - **Nothing has run the Android build on a device.** CI compiles the APK on every PR and the
   release job signs and publishes it, but no session in this project has installed one and looked
-  at it. The first install is also the first test of three things nothing else covers: that the
-  bundled font actually reaches the APK (see CMP-9547 in `decisions.md`), that edge-to-edge and
-  `WindowInsets.safeDrawing` agree on a device with a gesture bar, and that the save survives an
-  update rather than only in theory.
+  at it. **This is the largest unverified surface in the repository** — everything Android was
+  written by a cloud session that cannot compile a line of it. The first install is the first test
+  of five things nothing else covers:
+  1. the bundled font actually reaching the APK (CMP-9547, see `decisions.md`);
+  2. edge-to-edge and `WindowInsets.safeDrawing` agreeing on a device with a gesture bar;
+  3. the save surviving an update rather than only in theory;
+  4. an alarm actually firing, and the status-bar icon reading as a mark rather than a smudge;
+  5. `BootReceiver` surviving a real reboot — the riskiest of the five, because a receiver that
+     throws at boot is a crash dialog on every start-up. It catches everything it can, but nothing
+     has proven that on a device.
+- **The notification copy is still PLACEHOLDER**, now on two platforms rather than one, and the
+  notification channel's name and description in `NotificationReceiver` join it — those are shown
+  in Android's own settings, so they are player-facing too.
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
   is far out of reach — it binds nothing until very deep levels.

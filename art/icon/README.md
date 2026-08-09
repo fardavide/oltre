@@ -44,6 +44,12 @@ The generator writes to `art/icon/android/`; the app module reads from its own s
 `mipmap-*/` directories and `values/ic_launcher_background.xml` are **copied** into
 `androidApp/src/main/res/` after a regeneration. `art/icon/android/README.md` has the two steps.
 
+The **status-bar icon is not generated** and is not here: it lives at
+`client/notifications/data/src/androidMain/res/drawable/ic_notification.xml`. Android masks a
+notification's small icon to a flat silhouette and ignores its colours, so a rendering of this
+artwork would arrive as a white blob; it is a hand-authored reduction — the arc and its head, at
+24dp weights — rather than an export.
+
 The adaptive-icon foreground is the artwork with its background rect removed, and the background
 layer is the flat `#05070D` it was drawn against — so the two recompose to exactly the flat icon
 (verified to under 1/255 mean channel difference).

@@ -343,13 +343,13 @@ where being wrong means lying to the player about their own colony.
 alerts together, on an event appended to the log, against the session's `lastUpdatedAt`. Two
 operations on one trigger because they answer the same question; separately they drift.
 
-**Only iOS schedules anything today.** Desktop prints the schedule instead: the dev loop has the
-app open, so an alert about the countdown you are watching is noise, and the checkable thing is
-that the right alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which
-would need a timer held for the whole wait — the exact mechanism this game is built to avoid —
-to buy a toast on the one platform that does not need one. Android does nothing until an
-`androidApp` module exists to hold a `Context` and the API-33 `POST_NOTIFICATIONS` permission;
-a stub that compiles and silently schedules nothing would look finished.
+**Desktop prints the schedule rather than raising it**: the dev loop has the app open, so an
+alert about the countdown you are watching is noise, and the checkable thing is that the right
+alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which would need a timer
+held for the whole wait — the exact mechanism this game is built to avoid — to buy a toast on the
+one platform that does not need one. **Android did nothing until 0.2.0**, when the app module
+arrived to hold a `Context` and the API-33 permission; see *Android books its alerts through
+AlarmManager* below.
 
 **Permission is asked on the first sync**, which is the first frame, and never again (iOS shows
 the prompt once whatever you do). Not deferred to a "better moment": on iPhone the alerts *are*
@@ -1454,10 +1454,7 @@ promise. And `AndroidSaveLocation.directory = filesDir`, which has to run before
 already is. The cost is that renaming `MainActivity` fails at manifest merge rather than at
 compile time; there is no call site to break.
 
-The notification scheduler stays a no-op. `POST_NOTIFICATIONS`, the exact-alarm decision and what
-an alert *says* are their own slice with Davide's calls in it — an Android player gets the game
-and not the reminders, which is the honest half rather than a scheduler that silently books
-nothing.
+The notification scheduler is real, and is covered in its own section below.
 
 `allowBackup` is left on. The save is a JSON snapshot in private storage, so Android's own backup
 carries a colony to a new phone — the closest thing the game has to iCloud sync until a server
@@ -1478,3 +1475,71 @@ entry point is exercised by launching the app, and there is nothing in it for a 
 in, it would have failed the merge gate on the PR that introduced it. `:androidApp` is absent from
 the `kover(...)` aggregate for a different reason — it holds no Kotlin, so there is nothing to
 measure.
+
+## Android books its alerts through AlarmManager, inexactly and on purpose (2026-08-09, 0.2.0)
+
+Davide's call, on being told the Android scheduler was a stub: *follow what you did for iOS.*
+Right, and the reason given for holding it back was wrong — the copy already exists in
+`GameNotifications` and is shared by every platform, so Android reuses it and invents nothing.
+What was left was engineering, and it is recorded here.
+
+**One alarm per notification, and the ids are written down.** iOS hands the whole set to
+`UNUserNotificationCenter` and can later say "remove everything pending"; Android has no such
+register, so `replaceAll` persists the ids it scheduled in `SharedPreferences` and cancels them on
+the next sync. In memory would not do: the process that scheduled them is usually long dead by the
+time the next sync runs.
+
+Identity is the intent's **data URI**, `oltre://notification/<id>`, not the PendingIntent request
+code. `Intent.filterEquals` — which is what the PendingIntent register compares — reads the data
+URI and ignores extras, so a request code derived from the id would be a hash, and two colliding
+hashes would silently overwrite one alert with another. `FLAG_UPDATE_CURRENT` is then required
+precisely *because* extras are outside identity: without it a rescheduled alert keeps the title it
+was first booked with.
+
+**Inexact alarms — `setAndAllowWhileIdle`.** This is the one place Android is meaningfully worse
+than iOS, and it is the right trade. An exact alarm needs `SCHEDULE_EXACT_ALARM`, denied by
+default since API 33 and grantable only by the player walking into system settings; the permission
+that avoids that walk, `USE_EXACT_ALARM`, is restricted by Play policy to alarm clocks and timers,
+which this is not. Inexact means Doze can hold an alert for minutes. A game whose sessions are
+five minutes long and whose builds run for hours can afford minutes; it cannot afford a permission
+dialog nobody would grant. Overrule if a late alert ever reads as a broken one.
+
+**A boot receiver, which iOS has no counterpart for.** Android drops every scheduled alarm on
+reboot. Without `BootReceiver` the game goes quiet after a restart and stays quiet until the
+player next opens it — which is exactly the player the alerts exist to reach. It reads the save
+and recomputes rather than storing a schedule to restore, because the schedule is derived from
+state everywhere else in this game and a stored copy is the one thing that could disagree with the
+colony. That makes it composition — save plus notifications — so it lives in the shell rather than
+in either module it uses. It catches everything: there is no UI at boot to report a failure to,
+and a crash dialog on somebody's phone every time it starts up is the worst possible outcome for a
+notification that will be rescheduled on the next launch anyway.
+
+**The permission is asked on the first frame**, matching iOS exactly, and for the same reason: the
+alerts *are* the check-in loop, so a player who declines has declined something they can see the
+shape of. Android differs in one detail that makes this cheaper than it looks — the system stops
+showing the dialog after two refusals and answers "denied" silently forever after, so asking on
+every launch cannot nag.
+
+**`OltreApplication` fills the two slots the platform cannot derive** — `AndroidSaveLocation
+.directory` and `AndroidNotificationHost.context`. Not the Activity, which is where the save
+directory was set for the few hours between this decision and the one above it: Android is the
+only platform where the process can start with no screen at all, and `BootReceiver` running with
+`AndroidSaveLocation.directory` still null would throw on the read. The Application is the one
+component guaranteed to run before every other.
+
+**The status-bar icon is a new asset**, in `:client:notifications:data` — the module that posts a
+notification owns what it posts it with, and a non-transitive R class means the app module's
+resources are not visible to it anyway. Android masks a small icon to a flat silhouette and
+ignores its colours, so the launcher artwork cannot be reused: it would arrive as a white blob.
+`ic_notification.xml` is the icon's one legible gesture instead — the trajectory and the light it
+climbs towards, taking the curve from `threshold.svg`'s own arc and re-weighting it, because a
+22/1024 stroke lands at half a pixel at 24dp. **It is the one visual asset in this repository a
+cloud session drew**, it is a reduction of somebody else's mark, and it should be overruled if it
+reads wrong on a device.
+
+**No test, and the precedent is the point.** The iOS scheduler has none and the desktop one has
+none: they are platform edges with no seam a test can reach without new infrastructure
+(Robolectric, or an instrumented run) that this repository does not have and this slice is not the
+place to introduce. What *is* tested is everything above the edge — `notificationsFor` derives the
+set, `GameNotificationsTest` pins it against `FakeNotificationScheduler`, and that is where the
+game logic lives. The platform half is verified by installing it, which is a local session's job.
