@@ -148,6 +148,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.3 — 2026-08-09
+
+- **The adaptation ladders join the opening discount.** They were the one thing left at full price,
+  which made the first ladder cost nearly six times the technology beside it — a wall exactly where
+  you first meet the galaxy. A first Thermal level is now 300/200/300 instead of 900/600/900, and the
+  ladders settle back to full price alongside the rest.
+- **Nothing in the game can quietly overflow any more.** Every cost, duration and stock is a 64-bit
+  integer, and a 64-bit integer that runs out does not fail — it comes back negative, and a negative
+  price is one the game reads as *free*. Every curve now refuses to produce one.
+- **A colony you leave for years no longer breaks on the way back.** Returning after a very long
+  absence — or with a device clock that has jumped — used to compute a number too large to hold
+  before it capped it at your storage. It now caps the time instead, so a full store is a full store
+  whether you were gone a week or a century.
+
 ### 0.2.2 — 2026-08-09
 
 - **The whole opening is on a discount.** Everything you can buy in the first days costs exactly a

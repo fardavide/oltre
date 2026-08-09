@@ -1503,3 +1503,90 @@ against 4.
   doubles day-4 progress, because free upgrades still leave the colony waiting on income and on one
   job per facility. If the first days should be faster still, the next lever is income — which is
   the one thing Davide has ruled out twice.
+
+## Round 15 — 0.2.3, the cliff at the branch, and arithmetic that cannot wrap (2026-08-09)
+
+Two things, one of which is not a balance change at all.
+
+> "Adjust the Enrichment and Thermal matter."
+> "Also lets find a solution to overflow, the game must be solid against large numbers for super
+> lategame"
+
+### The cliff
+
+Round 14 gave the applied branch the opening discount and left the adaptation ladders at full price,
+on the argument that the landmark *is* the moment the ladders become buyable, so their level 1 sits
+exactly on the boundary. The argument is true and the result was a cliff: **Enrichment 1 at 830
+priced against Thermal 1 at 4,800 — a step of 5.8× where the sheet designed 1.9×**, arriving exactly
+where the player first meets the galaxy.
+
+The fix is not a new number. The two branches **share one research slot** and are meant to be weighed
+against each other, so they have to be on the same side of the discount at every level. Adaptation
+now uses `ResearchBalance`'s own `FULL_PRICE_LEVEL` of 4, for cost and duration alike:
+
+| Priced 1 : 2 : 3 | Enrichment | Thermal | ratio |
+|---|---|---|---|
+| level 1 | 830 | **1,600** | 1.93 |
+| level 2 | 2,080 | **4,000** | 1.92 |
+| level 3 | 4,375 | **8,400** | 1.92 |
+| level 4 — full price | 8,439 | 16,202 | 1.92 |
+
+The sheet's ratio now holds at **every** level rather than at the one depth a single pair of numbers
+would have pinned, and `AdaptationBalanceTest` asserts it as a ratio for that reason.
+
+**What it cost.** Exact equality between the three ladders was a property of the undiscounted
+level-1 table — 4,800 each. A third of three differently-shaped baskets does not floor to three
+equal totals, so it is now equality to within **two units in sixteen hundred**, asserted as a
+proportion across the ramp and past it. And the discount runs a little past the landmark, since
+these levels are bought from Robotics 4 onward — a soft edge instead of a cliff, which is what was
+asked for.
+
+Nothing else moved: Robotics 4 still lands at hour 54, and day 4 goes 41 building levels to 40 with
+projects 9 to 10.
+
+### Overflow
+
+**Not a balance round.** No curve moved for it; it is the standing guarantee that none of them can
+silently produce a free purchase.
+
+Three real surfaces, found by looking rather than by guessing:
+
+1. **The accrual, and this is the one that would have bitten a real save.**
+   `stock + ratePerHour × elapsedMilliseconds` clamped to the store afterwards is correct arithmetic
+   and unsafe storage: the clamp is 3.6e13 and the product it clamps is unbounded. A deep colony and
+   a long absence — or a device clock that jumped, or a save whose `lastUpdatedAt` is far in the past
+   — wraps the intermediate negative, and `Resources`' own non-negative guard turns that into a
+   **crash on load**. `accrue` now works out how many milliseconds it would take to *fill* the
+   store and clamps the **time**, so the product can never exceed the headroom plus an hour's
+   production whatever the span is. Verified by reverting the fix and watching the new test fail.
+2. **`exactGeometric`** carries `base × numerator^steps` and documented that every caller must bound
+   `steps` — a comment, not a guarantee. It was safe only because `TechLevel.MAX` is 30, with three
+   levels of margin nobody had measured.
+3. **`openingDiscount`** was the one that already went wrong: carried as an exact power in round 13,
+   a convergence level of 18 priced the Nanite Factory at **−70 deuterium**.
+
+Every multiplication in a curve now goes through `checkedTimes`, which **throws rather than
+saturates** — a cost of Long.MAX is not a cost anyone designed, it is a wrong answer wearing a
+plausible face, and it would be spent against rather than crashed on. The error names the curve and
+the level, so the next session to push a cap past what Long can hold finds out at the point of
+definition instead of at the point of use.
+
+`OverflowSafetyTest` is the standing proof: every building and every project walked to the deepest
+level the game defines, asserting positive and computable; every duration likewise; the accrual
+driven at a thousand years; and the composability property re-checked either side of the store
+filling, because the clamp changed *how* the sum is reached.
+
+**The real ceiling, now that it is known:** `Resources.of` refuses anything above 2.56e12 whole
+units, which the Nanite Factory's metal reaches around level 46. `MAX_UPGRADE_LEVEL` is 40, so the
+declared cap sits six levels inside the arithmetic one — and a test now pins the two together rather
+than leaving the margin to be rediscovered.
+
+### Watch next round
+
+- **Still nothing played since 0.2.0.** Four rounds have shipped on one session's feedback.
+- **Crystal at depth is untouched and still the biggest open balance item** — the two branches cost
+  ~1.1 : 1 and ~1.3 : 1 where the mines cost 2.5 : 1, so every hour in the branches is an hour the
+  income ratio is wrong for. Discounting both branches together makes them slightly more attractive
+  early, which pulls that forward rather than pushing it back.
+- **`TechLevel.MAX` at 30 is three levels from the arithmetic ceiling** for the dearest adaptation
+  base. Fine today, and now asserted, but it is the number to check before anyone raises it.
