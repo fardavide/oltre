@@ -258,7 +258,7 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `the opening builds faster than it earns, and closes the gap by the landmark`() {
+    fun `the opening builds faster than it earns and closes the gap by the landmark`() {
         // The deliberate half of the divergence above, and the reason the opening speed-up exists.
         // Davide, 2026-08-09: *"I want a 2/3 min build time at the very first levels, then 30min
         // should be ok when you can use Galaxy ... we need to give some adrenaline to users."*
