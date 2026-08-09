@@ -216,15 +216,17 @@ class ColonyUiStateTest {
         assertEquals(BuildingLevel(1), metalMine.level)
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "90", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "22", short = true),
+                CostChipUiState(kind = ResourceKind.METAL, amount = "35", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "9", short = true),
             ),
             metalMine.costs,
         )
-        // Four minutes per root of the 112 metal-and-crystal above — since 0.2.1 a build takes as
-        // long as *earning* it does, so the number on the row is derived from the one above it
-        // rather than from a per-building constant.
-        assertEquals("40m", metalMine.duration)
+        // 35 and 9 rather than the full-price 90 and 22: since 0.2.2 the opening is discounted by
+        // (9/10)^(11 − level), so level 2 pays 39% and level 11 pays all of it. Four minutes per
+        // root of the 44 between them gives the duration — since 0.2.1 a build takes as long as
+        // *earning* it does, so the row's clock is derived from its price rather than from a
+        // per-building constant, and the discount shortens both at once.
+        assertEquals("24m", metalMine.duration)
     }
 
     @Test
@@ -238,9 +240,11 @@ class ColonyUiStateTest {
         // then
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "400", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "120", short = true),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "200", short = true),
+                // 400 / 120 / 200 at full price, here on the deepest step of the opening discount:
+                // level 1 pays (9/10)^10, which is 35% of it.
+                CostChipUiState(kind = ResourceKind.METAL, amount = "139", short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "42", short = true),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "70", short = true),
             ),
             robotics.costs,
         )
@@ -248,8 +252,9 @@ class ColonyUiStateTest {
 
     @Test
     fun `durations of an hour or more read as hours and padded minutes`() {
-        // given deuterium synth 3 → level 4, which costs 757 metal and 252 crystal and therefore
-        // takes 124 minutes at robotics 0 — four minutes per root of the 1,009 between them
+        // given deuterium synth 3 → level 4, which costs 362 metal and 121 crystal after the
+        // opening discount and therefore takes 84 minutes at robotics 0 — four minutes per root of
+        // the 483 between them
         val state = colony(
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(3)),
         )
@@ -258,7 +263,7 @@ class ColonyUiStateTest {
         val synth = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER)
 
         // then
-        assertEquals("2h 04m", synth.duration)
+        assertEquals("1h 24m", synth.duration)
     }
 
     @Test
@@ -275,14 +280,15 @@ class ColonyUiStateTest {
 
     @Test
     fun `an unaffordable row shows the time until affordable instead of a dead button`() {
-        // given an empty stock: metal mine → 2 needs 90 metal (60m at 90/h) and 22 crystal (44m)
+        // given an empty stock: metal mine → 2 needs 35 metal (23m 20s at 90/h) and 9 crystal
+        // (15m), and the chip rounds the longer of the two up to the minute
         val state = colony()
 
         // when
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("in 1h 00m"), metalMine.action)
+        assertEquals(FacilityActionUiState.AffordableIn("in 24m"), metalMine.action)
     }
 
     @Test

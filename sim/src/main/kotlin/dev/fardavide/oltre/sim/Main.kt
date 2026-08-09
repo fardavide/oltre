@@ -63,6 +63,7 @@ fun main() {
     printCheckInPressureReport()
     printInteractionCensus()
     printGateClock()
+    printProgressionMilestones()
     printGreedyWeek()
     printWholeTreeRun()
 }
@@ -1440,6 +1441,73 @@ private fun printGateClock() {
     for (blocker in Blocker.entries) {
         println("- ${blocker.name.lowercase().padEnd(9)} ${roboticsShort.getValue(blocker)}")
     }
+    println()
+}
+
+// ── How far a colony gets, day by day ────────────────────────────────────────────────────────
+//
+// Davide named the window himself — *"the first 2/3/4 days"* — and no report had it. The opening
+// report stops at 48 hours, the greedy week only prints its closing line, and "levels at 48h" alone
+// cannot say whether a change made day one faster or merely moved day two's purchases into it.
+private fun printProgressionMilestones() {
+    val days = 7
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val marks = listOf(24, 48, 72, 96, 168)
+    val rows = mutableListOf<String>()
+
+    val offsets = (0 until days).flatMap { day -> FREQUENT_CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+        }
+
+        val nextOffset = offsets.getOrNull(index + 1) ?: Int.MAX_VALUE
+        for (mark in marks) {
+            if (offset < mark && nextOffset >= mark) {
+                val levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+                val projects = (Technology.entries.sumOf { state.research.levelOf(it).value } +
+                    AdaptationTechnology.entries.sumOf { state.research.levelOf(it).value })
+                rows += "| day ${mark / 24} | **$levels** | ${state.buildings.summary()} | $projects |"
+            }
+        }
+    }
+
+    println("## How far a colony gets, day by day")
+    println()
+    println("Three-hour cadence, everything affordable cheapest-first, one probe into each gap —")
+    println("the same player as the census. Levels are the sum over all six facilities.")
+    println()
+    println("| At | Building levels | Facilities | Projects finished |")
+    println("|---|---|---|---|")
+    rows.forEach(::println)
     println()
 }
 

@@ -35,8 +35,17 @@ class BalanceCurveTest {
             BuildingType.CRYSTAL_MINE,
             BuildingType.SOLAR_PLANT,
         )
-        val demandedMetal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).metal }
-        val demandedCrystal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).crystal }
+        // Priced at **full price** (level 11) rather than at level 1, since round 13 put the
+        // opening on a decaying discount. The discount multiplies all three resources by the same
+        // fraction, so it cannot change this ratio by design — but it is rounded per resource, and
+        // at level 1 the numbers are small enough for that rounding to matter: the Metal Mine's 15
+        // crystal comes out at 5 (down 4.4%) while its 60 metal comes out at 21 (**up** 0.4%), and
+        // three rows of that drag the measured basket from 2.65 : 1 to 2.78 : 1. That is an
+        // artefact of small integers, not a ratio anyone chose, so the design ratio is read where
+        // the integers are big. The opening's own skew is bounded separately below.
+        val fullPrice = BuildingLevel(11)
+        val demandedMetal = basket.sumOf { PlaceholderBalance.upgradeCost(it, fullPrice).metal }
+        val demandedCrystal = basket.sumOf { PlaceholderBalance.upgradeCost(it, fullPrice).crystal }
 
         // when
         val producedMetal = PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))
@@ -57,6 +66,18 @@ class BalanceCurveTest {
             "metal production ($producedMetal:$producedCrystal) is too rich in metal against the " +
                 "$demandedMetal:$demandedCrystal the colony is upgraded in — crystal becomes the " +
                 "only thing anyone waits for, and metal accumulates with nothing to buy",
+        )
+
+        // And the opening's own basket, rounded and all, must not drift far from the one above.
+        // Looser because it is measuring rounding noise on two-digit numbers rather than a curve,
+        // but bounded, so a future change to the ramp cannot quietly skew what the first days cost.
+        val openingMetal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).metal }
+        val openingCrystal = basket.sumOf { PlaceholderBalance.upgradeCost(it, BuildingLevel(1)).crystal }
+        assertTrue(
+            openingMetal * demandedCrystal * 10 <= demandedMetal * openingCrystal * 12 &&
+                openingMetal * demandedCrystal * 10 >= demandedMetal * openingCrystal * 8,
+            "the discounted opening is upgraded in $openingMetal:$openingCrystal against the " +
+                "$demandedMetal:$demandedCrystal it settles at — more than a fifth apart",
         )
     }
 
@@ -80,8 +101,12 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `cost compounds by half again per level`() {
-        for (level in 1..20) {
+    fun `cost compounds by half again per level, once the opening discount has run out`() {
+        // Full price starts at level 11 — `PlaceholderBalance.FULL_PRICE_LEVEL`, private, so stated
+        // here as the specification rather than read from it. From there up this is the same ×1.5
+        // the game has had since round 2, and the point of the round 13 ramp is that it stays so:
+        // the discount buys the opening and gives the deep curve back untouched.
+        for (level in 11..20) {
             // when
             val current = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
             val next = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1))
@@ -89,6 +114,47 @@ class BalanceCurveTest {
             // then
             assertEquals(current.metal * 3 / 2, next.metal, "metal cost at level ${level + 1}")
             assertEquals(current.crystal * 3 / 2, next.crystal, "crystal cost at level ${level + 1}")
+        }
+    }
+
+    @Test
+    fun `the opening is discounted, and the discount runs out rather than being given back`() {
+        // Davide, 2026-08-09: "I don't want more resources, but cheaper upgrades at the start."
+        // Three properties, and the third is the one that makes it a ramp rather than a price cut.
+        val undiscounted = { level: Int ->
+            var value = 60L
+            repeat(level - 1) { value = value * 3 / 2 }
+            value
+        }
+
+        // 1. Level one is about a third of full price — "up to 300%".
+        val opening = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(1)).metal
+        assertTrue(
+            opening * 25 <= undiscounted(1) * 10 && opening * 35 >= undiscounted(1) * 10,
+            "level 1 costs $opening against a full price of ${undiscounted(1)} — outside 2.5x to 3.5x",
+        )
+
+        // 2. The deep curve is handed back exactly. Not approximately: the same integers it had
+        //    before the ramp existed, which is what makes this a change to the opening alone.
+        for (level in 11..20) {
+            assertEquals(
+                undiscounted(level),
+                PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level)).metal,
+                "level $level must be at full price",
+            )
+        }
+
+        // 3. Inside the ramp the curve climbs *faster* than ×1.5, because each level also gives
+        //    back a tenth of the discount — and it must never stall or fall, which integer rounding
+        //    on small numbers is entirely capable of doing.
+        for (level in 1 until 11) {
+            val current = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level)).metal
+            val next = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level + 1)).metal
+            assertTrue(next > current, "level ${level + 1} ($next) must cost more than level $level ($current)")
+            assertTrue(
+                next * 10 >= current * 15 && next * 10 <= current * 18,
+                "level $level to ${level + 1} steps $current -> $next, outside x1.5 to x1.8",
+            )
         }
     }
 
@@ -105,6 +171,40 @@ class BalanceCurveTest {
         // then
         assertTrue(paybackHours(1) < 12, "the first mine upgrade must pay back within half a day")
         assertTrue(paybackHours(10) > paybackHours(1), "depth must cost patience")
+    }
+
+    @Test
+    fun `every cost in the game stays a positive, rising integer`() {
+        // The opening discount is carried *exactly* — `exactGeometric` multiplies by the numerator
+        // once per step and divides once at the end — so the number of steps is bounded by
+        // `FULL_PRICE_LEVEL`, and that bound is load-bearing rather than tidy. Round 13 swept the
+        // constant to 18 while measuring and the Nanite Factory came out at **−70 deuterium**:
+        // 20,000 × 9^17 leaves Long, and a negative cost is one `covers()` reads as free.
+        //
+        // `Resources.of` caught it, but only at the point of use — a crash in a running game rather
+        // than a red build, and only for the one row deep enough to overflow. This walks the whole
+        // table, so the next session that reaches for that constant is told by CI.
+        for (building in BuildingType.entries) {
+            var previous = PlaceholderBalance.upgradeCost(building, BuildingLevel(1))
+            assertTrue(previous.metal > 0, "$building level 1 costs ${previous.metal} metal")
+            assertTrue(previous.crystal > 0, "$building level 1 costs ${previous.crystal} crystal")
+            // 40 is `MAX_UPGRADE_LEVEL`, private — the top of the table `upgradeCost` will answer
+            // for at all, and therefore the range the overflow has to be absent from.
+            for (level in 2..40) {
+                val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level))
+                assertTrue(cost.metal > previous.metal, "$building $level: ${cost.metal} after ${previous.metal}")
+                assertTrue(
+                    cost.crystal > previous.crystal,
+                    "$building $level: ${cost.crystal} crystal after ${previous.crystal}",
+                )
+                // Only two rows cost deuterium at all, so this one is allowed to stay at zero.
+                assertTrue(
+                    cost.deuterium >= previous.deuterium,
+                    "$building $level: ${cost.deuterium} deuterium after ${previous.deuterium}",
+                )
+                previous = cost
+            }
+        }
     }
 
     @Test

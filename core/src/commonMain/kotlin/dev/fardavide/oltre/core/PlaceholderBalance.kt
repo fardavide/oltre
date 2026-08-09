@@ -153,6 +153,57 @@ object PlaceholderBalance {
         return if (!energy.isDeficit) fullRate else fullRate * energy.produced / energy.consumed
     }
 
+    // ── The opening is on a discount, and the discount runs out ──────────────────────────────
+    //
+    // Davide, 2026-08-09, after round 11 shipped: *"I want the user to be able to gather resources
+    // and build quickly the first 2/3/4 days ... Actually I don't want more resources, but cheaper
+    // upgrades at the start."*
+    //
+    // Both halves of that sentence are load-bearing and they rule out the two obvious moves.
+    // **Not more resources**, so the production curve is untouched — round 3 raised metal and round
+    // 7 raised crystal, and a third income raise would inflate every payback in the game and undo
+    // the ratio `BalanceCurveTest` pins against the repeating basket. **Cheaper at the *start***, so
+    // not a lower base either: dividing `baseCost` would discount level 30 exactly as much as level
+    // 1 and hand back the whole late game with it.
+    //
+    // What is left is the shape nobody had tried: **a discount on the early levels that decays to
+    // nothing.** Full price is unchanged from `FULL_PRICE_LEVEL` upward — the deep curve is the
+    // same curve it has been since round 2 — and below it every cost is multiplied by
+    // (9/10)^(levels remaining to full price), which is ~0.35 at level 1 and climbs back to 1.
+    //
+    // Two consequences that are the point rather than side effects:
+    //
+    // - **It buys the second and third verbs as well as the levels.** Every gate in the game is a
+    //   Robotics Factory level and the Robotics Factory is discounted like everything else, so
+    //   round 12's gate clock moves without touching a single gate — which round 12 measured as
+    //   unreachable by any of the three levers aimed straight at it.
+    // - **It shortens the early builds too, for free**, because round 11 made duration a function
+    //   of cost. A third of the price is 0.58 of the clock, and no second constant had to move.
+    //
+    // The growth *rate* inside the ramp is steeper than the ×1.5 outside it — ×1.667 a level, since
+    // each step also gives back a tenth of the discount. That is the cost of converging, and it is
+    // the right place to pay it: the early levels are cheap in absolute terms even while climbing
+    // fast, and the player who feels the slope is one who already has three verbs to spend on.
+    private const val FULL_PRICE_LEVEL: Int = 11
+    private const val DISCOUNT_RECOVERY_NUMERATOR: Long = 9
+    private const val DISCOUNT_RECOVERY_DENOMINATOR: Long = 10
+
+    // `exactGeometric` rather than `compound`, and this is not a preference: flooring a tenth off a
+    // small number ten times over is catastrophic where flooring a half off a large one is not.
+    // The Metal Mine's 15 crystal comes out at 5 carried exactly and **2** floored per step, which
+    // is a different game. Steps are bounded by `FULL_PRICE_LEVEL`, which is what keeps the exact
+    // numerator inside Long — the bound `exactGeometric` documents and demands of every caller.
+    private fun openingPrice(fullPrice: Long, toLevel: BuildingLevel): Long {
+        val stepsToFullPrice = FULL_PRICE_LEVEL - toLevel.value
+        if (stepsToFullPrice <= 0) return fullPrice
+        return exactGeometric(
+            fullPrice,
+            stepsToFullPrice,
+            DISCOUNT_RECOVERY_NUMERATOR,
+            DISCOUNT_RECOVERY_DENOMINATOR,
+        )
+    }
+
     fun upgradeCost(building: BuildingType, toLevel: BuildingLevel): Resources {
         require(toLevel.value in 1..MAX_UPGRADE_LEVEL) {
             "upgrade cost is only defined up to level $MAX_UPGRADE_LEVEL, asked for $toLevel"
@@ -160,9 +211,15 @@ object PlaceholderBalance {
         val steps = toLevel.value - 1
         val base = baseCost(building)
         return Resources.of(
-            metal = compound(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            crystal = compound(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            deuterium = compound(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            metal = openingPrice(compound(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR), toLevel),
+            crystal = openingPrice(
+                compound(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+                toLevel,
+            ),
+            deuterium = openingPrice(
+                compound(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+                toLevel,
+            ),
         )
     }
 

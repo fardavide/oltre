@@ -22,19 +22,21 @@ When a round of tuning lands:
 Do not delete a superseded round. A number that was tried and rejected is the most useful thing
 in this file.
 
-## Current curves (0.1.1)
+## Current curves (0.2.2)
 
 Level-1 output: **90 metal / 36 crystal / 15 deuterium per hour**. Output compounds **+25% per
-level**, cost compounds **+50% per level**, both floored to whole units at every step.
+level**, cost compounds **+50% per level**, both floored to whole units at every step — and from
+round 13 every cost below level 11 is multiplied by **(9/10)^(11 − level)**, so the opening is
+about a third of full price and climbs back to it. The cost column below is what the player pays.
 
 | Level | metal/h | crystal/h | deut/h | metal mine cost (m/c) | payback of the next level |
 |---|---|---|---|---|---|
-| 1 | 90 | 36 | 15 | 60 / 15 | 4h |
-| 2 | 112 | 45 | 18 | 90 / 22 | 4h |
-| 3 | 140 | 56 | 22 | 135 / 33 | 5h |
-| 5 | 218 | 87 | 33 | 303 / 73 | 8h |
-| 8 | 425 | 168 | 63 | 1,021 / 244 | 14h |
-| 10 | 663 | 262 | 97 | 2,296 / 549 | 20h |
+| 1 | 90 | 36 | 15 | 21 / 5 | 1h |
+| 2 | 112 | 45 | 18 | 35 / 9 | 2h |
+| 3 | 140 | 56 | 22 | 58 / 14 | 2h |
+| 5 | 218 | 87 | 33 | 161 / 39 | 4h |
+| 8 | 425 | 168 | 63 | 744 / 178 | 11h |
+| 10 | 663 | 262 | 97 | 2,066 / 494 | 20h |
 | 12 | 1,035 | 408 | 151 | 5,166 / 1,234 | 30h |
 | 15 | 2,020 | 796 | 293 | 17,434 / 4,164 | 51h |
 | 18 | 3,945 | 1,553 | 571 | 58,839 / 14,053 | 89h |
@@ -1244,3 +1246,127 @@ in `AdaptationBalance` — a *decided* sheet, not a placeholder — so it is not
   not a balance one.
 - **Round 11's held item stands:** the colony's own idleness is 81.25% and `MINUTES_PER_ROOT_COST`
   is the one notch either way.
+
+## Round 13 — 0.2.2, the opening goes on a discount that runs out (2026-08-09)
+
+### The feedback, verbatim
+
+> "I want the user to be able to gather resources and build quickly the first 2/3/4 days. And I'm
+> talking about up to 300% quickly. Actually I don't want more resources, but cheaper upgrades at
+> the start"
+
+**Both halves rule something out.** *Not more resources* kills the income lever — round 3 raised
+metal, round 7 raised crystal, and a third raise would inflate every payback in the game and break
+the ratio `BalanceCurveTest` pins against the repeating basket. *Cheaper at the **start*** kills the
+base-cost lever too: dividing `baseCost` discounts level 30 exactly as much as level 1 and hands
+back the whole late game with it.
+
+What is left is the shape nobody had tried in thirteen rounds: **a discount on the early levels that
+decays to nothing.**
+
+### The change
+
+`upgradeCost` multiplies every resource by **(9/10) ^ (FULL_PRICE_LEVEL − level)** below level 11,
+and by nothing at or above it. Level 1 is 0.35 of full price; level 10 is 0.9; level 11 and every
+level after it is the same integer it was before this round existed.
+
+Carried by `exactGeometric`, not `compound`, and that is not a preference: flooring a tenth off a
+small number ten times over is catastrophic where flooring a half off a large one is not. The Metal
+Mine's 15 crystal comes out at **5** carried exactly and **2** floored per step.
+
+| Metal Mine | full price | now | |
+|---|---|---|---|
+| 1 | 60 / 15 | **21 / 5** | 2.87× cheaper |
+| 3 | 135 / 33 | 58 / 14 | 2.33× |
+| 5 | 303 / 73 | 161 / 39 | 1.88× |
+| 8 | 1,021 / 244 | 744 / 178 | 1.37× |
+| 11 and deeper | unchanged | unchanged | 1.00× |
+
+**Two things came free, and both were the point.** Round 11 made duration a function of cost, so a
+third of the price is 0.58 of the clock with no second constant touched. And every gate in the game
+is a Robotics Factory level, so discounting the Robotics Factory moves round 12's gate clock without
+moving a single gate — which round 12 had just measured as unreachable by all three levers aimed
+straight at it.
+
+### What it does, measured
+
+| Reading | 0.2.1 | 0.2.2 |
+|---|---|---|
+| **Building levels at day 1** | 13 | **18** |
+| day 2 | 22 | **30** |
+| day 3 | 29 | **39** |
+| day 4 | 36 | **44** |
+| day 7 | 50 | **56** |
+| **Research opens** | hour 27 (day 2) | **hour 12 (day 1)** |
+| **Adaptation ladders open** | hour 99 (day 5) | **hour 51 (day 3)** |
+| Median *kinds* offered in the opening | 2 | **3** |
+| Median actions the stock stretched to | 2 | **3** |
+| Opening actions refused by an unmet requirement | 47.4% | **43.6%** |
+| Median wait a tap booked (3h cadence) | 0h 50m | **0h 30m** |
+| Longest wait a tap booked | 1h 28m | **1h 08m** |
+| Levels at 48h, 3h cadence | 26 (robotics 2) | **34 (robotics 4)** |
+
+The colony that reaches day 4 now would have taken **until day 6** before. The Research tab opens
+inside the first day rather than the second, and the ladders — with them every `Blocked` row on the
+Galaxy screen — arrive on day 3 rather than day 5.
+
+### "Up to 300%" — the honest reading, in both units
+
+**As a discount it lands exactly: 2.87× at level 1**, under the stated ceiling. As a *pace* it does
+not, and no setting of this lever reaches it:
+
+| Ramp | level-1 discount | day 1 | day 2 | day 3 | day 4 | pace to day 4 |
+|---|---|---|---|---|---|---|
+| none — 0.2.1 | — | 13 | 22 | 29 | 36 | 1.0× |
+| 9/10 to level 8 | 2.09× | 16 | 26 | 34 | 39 | ~1.2× |
+| **9/10 to level 11 — shipped** | **2.87×** | **18** | **30** | **39** | **44** | **~1.5×** |
+| 8/9 to level 11 | 3.25× | 19 | 33 | 40 | 44 | ~1.6× |
+| 9/10 to level 14 | 3.93× | 21 | 35 | 43 | 49 | ~1.9× |
+| 9/10 to level 16 | 4.86× | 23 | 38 | 46 | 53 | ~2.1× |
+
+**Discounting alone tops out near 2× pace by day 4, and the ceiling is arithmetic rather than a
+choice of constant.** Free upgrades would still leave the colony waiting on income and on one job
+per facility, and income is the thing Davide ruled out in the same sentence. Doubling the discount
+from 2.87× to 4.86× buys 9 levels on day 4; doubling it again would buy fewer. **The dial is
+`FULL_PRICE_LEVEL` and the rows above are what each notch costs** — say the word and it moves.
+
+### The bound that is load-bearing, and the bug it hid
+
+`FULL_PRICE_LEVEL` cannot go past **16**. The discount is carried exactly, so the numerator is
+`fullPrice × 9^(level−1)`; at 18 the Nanite Factory's deuterium overflows Long and prices at
+**−70**, which `covers()` reads as *free*. `Resources.of` caught it — at the point of use, in a
+running game, for the one row deep enough to overflow.
+
+`BalanceCurveTest` now walks every building across all forty levels and asserts every cost is
+positive and strictly rising, so the next session that reaches for that constant is told by CI
+rather than by a crash.
+
+### What it cost, stated rather than buried
+
+- **Crystal is the fortnight's blocker again, and worse than before round 7:** 214 sole-blocker
+  hours of 336 and **305 of 336 short-at-all** (against 245 in 0.2.1), closing on 245,573 metal
+  against **521 crystal**, with all five next purchases short of crystal and nothing else. The
+  cause is not the ramp's shape — realised spend is 2.4 : 1 against income at 2.5 : 1, which is
+  round 7's target met — it is that the colony now gets far deeper into the two crystal-heaviest
+  branches in the game (15 projects finished by day 7 against 12). **The ramp did not unbalance the
+  economy; it accelerated arrival at a part of it that was already unbalanced.**
+  This is a day-10-and-later problem, it was not touched, and round 7's lever is income — which is
+  the thing this round was told not to move. Round 14's obvious subject.
+- **Three tests changed shape rather than value**, and one of them was overdue: `AffordabilityTest`
+  read its fixture off `upgradeCost` and had now failed in three consecutive rounds of tuning that
+  had nothing to do with affordability. It states its own prices now.
+- **The basket ratio is read at full price now.** The discount multiplies all three resources
+  equally so it cannot change the ratio by design, but it rounds each independently, and at level 1
+  the integers are small enough to drag the measured basket from 2.65 : 1 to 2.78 : 1. The opening's
+  own skew is bounded separately at a fifth.
+
+### Watch next round
+
+- **Crystal at depth is now the biggest open item in this file**, ahead of deuterium. Both are
+  downstream of the same thing: the applied and adaptation branches cost roughly 1.1 : 1 and
+  1.3 : 1 where the mines cost 2.5 : 1, so every hour the player spends in the branches is an hour
+  the income ratio is wrong for. That is a structural mismatch and probably not a one-constant fix.
+- **Nothing here has been played.** Every figure is `:sim:run` against a stated strategy. Round 11
+  was corrected within a day of shipping by one session with a phone.
+- **`FULL_PRICE_LEVEL` is the dial and 16 is its hard ceiling.** Round 11's
+  `MINUTES_PER_ROOT_COST` is still the duration dial and still at 4.

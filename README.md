@@ -148,6 +148,21 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.2 — 2026-08-09
+
+- **The first days are on a discount.** Early upgrades cost about a third of what they used to — a
+  first Metal Mine level is 21 metal instead of 60 — and the discount shrinks with every level until
+  it is gone at level 11. Deep upgrades cost exactly what they always did; only the opening moved.
+- **You get roughly a day and a half further in the same four days.** Where day four used to leave
+  you at 36 facility levels it now leaves you at 44, and the whole first week is ahead by about that
+  much.
+- **The Research tab opens on day one** instead of day two, and the adaptation ladders — with them
+  every blocked world on the Galaxy map — on day three instead of day five. No requirement changed:
+  the Robotics Factory is simply cheaper at the start like everything else.
+- **Builds got shorter with the prices**, since a build takes as long as earning it does. The
+  typical early upgrade now books half an hour rather than fifty minutes.
+- Resource production is untouched. Mines produce exactly what they produced yesterday.
+
 ### 0.2.1 — 2026-08-09
 
 - **Upgrades stopped outgrowing your income.** A build used to take as long as it *cost*, and
