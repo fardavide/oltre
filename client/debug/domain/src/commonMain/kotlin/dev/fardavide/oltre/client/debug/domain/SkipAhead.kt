@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.debug.domain
 
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.futureEvents
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
@@ -33,6 +34,42 @@ sealed interface SkipAhead {
 // How far a skip goes when there is nothing to skip *to*. An hour, because it is long enough to
 // move the stocks visibly at these rates and short enough to step through a morning in a few taps.
 val SKIP_FALLBACK: Duration = 1.hours
+
+// The whole of a skip: where it lands, what the colony looks like there, and the clock that gets it
+// there. Returned together because they are one decision — a caller that computed the target and
+// then forgot to move the clock would leave a colony stamped in the future and running at ×1, which
+// is the frozen-game bug `DebugClock.resuming` exists to prevent.
+data class SkipOutcome(val state: GameState, val at: Instant, val clock: DebugClock)
+
+// Everything the debug menu's one time verb decides, as a function of its inputs.
+//
+// It lives here rather than in the composition root, and that is the point: at 0.2.5 this arithmetic
+// was written inside a composable, where nothing could execute it — the shell's coverage fell 7.7
+// points in one commit and the only thing holding the logic up was that its pieces were tested
+// separately. `session-roles.md` says a cloud session should push a feature's logic down into a
+// module it can test; this is that, applied to the file that needed it.
+//
+// Two `advance` calls rather than one, deliberately. The first brings the colony up to *now*,
+// because the target has to be chosen against the state the player is actually looking at; the
+// second carries it to the target. Composing them in one hop would ask `futureEvents` about a
+// colony that has not accrued yet.
+fun skipping(
+    state: GameState,
+    lastUpdatedAt: Instant,
+    clock: DebugClock,
+    wallClock: Instant,
+): SkipOutcome {
+    // The same clamp the tick loop applies, and for the same reason: a wall clock that stepped
+    // backwards must not ask `advance` to run backwards.
+    val at = maxOf(clock.now(wallClock), lastUpdatedAt)
+    val advanced = advance(state, from = lastUpdatedAt, to = at)
+    val target = skipAhead(advanced, now = at).to
+    return SkipOutcome(
+        state = advance(advanced, from = at, to = target),
+        at = target,
+        clock = clock.skippingTo(target, wallClock = wallClock),
+    )
+}
 
 // Pure, like everything else that decides a debug action: `now` is a parameter, the state is the
 // only other input, and the answer is a description of the jump rather than the jump itself. The

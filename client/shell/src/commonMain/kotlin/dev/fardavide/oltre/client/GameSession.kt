@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.debug.domain.DebugClock
+import dev.fardavide.oltre.client.debug.domain.skipping
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.core.GalaxySeed
@@ -52,6 +53,42 @@ internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
         debugUsed = saved.debugUsed,
     )
 }
+
+// A session and the clock that goes with it. The two always move together — a session stamped in
+// the future with a clock that does not know it is the frozen-game bug in another shape — so the
+// two debug actions hand back both rather than leaving the caller to remember the second.
+internal data class DebugOutcome(val session: GameSession, val clock: DebugClock)
+
+// The debug menu's one time verb, as a function rather than as a body inside a composable.
+//
+// It is `act`'s shape with two differences, and both are the point: the instant is chosen by the
+// simulation rather than by the clock, and the caller commits unconditionally — a skip that changed
+// no event still moved the colony's clock, and the offset only survives a relaunch because the save
+// records the instant it reached.
+//
+// The arithmetic itself is `:client:debug:domain`'s, tested there against a colony rather than
+// against a screen. What is left here is the part that is genuinely about a `GameSession`: carrying
+// the debug mark, which is the shell's to carry because the shell is what writes the save.
+internal fun GameSession.skipped(clock: DebugClock, wallClock: Instant): DebugOutcome {
+    val outcome = skipping(state, lastUpdatedAt = lastUpdatedAt, clock = clock, wallClock = wallClock)
+    return DebugOutcome(
+        session = GameSession(state = outcome.state, lastUpdatedAt = outcome.at, debugUsed = true),
+        clock = outcome.clock,
+    )
+}
+
+// A reset is a first launch: `resume` with nothing saved is the same path the app takes when it
+// opens for the first time, so there is no second way of founding a colony to keep in step.
+//
+// The offset is dropped with it. A new colony is not the old one's future, and starting it hours
+// ahead of the wall clock would be inheriting a debt it never ran up.
+//
+// The mark survives the wipe, deliberately: the colony that comes back was made by the debug menu,
+// and nothing in the game ever clears it.
+internal fun resetColony(wallClock: Instant): DebugOutcome = DebugOutcome(
+    session = resume(saved = null, now = wallClock).copy(debugUsed = true),
+    clock = DebugClock(),
+)
 
 // Only discrete transitions are worth writing to disk. The state between two events is
 // reproduced exactly by advance() from the last saved instant, so a tick that only accrued

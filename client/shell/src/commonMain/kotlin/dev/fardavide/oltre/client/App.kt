@@ -17,7 +17,6 @@ import dev.fardavide.oltre.client.debug.data.ShakeDetector
 import dev.fardavide.oltre.client.debug.data.defaultShakeDetector
 import dev.fardavide.oltre.client.debug.domain.DebugClock
 import dev.fardavide.oltre.client.debug.domain.debugReport
-import dev.fardavide.oltre.client.debug.domain.skipAhead
 import dev.fardavide.oltre.client.debug.presentation.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
@@ -132,36 +131,21 @@ fun App(
                 // the colony's clock, and the offset only survives a relaunch because the save
                 // records the instant it reached.
                 fun skip() {
-                    val wall = Clock.System.now()
-                    val at = maxOf(debugClock.now(wall), current.lastUpdatedAt)
-                    val advanced = advance(current.state, from = current.lastUpdatedAt, to = at)
-                    val target = skipAhead(advanced, now = at).to
-                    val clock = debugClock.skippingTo(target, wallClock = wall)
-                    debugClock = clock
-                    val next = GameSession(
-                        state = advance(advanced, from = at, to = target),
-                        lastUpdatedAt = target,
-                        debugUsed = true,
-                    )
-                    session = next
-                    scope.launch { next.commit(store, notifications, clock) }
+                    val outcome = current.skipped(debugClock, wallClock = Clock.System.now())
+                    debugClock = outcome.clock
+                    session = outcome.session
+                    scope.launch { outcome.session.commit(store, notifications, outcome.clock) }
                 }
 
                 // Delete, then resume from nothing — which is exactly the path a first launch
                 // takes, so a reset is a first launch rather than a second way of building one.
-                // The offset goes with it: a new colony is not the old one's future, and starting
-                // it hours ahead of the wall clock would be inheriting a debt it never ran up.
                 fun reset() {
                     scope.launch {
                         store.clear()
-                        val wall = Clock.System.now()
-                        val clock = DebugClock()
-                        debugClock = clock
-                        // The flag survives the wipe, deliberately: the colony that comes back was
-                        // made by the debug menu, and nothing in the game ever clears the mark.
-                        val fresh = resume(saved = null, now = wall).copy(debugUsed = true)
-                        session = fresh
-                        fresh.commit(store, notifications, clock)
+                        val outcome = resetColony(wallClock = Clock.System.now())
+                        debugClock = outcome.clock
+                        session = outcome.session
+                        outcome.session.commit(store, notifications, outcome.clock)
                     }
                 }
 

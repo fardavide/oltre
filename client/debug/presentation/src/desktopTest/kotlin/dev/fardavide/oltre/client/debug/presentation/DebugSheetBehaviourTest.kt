@@ -32,6 +32,19 @@ class DebugSheetBehaviourTest {
     }
 
     @Test
+    fun `every kind of thing that can happen next has a name on the row`() {
+        // The sheet writes the destination with a `when` over the sealed `FutureEvent`, and until
+        // this existed the compiler was the only thing that had ever looked at four of its five
+        // branches. Enum names rather than the notifications' display names, deliberately: this is a
+        // developer tool, and `NANITE_FACTORY` is the string that matches the code being read.
+        nextEventReports.forEach { (event, expected) ->
+            debugSheet(report = buildingReport.copy(nextEvent = event)) {
+                assertSkipOffers("$expected · 1h 00m")
+            }
+        }
+    }
+
+    @Test
     fun `an idle colony is told there is nothing to skip to`() {
         // The fallback case, and the reason the action is total: with nothing in flight there is no
         // next event, and the row says so rather than looking broken.
