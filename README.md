@@ -158,6 +158,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.6 — 2026-08-09
+
+- **The debug menu's two verbs now take a hold rather than a tap**, and the button fills across as
+  you hold it, with a buzz the moment it acts. The panel opens by shaking the phone — a gesture a
+  pocket can perform — so neither skipping the colony forward nor deleting it should ever be one
+  stray tap away. Reset no longer needs arming first; it just needs holding.
+- **And the panel is a proper bottom sheet.** Drag it down to put it away, tap outside it, or use
+  the back gesture — all the things a sheet is expected to do, because it is now the platform's own
+  sheet rather than a panel drawn to look like one.
+- **Resetting now clears the "debug used" mark instead of setting it.** The mark answers whether
+  *this* colony's clock has been moved by hand, and a colony founded a moment ago has no history at
+  all. Skipping is the only thing that sets it.
+
 ### 0.2.5 — 2026-08-09
 
 - **A debug menu, for developing the game rather than playing it.** Shake the phone to open it

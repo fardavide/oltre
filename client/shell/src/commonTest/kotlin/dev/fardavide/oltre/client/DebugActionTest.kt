@@ -100,10 +100,30 @@ class DebugActionTest {
     }
 
     @Test
-    fun `resetting marks the colony even though it is brand new`() {
-        // Deliberate, and the one place the mark is not obviously about *this* colony's history: the
-        // colony that comes back was made by the debug menu, and nothing in the game clears it.
-        assertTrue(resetColony(wallClock = EPOCH).session.debugUsed)
+    fun `resetting clears the mark because the colony it hands back has no history`() {
+        // Davide's call, reversing what 0.2.5 shipped. The flag answers "has this colony's clock
+        // been moved by hand", and nothing has been skipped in a colony that was founded a moment
+        // ago — carrying the mark across would have made it a fact about the device rather than
+        // about the save.
+        assertFalse(resetColony(wallClock = EPOCH).session.debugUsed)
+    }
+
+    @Test
+    fun `resetting a marked colony clears the mark`() {
+        // The case the rule is actually about: skip first, then reset. The colony that comes back is
+        // clean, and the flag says so.
+        val skipped = GameSession(midBuild(), EPOCH).skipped(DebugClock(), wallClock = EPOCH).session
+        assertTrue(skipped.debugUsed)
+
+        assertFalse(resetColony(wallClock = EPOCH).session.debugUsed)
+    }
+
+    @Test
+    fun `skipping is the only thing that sets the mark`() {
+        // Stated as one test because it is one rule, and because the two halves of it were the other
+        // way round a version ago.
+        assertTrue(GameSession(midBuild(), EPOCH).skipped(DebugClock(), wallClock = EPOCH).session.debugUsed)
+        assertFalse(resetColony(wallClock = EPOCH).session.debugUsed)
     }
 
     @Test
@@ -118,13 +138,13 @@ class DebugActionTest {
     @Test
     fun `a reset colony is what the next launch reads back`() {
         // Reset is a first launch rather than a second way of founding a colony, so what it hands
-        // back has to survive a save and a resume unchanged.
+        // back has to survive a save and a resume unchanged — the clean mark included.
         val outcome = resetColony(wallClock = EPOCH)
 
         val reloaded = resume(outcome.session.toSnapshot(), now = EPOCH)
 
         assertEquals(outcome.session.state, reloaded.state)
-        assertTrue(reloaded.debugUsed)
+        assertFalse(reloaded.debugUsed)
     }
 
     private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))

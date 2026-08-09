@@ -9,7 +9,6 @@ package dev.fardavide.oltre.client.debug.presentation
 internal object DebugTestTags {
 
     const val SHEET = "debug-sheet"
-    const val SCRIM = "debug-scrim"
     const val SKIP = "debug-skip"
     const val RESET = "debug-reset"
     const val CLOSE = "debug-close"
@@ -17,6 +16,10 @@ internal object DebugTestTags {
     fun label(row: String): String = "$row-label"
 
     fun detail(row: String): String = "$row-detail"
+
+    // The bar that fills as the row is held. Tagged so a test can say the row shows its progress
+    // without asserting a width, which would be asserting the animation rather than the design.
+    fun fill(row: String): String = "$row-fill"
 
     fun reading(name: String): String = "debug-reading-${name.lowercase().replace(' ', '-')}"
 }
