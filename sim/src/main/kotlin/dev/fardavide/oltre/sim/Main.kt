@@ -41,6 +41,7 @@ import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 // The harness is a balancing tool, so its galaxy is fixed rather than random: a report you cannot
@@ -53,11 +54,16 @@ private const val SIM_GALAXY_SEED: Long = 20_260_807
 // and each start eats into the same stock.
 fun main() {
     printCurveTable()
+    printEarlyBuildTable()
     printResearchTable()
     printAdaptationTable()
     printGalaxyReport()
     printDemandReport()
     printOpeningReport()
+    printCheckInPressureReport()
+    printInteractionCensus()
+    printGateClock()
+    printProgressionMilestones()
     printGreedyWeek()
     printWholeTreeRun()
 }
@@ -472,6 +478,63 @@ private fun printCurveTable() {
     println()
 }
 
+// ── What one tap actually makes you wait ─────────────────────────────────────────────────────
+//
+// Round 10 made a build take as long as it costs. Cost compounds at +50% a level and production at
+// +25%, so the wait after a tap pulls away from the income that pays for it by ~20% a level, level
+// after level, from level one. The Robotics Factory's divisor is the only thing pushing back — and
+// it is the one facility that produces nothing, is priced in the resource that arrives slowest, and
+// is therefore the last thing a player who has not read the code buys.
+//
+// Every other table in this harness is about a curve. This one is about a single moment: the player
+// taps a row and closes the app. It prints what that costs them in waiting, at the Robotics levels
+// an opening colony really has, for the four facilities a session actually repeats.
+private fun printEarlyBuildTable() {
+    val repeating = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+    )
+    println("## What a tap makes you wait, in the first eight levels")
+    println()
+    println("Build duration at Robotics 0 / 1 / 2 — the levels a colony in its first two days has.")
+    println()
+    println("| Level | ${repeating.joinToString(" | ") { short(it) }} |")
+    println("|---|---|---|---|---|")
+    for (level in 1..8) {
+        val cells = repeating.joinToString(" | ") { building ->
+            (0..2).joinToString(" / ") { robotics ->
+                PlaceholderBalance
+                    .upgradeDuration(building, BuildingLevel(level), BuildingLevel(robotics))
+                    .label()
+            }
+        }
+        println("| $level | $cells |")
+    }
+    println()
+
+    // The two clocks the player is actually caught between, side by side. Everything about the
+    // opening's pacing is in the gap between these two columns: while the build is the shorter one
+    // the colony is waiting for money, and once it is the longer one the colony is waiting for the
+    // build — and the second regime never ends, because the two curves diverge by construction.
+    println("The Metal Mine's two waits, at Robotics 0, from a colony producing at the level below:")
+    println()
+    println("| Level | cost (m+c) | build | hours of income to afford it |")
+    println("|---|---|---|---|")
+    for (level in 2..10) {
+        val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+        val perHour = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level - 1))
+        val afford = (cost.metal * 60 / perHour).minutes
+        println(
+            "| $level | ${(cost.metal + cost.crystal).grouped()} " +
+                "| ${PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0)).label()} " +
+                "| ${afford.label()} |",
+        )
+    }
+    println()
+}
+
 private fun Long.grouped(): String = toString().reversed().chunked(3).joinToString(",").reversed()
 
 // The three resources, as an answer to "what is stopping me buying this".
@@ -491,6 +554,19 @@ private class Ledger {
     var throttledHours: Int = 0
     val soleBlockerHours: MutableMap<Blocker, Int> = Blocker.entries.associateWith { 0 }.toMutableMap()
 
+    // The same question asked without the word *alone*, and it exists because the sole-blocker
+    // ledger turned out to be brittle. Round 12 swept deuterium income by **one unit** — 15 to 16,
+    // a 6.7% change — and crystal's sole-blocker count went from 58 hours of 336 to 200. That is
+    // not a curve responding; it is a different trajectory. The cause is structural: "short of this
+    // resource *and nothing else*" is a knife-edge on which purchase happens to be next, and a
+    // small income change reorders the queue, so the reading jumps rather than moves.
+    //
+    // This one counts an hour for a resource whenever *some* wanted purchase is short of it, alone
+    // or not. It cannot say who to blame, which is what the sole ledger was for — but it does not
+    // flip on a single unit, so it is the one to tune against and the sole ledger is the one to
+    // read afterwards.
+    val shortHours: MutableMap<Blocker, Int> = Blocker.entries.associateWith { 0 }.toMutableMap()
+
     // What the strategy actually paid, summed as it paid it. The ratio between these is the number
     // the income curve should be tuned against — not the unweighted sum of base costs, which is a
     // basket nobody buys in those proportions.
@@ -508,6 +584,9 @@ private class Ledger {
         for (blocker in Blocker.entries) {
             if (costs.any { shortagesOf(it, stock) == setOf(blocker) }) {
                 soleBlockerHours[blocker] = soleBlockerHours.getValue(blocker) + 1
+            }
+            if (costs.any { blocker in shortagesOf(it, stock) }) {
+                shortHours[blocker] = shortHours.getValue(blocker) + 1
             }
         }
     }
@@ -605,6 +684,13 @@ private fun report(
     println("  hours with a purchase blocked by that resource *alone*, of ${days * 24}:")
     for (blocker in Blocker.entries) {
         println("    ${blocker.name.lowercase().padEnd(9)} ${ledger.soleBlockerHours.getValue(blocker)}")
+    }
+    // Printed beside the sole ledger rather than instead of it: the sole one answers "who is to
+    // blame" and jumps on a single unit of income, this one answers "what is ever short" and does
+    // not. Tune against the second, read the first.
+    println("  hours with a purchase short of that resource *at all*, of ${days * 24}:")
+    for (blocker in Blocker.entries) {
+        println("    ${blocker.name.lowercase().padEnd(9)} ${ledger.shortHours.getValue(blocker)}")
     }
 
     // The closing snapshot: every purchase still on the table and what is short for it. This is the
@@ -905,6 +991,534 @@ private fun openingReport(withProbes: Boolean) {
         "${if (robotics >= 4) "yes" else "**no — still level $robotics at 48h**"} |")
     println()
 }
+
+// ── The screen, as a colour ──────────────────────────────────────────────────────────────────
+//
+// Every reading above counts what a strategy *could buy*. None of them can see the thing a player
+// describes first, because a bot that spends everything affordable never notices that five of the
+// six rows said no. This is the Colony screen read the way a person reads it at arm's length: one
+// row is in progress, one or two are a colour you can tap, the rest are red.
+//
+// Deliberately taken **before** the check-in spends anything, because that is the moment the player
+// is looking at.
+// `locked` is counted apart from `red` because the screen draws them apart: the Nanite Factory
+// below Robotics 10 renders as `FacilityActionUiState.Locked("Requires Robotics 10")`, dimmed with
+// its requirement, and never as a price the colony is short of. Folding it into the red count would
+// manufacture one permanently-red row out of a row that is honestly saying "not yet".
+private class Rows(val inProgress: Int, val affordable: Int, val red: Int, val locked: Int)
+
+private fun rowsFor(state: GameState): Rows {
+    var inProgress = 0
+    var affordable = 0
+    var red = 0
+    var locked = 0
+    for (type in BuildingType.entries) {
+        val next = BuildingLevel(state.buildings.levelOf(type).value + 1)
+        val gated = type == BuildingType.NANITE_FACTORY &&
+            state.buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT
+        when {
+            type in state.builds -> inProgress++
+            gated -> locked++
+            state.resources.covers(PlaceholderBalance.upgradeCost(type, next)) -> affordable++
+            else -> red++
+        }
+    }
+    return Rows(inProgress, affordable, red, locked)
+}
+
+// Every three hours from waking to bed — the cadence Davide described himself playing at, twice, in
+// his own words: *"apri il gioco ogni 2/3 ore"* (round 8) and *"I have to wait 2/3 hours"* (round
+// 11). It is nearly twice the four-a-day rhythm the brief designs for, and the difference is not
+// cosmetic: a colony visited twice as often has banked half as much each time, so the same curve
+// shows a very different number of affordable rows.
+private val FREQUENT_CHECK_IN_HOURS = listOf(0, 3, 6, 9, 12, 15)
+
+// The complaint, as three numbers a curve can be tuned against: how much of the screen is red, how
+// often there is only one thing to press, and how long the press makes you wait.
+//
+// Run at two cadences and with two players, because all three readings move with both and quoting
+// one figure would hide which. The player who never buys the Robotics Factory is not a straw man —
+// it is the only facility that raises no rate, its cost is in the resource that arrives slowest,
+// and nothing on the row says it is the building that halves every wait in the game.
+private fun printCheckInPressureReport() {
+    println("## How much of the screen is red, and how long a tap costs")
+    println()
+    println("The Colony screen has six rows. This reads them the way a player does — before the")
+    println("check-in spends anything — and then times what the check-in books. Every other report")
+    println("in this harness counts what a bot could buy, which is a different question and not the")
+    println("one being complained about.")
+    println()
+    checkInPressure("four a day, buying Robotics when affordable", CHECK_IN_HOURS, buysRobotics = true)
+    checkInPressure("every three hours, buying Robotics when affordable", FREQUENT_CHECK_IN_HOURS, buysRobotics = true)
+    checkInPressure("every three hours, never buying Robotics", FREQUENT_CHECK_IN_HOURS, buysRobotics = false)
+}
+
+private fun checkInPressure(label: String, hours: List<Int>, buysRobotics: Boolean) {
+    val days = 2
+    val plan = listOfNotNull(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY.takeIf { buysRobotics },
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val redPerCheckIn = mutableListOf<Int>()
+    val affordablePerCheckIn = mutableListOf<Int>()
+    val boughtPerCheckIn = mutableListOf<Int>()
+    val startedMinutes = mutableListOf<Long>()
+    val lines = mutableListOf<String>()
+
+    val offsets = (0 until days).flatMap { day -> hours.map { day * 24 + it } }
+    for (offset in offsets) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        // Read the screen first. What the check-in then buys changes every one of these numbers,
+        // which is exactly why the reading is taken before it.
+        val rows = rowsFor(state)
+        redPerCheckIn += rows.red
+        affordablePerCheckIn += rows.affordable
+
+        val bought = mutableListOf<String>()
+        val booked = mutableListOf<Long>()
+        for ((building, cost) in optionsFor(state, plan, withProjects = false).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { started ->
+                state = started.state
+                state.builds[building]?.let { job ->
+                    val minutes = (job.completesAt - now).inWholeMinutes
+                    bought += "${short(building)} ${job.toLevel.value} (${minutes.asWait()})"
+                    booked += minutes
+                    startedMinutes += minutes
+                }
+            }
+        }
+
+        boughtPerCheckIn += bought.size
+        lines += "| ${clockLabel(offset)} | ${rows.inProgress} | ${rows.affordable} | **${rows.red}** " +
+            "| ${rows.locked} | ${bought.joinToString().ifEmpty { "**nothing**" }} " +
+            "| ${booked.maxOrNull()?.asWait() ?: "—"} |"
+    }
+
+    println("### $label")
+    println()
+    println("| Check-in | Building | Tappable | Red | Locked | Bought | Longest wait it booked |")
+    println("|---|---|---|---|---|---|---|")
+    lines.forEach(::println)
+    println()
+
+    val robotics = state.buildings.roboticsFactory.value
+    val levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Median red rows, of six | **${redPerCheckIn.median()} of 6** |")
+    println("| Worst check-in | ${redPerCheckIn.max()} of 6 red |")
+    println("| Median tappable rows | **${affordablePerCheckIn.median()}** |")
+    // Tappable counts each row against the whole stock; bought counts what the stock actually
+    // stretched to. The gap between them is most of "most of the thing are red" — four rows can
+    // each be affordable on their own and still leave the session buying one.
+    println("| Median rows the stock actually stretched to | **${boughtPerCheckIn.median()}** |")
+    println("| Check-ins offering one row or none | " +
+        "**${affordablePerCheckIn.count { it <= 1 }} of ${affordablePerCheckIn.size}** |")
+    println("| Median wait a tap booked | **${startedMinutes.median().asWait()}** |")
+    println("| Longest wait a tap booked | **${startedMinutes.max().asWait()}** |")
+    println("| Taps that booked over two hours | " +
+        "${startedMinutes.count { it > 120 }} of ${startedMinutes.size} |")
+    println("| Building levels at 48h | $levels (robotics $robotics) |")
+    println()
+}
+
+// ── The interaction census ───────────────────────────────────────────────────────────────────
+//
+// Davide's idea, 2026-08-09: *"count the possible interactions in the benchmarks, to make sure
+// users have things to do."* The reports above count what one **strategy** wanted to buy; this one
+// enumerates every call `core` would accept, whether or not anybody wants to make it, and says why
+// it would refuse the rest.
+//
+// **The trap this is built around.** Round 8's harness printed "median options on the table: 5" for
+// the exact opening Davide called boring, because five facility rows counted as five options when
+// they were one verb pressed five times. A raw count is therefore not a safety net — it is a number
+// that goes up when you add rows. So the census reports **kinds** first and the count second, and
+// it counts a probe as *one* verb with a thousand targets rather than as a thousand actions, which
+// is the same lesson applied to the newest verb rather than the oldest.
+//
+// **The reading that is actually new is the barrier.** An action the game refuses is refused for
+// one of three reasons, and each has a different fix: the stock is short (a curve), a slot is
+// occupied (a rule), or a requirement is unmet (a gate). "Nothing to do" is the same sentence in
+// all three cases and three different bugs, and no report before this one could tell them apart.
+private enum class Barrier { OFFERED, PRICE, SLOT, GATE }
+
+private class Census {
+    // kind -> barrier -> how many subjects sit there
+    val byKind: MutableMap<String, MutableMap<Barrier, Int>> = linkedMapOf()
+
+    fun add(kind: String, barrier: Barrier) {
+        val row = byKind.getOrPut(kind) { Barrier.entries.associateWith { 0 }.toMutableMap() }
+        row[barrier] = row.getValue(barrier) + 1
+    }
+
+    fun count(barrier: Barrier): Int = byKind.values.sumOf { it.getValue(barrier) }
+    fun kindsOffered(): List<String> = byKind.filterValues { it.getValue(Barrier.OFFERED) > 0 }.keys.toList()
+}
+
+private fun censusOf(state: GameState): Census {
+    val census = Census()
+
+    for (type in BuildingType.entries) {
+        val next = BuildingLevel(type.let { state.buildings.levelOf(it).value } + 1)
+        val gated = type == BuildingType.NANITE_FACTORY &&
+            state.buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT
+        census.add("build", when {
+            gated -> Barrier.GATE
+            // One job per facility. A row already building is not a thing to do, and it is refused
+            // by a rule rather than by poverty — which is why it is not counted as a price.
+            type in state.builds -> Barrier.SLOT
+            state.resources.covers(PlaceholderBalance.upgradeCost(type, next)) -> Barrier.OFFERED
+            else -> Barrier.PRICE
+        })
+    }
+
+    // Both branches share one empire-wide slot, so at most one of these six can ever be OFFERED at
+    // once however many are affordable. That ceiling is the single most important thing this census
+    // says about the mid game, and no count of rows would show it.
+    val slotBusy = state.researchSlotFreesAt != null
+    for (technology in Technology.entries) {
+        val cost = ResearchBalance.researchCost(technology, TechLevel(state.research.levelOf(technology).value + 1))
+        census.add("research", when {
+            !ResearchBalance.requirementFor(technology).isMetBy(state) -> Barrier.GATE
+            slotBusy -> Barrier.SLOT
+            state.resources.covers(cost) -> Barrier.OFFERED
+            else -> Barrier.PRICE
+        })
+    }
+    for (ladder in AdaptationTechnology.entries) {
+        val cost = AdaptationBalance.adaptationCost(ladder, TechLevel(state.research.levelOf(ladder).value + 1))
+        census.add("adapt", when {
+            !AdaptationBalance.requirementFor(ladder).isMetBy(state) -> Barrier.GATE
+            slotBusy -> Barrier.SLOT
+            state.resources.covers(cost) -> Barrier.OFFERED
+            else -> Barrier.PRICE
+        })
+    }
+
+    // **One verb, not a thousand.** There are ~1,000 dispatchable systems and every one of them is
+    // the same decision with a different number on it. Counting them as a thousand actions would
+    // drown every other row in this table and would make "add more systems" read as "add more to
+    // do", which is precisely the mistake round 8 caught in the old options column.
+    census.add("survey", if (state.resources.covers(SurveyBalance.cost())) Barrier.OFFERED else Barrier.PRICE)
+    return census
+}
+
+private fun printInteractionCensus() {
+    println("## The interaction census")
+    println()
+    println("Every call `core` would accept at each check-in, not just the ones a strategy wanted —")
+    println("and for the ones it would refuse, *why*. Counted at the three-hour cadence, with a probe")
+    println("dispatched into the gap ahead. A probe counts as **one** verb rather than as the ~1,000")
+    println("systems it could be aimed at: they are the same decision with a different number on it,")
+    println("and counting targets would make \"add more systems\" read as \"add more to do\".")
+    println()
+    interactionCensus(days = 2, showTable = true)
+    // The same census over a week, because a gate that is shut for two days and open on the third
+    // is a very different complaint from one that is shut for a fortnight, and the two-day figure
+    // alone cannot tell them apart.
+    interactionCensus(days = 7, showTable = false)
+}
+
+private fun interactionCensus(days: Int, showTable: Boolean) {
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val offered = mutableListOf<Int>()
+    val kinds = mutableListOf<Int>()
+    val taken = mutableListOf<Int>()
+    val barriers = Barrier.entries.associateWith { 0 }.toMutableMap()
+    val lines = mutableListOf<String>()
+
+    val offsets = (0 until days).flatMap { day -> FREQUENT_CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        val census = censusOf(state)
+        offered += census.count(Barrier.OFFERED)
+        kinds += census.kindsOffered().size
+        for (barrier in Barrier.entries) barriers[barrier] = barriers.getValue(barrier) + census.count(barrier)
+
+        // What the stock actually stretched to, which is the number the player experiences. Every
+        // action above is priced against the *whole* stock on its own; buying one changes what the
+        // rest cost against.
+        var acted = 0
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state; acted++ }
+        }
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state; acted++ }
+        }
+        for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state; acted++ }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state; acted++ }
+            }
+        }
+        taken += acted
+
+        val cells = listOf("build", "research", "adapt", "survey").joinToString(" | ") { kind ->
+            val row = census.byKind[kind] ?: return@joinToString "—"
+            val marks = Barrier.entries.filter { it != Barrier.OFFERED && row.getValue(it) > 0 }
+                .joinToString("") { barrier ->
+                    "${row.getValue(barrier)}${barrier.name.first().lowercase()}"
+                }
+            "${row.getValue(Barrier.OFFERED)}${if (marks.isEmpty()) "" else " ($marks)"}"
+        }
+        lines += "| ${clockLabel(offset)} | $cells | **${census.count(Barrier.OFFERED)}** " +
+            "| ${census.kindsOffered().joinToString("+").ifEmpty { "—" }} | $acted |"
+    }
+
+    if (showTable) {
+        println("Cells are `offered (Np = short of the price, Ns = a slot is busy, Ng = requirement unmet)`.")
+        println()
+        println("| Check-in | build | research | adapt | survey | Offered | Kinds | Taken |")
+        println("|---|---|---|---|---|---|---|---|")
+        lines.forEach(::println)
+        println()
+    }
+
+    val total = barriers.values.sum()
+    println("### Over $days days, ${offered.size} check-ins")
+    println()
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Median actions offered | **${offered.median()}** |")
+    println("| Median *kinds* offered | **${kinds.median()}** |")
+    println("| Check-ins offering one kind only | **${kinds.count { it <= 1 }} of ${kinds.size}** |")
+    println("| Check-ins offering nothing at all | ${offered.count { it == 0 }} of ${offered.size} |")
+    println("| Median actions the stock stretched to | **${taken.median()}** |")
+    println("| Refused for the price | ${percent(barriers.getValue(Barrier.PRICE), total)} of all actions |")
+    println("| Refused by a busy slot | ${percent(barriers.getValue(Barrier.SLOT), total)} |")
+    println("| Refused by an unmet requirement | ${percent(barriers.getValue(Barrier.GATE), total)} |")
+    println()
+    if (showTable) {
+        println("**Read the last three together.** \"Nothing to do\" is one sentence and three different")
+        println("bugs: a price is a curve, a slot is a rule, a requirement is a gate — and only the first")
+        println("of those is fixed by tuning a number.")
+        println()
+    }
+}
+
+// ── The gate clock ───────────────────────────────────────────────────────────────────────────
+//
+// The census says 47% of the opening's actions are refused by an unmet requirement against 5% by
+// price. This is the follow-up question: *when do those requirements clear, and what is actually
+// holding them?*
+//
+// The answer is one building and one resource. Every gate in the game below Nanite is a Robotics
+// Factory level — 1 opens the Research tab, 4 opens all three adaptation ladders, 10 opens Nanite —
+// and the Robotics Factory is the only repeating row priced in deuterium, which round 7 nominated
+// as the worst blocker in the game and rounds 8 through 11 all left alone. So the second and third
+// verbs of a five-verb game are behind a single resource, and this table is how far behind.
+private fun printGateClock() {
+    val days = 7
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val firstMet = mutableMapOf<String, Int>()
+    val firstOffered = mutableMapOf<String, Int>()
+    val roboticsReached = mutableMapOf<Int, Int>()
+    // What the Robotics Factory was short of, each check-in it was not bought — the question
+    // "is it the deuterium?" asked of every visit rather than of the closing snapshot.
+    val roboticsShort = Blocker.entries.associateWith { 0 }.toMutableMap()
+    var roboticsBlockedCheckIns = 0
+
+    val offsets = (0 until days).flatMap { day -> FREQUENT_CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        for (level in 1..PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT) {
+            if (state.buildings.roboticsFactory.value >= level) roboticsReached.putIfAbsent(level, offset)
+        }
+        for (technology in Technology.entries) {
+            val met = ResearchBalance.requirementFor(technology).isMetBy(state)
+            val cost = ResearchBalance.researchCost(technology, TechLevel(state.research.levelOf(technology).value + 1))
+            if (met) firstMet.putIfAbsent("$technology", offset)
+            if (met && state.resources.covers(cost)) firstOffered.putIfAbsent("$technology", offset)
+        }
+        for (ladder in AdaptationTechnology.entries) {
+            val met = AdaptationBalance.requirementFor(ladder).isMetBy(state)
+            val cost = AdaptationBalance.adaptationCost(ladder, TechLevel(state.research.levelOf(ladder).value + 1))
+            if (met) firstMet.putIfAbsent("$ladder", offset)
+            if (met && state.resources.covers(cost)) firstOffered.putIfAbsent("$ladder", offset)
+        }
+
+        val roboticsCost = PlaceholderBalance
+            .upgradeCost(BuildingType.ROBOTICS_FACTORY, BuildingLevel(state.buildings.roboticsFactory.value + 1))
+        val short = shortagesOf(roboticsCost, state.resources)
+        if (short.isNotEmpty() && BuildingType.ROBOTICS_FACTORY !in state.builds) {
+            roboticsBlockedCheckIns++
+            for (blocker in short) roboticsShort[blocker] = roboticsShort.getValue(blocker) + 1
+        }
+
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+        }
+    }
+
+    fun hour(value: Int?): String = value?.let { "hour $it (d${it / 24 + 1})" } ?: "**never in ${days}d**"
+
+    println("## The gate clock")
+    println()
+    println("When each gate opened, at the three-hour cadence over $days days. \"Met\" is the")
+    println("requirement clearing; \"offered\" is the first check-in where it was also affordable.")
+    println()
+    println("| Robotics Factory level | Reached | Opens |")
+    println("|---|---|---|")
+    for (level in listOf(1, 2, 3, 4, 5, 10)) {
+        val opens = when (level) {
+            1 -> "Photovoltaics, Extraction — the Research tab"
+            4 -> "all three adaptation ladders — every Blocked world"
+            PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT -> "the Nanite Factory"
+            else -> "—"
+        }
+        println("| $level | ${hour(roboticsReached[level])} | $opens |")
+    }
+    println()
+    println("| Subject | Requirement met | First affordable |")
+    println("|---|---|---|")
+    for (technology in Technology.entries) {
+        println("| $technology | ${hour(firstMet["$technology"])} | ${hour(firstOffered["$technology"])} |")
+    }
+    for (ladder in AdaptationTechnology.entries) {
+        println("| $ladder | ${hour(firstMet["$ladder"])} | ${hour(firstOffered["$ladder"])} |")
+    }
+    println()
+    println("The Robotics Factory was unaffordable at **$roboticsBlockedCheckIns** of " +
+        "${offsets.size} check-ins. What it was short of, counted per check-in (a visit can be " +
+        "short of more than one):")
+    println()
+    for (blocker in Blocker.entries) {
+        println("- ${blocker.name.lowercase().padEnd(9)} ${roboticsShort.getValue(blocker)}")
+    }
+    println()
+}
+
+// ── How far a colony gets, day by day ────────────────────────────────────────────────────────
+//
+// Davide named the window himself — *"the first 2/3/4 days"* — and no report had it. The opening
+// report stops at 48 hours, the greedy week only prints its closing line, and "levels at 48h" alone
+// cannot say whether a change made day one faster or merely moved day two's purchases into it.
+private fun printProgressionMilestones() {
+    val days = 7
+    val plan = listOf(
+        BuildingType.METAL_MINE,
+        BuildingType.CRYSTAL_MINE,
+        BuildingType.DEUTERIUM_SYNTHESIZER,
+        BuildingType.SOLAR_PLANT,
+        BuildingType.ROBOTICS_FACTORY,
+    )
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val marks = listOf(24, 48, 72, 96, 168)
+    val rows = mutableListOf<String>()
+
+    val offsets = (0 until days).flatMap { day -> FREQUENT_CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+        }
+
+        val nextOffset = offsets.getOrNull(index + 1) ?: Int.MAX_VALUE
+        for (mark in marks) {
+            if (offset < mark && nextOffset >= mark) {
+                val levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+                val projects = (Technology.entries.sumOf { state.research.levelOf(it).value } +
+                    AdaptationTechnology.entries.sumOf { state.research.levelOf(it).value })
+                rows += "| day ${mark / 24} | **$levels** | ${state.buildings.summary()} | $projects |"
+            }
+        }
+    }
+
+    println("## How far a colony gets, day by day")
+    println()
+    println("Three-hour cadence, everything affordable cheapest-first, one probe into each gap —")
+    println("the same player as the census. Levels are the sum over all six facilities.")
+    println()
+    println("| At | Building levels | Facilities | Projects finished |")
+    println("|---|---|---|---|")
+    rows.forEach(::println)
+    println()
+}
+
+private fun Long.asWait(): String = "${this / 60}h ${(this % 60).toString().padStart(2, '0')}m"
+
+// The middle value, which is the honest summary of a lumpy list — a mean over eight check-ins is
+// dragged around by whichever one happened to catch a completion.
+private fun List<Long>.median(): Long = if (isEmpty()) 0 else sorted()[size / 2]
+
+@JvmName("medianOfInts")
+private fun List<Int>.median(): Int = if (isEmpty()) 0 else sorted()[size / 2]
 
 private fun nameOf(what: Any, state: GameState): String = when (what) {
     is BuildingType -> "${short(what)} ${state.buildings.levelOf(what).value + 1}"

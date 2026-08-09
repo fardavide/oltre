@@ -50,9 +50,22 @@ class AdaptationBalanceTest {
         // deuterium the research branch already made scarce — and the identical priced total is
         // what keeps that a preference rather than a right answer. If this stops being flat, the
         // sheet's section 4 argument has quietly stopped being true.
-        for (technology in AdaptationTechnology.entries) {
-            assertEquals(4_800L, priced(AdaptationBalance.adaptationCost(technology, TechLevel(1))), "$technology")
+        //
+        // *Exact* equality was a property of the undiscounted level-1 table — 4,800 each. Since the
+        // opening discount reached this branch it is equality to within **two units in sixteen
+        // hundred**, because a third of three differently-shaped baskets does not floor to three
+        // equal totals. Asserted as a proportion across the ramp and past it, so the property is
+        // checked where it is now true rather than only where it used to be exact.
+        for (level in 1..5) {
+            val totals = AdaptationTechnology.entries
+                .map { priced(AdaptationBalance.adaptationCost(it, TechLevel(level))) }
+            assertTrue(
+                (totals.max() - totals.min()) * 500 <= totals.min(),
+                "level $level is priced $totals — the three ladders have stopped costing the same",
+            )
         }
+        // And the shape the sheet actually chose, at the first level where nothing is discounted.
+        assertEquals(16_202L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(4))))
     }
 
     @Test
@@ -62,7 +75,18 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `cost compounds fifty percent per level on the game's one cost curve`() {
+    fun `cost compounds fifty percent per level once the opening discount has run out`() {
+        for (technology in AdaptationTechnology.entries) {
+            for (level in 4..10) {
+                val current = AdaptationBalance.adaptationCost(technology, TechLevel(level))
+                val next = AdaptationBalance.adaptationCost(technology, TechLevel(level + 1))
+                assertTrue(
+                    next.metal * 2 in (current.metal * 3 - 2)..(current.metal * 3 + 2),
+                    "$technology $level -> ${level + 1}: ${current.metal} then ${next.metal}",
+                )
+            }
+        }
+
         assertCost(AdaptationTechnology.THERMAL, level = 2, metal = 1_350, crystal = 900, deuterium = 1_350)
         assertCost(AdaptationTechnology.GRAVITIC, level = 2, metal = 3_600, crystal = 1_350, deuterium = 300)
         assertCost(AdaptationTechnology.ATMOSPHERIC, level = 2, metal = 1_275, crystal = 2_400, deuterium = 375)
@@ -73,12 +97,29 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the branch is the expensive one — level 1 costs nearly twice the priciest technology`() {
-        val enrichment = priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1)))
-        val thermal = priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1)))
+    fun `the branch is the expensive one — nearly twice the priciest technology at every level`() {
+        // The sheet's section 4: adaptation costs about twice the priciest applied technology, and
+        // that is what makes it read as the branch you save up for.
+        //
+        // It briefly stopped being true. The opening discount reached the applied branch first and
+        // left this one at full price, so the step from Enrichment 1 to Thermal 1 went from 1.9x to
+        // **5.8x** — a cliff exactly where the player meets the galaxy. Putting both branches on
+        // one schedule is the fix, and the property to assert is therefore the *ratio*, at every
+        // level rather than at the one depth a single pair of numbers would have pinned.
+        for (level in 1..6) {
+            val enrichment = priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(level)))
+            val thermal = priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(level)))
+            assertTrue(
+                thermal * 10 in (enrichment * 18)..(enrichment * 21),
+                "level $level: $thermal against $enrichment is outside 1.8x to 2.1x",
+            )
+        }
 
-        assertEquals(2_500L, enrichment)
-        assertTrue(thermal > enrichment * 3 / 2, "adaptation must cost meaningfully more, was $thermal vs $enrichment")
+        // The two ends, written out, so a ratio that holds while both sides drift says so.
+        assertEquals(830L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(1))))
+        assertEquals(1_600L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(1))))
+        assertEquals(8_439L, priced(ResearchBalance.researchCost(Technology.ENRICHMENT, TechLevel(4))))
+        assertEquals(16_202L, priced(AdaptationBalance.adaptationCost(AdaptationTechnology.THERMAL, TechLevel(4))))
     }
 
     @Test
@@ -100,13 +141,14 @@ class AdaptationBalanceTest {
     @Test
     fun `duration is the sheet's table and equal across the three ladders`() {
         for (technology in AdaptationTechnology.entries) {
-            assertMinutes(technology, level = 1, robotics = 4, expected = 182)
-            assertMinutes(technology, level = 3, robotics = 4, expected = 545)
+            // Levels 1 and 3 carry the opening discount; 5 and 8 are the sheet's own figures.
+            assertMinutes(technology, level = 1, robotics = 4, expected = 61)
+            assertMinutes(technology, level = 3, robotics = 4, expected = 424)
             assertMinutes(technology, level = 5, robotics = 4, expected = 909)
             assertMinutes(technology, level = 8, robotics = 4, expected = 1_455)
 
-            assertMinutes(technology, level = 1, robotics = 8, expected = 146)
-            assertMinutes(technology, level = 3, robotics = 8, expected = 439)
+            assertMinutes(technology, level = 1, robotics = 8, expected = 49)
+            assertMinutes(technology, level = 3, robotics = 8, expected = 341)
             assertMinutes(technology, level = 5, robotics = 8, expected = 732)
             assertMinutes(technology, level = 8, robotics = 8, expected = 1_171)
         }
@@ -127,8 +169,9 @@ class AdaptationBalanceTest {
         val atZero = AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(0))
         val atOne = AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(1))
 
-        assertEquals(240L, atZero.inWholeMinutes)
-        assertEquals(240L * 25 / 27, atOne.inWholeMinutes, "a level of Robotics must not halve it")
+        // 80 rather than the sheet's 240: level 1 is the deepest step of the opening discount.
+        assertEquals(80L, atZero.inWholeMinutes)
+        assertEquals(80L * 25 / 27, atOne.inWholeMinutes, "a level of Robotics must not halve it")
     }
 
     @Test
@@ -163,8 +206,23 @@ class AdaptationBalanceTest {
         deuterium: Long,
     ) {
         val cost = AdaptationBalance.adaptationCost(technology, TechLevel(level))
-        assertEquals(Resources.of(metal = metal, crystal = crystal, deuterium = deuterium), cost, "$technology $level")
+        assertEquals(
+            Resources.of(
+                metal = discounted(metal, level),
+                crystal = discounted(crystal, level),
+                deuterium = discounted(deuterium, level),
+            ),
+            cost,
+            "$technology $level",
+        )
     }
+
+    // The sheet's tables are still the design and are still written out below verbatim — but since
+    // 2026-08-09 they are the **full** price, and levels 1 to 3 are sold under it on the same
+    // schedule the applied branch uses. Spelled out here rather than read from `openingDiscount`,
+    // so the fixture states what the game charges instead of echoing the code that charges it.
+    private fun discounted(fullPrice: Long, level: Int): Long =
+        if (level >= 4) fullPrice else fullPrice * (3 + 2 * (level - 1)) / 9
 
     // Rounded to the nearest minute, the same arithmetic `:sim:run` prints the table with — so the
     // sheet, the harness and this test are three views of one number rather than three numbers.

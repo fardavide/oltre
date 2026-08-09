@@ -49,16 +49,41 @@ object AdaptationBalance {
     fun requirementFor(technology: AdaptationTechnology): ResearchRequirement =
         ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, GATE)
 
+    // ── The opening discount reaches this branch too, on the applied branch's schedule ───────
+    //
+    // The first cut of the ramp left these three at full price, on the argument that the landmark
+    // *is* the moment they become buyable so their level 1 sits exactly on the boundary. That is
+    // true and it produced a cliff: Enrichment 1 was sold at a third and Thermal 1 at full price, so
+    // the step between the two branches went from the sheet's **1.9×** to **5.8×** — and the sheet's
+    // whole argument for 4,800 is that adaptation costs *about twice* the priciest technology.
+    // Davide: *"Adjust the Enrichment and Thermal matter."*
+    //
+    // Same `FULL_PRICE_LEVEL` as `ResearchBalance`, and that is the fix rather than a new number:
+    // the two branches share the one research slot and are meant to be weighed against each other,
+    // so they have to be on the same side of the discount at every level. At 4 they are, and the
+    // ratio the sheet designed holds all the way down — 1.93 at level 1 and 1.92 at level 4 — where
+    // any other choice would have preserved it at exactly one depth.
+    //
+    // The cost is that the discount now runs a little past the landmark, since a player buys these
+    // levels from Robotics 4 onward. That is a soft edge instead of a cliff, and a soft edge is what
+    // was asked for.
+    private const val FULL_PRICE_LEVEL: Int = 4
+
     fun adaptationCost(technology: AdaptationTechnology, toLevel: TechLevel): Resources {
         require(toLevel.value in 1..TechLevel.MAX) {
             "adaptation cost is only defined for levels 1..${TechLevel.MAX}, asked for $toLevel"
         }
         val steps = toLevel.value - 1
         val base = baseCost(technology)
+        fun priced(resource: Long): Long = openingDiscount(
+            exactGeometric(resource, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            toLevel.value,
+            FULL_PRICE_LEVEL,
+        )
         return Resources.of(
-            metal = exactGeometric(base.metal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            crystal = exactGeometric(base.crystal, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
-            deuterium = exactGeometric(base.deuterium, steps, COST_GROWTH_NUMERATOR, COST_GROWTH_DENOMINATOR),
+            metal = priced(base.metal),
+            crystal = priced(base.crystal),
+            deuterium = priced(base.deuterium),
         )
     }
 
@@ -66,7 +91,8 @@ object AdaptationBalance {
         technology: AdaptationTechnology,
         toLevel: TechLevel,
         roboticsFactory: BuildingLevel,
-    ): Duration = (BASE_MINUTES * toLevel.value).minutes * ROBOTICS_NUMERATOR /
+    ): Duration = openingDiscount((BASE_MINUTES * toLevel.value).toLong(), toLevel.value, FULL_PRICE_LEVEL)
+        .minutes * ROBOTICS_NUMERATOR /
         (ROBOTICS_NUMERATOR + ROBOTICS_PER_LEVEL * roboticsFactory.value)
 
     // **Each ladder is priced in the resource its own axis makes rich**, and the three cost exactly

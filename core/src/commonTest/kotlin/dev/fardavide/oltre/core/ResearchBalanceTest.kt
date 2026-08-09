@@ -86,19 +86,23 @@ class ResearchBalanceTest {
         // The sheet's CUM DEUT column reads 4,156 because it sums the costs before rounding them;
         // a player pays six rounded levels, which is one unit more. The per-level table is the
         // one that has to match to the unit, and it does — this is what is actually charged.
-        assertEquals(4_157L, extractionToSix, "six levels of Extraction cost 4157 deuterium in total")
-        assertEquals(12_469L, extractionMetalToSix, "and 12469 metal - 2_4 days of deuterium against 13 hours of metal")
+        assertEquals(3_789L, extractionToSix, "six levels of Extraction cost 3789 deuterium in total")
+        assertEquals(11_369L, extractionMetalToSix, "and 11369 metal - the first three levels carry the opening discount")
     }
 
     @Test
-    fun `duration is base minutes times level before any Robotics divisor`() {
+    fun `duration is base minutes times level before any Robotics divisor once the discount is out`() {
         val idle = BuildingLevel(0)
-        assertEquals(60.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), idle))
         assertEquals(600.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(10), idle))
-        assertEquals(90.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), idle))
         assertEquals(900.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(10), idle))
-        assertEquals(150.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), idle))
         assertEquals(1_500.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(10), idle))
+
+        // And under it, the same third: "cheaper **and quicker**". A building got the second half
+        // for nothing because round 11 made its duration a function of its cost; this branch is a
+        // table times a level, so it had to be told.
+        assertEquals(20.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), idle))
+        assertEquals(30.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), idle))
+        assertEquals(50.minutes, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), idle))
     }
 
     @Test
@@ -110,7 +114,7 @@ class ResearchBalanceTest {
         val photovoltaics = listOf(45, 91, 136, 182, 227, 273, 318, 364, 409, 455)
         val extraction = listOf(68, 136, 205, 273, 341, 409, 477, 545, 614, 682)
         val enrichment = listOf(114, 227, 341, 455, 568, 682, 795, 909, 1_023, 1_136)
-        for (level in 1..10) {
+        for (level in 4..10) {
             assertEquals(
                 photovoltaics[level - 1].toLong(),
                 ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(level), robotics).roundedMinutes(),
@@ -127,6 +131,14 @@ class ResearchBalanceTest {
                 "Enrichment level $level at Robotics 4",
             )
         }
+
+        // Levels 1 to 3 carry the opening discount, so the sheet's column is what they would have
+        // cost rather than what they cost. Same divisor, applied after it.
+        assertEquals(15L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(1), robotics).roundedMinutes())
+        assertEquals(50L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(2), robotics).roundedMinutes())
+        assertEquals(106L, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(3), robotics).roundedMinutes())
+        assertEquals(23L, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(1), robotics).roundedMinutes())
+        assertEquals(38L, ResearchBalance.researchDuration(Technology.ENRICHMENT, TechLevel(1), robotics).roundedMinutes())
     }
 
     @Test
@@ -207,11 +219,21 @@ class ResearchBalanceTest {
             val level = TechLevel(row.level)
             assertEquals(row.effectPercent, ResearchBalance.effectPercent(technology, level), "$technology effect at ${row.level}")
             val cost = ResearchBalance.researchCost(technology, level)
-            assertEquals(row.metal, cost.metal, "$technology metal at ${row.level}")
-            assertEquals(row.crystal, cost.crystal, "$technology crystal at ${row.level}")
-            assertEquals(row.deuterium, cost.deuterium, "$technology deuterium at ${row.level}")
+            assertEquals(discounted(row.metal, row.level), cost.metal, "$technology metal at ${row.level}")
+            assertEquals(discounted(row.crystal, row.level), cost.crystal, "$technology crystal at ${row.level}")
+            assertEquals(discounted(row.deuterium, row.level), cost.deuterium, "$technology deuterium at ${row.level}")
         }
     }
+
+    // The sheet's tables below are still the design, and they are still asserted row by row — but
+    // since 2026-08-09 they are the **full** price and the first three levels are sold under it.
+    // Davide's call, which is the only kind that may move these numbers: "Everything must be
+    // cheaper and quicker across the board, until first expedition."
+    //
+    // Written out here rather than read from `openingDiscount` so the fixture stays a statement of
+    // what the game charges instead of an echo of the code that charges it.
+    private fun discounted(fullPrice: Long, level: Int): Long =
+        if (level >= 4) fullPrice else fullPrice * (3 + 2 * (level - 1)) / 9
 
     private fun Duration.roundedMinutes(): Long = (inWholeSeconds + 30) / 60
 

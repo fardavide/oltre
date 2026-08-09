@@ -113,26 +113,48 @@ private fun accrue(state: GameState, from: Instant, to: Instant): GameState {
     val elapsedMilliseconds = to.toEpochMilliseconds() - from.toEpochMilliseconds()
     return state.copy(
         resources = state.resources.copy(
-            metalFine = minOf(
-                CAP_FINE,
-                state.resources.metalFine +
-                    PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research) *
-                    elapsedMilliseconds,
+            metalFine = accrued(
+                state.resources.metalFine,
+                PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research),
+                elapsedMilliseconds,
             ),
-            crystalFine = minOf(
-                CAP_FINE,
-                state.resources.crystalFine +
-                    PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research) *
-                    elapsedMilliseconds,
+            crystalFine = accrued(
+                state.resources.crystalFine,
+                PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research),
+                elapsedMilliseconds,
             ),
-            deuteriumFine = minOf(
-                CAP_FINE,
-                state.resources.deuteriumFine +
-                    PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings, state.research) *
-                    elapsedMilliseconds,
+            deuteriumFine = accrued(
+                state.resources.deuteriumFine,
+                PlaceholderBalance.effectiveDeuteriumProductionPerHour(state.buildings, state.research),
+                elapsedMilliseconds,
             ),
         ),
     )
+}
+
+// **The cap is applied to the time, not to the product**, and that is the whole point of this
+// function rather than the one line it replaces.
+//
+// `stock + ratePerHour * elapsedMilliseconds` clamped afterwards is correct arithmetic and unsafe
+// storage: the clamp is 3.6e13 but the product it clamps is unbounded, so a deep colony returning
+// after a long absence — or a save whose `lastUpdatedAt` is far in the past, or a device clock that
+// jumped — computes an intermediate that wraps negative, and `Resources`' own non-negative guard
+// turns that into a crash on load. Nothing is wrong with the game state; the arithmetic on the way
+// to it overflowed.
+//
+// Working out how many milliseconds it would take to *fill* the store first bounds every term by
+// construction: the product can never exceed the headroom plus one hour's production, whatever the
+// elapsed span is. A colony away for a century now gets exactly what a colony away for a week with
+// a full store gets, which is the cap, and it gets there without ever forming a large number.
+private fun accrued(stockFine: Long, ratePerHour: Long, elapsedMilliseconds: Long): Long {
+    if (stockFine >= CAP_FINE) return CAP_FINE
+    if (ratePerHour <= 0 || elapsedMilliseconds <= 0) return stockFine
+    val headroom = CAP_FINE - stockFine
+    // `+ 1` so the store still reaches the cap on the millisecond it would have, rather than
+    // stopping a unit short of it by integer division.
+    val millisecondsToFill = headroom / ratePerHour + 1
+    val effective = minOf(elapsedMilliseconds, millisecondsToFill)
+    return minOf(CAP_FINE, stockFine + ratePerHour * effective)
 }
 
 private fun Resources.deposit(cargo: Resources): Resources = copy(
