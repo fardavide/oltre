@@ -4,6 +4,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSData
 import platform.Foundation.NSDocumentDirectory
+import platform.Foundation.NSFileManager
 import platform.Foundation.NSSearchPathForDirectoriesInDomains
 import platform.Foundation.NSString
 import platform.Foundation.NSUTF8StringEncoding
@@ -36,6 +37,16 @@ private class IosSaveFile(private val path: String) : SaveFile {
             if (data != null) {
                 data.writeToFile(path, atomically = true)
             }
+        }
+    }
+
+    // No temporary sibling to sweep up, unlike the JVM copies: `atomically` is Foundation's own
+    // write-then-move and it cleans up after itself.
+    override suspend fun clear() {
+        withContext(Dispatchers.Default) {
+            // The error is discarded rather than inspected, per SaveFile.clear — and the commonest
+            // one is "no such file", which is a reset that has already achieved what it was for.
+            NSFileManager.defaultManager.removeItemAtPath(path, error = null)
         }
     }
 }

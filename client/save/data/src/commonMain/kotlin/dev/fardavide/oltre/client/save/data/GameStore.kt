@@ -24,4 +24,11 @@ class GameStore(private val file: SaveFile) {
     suspend fun save(snapshot: GameSnapshot) {
         file.write(GameSave.encode(snapshot))
     }
+
+    // Forget the colony. The next `load` answers null, which is the same answer an unreadable save
+    // and a first launch already give — so a reset needs no new path through the shell, only the
+    // one that already exists for opening the game with nothing saved.
+    suspend fun clear() {
+        file.clear()
+    }
 }

@@ -33,4 +33,18 @@ internal class FileSaveFile(private val file: File) : SaveFile {
             }
         }
     }
+
+    // The temporary sibling goes too. `write` moves it into place, so one is only ever left behind
+    // by a process killed mid-write — and a reset that left it would hand the next write a stale
+    // file to overwrite rather than a clean directory.
+    override suspend fun clear() {
+        withContext(Dispatchers.IO) {
+            try {
+                file.delete()
+                File(file.parentFile, "${file.name}.tmp").delete()
+            } catch (e: SecurityException) {
+                // Best effort, per SaveFile.clear.
+            }
+        }
+    }
 }
