@@ -148,6 +148,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.1 — 2026-08-09
+
+- **Upgrades stopped outgrowing your income.** A build used to take as long as it *cost*, and
+  because costs climb faster than mines do, the wait ran away from you: a sixth Metal Mine level
+  took 3h 07m to build against 1h 50m to earn, and a sixth Deuterium Synthesizer took twelve and a
+  half hours. A build now takes about as long as *earning* it does — 1h 32m and 3h 08m for those
+  two — and it stays that way at every depth instead of only near the start.
+- **You no longer have to have guessed that the Robotics Factory is the clock.** It still halves
+  your builds, but skipping it used to cost a player two building levels over the first two days and
+  a six-and-three-quarter-hour wait for a single tap; now it costs neither, and the worst wait in
+  those two days is 2h 20m.
+- Same progress after two days as before, and rather more after a week.
+
 ### 0.2.0 — 2026-08-09
 
 - **You can send a probe now.** The system page has a footer under the orbit map: what it costs

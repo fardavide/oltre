@@ -166,21 +166,52 @@ object PlaceholderBalance {
         )
     }
 
-    // A build takes as long as it costs. OGame's shape, and the fix balance round 8 measured,
-    // held, and named four rounds running as *the* wrong thing about this game's pacing.
+    // A build takes about as long as **earning** it does. Round 10 said "as long as it costs" and
+    // divided the metal-and-crystal sum by three, which is OGame's shape and reads well; round 11
+    // is the correction, and the thing it corrects is a divergence rather than a level.
     //
-    // What it replaces was `per-building minutes x level` — linear in the level while cost
-    // compounds at +50%, so the two curves diverged from level one. A colony spent 87.5% of its
-    // first two days with nothing at all in flight and the busiest check-in booked 72 minutes of
-    // work: every notification the game could send arrived while the player was still holding the
-    // phone. **Round 8 measured this exact change at 87.5% -> 64.6% idle with an identical 25
-    // levels at 48 hours** — so it buys cover without costing progress, and it is why it was held
-    // rather than rejected: on its own it trades taps for cover, and it wanted the probe beside it.
+    // Cost compounds at +50% a level. Production compounds at +25%. So a duration read straight
+    // off the cost pulls away from the income that pays for it by x1.2 a level, from level one,
+    // without bound: the Metal Mine's sixth level cost 3h 07m of building against 1h 50m of
+    // earning, its eighth 7h 01m against 2h 39m, and its twentieth **911 hours against 24**. The
+    // Robotics Factory's divisor was the only thing pushing back, and it is the one facility that
+    // raises no rate, is priced in the slowest resource, and is therefore the one a player is most
+    // likely not to have — `:sim:run` measured a colony that never bought it waiting 6h 48m for a
+    // single tap on day two and finishing 48 hours two levels behind one that did.
     //
-    // Deuterium is deliberately outside the sum, as in OGame. It is the resource that gates the
-    // Robotics Factory and therefore the whole research branch, and pricing *time* in it too would
-    // make one scarcity govern two things the player has to trade off separately.
-    private const val COST_PER_MINUTE: Long = 3
+    // The root closes it, and the arithmetic is why rather than a coincidence: cost-over-income
+    // grows at 1.5 / 1.25 = **x1.2** a level, and the square root of a x1.5 curve grows at
+    // **x1.2247**. Cutting the duration from the root of the cost therefore tracks the time it
+    // takes to earn the thing at *every* depth — 0.75 of it at level 3, 1.13 at level 20, with no
+    // help from any building. `BalanceCurveTest` bounds that ratio on both sides, which is the
+    // check round 10's shape could not have passed at any constant.
+    //
+    // Four rather than three or five: `:sim:run` swept the band and every value in it answers
+    // Davide's complaint, so what the constant buys is how much of round 10's cover survives. At 3
+    // the colony idles 85.4% of its opening, which is where it was *before* round 10 — the change
+    // undone. At 5 the deepest tap on day two is back to 2h 55m for a player at Robotics 0, which
+    // is the complaint. At 4 no repeating facility passes two hours before level 8, and 81.25% of
+    // the opening still has the colony busy. Round 11 of `balance-log.md` has the sweep.
+    //
+    // Deuterium is deliberately outside the sum, as in OGame and as in round 10. It is the resource
+    // that gates the Robotics Factory and therefore the whole research branch, and pricing *time*
+    // in it too would make one scarcity govern two things the player has to trade off separately.
+    private const val MINUTES_PER_ROOT_COST: Long = 4
+
+    // Integer, and Newton's rather than `sqrt`: `core` is pure and must give the same answer on
+    // every platform it compiles for, and a float root that lands a hair under a perfect square
+    // would truncate to a different minute on one target than on another. Converges in a handful
+    // of steps and is only ever called on a cost.
+    private fun rootOf(value: Long): Long {
+        if (value <= 0) return 0
+        var root = value
+        var next = (root + 1) / 2
+        while (next < root) {
+            root = next
+            next = (root + value / root) / 2
+        }
+        return root
+    }
 
     // Nothing is instant, however deep the Robotics Factory goes. At Robotics 10 a first mine level
     // divides to under three minutes, which is not a build — it is a tap with a delay on it, and it
@@ -193,7 +224,7 @@ object PlaceholderBalance {
         roboticsFactory: BuildingLevel,
     ): Duration {
         val cost = upgradeCost(building, toLevel)
-        val base = ((cost.metal + cost.crystal) / COST_PER_MINUTE).minutes
+        val base = (MINUTES_PER_ROOT_COST * rootOf(cost.metal + cost.crystal)).minutes
         // The floor is applied last, to what the player actually waits — not to the base before the
         // divisor. A Robotics Factory that shortens a build below the floor has bought all the
         // shortening there is; a floor placed ahead of it would let the divisor cut *through* the

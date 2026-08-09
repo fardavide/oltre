@@ -108,25 +108,66 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `a build takes as long as it costs`() {
-        // The shape balance round 8 held for four rounds and this slice lands. What it replaces was
-        // linear in the level while cost compounds at +50%, so the two curves diverged from level
-        // one and a colony spent 87.5% of its opening two days with nothing at all in flight.
+    fun `a build takes about as long as earning it does`() {
+        // **The two-sided version of the shape round 10 landed one-sided.** Round 10 made a build
+        // take as long as it *costs*, which reads well and diverges badly: cost compounds at +50%
+        // a level while production compounds at +25%, so a duration read straight off the cost
+        // pulls away from the income that pays for it by 20% a level, from level one, without
+        // bound. Measured at level 20 that curve asked 911 hours of building for a mine the colony
+        // earns in 24 — a factor of 38 — and at level 6 it already asked 3h 07m against 1h 50m,
+        // which is the wait Davide opened round 11 complaining about.
         //
-        // Asserted as a proportion rather than against a table of minutes, because the *ratio* is
-        // the decision. A per-building table would let one row drift out of shape and still pass.
+        // The root fixes it because the arithmetic lines up: cost-over-income grows at 1.5/1.25 =
+        // x1.2 a level, and the square root of a x1.5 curve grows at x1.2247. So a duration cut
+        // from the root of the cost tracks the time it takes to earn it *at every depth*, with no
+        // help from the Robotics Factory — which matters because the divisor is a building that
+        // raises no rate, is priced in the slowest resource, and is therefore the one a player is
+        // most likely not to have.
+        //
+        // Asserted as a two-sided ratio rather than a table of minutes, because the *relationship*
+        // is the decision and a table would let it drift while every row still passed. The bounds
+        // admit the 3..5 band round 11 swept and pin the 4 it chose: at 3 the build is only 0.57
+        // of the earning and the colony idles as it did before round 10, at 5 it reaches 1.41 and
+        // the complaint comes back.
         for (level in 2..20) {
-            val cheap = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
-            val dear = PlaceholderBalance.upgradeCost(BuildingType.ROBOTICS_FACTORY, BuildingLevel(level))
-            val cheapMinutes = PlaceholderBalance
+            val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+            // The colony that buys this level is producing at the one below it, on both mines,
+            // because the duration sum is metal and crystal and so the income compared with it
+            // must be too.
+            val perHour = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level - 1)) +
+                PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
+            val earning = (cost.metal + cost.crystal) * 60 / perHour
+            val building = PlaceholderBalance
                 .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0))
                 .inWholeMinutes
-            val dearMinutes = PlaceholderBalance
-                .upgradeDuration(BuildingType.ROBOTICS_FACTORY, BuildingLevel(level), BuildingLevel(0))
-                .inWholeMinutes
 
-            assertEquals((cheap.metal + cheap.crystal) / 3, cheapMinutes, "metal mine $level")
-            assertEquals((dear.metal + dear.crystal) / 3, dearMinutes, "robotics factory $level")
+            assertTrue(
+                3 * building >= 2 * earning,
+                "level $level builds in $building min against $earning min of income — too short to cover a gap",
+            )
+            assertTrue(
+                4 * building <= 5 * earning,
+                "level $level builds in $building min against $earning min of income — the wait outgrew the earning",
+            )
+        }
+    }
+
+    @Test
+    fun `every building reads its duration off the same root`() {
+        // One rule, not a per-building table: the cheapest row and the dearest are the same
+        // function of what they cost, so a row cannot drift out of shape on its own. Stated here
+        // as the rule itself rather than as a proportion, because with a root the ratio between
+        // two rows is no longer constant — that is the point of it, and it is why the previous
+        // shape could be checked with a division and this one cannot.
+        for (level in 2..20) {
+            for (building in BuildingType.entries) {
+                val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level))
+                assertEquals(
+                    4 * isqrt(cost.metal + cost.crystal),
+                    PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(0)).inWholeMinutes,
+                    "$building $level",
+                )
+            }
         }
     }
 
@@ -141,11 +182,20 @@ class BalanceCurveTest {
             val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(4))
             assertTrue(cost.deuterium > 0, "the fixture needs a row that costs deuterium")
             assertEquals(
-                (cost.metal + cost.crystal) / 3,
+                4 * isqrt(cost.metal + cost.crystal),
                 PlaceholderBalance.upgradeDuration(building, BuildingLevel(4), BuildingLevel(0)).inWholeMinutes,
                 "$building must not be slowed by the resource that gates research",
             )
         }
+    }
+
+    // The rule written out a second time, on purpose. A test that called the production code's own
+    // root would agree with it however wrong it was; this one is the specification, and it is
+    // deliberately the slow obvious loop rather than the fast method under test.
+    private fun isqrt(value: Long): Long {
+        var root = 0L
+        while ((root + 1) * (root + 1) <= value) root++
+        return root
     }
 
     @Test

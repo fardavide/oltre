@@ -42,10 +42,11 @@ level**, cost compounds **+50% per level**, both floored to whole units at every
 
 Daily metal: 2,160 at level 1, 5,232 at level 5, 15,912 at level 10, 48,480 at level 15.
 
-Other levers as of 0.1.1: starting stock 500 metal / 300 crystal (no deuterium); build duration
-is base-minutes × level, divided by 1 + robotics level; storage cap a flat 10M per resource;
-energy scales all mine output by produced/consumed on a deficit — and that scaling is now on
-screen rather than silent (round 3).
+Other levers as of 0.2.1: starting stock 500 metal / 300 crystal (no deuterium); **build duration
+is 4 × √(metal + crystal) minutes, divided by 1 + robotics level, with a five-minute floor applied
+last** (round 11 — base-minutes × level until round 10, then cost ÷ 3 for one release); storage cap
+a flat 10M per resource; energy scales all mine output by produced/consumed on a deficit — and that
+scaling is now on screen rather than silent (round 3).
 
 > **Regenerated from `./gradlew :sim:run` (2026-08-08).** The crystal column is the only thing
 > round 7 moved; every metal figure, both cost columns, the paybacks and the daily totals are
@@ -907,3 +908,226 @@ measures *one stated strategy*, not a player. Nothing here has been played.
   level-1 rows to buy — a second colony, which is slice #10.
 - **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
   strategy. The first round that can say how any of it *feels* is the one after the screen ships.
+
+## Round 11 — 0.2.1, the wait that outgrew the earning (2026-08-09)
+
+Round 10's "still nothing here has been played" lasted one day. Davide played 0.2.0 and the first
+thing he said was about the curve it landed.
+
+### The feedback, verbatim
+
+> "Ok, I think I can tell that prices and build times, before have access to explorations, are way
+> too long! I open the game, most of the thing are red (not enough resources), and after I tap the
+> one or two thing I can upgrade I have to wait 2/3 hours!"
+
+> "It's fine to have high cost and long build time when you have more things to do, but before then
+> it's so frustrating"
+
+And, asked to make the harness count what a check-in offers:
+
+> "I'm not sure it's a good idea, but I was thinking we could count the possible interactions in the
+> benchmarks, to make sure users have 'things to do'?"
+
+**The second sentence is the specification.** He is not asking for a cheaper game — he asked twice
+in round 8 for the opposite (*"I dont want to be able to update things no stop"*, *"ci vuole
+parecchio per sbloccare anche quelle che ci sono. Il che è buono"*). He is asking for the weight to
+arrive **after** there is something else to do, not before.
+
+### What the sim was taught to measure
+
+Three additions, and the first two exist because every reading in this harness before today counts
+what a *strategy wanted to buy* — which is not what a player describes.
+
+1. **The screen, as a colour.** `printCheckInPressureReport` reads the six Colony rows the way a
+   person reads them at arm's length, **before** the check-in spends anything: how many are
+   building, how many are tappable, how many are red, how many are locked. Locked is counted apart
+   from red on purpose — the Nanite Factory below Robotics 10 draws as `Locked("Requires Robotics
+   10")`, dimmed with its requirement, and folding it into the red count would manufacture a
+   permanently-red row out of a row that is honestly saying "not yet".
+2. **A three-hour cadence.** Every opening report until now ran at the brief's four a day. Davide
+   has now twice described playing at two or three hours — *"apri il gioco ogni 2/3 ore"* in round
+   8 and *"wait 2/3 hours"* here — and a colony visited twice as often has banked half as much
+   each time. Also run against **a player who never buys the Robotics Factory**, which is not a
+   straw man: it is the only facility that raises no rate, it is priced in the slowest resource,
+   and nothing on the row says it is the building that halves every wait in the game.
+3. **The interaction census**, which is Davide's idea and gets its own section below.
+
+### The finding: the wait outgrew the earning, and it was always going to
+
+Cost compounds at +50% a level. Production compounds at +25%. Round 10 read the duration straight
+off the cost, so **the wait after a tap pulled away from the income that pays for it by ×1.2 a
+level, from level one, without bound.** The two clocks, Metal Mine, Robotics 0:
+
+| Level | cost (m+c) | 0.2.0 build | hours of income to afford it |
+|---|---|---|---|
+| 4 | 251 | 1h 23m | 1h 26m |
+| 5 | 376 | 2h 05m | 1h 43m |
+| 6 | 563 | **3h 07m** | 1h 50m |
+| 7 | 844 | **4h 41m** | 2h 30m |
+| 8 | 1,265 | **7h 01m** | 3h 00m |
+| 20 | 164,005 | **911h** | 23h 51m |
+
+**Level 4 is where they cross**, and after it the build is the binding wait for the rest of the
+game. Davide's "2/3 hours" is levels 5 to 7, which is where a colony is on day two — measured, not
+inferred. The Deuterium Synthesizer was worse still at 12h 36m for level 6, because its base cost
+is four times the Metal Mine's and round 10's rule made that four times the clock.
+
+The Robotics divisor was the only thing pushing back, and it decided the whole experience:
+
+| Three-hour cadence, 0.2.0 | buys Robotics | never buys Robotics |
+|---|---|---|
+| Median wait a tap booked | 1h 33m | **2h 29m** |
+| Longest wait a tap booked | 2h 53m | **6h 48m** |
+| Taps booking over two hours | 8 of 23 | 13 of 22 |
+| Building levels at 48h | 26 | **24** |
+
+A balance that swings that far on whether the player has worked out which building is secretly the
+clock is not a balance; it is a quiz.
+
+### What changed: the duration is cut from the **root** of the cost
+
+`upgradeDuration` was `(metal + crystal) ÷ 3` minutes. It is now **4 × √(metal + crystal)** minutes,
+still divided by (1 + Robotics), still with the five-minute floor applied last, and deuterium still
+outside the sum for round 10's reason.
+
+**The arithmetic is why, rather than a coincidence.** Cost-over-income grows at 1.5 / 1.25 = ×1.2 a
+level; the square root of a ×1.5 curve grows at ×1.2247. So a duration cut from the root tracks the
+time it takes to earn the thing *at every depth*, with no help from any building — 0.75 of it at
+level 3, 1.13 at level 20. `BalanceCurveTest` now bounds that ratio **on both sides**, which is a
+check round 10's shape could not have passed at any constant.
+
+Round 10's sentence was "a build takes as long as it costs". The correction is one word:
+**a build takes about as long as *earning* it does.**
+
+### The price, swept rather than chosen
+
+Six candidates through the real harness. `÷5` and `÷6` keep round 10's shape and only shift it.
+
+| Curve | 3h median | 3h longest | >2h | never-Robotics longest | its levels at 48h | colony idle |
+|---|---|---|---|---|---|---|
+| **÷3 — 0.2.0** | 1h 33m | 2h 53m | 8 of 23 | **6h 48m** | **24** | 68.75% |
+| ÷5 | 1h 07m | 1h 44m | 0 of 24 | 4h 13m | **24** | 79.16% |
+| ÷6 | 0h 56m | 1h 26m | 0 of 24 | 3h 30m | **24** | 83.33% |
+| root ×3 | 0h 37m | 1h 06m | 0 of 24 | 1h 45m | 26 | 85.41% |
+| **root ×4 — chosen** | **0h 50m** | **1h 28m** | **0 of 24** | **2h 20m** | **26** | **81.25%** |
+| root ×5 | 1h 02m | 1h 50m | 0 of 24 | 2h 55m | 26 | 77.08% |
+
+**Two things this table settles.** First, the constant was not the problem: doubling it to ÷6 still
+leaves the uninformed player waiting 3h 30m and still costs them two levels, because the divergence
+is exponential and a constant only moves where it bites. Second, the root **dominates** the
+constant on both axes at once — root ×5 has *less* colony idleness than ÷5 (77.08% against 79.16%)
+*and* a far better worst case. That is not a trade-off being taken; it is a better shape.
+
+**Four rather than three or five.** Every value in 3–5 answers the complaint, so the constant buys
+one thing: how much of round 10's cover survives. At 3 the colony idles 85.4% of its opening, which
+is where it was *before* round 10 — the change undone. At 5 the deepest tap on day two is back to
+2h 55m for a player at Robotics 0, which is the complaint. At 4 no repeating facility passes two
+hours before level 8 and 81.25% of the opening still has the colony busy.
+
+### What it moves
+
+| Reading | 0.2.0 | 0.2.1 |
+|---|---|---|
+| Median wait a tap booked (3h cadence) | 1h 33m | **0h 50m** |
+| Longest wait a tap booked | 2h 53m | **1h 28m** |
+| Taps booking over two hours | 8 of 23 | **0 of 24** |
+| Same, for a player who never buys Robotics | 13 of 22 | **4 of 23** |
+| Their longest wait | 6h 48m | **2h 20m** |
+| **Their building levels at 48h** | **24** | **26 — the same as the informed player's** |
+| Metal Mine 6 / 7 / 8 at Robotics 0 | 3h07 / 4h41 / 7h01 | **1h32 / 1h56 / 2h20** |
+| Deuterium Synthesizer 6 | 12h 36m | **3h 08m** |
+| Levels at 48h, four-a-day, no probe | 25 | **25** |
+| Hours with nothing **at all** in flight (with probe) | 2.08% | **2.08%** |
+| Longest unbroken silence | 0h 47m | **0h 47m** |
+| Work the busiest check-in booked (with probe) | 540 min | **540 min** |
+
+**The honest cost, stated rather than buried: the colony's own idleness goes back up**, 68.75% →
+81.25% at the four-a-day cadence, against 85.4% before round 10 ever ran. So round 11 hands back
+roughly three quarters of what round 10 bought on that one row. It is defensible only because of
+the row underneath it — *nothing at all in flight* is unchanged at 2.08% and the longest silence is
+unchanged at 47 minutes, because **the probe is what covers the player's attention and always was**
+(round 9 was careful not to let it claim otherwise; this is the same distinction paying off in the
+other direction). What round 10 was buying on the colony row was cover the notification loop no
+longer needs, at a price Davide could feel on every tap.
+
+Deeper, the change gives back most of what round 10 took: the greedy week goes 12/12/1/11 →
+**14/15/1/14** (0.1.1 was 15/15/1/14) and the fortnight 17/16/13/16/9 → **18/17/14/17/10**. The week
+is also resource-bound again — 167 of 168 hours blocked on metal alone, against 81 — which reverses
+round 10's note that it had become the first run to end "with nothing to decide because everything
+is already running". In the fortnight, crystal as a sole blocker falls hard (143 → 58 hours) while
+deuterium barely moves (204 → 192) and metal rises (137 → 180).
+
+### The interaction census — Davide's idea, and the trap it had to avoid
+
+He proposed counting the possible interactions. **The reason that is not trivially a good idea is
+already in this file:** round 8's harness printed *"median options on the table: 5"* for the exact
+opening he called boring, because five facility rows counted as five options when they were one verb
+pressed five times. A raw count is not a safety net — it is a number that goes up when you add rows.
+
+So `printInteractionCensus` enumerates every call `core` would accept at each check-in and reports
+**kinds first, count second**, with a probe counted as *one* verb rather than as the ~1,000 systems
+it could be aimed at. And for every call the game would refuse it records **why**, which is the part
+that turned out to be worth building:
+
+| Reading | over 2 days | over 7 days |
+|---|---|---|
+| Median actions offered | 6 | 5 |
+| Median *kinds* offered | 2 | 3 |
+| Check-ins offering one kind only | 0 of 12 | 2 of 42 |
+| Check-ins offering nothing at all | 0 of 12 | 0 of 42 |
+| **Median actions the stock actually stretched to** | **2** | **2** |
+| Refused for the price | **5.12%** | 22.16% |
+| Refused by a busy slot | **0.00%** | 5.12% |
+| Refused by an unmet requirement | **47.43%** | 30.03% |
+
+**The opening is gated, the week is priced.** Nearly half of every action the game has is refused in
+the first two days by a requirement rather than by a cost: all three adaptation ladders behind
+Robotics 4 for the whole window, all three applied technologies behind Robotics 1 for the first 27
+hours, Enrichment behind Extraction 3 after that, the Nanite Factory behind Robotics 10 forever.
+Price refuses 5%. Round 8 said this in words — *"the opening is thin because four of the game's
+eight v1 features are unbuilt, and the two verbs that exist are gated behind a pace Davide wants
+kept"* — and this is the first time it has a number.
+
+Two smaller things fell out of it:
+
+- **The shared research slot blocks nothing in the opening** (0.00%, rising to 5.12% over a week).
+  `GameState` calls the single slot "research's only scarcity"; for the first two days it is not
+  scarce, because projects are shorter than the gap between check-ins and the colony cannot afford
+  to keep it busy anyway.
+- **Two actions a check-in, all week.** "Offered" falls from 6 to 5 as costs outgrow the stock and
+  "kinds" rises from 2 to 3 as gates open, but what the stock *stretches to* is 2 at both. That is
+  Davide's "the one or two thing I can upgrade", and it is stable rather than decaying — which is
+  the argument for **not** touching prices this round.
+
+### Prices were not moved, and this is the evidence
+
+His sentence names prices as well as durations, so it was measured rather than assumed. At the
+three-hour cadence, before the check-in spends anything: **median 1 red row of 6**, worst case 2,
+median 4 tappable, and **0 of 12 check-ins offering one row or none**. The screen is not mostly red
+by count. What is true is that the stock stretches to about two of those rows — and that is the
+scarcity Davide asked for by name on 2026-08-08: *"There's still a need to decide, as you will use
+resources to chose which to upgrade."* Cutting prices would delete the decision to fix a perception
+whose bigger half was rows sitting busy for three to seven hours, which is what this round removed.
+
+### Watch next round, and what to move first
+
+- **The gate share is the number to act on, and it is not a curve.** 47% of the opening's actions
+  are refused by a requirement. The cheapest candidates, in order of how little they disturb: the
+  adaptation ladders' Robotics 4 gate (round 6 already nominated dropping it to 2 or 3 as "cheaper
+  than re-pricing anything"), and the Nanite Factory row, which is a permanently locked row on the
+  main screen for weeks. Both are Davide's calls — round 8 recorded that he *likes* the unlock pace,
+  so this is a note that the pace has a measurable cost, not an argument that it is wrong.
+- **The colony's own idleness is back to 81.25%** and is now the row round 10 will be judged on.
+  If it turns out to matter, **the lever is `MINUTES_PER_ROOT_COST`, and 5 is the one notch up** —
+  it costs 2h 55m as the uninformed player's worst tap and buys back 4 points of idleness.
+- **"Before have access to explorations" may be literal, and if so it is a UI finding, not a balance
+  one.** Dispatch is ungated in `core` and affordable from the starting 500 metal — but the Galaxy
+  tab opens on the **home system, surveyed at genesis**, whose footer draws the sentence "Surveyed
+  at genesis" and no button. A new player's first visit to the Galaxy tab is a screen with nothing
+  to press; the verb only appears after they move the reach band to a neighbour. That would explain
+  his phrasing exactly, and no number in this file can fix it. Handed to a local session.
+- **Deuterium is still the fortnight's worst blocker** at 192 hours of 336, nominated in round 7 and
+  untouched through rounds 8, 9, 10 and now 11. Crystal has fallen right back (143 → 58), so
+  deuterium is now clear of the field.
+- **The floor is still untested by measurement** (round 10's note stands): at 4 × root it binds
+  below ~150 metal-and-crystal at Robotics 9, which no run here reaches.

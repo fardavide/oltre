@@ -221,9 +221,10 @@ class ColonyUiStateTest {
             ),
             metalMine.costs,
         )
-        // 112 metal-and-crystal over 3 — a build takes as long as it costs since 0.2.0, so the
-        // number on the row is the one above it divided rather than a per-building constant.
-        assertEquals("37m", metalMine.duration)
+        // Four minutes per root of the 112 metal-and-crystal above — since 0.2.1 a build takes as
+        // long as *earning* it does, so the number on the row is derived from the one above it
+        // rather than from a per-building constant.
+        assertEquals("40m", metalMine.duration)
     }
 
     @Test
@@ -248,7 +249,7 @@ class ColonyUiStateTest {
     @Test
     fun `durations of an hour or more read as hours and padded minutes`() {
         // given deuterium synth 3 → level 4, which costs 757 metal and 252 crystal and therefore
-        // takes 336 minutes at robotics 0
+        // takes 124 minutes at robotics 0 — four minutes per root of the 1,009 between them
         val state = colony(
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(3)),
         )
@@ -257,7 +258,7 @@ class ColonyUiStateTest {
         val synth = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER)
 
         // then
-        assertEquals("5h 36m", synth.duration)
+        assertEquals("2h 04m", synth.duration)
     }
 
     @Test
