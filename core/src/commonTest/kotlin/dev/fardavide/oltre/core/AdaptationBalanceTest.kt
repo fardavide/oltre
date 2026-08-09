@@ -75,7 +75,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `cost compounds fifty percent per level, once the opening discount has run out`() {
+    fun `cost compounds fifty percent per level once the opening discount has run out`() {
         for (technology in AdaptationTechnology.entries) {
             for (level in 4..10) {
                 val current = AdaptationBalance.adaptationCost(technology, TechLevel(level))
@@ -97,7 +97,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the branch is the expensive one — nearly twice the priciest technology, at every level`() {
+    fun `the branch is the expensive one — nearly twice the priciest technology at every level`() {
         // The sheet's section 4: adaptation costs about twice the priciest applied technology, and
         // that is what makes it read as the branch you save up for.
         //

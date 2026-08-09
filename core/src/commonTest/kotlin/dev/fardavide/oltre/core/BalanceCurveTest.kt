@@ -99,7 +99,7 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `cost compounds by half again per level, once the opening discount has run out`() {
+    fun `cost compounds by half again per level once the opening discount has run out`() {
         // Full price starts at level 9 — `PlaceholderBalance.FULL_PRICE_LEVEL`, private, so stated
         // here as the specification rather than read from it. From there up this is the same ×1.5
         // the game has had since round 2, and the point of the ramp is that it stays so: the
@@ -116,7 +116,7 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `the opening is discounted, and the discount runs out rather than being given back`() {
+    fun `the opening is discounted and the discount runs out rather than being given back`() {
         // Davide, 2026-08-09: "Everything must be cheaper and quicker across the board, until first
         // expedition ... starting about 3x at the start of the game, and arrive to 1x at the moment
         // you can have the first expedition." He named the moment: when the galaxy becomes
@@ -163,7 +163,7 @@ class BalanceCurveTest {
     }
 
     @Test
-    fun `every cost in the game stays a positive, rising integer`() {
+    fun `every cost in the game stays a positive and rising integer`() {
         // The opening discount is carried *exactly* — `exactGeometric` multiplies by the numerator
         // once per step and divides once at the end — so the number of steps is bounded by
         // `FULL_PRICE_LEVEL`, and that bound is load-bearing rather than tidy. Round 13 swept the

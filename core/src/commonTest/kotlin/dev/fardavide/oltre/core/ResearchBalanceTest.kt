@@ -91,7 +91,7 @@ class ResearchBalanceTest {
     }
 
     @Test
-    fun `duration is base minutes times level before any Robotics divisor, once the discount is out`() {
+    fun `duration is base minutes times level before any Robotics divisor once the discount is out`() {
         val idle = BuildingLevel(0)
         assertEquals(600.minutes, ResearchBalance.researchDuration(Technology.PHOTOVOLTAICS, TechLevel(10), idle))
         assertEquals(900.minutes, ResearchBalance.researchDuration(Technology.EXTRACTION, TechLevel(10), idle))
