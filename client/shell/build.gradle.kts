@@ -44,6 +44,13 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.core)
             implementation(projects.client.colony.presentation)
+            // All three layers of the debug feature, which is the composition root's privilege and
+            // nobody else's: `domain` for the clock and the skip, `data` for the accelerometer, and
+            // `presentation` for the panel. Rule 7 is what makes that safe — nothing depends on the
+            // shell, so the layers it mixes cannot travel anywhere.
+            implementation(projects.client.debug.data)
+            implementation(projects.client.debug.domain)
+            implementation(projects.client.debug.presentation)
             // No `:client:design:component` — the shell draws chrome (the rail, the tab bar), and
             // none of the row-level components a screen is built from.
             implementation(projects.client.design.core)
