@@ -29,10 +29,36 @@ internal fun debugSheet(
         setContent {
             OltreTheme {
                 Surface {
-                    DebugSheet(
+                    DebugSheetContent(
                         report = report,
                         onSkipAhead = onSkipAhead,
                         onReset = onReset,
+                        onDismiss = onDismiss,
+                    )
+                }
+            }
+        }
+        DebugRobot(this).block()
+    }
+}
+
+// The contents *inside the real sheet*, for the one test that is about the chrome rather than about
+// what the panel says. Everything else renders `DebugSheetContent` directly: an assertion about a
+// label has no business also depending on a popup being reachable and an enter animation settling.
+@OptIn(ExperimentalTestApi::class)
+internal fun debugBottomSheet(
+    report: DebugReport = idleReport,
+    onDismiss: () -> Unit = {},
+    block: DebugRobot.() -> Unit,
+) {
+    runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
+        setContent {
+            OltreTheme {
+                Surface {
+                    DebugSheet(
+                        report = report,
+                        onSkipAhead = {},
+                        onReset = {},
                         onDismiss = onDismiss,
                     )
                 }

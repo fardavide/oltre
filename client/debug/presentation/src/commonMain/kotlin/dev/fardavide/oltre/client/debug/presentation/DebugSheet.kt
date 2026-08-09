@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,13 +18,16 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -41,23 +43,31 @@ import dev.fardavide.oltre.client.debug.domain.DebugReport
 import dev.fardavide.oltre.client.debug.domain.SKIP_FALLBACK
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreColors
-import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.core.FutureEvent
 import kotlin.time.Duration
 
-// The debug menu. Not a tab and not a screen — a panel over whatever the player was looking at,
+// The debug menu. Not a tab and not a screen — a sheet over whatever the player was looking at,
 // because it is not part of the game and should never look like it is.
 //
 // **This is the one surface in the app with no design behind it** (Davide, 2026-08-09: the debug UI
 // does not go through Claude Design). So it borrows the system's tokens — the palette, the bundled
-// mono, the section label, the content cap — and invents nothing. That is the standard it is held
-// to instead of a baseline: it should look like it belongs to Oltre without ever having been drawn.
+// mono, the section label — and invents nothing. That is the standard it is held to instead of a
+// baseline: it should look like it belongs to Oltre without ever having been drawn.
 //
-// Dismissal is the explicit CLOSE row rather than a tap on the scrim. A debug panel that vanishes
-// when you misjudge the edge of it, mid-way through reading a clock, is worse than one that needs a
-// deliberate tap to leave — and the gesture that opens it is already a shake.
+// It is a **real `ModalBottomSheet`** rather than a Box parked at the bottom of the screen, which is
+// what it was until 0.2.6. Davide asked for it to behave like a bottom sheet, and the honest way to
+// behave like one is to be one: the drag to dismiss, the scrim that dismisses on tap, the handle,
+// the slide in and out, the insets and the back gesture are all things the platform's component
+// already gets right and a hand-rolled panel gets subtly wrong. Nothing here re-implements any of
+// them, which is the whole argument.
+//
+// The chrome and the contents are separate on purpose. Every assertion about what this panel *says*
+// and *does* is written against `DebugSheetContent`, so the behaviour tests never depend on the
+// sheet's animation settling or on its popup being reachable from a test tree — leaving this
+// function as the thin wiring it should be.
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebugSheet(
     report: DebugReport,
@@ -66,37 +76,59 @@ fun DebugSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .testTag(DebugTestTags.SCRIM)
-            // Dim rather than hide: seeing the colony behind the panel is what makes "skip ahead"
-            // legible as a thing that happened to *this* colony.
-            .background(Color.Black.copy(alpha = 0.72f)),
+    ModalBottomSheet(
+        // One callback for every way out — the drag, the scrim, the system back gesture — so the
+        // panel cannot be dismissed by a route the shell does not hear about.
+        onDismissRequest = onDismiss,
+        modifier = modifier,
+        // Straight to full height. A half-open state would be a size the panel has no design for,
+        // and the inspector is the half that would be cut off.
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = OltreColors.surface,
+        dragHandle = { BottomSheetDefaults.DragHandle(color = OltreColors.textTertiary) },
     ) {
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .widthIn(max = OltreLayout.maxContentWidth)
-                .fillMaxWidth()
-                .testTag(DebugTestTags.SHEET)
-                .background(OltreColors.surface, RoundedCornerShape(topStart = 14.dp, topEnd = 14.dp))
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-        ) {
-            SectionLabel(text = "DEBUG", rule = "hold to act")
+        DebugSheetContent(
+            report = report,
+            onSkipAhead = onSkipAhead,
+            onReset = onReset,
+            onDismiss = onDismiss,
+        )
+    }
+}
 
-            SkipAction(report = report, onConfirm = onSkipAhead)
-            Spacer(modifier = Modifier.height(8.dp))
-            ResetAction(onConfirm = onReset)
+// What the panel says and does, with no sheet around it. Internal because nothing outside this
+// module should render the contents without the sheet — but visible to the module's own tests,
+// which is what keeps them off the popup and off the animation.
+@Composable
+internal fun DebugSheetContent(
+    report: DebugReport,
+    onSkipAhead: () -> Unit,
+    onReset: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(DebugTestTags.SHEET)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            // No top padding: the sheet's own drag handle is the space above the first label.
+            .padding(bottom = 16.dp),
+    ) {
+        SectionLabel(text = "DEBUG", rule = "hold to act")
 
-            Spacer(modifier = Modifier.height(22.dp))
-            SectionLabel(text = "STATE", rule = "read only")
-            Readings(report)
+        SkipAction(report = report, onConfirm = onSkipAhead)
+        Spacer(modifier = Modifier.height(8.dp))
+        ResetAction(onConfirm = onReset)
 
-            Spacer(modifier = Modifier.height(14.dp))
-            CloseRow(onClick = onDismiss)
-        }
+        Spacer(modifier = Modifier.height(22.dp))
+        SectionLabel(text = "STATE", rule = "read only")
+        Readings(report)
+
+        // Kept even though the sheet can now be dragged away or dismissed by its scrim: a drag is
+        // an awkward gesture with a mouse, and desktop is the platform this menu is most used on.
+        Spacer(modifier = Modifier.height(14.dp))
+        CloseRow(onClick = onDismiss)
     }
 }
 

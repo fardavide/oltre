@@ -114,6 +114,17 @@ class DebugSheetBehaviourTest {
     }
 
     @Test
+    fun `the panel really is a bottom sheet`() {
+        // The one test about the chrome rather than the contents. It asserts the contents arrive
+        // inside a `ModalBottomSheet` at all — the drag, the scrim and the enter animation are
+        // Material's own and are not this repository's to re-test.
+        debugBottomSheet(report = buildingReport) {
+            assertIsOpen()
+            assertSkipOffers("METAL_MINE → 2 · 1h 04m")
+        }
+    }
+
+    @Test
     fun `tapping close dismisses the panel`() {
         // given
         var dismissals = 0

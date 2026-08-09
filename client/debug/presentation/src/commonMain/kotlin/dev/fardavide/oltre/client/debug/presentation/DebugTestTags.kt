@@ -9,7 +9,6 @@ package dev.fardavide.oltre.client.debug.presentation
 internal object DebugTestTags {
 
     const val SHEET = "debug-sheet"
-    const val SCRIM = "debug-scrim"
     const val SKIP = "debug-skip"
     const val RESET = "debug-reset"
     const val CLOSE = "debug-close"
