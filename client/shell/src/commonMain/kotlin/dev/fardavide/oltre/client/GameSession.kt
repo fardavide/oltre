@@ -109,10 +109,13 @@ internal fun GameSession.skipped(clock: DebugClock, wallClock: Instant): DebugOu
 // The offset is dropped with it. A new colony is not the old one's future, and starting it hours
 // ahead of the wall clock would be inheriting a debt it never ran up.
 //
-// The mark survives the wipe, deliberately: the colony that comes back was made by the debug menu,
-// and nothing in the game ever clears it.
+// **And the mark is dropped with it too** — Davide's call, 2026-08-09, reversing what 0.2.5 shipped.
+// The flag answers "has this colony's clock been moved by hand", and the colony that comes back has
+// no history at all: nothing has been skipped in it, and it is indistinguishable from one founded on
+// a first launch. Carrying the mark across would have made it a fact about the *device* rather than
+// about the save, which is not what it is for. So skipping is the only thing that sets it.
 internal fun resetColony(wallClock: Instant): DebugOutcome = DebugOutcome(
-    session = resume(saved = null, now = wallClock).copy(debugUsed = true),
+    session = resume(saved = null, now = wallClock),
     clock = DebugClock(),
 )
 
