@@ -13,6 +13,7 @@ fun advance(state: GameState, from: Instant, to: Instant): GameState {
     val nextEventAt = (
         state.builds.values.map { it.completesAt } +
             listOfNotNull(state.researchSlotFreesAt) +
+            state.surveys.map { it.completesAt } +
             listOfNotNull(state.returningFleet?.arrivesAt)
         ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
@@ -28,8 +29,9 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     // the event log — everything up to the boundary has already accrued, and none of these
     // transitions reads another's result — but the log has to be reproducible, so the order is
     // fixed here and mirrored by `futureEvents`: build completions in building order, then the
-    // research completion, then the adaptation completion, then the fleet arrival. Colony first,
-    // then the empire, then what arrives from outside it. The two research branches share one slot
+    // research completion, then the adaptation completion, then survey landings in target order,
+    // then the fleet arrival. Colony first, then the empire, then what arrives from outside it. The
+    // two research branches share one slot
     // so only one of them can ever be due, but the order between them is still written down —
     // a tie-break that depends on which case happens to be reachable is one a later slice breaks.
     val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
@@ -65,6 +67,27 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
                 technology = adaptation.technology,
                 newLevel = adaptation.toLevel,
                 at = adaptation.completesAt,
+            ),
+        )
+    }
+    // Probes land in parallel and their durations are a pure function of distance, which is
+    // quantised in whole systems — so two dispatched in one session to systems 117 and 119 from
+    // home 118 complete at the identical millisecond, and a tie here is ordinary rather than
+    // exotic. Broken on the target, which is intrinsic to the job: list order would be insertion
+    // order, and a log whose order depends on the sequence of taps that produced it is one a
+    // reloaded save reproduces only by accident.
+    val landed = next.surveys
+        .filter { it.completesAt == instant }
+        .sortedWith(compareBy({ it.target.galaxy }, { it.target.system }))
+    for (job in landed) {
+        val found = GalaxyState.occupiedWorldsIn(next.galaxy.seed, job.target)
+        next = next.copy(
+            galaxy = next.galaxy.copy(surveyed = next.galaxy.surveyed + found),
+            surveys = next.surveys - job,
+            eventLog = next.eventLog + Event.SurveyCompleted(
+                target = job.target,
+                worldsFound = found.size,
+                at = job.completesAt,
             ),
         )
     }

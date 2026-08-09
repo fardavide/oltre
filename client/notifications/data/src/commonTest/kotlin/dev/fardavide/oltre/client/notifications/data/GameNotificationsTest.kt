@@ -1,8 +1,11 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.FutureEvent
+import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
@@ -11,10 +14,14 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.futureEvents
 import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -172,6 +179,125 @@ class GameNotificationsTest {
     }
 
     @Test
+    fun `a probe in flight is announced at the instant it lands`() = runTest {
+        // given the second verb's only way of reaching a player who is not holding the phone —
+        // which is the whole reason it exists, since a dispatch is bought to cover a gap
+        val scheduler = FakeNotificationScheduler()
+        val state = surveying(systemsAway = 12)
+        val target = state.surveys.single().target
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertEquals(state.surveys.single().completesAt, notification.at)
+        assertTrue(
+            "${target.galaxy}:${target.system}" in notification.title,
+            "a landing is about somewhere; title was '${notification.title}'",
+        )
+    }
+
+    @Test
+    fun `a landing that charted nowhere settleable says so rather than counting worlds at it`() = runTest {
+        // given the common case, by construction: round 9 measured ~14 dispatches to see one world
+        // worth remarking on. An alert that only ever said "4 worlds charted" would read as a
+        // payoff thirteen times out of fourteen, and the fourteenth would be indistinguishable
+        // from the thirteen that were not.
+        val scheduler = FakeNotificationScheduler()
+        val state = surveyingSomething(settleable = false)
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertTrue("none" in notification.body, "body was '${notification.body}'")
+    }
+
+    @Test
+    fun `a landing with somewhere settleable in it says so in the card's own words`() = runTest {
+        // given the fourteenth dispatch — the one the other thirteen exist to make legible
+        val scheduler = FakeNotificationScheduler()
+        val state = surveyingSomething(settleable = true)
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertTrue("settleable" in notification.body, "body was '${notification.body}'")
+        assertTrue("none" !in notification.body, "body was '${notification.body}'")
+    }
+
+    @Test
+    fun `the alert and the card it is about count the same thing`() = runTest {
+        // The failure this exists to stop, and one that really shipped: the body was built from a
+        // yield bar that half the galaxy clears, while the Galaxy screen's landing footer counts
+        // `Settleable`. The lock screen said "5 worth a look" about a landing whose card read "none
+        // settleable" — a game contradicting itself between the notification and the app.
+        //
+        // Asserted over a whole galaxy rather than one system, because the two measures agree by
+        // accident often enough that a single fixture proves nothing.
+        val state = wealthy()
+        var disagreements = 0
+        var landings = 0
+        for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
+            if (started !is StartSurveyResult.Started) continue
+            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val scheduler = FakeNotificationScheduler()
+            GameNotifications(scheduler).sync(started.state, now = EPOCH)
+            val body = scheduler.scheduled.single().body
+            landings++
+            val saysNone = "none settleable" in body
+            if (saysNone != (landing.settleable == 0)) disagreements++
+        }
+
+        assertTrue(landings > 100, "the sweep needs to have actually landed somewhere; was $landings")
+        assertEquals(0, disagreements, "of $landings landings")
+    }
+
+    @Test
+    fun `probes never push a build off the end of the schedule`() = runTest {
+        // given far more probes in flight than iOS will hold, all landing before a long build.
+        // iOS keeps the 64 *soonest* pending requests and silently drops the rest, so the ones it
+        // throws away are the furthest out — which is exactly where long builds and research
+        // completions live. Left uncapped, thirty dispatches would cost the player the alert they
+        // actually planned their evening around.
+        val scheduler = FakeNotificationScheduler()
+        val state = swarming(probes = 90).copy(builds = aBuildLandingAfterEveryProbe())
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — the cap is ours to spend rather than the platform's to apply
+        assertTrue(scheduler.scheduled.size <= IOS_PENDING_REQUEST_LIMIT, "was ${scheduler.scheduled.size}")
+        assertTrue(
+            scheduler.scheduled.any { "Nanite Factory" in it.title },
+            "the one alert a player waits hours for must not be the one evicted",
+        )
+    }
+
+    @Test
+    fun `what a cap drops is the furthest probe and never the nearest`() = runTest {
+        // given more probes than the platform holds and nothing else in flight
+        val scheduler = FakeNotificationScheduler()
+        val state = swarming(probes = 90)
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then the soonest survive: they fire first, and every one of them re-derives the whole
+        // set on the transition it causes, so a dropped far landing is re-booked long before it
+        // was due. Dropping the near ones instead would lose alerts nothing would ever re-book.
+        val kept = scheduler.scheduled.map { it.at }
+        val dropped = futureEvents(state).map { it.at } - kept.toSet()
+        assertEquals(IOS_PENDING_REQUEST_LIMIT, kept.size)
+        assertTrue(dropped.isNotEmpty() && kept.max() <= dropped.min())
+    }
+
+    @Test
     fun `the same colony always produces the same alert ids`() = runTest {
         // given
         val first = FakeNotificationScheduler()
@@ -214,6 +340,70 @@ class GameNotificationsTest {
         )
         return assertIs<StartResearchResult.Started>(startResearch(ready, technology, at = EPOCH)).state
     }
+
+    // A colony with one probe in flight, aimed `systemsAway` from home in whichever direction the
+    // map has room for — so a fixture cannot fall off the edge of the coordinate space, and does
+    // not depend on where this seed put the player.
+    private fun surveying(systemsAway: Int): GameState {
+        val state = wealthy()
+        return assertIs<StartSurveyResult.Started>(
+            startSurvey(state, awayFromHome(state, systemsAway), at = EPOCH),
+        ).state
+    }
+
+    // The nearest target whose landing will, or will not, chart somewhere settleable. Found by
+    // asking `futureEvents` what each candidate would report rather than by hardcoding a
+    // coordinate: the prediction is the thing under test's own input, so a fixture picked this way
+    // cannot disagree with it, and it survives the seed's home moving.
+    private fun surveyingSomething(settleable: Boolean): GameState {
+        val state = wealthy()
+        for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
+            if (started !is StartSurveyResult.Started) continue
+            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            if ((landing.settleable > 0) == settleable) return started.state
+        }
+        error("no target within a galaxy of home charts ${if (settleable) "somewhere" else "nowhere"} settleable")
+    }
+
+    // More probes in flight than the platform will hold. Dispatched outward, so their landings are
+    // ordered by distance and a test can name which end a cap is expected to keep.
+    private fun swarming(probes: Int): GameState {
+        var state = wealthy()
+        var away = 1
+        while (state.surveys.size < probes) {
+            check(away <= GalaxyBalance.SYSTEMS_PER_GALAXY) { "ran out of map before reaching $probes probes" }
+            (startSurvey(state, awayFromHome(state, away), at = EPOCH) as? StartSurveyResult.Started)
+                ?.let { state = it.state }
+            away++
+        }
+        return state
+    }
+
+    // Written out rather than started through `startUpgrade`, so the fixture states the one thing
+    // it is about — a completion later than every probe's — instead of inheriting it from whatever
+    // the duration curve happens to be this week.
+    private fun aBuildLandingAfterEveryProbe(): Map<BuildingType, BuildJob> = mapOf(
+        BuildingType.NANITE_FACTORY to BuildJob(
+            building = BuildingType.NANITE_FACTORY,
+            toLevel = BuildingLevel(1),
+            startedAt = EPOCH,
+            completesAt = EPOCH + 1_000.hours,
+        ),
+    )
+
+    private fun awayFromHome(state: GameState, systemsAway: Int): SystemAddress {
+        val home = state.galaxy.home
+        val up = home.system + systemsAway
+        val down = home.system - systemsAway
+        return SystemAddress(
+            galaxy = home.galaxy,
+            system = if (up <= GalaxyBalance.SYSTEMS_PER_GALAXY) up else down.coerceAtLeast(1),
+        )
+    }
+
+    private fun wealthy(): GameState =
+        freshState().copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000, deuterium = 1_000))
 
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
     // every colony in the same galaxy. Alerts do not care which map they are scheduled over.

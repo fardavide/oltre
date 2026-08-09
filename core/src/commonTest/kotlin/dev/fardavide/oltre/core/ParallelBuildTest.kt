@@ -33,22 +33,23 @@ class ParallelBuildTest {
 
     @Test
     fun `parallel jobs complete independently and earliest first`() {
-        // given a solar plant → 2 (16 minutes) started alongside a metal mine → 2 (20 minutes)
+        // given a metal mine and a solar plant started together, one of which costs more and
+        // therefore takes longer
         val t0 = Instant.fromEpochMilliseconds(0)
         val both = twoJobs(t0)
-        val solarDone = both.completionOf(BuildingType.SOLAR_PLANT)
-        val mineDone = both.completionOf(BuildingType.METAL_MINE)
-        assertTrue(solarDone < mineDone, "scenario needs the solar plant to land first")
+        val quick = both.landsFirst()
+        val slow = both.landsSecond()
+        assertTrue(both.completionOf(quick) < both.completionOf(slow), "scenario needs two different lengths")
 
         // when
-        val betweenCompletions = advance(both, from = t0, to = mineDone - 1.milliseconds)
-        val afterBoth = advance(both, from = t0, to = mineDone)
+        val betweenCompletions = advance(both, from = t0, to = both.completionOf(slow) - 1.milliseconds)
+        val afterBoth = advance(both, from = t0, to = both.completionOf(slow))
 
         // then
-        assertEquals(BuildingLevel(2), betweenCompletions.buildings.solarPlant)
-        assertEquals(BuildingLevel(1), betweenCompletions.buildings.metalMine)
-        assertEquals(setOf(BuildingType.METAL_MINE), betweenCompletions.builds.keys)
-        assertEquals(BuildingLevel(2), afterBoth.buildings.metalMine)
+        assertEquals(BuildingLevel(2), betweenCompletions.buildings.levelOf(quick))
+        assertEquals(BuildingLevel(1), betweenCompletions.buildings.levelOf(slow))
+        assertEquals(setOf(slow), betweenCompletions.builds.keys)
+        assertEquals(BuildingLevel(2), afterBoth.buildings.levelOf(slow))
         assertTrue(afterBoth.builds.isEmpty(), "both jobs must have left the build map")
     }
 
@@ -59,20 +60,22 @@ class ParallelBuildTest {
         val both = twoJobs(t0)
 
         // when
-        val after = advance(both, from = t0, to = both.completionOf(BuildingType.METAL_MINE))
+        val quick = both.landsFirst()
+        val slow = both.landsSecond()
+        val after = advance(both, from = t0, to = both.completionOf(slow))
 
         // then
         assertEquals(
             listOf(
                 Event.BuildCompleted(
-                    building = BuildingType.SOLAR_PLANT,
+                    building = quick,
                     newLevel = BuildingLevel(2),
-                    at = both.completionOf(BuildingType.SOLAR_PLANT),
+                    at = both.completionOf(quick),
                 ),
                 Event.BuildCompleted(
-                    building = BuildingType.METAL_MINE,
+                    building = slow,
                     newLevel = BuildingLevel(2),
-                    at = both.completionOf(BuildingType.METAL_MINE),
+                    at = both.completionOf(slow),
                 ),
             ),
             after.eventLog.filterIsInstance<Event.BuildCompleted>(),
@@ -84,18 +87,18 @@ class ParallelBuildTest {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
         val both = twoJobs(t0)
-        val solarDone = both.completionOf(BuildingType.SOLAR_PLANT)
-        val mineDone = both.completionOf(BuildingType.METAL_MINE)
-        val t2 = mineDone + 3.hours
+        val firstDone = both.completionOf(both.landsFirst())
+        val secondDone = both.completionOf(both.landsSecond())
+        val t2 = secondDone + 3.hours
         val oneShot = advance(both, from = t0, to = t2)
 
         val splits = listOf(
-            solarDone - 1.milliseconds,
-            solarDone,
-            solarDone + 1.milliseconds,
-            mineDone - 1.milliseconds,
-            mineDone,
-            mineDone + 1.milliseconds,
+            firstDone - 1.milliseconds,
+            firstDone,
+            firstDone + 1.milliseconds,
+            secondDone - 1.milliseconds,
+            secondDone,
+            secondDone + 1.milliseconds,
         )
         for (t1 in splits) {
             // when
@@ -108,23 +111,28 @@ class ParallelBuildTest {
 
     @Test
     fun `two jobs landing on the same instant both complete`() {
-        // given a crystal mine → 2 (24 minutes) and, started 4 minutes later, a metal mine → 2
-        // (20 minutes) — both landing on the same instant
+        // given the longer of two upgrades started first, and the shorter one started exactly late
+        // enough to land on the same instant. Which of the two is longer is read off the curve
+        // rather than written down: the pair used to be "crystal 24 minutes, metal 20", and
+        // cost-proportional durations put the metal mine a minute ahead — which made the shorter
+        // one start *before* t0 and `advance` refuse to run backwards.
         val t0 = Instant.fromEpochMilliseconds(0)
-        val funded = GameState.initial().fundedFor(BuildingType.CRYSTAL_MINE, BuildingType.METAL_MINE)
-        val crystal = assertIs<StartUpgradeResult.Started>(
-            startUpgrade(funded, BuildingType.CRYSTAL_MINE, at = t0),
-        ).state
-        val crystalDone = crystal.completionOf(BuildingType.CRYSTAL_MINE)
-        val metalStart = crystalDone -
-            PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
+        val pair = listOf(BuildingType.CRYSTAL_MINE, BuildingType.METAL_MINE)
+            .sortedBy { PlaceholderBalance.upgradeDuration(it, BuildingLevel(2), BuildingLevel(0)) }
+        val shorter = pair.first()
+        val longer = pair.last()
+
+        val started = assertIs<StartUpgradeResult.Started>(startUpgrade(GameState.initial().fundedFor(*pair.toTypedArray()), longer, at = t0)).state
+        val together = started.completionOf(longer)
+        val shorterStart = together -
+            PlaceholderBalance.upgradeDuration(shorter, BuildingLevel(2), BuildingLevel(0))
         val both = assertIs<StartUpgradeResult.Started>(
-            startUpgrade(advance(crystal, from = t0, to = metalStart), BuildingType.METAL_MINE, at = metalStart),
+            startUpgrade(advance(started, from = t0, to = shorterStart), shorter, at = shorterStart),
         ).state
-        assertEquals(crystalDone, both.completionOf(BuildingType.METAL_MINE))
+        assertEquals(together, both.completionOf(shorter))
 
         // when
-        val after = advance(both, from = metalStart, to = crystalDone)
+        val after = advance(both, from = shorterStart, to = together)
 
         // then
         assertEquals(BuildingLevel(2), after.buildings.metalMine)
@@ -160,4 +168,16 @@ class ParallelBuildTest {
             startUpgrade(first, BuildingType.SOLAR_PLANT, at = at),
         ).state
     }
+
+    // Which of the two lands first is read off the state rather than written down, and that is the
+    // point of this pair of helpers. These tests are about *parallelism* — jobs completing
+    // independently, earliest first, logged in that order — and they used to encode a balance fact
+    // to get there: under the old per-building-minutes curve the Solar Plant was the quickest thing
+    // in the game while costing more than a Metal Mine. Cost-proportional durations invert that,
+    // and three tests failed on an ordering they were never actually about.
+    private fun GameState.landsFirst(): BuildingType =
+        builds.values.minBy { it.completesAt }.building
+
+    private fun GameState.landsSecond(): BuildingType =
+        builds.values.maxBy { it.completesAt }.building
 }

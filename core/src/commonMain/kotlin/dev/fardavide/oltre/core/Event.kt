@@ -71,4 +71,24 @@ sealed interface Event {
         val cargo: Resources,
         override val at: Instant,
     ) : Event
+
+    @Serializable
+    @SerialName("SurveyStarted")
+    data class SurveyStarted(
+        val target: SystemAddress,
+        override val at: Instant,
+    ) : Event
+
+    // Carries the count rather than the coordinates. The worlds themselves are never stored — the
+    // galaxy is a seed — and the set they were added to is already on `GalaxyState`, so repeating
+    // them here would be the one place in the save that holds a world. What a log entry needs to
+    // say is "the probe reached 2:118 and found five", and the five are re-derivable for as long as
+    // the seed exists, which is forever.
+    @Serializable
+    @SerialName("SurveyCompleted")
+    data class SurveyCompleted(
+        val target: SystemAddress,
+        val worldsFound: Int,
+        override val at: Instant,
+    ) : Event
 }

@@ -24,6 +24,15 @@ data class GameState(
     // The seed and what the player has changed about the map — never the worlds themselves. See
     // `GalaxyState`.
     val galaxy: GalaxyState,
+    // Probes in flight, in parallel, limited by metal and by nothing else — the same scarcity
+    // `builds` has and deliberately not the single slot `activeResearch` has.
+    //
+    // A list rather than the `Map<SystemAddress, SurveyJob>` that would mirror `builds` and state
+    // the one-per-target rule in the type, for the reason `GalaxyState.ownership` is a list of
+    // records: JSON cannot use a structured object as a map key at all, and the alternative is
+    // `allowStructuredMapKeys`, which changes how the *whole* save encodes every map to buy an
+    // unreadable one. The rule is checked in `init` instead.
+    val surveys: List<SurveyJob>,
     val returningFleet: ReturningFleet?,
     val eventLog: List<Event>,
 ) {
@@ -35,6 +44,11 @@ data class GameState(
         // construction, which includes every decode, so a hand-edited save fails here.
         require(activeResearch == null || activeAdaptation == null) {
             "the research slot holds one project: was $activeResearch and $activeAdaptation"
+        }
+        // The rule `builds` gets from its map key, stated here because the save format cannot hold
+        // the map that would state it. Checked on every construction, which includes every decode.
+        require(surveys.distinctBy { it.target }.size == surveys.size) {
+            "one probe per target system: was ${surveys.map { it.target }}"
         }
     }
 
@@ -55,6 +69,7 @@ data class GameState(
             activeResearch = null,
             activeAdaptation = null,
             galaxy = GalaxyState.initial(galaxySeed),
+            surveys = emptyList(),
             returningFleet = null,
             eventLog = emptyList(),
         )

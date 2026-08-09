@@ -221,7 +221,9 @@ class ColonyUiStateTest {
             ),
             metalMine.costs,
         )
-        assertEquals("20m", metalMine.duration)
+        // 112 metal-and-crystal over 3 — a build takes as long as it costs since 0.2.0, so the
+        // number on the row is the one above it divided rather than a per-building constant.
+        assertEquals("37m", metalMine.duration)
     }
 
     @Test
@@ -245,7 +247,8 @@ class ColonyUiStateTest {
 
     @Test
     fun `durations of an hour or more read as hours and padded minutes`() {
-        // given deuterium synth 3 → level 4 takes 80 minutes at robotics 0
+        // given deuterium synth 3 → level 4, which costs 757 metal and 252 crystal and therefore
+        // takes 336 minutes at robotics 0
         val state = colony(
             buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(3)),
         )
@@ -254,7 +257,7 @@ class ColonyUiStateTest {
         val synth = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER)
 
         // then
-        assertEquals("1h 20m", synth.duration)
+        assertEquals("5h 36m", synth.duration)
     }
 
     @Test
@@ -310,7 +313,7 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility carries its own target level countdown and progress`() {
-        // given a metal mine upgrade to 2 (20 minutes at robotics 0), a quarter through
+        // given a metal mine upgrade to 2 (37 minutes at robotics 0), five minutes in
         val t0 = Instant.fromEpochMilliseconds(0)
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
@@ -321,9 +324,9 @@ class ColonyUiStateTest {
         assertEquals(
             FacilityActionUiState.Upgrading(
                 toLevel = BuildingLevel(2),
-                countdown = "00:15:00",
-                progressPercent = 25,
-                doneAt = "done 00:20",
+                countdown = "00:32:00",
+                progressPercent = 13,
+                doneAt = "done 00:37",
             ),
             metalMine.action,
         )
@@ -347,7 +350,7 @@ class ColonyUiStateTest {
 
     @Test
     fun `a building facility shows the local completion time`() {
-        // given a 20-minute build started 2026-08-06T10:00Z, viewed from UTC+2
+        // given a 37-minute build started 2026-08-06T10:00Z, viewed from UTC+2
         val t0 = Instant.parse("2026-08-06T10:00:00Z")
         val started = upgrading(BuildingType.METAL_MINE, at = t0)
 
@@ -355,7 +358,7 @@ class ColonyUiStateTest {
         val action = started.rowFor(BuildingType.METAL_MINE, now = t0, timeZone = TimeZone.of("Europe/Rome")).action
 
         // then
-        assertEquals("done 12:20", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
+        assertEquals("done 12:37", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
     }
 
     @Test
@@ -434,6 +437,9 @@ class ColonyUiStateTest {
         // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot
         // found every colony in the same galaxy. The Colony screen draws none of it.
         galaxy = GameState.initial(GalaxySeed(20_260_807)).galaxy,
+        // A probe in flight competes with this screen's upgrades for the same metal and for
+        // nothing else — it holds no construction slot and appears on no facility row.
+        surveys = emptyList(),
         returningFleet = null,
         eventLog = emptyList(),
     )

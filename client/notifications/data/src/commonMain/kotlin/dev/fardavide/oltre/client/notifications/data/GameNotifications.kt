@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.futureEvents
 import kotlin.time.Instant
@@ -24,14 +25,51 @@ class GameNotifications(private val scheduler: NotificationScheduler) {
     }
 }
 
-internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotification> =
-    futureEvents(state)
+// **iOS keeps only the 64 soonest-firing pending requests and silently drops the rest.** That is
+// the platform's number, not a choice made here, and it is why this file has a cap at all.
+//
+// The eviction rule is what makes it dangerous: iOS throws away the *furthest out*, which is
+// precisely where long builds and research completions live. Uncapped, a player who dispatched
+// thirty probes would lose the one alert they planned their evening around and keep thirty they
+// did not. The fix is not to schedule fewer things, it is to make the choice **here**, where the
+// game knows which alert is worth keeping, rather than at a boundary that only knows which is
+// nearest.
+internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
+
+internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotification> {
+    val pending = futureEvents(state)
         // core hands back everything still in flight; an event at or before `now` is either
         // about to be applied by `advance` or already has been, and either way an alert for it
         // would fire in the past. The platforms reject that anyway — dropping it here means one
         // rule instead of one per platform.
         .filter { it.at > now }
+
+    // Everything except a landing is bounded by the model: six facilities, one research slot, one
+    // returning fleet — nine at the ceiling, and none of them can ever be the thing that overflows.
+    // Probes are the one kind that runs in parallel with no cap at all, so probes are what gets
+    // trimmed, and the bounded events are never in the running to be dropped.
+    val (landings, bounded) = pending.partition { it is FutureEvent.SurveyLands }
+
+    // Trimmed from the far end, keeping the soonest. Two reasons, and the second is the one that
+    // makes this safe: the near landings are the ones that will actually fire before the player
+    // next opens the app, and every alert that fires causes a transition that re-derives this whole
+    // set — so a far landing dropped today is re-booked long before it was due. Keeping the far
+    // ones instead would drop alerts that nothing would ever come back for.
+    val kept = landings.take((IOS_PENDING_REQUEST_LIMIT - bounded.size).coerceAtLeast(0)).toSet()
+
+    // Filtered out of the original list rather than reassembled from the two halves, so
+    // `futureEvents`' ordering survives intact — including its tie-breaks, which say a landing
+    // sorts before a fleet arrival at a shared instant. Concatenating `bounded + kept` would put
+    // that arrival first and quietly disagree with the log it is supposed to predict.
+    return pending
+        .filter { it !is FutureEvent.SurveyLands || it in kept }
+        // Belt and braces, and a no-op today: the bounded kinds top out at nine, so `kept` is
+        // always sized to land exactly on the limit. It is here so the one promise this function
+        // makes to the platform is enforced on the way out rather than inferred from the arithmetic
+        // above.
+        .take(IOS_PENDING_REQUEST_LIMIT)
         .map { it.toNotification() }
+}
 
 private fun FutureEvent.toNotification(): LocalNotification = when (this) {
     is FutureEvent.BuildCompletes -> LocalNotification(
@@ -62,12 +100,49 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = "Worlds you could not settle may have opened up — check the galaxy.",
         at = at,
     )
+    is FutureEvent.SurveyLands -> LocalNotification(
+        // The one id that has to carry its subject to stay unique: probes run in parallel with no
+        // cap, so a colony can hold thirty of these at once where it holds one research and at most
+        // six builds. Derived from the target for the same reason all of them are — it is what
+        // makes replacing the whole set idempotent.
+        id = "survey-${target.galaxy}-${target.system}",
+        title = "Your probe reached ${target.label()}",
+        body = charted(worldsFound = worldsFound, settleable = settleable),
+        at = at,
+    )
     is FutureEvent.FleetArrives -> LocalNotification(
         id = "fleet-arrival",
         title = "Your fleet has landed",
         body = "The cargo from ${origin.label()} is in your stores.",
         at = at,
     )
+}
+
+// PLACEHOLDER copy, and the two strings are the design rather than a formatting convenience.
+//
+// **The common one is the second.** Round 9 measured ~60 dispatches to see one settleable world, so
+// an alert that only ever counted worlds would read as a payoff nearly every time it fired — and
+// the one the verb exists for would look exactly like the fifty-nine that were not. Saying "none"
+// plainly is what makes "1 settleable" mean anything when it finally arrives.
+//
+// **The words are the card's own, deliberately.** The Galaxy screen's landing footer says "none
+// settleable" and this says "none settleable", off the same count — because the first version of
+// this said "5 worth a look" about a landing whose card read "none settleable", and a game
+// contradicting itself between the lock screen and the app is the worst failure a notification has
+// available to it. See `FutureEvent.SurveyLands.settleable`.
+//
+// It also has to be a sentence a player is happy to *miss*, which is the constraint Davide set on
+// this whole loop: nothing here asks them to open anything or implies that waiting cost them
+// something. A probe that found nothing is a reading they bought, not a failure they slept through.
+//
+// Zero worlds is not a case: whether a slot holds a world is charted free and galaxy-wide, so
+// `startSurvey` refuses a starless system outright rather than selling a flight to one.
+private fun charted(worldsFound: Int, settleable: Int): String {
+    val worlds = if (worldsFound == 1) "1 world" else "$worldsFound worlds"
+    return when (settleable) {
+        0 -> "$worlds charted, none settleable."
+        else -> "$worlds charted, $settleable settleable."
+    }
 }
 
 // PLACEHOLDER copy. What a notification says is player-facing content and therefore Davide's
@@ -101,3 +176,8 @@ private fun AdaptationTechnology.displayName(): String = when (this) {
 }
 
 private fun Coordinates.label(): String = "[$galaxy:$system:$position]"
+
+// No slot and no brackets: a probe is aimed at a star, not at a world, and the Galaxy screen's own
+// header writes a system the same way — bare, because there is nothing for a bracket to separate it
+// from.
+private fun SystemAddress.label(): String = "$galaxy:$system"

@@ -10,46 +10,43 @@ import org.junit.Test
 class GalaxyScreenBehaviourTest {
 
     @Test
-    fun `stepping forward asks for the next system`() {
-        // given
-        val steps = mutableListOf<Int>()
+    fun `tapping the cell beside the lit one is what the stepper was`() {
+        // given the neighbouring system, which is still one tap — what it stops being is the
+        // *only* way across, and what it gains is saying where it goes before you go there
+        val opened = mutableListOf<Int>()
 
         // when
-        galaxyScreen(uiState = homeSystemUiState, onStepSystem = { steps += it }) {
-            stepToTheNextSystem()
+        galaxyScreen(uiState = homeSystemUiState, onSelectSystem = { opened += it }) {
+            val lit = homeSystemUiState.reach.lens.cells.first { it.selected }.system
+            openSystem(lit + 1)
         }
 
         // then
-        assertEquals(listOf(1), steps.toList())
+        assertEquals(listOf(homeSystemUiState.reach.lens.cells.first { it.selected }.system + 1), opened.toList())
     }
 
     @Test
-    fun `stepping back asks for the previous one`() {
-        // given
-        val steps = mutableListOf<Int>()
+    fun `the lens reaches further than one system in either direction`() {
+        // The whole of question 2 in one assertion: the band's cells are three systems out on each
+        // side, so crossing a neighbourhood is a tap rather than three of them.
+        val opened = mutableListOf<Int>()
 
-        // when
-        galaxyScreen(uiState = homeSystemUiState, onStepSystem = { steps += it }) {
-            stepToThePreviousSystem()
+        galaxyScreen(uiState = homeSystemUiState, onSelectSystem = { opened += it }) {
+            val cells = homeSystemUiState.reach.lens.cells.map { it.system }
+            openSystem(cells.first())
+            openSystem(cells.last())
         }
 
-        // then
-        assertEquals(listOf(-1), steps.toList())
+        val cells = homeSystemUiState.reach.lens.cells.map { it.system }
+        assertEquals(listOf(cells.first(), cells.last()), opened.toList())
     }
 
     @Test
-    fun `the first system of a galaxy has nothing to step back to`() {
-        // given the edge of the map, where the back step is disabled rather than hidden
-        val steps = mutableListOf<Int>()
-
-        // when it is tapped anyway
-        galaxyScreen(uiState = edgeOfTheGalaxyUiState, onStepSystem = { steps += it }) {
-            stepToThePreviousSystem()
-        }
-
-        // then — clamped at the edge rather than wrapping to system 250, which would be a
-        // different move than the one the button looks like
-        assertEquals(emptyList<Int>(), steps.toList())
+    fun `the strip is on the screen at both widths`() {
+        // 250 ticks and four labels, drawn once per selection change. It is the only thing on the
+        // screen that draws the galaxy rather than a system.
+        galaxyScreen(uiState = homeSystemUiState) { assertTheBandIsDrawn() }
+        galaxyScreen(uiState = homeSystemUiState, width = SLIDE_OVER_WIDTH) { assertTheBandIsDrawn() }
     }
 
     @Test
@@ -266,6 +263,99 @@ class GalaxyScreenBehaviourTest {
         // and it keeps the noun wherever there is room for it
         galaxyScreen(uiState = homeSystemUiState, width = PHONE_WIDTH) {
             assertReads("DIM · 4 WORLDS")
+        }
+    }
+
+    @Test
+    fun `the dispatch button aims at the system on screen`() {
+        // The page *is* the target — a probe is aimed at the star the screen is about, which is why
+        // the footer needs no target picker and no world row carries a button.
+        var dispatched = 0
+
+        galaxyScreen(uiState = unsurveyedSystemUiState, onDispatchProbe = { dispatched++ }) {
+            dispatchAProbe()
+        }
+
+        assertEquals(1, dispatched)
+    }
+
+    @Test
+    fun `the screen never offers a flight the model would refuse`() {
+        // Four of the six states are sentences rather than controls, and this is what says the
+        // screen and `startSurvey` agree about which. A card that offered a dispatch it could not
+        // honour is the worst failure this footer has available to it.
+        galaxyScreen(uiState = homeSystemUiState) { assertOffersNoFlight() }
+        galaxyScreen(uiState = probeInFlightUiState) { assertOffersNoFlight() }
+        galaxyScreen(uiState = probeLandedUiState) { assertOffersNoFlight() }
+        galaxyScreen(uiState = probeNothingToSurveyUiState) { assertOffersNoFlight() }
+    }
+
+    @Test
+    fun `an unaffordable dispatch is a ghost carrying the wait rather than a dead button`() {
+        // The committed idiom, and the tightest reading on the screen: two durations share a row
+        // and only one of them has a preposition.
+        var dispatched = 0
+
+        galaxyScreen(uiState = probeUnaffordableUiState, onDispatchProbe = { dispatched++ }) {
+            assertTheFooterReads("in 1h 06m")
+            dispatchAProbe()
+        }
+
+        assertEquals(0, dispatched, "a ghost is a reading, not a control")
+    }
+
+    @Test
+    fun `home says it was surveyed at genesis and never that a probe went there`() {
+        galaxyScreen(uiState = homeSystemUiState) {
+            assertTheFooterReads("Surveyed at genesis")
+            assertNothingReads("Probe landed")
+        }
+    }
+
+    @Test
+    fun `a star with nothing around it says so and never says already surveyed`() {
+        // One system in 390. `hasSurveyed` is vacuously true where there is nothing to survey, so
+        // this is the state most at risk of claiming a flight happened that never did.
+        galaxyScreen(uiState = probeNothingToSurveyUiState) {
+            assertTheFooterReads("nothing to survey")
+            assertNothingReads("Surveyed at genesis")
+            assertNothingReads("Probe landed")
+        }
+    }
+
+    @Test
+    fun `a landing states the count and what cleared the bar in one breath`() {
+        // Saying "none settleable" beside the count is what keeps a run of these reading as
+        // calibration rather than as bad luck — the job the Barren row's threshold already does.
+        galaxyScreen(uiState = probeLandedUiState) {
+            assertTheFooterReads("Probe landed 12:20")
+            assertTheFooterReads("5 worlds surveyed")
+            assertTheFooterReads("none settleable")
+        }
+        galaxyScreen(uiState = probeSettleableUiState) { assertTheFooterReads("1 settleable") }
+        galaxyScreen(uiState = probeNearMissUiState) { assertTheFooterReads("1 blocked at one axis") }
+    }
+
+    @Test
+    fun `a probe in flight counts down where the thing it is doing lives`() {
+        galaxyScreen(uiState = probeInFlightUiState) {
+            assertTheFooterReads("00:47:12")
+            assertTheFooterReads("lands 12:20")
+        }
+    }
+
+    @Test
+    fun `the footer drops two words at 320dp and neither of its figures`() {
+        // "metal" off the chip, "flight" off the duration, "probe" off the button. 150 stays and
+        // the flight stays — the colour does the work the word did.
+        galaxyScreen(uiState = unsurveyedSystemUiState, width = SLIDE_OVER_WIDTH) {
+            assertNothingReads("Dispatch probe")
+            assertReads("Dispatch")
+            assertNothingReads("flight ")
+        }
+        galaxyScreen(uiState = unsurveyedSystemUiState, width = PHONE_WIDTH) {
+            assertReads("Dispatch probe")
+            assertReads("flight ")
         }
     }
 

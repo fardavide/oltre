@@ -25,9 +25,10 @@ internal fun galaxyScreen(
     uiState: GalaxyUiState,
     width: Int = PHONE_WIDTH,
     onSelectGalaxy: (Int) -> Unit = {},
-    onStepSystem: (Int) -> Unit = {},
+    onSelectSystem: (Int) -> Unit = {},
     onGoHome: () -> Unit = {},
     onOpenResearch: () -> Unit = {},
+    onDispatchProbe: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
@@ -37,9 +38,10 @@ internal fun galaxyScreen(
                     GalaxyPage(
                         uiState = uiState,
                         onSelectGalaxy = onSelectGalaxy,
-                        onStepSystem = onStepSystem,
+                        onSelectSystem = onSelectSystem,
                         onGoHome = onGoHome,
                         onOpenResearch = onOpenResearch,
+                        onDispatchProbe = onDispatchProbe,
                     )
                 }
             }
@@ -55,12 +57,28 @@ internal class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.galaxy(galaxy)).performClick()
     }
 
-    fun stepToTheNextSystem() = apply {
-        test.onNodeWithTag(GalaxyTestTags.STEP_FORWARD).performClick()
+    // The lens cell beside the lit one is what the ±1 stepper was, and it says what it is before
+    // you tap it.
+    fun openSystem(system: Int) = apply {
+        test.onNodeWithTag(GalaxyTestTags.reachCell(system)).performScrollTo().performClick()
     }
 
-    fun stepToThePreviousSystem() = apply {
-        test.onNodeWithTag(GalaxyTestTags.STEP_BACK).performClick()
+    // The one verb on this screen. Present only in the two states that would actually be honoured.
+    fun dispatchAProbe() = apply {
+        test.onNodeWithTag(GalaxyTestTags.DISPATCH).performScrollTo().performClick()
+    }
+
+    fun assertOffersNoFlight() = apply {
+        test.onNodeWithTag(GalaxyTestTags.DISPATCH).assertDoesNotExist()
+    }
+
+    fun assertTheFooterReads(text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.PROBE_FOOTER)
+            .assert(hasAnyDescendant(hasText(text, substring = true)))
+    }
+
+    fun assertTheBandIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.REACH_STRIP).assertIsDisplayed()
     }
 
     fun goHome() = apply {
@@ -77,8 +95,12 @@ internal class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.row(slot)).performScrollTo().performClick()
     }
 
+    // Scrolls first, and that is the "assume it scrolls" budget the reach band and the card footer
+    // spent: the map card grew 40dp and the band added 97dp above it, so two of the home system's
+    // four world rows now start below the fold at 393x852 where all four used to be on screen.
+    // The rows are still there and still reachable — which is what this asserts.
     fun assertShowsWorld(slot: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).assertIsDisplayed()
+        test.onNodeWithTag(GalaxyTestTags.row(slot)).performScrollTo().assertIsDisplayed()
     }
 
     fun assertShowsNoWorld(slot: Int) = apply {

@@ -48,6 +48,7 @@ internal fun TechnologyList(
                 effect = row.effect,
                 costs = row.costs,
                 duration = row.duration,
+                shortlist = row.shortlist,
                 action = row.action,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
@@ -78,6 +79,7 @@ internal fun AdaptationList(
                 effect = row.effect,
                 costs = row.costs,
                 duration = row.duration,
+                shortlist = row.shortlist,
                 action = row.action,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
@@ -98,6 +100,11 @@ private fun ProjectRow(
     effect: EffectUiState,
     costs: List<CostChipUiState>,
     duration: String,
+    // Null on the applied branch, which is the one thing the two row types genuinely differ about
+    // in what they *say*. It is passed here rather than branched on outside, because the whole
+    // point of one composable is that a running ladder is drawn by the same code as a running
+    // technology — see `AdaptationList`.
+    shortlist: ShortlistUiState?,
     action: ResearchActionUiState,
     rowTag: String,
     actionTag: String,
@@ -172,6 +179,22 @@ private fun ProjectRow(
                     is ResearchActionUiState.AvailableIn,
                     -> {
                         EffectLine(effect = effect, compact = compact)
+                        // Under the band line rather than beside it: the band is what the level
+                        // *is* and this is what it *buys*, so it reads as the second half of one
+                        // consequence rather than as a competing fact. It is absent while a
+                        // project runs for the same reason the effect line is — mid-project the
+                        // question is when, not what — and absent when locked, where a
+                        // consequence the player cannot buy is noise.
+                        shortlist?.let { line ->
+                            Text(
+                                text = if (compact) line.compactLabel else line.label,
+                                color = OltreColors.textTertiary,
+                                fontFamily = mono,
+                                fontSize = 10.5.sp,
+                                lineHeight = 15.sp,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(top = 4.dp),

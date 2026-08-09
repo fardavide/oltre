@@ -6,18 +6,24 @@ import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.adaptationShortlist
+import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -403,6 +409,129 @@ class ResearchUiStateTest {
         assertEquals("2h 27m", deeper.duration)
     }
 
+    @Test
+    fun `an adaptation row says what its next level would unlock on the map`() {
+        // given the consumer that stops waiting from beating exploring. `verdictFor` re-derives
+        // against current levels and `surveyed` is monotone, so surveying later returns strictly
+        // better-labelled rows for the same price — without this line the optimal play is "not
+        // yet", and a verb whose optimal play is "not yet" is not a verb.
+        val row = adaptable().adaptationRowFor(AdaptationTechnology.GRAVITIC)
+
+        // then
+        val shortlist = checkNotNull(row.shortlist)
+        assertEquals(shortlistFor(AdaptationTechnology.GRAVITIC).unlocks, shortlist.unlocks)
+        assertEquals(shortlistFor(AdaptationTechnology.GRAVITIC).worthTaking, shortlist.worthTaking)
+    }
+
+    @Test
+    fun `a ladder that would unlock nothing says so rather than going quiet`() {
+        // given a colony that has surveyed only its own home system — every empire on day one
+        val row = adaptable().adaptationRowFor(AdaptationTechnology.THERMAL)
+
+        // then "Thermal 1 unlocks nothing" is the sentence that makes the other two mean
+        // something, so a zero is stated rather than hidden. Pinned against `adaptationShortlist`
+        // rather than against a literal, because which of the three is empty is the seed's call.
+        val expected = shortlistFor(AdaptationTechnology.THERMAL)
+        val shortlist = checkNotNull(row.shortlist)
+        assertEquals(expected.unlocks, shortlist.unlocks)
+        if (expected.unlocks == 0) assertEquals("Unlocks nothing you have surveyed", shortlist.label)
+    }
+
+    @Test
+    fun `the honest half is never larger than the whole`() {
+        // Most worlds a ladder unlocks are still not worth taking, by construction. A line that
+        // sold the count without the qualifier would be selling the ladder on a number the player
+        // cannot spend.
+        for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).adaptation) {
+            val shortlist = checkNotNull(row.shortlist)
+            assertTrue(shortlist.worthTaking <= shortlist.unlocks, "${row.technology}")
+        }
+    }
+
+    @Test
+    fun `an applied technology has no shortlist because it unlocks no world`() {
+        // Photovoltaics multiplies a rate. It cannot make a world habitable, so a line about
+        // worlds on that row would be the screen inventing a consequence.
+        for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).technologies) {
+            assertNull(row.shortlist, "${row.technology}")
+        }
+    }
+
+    @Test
+    fun `the 320dp line drops a word and never a number`() {
+        // The same rule the effect line follows: abbreviation may drop a word, never a figure.
+        // Both counts are what the player compares across the three ladders, so both survive the
+        // narrower window even though the sentence around them does not.
+        for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).adaptation) {
+            val shortlist = row.shortlist
+            assertTrue(
+                shortlist.compactLabel.length < shortlist.label.length,
+                "${row.technology} compact '${shortlist.compactLabel}' is no shorter than '${shortlist.label}'",
+            )
+            if (shortlist.unlocks > 0) {
+                assertTrue("${shortlist.unlocks}" in shortlist.compactLabel, "was '${shortlist.compactLabel}'")
+                val worth = if (shortlist.worthTaking == 0) "none" else "${shortlist.worthTaking}"
+                assertTrue(worth in shortlist.compactLabel, "was '${shortlist.compactLabel}'")
+            }
+        }
+    }
+
+    private fun shortlistFor(technology: AdaptationTechnology) =
+        adaptationShortlist(adaptable()).first { it.technology == technology }
+
+    // A colony that has actually been exploring, and the fixture the five tests above were missing.
+    // On `adaptable()` only the home system is surveyed, and all three of its blocked worlds fail
+    // at least two axes — so every ladder reports 0 unlocks and a mapper hardcoding zeros passed
+    // every one of them. This surveys outward until some ladder has something to say.
+    private fun exploring(): GameState {
+        val seed = freshState().galaxy.seed
+        val home = freshState().galaxy.home
+        var state = adaptable()
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val at = SystemAddress(galaxy = home.galaxy, system = system)
+            state = state.copy(
+                galaxy = state.galaxy.copy(
+                    surveyed = state.galaxy.surveyed + (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                        .map { GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it) }
+                        .filter { worldAt(seed, it) != null },
+                ),
+            )
+            if (adaptationShortlist(state).any { it.unlocks > 0 }) return state
+        }
+        error("no ladder in this galaxy unlocks anything, however much of it is surveyed")
+    }
+
+    @Test
+    fun `a ladder with something to unlock states both figures`() {
+        // The branch the other five could not reach. Without a colony that has surveyed more than
+        // its own back garden, every shortlist is 0 and the non-zero sentence is never rendered.
+        val state = exploring()
+        val expected = adaptationShortlist(state).first { it.unlocks > 0 }
+        val row = state.toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
+            .adaptation.first { it.technology == expected.technology }
+
+        assertEquals(expected.unlocks, row.shortlist.unlocks)
+        assertEquals(expected.worthTaking, row.shortlist.worthTaking)
+        assertTrue("${expected.unlocks}" in row.shortlist.label, "was '${row.shortlist.label}'")
+        assertTrue(row.shortlist.label.startsWith("Unlocks "), "was '${row.shortlist.label}'")
+        // And the 320dp form keeps both figures while dropping the verb — the assertion the
+        // all-zero fixture could never make.
+        assertTrue("${expected.unlocks}" in row.shortlist.compactLabel, "was '${row.shortlist.compactLabel}'")
+        assertTrue(!row.shortlist.compactLabel.startsWith("Unlocks"), "was '${row.shortlist.compactLabel}'")
+    }
+
+    @Test
+    fun `the honest half is stated even when it is none of them`() {
+        // Most worlds a ladder unlocks are still not worth taking, so this is the ordinary shape of
+        // the non-zero sentence and it has to say so rather than trailing off after the count.
+        val state = exploring()
+        val row = state.toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
+            .adaptation.first { it.shortlist.unlocks > 0 }
+
+        val expected = if (row.shortlist.worthTaking == 0) "none worth" else "${row.shortlist.worthTaking} worth"
+        assertTrue(expected in row.shortlist.label, "was '${row.shortlist.label}'")
+    }
+
     private fun GameState.rowFor(technology: Technology, now: Instant = EPOCH): TechnologyRowUiState =
         toResearchUiState(now = now, timeZone = TimeZone.UTC).technologies.first { it.technology == technology }
 
@@ -443,6 +572,9 @@ class ResearchUiStateTest {
         // refuses that pair. What the rows have to answer for is a slot held by either branch.
         activeAdaptation = activeAdaptation,
         galaxy = freshState().galaxy,
+        // Probes hold no research slot and never will: the scarcity a ladder competes for is the
+        // one slot, and the scarcity a probe competes for is metal.
+        surveys = emptyList(),
         returningFleet = null,
         eventLog = emptyList(),
     )

@@ -9,9 +9,23 @@ internal object GalaxyTestTags {
     const val CONTENT = "galaxy-content"
     const val MAP = "galaxy-map"
     const val COORDINATE = "galaxy-coordinate"
-    const val STEP_BACK = "galaxy-step-back"
-    const val STEP_FORWARD = "galaxy-step-forward"
     const val HOME = "galaxy-home"
+
+    // The ±1 steppers went with 0.2.0: the reach band's lens holds the neighbouring system as the
+    // cell beside the lit one, which is still one tap and tells you what you are stepping onto
+    // before you step.
+    const val REACH_STRIP = "galaxy-reach-strip"
+
+    // The whole footer of the system card, whichever of the six states it is in — so a test can
+    // assert *what the card says* without first knowing which state produced it.
+    const val PROBE_FOOTER = "galaxy-probe-footer"
+
+    // Only the two states that offer a flight have this, which is the assertion: a screen that
+    // never offers a dispatch it would refuse is one where this tag is absent exactly when the
+    // model would say no.
+    const val DISPATCH = "galaxy-dispatch"
+
+    fun reachCell(system: Int): String = "galaxy-reach-cell-$system"
 
     fun row(slot: Int): String = "galaxy-row-$slot"
 

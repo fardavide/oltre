@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +26,9 @@ import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.SystemAddress
+import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 // The Galaxy tab. One system fills the screen: the map is its fifteen orbits drawn once, left to
 // right, hot to cold, and the list below carries only the slots that hold something.
@@ -39,22 +43,32 @@ import dev.fardavide.oltre.core.GameState
 // that reads both. `onOpenResearch` is the one thing this screen asks the shell for — a blocked
 // row's technology is a tap target now that Research can sell it.
 @Composable
-fun GalaxyScreen(state: GameState, onOpenResearch: () -> Unit, modifier: Modifier = Modifier) {
+fun GalaxyScreen(
+    state: GameState,
+    now: Instant,
+    timeZone: TimeZone,
+    onOpenResearch: () -> Unit,
+    onDispatchProbe: (SystemAddress) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     var at by remember(state.galaxy.seed) {
         mutableStateOf(SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system))
     }
     GalaxyPage(
-        uiState = state.toGalaxyUiState(at = at),
+        uiState = state.toGalaxyUiState(at = at, now = now, timeZone = timeZone),
         onSelectGalaxy = { selected -> at = at.copy(galaxy = selected) },
-        // Clamped rather than wrapped: 250 is the edge of a galaxy, and a stepper that jumps from
-        // the last system to the first would be a different move than the one it looks like.
-        onStepSystem = { step ->
-            at = at.copy(system = (at.system + step).coerceIn(1, GalaxyBalance.SYSTEMS_PER_GALAXY))
+        // Clamped rather than wrapped: 250 is the edge of a galaxy, and a band that jumped from the
+        // last system to the first would be a different move than the one it looks like.
+        onSelectSystem = { system ->
+            at = at.copy(system = system.coerceIn(1, GalaxyBalance.SYSTEMS_PER_GALAXY))
         },
         onGoHome = {
             at = SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system)
         },
         onOpenResearch = onOpenResearch,
+        // The system on screen *is* the target — a probe is aimed at the star the page is about,
+        // which is why the footer needs no target picker and the world rows carry no button.
+        onDispatchProbe = { onDispatchProbe(SystemAddress(galaxy = at.galaxy, system = at.system)) },
         modifier = modifier,
     )
 }
@@ -63,9 +77,10 @@ fun GalaxyScreen(state: GameState, onOpenResearch: () -> Unit, modifier: Modifie
 internal fun GalaxyPage(
     uiState: GalaxyUiState,
     onSelectGalaxy: (Int) -> Unit,
-    onStepSystem: (Int) -> Unit,
+    onSelectSystem: (Int) -> Unit,
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
+    onDispatchProbe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -90,12 +105,23 @@ internal fun GalaxyPage(
                     uiState = uiState,
                     compact = compact,
                     onSelectGalaxy = onSelectGalaxy,
-                    onStepSystem = onStepSystem,
                     onGoHome = onGoHome,
                     modifier = Modifier.padding(bottom = 13.dp),
                 )
+                // Above the map rather than below it, because it answers "where am I going" and the
+                // map answers "what is here" — and the header above it is what answers "where am
+                // I". Reading order down the screen is place, reach, contents.
+                ReachBand(
+                    uiState = uiState.reach,
+                    compact = compact,
+                    onSelectSystem = onSelectSystem,
+                    modifier = Modifier.padding(bottom = 13.dp),
+                )
                 // The map sits on the same card surface every row does, so the screen reads as one
-                // stack rather than as a picture with a list under it.
+                // stack rather than as a picture with a list under it — and since 0.2.0 the card
+                // carries the probe in its footer. Everything the verb says lands in the card that
+                // owns the thing it describes, which is the rule that already puts a build's
+                // countdown inside its facility row.
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -103,8 +129,10 @@ internal fun GalaxyPage(
                         .background(oltreCardSurface, RoundedCornerShape(14.dp))
                         .testTag(GalaxyTestTags.MAP)
                         .padding(11.dp),
+                    verticalArrangement = Arrangement.spacedBy(9.dp),
                 ) {
                     SystemMap(map = uiState.map)
+                    ProbeAction(uiState = uiState.probe, compact = compact, onDispatch = onDispatchProbe)
                 }
                 WorldList(
                     bands = uiState.bands,

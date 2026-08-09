@@ -166,20 +166,39 @@ object PlaceholderBalance {
         )
     }
 
+    // A build takes as long as it costs. OGame's shape, and the fix balance round 8 measured,
+    // held, and named four rounds running as *the* wrong thing about this game's pacing.
+    //
+    // What it replaces was `per-building minutes x level` — linear in the level while cost
+    // compounds at +50%, so the two curves diverged from level one. A colony spent 87.5% of its
+    // first two days with nothing at all in flight and the busiest check-in booked 72 minutes of
+    // work: every notification the game could send arrived while the player was still holding the
+    // phone. **Round 8 measured this exact change at 87.5% -> 64.6% idle with an identical 25
+    // levels at 48 hours** — so it buys cover without costing progress, and it is why it was held
+    // rather than rejected: on its own it trades taps for cover, and it wanted the probe beside it.
+    //
+    // Deuterium is deliberately outside the sum, as in OGame. It is the resource that gates the
+    // Robotics Factory and therefore the whole research branch, and pricing *time* in it too would
+    // make one scarcity govern two things the player has to trade off separately.
+    private const val COST_PER_MINUTE: Long = 3
+
+    // Nothing is instant, however deep the Robotics Factory goes. At Robotics 10 a first mine level
+    // divides to under three minutes, which is not a build — it is a tap with a delay on it, and it
+    // would quietly undo at depth exactly the emptiness this curve exists to fill.
+    private val MINIMUM_UPGRADE_DURATION: Duration = 5.minutes
+
     fun upgradeDuration(
         building: BuildingType,
         toLevel: BuildingLevel,
         roboticsFactory: BuildingLevel,
     ): Duration {
-        val base = when (building) {
-            BuildingType.METAL_MINE -> (10 * toLevel.value).minutes
-            BuildingType.CRYSTAL_MINE -> (12 * toLevel.value).minutes
-            BuildingType.DEUTERIUM_SYNTHESIZER -> (20 * toLevel.value).minutes
-            BuildingType.SOLAR_PLANT -> (8 * toLevel.value).minutes
-            BuildingType.ROBOTICS_FACTORY -> (30 * toLevel.value).minutes
-            BuildingType.NANITE_FACTORY -> (120 * toLevel.value).minutes
-        }
-        return base / (1 + roboticsFactory.value)
+        val cost = upgradeCost(building, toLevel)
+        val base = ((cost.metal + cost.crystal) / COST_PER_MINUTE).minutes
+        // The floor is applied last, to what the player actually waits — not to the base before the
+        // divisor. A Robotics Factory that shortens a build below the floor has bought all the
+        // shortening there is; a floor placed ahead of it would let the divisor cut *through* the
+        // minimum and put instant builds back at depth.
+        return maxOf(MINIMUM_UPGRADE_DURATION, base / (1 + roboticsFactory.value))
     }
 
     private fun productionPerHour(baseAtLevelOne: Long, level: BuildingLevel): Long =

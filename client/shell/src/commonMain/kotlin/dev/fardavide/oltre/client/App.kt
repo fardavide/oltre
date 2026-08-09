@@ -23,10 +23,12 @@ import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -146,15 +148,30 @@ fun App(
                             },
                         )
                     },
-                    // Still no ui-state mapping and still no game action: the galaxy is read-only —
-                    // surveying is a fleet action and colonisation is slice #10 — and which system
-                    // is on screen is the feature's own navigation rather than the shell's. What it
-                    // does ask for is the way to the Research tab, because a blocked world's
-                    // remedy is a tap target and only the scaffold can change destination. It takes
-                    // the whole state rather than the galaxy half, so a verdict reads the
-                    // adaptation levels the player has actually bought.
+                    // The galaxy stopped being read-only at 0.2.0: surveying is a colony action
+                    // with no ship in it, so the fourth verb goes through the same path the other
+                    // three do. Which system is on screen is still the feature's own navigation
+                    // rather than the shell's — what it asks the shell for is the way to the
+                    // Research tab, because a blocked world's remedy is a tap target and only the
+                    // scaffold can change destination.
                     galaxy = { openResearch ->
-                        GalaxyScreen(state = current.state, onOpenResearch = openResearch)
+                        GalaxyScreen(
+                            state = current.state,
+                            now = current.lastUpdatedAt,
+                            timeZone = TimeZone.currentSystemDefault(),
+                            onOpenResearch = openResearch,
+                            onDispatchProbe = { target ->
+                                act { state, at ->
+                                    when (val result = startSurvey(state, target, at = at)) {
+                                        is StartSurveyResult.Started -> result.state
+                                        StartSurveyResult.AlreadySurveying,
+                                        StartSurveyResult.AlreadySurveyed,
+                                        StartSurveyResult.InsufficientResources,
+                                        -> state
+                                    }
+                                }
+                            },
+                        )
                     },
                 )
             }
