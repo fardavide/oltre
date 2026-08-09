@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher label. Not translated: the game is English-only, and a name is a name. -->
+    <string name="app_name">Oltre</string>
+</resources>

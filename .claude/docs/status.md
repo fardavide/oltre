@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-08 (0.0.18)
+Updated: 2026-08-09 (0.2.1)
 
 ## Landed
 
@@ -142,6 +142,35 @@ Updated: 2026-08-08 (0.0.18)
   repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
   and ten of 0.0.17's had one. See `decisions.md`.
 
+- **0.2.1 Android delivery** — the game runs on Android, and every version publishes itself. The
+  wrapper `architecture.md` had anticipated since 0.0.1 finally landed, in the shape Davide chose:
+  `androidApp/` is a manifest, a theme and the launcher icons with **no Kotlin in it**, and
+  `MainActivity` sits in `client/shell/src/androidMain` beside the desktop `main()` and the iOS
+  `MainViewController()`. **Rule 7 got its carve-out** — an allowlist of one name — because AGP 9
+  will not let a KMP module apply `com.android.application`, because `iosApp/` has the identical
+  edge and escapes only by not being a Gradle module, and because the shell declares every
+  dependency as `implementation`, so the wrapper sees `App()` and no layer module at all.
+  Publishing mirrors iOS: a merge that changes the version fires `release-android.yml`, which
+  signs the APK with a real key from secrets, cuts the `v<version>` tag and attaches the APK to a
+  GitHub Release whose body is the README changelog entry. Two runtime traps were caught on the
+  way: Compose resources need `androidResources { enable = true }` or the fonts never reach the
+  APK (CMP-9547), and the new entry point had to be excluded from Kover or it would have failed
+  the coverage gate on its own PR. See `decisions.md`.
+
+- **0.2.1 Android notifications, on Davide's call to stop holding them back** — the copy was
+  already shared, so there was no design call to wait for, only engineering. `replaceAll` books
+  one `AlarmManager` alarm per notification and persists the ids it scheduled, because Android
+  cannot be asked what is pending the way `UNUserNotificationCenter` can. **Inexact alarms**
+  (`setAndAllowWhileIdle`): an exact one needs a permission denied by default since API 33 and
+  grantable only from system settings, and Doze holding an alert for minutes is affordable when
+  builds run for hours. `BootReceiver` re-derives the schedule from the save after a reboot, which
+  iOS needs no counterpart for. The permission is asked on the first frame, exactly as on iOS.
+  `OltreApplication` fills the save directory and the Context before any component runs — Android
+  is the only platform whose process can start with no screen. New status-bar icon in
+  `:client:notifications:data`, reduced from the master's own arc. No test, matching the iOS and
+  desktop schedulers: the seam is above the platform edge, and `GameNotificationsTest` already
+  holds it. See `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -250,8 +279,42 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
   a three-axis card is airier than the design drew it. Overrule if it reads loose.
 
-- Android app entry point (thin `androidApp`-style module) — when Android delivery matters. Two
-  stubs are waiting on it: `AndroidSaveLocation.directory` and the no-op notification scheduler.
+- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.1**, and both stubs
+  that were waiting on it are filled in: `AndroidSaveLocation.directory` and the notification
+  scheduler.
+- ~~**Nothing has run the Android build on a device.**~~ — **run at 0.2.1**, on an emulator rather
+  than a handset (nothing else was attached). Four of the five checks the entry above listed are
+  answered, and the emulator is a real answer for them: they are about APK packaging, install
+  semantics and a genuine Android boot, none of which a handset does differently.
+  1. **The bundled font reaches the APK.** Renders in JetBrains Mono, and on the *signed release*
+     build as well as the debug one — so CMP-9547's `androidResources { enable = true }` holds
+     where it actually matters.
+  2. **Edge to edge agrees.** The resource rail clears the status bar and the tab bar clears the
+     gesture bar. The one thing an emulator cannot answer: a cutout or a punch-hole.
+  3. **The save survives an update.** Installed the signed release APK, started two builds, then
+     installed the same APK over the top: same colony, same two completion times, countdowns
+     carried on. This is what the real key buys, and it is now measured rather than argued.
+  4. **An alarm is booked correctly** — one `RTC_WAKEUP` per notification, aimed at
+     `NotificationReceiver`, at the instant the card counts down to, with the id persisted in
+     `SharedPreferences`. **Whether it fires, and whether the status-bar icon reads as a mark, is
+     still open**; see the entry below.
+  5. **`BootReceiver` survives a real reboot** — the riskiest of the five, and it holds. It starts
+     as a broadcast process, does not crash, and the alarm is pending again afterwards.
+- **What an alarm does when it fires is still unverified.** The receiver is `exported="false"`, so
+  `adb broadcast` reaches it with zero receivers, and a Play-image emulator refuses `date`, so the
+  clock cannot be wound forward — which leaves waiting out a real build as the only way in. That
+  also means **nobody has looked at `ic_notification` on a status bar**, which is the one visual
+  asset in this repository a cloud session drew and the one `decisions.md` says to overrule if it
+  reads as a smudge.
+- **The Android platform edge is excluded from Kover**, as of 0.2.1: the scheduler, its `Context`
+  holder and the receiver join `MainActivity`, `OltreApplication` and `BootReceiver`, which were
+  excluded when they landed. Left in, they failed the merge gate at 93.1%. The policy was already
+  `decisions.md`'s — a platform edge with no seam a test can reach — but only half of it had been
+  applied. **What replaces the test is the install above**, which is a standing obligation on a
+  local session rather than something CI will ever catch.
+- **The notification copy is still PLACEHOLDER**, now on two platforms rather than one, and the
+  notification channel's name and description in `NotificationReceiver` join it — those are shown
+  in Android's own settings, so they are player-facing too.
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
   is far out of reach — it binds nothing until very deep levels.

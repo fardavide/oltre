@@ -22,6 +22,16 @@ kotlin {
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
         }
+
+        // Without this the three JetBrains Mono files are generated, compiled against, and then
+        // left out of the APK: AGP 9's Kotlin Multiplatform library plugin does not copy Compose
+        // Multiplatform's `.cvr` assets into an application unless the resource pipeline is
+        // turned on explicitly (CMP-9547). The failure is at runtime, on Android only, and reads
+        // as `MissingResourceException` on the first frame that asks for the font — which is
+        // every frame, since the type scale is the theme's.
+        androidResources {
+            enable = true
+        }
     }
 
     sourceSets {

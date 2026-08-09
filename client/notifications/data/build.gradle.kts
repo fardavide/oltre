@@ -20,6 +20,14 @@ kotlin {
         compilerOptions {
             jvmTarget = JvmTarget.JVM_11
         }
+
+        // For `src/androidMain/res/drawable/ic_notification.xml` — the status-bar icon, which
+        // lives here because the module that posts a notification owns what it posts it with,
+        // and because a non-transitive R class means the app module's resources are not visible
+        // to this one anyway.
+        androidResources {
+            enable = true
+        }
     }
 
     sourceSets {

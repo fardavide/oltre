@@ -343,13 +343,13 @@ where being wrong means lying to the player about their own colony.
 alerts together, on an event appended to the log, against the session's `lastUpdatedAt`. Two
 operations on one trigger because they answer the same question; separately they drift.
 
-**Only iOS schedules anything today.** Desktop prints the schedule instead: the dev loop has the
-app open, so an alert about the countdown you are watching is noise, and the checkable thing is
-that the right alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which
-would need a timer held for the whole wait — the exact mechanism this game is built to avoid —
-to buy a toast on the one platform that does not need one. Android does nothing until an
-`androidApp` module exists to hold a `Context` and the API-33 `POST_NOTIFICATIONS` permission;
-a stub that compiles and silently schedules nothing would look finished.
+**Desktop prints the schedule rather than raising it**: the dev loop has the app open, so an
+alert about the countdown you are watching is noise, and the checkable thing is that the right
+alerts are being derived at all. Rejected there: `java.awt.SystemTray`, which would need a timer
+held for the whole wait — the exact mechanism this game is built to avoid — to buy a toast on the
+one platform that does not need one. **Android did nothing until 0.2.1**, when the app module
+arrived to hold a `Context` and the API-33 permission; see *Android books its alerts through
+AlarmManager* below.
 
 **Permission is asked on the first sync**, which is the first frame, and never again (iOS shows
 the prompt once whatever you do). Not deferred to a "better moment": on iPhone the alerts *are*
@@ -1422,3 +1422,239 @@ fleet action" is a retcon waiting to happen; ruling that fleets never survey clo
   and a landing. Not a tidy-up: the set a survey writes has to be exactly the set the player already
   has for their own system, or "surveyed" would mean two different things depending on how it got
   there.
+
+## Android ships as a GitHub Release, and its wrapper is the one thing allowed to see the shell (2026-08-09, 0.2.1)
+
+Davide asked for the quickest way to publish for Android and proposed a GitHub Release carrying
+the APK. That is what landed, and it is right for a reason worth writing down: **a release asset
+is a direct, unauthenticated `.apk` URL**. Tap it in a phone browser and the installer opens. The
+obvious cheaper option — upload the APK as a CI artifact on every run — fails at exactly that
+step: Actions artifacts are ZIPs behind a GitHub login, so a phone cannot install one without a
+desktop and a cable in between. The repository is public, so the release link needs no token and
+can be handed to anyone.
+
+Rejected, and worth re-reading before anyone proposes them again:
+
+- **Firebase App Distribution** — the true TestFlight analogue: testers get a push and install
+  from an app. It costs a Firebase project, a service-account JSON in secrets and a tester list to
+  keep. Worth it when there are testers who are not Davide; not worth it to install on your own
+  phone, where a URL is the same two taps.
+- **Play Console internal testing** — the eventual destination, and a heavier one: an account, a
+  listing, and app signing to arrange. Nothing about this decision blocks it later; the release
+  key below is the one Play would want.
+- **An APK artifact per CI run** — see above. Kept in mind as the thing to add if a build ever
+  needs sharing *before* it is a version.
+
+### The trigger is a version change on `main`, and the job is idempotent
+
+Merging to `main` already publishes on iOS. The Android half now matches: a push to `main` that
+touches `gradle/libs.versions.toml` runs `release-android.yml`, which reads the `oltre` version,
+asks whether `v<version>` is already released, and stops if it is. The path filter is exact about
+the *file* and deliberately imprecise about the *reason* — bumping Ktor touches the same
+catalogue — so the idempotence check, rather than the trigger, is what decides. It also creates
+the tag, which the versioning convention used to ask a human to push by hand.
+
+The release body is the README changelog entry for that version, extracted by
+`.github/scripts/android_release.py` and tested in `test_android_release.py`. **A version with no
+changelog entry raises rather than publishing an empty release** — the convention already
+required the entry; this is the step that stops it being optional, and it fails before the tag
+exists rather than after.
+
+### Signing is a real key in secrets, because the alternative eats the save
+
+CI's auto-generated debug keystore differs on every runner, so build N+1 will not install over
+build N: the player uninstalls first, and `filesDir` — which is where the save lives — goes with
+it. For a game whose entire proposition is progress accruing while it is closed, an update that
+wipes the colony is not a rough edge, it is the product failing. So the release is signed with one
+stable key, held as four secrets:
+
+```
+ANDROID_KEYSTORE_BASE64     base64 -w0 oltre-release.keystore
+ANDROID_KEYSTORE_PASSWORD
+ANDROID_KEY_ALIAS
+ANDROID_KEY_PASSWORD
+```
+
+Generated once, and never in the repository:
+
+```bash
+keytool -genkeypair -v -keystore oltre-release.keystore -alias oltre \
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+**Losing this key means no future build can update an installed one.** Back it up somewhere that
+survives the laptop. Rejected: committing a fixed debug keystore, which would give stable
+signatures with no secrets to manage — but in a public repository it hands anyone the ability to
+sign an APK that updates over the real one, and it is a dead end for Play.
+
+`androidApp/build.gradle.kts` reads the four values through `providers.environmentVariable`, and
+falls back to an unsigned release when they are absent. That is what keeps `./gradlew assemble`
+working on a fork's pull request, where no secret is available. The workflow checks for the
+secrets *before* it builds, and refuses to publish an APK whose filename carries AGP's
+`-unsigned` suffix — the one thing this job must never do is ship a build that cannot install over
+the last one.
+
+### Rule 7 gets its carve-out, and it is an allowlist of one
+
+`architecture.md` had anticipated an `androidApp` wrapper since 0.0.1 and rule 7 was written
+literally so the question would be argued against a real module. Here it is, and the answer is
+that `:androidApp` is allowed through by name.
+
+The edge is **forced**. AGP 9 stopped the Kotlin Multiplatform plugin working alongside
+`com.android.application`, so the shell cannot be the Android application the way it already *is*
+the desktop application — `compose.desktop.application { }` sits in its own build file. The
+wrapper has to be a sibling Gradle module, and it has to reach `App()`.
+
+The edge is **not new**. `iosApp/` links `OltreClient.framework`, built by `:client:shell`, and
+calls `MainViewController()`. That is precisely the relationship rule 7 forbids; it escapes only
+because Xcode is not Gradle. Android is the first platform whose wrapper the module graph can
+see, not the first one to have this shape.
+
+The edge **carries nothing**. Every project dependency in the shell's build file is
+`implementation`, not `api`, so nothing is re-exported: `:androidApp` sees `App()` and
+`MainActivity`, and not one presentation, data or domain module — not even `:core`. Gradle already
+enforces what rule 7 defends; the rule is the belt to that braces.
+
+And the literal alternative is **worse**. To keep rule 7 as written, `:androidApp` would depend on
+the nine feature and design modules directly and re-do the composition: `MainScaffold`, the
+session, the save and notification wiring. That is a second composition root, mixing every layer,
+protected by nothing, drifting from the first every time a feature lands. The rule would hold on
+paper while the property it exists to protect was lost.
+
+Also rejected: **widening the rule to "any Android application module"**, which reads as a
+principle rather than an exception. Nothing can check that such a module stays an entry point, so
+the allowlist is `platformEntryPoints` — a set of names in the root build script. The next module
+that wants through has to make the argument again rather than inherit this one.
+
+### `MainActivity` lives in the shell, so the wrapper holds no Kotlin
+
+`androidApp/` is a build file, an `AndroidManifest.xml`, a theme and the launcher icons.
+`MainActivity` is in `client/shell/src/androidMain`, beside the desktop `main()` and the iOS
+`MainViewController()`, and the manifest names it across the module boundary as a string. Davide's
+call, over the conventional Android layout (Activity, manifest and icons together in the app
+module).
+
+Two things follow. All three platform entry points stay in one place, and the carve-out permits a
+module that *cannot* accumulate logic — the exception is narrow by construction rather than by
+promise. And `AndroidSaveLocation.directory = filesDir`, which has to run before the first save or
+`:client:save:data` throws, sits inside the composition root, where the rest of the save wiring
+already is. The cost is that renaming `MainActivity` fails at manifest merge rather than at
+compile time; there is no call site to break.
+
+The notification scheduler is real, and is covered in its own section below.
+
+`allowBackup` is left on. The save is a JSON snapshot in private storage, so Android's own backup
+carries a colony to a new phone — the closest thing the game has to iCloud sync until a server
+exists.
+
+### Two traps this slice walked into, both invisible until runtime
+
+**Compose resources are not packaged into an Android APK** by AGP 9's Kotlin Multiplatform library
+plugin unless the resource pipeline is enabled explicitly (CMP-9547). `:client:design:core` bundles
+the three JetBrains Mono files behind `Res`, and without `androidResources { enable = true }` they
+compile, link and are then left out of the APK — a `MissingResourceException` on the first frame
+that asks for the font, which is every frame, because the type scale is the theme's. Enabled on
+both modules that declare `compose.components.resources`.
+
+**A new entry point is uncovered lines, and the coverage gate blocks on those.** `MainActivity` is
+excluded from Kover on exactly the grounds `sim` and the two `MainKt`s already are: a process
+entry point is exercised by launching the app, and there is nothing in it for a test to hold. Left
+in, it would have failed the merge gate on the PR that introduced it. `:androidApp` is absent from
+the `kover(...)` aggregate for a different reason — it holds no Kotlin, so there is nothing to
+measure.
+
+### And two more the first local build found, both of them `lintDebug` errors (2026-08-09, 0.2.1)
+
+Neither is runtime, which is why the section above missed them: `:androidApp:lintDebug` is part of
+`build`, so a cloud session that cannot run AGP cannot see them either. Both failed on the first
+build anyone ran.
+
+**A manifest can only name a class its own module can see at compile time.** `NotificationReceiver`
+was declared in `androidApp/`'s manifest, and it is the one component that cannot be: `:androidApp`
+depends on `:client:shell`, which depends on `:client:notifications:data` as `implementation`. That
+edge puts the class on the *runtime* classpath — so the receiver really would have been in the APK
+and really would have fired — but not on the app module's *compile* classpath, where lint looks.
+`MissingClass`, on a name that was never wrong.
+
+The fix is the one the module already argues for its own status-bar icon: the module that owns the
+component declares it, in `client/notifications/data/src/androidMain/AndroidManifest.xml`, and
+manifest merging folds it into the application. `MainActivity`, `OltreApplication` and
+`BootReceiver` stay named in `androidApp/` — they come from `:client:shell`, which is a *direct*
+dependency, so they resolve on the compile classpath and a rename still breaks the build. The rule
+this leaves behind: **a component whose class arrives transitively is declared by its own module**,
+and the distinction is the dependency graph, not taste.
+
+**`android:windowLightNavigationBar` is API 27 and `minSdk` is 26.** `NewApi`, and the value was
+`false` — which is also what API 26 falls back to, since a platform ignores a theme attribute it
+does not know. So the line changes nothing anywhere it is not honoured, and it is annotated
+`tools:targetApi="27"` rather than split into a `values-v27` copy of the whole style or deleted.
+Deleting it would have been the same bytes and a worse comment: the theme states both bar
+appearances on purpose, and the pair reads as a pair.
+
+## Android books its alerts through AlarmManager, inexactly and on purpose (2026-08-09, 0.2.1)
+
+Davide's call, on being told the Android scheduler was a stub: *follow what you did for iOS.*
+Right, and the reason given for holding it back was wrong — the copy already exists in
+`GameNotifications` and is shared by every platform, so Android reuses it and invents nothing.
+What was left was engineering, and it is recorded here.
+
+**One alarm per notification, and the ids are written down.** iOS hands the whole set to
+`UNUserNotificationCenter` and can later say "remove everything pending"; Android has no such
+register, so `replaceAll` persists the ids it scheduled in `SharedPreferences` and cancels them on
+the next sync. In memory would not do: the process that scheduled them is usually long dead by the
+time the next sync runs.
+
+Identity is the intent's **data URI**, `oltre://notification/<id>`, not the PendingIntent request
+code. `Intent.filterEquals` — which is what the PendingIntent register compares — reads the data
+URI and ignores extras, so a request code derived from the id would be a hash, and two colliding
+hashes would silently overwrite one alert with another. `FLAG_UPDATE_CURRENT` is then required
+precisely *because* extras are outside identity: without it a rescheduled alert keeps the title it
+was first booked with.
+
+**Inexact alarms — `setAndAllowWhileIdle`.** This is the one place Android is meaningfully worse
+than iOS, and it is the right trade. An exact alarm needs `SCHEDULE_EXACT_ALARM`, denied by
+default since API 33 and grantable only by the player walking into system settings; the permission
+that avoids that walk, `USE_EXACT_ALARM`, is restricted by Play policy to alarm clocks and timers,
+which this is not. Inexact means Doze can hold an alert for minutes. A game whose sessions are
+five minutes long and whose builds run for hours can afford minutes; it cannot afford a permission
+dialog nobody would grant. Overrule if a late alert ever reads as a broken one.
+
+**A boot receiver, which iOS has no counterpart for.** Android drops every scheduled alarm on
+reboot. Without `BootReceiver` the game goes quiet after a restart and stays quiet until the
+player next opens it — which is exactly the player the alerts exist to reach. It reads the save
+and recomputes rather than storing a schedule to restore, because the schedule is derived from
+state everywhere else in this game and a stored copy is the one thing that could disagree with the
+colony. That makes it composition — save plus notifications — so it lives in the shell rather than
+in either module it uses. It catches everything: there is no UI at boot to report a failure to,
+and a crash dialog on somebody's phone every time it starts up is the worst possible outcome for a
+notification that will be rescheduled on the next launch anyway.
+
+**The permission is asked on the first frame**, matching iOS exactly, and for the same reason: the
+alerts *are* the check-in loop, so a player who declines has declined something they can see the
+shape of. Android differs in one detail that makes this cheaper than it looks — the system stops
+showing the dialog after two refusals and answers "denied" silently forever after, so asking on
+every launch cannot nag.
+
+**`OltreApplication` fills the two slots the platform cannot derive** — `AndroidSaveLocation
+.directory` and `AndroidNotificationHost.context`. Not the Activity, which is where the save
+directory was set for the few hours between this decision and the one above it: Android is the
+only platform where the process can start with no screen at all, and `BootReceiver` running with
+`AndroidSaveLocation.directory` still null would throw on the read. The Application is the one
+component guaranteed to run before every other.
+
+**The status-bar icon is a new asset**, in `:client:notifications:data` — the module that posts a
+notification owns what it posts it with, and a non-transitive R class means the app module's
+resources are not visible to it anyway. Android masks a small icon to a flat silhouette and
+ignores its colours, so the launcher artwork cannot be reused: it would arrive as a white blob.
+`ic_notification.xml` is the icon's one legible gesture instead — the trajectory and the light it
+climbs towards, taking the curve from `threshold.svg`'s own arc and re-weighting it, because a
+22/1024 stroke lands at half a pixel at 24dp. **It is the one visual asset in this repository a
+cloud session drew**, it is a reduction of somebody else's mark, and it should be overruled if it
+reads wrong on a device.
+
+**No test, and the precedent is the point.** The iOS scheduler has none and the desktop one has
+none: they are platform edges with no seam a test can reach without new infrastructure
+(Robolectric, or an instrumented run) that this repository does not have and this slice is not the
+place to introduce. What *is* tested is everything above the edge — `notificationsFor` derives the
+set, `GameNotificationsTest` pins it against `FakeNotificationScheduler`, and that is where the
+game logic lives. The platform half is verified by installing it, which is a local session's job.

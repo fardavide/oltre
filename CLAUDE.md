@@ -75,7 +75,10 @@ All work on branches → PR → all required checks green → squash merge (`pro
 no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.
 
 **Merging to `main` publishes.** Xcode Cloud archives every `main` commit and ships it to
-TestFlight (internal testers); GitHub Actions is the only gate. The iOS project is generated —
+TestFlight (internal testers), and a merge that changes the version also publishes a signed APK as
+a GitHub Release (`release-android.yml`, which cuts the `v<version>` tag too). GitHub Actions is
+the only gate, and the README changelog entry *is* the Android release body — a version without
+one fails the release. The iOS project is generated —
 edit `iosApp/project.yml`, run `xcodegen generate` in `iosApp/`, and commit the project *and*
 its shared scheme. Never hand-edit `project.pbxproj`. See `.claude/docs/decisions.md`.
 
