@@ -142,10 +142,12 @@ class ResearchUiStateTest {
 
     @Test
     fun `a row waits on the money when the money is further away than the slot`() {
-        // given 90 metal short at 90 an hour, against a slot that frees in half an hour
+        // given 90 metal short at 90 an hour, against a slot that frees in half an hour.
+        // Photovoltaics 1 costs 100 metal since the opening discount reached the branch, so the
+        // stock is 10 rather than 210 — the shortfall this test is about is unchanged.
         val row = colony(
             buildings = gated(),
-            resources = Resources.of(metal = 210, crystal = 150, deuterium = 100),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
             activeResearch = project(completesAt = EPOCH + 30.minutes),
         ).rowFor(Technology.PHOTOVOLTAICS)
 
@@ -238,9 +240,10 @@ class ResearchUiStateTest {
         val slow = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
         val quick = colony(buildings = gated(robotics = 4)).rowFor(Technology.PHOTOVOLTAICS)
 
-        // then - 60 minutes at Robotics 1, and 60 x 25/33 at Robotics 4
-        assertEquals("56m", slow.duration)
-        assertEquals("46m", quick.duration)
+        // then - level 1 is the deepest step of the opening discount, so 20 minutes rather than
+        // the sheet's 60, then the divisor: 20 x 25/27 at Robotics 1 and 20 x 25/33 at Robotics 4
+        assertEquals("19m", slow.duration)
+        assertEquals("16m", quick.duration)
     }
 
     // ── The adaptation branch ────────────────────────────────────────────────────────────────
@@ -401,12 +404,12 @@ class ResearchUiStateTest {
         val atGate = adaptable().adaptationRowFor(AdaptationTechnology.THERMAL)
         val deeper = adaptable(buildings = gated(robotics = 8)).adaptationRowFor(AdaptationTechnology.THERMAL)
 
-        // then - 240 x 25/33 at Robotics 4, and 240 x 25/41 at Robotics 8. The second reads one
-        // minute longer than the sheet's table, and the chip is the one that is right for a chip:
-        // 146.34 minutes rounds to 146 in a published table and ceils to 147 here, because a
-        // duration that rounded down would promise a project sooner than it can finish.
-        assertEquals("3h 02m", atGate.duration)
-        assertEquals("2h 27m", deeper.duration)
+        // then - level 1 carries the opening discount, so 80 base minutes rather than the sheet's
+        // 240, then the divisor: 80 x 25/33 at Robotics 4 and 80 x 25/41 at Robotics 8. Both ceil
+        // rather than round, because a duration that rounded down would promise a project sooner
+        // than it can finish.
+        assertEquals("1h 01m", atGate.duration)
+        assertEquals("49m", deeper.duration)
     }
 
     @Test
