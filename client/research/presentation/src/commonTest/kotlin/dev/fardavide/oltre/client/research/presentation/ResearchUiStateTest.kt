@@ -91,9 +91,12 @@ class ResearchUiStateTest {
         // then - colour is the affordability channel
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "300", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "150", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "100", short = true),
+                // Photovoltaics 1 at a third of the sheet's 300 / 150 / 100 — the opening
+                // discount. The stock below still covers two of the three and not the deuterium,
+                // which is what this test is about.
+                CostChipUiState(kind = ResourceKind.METAL, amount = "100", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "50", short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "33", short = true),
             ),
             row.costs,
         )
@@ -342,9 +345,11 @@ class ResearchUiStateTest {
         // then - the sheet's table: gravity makes heavy worlds and heavy worlds are rich in metal
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "2,400", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "900", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "200", short = false),
+                // A third of the sheet's 2,400 / 900 / 200 at level 1, and still overwhelmingly
+                // metal — the discount scales all three alike, so the shape the sheet chose survives.
+                CostChipUiState(kind = ResourceKind.METAL, amount = "800", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "300", short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "66", short = false),
             ),
             row.costs,
         )
