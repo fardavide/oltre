@@ -18,6 +18,16 @@ import kotlin.time.Instant
 data class GameSnapshot(
     val schemaVersion: Int = GameSave.SCHEMA_VERSION,
     val lastUpdatedAt: Instant,
+    // Whether the debug menu has ever acted on this colony. Envelope rather than `GameState`,
+    // because it is a fact about the save and not a rule of the simulation: `advance` never reads
+    // it, nothing branches on it, and a colony that carries it plays exactly like one that does
+    // not. It is in `core` at all for the reason the format is — client and server have to agree
+    // on it byte for byte, and the day multiplayer lands this is the flag that says a colony's
+    // clock was moved by hand.
+    //
+    // One-way, deliberately. Nothing clears it: a reset does not clear it either, because the
+    // reset itself is a debug action and the new colony is one the menu created.
+    val debugUsed: Boolean = false,
     val state: GameState,
 )
 
@@ -43,6 +53,9 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 7 — `debugUsed`, on the envelope rather than in the state. The first hop that adds nothing
+    //     the simulation reads: it records that the debug menu touched this colony, so a save
+    //     whose clock was moved by hand can be told apart from one that was played.
     // 6 — probes: `surveys`, the jobs in flight. What they write to — `galaxy.surveyed` — has
     //     existed since 4, so the hop adds the verb and not the record it fills.
     // 5 — the adaptation branch: three more levels on `research`, and `activeAdaptation` — the same
@@ -52,7 +65,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 6
+    const val SCHEMA_VERSION: Int = 7
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -115,6 +128,13 @@ object GameSave {
         // untouched, because a survey only ever *adds* to that set. Fourth hop, fourth time the
         // answer is migrate rather than retire, and the shallowest of the four: one absent key.
         5 to { root -> root.withState("surveys" to JsonArray(emptyList())) },
+        // 6 -> 7: `debugUsed`, and the only hop in the table that is the identity function. The key
+        // is on the envelope rather than in the state, and it carries a default — so a save written
+        // before the flag existed decodes with `false`, which is the truth about it: nothing could
+        // have debugged a colony saved by a build that had no debug menu. The entry is here rather
+        // than absent because `migratedToCurrent` reads a missing step as "this build cannot get
+        // there" and refuses the save; a hop that has nothing to do still has to say so.
+        6 to { root -> root },
     )
 
     private val ADAPTATION_AT_ZERO: Map<String, JsonElement> = mapOf(
