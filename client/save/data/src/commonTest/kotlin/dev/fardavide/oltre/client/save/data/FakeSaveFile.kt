@@ -10,10 +10,18 @@ internal class FakeSaveFile(initial: String? = null) : SaveFile {
     var writeCount: Int = 0
         private set
 
+    var clearCount: Int = 0
+        private set
+
     override suspend fun read(): String? = content
 
     override suspend fun write(text: String) {
         content = text
         writeCount++
+    }
+
+    override suspend fun clear() {
+        content = null
+        clearCount++
     }
 }

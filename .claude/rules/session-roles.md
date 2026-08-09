@@ -48,6 +48,28 @@ the exception could not cover: **nobody has run the Android build on a device**,
 session's job — see the *Pending* entries in `status.md`, which now list five things the first
 install is the first test of.
 
+### The one exception, second instance: UI with no design behind it
+
+Davide, 2026-08-09, on the debug menu: *"we don't need design for debug UI, so feel free to tackle
+it here without handoff."* So `:client:debug:presentation` was written by a cloud session — a
+Compose screen, which the table above forbids outright.
+
+The rule is not weakened, because the reason it exists did not apply. Both halves of "why the cloud
+session cannot touch UI" are about **implementing a design it cannot see and cannot verify against**:
+`DesignSync` needs a terminal, and a baseline needs a recorder. A debug panel has no design to be
+unfaithful to. What it has instead is a standard it can be held to without one — it borrows the
+system's tokens (palette, bundled mono, `SectionLabel`, the content cap) and invents nothing — and
+it carries **no screenshot test at all**, deliberately, because a baseline asserts that a drawing
+still looks the way it was drawn and nobody drew this.
+
+**This does not generalise to a player-facing screen.** The test is not "is it small" or "is it
+temporary", it is *is there a design this code could be wrong about* — and for everything a player
+sees, there is. A cloud session that finds itself reasoning about whether a card reads better at
+16dp has already left the exception behind.
+
+What the session still could not do is **compile it**: see the measured note below. The Compose half
+of that slice reached CI unverified, and CI's Build job is what checked it.
+
 ### It *can* build and run `:core` and `:sim` — use it
 
 "A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`
@@ -62,18 +84,44 @@ unmodified:
 ```
 
 What it cannot run is `client/*`, and **CI runs that** — see "What is *not* a reason to hand off"
-below before treating an uncompilable client file as somebody else's problem.
+below before treating an uncompilable client file as somebody else's problem. (Narrowed at 0.2.5:
+the line is Compose rather than `client/*`, measured — see below. The sentence stands unchanged for
+every Compose module, which is what it was written about.)
 
-The script swaps in a minimal overlay for the three build files, runs Gradle, and always restores
-the real ones — it refuses to start if they have uncommitted changes, because the restore is a
-hard `git checkout --`. Nothing it writes is ever committed.
+The script swaps in a minimal overlay for the build files it covers, runs Gradle, and always
+restores the real ones — by copy, from a backup it takes first, so an edited or not-yet-committed
+build file survives and a run killed outright is repaired by the next one. Nothing it writes is
+ever committed.
 
 This is what round 7 of the balance log was measured with, and the 0.0.12 greedy week reproduced
 byte for byte through it. **So a cloud session doing balance or domain work should run the tests
 and the sim rather than reasoning about the numbers** — rounds 2 and 3 wrote their tables by hand
-against this same blockage, and hand arithmetic is not a measurement. It changes nothing about
-UI: `client/*` still cannot be compiled, and screenshot baselines still go through the manual
-Record job.
+against this same blockage, and hand arithmetic is not a measurement.
+
+#### And more than those two — the line is Compose, not AGP (measured 2026-08-09)
+
+"`client/*` still cannot be compiled" stood here until 0.2.5 and was wrong. AGP is in a client
+module only to publish an Android target; drop the target and a module with no Compose in it
+resolves everything it needs from Maven Central. `:client:save:data` was the first one tried and
+its tests ran green unmodified, so the script now covers every non-Compose module and the debug
+slice's domain, data and save changes were all written test-first against it.
+
+**Compose is the real wall, and it is not AGP's doing.** `org.jetbrains.compose.ui:ui` depends
+transitively on `androidx.compose.runtime:runtime-saveable`, `androidx.lifecycle:lifecycle-runtime`
+and `androidx.savedstate:savedstate` — published to Google's Maven and nowhere else. A
+*desktop-only* Compose module fails to resolve exactly like an Android one, so no overlay can reach
+it. The split, then:
+
+| | |
+|---|---|
+| buildable in a cloud session | `:core`, `:sim`, `:client:save:data`, `:client:notifications:data`, `:client:design:format`, `:client:debug:domain`, `:client:debug:data` |
+| not buildable | every Compose module — `:client:shell`, `:client:*:presentation`, `:client:design:{core,icon,component}` |
+
+The practical consequence is worth stating plainly: **a cloud session should push the logic of a
+feature down into a module it can test**, and leave the Compose layer as thin as it will go. That is
+why the debug menu's clock, its skip target, its report and its shake judgement are all in
+`:client:debug:domain` with tests, and the sheet is a rendering of a data class. Screenshot
+baselines still go through the manual Record job.
 
 ### What is *not* a reason to hand off (Davide, 2026-08-09)
 

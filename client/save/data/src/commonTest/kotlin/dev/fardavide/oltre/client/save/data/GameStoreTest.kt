@@ -101,6 +101,49 @@ class GameStoreTest {
         assertNull(GameStore(FakeSaveFile("")).load())
     }
 
+    @Test
+    fun `a cleared store has no colony to load`() = runTest {
+        // The whole of what the debug menu's reset is: after this the store answers exactly what it
+        // answers on a first launch, so the shell needs no second path to build a fresh colony with.
+        val file = FakeSaveFile()
+        val store = GameStore(file)
+        store.save(GameSnapshot(lastUpdatedAt = EPOCH, state = midBuildState()))
+
+        // when
+        store.clear()
+
+        // then
+        assertNull(store.load())
+        assertEquals(1, file.clearCount)
+    }
+
+    @Test
+    fun `clearing a store that never held a colony is not an error`() = runTest {
+        // A player can reset twice, and the second one has nothing to delete.
+        val store = GameStore(FakeSaveFile())
+
+        store.clear()
+        store.clear()
+
+        assertNull(store.load())
+    }
+
+    @Test
+    fun `a colony saved after a reset is a new colony rather than the old one amended`() = runTest {
+        // given
+        val file = FakeSaveFile()
+        val store = GameStore(file)
+        store.save(GameSnapshot(lastUpdatedAt = EPOCH, state = midBuildState()))
+
+        // when
+        store.clear()
+        val fresh = GameSnapshot(lastUpdatedAt = EPOCH + 3.hours, debugUsed = true, state = freshState())
+        store.save(fresh)
+
+        // then — nothing of the build survives, and the new colony carries the debug mark
+        assertEquals(fresh, store.load())
+    }
+
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
     // every colony in the same galaxy. The store writes whatever map it is handed.
     private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))

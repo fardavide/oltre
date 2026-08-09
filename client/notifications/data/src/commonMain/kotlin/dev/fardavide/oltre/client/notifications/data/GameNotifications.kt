@@ -20,8 +20,22 @@ import kotlin.time.Instant
 // behind to fire about something that is no longer true.
 class GameNotifications(private val scheduler: NotificationScheduler) {
 
-    suspend fun sync(state: GameState, now: Instant) {
-        scheduler.replaceAll(notificationsFor(state, now))
+    // `now` and everything `futureEvents` computes are in **game** time, which is not the same
+    // clock the operating system raises alarms on the moment the debug menu skips the colony
+    // forward. `toRealTime` is how the two are reconciled, and it defaults to the identity because
+    // for an unskipped colony — every colony, until somebody shakes the phone — they are the same
+    // clock. Without it a colony skipped four hours ahead books every alert four hours late, which
+    // is the check-in loop, and on iPhone the check-in loop is the whole game.
+    //
+    // Passed per call rather than held, because the offset moves: the shell knows it at the instant
+    // it commits, and a mapping captured at construction would be a stale one by the second skip.
+    suspend fun sync(state: GameState, now: Instant, toRealTime: (Instant) -> Instant = { it }) {
+        // Applied *after* `notificationsFor`, and it has to be. That function drops events already
+        // due and trims the far landings to iOS's 64-request ceiling, both by comparing instants —
+        // decisions that must be made in the clock the simulation computed them in. The translation
+        // is monotone, so it moves every alert without reordering any of them, and the set that
+        // reaches the platform is the same set with a different origin.
+        scheduler.replaceAll(notificationsFor(state, now).map { it.copy(at = toRealTime(it.at)) })
     }
 }
 

@@ -104,6 +104,14 @@ private class RecordingSaveFile : SaveFile {
     override suspend fun write(text: String) {
         content = text
     }
+
+    var clearCount: Int = 0
+        private set
+
+    override suspend fun clear() {
+        content = null
+        clearCount++
+    }
 }
 
 private class RecordingScheduler : NotificationScheduler {

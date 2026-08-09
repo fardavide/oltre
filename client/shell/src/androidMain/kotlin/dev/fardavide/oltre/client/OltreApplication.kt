@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client
 
 import android.app.Application
+import dev.fardavide.oltre.client.debug.data.AndroidShakeHost
 import dev.fardavide.oltre.client.notifications.data.AndroidNotificationHost
 import dev.fardavide.oltre.client.save.data.AndroidSaveLocation
 
@@ -17,5 +18,9 @@ class OltreApplication : Application() {
         // The application context, which this *is*. Holding an Activity here for the life of the
         // process would be a leaked window.
         AndroidNotificationHost.context = this
+        // The third slot Android cannot derive: SensorManager needs a Context too. Filled in the
+        // same place and for the same reason, even though the debug gesture — unlike the other two
+        // — only ever matters while there is an Activity on screen.
+        AndroidShakeHost.context = this
     }
 }

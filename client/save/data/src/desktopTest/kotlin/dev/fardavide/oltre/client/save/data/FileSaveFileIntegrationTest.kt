@@ -73,5 +73,62 @@ class FileSaveFileIntegrationTest {
         assertEquals("second", file.read())
     }
 
+    @Test
+    fun `clearing removes the colony from disk`() = runTest {
+        // given
+        val directory = temporaryDirectory()
+        val file = FileSaveFile(File(directory, "colony.json"))
+        file.write("colony")
+
+        // when
+        file.clear()
+
+        // then
+        assertNull(file.read())
+        assertFalse(File(directory, "colony.json").exists())
+    }
+
+    @Test
+    fun `clearing a file that is not there is not an error`() = runTest {
+        // given
+        val file = FileSaveFile(File(temporaryDirectory(), "colony.json"))
+
+        // when
+        file.clear()
+
+        // then
+        assertNull(file.read())
+    }
+
+    @Test
+    fun `clearing sweeps up a temporary file a killed process left behind`() = runTest {
+        // given — what a write interrupted between `writeText` and `move` leaves on disk
+        val directory = temporaryDirectory()
+        val file = FileSaveFile(File(directory, "colony.json"))
+        file.write("colony")
+        File(directory, "colony.json.tmp").writeText("half a colony")
+
+        // when
+        file.clear()
+
+        // then — a reset that left it would hand the next write a stale file to overwrite
+        assertFalse(File(directory, "colony.json.tmp").exists())
+        assertNull(file.read())
+    }
+
+    @Test
+    fun `a colony written after a clear is readable`() = runTest {
+        // given
+        val file = FileSaveFile(File(temporaryDirectory(), "colony.json"))
+        file.write("first")
+
+        // when
+        file.clear()
+        file.write("second")
+
+        // then — clearing must not leave the directory in a state a write cannot recover from
+        assertEquals("second", file.read())
+    }
+
     private fun temporaryDirectory(): File = createTempDirectory("oltre-save").toFile().also { it.deleteOnExit() }
 }

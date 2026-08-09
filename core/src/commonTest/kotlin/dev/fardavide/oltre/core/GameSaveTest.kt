@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
@@ -64,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":6,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """{"schemaVersion":7,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -473,9 +474,49 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 6 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":6"""), rewritten)
+        // then — and from then on it is a version 7 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":7"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
+    }
+
+    @Test
+    fun `a colony saved before the debug menu existed did not use it`() {
+        // The 6 -> 7 hop is the identity function, so this is the test that it is the *right*
+        // identity function: the key is absent from every save ever written by an older build, and
+        // the value that stands in for it has to be the one that is true of all of them.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_6_IDLE)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertFalse(decoded.debugUsed)
+    }
+
+    @Test
+    fun `a colony the debug menu touched says so on disk and still says so after a reload`() {
+        // given
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, debugUsed = true, state = GameState.initial())
+
+        // when
+        val encoded = GameSave.encode(snapshot)
+
+        // then — the flag is the whole point of the hop, so it has to survive the round trip that
+        // every other field is pinned against
+        assertTrue(encoded.contains(""""debugUsed":true"""), encoded)
+        assertTrue(assertIs<DecodeResult.Success>(GameSave.decode(encoded)).snapshot.debugUsed)
+    }
+
+    @Test
+    fun `the flag is about the save and not about the simulation`() {
+        // Stated as a test because it is the argument for putting the flag on the envelope: two
+        // colonies that differ only in whether the menu touched them are the same colony to
+        // `advance`, and nothing downstream may start branching on it.
+        val played = GameSnapshot(lastUpdatedAt = EPOCH, debugUsed = false, state = GameState.initial())
+        val debugged = played.copy(debugUsed = true)
+
+        assertEquals(played.state, debugged.state)
+        assertEquals(
+            advance(played.state, from = EPOCH, to = EPOCH + 6.hours),
+            advance(debugged.state, from = EPOCH, to = EPOCH + 6.hours),
+        )
     }
 
     @Test
@@ -815,6 +856,23 @@ class GameSaveTest {
             """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
             """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
             """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+            """"returningFleet":null,"eventLog":[]}}"""
+
+        // A frozen capture of the 0.2.1 on-disk format — byte for byte the string `the on-disk
+        // shape is pinned` asserted before the debug menu landed, which makes it the save every
+        // already-installed build is holding. Its whole job is to have no `debugUsed` key.
+        const val VERSION_6_IDLE = """{"schemaVersion":6,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
+            """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0,""" +
+            """"thermal":0,"gravitic":0,"atmospheric":0},""" +
+            """"activeResearch":null,"activeAdaptation":null,""" +
+            """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+            """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+            """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+            """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+            """"surveys":[],""" +
             """"returningFleet":null,"eventLog":[]}}"""
 
         // A version 4 colony that had actually been played, with a map it had started changing:

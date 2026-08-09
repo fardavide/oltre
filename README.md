@@ -158,6 +158,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.2.5 — 2026-08-09
+
+- **A debug menu, for developing the game rather than playing it.** Shake the phone to open it
+  (Ctrl+D or Cmd+D on desktop). It can skip the colony forward to the next thing that happens —
+  a build finishing, the lab freeing up, a probe landing — and it can delete the colony and start
+  a new one, which takes two taps because it cannot be undone. It also shows what the colony is
+  doing underneath: the two clocks, the save's version, the galaxy's seed, what is in flight.
+- It ships to everyone rather than to debug builds only, so that it works on TestFlight. Nothing
+  opens it by accident, and skipping ahead is the only thing on it that changes the game.
+- Saves now record whether the menu has ever touched the colony. Saves from 0.2.4 carry forward
+  untouched and read as never debugged, which is what they are.
+
 ### 0.2.4 — 2026-08-09
 
 - **The adaptation ladders join the opening discount.** They were the one thing left at full price,
