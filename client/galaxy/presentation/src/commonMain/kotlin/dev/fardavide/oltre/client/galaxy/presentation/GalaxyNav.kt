@@ -27,20 +27,20 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
-// What replaces the mockup's `◀ 2:118 ▶`. That stepper is 250 taps to cross a galaxy and 1,000 to
-// cross the map, which is not navigation, it is a counter.
+// What is left of the header once the reach band took navigation off it: the galaxy, which is four
+// fixed choices and therefore a segmented control; where you are; and Home, because on a map of
+// 15,000 slots the one place you always want back is where you came from.
 //
-// Three things instead, in the order they are reached for: the galaxy, which is four fixed choices
-// and therefore a segmented control rather than anything that scrolls; the neighbouring system,
-// which is a real thing to want and stays one tap; and Home, because on a map of 15,000 slots the
-// one place you always want back is where you came from. The ± steps survive because stepping to
-// the next system is genuinely useful — what they stop being is the *only* way across.
+// **The ±1 steppers are gone as of 0.2.0**, and not because they were bad — because they were the
+// *only* way across, and 249 taps to cross a galaxy is not navigation, it is a counter. Keeping
+// them alongside the band would be two controls for the same one-system move, one 32dp and one
+// 47dp and already on screen. The lens cell beside the lit one is the stepper now, and it tells you
+// what you are stepping onto before you step.
 @Composable
 internal fun GalaxyNav(
     uiState: GalaxyUiState,
     compact: Boolean,
     onSelectGalaxy: (Int) -> Unit,
-    onStepSystem: (Int) -> Unit,
     onGoHome: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -63,19 +63,7 @@ internal fun GalaxyNav(
             )
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StepButton(
-                label = "−",
-                enabled = !uiState.atFirstSystem,
-                testTag = GalaxyTestTags.STEP_BACK,
-                onClick = { onStepSystem(-1) },
-            )
             CoordinateField(uiState = uiState, compact = compact, modifier = Modifier.weight(1f))
-            StepButton(
-                label = "+",
-                enabled = !uiState.atLastSystem,
-                testTag = GalaxyTestTags.STEP_FORWARD,
-                onClick = { onStepSystem(1) },
-            )
             HomeButton(isHome = uiState.isHome, onGoHome = onGoHome)
         }
         // 0.0.16's third line — "Adaptation research lands later. You are at level 0." — is gone
@@ -153,20 +141,6 @@ private fun CoordinateField(uiState: GalaxyUiState, compact: Boolean, modifier: 
     }
 }
 
-@Composable
-private fun StepButton(label: String, enabled: Boolean, testTag: String, onClick: () -> Unit) {
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(32.dp)
-            .alpha(if (enabled) 1f else 0.32f)
-            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
-            .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-            .testTag(testTag),
-    ) {
-        Text(text = label, color = OltreColors.textSecondary, fontFamily = oltreMono(), fontSize = 11.sp)
-    }
-}
 
 // Reads as the current place rather than as an action once you are already there, which is what
 // stops it being a button that does nothing on the screen you open the tab to.

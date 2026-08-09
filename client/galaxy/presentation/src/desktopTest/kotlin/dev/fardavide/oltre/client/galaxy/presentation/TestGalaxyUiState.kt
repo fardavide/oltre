@@ -4,6 +4,8 @@ import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.GameState
+import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 // Two of these come from the real generator and one does not, and the split is deliberate.
 //
@@ -29,21 +31,33 @@ private val galaxy: GalaxyState = GalaxyState.initial(GalaxySeed(20_260_807))
 // map half of it.
 private val state: GameState = GameState.initial(galaxy.seed)
 
+// Frozen, because the footer runs a countdown now and a baseline recorded against a wall clock
+// would differ from itself every second. Epoch in UTC, so a landing time on a frame is arithmetic
+// rather than a fact about the machine that recorded it.
+internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
+
 // The home system exactly as generated: Home in slot 7, then three Blocked worlds, all three of
 // which out-yield the worth-it threshold. That is the pillar landing — the good ground is behind
 // the technology nobody has bought yet.
 internal val homeSystemUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
 )
 
 // The neighbour, and every system but one at ship time.
 internal val unsurveyedSystemUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system - 1),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
 )
 
-// The first system of the first galaxy: the one place the back step has nothing to step to.
+// The first system of the first galaxy: the one place a centred lens has to slide rather than
+// centre, and the one origin whose ruler is one-sided.
 internal val edgeOfTheGalaxyUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = 1, system = 1),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
 )
 
 // The precedence, top to bottom, including the four states this seed's home system cannot show.
@@ -53,9 +67,16 @@ internal val everyVerdictUiState = GalaxyUiState(
     coordinate = "2:118",
     detail = "BRIGHT · 6 worlds",
     compactDetail = "BRIGHT · 6",
-    atFirstSystem = false,
-    atLastSystem = false,
     isHome = false,
+    // Borrowed from a real frame rather than hand-written. The band is 250 generated ticks and a
+    // ruler derived from `SurveyBalance`; typing that out by hand is how a fixture starts asserting
+    // a picture the app would never draw, which is the mistake this file's header warns about.
+    reach = homeSystemUiState.reach,
+    probe = ProbeActionUiState.Dispatch(
+        offer = dispatchOffer(),
+        label = "Dispatch probe",
+        compactLabel = "Dispatch",
+    ),
     map = SystemMapUiState(
         slots = marks(
             3 to MapMark.RELAY,
@@ -145,6 +166,76 @@ internal val everyVerdictUiState = GalaxyUiState(
         ),
     ),
 )
+
+// ── The six states of the card footer ────────────────────────────────────────────────────────
+//
+// One frame each, on the unsurveyed neighbour, because what the footer says is the only thing that
+// changes between them and a baseline that also moved the world list would be asserting two things
+// at once. `available` and `known` come from the real mapper — a fresh colony can afford its first
+// probe and its home system was surveyed at genesis — and the other four are written out, because
+// reaching them from a `GameState` means dispatching, advancing a clock and landing on a system the
+// seed happens to have stocked the right way.
+
+internal val probeUnaffordableUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
+    probe = ProbeActionUiState.Unaffordable(
+        offer = dispatchOffer(short = true),
+        // The tightest reading on the screen: two durations on one row, told apart by side, by
+        // colour and by the preposition.
+        availableIn = "in 1h 06m",
+    ),
+)
+
+internal val probeInFlightUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
+    probe = ProbeActionUiState.InFlight(countdown = "00:47:12", lands = "lands 12:20", progressPercent = 43),
+)
+
+// The answer about fifty-nine dispatches in sixty, and the one this frame exists to make ordinary.
+internal val probeLandedUiState: GalaxyUiState = homeSystemUiState.copy(
+    probe = ProbeActionUiState.Landed(
+        landedAt = "Probe landed 12:20",
+        summary = "5 worlds surveyed",
+        find = "none settleable",
+        findKind = ProbeFindKind.NONE,
+    ),
+)
+
+// Green once, and only on the count. The state the whole verb exists for.
+internal val probeSettleableUiState: GalaxyUiState = homeSystemUiState.copy(
+    probe = ProbeActionUiState.Landed(
+        landedAt = "Probe landed 09:04",
+        summary = "3 worlds surveyed",
+        find = "1 settleable",
+        findKind = ProbeFindKind.SETTLEABLE,
+    ),
+)
+
+// The middle tier: neither green nor red, because it is worth reading and not worth acting on.
+internal val probeNearMissUiState: GalaxyUiState = homeSystemUiState.copy(
+    probe = ProbeActionUiState.Landed(
+        landedAt = "Probe landed 21:47",
+        summary = "4 worlds surveyed",
+        find = "1 blocked at one axis",
+        findKind = ProbeFindKind.NEAR_MISS,
+    ),
+)
+
+// One system in 390: fifteen ticks, no dots, and a card that refuses the sale in the words of the
+// thing above it. The world list under it is empty too, which is the frame's other half.
+internal val probeNothingToSurveyUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
+    probe = ProbeActionUiState.NothingToSurvey(note = "15 empty slots · nothing to survey"),
+    map = SystemMapUiState(slots = (1..15).map { MapSlotUiState(slot = it, mark = MapMark.EMPTY) }),
+    bands = emptyList(),
+)
+
+// 150 metal, and the flight to the neighbour this fixture's frames are drawn on. Taken from the
+// real mapper so the chip, the words and the duration are the ones the app produces.
+private fun dispatchOffer(short: Boolean = false): ProbeOfferUiState {
+    val offer = when (val probe = unsurveyedSystemUiState.probe) {
+        is ProbeActionUiState.Dispatch -> probe.offer
+        else -> error("the neighbour of a fresh colony's home must be a system it can be sent a probe")
+    }
+    return if (short) offer.copy(cost = offer.cost.copy(short = true)) else offer
+}
 
 // Borrowed from the real home world rather than retyped, so the one hand-written frame still shows
 // the same axis line the app produces — non-breaking spaces included.
