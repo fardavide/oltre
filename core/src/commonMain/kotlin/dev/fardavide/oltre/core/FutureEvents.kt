@@ -37,16 +37,23 @@ sealed interface FutureEvent {
         // one landing that has to be *said* differently, so the prediction has to be able to tell
         // the two apart before either happens.
         val worldsFound: Int,
-        // The honest half, and the reason a landing carries two numbers: round 9 measured ~14
-        // dispatches to see one world worth remarking on, so an alert that only counted worlds
-        // would oversell the verb thirteen times in fourteen.
+        // The honest half, and the reason a landing carries two numbers: round 9 measured ~60
+        // dispatches to see one settleable world, so an alert that only counted worlds would
+        // oversell the verb almost every time it fired.
         //
-        // Measured against the fixed worth-it threshold rather than against the `Settleable`
-        // verdict, and for an alert booked hours ahead that distinction is load-bearing:
-        // `Settleable` re-derives against the empire's *current* adaptation levels, so a ladder
-        // bought mid-flight would quietly make a pending notification wrong. A yield against a
-        // constant cannot go stale between dispatch and landing.
-        val worthTaking: Int,
+        // **This counts what the Galaxy screen will call `Settleable`** — passes every tolerance
+        // band the empire currently holds *and* clears the worth-it yield — and the emphasis is on
+        // *the same*: the first version measured yield alone, on the theory that a bar fixed
+        // against a constant could not go stale between dispatch and landing. It could not, and it
+        // was still wrong twice over. Yield alone admits 51% of worlds rather than 1.5%, so the
+        // rare branch became the common one; and it made a notification say "5 worth a look" about
+        // the same landing whose card says "none settleable". A game contradicting itself between
+        // the lock screen and the app is worse than a number that has to be re-derived.
+        //
+        // Staleness was never the problem it looked like. `GameNotifications.sync` replaces the
+        // whole pending set on every discrete transition, and buying or completing a ladder *is*
+        // one — so an alert booked before a ladder lands is re-booked the moment it does.
+        val settleable: Int,
         override val at: Instant,
     ) : FutureEvent
 
@@ -76,15 +83,14 @@ fun futureEvents(state: GameState): List<FutureEvent> {
     // Regenerated from the seed rather than stored, which is what every other reader of the galaxy
     // does — and what makes the count here provably the one the landing branch of `advance` writes:
     // both call `occupiedWorldsIn`, so there is no second rule to drift from.
+    val tolerance = GalaxyBalance.tolerance(state.research.adaptationLevels())
     val probes = state.surveys.map { job ->
         val charted = GalaxyState.occupiedWorldsIn(state.galaxy.seed, job.target)
             .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
         FutureEvent.SurveyLands(
             target = job.target,
             worldsFound = charted.size,
-            worthTaking = charted.count {
-                GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
-            },
+            settleable = charted.count { it.wouldBeSettleable(tolerance) },
             at = job.completesAt,
         )
     }
@@ -96,6 +102,20 @@ fun futureEvents(state: GameState): List<FutureEvent> {
     // this list and the event log it predicts never disagree on order.
     return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + listOfNotNull(arrival))
         .sortedWith(compareBy({ it.at }, { it.tieBreak() }, { it.secondaryTieBreak() }))
+}
+
+// The `Settleable` test, spelled out rather than asked of `verdictFor` — and it has to be, because
+// the worlds this asks about have not been surveyed yet. `verdictFor` would answer `Unsurveyed` for
+// every one of them, which is true now and not what a prediction is for.
+//
+// It is the same two conditions in the same order as `verdictFor`'s surveyed branch, and the risk
+// of that duplication is stated here rather than hidden: if one of them moves, both have to. The
+// alternative was a prediction that disagreed with the screen it predicts, which is what shipped
+// first and was worse.
+private fun World.wouldBeSettleable(tolerance: Tolerance): Boolean {
+    val passesEveryBand = HostilityAxis.entries.all { axis -> traits.axisValue(axis) in tolerance.bandOf(axis) }
+    return passesEveryBand &&
+        GalaxyBalance.yieldScore(traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
 }
 
 private fun FutureEvent.tieBreak(): Int = when (this) {

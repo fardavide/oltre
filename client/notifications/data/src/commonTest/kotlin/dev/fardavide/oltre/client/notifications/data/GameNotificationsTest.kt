@@ -199,13 +199,13 @@ class GameNotificationsTest {
     }
 
     @Test
-    fun `a landing that charted nothing worth a look says so rather than counting worlds at it`() = runTest {
+    fun `a landing that charted nowhere settleable says so rather than counting worlds at it`() = runTest {
         // given the common case, by construction: round 9 measured ~14 dispatches to see one world
         // worth remarking on. An alert that only ever said "4 worlds charted" would read as a
         // payoff thirteen times out of fourteen, and the fourteenth would be indistinguishable
         // from the thirteen that were not.
         val scheduler = FakeNotificationScheduler()
-        val state = surveyingSomething(worthTaking = false)
+        val state = surveyingSomething(settleable = false)
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
@@ -216,18 +216,46 @@ class GameNotificationsTest {
     }
 
     @Test
-    fun `a landing with something in it counts what cleared the bar`() = runTest {
+    fun `a landing with somewhere settleable in it says so in the card's own words`() = runTest {
         // given the fourteenth dispatch — the one the other thirteen exist to make legible
         val scheduler = FakeNotificationScheduler()
-        val state = surveyingSomething(worthTaking = true)
+        val state = surveyingSomething(settleable = true)
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
-        assertTrue("worth a look" in notification.body, "body was '${notification.body}'")
+        assertTrue("settleable" in notification.body, "body was '${notification.body}'")
         assertTrue("none" !in notification.body, "body was '${notification.body}'")
+    }
+
+    @Test
+    fun `the alert and the card it is about count the same thing`() = runTest {
+        // The failure this exists to stop, and one that really shipped: the body was built from a
+        // yield bar that half the galaxy clears, while the Galaxy screen's landing footer counts
+        // `Settleable`. The lock screen said "5 worth a look" about a landing whose card read "none
+        // settleable" — a game contradicting itself between the notification and the app.
+        //
+        // Asserted over a whole galaxy rather than one system, because the two measures agree by
+        // accident often enough that a single fixture proves nothing.
+        val state = wealthy()
+        var disagreements = 0
+        var landings = 0
+        for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
+            if (started !is StartSurveyResult.Started) continue
+            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val scheduler = FakeNotificationScheduler()
+            GameNotifications(scheduler).sync(started.state, now = EPOCH)
+            val body = scheduler.scheduled.single().body
+            landings++
+            val saysNone = "none settleable" in body
+            if (saysNone != (landing.settleable == 0)) disagreements++
+        }
+
+        assertTrue(landings > 100, "the sweep needs to have actually landed somewhere; was $landings")
+        assertEquals(0, disagreements, "of $landings landings")
     }
 
     @Test
@@ -323,19 +351,19 @@ class GameNotificationsTest {
         ).state
     }
 
-    // The nearest target whose landing will, or will not, chart something over the worth-it bar.
-    // Found by asking `futureEvents` what each candidate would report rather than by hardcoding a
+    // The nearest target whose landing will, or will not, chart somewhere settleable. Found by
+    // asking `futureEvents` what each candidate would report rather than by hardcoding a
     // coordinate: the prediction is the thing under test's own input, so a fixture picked this way
     // cannot disagree with it, and it survives the seed's home moving.
-    private fun surveyingSomething(worthTaking: Boolean): GameState {
+    private fun surveyingSomething(settleable: Boolean): GameState {
         val state = wealthy()
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
             val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
-            if ((landing.worthTaking > 0) == worthTaking) return started.state
+            if ((landing.settleable > 0) == settleable) return started.state
         }
-        error("no target within a galaxy of home charts ${if (worthTaking) "something" else "nothing"} worth taking")
+        error("no target within a galaxy of home charts ${if (settleable) "somewhere" else "nowhere"} settleable")
     }
 
     // More probes in flight than the platform will hold. Dispatched outward, so their landings are

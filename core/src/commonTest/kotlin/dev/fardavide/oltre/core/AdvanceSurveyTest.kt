@@ -170,29 +170,54 @@ class AdvanceSurveyTest {
     }
 
     @Test
-    fun `a landing is predicted with how much of what it charts clears the bar`() {
-        // given the honest half of the payload, and the reason a landing needs two numbers rather
-        // than one: round 9 measured ~14 dispatches to see one world worth remarking on, so "four
-        // worlds charted" on its own is the alert overselling the verb thirteen times out of
-        // fourteen.
+    fun `a landing predicts the same verdict the screen will draw`() {
+        // given the honest half of the payload, and the number an alert is allowed to say.
         //
-        // The bar is the worth-it threshold rather than the `Settleable` verdict, and that is
-        // load-bearing for an alert booked hours ahead: `Settleable` re-derives against the
-        // empire's *current* adaptation levels, so a ladder bought mid-flight would silently make
-        // a pending notification wrong. A yield against a fixed threshold cannot go stale.
+        // **It counts what the Galaxy screen will call `Settleable`**, and the first version did
+        // not: it counted the yield bar alone, on the theory that a threshold fixed against a
+        // constant could not go stale between dispatch and landing. It could not, and it was still
+        // wrong — yield alone admits half the galaxy, so the alert announced "worth a look" about
+        // landings whose own card read "none settleable".
         val state = rich()
         val to = target(state, systemsAway = 14)
         val dispatched = state.dispatch(to)
-        val expected = GalaxyState.occupiedWorldsIn(state.galaxy.seed, to)
-            .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
-            .count { GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion }
 
         // when
         val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().single()
+        // and then the probe actually lands, so the same worlds can be asked the real question
+        val landed = advance(dispatched, from = t0, to = t0 + 3.hours)
+        val actual = GalaxyState.occupiedWorldsIn(state.galaxy.seed, to)
+            .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
+            .count { verdictFor(it, landed) is WorldVerdict.Settleable }
 
-        // then
-        assertEquals(expected, predicted.worthTaking)
-        assertTrue(predicted.worthTaking <= predicted.worldsFound, "the honest half cannot exceed the whole")
+        // then the prediction and the verdict agree, which is the whole contract
+        assertEquals(actual, predicted.settleable)
+        assertTrue(predicted.settleable <= predicted.worldsFound, "the honest half cannot exceed the whole")
+    }
+
+    @Test
+    fun `the prediction is far tighter than the yield bar alone`() {
+        // The measurement that condemned the first version: over a whole galaxy, counting yield
+        // alone marks about half of all worlds, where the settleable test marks a few percent. An
+        // alert built on the loose number says "worth a look" almost every time it fires.
+        val state = rich()
+        val galaxy = state.galaxy.home.galaxy
+        val worlds = (1..GalaxyBalance.SYSTEMS_PER_GALAXY)
+            .flatMap { system -> GalaxyState.occupiedWorldsIn(state.galaxy.seed, SystemAddress(galaxy, system)) }
+            .mapNotNull { at -> worldAt(state.galaxy.seed, at) }
+        val overYieldBar = worlds.count {
+            GalaxyBalance.yieldScore(it.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
+        }
+        val settleable = worlds.count { world ->
+            verdictFor(world, state.galaxy.copy(surveyed = setOf(world.at)), AdaptationLevels.NONE) is
+                WorldVerdict.Settleable
+        }
+
+        assertTrue(
+            settleable * 5 < overYieldBar,
+            "yield alone marked $overYieldBar of ${worlds.size} against $settleable settleable — if these " +
+                "ever converge, the two measures have stopped being different questions",
+        )
     }
 
     @Test

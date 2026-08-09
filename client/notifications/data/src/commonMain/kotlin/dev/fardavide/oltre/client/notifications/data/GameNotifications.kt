@@ -107,7 +107,7 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         // makes replacing the whole set idempotent.
         id = "survey-${target.galaxy}-${target.system}",
         title = "Your probe reached ${target.label()}",
-        body = target.charted(worldsFound = worldsFound, worthTaking = worthTaking),
+        body = charted(worldsFound = worldsFound, settleable = settleable),
         at = at,
     )
     is FutureEvent.FleetArrives -> LocalNotification(
@@ -120,11 +120,16 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
 
 // PLACEHOLDER copy, and the two strings are the design rather than a formatting convenience.
 //
-// **The common one is the second.** Round 9 measured ~14 dispatches to see one world worth
-// remarking on, so an alert that only ever counted worlds would read as a payoff thirteen times out
-// of fourteen — and the fourteenth, the one the verb exists for, would look exactly like the
-// thirteen that were not. Saying "none" plainly is what makes "1 worth a look" mean anything when
-// it finally arrives.
+// **The common one is the second.** Round 9 measured ~60 dispatches to see one settleable world, so
+// an alert that only ever counted worlds would read as a payoff nearly every time it fired — and
+// the one the verb exists for would look exactly like the fifty-nine that were not. Saying "none"
+// plainly is what makes "1 settleable" mean anything when it finally arrives.
+//
+// **The words are the card's own, deliberately.** The Galaxy screen's landing footer says "none
+// settleable" and this says "none settleable", off the same count — because the first version of
+// this said "5 worth a look" about a landing whose card read "none settleable", and a game
+// contradicting itself between the lock screen and the app is the worst failure a notification has
+// available to it. See `FutureEvent.SurveyLands.settleable`.
 //
 // It also has to be a sentence a player is happy to *miss*, which is the constraint Davide set on
 // this whole loop: nothing here asks them to open anything or implies that waiting cost them
@@ -132,11 +137,11 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
 //
 // Zero worlds is not a case: whether a slot holds a world is charted free and galaxy-wide, so
 // `startSurvey` refuses a starless system outright rather than selling a flight to one.
-private fun SystemAddress.charted(worldsFound: Int, worthTaking: Int): String {
+private fun charted(worldsFound: Int, settleable: Int): String {
     val worlds = if (worldsFound == 1) "1 world" else "$worldsFound worlds"
-    return when (worthTaking) {
-        0 -> "$worlds charted, none worth a look."
-        else -> "$worlds charted, $worthTaking worth a look."
+    return when (settleable) {
+        0 -> "$worlds charted, none settleable."
+        else -> "$worlds charted, $settleable settleable."
     }
 }
 

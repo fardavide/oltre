@@ -896,7 +896,14 @@ measures *one stated strategy*, not a player. Nothing here has been played.
   affordable and 47,517 metal in the bank, where 0.1.1 closed blocked on metal for 167 of 168 hours.
   Duration is the binding constraint at that depth now. That is what the change is *for*, and it is
   also the first time a run has ended with nothing to decide because everything is already running.
-- **The floor has never been exercised by a measurement.** It binds around Robotics 8, and the
-  fortnight reaches Robotics 9 — so it is live in exactly one run and worth a look next round.
+- **The floor is live in no run this harness measures, and "around Robotics 8" was the wrong way to
+  say it.** Binding is a joint condition on cost *and* Robotics, not a Robotics threshold:
+  `floor((metal + crystal) ÷ 3) ÷ (1 + Robotics) < 5` admits only purchases under ~150
+  metal-and-crystal at Robotics 9 — which is exactly Metal Mine 1→2 (112) and Crystal Mine 1→2
+  (108), and both are bought in the genesis check-in at Robotics 0. The fortnight ends on mines at
+  17 and 16, whose next levels cost tens of thousands. So the floor guards a case none of the three
+  runs reaches, and the honest reading is that it is **untested by measurement** rather than
+  exercised once. It would start to bind on a colony that had climbed Robotics deep *and* still had
+  level-1 rows to buy — a second colony, which is slice #10.
 - **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
   strategy. The first round that can say how any of it *feels* is the one after the screen ships.

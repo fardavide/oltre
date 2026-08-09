@@ -164,13 +164,53 @@ class ReachBandUiStateTest {
         // seven and the strip counts none, against the 3,750 a whole-galaxy count would need
         val home = band.lens.cells.first { it.system == state.galaxy.home.system }
         assertEquals(ReachDotUiState.Home, home.dot)
+
+        // Against the generator rather than against a range. `1..SLOTS_PER_SYSTEM` cannot fail —
+        // `dotFor` only builds `Worlds` when the count is non-zero and `worldsIn` only counts
+        // fifteen slots — so a mapper that returned `Empty` for every system would have passed it.
         for (cell in band.lens.cells.filter { it.system != state.galaxy.home.system }) {
+            val at = SystemAddress(galaxy = state.galaxy.home.galaxy, system = cell.system)
+            val real = worldsIn(state.galaxy.seed, at)
             when (val dot = cell.dot) {
                 ReachDotUiState.Home -> error("only home is home")
-                ReachDotUiState.Empty -> Unit
-                is ReachDotUiState.Worlds -> assertTrue(dot.count in 1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                ReachDotUiState.Empty -> assertEquals(0, real, "system ${cell.system} was drawn empty")
+                is ReachDotUiState.Worlds -> assertEquals(real, dot.count, "system ${cell.system}")
             }
         }
+        assertTrue(
+            band.lens.cells.any { it.dot is ReachDotUiState.Worlds },
+            "the fixture needs at least one system with worlds, or the assertion above is vacuous",
+        )
+    }
+
+    @Test
+    fun `a probe outranks the index a foreign galaxy is measured from`() {
+        // given a probe aimed at the *same system number* as home, one galaxy over. Switching
+        // galaxy keeps the number, so this is the first thing a player sees over there rather than
+        // a one-in-250 coincidence — and the tick that says "your probe is here" must not be eaten
+        // by the tick that says "flights are measured from this index".
+        val state = wealthy()
+        val home = state.galaxy.home
+        val elsewhere = if (home.galaxy < GalaxyBalance.GALAXIES) home.galaxy + 1 else home.galaxy - 1
+        val target = SystemAddress(galaxy = elsewhere, system = home.system)
+        val dispatched = assertIs<StartSurveyResult.Started>(startSurvey(state, target, at = EPOCH)).state
+
+        // when
+        val band = dispatched.reachBandAt(galaxy = elsewhere, system = home.system)
+
+        // then
+        assertEquals(ReachTick.PROBE, band.ticks.first { it.system == home.system }.mark)
+        assertTrue(band.ticks.none { it.mark == ReachTick.FOREIGN_ORIGIN })
+    }
+
+    @Test
+    fun `your own star still outranks everything because it can never hold a probe`() {
+        // The other half of that order. `startSurvey` refuses a surveyed system, and home is
+        // surveyed at genesis, so nothing is given up by putting ORIGIN first.
+        val state = wealthy()
+        val band = state.reachBandAt(system = state.galaxy.home.system)
+
+        assertEquals(ReachTick.ORIGIN, band.ticks.first { it.system == state.galaxy.home.system }.mark)
     }
 
     @Test

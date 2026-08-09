@@ -49,7 +49,8 @@ flight, then a countdown, then what it found.
 
 **"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
 the same breath as the count rather than burying it — a run of them should read as calibration, not
-as bad luck.
+as bad luck. The notification you get while the app is closed says the same words off the same
+count, so the lock screen and the card can never disagree about what your probe found.
 
 One branch, three technologies, one project at a time — running, waiting on the deuterium,
 and waiting on the lab:
@@ -92,7 +93,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation` and `:client:research:presentation` (the two screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 

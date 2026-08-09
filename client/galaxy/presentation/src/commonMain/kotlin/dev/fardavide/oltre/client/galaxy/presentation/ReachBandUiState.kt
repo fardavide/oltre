@@ -111,10 +111,19 @@ internal fun GameState.toReachBandUiState(at: SystemSelection): ReachBandUiState
                 system = system,
                 // Your marks win over the class underneath them, which is the point of having only
                 // two of them: a tick you are looking for must not be a tick you have to find.
+                //
+                // **A probe outranks the foreign origin and not your own star**, and the asymmetry
+                // is the whole reason the order is written out. Your star can never carry a probe —
+                // `startSurvey` refuses a system you have already surveyed — so nothing is lost by
+                // putting `ORIGIN` first. The foreign origin is not a star of yours at all, it is
+                // the *index* a hop is measured from; letting it win would delete the amber tick of
+                // a probe aimed at that index in another galaxy, and it is not a coincidence that
+                // wants one system in 250: switching galaxy keeps the system number, so the very
+                // first thing a player sees over there is the index their own home sits at.
                 mark = when {
                     system == origin && isHomeGalaxy -> ReachTick.ORIGIN
-                    system == origin -> ReachTick.FOREIGN_ORIGIN
                     system in inFlight -> ReachTick.PROBE
+                    system == origin -> ReachTick.FOREIGN_ORIGIN
                     else -> starClassAt(seed, at.galaxy, system).toTick()
                 },
             )
