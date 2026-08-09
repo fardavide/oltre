@@ -60,6 +60,14 @@ internal val edgeOfTheGalaxyUiState: GalaxyUiState = state.toGalaxyUiState(
     timeZone = TimeZone.UTC,
 )
 
+// The real mapping of the coordinate the hand-written frame below claims to be at, used for the two
+// halves of that frame which are functions of *place* rather than of verdict.
+private val elsewhereUiState: GalaxyUiState = state.toGalaxyUiState(
+    at = SystemSelection(galaxy = 2, system = 118),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
+)
+
 // The precedence, top to bottom, including the four states this seed's home system cannot show.
 internal val everyVerdictUiState = GalaxyUiState(
     galaxies = (1..4).map { GalaxyTabUiState(label = "G$it", galaxy = it, selected = it == 2) },
@@ -68,15 +76,13 @@ internal val everyVerdictUiState = GalaxyUiState(
     detail = "BRIGHT · 6 worlds",
     compactDetail = "BRIGHT · 6",
     isHome = false,
-    // Borrowed from a real frame rather than hand-written. The band is 250 generated ticks and a
-    // ruler derived from `SurveyBalance`; typing that out by hand is how a fixture starts asserting
-    // a picture the app would never draw, which is the mistake this file's header warns about.
-    reach = homeSystemUiState.reach,
-    probe = ProbeActionUiState.Dispatch(
-        offer = dispatchOffer(),
-        label = "Dispatch probe",
-        compactLabel = "Dispatch",
-    ),
+    // Mapped for *this* coordinate rather than borrowed from another frame, and that matters even
+    // though only the verdicts are under test here: the band and the footer are both functions of
+    // where you are standing, so a frame headed 2:118 carrying galaxy 3's ruler and the flight time
+    // to somewhere else would be a baseline asserting a screen that cannot exist. Neither of them
+    // reads a verdict, so taking them from the real mapper costs this fixture nothing.
+    reach = elsewhereUiState.reach,
+    probe = elsewhereUiState.probe,
     map = SystemMapUiState(
         slots = marks(
             3 to MapMark.RELAY,
@@ -178,7 +184,7 @@ internal val everyVerdictUiState = GalaxyUiState(
 
 internal val probeUnaffordableUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
     probe = ProbeActionUiState.Unaffordable(
-        offer = dispatchOffer(short = true),
+        offer = shortOffer(),
         // The tightest reading on the screen: two durations on one row, told apart by side, by
         // colour and by the preposition.
         availableIn = "in 1h 06m",
@@ -227,14 +233,15 @@ internal val probeNothingToSurveyUiState: GalaxyUiState = unsurveyedSystemUiStat
     bands = emptyList(),
 )
 
-// 150 metal, and the flight to the neighbour this fixture's frames are drawn on. Taken from the
-// real mapper so the chip, the words and the duration are the ones the app produces.
-private fun dispatchOffer(short: Boolean = false): ProbeOfferUiState {
+// The neighbour's real offer with the chip reddened — 150 metal and the flight the app really
+// computes, and only the affordability flipped. Taken from the mapper rather than typed out, so the
+// one thing this fixture asserts is the one thing it changes.
+private fun shortOffer(): ProbeOfferUiState {
     val offer = when (val probe = unsurveyedSystemUiState.probe) {
         is ProbeActionUiState.Dispatch -> probe.offer
-        else -> error("the neighbour of a fresh colony's home must be a system it can be sent a probe")
+        else -> error("the neighbour of a fresh colony's home must be a system it can send a probe to")
     }
-    return if (short) offer.copy(cost = offer.cost.copy(short = true)) else offer
+    return offer.copy(cost = offer.cost.copy(short = true))
 }
 
 // Borrowed from the real home world rather than retyped, so the one hand-written frame still shows
