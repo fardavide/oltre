@@ -3,6 +3,7 @@ package dev.fardavide.oltre.core
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -42,6 +43,8 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 6 — probes: `surveys`, the jobs in flight. What they write to — `galaxy.surveyed` — has
+    //     existed since 4, so the hop adds the verb and not the record it fills.
     // 5 — the adaptation branch: three more levels on `research`, and `activeAdaptation` — the same
     //     empire-wide slot `activeResearch` uses, held by the other branch.
     // 4 — the galaxy: a seed, the home coordinate, the surveyed set and who holds what. Never the
@@ -49,7 +52,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 5
+    const val SCHEMA_VERSION: Int = 6
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -107,6 +110,11 @@ object GameSave {
                 "activeAdaptation" to JsonNull,
             )
         },
+        // 5 -> 6: probes. An empire saved before the verb existed has none in flight, which is what
+        // an empty list says — and the worlds it had already surveyed are on `galaxy.surveyed`
+        // untouched, because a survey only ever *adds* to that set. Fourth hop, fourth time the
+        // answer is migrate rather than retire, and the shallowest of the four: one absent key.
+        5 to { root -> root.withState("surveys" to JsonArray(emptyList())) },
     )
 
     private val ADAPTATION_AT_ZERO: Map<String, JsonElement> = mapOf(

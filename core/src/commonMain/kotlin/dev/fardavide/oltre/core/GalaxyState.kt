@@ -49,6 +49,12 @@ data class GalaxyState(
     // map on disk.
     fun holderOf(at: GalaxyCoordinate): EmpireId? = ownership.firstOrNull { it.at == at }?.holder
 
+    // Whether a probe would learn anything there. Asked of the *occupied* slots only, because an
+    // empty slot has nothing to know — so a system whose worlds are all known is complete even
+    // though eleven of its fifteen slots are absent from the set.
+    fun hasSurveyed(system: SystemAddress): Boolean =
+        occupiedWorldsIn(seed, system).all { it in surveyed }
+
     companion object {
 
         // Genesis. The seed comes from outside core — the shell mints it, because core cannot read
@@ -58,17 +64,22 @@ data class GalaxyState(
             return GalaxyState(
                 seed = seed,
                 home = home,
-                surveyed = surveyedHomeSystem(seed, home),
+                surveyed = occupiedWorldsIn(seed, SystemAddress.of(home)),
                 ownership = listOf(WorldOwnership(at = home, holder = EmpireId.PLAYER)),
             )
         }
 
-        // You can see your own neighbours: the whole home system starts surveyed, and nothing else
-        // does. Only slots that actually hold a world are recorded, so the set stays the handful of
-        // entries a system really has rather than a fixed fifteen.
-        internal fun surveyedHomeSystem(seed: GalaxySeed, home: GalaxyCoordinate): Set<GalaxyCoordinate> =
+        // Every slot of a system that actually holds a world. Genesis surveys the home system with
+        // it — you can see your own neighbours, and nothing else — and a landing probe surveys its
+        // target with the same call. That those two are one function is not a tidy-up: the set a
+        // survey writes has to be exactly the set the player already has for their own system, or
+        // "surveyed" would quietly mean two different things depending on how it got there.
+        //
+        // Only occupied slots are recorded, so the set stays the handful of entries a system really
+        // has rather than a fixed fifteen.
+        internal fun occupiedWorldsIn(seed: GalaxySeed, system: SystemAddress): Set<GalaxyCoordinate> =
             (1..GalaxyBalance.SLOTS_PER_SYSTEM)
-                .map { slot -> GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot) }
+                .map { slot -> GalaxyCoordinate(galaxy = system.galaxy, system = system.system, slot = slot) }
                 .filter { at -> worldAt(seed, at) != null }
                 .toSet()
     }
