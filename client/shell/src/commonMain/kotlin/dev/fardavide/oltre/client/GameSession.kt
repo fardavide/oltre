@@ -54,6 +54,32 @@ internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
     )
 }
 
+// One tick: bring the colony up to now and leave everything else alone.
+//
+// The clamp is the load-bearing part. A wall clock can step backwards — NTP, or the player changing
+// the device time — and `advance` requires `to >= from`, so without it a colony crashes on a clock
+// correction. Extracted from the tick loop for the reason the debug actions were: inside a
+// `LaunchedEffect` this is four lines nothing can execute, and the clamp is exactly the kind of edge
+// that deserves a test rather than a comment.
+internal fun GameSession.ticked(clock: DebugClock, wallClock: Instant): GameSession {
+    val now = maxOf(clock.now(wallClock), lastUpdatedAt)
+    return copy(state = advance(state, from = lastUpdatedAt, to = now), lastUpdatedAt = now)
+}
+
+// One player action, and the only safe order for it: bring the simulation up to the instant the
+// player acted, then ask core to apply the action *at that instant*. Acting on a stale state would
+// spend resources the colony has not accrued yet — which is the bug this shape exists to prevent,
+// and which nothing could have caught while it lived inside a composable.
+internal fun GameSession.acting(
+    clock: DebugClock,
+    wallClock: Instant,
+    transition: (GameState, Instant) -> GameState,
+): GameSession {
+    val at = maxOf(clock.now(wallClock), lastUpdatedAt)
+    val advanced = advance(state, from = lastUpdatedAt, to = at)
+    return copy(state = transition(advanced, at), lastUpdatedAt = at)
+}
+
 // A session and the clock that goes with it. The two always move together — a session stamped in
 // the future with a clock that does not know it is the frozen-game bug in another shape — so the
 // two debug actions hand back both rather than leaving the caller to remember the second.

@@ -81,6 +81,30 @@ class DebugReportTest {
     fun `a colony the menu has touched says so`() {
         assertTrue(report(debugUsed = true).debugUsed)
     }
+
+    @Test
+    fun `the whole report is pinned, not just the fields somebody remembered to assert`() {
+        // Eleven of the twelve fields are asserted individually above, which is eleven chances to
+        // add a twelfth and never notice. This compares the whole value at once, so a new field
+        // arrives with a failing test rather than with silence.
+        assertEquals(
+            DebugReport(
+                gameTime = EPOCH,
+                wallTime = EPOCH,
+                skippedBy = Duration.ZERO,
+                debugUsed = false,
+                schemaVersion = GameSave.SCHEMA_VERSION,
+                galaxySeed = TEST_GALAXY_SEED.value,
+                eventLogSize = 0,
+                buildsInFlight = 0,
+                surveysInFlight = 0,
+                researchSlotBusy = false,
+                fleetInbound = false,
+                nextEvent = null,
+            ),
+            report(),
+        )
+    }
 }
 
 private fun report(

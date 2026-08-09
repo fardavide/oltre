@@ -31,7 +31,6 @@ import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
-import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
@@ -99,13 +98,7 @@ fun App(
                     while (true) {
                         delay(1.seconds)
                         val previous = session ?: continue
-                        // The wall clock can step backwards (NTP, the user changing device
-                        // time); core's advance requires to >= from, so the boundary clamps.
-                        val now = maxOf(debugClock.now(Clock.System.now()), previous.lastUpdatedAt)
-                        val next = previous.copy(
-                            state = advance(previous.state, from = previous.lastUpdatedAt, to = now),
-                            lastUpdatedAt = now,
-                        )
+                        val next = previous.ticked(debugClock, wallClock = Clock.System.now())
                         session = next
                         if (next.hasNewEventsSince(previous)) next.commit(store, notifications, debugClock)
                     }
@@ -116,9 +109,7 @@ fun App(
                 // that instant, then commit if the event log grew. Acting on a stale state would
                 // spend resources the colony has not accrued yet.
                 fun act(transition: (GameState, Instant) -> GameState) {
-                    val at = maxOf(debugClock.now(Clock.System.now()), current.lastUpdatedAt)
-                    val advanced = advance(current.state, from = current.lastUpdatedAt, to = at)
-                    val next = current.copy(state = transition(advanced, at), lastUpdatedAt = at)
+                    val next = current.acting(debugClock, wallClock = Clock.System.now(), transition = transition)
                     session = next
                     if (next.hasNewEventsSince(current)) {
                         scope.launch { next.commit(store, notifications, debugClock) }
