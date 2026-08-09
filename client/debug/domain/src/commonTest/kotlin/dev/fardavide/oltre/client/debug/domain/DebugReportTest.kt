@@ -83,7 +83,7 @@ class DebugReportTest {
     }
 
     @Test
-    fun `the whole report is pinned, not just the fields somebody remembered to assert`() {
+    fun `the whole report is pinned rather than the fields somebody remembered to assert`() {
         // Eleven of the twelve fields are asserted individually above, which is eleven chances to
         // add a twelfth and never notice. This compares the whole value at once, so a new field
         // arrives with a failing test rather than with silence.

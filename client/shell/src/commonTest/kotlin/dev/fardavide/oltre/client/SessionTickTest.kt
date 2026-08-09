@@ -49,11 +49,16 @@ class SessionTickTest {
         // The clamp, and the reason it exists: NTP or a player changing the device time can move the
         // wall clock behind the saved instant, and `advance` requires `to >= from`. Without this the
         // colony crashes on a clock correction.
-        val session = GameSession(midBuild(), EPOCH + 5.hours)
+        //
+        // The build has to still be *due* for "nothing moved" to mean anything. The first version
+        // stamped the session five hours ahead of a build that had completed at 24 minutes, so
+        // `advance` rightly applied the completion and the assertion failed against a colony that
+        // was behaving correctly — a badly built scenario rather than a bug in the code under test.
+        val session = GameSession(midBuild(), EPOCH)
 
-        val ticked = session.ticked(DebugClock(), wallClock = EPOCH)
+        val ticked = session.ticked(DebugClock(), wallClock = EPOCH - 3.hours)
 
-        assertEquals(EPOCH + 5.hours, ticked.lastUpdatedAt)
+        assertEquals(EPOCH, ticked.lastUpdatedAt)
         assertEquals(session.state, ticked.state)
     }
 
