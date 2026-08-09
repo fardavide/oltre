@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-09 (0.2.0)
+Updated: 2026-08-09 (0.3.0)
 
 ## Landed
 
@@ -142,7 +142,7 @@ Updated: 2026-08-09 (0.2.0)
   repaired the branch, which did not build: Kotlin/Native rejects a comma in a backticked test name
   and ten of 0.0.17's had one. See `decisions.md`.
 
-- **0.2.0 Android delivery** — the game runs on Android, and every version publishes itself. The
+- **0.3.0 Android delivery** — the game runs on Android, and every version publishes itself. The
   wrapper `architecture.md` had anticipated since 0.0.1 finally landed, in the shape Davide chose:
   `androidApp/` is a manifest, a theme and the launcher icons with **no Kotlin in it**, and
   `MainActivity` sits in `client/shell/src/androidMain` beside the desktop `main()` and the iOS
@@ -157,7 +157,7 @@ Updated: 2026-08-09 (0.2.0)
   APK (CMP-9547), and the new entry point had to be excluded from Kover or it would have failed
   the coverage gate on its own PR. See `decisions.md`.
 
-- **0.2.0 Android notifications, on Davide's call to stop holding them back** — the copy was
+- **0.3.0 Android notifications, on Davide's call to stop holding them back** — the copy was
   already shared, so there was no design call to wait for, only engineering. `replaceAll` books
   one `AlarmManager` alarm per notification and persists the ids it scheduled, because Android
   cannot be asked what is pending the way `UNUserNotificationCenter` can. **Inexact alarms**
@@ -279,7 +279,7 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The blocked row's remedy grew 12dp taller** when its tap target was fixed from 15dp to 27dp, so
   a three-axis card is airier than the design drew it. Overrule if it reads loose.
 
-- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.2.0**, and both stubs
+- ~~Android app entry point (thin `androidApp`-style module)~~ — **done at 0.3.0**, and both stubs
   that were waiting on it are filled in: `AndroidSaveLocation.directory` and the notification
   scheduler.
 - **Nothing has run the Android build on a device.** CI compiles the APK on every PR and the
@@ -300,10 +300,37 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **Open design question for Davide:** what raises the storage cap? (flat 10M placeholder now;
   candidates: a storage building, mine-level scaling.) With human-scale production the flat cap
   is far out of reach — it binds nothing until very deep levels.
-- **Open design question for Davide:** should anything cap how many facilities build at once?
-  Nothing does today (resources are the only limiter), while Notion's expansion pressures call
-  for "limited simultaneous projects". Research answered half of it at 0.0.12 — one project at a
-  time, empire-wide — so the remaining question is only about *construction*.
+- ~~**Open design question for Davide:** should anything cap how many facilities build at once?~~ —
+  **answered 2026-08-08: no.** Upgrades stay parallel and the stock stays the only limiter, because
+  the decision the colony poses is what to spend on, and it is a real one because resources are
+  finite rather than because a slot is. Davide's call, against a session that proposed a cap. Both
+  candidates were measured first and both are worse on every axis — one slot halves progress, locks
+  out Research entirely and *still* leaves 83% of the window empty. See `decisions.md` and
+  `balance-log.md` round 8.
+
+- **THE NEXT THING TO BUILD: the screen that dispatches a probe.** The `core` half landed at 0.1.2
+  and **nothing a player can reach changed** — `startSurvey` exists, `advance` lands probes,
+  `adaptationShortlist` derives what a ladder level would unlock, and no screen offers any of it.
+  What the local session needs to build: a dispatch action on the Galaxy system page (plus a way to
+  reach a distant system that is not 50 taps of a ±1 stepper — `GalaxyNav` is the risk to the
+  5–10 minute rule), an in-flight countdown, a landed state, an "already surveyed" state, and the
+  per-ladder shortlist line on Research. Round 8's **held** cost-proportional duration curve should
+  ride along with it: it fixes the colony's own idleness, which the probe deliberately does not.
+  See `balance-log.md` round 9 and `decisions.md`.
+
+- ~~**THE NEXT THING TO DECIDE: a check-in has one verb in it.**~~ — **decided 2026-08-09**, three
+  calls answered by Davide and the rest measured; the `core` half is built. Kept below because the
+  measurement is the benchmark round 9 is judged against. Davide, 2026-08-08, playing 0.1.1:
+  *"Ho poche cose da fare. Solo premere un tasto"* — and, crucially, *"non voglio rimuovere il senso
+  di progressione, anzi!"* and *"I don't want the user to have nothing to do for hours, but I don't
+  want it to be forced to keep logging it either"*. Measured by the new opening report in `:sim:run`:
+  **6 of 8 check-ins over the first two days offer exactly one kind of decision**, the second kind
+  does not exist until hour 29, the colony has nothing in flight for 42 of 48 hours, and the busiest
+  session books 72 minutes of work. **No balance number fixes this** — four candidates were measured
+  and all four rejected (see `balance-log.md` round 8). It is a content call: which existing system
+  grows a second verb, and when. The cheapest candidate on the table is **surveying** —
+  `GalaxyState.surveyed` already exists, holds the home system at genesis, and is written to by
+  nothing, so the Galaxy tab shows four worlds forever and cannot be acted on.
 - **Open calls left by the research sheet**, recorded in `balance-log.md` and costing nothing
   until answered: compounding versus linear effects; whether Automation joins as a fourth
   technology in 0.2; and whether the two Robotics divisors (÷ 1 + 0.08 × Robotics for research,

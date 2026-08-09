@@ -64,7 +64,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":5,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """{"schemaVersion":6,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -81,6 +81,9 @@ class GameSaveTest {
                 """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
                 """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
                 """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+                // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
+                // survey writes to is `galaxy.surveyed` above, which has been there since 4.
+                """"surveys":[],""" +
                 """"returningFleet":null,"eventLog":[]}}""",
             encoded,
         )
@@ -470,8 +473,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 5 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":5"""), rewritten)
+        // then — and from then on it is a version 6 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":6"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -631,6 +634,30 @@ class GameSaveTest {
             checkNotNull(decoded.state.activeResearch).completesAt,
             decoded.state.researchSlotFreesAt,
         )
+    }
+
+    @Test
+    fun `a version 5 colony is carried forward with no probes in flight`() {
+        // The fourth additive hop, and the shallowest: an empire saved before the verb existed has
+        // dispatched nothing, which is what an empty list says.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(emptyList(), decoded.state.surveys)
+    }
+
+    @Test
+    fun `the 5 to 6 hop keeps the map the player had already surveyed`() {
+        // The failure this exists to catch: `surveyed` is what a probe writes to, so a hop that
+        // introduced the verb by minting a fresh `GalaxyState` would delete the very thing the
+        // verb produces — and unlike a reset research level, nothing in the game can earn it back
+        // except by paying again for information the player already owned.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+
+        assertEquals(GalaxySeed(20_260_807), decoded.state.galaxy.seed)
+        assertEquals(GalaxyCoordinate(galaxy = 3, system = 165, slot = 7), decoded.state.galaxy.home)
+        assertEquals(4, decoded.state.galaxy.surveyed.size)
+        assertEquals(TechLevel(3), decoded.state.research.gravitic)
     }
 
     @Test
@@ -811,6 +838,25 @@ class GameSaveTest {
             """"origin":{"galaxy":2,"system":117,"position":9},"arrivesAt":"1970-01-01T01:00:00Z"},""" +
             """"eventLog":[{"type":"BuildStarted","building":"METAL_MINE","toLevel":5,""" +
             """"at":"1970-01-01T00:00:00Z"}]}}"""
+
+        // A version 5 colony mid-game, with a ladder climbed and a map partly surveyed: the two
+        // things the 5 -> 6 hop must carry across untouched. The applied slot is busy and the
+        // adaptation slot is empty, which is the only combination `GameState.init` accepts.
+        const val VERSION_5_FULL = """{"schemaVersion":5,"lastUpdatedAt":"1970-01-01T00:00:00Z","state":{""" +
+            """"resources":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+            """"buildings":{"metalMine":4,"crystalMine":3,"deuteriumSynthesizer":1,""" +
+            """"solarPlant":2,"roboticsFactory":4,"naniteFactory":0},""" +
+            """"builds":{},""" +
+            """"research":{"photovoltaics":2,"extraction":3,"enrichment":0,""" +
+            """"thermal":0,"gravitic":3,"atmospheric":1},""" +
+            """"activeResearch":{"technology":"EXTRACTION","toLevel":4,""" +
+            """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T05:00:00Z"},""" +
+            """"activeAdaptation":null,""" +
+            """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
+            """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
+            """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
+            """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+            """"returningFleet":null,"eventLog":[]}}"""
 
         // A colony that had actually been played: levelled buildings, a stock, a fleet on its
         // way home and an event log — everything the migration must carry across untouched.

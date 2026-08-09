@@ -18,6 +18,8 @@ import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
+import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
 // Which system is on screen. The galaxy and the system, never the slot: the page *is* a system, and
 // the slot is what the fifteen rows below the map are for.
@@ -52,10 +54,14 @@ data class GalaxyUiState(
     // number or a name — and it is authored rather than left to an ellipsis, because "4 WO…" is the
     // layout admitting defeat where "DIM · 4" is the screen still saying something true.
     val compactDetail: String,
-    val atFirstSystem: Boolean,
-    val atLastSystem: Boolean,
     val isHome: Boolean,
+    // What replaced the ±1 stepper. `atFirstSystem` / `atLastSystem` went with it: a lens slides
+    // rather than clipping, so there is no edge to disable a control at any more.
+    val reach: ReachBandUiState,
     val map: SystemMapUiState,
+    // Inside the map card rather than beside it — a probe targets a star, and the map is the only
+    // star-scoped object on the screen.
+    val probe: ProbeActionUiState,
     val bands: List<OrbitBandUiState>,
 )
 
@@ -166,7 +172,10 @@ private val WORTH_IT_AT = "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMil
 // took an `AdaptationLevels` that this mapper defaulted to `NONE`. With the ladders buyable, a
 // default of `NONE` would leave every world exactly as blocked as it was at genesis however deep
 // the player had climbed — the screen quietly refusing to show what they had bought.
-internal fun GameState.toGalaxyUiState(at: SystemSelection): GalaxyUiState {
+// `now` and `timeZone` arrive with 0.2.0, because the footer runs a countdown and prints a landing
+// clock. This was the one screen in the app that needed neither, and it stopped being so the moment
+// it grew a job of its own.
+internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZone: TimeZone): GalaxyUiState {
     val seed = galaxy.seed
     val starClass = starClassAt(seed, at.galaxy, at.system)
     val relay = relayAt(seed, at.galaxy, at.system)
@@ -201,13 +210,21 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection): GalaxyUiState {
         coordinate = "${at.galaxy}:${at.system}",
         detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
         compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
-        atFirstSystem = at.system <= 1,
-        atLastSystem = at.system >= GalaxyBalance.SYSTEMS_PER_GALAXY,
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
+        reach = toReachBandUiState(at = at),
         map = SystemMapUiState(
             slots = (1..GalaxyBalance.SLOTS_PER_SYSTEM).map { slot ->
                 MapSlotUiState(slot = slot, mark = markFor(rows.firstOrNull { it.slot == slot }))
             },
+        ),
+        probe = toProbeActionUiState(
+            at = at,
+            // The worlds this system actually holds, passed rather than regenerated: the mapper has
+            // just paid for all fifteen slots, and the footer's "nothing to survey" branch turns on
+            // exactly the same set.
+            worlds = worlds.values.filterNotNull(),
+            now = now,
+            timeZone = timeZone,
         ),
         bands = OrbitBand.entries
             .map { band -> OrbitBandUiState(band = band, rows = rows.filter { it.band == band }) }

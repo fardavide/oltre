@@ -39,6 +39,11 @@ kotlin {
             // contradicting itself about a number the player is comparing.
             implementation(projects.client.design.format)
 
+            // Arrives with 0.2.0 and the probe: the system card's footer counts a flight down and
+            // prints the wall-clock instant it lands at, which is the same pair of needs that put
+            // this on Colony and Research.
+            implementation(libs.kotlinx.datetime)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

@@ -538,3 +538,372 @@ The fortnight also gets materially further in the same 14 days — Robotics 8 �
 - **Nothing here has been played yet.** These are sim measurements against a greedy strategy, not a
   session. The first round that can say anything about how it *feels* is the one after Davide plays
   0.1.1.
+
+## Round 8 — 0.1.1, the check-in with one verb in it (2026-08-08)
+
+**No balance number moved this round.** It is a diagnosis, a benchmark and four rejected
+candidates. It is recorded at length because Davide asked for the feedback itself to be kept —
+*"Let's save those feedbacks I give you, so that we keep a benchmark"* — and because the thing it
+measures is the first one in this log that no amount of tuning fixes.
+
+### The feedback, verbatim
+
+> "Mi sembra che il gameplay sia un po lento e noioso in questi primi due giorni"
+
+Asked whether "slow" meant an empty colony or a slow rate of progress, he rejected both framings:
+
+> "Ho poche cose da fare. Solo premere un tasto"
+
+> "So che mancano varie feature, ma ci vuole parecchio per sbloccare anche quelle che ci sono. Il
+> che è buono, ma nel frattempo apri il gioco ogni 2/3 ore e premi solamente un tasto per
+> l'upgrade. Sarebbe bello avere altro da fare e controllare"
+
+> "Per essere chiari, non voglio rimuovere il senso di progressione, anzi! Ma vorrei avere qualcosa
+> in più da fare, anziché premere un tasto ed aspettare 2/3/4 ore"
+
+> "As said, I don't want the user to have nothing to do for hours, but I don't want it to be forced
+> to keep logging it either, to avoid to fall behind. It must be a balance"
+
+> "No. I don't wanna to remove parallel build! There's still a need to decide, as you will use
+> resources to chose which to upgrade, you can upgrade them all"
+
+**Read those five together before proposing anything**, because each one closes a door the others
+leave open. The complaint is not the rates, not the unlock pace, not the progression curve and not
+the absence of a construction cap. It is that a session contains **one verb**.
+
+### What the sim was taught to measure
+
+Every run in this harness before today is an hour-stepped greedy bot over 7 or 14 days. That shape
+cannot answer a complaint about the opening: what is being complained about is what a *check-in*
+offers, and a runner that acts 24 times a day never has one. It also cannot see idleness at all —
+a bot that buys hourly keeps something running by construction.
+
+`printOpeningReport` runs the same buying rule, restricted to four times a day (08:00 / 13:00 /
+19:00 / 23:00). Two of its columns are new kinds of reading rather than new numbers:
+
+- **Kinds, not count.** How many *sorts* of decision a check-in offers — a facility, a technology,
+  an adaptation ladder. Five facility rows are one verb pressed five times, and the old "how many
+  options" column called that five.
+- **What a check-in booked.** How far ahead the session set the colony working. The brief calls
+  local notifications *the entire check-in loop*; this is the number that loop lives on.
+
+### The finding
+
+| Reading | 0.1.1 |
+|---|---|
+| Dead check-ins (nothing finished, nothing affordable) | 0 of 8 |
+| Median options on the table | 5 |
+| **Check-ins offering one kind of thing only** | **6 of 8** |
+| **A second kind of decision first exists** | **29 hours in** |
+| Hours with nothing in flight | **42 of 48 (87.5%)** |
+| Longest unbroken silence | 8h 33m |
+| Work the busiest check-in booked | **72 min** |
+| Median work a check-in booked | 48 min |
+
+After 48 hours: metal 7 · crystal 7 · deuterium 3 · solar 6 · robotics 2 — 25 levels, Photovoltaics 1.
+
+Three things fall out, and only the first was suspected:
+
+1. **There is no shortage of things to buy.** Zero dead check-ins, five options at the median. The
+   round 3 and round 7 levers — metal per hour, crystal per hour — are not what is wrong, and
+   moving either would answer a complaint nobody made.
+2. **There is one verb for the first 29 hours.** The Research tab is an empty room until the first
+   Robotics Factory. The adaptation ladders need Robotics 4, which this run does not reach in two
+   days — so the Galaxy screen is read-only for the whole opening, and every `Blocked` row on it
+   is decoration. Of five tabs, one does anything on day one.
+3. **The colony is idle 87.5% of the time and the busiest session books 72 minutes.** Every
+   notification the game can send arrives while the player is still holding the phone; nothing at
+   all fires across the gaps. This is the round 2 watch item — *durations are the wrong shape* —
+   carried unactioned through rounds 3 and 4, which predicted it would bite at deep levels. It
+   bites hardest at level 1.
+
+### Four candidates, measured and rejected
+
+Kept in full, because each is the obvious idea and each is now known to be wrong.
+
+| Candidate | What it did | Verdict |
+|---|---|---|
+| **Cost-proportional durations** — `(metal + crystal) ÷ 3` minutes, OGame's shape | idle 87.5% → **64.6%**; busiest booking 72 → **224 min**; **identical 25 levels at 48h**; greedy week day 7 mines 15/15/14 → 12/12/11 | **Fixes the emptiness, not the complaint.** Same number of taps, fewer of them per session. Held. |
+| **Robotics Factory cheaper** — 400/120/200 → 300/90/120, to open Research sooner | second verb 29h → **24h**; still **6 of 8** one-kind check-ins; idle 87.5% → 85.4% | **Rejected.** Five hours for a cheapened gate, and Davide likes the unlock pace: *"ci vuole parecchio per sbloccare anche quelle che ci sono. Il che è buono"*. |
+| **One construction slot** | **11 levels at 48h** against 25; Research never opens at all; still 83% idle; 3,970 metal left unspent | **Rejected, and worse on every axis.** |
+| **Two construction slots** | 18 levels at 48h; second verb slips 29h → **39h**; 7 of 8 one-kind; 2,564 metal unspent | **Rejected.** |
+
+**Both caps are rejected by Davide directly, not only by the measurement:** *"I don't wanna to
+remove parallel build! There's still a need to decide, as you will use resources to chose which to
+upgrade, you can upgrade them all."* The scarcity that makes the colony a decision is the stock,
+not a slot. See `decisions.md` — this also closes the "should anything cap simultaneous
+construction" question that has been open since round 2.
+
+The two caps also fail for a reason worth keeping: a cap does not fill the gaps it creates. Early
+builds are short whatever the cap, so one slot spent 83% of the window empty *and* halved
+progress — it removed actions without adding a single hour of cover.
+
+### The constraint that any answer has to satisfy
+
+Davide's fourth line is the hard one, and it rules out the cheap fixes in both directions:
+
+> "I don't want the user to have nothing to do for hours, but I don't want it to be forced to keep
+> logging it either, to avoid to fall behind. It must be a balance"
+
+So whatever fills the gap must be **startable in a check-in and harmless to miss**. Anything that
+rewards logging in at hour 3 rather than hour 9 fails the second half; anything that idles until
+the player returns fails the first. That rules out timed pickups, decaying bonuses, and any
+mechanic whose value depends on reaction speed — the whole standard idle-game toolkit, in fact,
+which is built precisely to punish absence.
+
+### Still open — and it is a content question, not a balance one
+
+**No number in this file adds a second thing to do.** The honest reading of round 8 is that the
+opening is thin because four of the game's eight v1 features are unbuilt, and the two verbs that
+exist are gated behind a pace Davide wants kept. What is left to decide is which existing system
+grows a second verb first, and that is his call.
+
+The one this log can point at, because the save already carries it and nothing fills it:
+**surveying**. `GalaxyState.surveyed` is a per-world set, holds the home system at genesis and is
+never added to by anything — so the Galaxy tab shows four worlds forever and cannot be acted on.
+Its own comment already says *"surveying is a per-world fleet action from slice #7 onwards"*. A
+survey is startable in a check-in, lands hours later, is harmless to miss, gives the player
+something to *check* rather than another rate to raise, and costs no progression — which is every
+constraint above, met by a system that is half-built rather than by a new one.
+
+Whether that is slice #6's job, slice #7's, or something before both is a sequencing call.
+
+### Watch next round
+
+- **Round 7's nomination still stands and is untouched:** deuterium is the fortnight's second-worst
+  blocker, 180 hours of 336. This round did not look at it, because the complaint was not about a
+  resource.
+- **The duration curve is still the wrong shape**, now for the fourth round running, and now with a
+  measurement attached: it costs nothing in the first two days to fix (identical levels at hour 48)
+  and ~3 levels by day 7. It is held rather than rejected — it should ride along with whatever
+  fills the gaps, not go in alone, because on its own it trades taps for cover.
+- **The Robotics construction divisor is ÷(1 + level)** against research's ÷(1 + 0.08 × level): at
+  Robotics 4 builds are 5× faster and at Robotics 10 they are 11×, so any duration curve is
+  flattened by the building the player is buying anyway. Davide delegated this one to the sim; it
+  is measured, unresolved, and pointless to move until the duration shape is settled.
+
+## Round 9 — 0.1.2, the second verb (2026-08-09)
+
+Round 8 ended with a diagnosis and no fix: *"No number in this file adds a second thing to do."*
+This is the round that adds one. Davide answered three design calls on 2026-08-09 and the build
+measured the rest; every number below came out of `:sim:run` rather than out of an argument.
+
+### What he decided
+
+| Call | Answer |
+|---|---|
+| Add exploration as a second thing to do? | **Yes — dispatch probes.** The alternative on the table was longer build durations alone, which fixes the emptiness without adding anything to do. |
+| Should systems differ from one another? | **Yes — star class should matter**, so "where do I look" is a real question. |
+| Should what you find be useful straight away? | **Yes — it guides research**, rather than being a bookmark for a colonisation slice that does not exist. |
+
+### What was built (`core` only — no screen yet)
+
+`startSurvey(state, target, at)`. The same `(state, subject, at) -> Result` shape as the other
+three verbs, and different in every way that matters: the subject is a **`SystemAddress`** rather
+than one of twelve enum rows, the payload is **knowledge** rather than a rate, and the **player
+picks the completion instant** by choosing how far to aim.
+
+Three shape decisions, each load-bearing rather than convenient:
+
+- **Flat cost, distance only in the duration.** Verified against the generator: a system index
+  enters *none* of `GalaxyBalance`'s trait functions and reaches `GalaxyGeneration` only as a hash
+  salt. Expected payload is therefore identical galaxy-wide, so a distance-scaled cost would make
+  far probes strictly dominated — more money, more time, the same information — **and would tax the
+  player who is away longest**, which is precisely what Davide refused.
+- **Metal only.** Deuterium buys the Robotics Factory, which opens Research at level 1 and the
+  ladders at level 4. Pricing the new verb in that currency would add verb two by deleting verb
+  three. Round 7 closed its fortnight on 179,352 unspent metal: this is what that metal is for.
+- **No Robotics divisor.** Construction divides by (1 + Robotics), research by (1 + 0.08 × Robotics),
+  a probe by nothing. Its duration is the one number in the game that is purely the player's own
+  choice, and a divisor would let a building quietly shorten cover the player deliberately bought.
+
+Probes run **in parallel**, limited by metal alone — the construction rule Davide settled on
+2026-08-08, applied rather than re-litigated. **Nothing gates the verb**: one whose job is to exist
+at hour zero cannot sit behind a building, and the unlock pace he likes is protected from the price
+side instead.
+
+Also `adaptationShortlist(state)`: per ladder, how many **surveyed** worlds the next level would
+unlock and how many of those clear the worth-it bar. This is call 3, and it is what stops waiting
+from being better than exploring — `surveyed` is monotone and `verdictFor` re-derives against
+current levels, so without a consumer the optimal play is "not yet".
+
+### The price, swept rather than chosen
+
+One dispatch per check-in, aimed at the longest flight that still lands before the next one, bought
+**before** the buildings so the levels it costs are visible rather than hidden behind a full queue.
+
+| metal | levels at 48h | probes | what it costs |
+|---|---|---|---|
+| — | 25 | — | the round 8 baseline |
+| 100 | 24 | 8 | one level |
+| **150** | **23** | **8** | **two levels, Robotics 1 instead of 2** |
+| 200 | 22 | 8 | three levels |
+| 300 | 19 | 8 | six levels |
+| 500 | 16 | 7 | nine levels, **and Research never opens at all** |
+
+**Every reading the verb exists for is identical from 100 to 300** — eight dispatches, zero
+one-kind check-ins, 540 minutes booked by the busiest session. So the price buys exactly one thing:
+how much progression a dispatch costs. **150 is the midpoint of the defensible band (100 – 200).**
+500 was the first guess and it is simply wrong.
+
+### What it moves
+
+| Reading | 0.1.1 | 0.1.2 at 150 metal |
+|---|---|---|
+| Check-ins offering one kind of decision only | 6 of 8 | **0 of 8** |
+| A second kind of decision first exists | hour 29 | **hour 0** |
+| Hours with nothing at all in flight | 42 of 48 (87.5%) | **1 of 48 (2.1%)** |
+| Longest unbroken silence | 8h 33m | **0h 47m** |
+| Work the busiest check-in booked | 72 min | **540 min** |
+| Median work a check-in booked | 48 min | **360 min** |
+| Building levels at 48h | 25 | 23 |
+| Worlds known at 48h | 4 | **32** |
+
+**Two of those rows are honest and one is a trap, so the report prints both.** A probe in flight
+does not make a mine busier: the *colony's* own idleness is 85.4% against 87.5%, essentially
+unchanged. What the probe covers is the **player's attention**, and collapsing the two into one
+number would let the new verb take credit for a complaint it does not touch. The lever for the
+colony standing still is still the held cost-proportional duration curve from round 8.
+
+The greedy week and the fortnight are untouched and still reproduce byte for byte — 720 / 9,677 and
+179,352 / 5,763 — so rounds 3 to 8 stay comparable.
+
+### Call 2 answered itself, and the constants did not move
+
+The recommendation was to widen the star class temperature offset to create a per-system gradient.
+**Measuring first showed the ±40 °C offset already produces one**, so nothing in `GalaxyBalance`
+was touched — no tolerance band, no §9 row, no re-pinned table.
+
+| Star | Passes every band | Settleable | Mean metal | Mean crystal | Mean deuterium |
+|---|---|---|---|---|---|
+| DIM | 1.73% | **0.43%** | 0.95 | 1.00 | **1.06** |
+| STANDARD | 2.10% | 0.40% | 0.97 | 1.00 | 0.93 |
+| BRIGHT | 1.62% | **0.24%** | 0.95 | 1.00 | **0.82** |
+
+A **29% swing in mean deuterium richness** from dim to bright and a settleable rate nearly double
+at the dim end, both falling out of the offset the sheet already had: it moves orbit temperature,
+temperature derives deuterium richness and gates one of the three bands. And `starClassAt` is O(1)
+and needs no survey, so the prior is **already charted** — aiming a probe at a dim star because
+deuterium is short is a decision the map can support today.
+
+**The honest limit: metal and crystal are flat across all three classes**, because they derive from
+gravity and pressure and neither reads the star. A player short of deuterium has a reason to prefer
+a system; a player short of metal does not. Making all three axes vary per system is a real design
+change and it is Davide's — it is not needed for the verb to work.
+
+### Watch next round
+
+- **Nothing here has been played.** These are sim measurements against a stated strategy, not a
+  session. The first round that can say how it *feels* is the one after the screen lands.
+- **The strategy is a claim, not a fact.** "One probe per check-in, aimed at the gap ahead" is how
+  the mechanic is meant to be played. A player who dispatches greedily will pay more levels than
+  the table above says, and one who never dispatches pays none and gets none.
+- **The payload is thin for the first two days, by construction.** ~4.75 worlds per system, of which
+  0.35% clear the worth-it bar galaxy-wide: roughly 14 dispatches to see one `Barren` worth
+  remarking on and ~60 to see one `Settleable`. The shortlist is the consumer, and it is gated at
+  Robotics 4, which round 8 measured as unreached at 48 hours. **In the exact window Davide
+  complained about, this buys a second decision and a notification that is not about a mine — it
+  does not buy a payoff.** That is the trade, stated rather than hidden.
+- **`notificationsFor` has no cap and iOS keeps only the 64 soonest-firing requests.** The in-flight
+  ceiling was 8 before this round and probes make it unbounded. Nothing is broken today at one
+  dispatch per check-in; a player who dispatches thirty would start evicting the *latest* pending
+  requests, which is where long build and research completions live. Engineering item, owned by the
+  slice that puts the dispatch on screen.
+- **Round 8's held change is still held.** Cost-proportional build durations fix the colony's own
+  idleness at zero cost in the first two days. It should ride along with the screen rather than go
+  in alone.
+- **Round 7's nomination is still untouched:** deuterium is the fortnight's second-worst blocker,
+  180 hours of 336.
+
+## Round 10 — 0.2.0, the duration curve finally lands (2026-08-09)
+
+Round 8 measured cost-proportional build durations, found them good, and **held** them on one
+condition: *"it should ride along with whatever fills the gaps, not go in alone, because on its own
+it trades taps for cover."* Round 9 built the thing that fills the gaps. This round lets the curve
+in behind it, and the two are measured together for the first time.
+
+### The change, in one line
+
+`upgradeDuration` was per-building minutes × level. It is now **(metal + crystal) ÷ 3 minutes**,
+still divided by (1 + Robotics), with a **five-minute floor applied after the divisor**.
+
+Three things about that shape, each load-bearing:
+
+- **Linear-in-level against cost compounding at +50% is why the old curve was wrong**, and it was
+  wrong from level one rather than at depth — which is what rounds 2 through 4 kept predicting and
+  round 8 finally caught. A Metal Mine 2 cost 112 metal-and-crystal and took 20 minutes; it now
+  takes 37.
+- **Deuterium is outside the sum**, as in OGame. It gates the Robotics Factory and therefore the
+  whole research branch, and pricing time in it too would make one scarcity govern two trade-offs
+  the player has to make separately.
+- **The floor is applied last, to what the player actually waits.** At Robotics 10 a first mine
+  level divides to under three minutes, which is a tap with a delay on it rather than a build. A
+  floor placed ahead of the divisor would let the divisor cut through it.
+
+### Round 8's numbers reproduce exactly
+
+Measured through `:sim:run`, no-probe opening, against round 8's held row:
+
+| Reading | 0.1.1 | round 8 predicted | measured now |
+|---|---|---|---|
+| Hours the colony had nothing in flight | 42 of 48 (87.5%) | 64.6% | **31 of 48 (64.58%)** |
+| Work the busiest check-in booked | 72 min | 224 min | **224 min** |
+| Building levels at 48h | 25 | 25 (identical) | **25** |
+| Longest unbroken silence | 8h 33m | — | 7h 08m |
+| Median work a check-in booked | 48 min | — | 125 min |
+| Greedy week, day 7 mines | 15 / 15 / 14 | 12 / 12 / 11 | **12 / 12 / 11** |
+
+Every figure round 8 published lands on the nose, including the one it only predicted at depth. The
+five-minute floor is new since round 8 and changes none of them, because it does not bind anywhere
+in the first 48 hours — the shortest build in the opening is 37 minutes at Robotics 0 and 12 at
+Robotics 2. It binds from roughly Robotics 8 upward, which is a fortnight away.
+
+### What the pair does together, which is the reading round 8 could not take
+
+| Reading | 0.1.1 | 0.1.2, probe only | **0.2.0, probe + curve** |
+|---|---|---|---|
+| Check-ins offering one kind of decision only | 6 of 8 | 0 of 8 | **0 of 8** |
+| A second kind of decision first exists | hour 29 | hour 0 | **hour 0** |
+| Hours with nothing at all in flight | 42 of 48 (87.5%) | 1 of 48 (2.1%) | **1 of 48 (2.1%)** |
+| **Hours the colony had nothing in flight** | 42 of 48 (87.5%) | 41 of 48 (85.4%) | **33 of 48 (68.75%)** |
+| Longest unbroken silence | 8h 33m | 0h 47m | **0h 47m** |
+| Building levels at 48h | 25 | 23 | **23** |
+
+**The row that moves is the one round 9 was careful not to claim.** Round 9 printed the colony's own
+idleness beside the probe's cover precisely so the new verb could not take credit for a complaint it
+does not touch — 85.4% against 87.5%, essentially unchanged. The curve is what touches it: 68.75%.
+The probe covers the player's attention, the curve covers the colony, and it took both to move both.
+
+The probe's own price is unchanged at 150 metal and still costs two levels of twenty-five.
+
+### One interaction worth writing down
+
+The combined run reaches **Robotics 2 and Photovoltaics 0**, where the probe-only run reached
+Robotics 1 and Photovoltaics 1. Same 23 building levels, differently shaped. Longer builds mean
+fewer completions per check-in, so the greedy cheapest-first rule has more stock free at each visit
+and spends it on the Robotics Factory rather than on the research it opens.
+
+That is the strategy reacting, not a regression — and it is a reminder that the opening report
+measures *one stated strategy*, not a player. Nothing here has been played.
+
+### Watch next round
+
+- **Deuterium is now the fortnight's worst blocker by a clear margin: 204 hours of 336**, up from
+  180. Crystal fell from 190 to 143 and metal rose from 116 to 137. Round 7 nominated deuterium and
+  this round makes the nomination harder to keep ignoring — but it also did not touch it, so the
+  move is the curve redistributing waiting rather than anything aimed at the resource.
+- **The greedy week is no longer resource-bound.** It closes with all three of its next purchases
+  affordable and 47,517 metal in the bank, where 0.1.1 closed blocked on metal for 167 of 168 hours.
+  Duration is the binding constraint at that depth now. That is what the change is *for*, and it is
+  also the first time a run has ended with nothing to decide because everything is already running.
+- **The floor is live in no run this harness measures, and "around Robotics 8" was the wrong way to
+  say it.** Binding is a joint condition on cost *and* Robotics, not a Robotics threshold:
+  `floor((metal + crystal) ÷ 3) ÷ (1 + Robotics) < 5` admits only purchases under ~150
+  metal-and-crystal at Robotics 9 — which is exactly Metal Mine 1→2 (112) and Crystal Mine 1→2
+  (108), and both are bought in the genesis check-in at Robotics 0. The fortnight ends on mines at
+  17 and 16, whose next levels cost tens of thousands. So the floor guards a case none of the three
+  runs reaches, and the honest reading is that it is **untested by measurement** rather than
+  exercised once. It would start to bind on a colony that had climbed Robotics deep *and* still had
+  level-1 rows to buy — a second colony, which is slice #10.
+- **Still nothing here has been played.** Rounds 9 and 10 are both sim measurements against a stated
+  strategy. The first round that can say how any of it *feels* is the one after the screen ships.

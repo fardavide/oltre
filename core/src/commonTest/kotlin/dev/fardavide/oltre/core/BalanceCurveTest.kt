@@ -108,6 +108,80 @@ class BalanceCurveTest {
     }
 
     @Test
+    fun `a build takes as long as it costs`() {
+        // The shape balance round 8 held for four rounds and this slice lands. What it replaces was
+        // linear in the level while cost compounds at +50%, so the two curves diverged from level
+        // one and a colony spent 87.5% of its opening two days with nothing at all in flight.
+        //
+        // Asserted as a proportion rather than against a table of minutes, because the *ratio* is
+        // the decision. A per-building table would let one row drift out of shape and still pass.
+        for (level in 2..20) {
+            val cheap = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+            val dear = PlaceholderBalance.upgradeCost(BuildingType.ROBOTICS_FACTORY, BuildingLevel(level))
+            val cheapMinutes = PlaceholderBalance
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0))
+                .inWholeMinutes
+            val dearMinutes = PlaceholderBalance
+                .upgradeDuration(BuildingType.ROBOTICS_FACTORY, BuildingLevel(level), BuildingLevel(0))
+                .inWholeMinutes
+
+            assertEquals((cheap.metal + cheap.crystal) / 3, cheapMinutes, "metal mine $level")
+            assertEquals((dear.metal + dear.crystal) / 3, dearMinutes, "robotics factory $level")
+        }
+    }
+
+    @Test
+    fun `deuterium buys the research branch and never the clock`() {
+        // The Robotics Factory and the Nanite Factory are the only two rows that cost deuterium —
+        // the Deuterium Synthesizer *produces* it and is bought with metal and crystal like any
+        // mine — and the Robotics Factory is what gates the whole research branch. Pricing time in
+        // deuterium as well would make one scarcity govern two trade-offs the player has to make
+        // separately, so the duration sum is metal and crystal, as OGame's is.
+        for (building in listOf(BuildingType.ROBOTICS_FACTORY, BuildingType.NANITE_FACTORY)) {
+            val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(4))
+            assertTrue(cost.deuterium > 0, "the fixture needs a row that costs deuterium")
+            assertEquals(
+                (cost.metal + cost.crystal) / 3,
+                PlaceholderBalance.upgradeDuration(building, BuildingLevel(4), BuildingLevel(0)).inWholeMinutes,
+                "$building must not be slowed by the resource that gates research",
+            )
+        }
+    }
+
+    @Test
+    fun `no build is ever instant however deep the Robotics Factory goes`() {
+        // At Robotics 10 a first mine level divides to under three minutes, which is not a build —
+        // it is a tap with a delay on it, and it would undo at depth exactly the emptiness the
+        // cost-proportional curve exists to fill. The floor is applied to what the player waits,
+        // *after* the divisor, so the divisor cannot cut through it.
+        val instant = PlaceholderBalance
+            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(10))
+        assertEquals(5, instant.inWholeMinutes)
+
+        for (robotics in 0..20) {
+            for (building in BuildingType.entries) {
+                assertTrue(
+                    PlaceholderBalance
+                        .upgradeDuration(building, BuildingLevel(2), BuildingLevel(robotics))
+                        .inWholeMinutes >= 5,
+                    "$building at robotics $robotics",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `the opening still fits in a check-in`() {
+        // The curve makes builds longer, and the one it must not make longer is the first. A new
+        // colony opens on a decision it can see the end of: round 8 measured the whole change at an
+        // identical 25 building levels after 48 hours, so the price of covering the gaps is paid at
+        // depth rather than at the door.
+        val first = PlaceholderBalance
+            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
+        assertTrue(first.inWholeMinutes in 5..60, "the first upgrade was ${first.inWholeMinutes} minutes")
+    }
+
+    @Test
     fun `a new colony can afford its first upgrades immediately`() {
         // given
         val stock = GameState.initial().resources

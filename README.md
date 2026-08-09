@@ -15,14 +15,42 @@ All rights reserved. No license is granted for reuse of this code.
 <img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/shell/src/desktopTest/screenshots/unbuilt_tab_galaxy.png" alt="The Galaxy tab, saying what will be there" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and six unsurveyed worlds" width="320">
 </td>
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — one of the three destinations that are not built yet. They say so, rather than being hidden until their screen exists.</td>
+<td align="center"><b>Galaxy</b> — a system you have never been to: the reach band across the top, its fifteen orbits, and a probe you can send for 150 metal and half an hour of flight.</td>
 </tr>
 </table>
+
+### Sending a probe
+
+A dispatch costs 150 metal wherever it goes, so the only thing you are choosing is a **duration** —
+which is why the band across the top is a ruler measured in hours rather than a list of coordinates.
+All 250 systems of the galaxy at once, one tick each: short and faint for a dim star, tall and
+bright for a bright one, blue for yours and amber for a probe already out there. The marks say how
+long a flight to that part of the map would take, so the question the screen answers is *what can I
+reach in the nine hours I am about to be asleep?*
+
+The galaxy is not symmetric around you, and the ruler says so without a word of copy: from a home
+near one edge, the hour marks simply run out on that side.
+
+Drag the band to move; tap one of the seven cells to open a system. The cell beside the lit one is
+what the ± stepper used to be — still one tap, except it now tells you what you are stepping onto
+before you step. Crossing a galaxy used to be 249 taps.
+
+Everything the probe says lands in the card that owns the star it is about: the price and the
+flight, then a countdown, then what it found.
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
+
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
+
+**"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
+the same breath as the count rather than burying it — a run of them should read as calibration, not
+as bad luck. The notification you get while the app is closed says the same words off the same
+count, so the lock screen and the card can never disagree about what your probe found.
 
 One branch, three technologies, one project at a time — running, waiting on the deuterium,
 and waiting on the lab:
@@ -65,7 +93,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation` and `:client:research:presentation` (the two screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -130,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.2.0 — 2026-08-09
+### 0.3.0 — 2026-08-09
 
 - **Oltre runs on Android.** The whole game, on any phone running Android 8.0 or newer — the same
   colony, research and galaxy the desktop and iPhone builds have, with the save kept in the app's
@@ -143,6 +171,50 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   finished, the lab is free, a fleet has landed — booked in advance at the instants the
   simulation already computed, and re-derived from your colony after a reboot. Android may hold
   one back by a few minutes while the phone is dozing; nothing else about them differs.
+- Saves from 0.2.0 carry forward untouched.
+
+### 0.2.0 — 2026-08-09
+
+- **You can send a probe now.** The system page has a footer under the orbit map: what it costs
+  (150 metal, the same everywhere) and how long the flight takes to *this* star, which is the only
+  figure that changes. Tap Dispatch and it becomes a countdown, then a landing that tells you what
+  the probe found — usually that none of it was worth taking, which is the honest answer about
+  fifty-nine times in sixty.
+- **The ± buttons are gone, and good riddance.** Crossing a galaxy used to be 249 taps. In their
+  place is a band showing all 250 systems at once, marked with how long a flight to each one would
+  take — 1h, 2h, 3h — so you can answer the only question a dispatch really asks: *what can I reach
+  in the nine hours I am about to be asleep?* Each tick is a star, drawn short and faint for a dim
+  one and tall and bright for a bright one; yours is the blue one, and a probe in flight is amber.
+  Drag the band to move around, then tap one of the seven cells to open a system.
+- **The galaxy is not symmetric around you, and now the band says so** without a word of copy: if
+  your home sits near one edge, the hour marks simply run out on that side.
+- **Every build now takes as long as it costs**, instead of a flat time per level. Early upgrades
+  are longer — a first mine level is 37 minutes rather than 20 — and the colony stops standing
+  around: over the first two days it now has something in flight 31% of the time instead of 12%.
+  Same progress by day two, and about three levels fewer by day seven.
+- **Each adaptation ladder says what its next level would unlock** among the worlds you have
+  actually surveyed, and how few of them are worth taking.
+- **A probe that lands while you are away sends a notification** — and the game will no longer let a
+  crowd of probes push your long builds off the end of the notification queue.
+- Saves from 0.1.2 carry forward untouched.
+
+### 0.1.2 — 2026-08-09
+
+- **Nothing on screen changes in this build.** The galaxy can now be explored — you send a probe
+  to a star system, it flies for hours, and when it lands every world around that star stops
+  reading "Unsurveyed" — but no screen offers the dispatch yet. The Galaxy tab still shows the
+  four worlds of your home system and nothing else. The screen is the next slice.
+- **What landed underneath:** a fourth thing you can do, and the first one aimed at a place rather
+  than at a row in a list. A probe costs 150 metal flat however far it goes; only the flight time
+  changes with distance, from half an hour to the system next door up to a night's worth across
+  the galaxy. So the question it asks is "how long will I be away" — and a player about to be gone
+  nine hours has a better answer than one who is not.
+- **Probes never expire and never punish you for being away.** A landed report waits as long as you
+  need it to, nothing decays, and a system you already know cannot be paid for twice.
+- **Research will tell you what exploring was for:** each adaptation ladder can now say how many of
+  the worlds you have found its next level would unlock, so the choice between Thermal, Gravitic
+  and Atmospheric stops being arbitrary once you have seen more than your own back garden.
+- Saves from 0.1.1 carry forward untouched, including every world you had already surveyed.
 
 ### 0.1.1 — 2026-08-08
 

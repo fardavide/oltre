@@ -78,7 +78,16 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                             )
                         },
                         galaxy = { openResearch ->
-                            GalaxyScreen(state = game.state, onOpenResearch = openResearch)
+                            GalaxyScreen(
+                                state = game.state,
+                                now = game.now,
+                                timeZone = TimeZone.UTC,
+                                onOpenResearch = openResearch,
+                                // This harness is about the adaptation deep link — the Galaxy row
+                                // that reaches Research — so the fourth verb is wired to nothing
+                                // and the assertions stay about the one journey under test.
+                                onDispatchProbe = {},
+                            )
                         },
                     )
                 }
