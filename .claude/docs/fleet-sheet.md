@@ -485,7 +485,7 @@ is untouched and the adaptation ladders keep their prize.
 **Not built into §4's numbers.** Every table below assumes a flat hold, so if (i) is taken the sweep in
 §6 runs against the banded one and `EXTRACTION_PER_HOUR` moves with it.
 
-### Design took (i) and corrected its constants — 2026-08-10, and this is the ratification Davide owes
+### Design took (i) and corrected its constants — RATIFIED 2026-08-10
 
 Claude Design accepted the frontier band and then showed that **the multipliers proposed above do not
 create a crossover at all.** Reproduced here rather than taken on faith:
@@ -510,7 +510,7 @@ frontier can only pay at the **longest** window — at 12h a band-2 world still 
 one even at ×1.55. So **short windows are for the neighbourhood and long windows are what the frontier
 is for**, and the ladder narrowing on a far target teaches that before any copy does.
 
-**This is a balance number, so it is Davide's to ratify.** Nothing else in §3.5 changes.
+**Decided 2026-08-10**, Davide delegating (*"You decide for me based on your research and logs"*). Reproduced against the shipped formulas and written into `FleetBalance.FRONTIER_PERCENT` as `[100, 115, 155, 230]`; **read by nothing until slice 2.** Balance-log round 17 carries the working. Nothing else in §3.5 changes.
 
 ---
 
@@ -564,10 +564,17 @@ Read straight off the measured cadence. 3h is the *"ogni 2/3 ore"* rhythm Davide
 *I am still holding the phone* run that gives the first sitting a fleet beat. A window is offered only
 when `window ≥ roundTrip + 20 minutes`.
 
-### The hold — 40 priced units per skiff station-hour, uncapped
+### The hold — 20 priced units per skiff station-hour, uncapped *(measured; was 40)*
 
-`EXTRACTION_PER_HOUR = 40` priced units, per hull, per station-hour, at richness 1.0. **No cap** — see
+`EXTRACTION_PER_HOUR = 20` priced units, per hull, per station-hour, at richness 1.0. **No cap** — see
 §1 for the arithmetic that removed the one the draft had.
+
+**Swept and halved before the slice merged** — balance-log round 17. Not a guardrail decision: levels
+at 48h never left 32–34 and Robotics 4 never left hour 33–34 at any candidate. What decided it is that
+**a fleet-first player must not out-produce their own colony** — buying hulls before the buildings
+takes the fleet's crystal from 31% of the colony's to **98.6%** at 40, and to 49% at 20. 20 is the
+highest rate at which no purchase order makes the fleet the economy. 30 is the ceiling this evidence
+defends; 10 makes the first cargo twenty-two minutes of income.
 
 **`EXTRACTION_PER_HOUR = 40` is the number most likely to be wrong, and it must not ship unswept.**
 Two independent corrections landed on it after the draft, and both push down:
@@ -1255,13 +1262,24 @@ the first thing to add if the arrival turns out to feel like nothing.**
   fleet-facing `danger` and leaves the tolerance bands alone. The literal version costs the galaxy
   sheet's seed-purity promise, four pinned distribution rows and the probe's price, and it is a
   galaxy-sheet revision rather than a slice.
-- **`EXTRACTION_PER_HOUR = 40`, and it must not ship unswept.** It is the single number that decides
-  whether this is a strategy layer or an economy rewrite, and the row to read is crystal sole-blocker
-  hours over the fortnight against today's 273 of 336.
+- ~~**`EXTRACTION_PER_HOUR = 40`, and it must not ship unswept.**~~ — **swept and halved to 20 before
+  0.3.0 merged**, balance-log round 17. The crystal sole-blocker column turned out unable to size it —
+  every cell of the 12-cell grid landed inside round 12's ~50-hour noise band, because an adaptive
+  player gathers crystal only while crystal is short, so a higher rate buys *fewer* crystal runs rather
+  than less scarcity. What sized it was the fleet-first purchase order.
 - **Whether crystal scarcity is load-bearing or a problem to be solved.** Rounds 13 through 16 all call
   it the biggest open item; this mechanic relieves it deliberately. If it is meant to stay a wall —
   because it is what makes both research branches feel expensive — the hold should be smaller and the
   fleet should lean on metal, which changes §4 and nothing else.
+- ~~**The hauler's price.**~~ — **decided 2026-08-10 at 1,000 metal / 250 crystal on its own ×1.5
+  curve**, rejecting Design's 240 / 60 by roughly an order of magnitude. The comparison that decides it
+  is hauler against **the four skiffs it replaces**, not against one skiff: a hauler is strictly worse
+  per berth at every target and window (0.33–0.98), so its entire case is price, and 240 is 60 per berth
+  against 243 for the four skiffs it displaces — it would dominate on arrival and delete the
+  composition decision. 1,000 puts the crossover in *ownership*: skiffs early, haulers at scale.
+  Marked for the slice-4 sweep and **not implemented**, because the hauler is slice 4.
+- **The hauler's extraction constant** is still owed — the sheet gives it four berths and half a
+  skiff's speed and no rate.
 - **Two hulls or one, and their names.** `SKIFF` and `HAULER` are the build's invention and become
   on-disk identifiers on the first merge. The four constants are free to rename **today and once**,
   because nothing has ever written one to disk; after the first hull a real player owns, a rename is a

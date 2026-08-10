@@ -6,6 +6,8 @@ import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -15,17 +17,22 @@ import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchBalance
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.Uniform
+import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
@@ -35,6 +42,7 @@ import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.verdictFor
@@ -61,6 +69,7 @@ fun main() {
     printGalaxyReport()
     printDemandReport()
     printOpeningReport()
+    printFleetReport()
     printCheckInPressureReport()
     printInteractionCensus()
     printGateClock()
@@ -1080,6 +1089,1020 @@ private fun openingReport(withProbes: Boolean) {
     println()
 }
 
+// ── The fleet, measured ──────────────────────────────────────────────────────────────────────
+//
+// `EXTRACTION_PER_HOUR = 40` was written at a keyboard against a colony 0.2.7 deleted, and the fleet
+// sheet's §9 says in as many words that it *"must not ship unswept"*. This report is the sweep.
+//
+// **Three rules it inherits from this file's own mistakes**, all three from the sheet's §6:
+//
+// 1. **The no-fleet column is in the same run.** A gathering fleet moves every other reading in the
+//    harness — levels at 48h, the gate clock, blocker hours — so a run that measures idleness while
+//    also getting richer cannot say which change did what. Probes are on in *both* columns, because
+//    probes shipped: the fleet is the only variable.
+// 2. **A third ledger.** `colonyBusy` and `probeBusy` are kept apart so a new verb cannot take credit
+//    for fixing a complaint it does not touch; `fleetBusy` joins them, and what is printed is the
+//    share of covered time each one is the **only** thing covering. A fleet that only flies while a
+//    build is running has bought nothing back, and no total can show that.
+// 3. **Kinds first, count second.** A dispatch is one verb with many targets, exactly as a probe is.
+//
+// **Fleet income is reported against metal and against crystal separately, never against the priced
+// basket.** That is the correction that matters most and the draft got it wrong: 34 priced/hour taken
+// as crystal is ~47% of a genesis colony's crystal income and only ~16% of the basket.
+//
+// **The instrument caveat, stated where it bites.** Every report in this file except
+// `printFirstSitting` checks in every three hours or less often, so all of them are structurally
+// blind to anything shorter than the gap — and the 1h and 3h window rungs are shorter. Nothing below
+// measures the 1h rung at all, and the 3h rung only appears when a gap is short enough to ask for it.
+
+// The two numbers under sweep. `EXTRACTION_PER_HOUR` and the hull base are `core` constants, so the
+// harness carries a replica of the two arithmetics they enter and **checks the replica against `core`
+// on every single call at the shipped values** — see `cargoAt` and `hullCostAt`. A sweep that quietly
+// disagreed with the game would be worse than no sweep.
+private class FleetTuning(
+    val extractionPerHour: Long,
+    val hullBaseMetal: Long,
+) {
+    // The sheet's 1 : 4, held across the sweep so the hull base is one dial rather than two.
+    val hullBaseCrystal: Long get() = hullBaseMetal / 4
+
+    val isShippedExtraction: Boolean get() = extractionPerHour == FleetBalance.EXTRACTION_PER_HOUR
+    val isShippedHull: Boolean get() = hullBaseMetal == FleetBalance.HULL_BASE_METAL
+
+    val label: String get() = "extraction $extractionPerHour, hull ${hullBaseMetal}m/${hullBaseCrystal}c"
+}
+
+private val SHIPPED_FLEET = FleetTuning(
+    extractionPerHour = FleetBalance.EXTRACTION_PER_HOUR,
+    hullBaseMetal = FleetBalance.HULL_BASE_METAL,
+)
+
+private val FULL_PLAN = listOf(
+    BuildingType.METAL_MINE,
+    BuildingType.CRYSTAL_MINE,
+    BuildingType.DEUTERIUM_SYNTHESIZER,
+    BuildingType.SOLAR_PLANT,
+    BuildingType.ROBOTICS_FACTORY,
+)
+
+// `FleetBalance.cargo` with the extraction rate lifted out. Every term and the single trailing
+// division are the production function's, copied rather than approximated — and the `check` below is
+// what keeps "copied" true: at the shipped rate this must agree with `core` to the unit, on every
+// dispatch of every run of every sweep row.
+private fun cargoAt(
+    tuning: FleetTuning,
+    world: World,
+    gathering: ResourceKind,
+    ships: Ships,
+    station: Duration,
+    danger: Int,
+): Resources {
+    val stationMinutes = station.inWholeMinutes
+    if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
+    val kept = (100L - 10L * danger).coerceAtLeast(0)
+    val richness = when (gathering) {
+        ResourceKind.METAL -> world.traits.metalRichness
+        ResourceKind.CRYSTAL -> world.traits.crystalRichness
+        ResourceKind.DEUTERIUM -> error("a run never gathers deuterium")
+    }
+    val pricePerUnit = when (gathering) {
+        ResourceKind.METAL -> 1L
+        ResourceKind.CRYSTAL -> 2L
+        ResourceKind.DEUTERIUM -> 3L
+    }
+    val numerator = ships.total.toLong() * tuning.extractionPerHour * stationMinutes *
+        richness.perMillion.toLong() * kept
+    val whole = numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit)
+    val cargo = when (gathering) {
+        ResourceKind.METAL -> Resources.of(metal = whole)
+        ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
+        ResourceKind.DEUTERIUM -> error("unreachable")
+    }
+    if (tuning.isShippedExtraction) {
+        check(cargo == FleetBalance.cargo(world, gathering, ships, station, danger)) {
+            "the harness's hold replica disagrees with FleetBalance.cargo: $cargo"
+        }
+    }
+    return cargo
+}
+
+// `Curves.compound` is `internal`, so the sweep carries its own copy of the one rule that matters —
+// flooring at every step, never once at the end — checked against `FleetBalance.shipCost` at the
+// shipped base the same way the hold is.
+private fun hullCostAt(tuning: FleetTuning, alreadyOwned: Int): Resources {
+    fun compounded(base: Long): Long {
+        var value = base
+        repeat(alreadyOwned) { value = value * 3 / 2 }
+        return value
+    }
+    val cost = Resources.of(metal = compounded(tuning.hullBaseMetal), crystal = compounded(tuning.hullBaseCrystal))
+    if (tuning.isShippedHull) {
+        check(cost == FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned)) {
+            "the harness's hull replica disagrees with FleetBalance.shipCost: $cost"
+        }
+    }
+    return cost
+}
+
+// Minute-resolution coverage, one array per ledger. The interval helpers above answer "how much of
+// the window was covered"; this one answers "covered by *which*", which is the question the third
+// ledger exists to make askable and which no merged total can reach.
+private class Coverage(val minutes: Int) {
+    val on: BooleanArray = BooleanArray(minutes)
+
+    fun add(from: Instant, to: Instant, origin: Instant) {
+        val start = (from - origin).inWholeMinutes.coerceIn(0, minutes.toLong()).toInt()
+        val end = (to - origin).inWholeMinutes.coerceIn(0, minutes.toLong()).toInt()
+        for (minute in start until end) on[minute] = true
+    }
+
+    fun soleAgainst(first: Coverage, second: Coverage): Int =
+        (0 until minutes).count { on[it] && !first.on[it] && !second.on[it] }
+
+    val covered: Int get() = on.count { it }
+}
+
+private class FleetOutcome(
+    val days: Int,
+    val withFleet: Boolean,
+    val tuning: FleetTuning,
+    val levels: Int,
+    val robotics: Int,
+    val roboticsFourAtHour: Int?,
+    val dispatches: Int,
+    val hullsOwned: Int,
+    val hullSpendPriced: Long,
+    val shipMinutesCommitted: Long,
+    val shipMinutesOwned: Long,
+    val fleetMetal: Long,
+    val fleetCrystal: Long,
+    val colonyMetal: Long,
+    val colonyCrystal: Long,
+    val colonyIdleMinutes: Long,
+    val nothingAtAllMinutes: Long,
+    val longestSilenceMinutes: Long,
+    val colonyCover: Coverage,
+    val probeCover: Coverage,
+    val fleetCover: Coverage,
+    val targetsChosen: Map<GalaxyCoordinate, Int>,
+    val windowsChosen: Map<Duration, Int>,
+    val bandsChosen: Map<Int, Int>,
+    val bandsSurveyed: Map<Int, Int>,
+    val gatheringChosen: Map<ResourceKind, Int>,
+    val ledger: Ledger,
+    val bookedMinutes: List<Long>,
+    val censusBarriers: Map<String, MutableMap<Barrier, Int>>,
+    val closingStock: Resources,
+) {
+    val dutyCycle: String
+        get() = if (shipMinutesOwned == 0L) "—" else share(shipMinutesCommitted, shipMinutesOwned)
+
+    val fleetMetalShare: String get() = share(fleetMetal, colonyMetal)
+    val fleetCrystalShare: String get() = share(fleetCrystal, colonyCrystal)
+
+    val coveredMinutes: Int
+        get() = (0 until colonyCover.minutes).count { colonyCover.on[it] || probeCover.on[it] || fleetCover.on[it] }
+}
+
+// One decimal, which is all the precision any of these ratios carries.
+private fun share(part: Long, whole: Long): String {
+    if (whole <= 0) return "—"
+    val tenths = part * 1_000 / whole
+    return "${tenths / 10}.${tenths % 10}%"
+}
+
+// What the run picked, so the dispatch can be priced before it is committed.
+private class Dispatch(
+    val target: GalaxyCoordinate,
+    val window: Duration,
+    val gathering: ResourceKind,
+    val cargo: Resources,
+)
+
+// **The strategy, stated rather than implied.** A player who understands the verb picks the window
+// from the absence they are about to take, then sends every hull sitting in dock to the world that
+// fills them fullest at that window, in the currency the colony is short of.
+//
+// **The window is chosen first, and that ordering is load-bearing.** Choosing it per target instead
+// lets a world whose only rung is 24h claim a 24-hour station against a four-hour gap and win on
+// station time alone — which is the strategy overshooting the absence, not the map being interesting.
+// With the rung fixed first, distance and richness compete on the same clock.
+//
+// The target search maximises the hold in the chosen currency, which is the same as maximising the
+// priced hold once the currency is fixed. Ties break on the coordinate, so the run is reproducible.
+// The two readings of *"the window that best matches the gap"*, and they are not the same strategy.
+//
+// `HOME_WHEN_I_LOOK` takes the longest rung that still fits inside the absence, so the hulls are in
+// dock at the next check-in and can go straight back out. `COVER_THE_GAP` takes the shortest rung that
+// outlasts it, so nothing is ever idle but the cargo lands while the player is away and the hulls are
+// unavailable at the next visit. Both are defensible; they differ by ~20 points of duty cycle and by
+// which rungs of the ladder are ever used at all, so the report prints both rather than choosing.
+private enum class WindowPolicy { HOME_WHEN_I_LOOK, COVER_THE_GAP }
+
+private fun windowFor(policy: WindowPolicy, gapMinutes: Long): Duration = when (policy) {
+    WindowPolicy.HOME_WHEN_I_LOOK ->
+        FleetBalance.WINDOWS.lastOrNull { it.inWholeMinutes <= gapMinutes } ?: FleetBalance.WINDOWS.first()
+    WindowPolicy.COVER_THE_GAP ->
+        FleetBalance.WINDOWS.firstOrNull { it.inWholeMinutes >= gapMinutes } ?: FleetBalance.WINDOWS.last()
+}
+
+private fun bestDispatch(
+    state: GameState,
+    ships: Ships,
+    window: Duration,
+    gathering: ResourceKind,
+    tuning: FleetTuning,
+): Dispatch? {
+    val home = state.galaxy.home
+    var best: Dispatch? = null
+    val candidates = state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))
+    for (target in candidates) {
+        if (target == home || state.galaxy.holderOf(target) != null) continue
+        val world = worldAt(state.galaxy.seed, target) ?: continue
+        val offered = FleetBalance.windowsFor(home, target)
+        // A target that cannot be reached inside the chosen absence is simply not on the list, which
+        // is what the narrowing ladder says on the screen.
+        if (window !in offered) continue
+        val station = FleetBalance.stationFor(home, target, window)
+        val cargo = cargoAt(tuning, world, gathering, ships, station, FleetBalance.danger(home, world))
+        if (best == null || priced(cargo) > priced(best.cargo)) {
+            best = Dispatch(target = target, window = window, gathering = gathering, cargo = cargo)
+        }
+    }
+    return best
+}
+
+private fun ownedSkiffs(state: GameState): Int =
+    state.ships.countOf(ShipType.SKIFF) + state.runs.sumOf { it.ships.countOf(ShipType.SKIFF) }
+
+// One runner, two lengths, one variable. The colony's rule is the harness's usual one — everything
+// affordable, cheapest first — and the fleet's is the paragraph above. Measurement is hourly; acting
+// is at the four times a day the brief designs for.
+//
+// **A hull is bought before the buildings, at most one per check-in.** Both halves are deliberate and
+// both follow a precedent already in this file: the probe is bought first *"which is the pessimistic
+// ordering on purpose"*, so what it costs the colony shows up in the level count rather than hiding
+// behind a full queue; and one per check-in is the probe's rule too — a statement about how a person
+// plays rather than about what the game allows.
+//
+// **The purchase is a `state.copy` rather than a verb, because `buildShips` is slice 3.** The price is
+// `FleetBalance.shipCost` and nothing else about it is invented; no `ShipsBuilt` event is appended,
+// which nothing in this harness reads.
+//
+// **`hourlyColony` is the one knob that is not about the fleet, and it exists because the two
+// questions want different colonies.** The opening's readings — idleness, what a check-in booked,
+// duty cycle — are only meaningful for a player who acts when they look, so they are measured at four
+// a day. The fortnight's blocker ledger is quoted in the balance log against the hour-stepped
+// whole-tree bot, and at four a day that reading *inverts*: the colony sits on banked stock between
+// visits and reads metal-blocked where the hourly bot reads crystal-blocked. So the fortnight column
+// keeps the hourly colony and reproduces the number it is being compared with. The fleet and the
+// probe act four times a day in both.
+private fun fleetRun(
+    days: Int,
+    withFleet: Boolean,
+    tuning: FleetTuning,
+    hourlyColony: Boolean = false,
+    withProbes: Boolean = true,
+    policy: WindowPolicy = WindowPolicy.HOME_WHEN_I_LOOK,
+    // Null is the adaptive rule — crystal when the colony is short of it, metal otherwise — which is
+    // what a player does. Forcing one is how the sweep gets a **crystal** income share at all: at four
+    // a day the opening colony is never crystal-short, so the adaptive player gathers metal for the
+    // whole of the first 48 hours and §4's binding row would read 0.0% at every candidate rate.
+    forceGathering: ResourceKind? = null,
+    hullsFirst: Boolean = false,
+): FleetOutcome {
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    val end = genesis + (days * 24).hours
+    val totalMinutes = days * 24 * 60
+    var now = genesis
+    val startingStock = state.resources
+
+    val ledger = Ledger()
+    val colonyBusy = mutableListOf<Pair<Instant, Instant>>()
+    val probeBusy = mutableListOf<Pair<Instant, Instant>>()
+    val fleetBusy = mutableListOf<Pair<Instant, Instant>>()
+    val colonyCover = Coverage(totalMinutes)
+    val probeCover = Coverage(totalMinutes)
+    val fleetCover = Coverage(totalMinutes)
+
+    var probeSpendMetal = 0L
+    var hullSpendMetal = 0L
+    var hullSpendCrystal = 0L
+    var dispatches = 0
+    var shipMinutesCommitted = 0L
+    var shipMinutesOwned = 0L
+    var roboticsFourAtHour: Int? = null
+    val targetsChosen = linkedMapOf<GalaxyCoordinate, Int>()
+    val windowsChosen = linkedMapOf<Duration, Int>()
+    val bandsChosen = linkedMapOf<Int, Int>()
+    val gatheringChosen = linkedMapOf<ResourceKind, Int>()
+    val bookedMinutes = mutableListOf<Long>()
+    val censusBarriers = linkedMapOf<String, MutableMap<Barrier, Int>>()
+
+    val offsets = (0 until days).flatMap { day -> CHECK_IN_HOURS.map { day * 24 + it } }
+    val checkIns = offsets.toSet()
+    // Read at the top of a check-in — the moment the player is looking at, before anything is spent —
+    // and consumed further down when the dispatch picks its currency.
+    var shortOfCrystal = false
+
+    for (hour in 0 until days * 24) {
+        val at = genesis + hour.hours
+        state = advance(state, from = now, to = at)
+        now = at
+        if (state.buildings.roboticsFactory.value >= 4 && roboticsFourAtHour == null) roboticsFourAtHour = hour
+
+        if (hour in checkIns) {
+            val gapMinutes = ((offsets.firstOrNull { it > hour } ?: (days * 24)) - hour) * 60L
+
+            // Read before the check-in spends anything — the moment the player is looking at, which
+            // is the harness's own convention for every screen-shaped reading.
+            val visible = optionsFor(state, FULL_PLAN, withProjects = true)
+            val wantedNow = (visible.buildings + visible.projects).map { it.second }
+            shortOfCrystal = wantedNow.any { Blocker.CRYSTAL in shortagesOf(it, state.resources) }
+
+            for ((kind, row) in censusOf(state, if (withFleet) tuning else null).byKind) {
+                val into = censusBarriers.getOrPut(kind) { Barrier.entries.associateWith { 0 }.toMutableMap() }
+                for (barrier in Barrier.entries) into[barrier] = into.getValue(barrier) + row.getValue(barrier)
+            }
+
+            (if (withProbes) probeTargetFor(state, gapMinutes) else null)?.let { target ->
+                (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { started ->
+                    state = started.state
+                    val job = state.surveys.last()
+                    probeBusy += now to job.completesAt
+                    probeCover.add(now, job.completesAt, genesis)
+                    probeSpendMetal += SurveyBalance.COST_METAL
+                }
+            }
+
+            if (withFleet && hullsFirst) {
+                while (true) {
+                    val hullCost = hullCostAt(tuning, ownedSkiffs(state))
+                    if (!state.resources.covers(hullCost)) break
+                    state = state.copy(
+                        resources = state.resources - hullCost,
+                        ships = state.ships + Ships.of(ShipType.SKIFF, 1),
+                    )
+                    hullSpendMetal += hullCost.metal
+                    hullSpendCrystal += hullCost.crystal
+                }
+            }
+        }
+
+        // The colony's own buying. **Hulls come out of what is left after it**, which is the sheet's
+        // own account of why the fleet gets bought at all: *"`startUpgrade` refuses a facility that is
+        // already building, so a check-in that has tapped all six has nowhere left to put its metal."*
+        // The probe's pessimistic ordering does not transfer — a probe is one fixed 150-metal purchase
+        // and a greedy hull loop in front of the buildings would take every spare unit the colony has,
+        // which measures the ordering rather than the price. `hullsFirst` prints that variant so the
+        // difference is a number instead of an argument.
+        if (hourlyColony || hour in checkIns) {
+            for ((building, cost) in optionsFor(state, FULL_PLAN, withProjects = true).buildings) {
+                if (!state.resources.covers(cost)) continue
+                (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { started ->
+                    state = started.state
+                    ledger.spend(cost)
+                    state.builds[building]?.let { job ->
+                        colonyBusy += now to job.completesAt
+                        colonyCover.add(now, job.completesAt, genesis)
+                    }
+                }
+            }
+            for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
+                if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+                when (project) {
+                    is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                        ?.let { state = it.state; ledger.spend(cost) }
+                    is AdaptationTechnology ->
+                        (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                            ?.let { state = it.state; ledger.spend(cost) }
+                }
+                state.researchSlotFreesAt?.let { freesAt ->
+                    colonyBusy += now to freesAt
+                    colonyCover.add(now, freesAt, genesis)
+                }
+            }
+        }
+
+        if (hour in checkIns) {
+            val gapMinutes = ((offsets.firstOrNull { it > hour } ?: (days * 24)) - hour) * 60L
+            if (withFleet) {
+                // **Greedy, not one per check-in**, and the difference decides whether the hull-base
+                // sweep measures anything: capped at one a visit the fleet reaches the same size at
+                // every price, so the curve's own bound is never tested and the sweep reports the cap.
+                if (!hullsFirst) {
+                    while (true) {
+                        val hullCost = hullCostAt(tuning, ownedSkiffs(state))
+                        if (!state.resources.covers(hullCost)) break
+                        state = state.copy(
+                            resources = state.resources - hullCost,
+                            ships = state.ships + Ships.of(ShipType.SKIFF, 1),
+                        )
+                        hullSpendMetal += hullCost.metal
+                        hullSpendCrystal += hullCost.crystal
+                    }
+                }
+
+                val idle = state.ships.countOf(ShipType.SKIFF)
+                if (idle > 0) {
+                    val manifest = Ships.of(ShipType.SKIFF, idle)
+                    // Crystal when the colony is short of crystal for something it wants right now,
+                    // metal otherwise. A rule rather than a judgement, and it is the whole reason the
+                    // payout is one currency: strip that away and there is nothing to choose.
+                    val gathering = forceGathering
+                        ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
+                    val choice = bestDispatch(state, manifest, windowFor(policy, gapMinutes), gathering, tuning)
+                    if (choice != null) {
+                        val result = startRun(
+                            state = state,
+                            target = choice.target,
+                            gathering = choice.gathering,
+                            ships = manifest,
+                            window = choice.window,
+                            at = now,
+                        )
+                        if (result is StartRunResult.Started) {
+                            var next = result.state
+                            val run = next.runs.last()
+                            if (tuning.isShippedExtraction) {
+                                check(run.cargo == choice.cargo) {
+                                    "startRun priced the hold at ${run.cargo}, the sweep at ${choice.cargo}"
+                                }
+                            } else {
+                                next = next.copy(runs = next.runs.dropLast(1) + run.copy(cargo = choice.cargo))
+                            }
+                            state = next
+                            val returnsAt = now + choice.window
+                            fleetBusy += now to returnsAt
+                            fleetCover.add(now, returnsAt, genesis)
+                            dispatches++
+                            shipMinutesCommitted += manifest.total *
+                                (minOf(returnsAt, end) - now).inWholeMinutes
+                            targetsChosen[choice.target] = (targetsChosen[choice.target] ?: 0) + 1
+                            windowsChosen[choice.window] = (windowsChosen[choice.window] ?: 0) + 1
+                            val band = FleetBalance.distanceBand(state.galaxy.home, choice.target)
+                            bandsChosen[band] = (bandsChosen[band] ?: 0) + 1
+                            gatheringChosen[gathering] = (gatheringChosen[gathering] ?: 0) + 1
+                        }
+                    }
+                }
+            }
+
+            bookedMinutes += futureEvents(state).lastOrNull()?.let { (it.at - now).inWholeMinutes } ?: 0L
+        }
+
+        shipMinutesOwned += ownedSkiffs(state) * 60L
+        val remaining = optionsFor(state, FULL_PLAN, withProjects = true)
+        ledger.record((remaining.buildings + remaining.projects).map { it.second }, state.resources)
+    }
+
+    state = advance(state, from = now, to = end)
+    if (state.buildings.roboticsFactory.value >= 4 && roboticsFourAtHour == null) roboticsFourAtHour = days * 24
+
+    // What actually landed, read off the log rather than off the dispatches — a run still in flight at
+    // the end of the window has delivered nothing and must not be counted as if it had.
+    val delivered = state.eventLog.filterIsInstance<Event.FleetReturned>()
+    val fleetMetal = delivered.sumOf { it.cargo.metal }
+    val fleetCrystal = delivered.sumOf { it.cargo.crystal }
+
+    // **The colony's own income, by the accrual identity rather than by sampling a rate.** Everything
+    // the mines made is either still in the store, already spent, or was never theirs — so
+    // `(closing − opening) + spent − delivered` is exact, where a per-hour sample would miss every
+    // level that completed between two samples. Safe because the store never approaches its cap: the
+    // deepest run in this file closes on 293k against a 10,000,000 ceiling.
+    val spentMetal = ledger.spentMetal + probeSpendMetal + hullSpendMetal
+    val spentCrystal = ledger.spentCrystal + hullSpendCrystal
+    val colonyMetal = state.resources.metal - startingStock.metal + spentMetal - fleetMetal
+    val colonyCrystal = state.resources.crystal - startingStock.crystal + spentCrystal - fleetCrystal
+
+    return FleetOutcome(
+        days = days,
+        withFleet = withFleet,
+        tuning = tuning,
+        levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value },
+        robotics = state.buildings.roboticsFactory.value,
+        roboticsFourAtHour = roboticsFourAtHour,
+        dispatches = dispatches,
+        hullsOwned = ownedSkiffs(state),
+        hullSpendPriced = hullSpendMetal + 2 * hullSpendCrystal,
+        shipMinutesCommitted = shipMinutesCommitted,
+        shipMinutesOwned = shipMinutesOwned,
+        fleetMetal = fleetMetal,
+        fleetCrystal = fleetCrystal,
+        colonyMetal = colonyMetal,
+        colonyCrystal = colonyCrystal,
+        colonyIdleMinutes = idleMinutes(colonyBusy, genesis, end),
+        nothingAtAllMinutes = idleMinutes(colonyBusy + probeBusy + fleetBusy, genesis, end),
+        longestSilenceMinutes = longestIdleRun(colonyBusy + probeBusy + fleetBusy, genesis, end),
+        colonyCover = colonyCover,
+        probeCover = probeCover,
+        fleetCover = fleetCover,
+        targetsChosen = targetsChosen,
+        windowsChosen = windowsChosen,
+        bandsChosen = bandsChosen,
+        // What the probes actually put within reach, so the chosen-band row can be read against the
+        // available ones rather than against a hope. The probe aims at the longest flight that still
+        // lands before the next check-in, so the surveyed set is the home system plus a scatter of
+        // distant ones — there is very little in between, and that is a property of the probe's own
+        // strategy rather than of the map.
+        bandsSurveyed = state.galaxy.surveyed
+            .groupingBy { FleetBalance.distanceBand(state.galaxy.home, it) }
+            .eachCount()
+            .toSortedMap(),
+        gatheringChosen = gatheringChosen,
+        ledger = ledger,
+        bookedMinutes = bookedMinutes,
+        censusBarriers = censusBarriers,
+        closingStock = state.resources,
+    )
+}
+
+private fun printFleetReport() {
+    println("## The fleet, as the player meets it")
+    println()
+    println("Four check-ins a day (08:00 / 13:00 / 19:00 / 23:00), measured hourly. The colony's rule")
+    println("is the harness's usual one — everything affordable, cheapest first — and probes are on in")
+    println("**both** columns, because probes shipped. The fleet is the only variable.")
+    println()
+    println("The fleet's rule, in one sentence: **buy hulls while the next one is affordable, before")
+    println("anything else, then pick the longest window rung that still fits inside the gap until the")
+    println("next check-in, and send every idle skiff to the world that fills them fullest at that")
+    println("rung, in the currency the colony is short of.** Greedy and bought first, which is the")
+    println("harness's rule for everything else and the probe's pessimistic ordering — so what the")
+    println("fleet costs shows up in the level count rather than hiding behind a full build queue, and")
+    println("the size of the fleet is set by the hull curve rather than by a cap this file invented.")
+    println("The alternative reading of \"match the gap\" is measured two tables down.")
+    println()
+    println("**Caveat, and it is structural.** This runner checks in four times a day, so the gaps it")
+    println("has to fill are 5h, 6h, 4h and 9h — which means it **never asks for the 1h rung and")
+    println("never asks for the 24h one.** The opening arc of the ladder and the frontier end of it")
+    println("are both outside this instrument, and no report in this file except `printFirstSitting`")
+    println("can see anything shorter than its own gap.")
+    println()
+
+    val control = fleetRun(days = 2, withFleet = false, tuning = SHIPPED_FLEET)
+    val fleet = fleetRun(days = 2, withFleet = true, tuning = SHIPPED_FLEET)
+    val controlFortnight = fleetRun(days = 14, withFleet = false, tuning = SHIPPED_FLEET, hourlyColony = true)
+    val fleetFortnight = fleetRun(days = 14, withFleet = true, tuning = SHIPPED_FLEET, hourlyColony = true)
+
+    println("| Reading, over 48h | no fleet | **with fleet** |")
+    println("|---|---|---|")
+    printFleetPair("Hours the **colony** had nothing in flight", control, fleet) {
+        "${it.colonyIdleMinutes / 60}h (${percent((it.colonyIdleMinutes / 60).toInt(), it.days * 24)})"
+    }
+    printFleetPair("Hours with **nothing at all** in flight", control, fleet) {
+        "${it.nothingAtAllMinutes / 60}h (${percent((it.nothingAtAllMinutes / 60).toInt(), it.days * 24)})"
+    }
+    printFleetPair("Longest unbroken silence", control, fleet) { it.longestSilenceMinutes.asWait() }
+    printFleetPair("**Fleet duty cycle** — ship-hours committed / owned", control, fleet) { it.dutyCycle }
+    printFleetPair("Dispatches", control, fleet) { "${it.dispatches}" }
+    printFleetPair("Hulls owned at 48h", control, fleet) { "${it.hullsOwned}" }
+    printFleetPair("Priced spent on hulls", control, fleet) { it.hullSpendPriced.grouped() }
+    printFleetPair("Fleet metal delivered", control, fleet) { it.fleetMetal.grouped() }
+    printFleetPair("Fleet crystal delivered", control, fleet) { it.fleetCrystal.grouped() }
+    printFleetPair("**Fleet metal as a share of colony metal income**", control, fleet) { it.fleetMetalShare }
+    printFleetPair("**Fleet crystal as a share of colony crystal income**", control, fleet) { it.fleetCrystalShare }
+    printFleetPair("Median work a check-in booked", control, fleet) { "${it.bookedMinutes.median()} min" }
+    printFleetPair("Building levels at 48h", control, fleet) { "${it.levels} (robotics ${it.robotics})" }
+    printFleetPair("Closing metal", control, fleet) { it.closingStock.metal.grouped() }
+    printFleetPair("Closing crystal", control, fleet) { it.closingStock.crystal.grouped() }
+    println()
+
+    println("Same pair over a fortnight, **with the hour-stepped colony** — the whole-tree bot the")
+    println("balance log's blocker numbers are quoted against, so `no fleet` here should reproduce")
+    println("them. The fleet still acts four times a day. At four a day the colony banks stock between")
+    println("visits and the ledger reads metal-blocked where the hourly one reads crystal-blocked, so")
+    println("this column would say the opposite of the log's about the same game.")
+    println()
+    println("| Reading, over 14 days | no fleet | **with fleet** |")
+    println("|---|---|---|")
+    printFleetPair("Robotics 4 reached", controlFortnight, fleetFortnight) {
+        it.roboticsFourAtHour?.let { hour -> "hour $hour" } ?: "**never**"
+    }
+    for (blocker in Blocker.entries) {
+        printFleetPair("Hours blocked by ${blocker.name.lowercase()} **alone**, of 336", controlFortnight, fleetFortnight) {
+            "${it.ledger.soleBlockerHours.getValue(blocker)}"
+        }
+    }
+    for (blocker in Blocker.entries) {
+        printFleetPair("Hours short of ${blocker.name.lowercase()} at all, of 336", controlFortnight, fleetFortnight) {
+            "${it.ledger.shortHours.getValue(blocker)}"
+        }
+    }
+    printFleetPair("Building levels at 14d", controlFortnight, fleetFortnight) { "${it.levels}" }
+    printFleetPair("Dispatches", controlFortnight, fleetFortnight) { "${it.dispatches}" }
+    printFleetPair("Hulls owned", controlFortnight, fleetFortnight) { "${it.hullsOwned}" }
+    printFleetPair("Fleet duty cycle", controlFortnight, fleetFortnight) { it.dutyCycle }
+    printFleetPair("Fleet metal / colony metal", controlFortnight, fleetFortnight) { it.fleetMetalShare }
+    printFleetPair("Fleet crystal / colony crystal", controlFortnight, fleetFortnight) { it.fleetCrystalShare }
+    println()
+
+    // **What the probe costs the blocker ledger, isolated — because it is not small.** The balance
+    // log's 273 of 336 comes from a fortnight with no probes in it, and the sole-blocker reading is
+    // the brittle one the harness's own comment warns about: *"'short of this resource and nothing
+    // else' is a knife-edge on which purchase happens to be next."* Sixty-odd probes at 150 metal
+    // each is 0.9% of the metal this run spends and it reorders the queue anyway.
+    val noProbes = fleetRun(days = 14, withFleet = false, tuning = SHIPPED_FLEET, hourlyColony = true, withProbes = false)
+    println("Control, hour-stepped colony, **no probes either** — the closest this runner gets to the")
+    println("`printWholeTreeRun` the log's numbers come from: crystal alone " +
+        "**${noProbes.ledger.soleBlockerHours.getValue(Blocker.CRYSTAL)}**, metal alone " +
+        "**${noProbes.ledger.soleBlockerHours.getValue(Blocker.METAL)}**, crystal short at all " +
+        "**${noProbes.ledger.shortHours.getValue(Blocker.CRYSTAL)}**, of 336. The log's whole-tree run " +
+        "reads 273 / 39 / 320; the residual gap is that this runner acts at hour 0 where that one " +
+        "first acts at hour 1. **So read the crystal column against the control in this table, never " +
+        "against 273.**")
+    println()
+
+    printThreeLedgers(fleet)
+    printWindowPolicies()
+    printFleetSpread(fleet, fleetFortnight)
+    printFleetCensus(fleet)
+    printSkiffAgainstColony()
+    printHullAgainstMine(fleet)
+    printFleetSweeps()
+}
+
+// **§4's own invariant, measured — and it is the sharpest thing in this report.** The sheet says
+// *"the mine is the better rate buy, permanently and by construction — and the fleet is bought
+// anyway"*, and §6 asks for a `BalanceCurveTest` that pins it: *the fleet's priced return per priced
+// unit spent stays below a mine level's at every depth.* Neither the sheet nor the test says what the
+// rate has to be for that to be **true**, and it is not true at every rate.
+//
+// A hull returns `EXTRACTION_PER_HOUR x dutyCycle` priced units an hour and costs what the curve says,
+// so its payback is a division. The mine it competes with is the Metal Mine level the colony actually
+// holds at the check-in where that hull gets bought — read off the run rather than assumed.
+private fun printHullAgainstMine(measured: FleetOutcome) {
+    val duty = if (measured.shipMinutesOwned == 0L) 0.0
+    else measured.shipMinutesCommitted.toDouble() / measured.shipMinutesOwned
+
+    // Which Metal Mine level the colony is on at each check-in, from the no-fleet control — so the
+    // comparison is against the buy the player would otherwise have made at that exact moment.
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val mineLevelAt = mutableListOf<Int>()
+    val offsets = (0 until 2).flatMap { day -> CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+        mineLevelAt += state.buildings.levelOf(BuildingType.METAL_MINE).value
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: 48) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, FULL_PLAN, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+    }
+
+    println("### The hull against the mine of the day")
+    println()
+    println("A hull returns `EXTRACTION_PER_HOUR x duty cycle` priced units an hour — the measured duty")
+    println("cycle is ${share(measured.shipMinutesCommitted, measured.shipMinutesOwned)} — so its payback")
+    println("is a division. The last column is the payback of the **Metal Mine level the colony is")
+    println("actually on** at the check-in where that hull gets bought, which is the buy the fleet is")
+    println("competing with at that exact moment.")
+    println()
+    println("**The rule the sheet asserts is that the mine always wins. A cell in bold is a cell where")
+    println("it does not.**")
+    println()
+    println("| Nth skiff | priced cost | payback at 10 | at 20 | at 30 | at 40 | the mine that day |")
+    println("|---|---|---|---|---|---|---|")
+    for (nth in 2..9) {
+        val cost = priced(FleetBalance.shipCost(ShipType.SKIFF, nth - 1))
+        val mineLevel = mineLevelAt.getOrElse(nth - 2) { mineLevelAt.last() }
+        val minePayback = pricedPaybackHours(BuildingType.METAL_MINE, mineLevel)
+        val cells = listOf(10L, 20L, 30L, 40L).joinToString(" | ") { rate ->
+            val payback = cost / (rate * duty)
+            val hours = (payback * 10).toLong()
+            val text = "${hours / 10}.${hours % 10}h"
+            if (payback < minePayback) "**$text**" else text
+        }
+        println("| $nth | ${cost.grouped()} | $cells | Metal Mine $mineLevel -> ${mineLevel + 1}: ${minePayback}h |")
+    }
+    println()
+}
+
+// **The sizing measurement, and it depends on no strategy at all.** Every reading above is a property
+// of the scripted player: how many hulls it bought, which currency it happened to want, how full its
+// duty cycle ran. This one is a property of the *constant* — what one hull brings home against what
+// the colony makes at that moment — which is the question §4 says the draft answered against a colony
+// 0.2.7 deleted and against the priced basket rather than the chosen currency.
+//
+// The crystal column is the binding one. A hold of N priced units is N metal **or N/2 crystal**, and
+// the colony makes metal 2.5 : 1 over crystal — so the same run is worth ~1.25x more of the colony's
+// crystal hour than of its metal hour. Reading the basket hides exactly that factor.
+private fun printSkiffAgainstColony() {
+    println("### What one skiff is worth against the colony that receives it")
+    println()
+    println("A single hull, the 6h rung, at the best surveyed neighbour of the moment, against the")
+    println("colony's own hourly income at the same moment. No strategy in it: this is the constant")
+    println("measured rather than the bot. The colony is the four-a-day no-fleet control.")
+    println()
+    println("| At | colony metal/h | colony crystal/h | one skiff, 6h, as metal | as crystal " +
+        "| = hours of metal income | = hours of **crystal** income |")
+    println("|---|---|---|---|---|---|---|")
+
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val marks = listOf(0, 5, 11, 24, 48, 96, 168)
+    val samples = mutableListOf<Triple<Int, Long, Long>>()
+    val offsets = (0 until 8).flatMap { day -> CHECK_IN_HOURS.map { day * 24 + it } }
+    for ((index, offset) in offsets.withIndex()) {
+        val at = genesis + offset.hours
+        state = advance(state, from = now, to = at)
+        now = at
+
+        if (offset in marks) {
+            val metalPerHour = PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research)
+            val crystalPerHour = PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research)
+            val one = Ships.of(ShipType.SKIFF, 1)
+            val asMetal = bestDispatch(state, one, 6.hours, ResourceKind.METAL, SHIPPED_FLEET)?.cargo?.metal ?: 0
+            val asCrystal = bestDispatch(state, one, 6.hours, ResourceKind.CRYSTAL, SHIPPED_FLEET)?.cargo?.crystal ?: 0
+            samples += Triple(offset, metalPerHour, crystalPerHour)
+            println("| hour $offset | $metalPerHour | $crystalPerHour | ${asMetal.grouped()} " +
+                "| ${asCrystal.grouped()} | ${asMetal * 10 / metalPerHour / 10}." +
+                "${asMetal * 10 / metalPerHour % 10}h | **${asCrystal * 10 / crystalPerHour / 10}." +
+                "${asCrystal * 10 / crystalPerHour % 10}h** |")
+        }
+
+        val gapMinutes = ((offsets.getOrNull(index + 1) ?: (8 * 24)) - offset) * 60L
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, FULL_PLAN, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                    ?.let { state = it.state }
+            }
+        }
+    }
+    println()
+
+    // The same thing as the share §4 actually asks for, at every candidate rate, so the constant can
+    // be read straight off the row rather than inferred from the bot's behaviour.
+    println("A 6h run by one skiff, as a share of one **hour** of the colony's crystal income —")
+    println("§4's binding row, at each candidate rate. A skiff away for six hours delivering six")
+    println("hours of the colony's crystal output is a second colony; delivering one is a top-up.")
+    println()
+    println("| `EXTRACTION_PER_HOUR` | hour 0 | hour 24 | hour 48 | hour 168 |")
+    println("|---|---|---|---|---|")
+    // The hold is linear in the rate and floors once, so scaling the measured 40-rate hold is exact
+    // to within a unit — and the shape is what is being read here rather than the last digit.
+    for (rate in listOf(10L, 20L, 30L, 40L)) {
+        val cells = listOf(0, 24, 48, 168).joinToString(" | ") { mark ->
+            val sample = samples.firstOrNull { it.first == mark }
+            if (sample == null) "—" else {
+                // 5h40m of station at the 6h rung to an own-system neighbour, at richness r.
+                val hold = rate * 340 / 60
+                "${hold * 10 / sample.third / 10}.${hold * 10 / sample.third % 10}h"
+            }
+        }
+        println("| $rate | $cells |")
+    }
+    println()
+    println("*(The second table prices the hold at richness 1.00 and danger 0, so it is the floor of")
+    println("what a real neighbour delivers — the first table's own numbers are the measured ones.)*")
+    println()
+}
+
+// **Is the window a dial or is it decoration?** The two readings of "match the gap" differ by which
+// rungs are ever used, and at a four-a-day cadence the longest gap is nine hours — so under either
+// policy the 24h rung is only reachable by a player who deliberately overshoots. That is what decides
+// whether a far world can ever be a target, because a far world offers no shorter rung.
+private fun printWindowPolicies() {
+    println("### The two ways to read \"the window that best matches the gap\"")
+    println()
+    println("`home when I look` takes the longest rung that fits inside the absence; `cover the gap`")
+    println("takes the shortest rung that outlasts it. Both are honest players. 48h, shipped tuning.")
+    println()
+    println("| Policy | duty cycle | dispatches | rungs used | bands used | fleet metal / colony metal |")
+    println("|---|---|---|---|---|---|")
+    for (policy in WindowPolicy.entries) {
+        val outcome = fleetRun(days = 2, withFleet = true, tuning = SHIPPED_FLEET, policy = policy)
+        val rungs = outcome.windowsChosen.entries.sortedBy { it.key }
+            .joinToString(" ") { "${it.key.label()}×${it.value}" }
+        val bands = outcome.bandsChosen.entries.sortedBy { it.key }.joinToString(" ") { "b${it.key}×${it.value}" }
+        println("| ${policy.name.lowercase().replace('_', ' ')} | ${outcome.dutyCycle} " +
+            "| ${outcome.dispatches} | $rungs | $bands | ${outcome.fleetMetalShare} |")
+    }
+    println()
+
+    // The other free choice in the strategy, printed for the same reason: it moves `levels @48h`,
+    // which is the colony guardrail, so a reader has to be able to see how much of that number is the
+    // hull price and how much is the order the bot spends in.
+    println("And the other free choice — whether hulls are bought **before** the buildings or out of")
+    println("what is left after them. The sheet's own account of why the fleet gets bought is the")
+    println("second one; the probe's precedent is the first.")
+    println()
+    println("**This is the bracket the sizing recommendation has to survive.** A fleet-first player")
+    println("owns more hulls sooner, so the crystal column triples — and a rate is only safe if even")
+    println("that player cannot out-produce their own colony in the currency they chose.")
+    println()
+    println("| Order | rate | levels @48h | hulls @48h | priced on hulls " +
+        "| fleet metal / colony metal | **fleet crystal / colony crystal** |")
+    println("|---|---|---|---|---|---|---|")
+    for (rate in listOf(20L, 40L)) {
+        val tuning = FleetTuning(rate, FleetBalance.HULL_BASE_METAL)
+        for (first in listOf(false, true)) {
+            val outcome = fleetRun(days = 2, withFleet = true, tuning = tuning, hullsFirst = first)
+            val crystal = fleetRun(
+                days = 2,
+                withFleet = true,
+                tuning = tuning,
+                forceGathering = ResourceKind.CRYSTAL,
+                hullsFirst = first,
+            )
+            println("| ${if (first) "hulls first" else "hulls from what is left"} | $rate " +
+                "| ${outcome.levels} | ${outcome.hullsOwned} | ${outcome.hullSpendPriced.grouped()} " +
+                "| ${outcome.fleetMetalShare} | **${crystal.fleetCrystalShare}** |")
+        }
+    }
+    println()
+}
+
+private fun printFleetPair(label: String, control: FleetOutcome, fleet: FleetOutcome, of: (FleetOutcome) -> String) {
+    println("| $label | ${of(control)} | **${of(fleet)}** |")
+}
+
+// **The reading the sheet says decides it, and no total can show it.** A fleet that only flies while a
+// build is running has bought nothing back: the hours were already covered. What is printed is the
+// share of *covered* time each ledger is the only thing covering.
+private fun printThreeLedgers(outcome: FleetOutcome) {
+    println("### Three ledgers, and which one is alone")
+    println()
+    println("`colonyBusy` is mines and the research slot; `probeBusy` is surveys in flight; `fleetBusy`")
+    println("is runs in flight. They are kept apart so a new verb cannot take credit for a complaint it")
+    println("does not touch. Minute resolution over 48 hours.")
+    println()
+    val total = outcome.days * 24 * 60
+    val covered = outcome.coveredMinutes
+    println("| Ledger | Covers | Is the **only** cover for |")
+    println("|---|---|---|")
+    val rows = listOf(
+        "colony" to outcome.colonyCover,
+        "probes" to outcome.probeCover,
+        "fleet" to outcome.fleetCover,
+    )
+    for ((name, cover) in rows) {
+        val others = rows.filter { it.second !== cover }.map { it.second }
+        val sole = cover.soleAgainst(others[0], others[1])
+        println("| $name | ${percent(cover.covered, total)} of the window | " +
+            "**${percent(sole, covered)}** of covered time (${sole / 60}h ${sole % 60}m) |")
+    }
+    println("| *any of them* | ${percent(covered, total)} of the window | — |")
+    println()
+}
+
+// **Wide, or the map is decoration.** If every dispatch goes to the same world on the same rung then
+// distance and the window buy nothing and this is a probe with a cargo hold.
+private fun printFleetSpread(short: FleetOutcome, long: FleetOutcome) {
+    println("### The spread of what was chosen")
+    println()
+    println("| Over | Distinct targets | Distinct windows | Distinct distance bands | Currencies |")
+    println("|---|---|---|---|---|")
+    for (outcome in listOf(short, long)) {
+        println("| ${outcome.days} days, ${outcome.dispatches} dispatches | ${outcome.targetsChosen.size} " +
+            "| ${outcome.windowsChosen.size} | ${outcome.bandsChosen.size} | ${outcome.gatheringChosen.size} |")
+    }
+    println()
+    println("Over the fortnight, in full — targets, then windows, then bands:")
+    println()
+    println("- targets: " + long.targetsChosen.entries
+        .sortedByDescending { it.value }
+        .joinToString { "[${it.key.galaxy}:${it.key.system}:${it.key.slot}] ×${it.value}" })
+    println("- windows: " + long.windowsChosen.entries
+        .sortedBy { it.key }
+        .joinToString { "${it.key.label()} ×${it.value}" })
+    println("- bands chosen: " + long.bandsChosen.entries
+        .sortedBy { it.key }
+        .joinToString { "band ${it.key} ×${it.value}" })
+    println("- bands **available**, of ${long.bandsSurveyed.values.sum()} surveyed worlds: " +
+        long.bandsSurveyed.entries.joinToString { "band ${it.key}: ${it.value}" })
+    println("- gathered: " + long.gatheringChosen.entries
+        .joinToString { "${it.key.name.lowercase()} ×${it.value}" })
+    println()
+}
+
+// Kinds first, count second — the lesson round 8 taught about "median options: 5", applied to the
+// newest verb. A dispatch is one verb with many targets, so `gather` is one row and not twenty-seven.
+private fun printFleetCensus(outcome: FleetOutcome) {
+    println("### The census, with the fleet's two verbs in it")
+    println()
+    println("Counted at the four-a-day cadence over 48 hours, ${outcome.bookedMinutes.size} check-ins.")
+    println("`gather` is **one** verb however many worlds are surveyed, exactly as `survey` is one verb")
+    println("however many systems there are. Its refusals are the informative part: a gather refused")
+    println("for a **slot** means every hull is away, and a gather is never refused for a price.")
+    println()
+    println("| Kind | Offered | Price | Slot | Gate |")
+    println("|---|---|---|---|---|")
+    for ((kind, row) in outcome.censusBarriers) {
+        println("| $kind | ${row.getValue(Barrier.OFFERED)} | ${row.getValue(Barrier.PRICE)} " +
+            "| ${row.getValue(Barrier.SLOT)} | ${row.getValue(Barrier.GATE)} |")
+    }
+    println()
+}
+
+// ── The sweeps ───────────────────────────────────────────────────────────────────────────────
+//
+// One row per candidate, in the shape `SurveyBalance.COST_METAL`'s own comment table takes.
+//
+// **Two instruments, named in the header of the table.** The 48h columns come from the four-a-day
+// player, which is the one the mechanic is designed for and the one "building levels at 48h" has
+// always been quoted from. The fortnight columns come from the hour-stepped colony, which is the one
+// the balance log's blocker numbers are quoted from. Every row differs from every other in exactly
+// one constant, and each column is comparable down its own length.
+private fun printFleetSweeps() {
+    println("### Sweep: `EXTRACTION_PER_HOUR`, at the shipped hull base")
+    println()
+    printSweepTable(listOf(10L, 20L, 30L, 40L).map { FleetTuning(it, FleetBalance.HULL_BASE_METAL) })
+
+    println("### Sweep: the hull base, at the shipped extraction rate")
+    println()
+    printSweepTable(listOf(40L, 80L, 140L).map { FleetTuning(FleetBalance.EXTRACTION_PER_HOUR, it) })
+
+    println("### The two dials together, because they do not separate")
+    println()
+    println("The hull is paid for in metal and paid back in cargo, so lowering the extraction rate")
+    println("without lowering the hull price makes the fleet a **bad buy** and the colony carries it.")
+    println("That is why the single-dial tables above disagree about `levels @48h`: the rate that")
+    println("delivers least costs the most levels. Neither dial can be chosen alone.")
+    println()
+    val controlShort = fleetRun(days = 2, withFleet = false, tuning = SHIPPED_FLEET)
+    val controlLong = fleetRun(days = 14, withFleet = false, tuning = SHIPPED_FLEET, hourlyColony = true)
+    println("Control, no fleet: **${controlShort.levels} levels @48h**, crystal short-at-all " +
+        "**${controlLong.ledger.shortHours.getValue(Blocker.CRYSTAL)} of 336**, crystal alone " +
+        "**${controlLong.ledger.soleBlockerHours.getValue(Blocker.CRYSTAL)}**.")
+    println()
+    println("Each cell: `levels @48h · hulls @48h · crystal-seeking fleet as a share of colony crystal")
+    println("income @48h · crystal short-at-all @14d`. **A difference under ~50 hours in the last one")
+    println("is not a signal** — round 12 swept deuterium income by one unit and crystal's sole count")
+    println("jumped from 58 to 200.")
+    println()
+    println("| extraction \\ hull base | 40 metal | 80 metal | 140 metal |")
+    println("|---|---|---|---|")
+    for (extraction in listOf(10L, 20L, 30L, 40L)) {
+        val cells = listOf(40L, 80L, 140L).joinToString(" | ") { base ->
+            val tuning = FleetTuning(extraction, base)
+            val short = fleetRun(days = 2, withFleet = true, tuning = tuning)
+            val crystal = fleetRun(days = 2, withFleet = true, tuning = tuning, forceGathering = ResourceKind.CRYSTAL)
+            val long = fleetRun(days = 14, withFleet = true, tuning = tuning, hourlyColony = true)
+            "${short.levels} · ${short.hullsOwned}h · ${crystal.fleetCrystalShare} · " +
+                "${long.ledger.shortHours.getValue(Blocker.CRYSTAL)}"
+        }
+        println("| $extraction | $cells |")
+    }
+    println()
+}
+
+private fun printSweepTable(candidates: List<FleetTuning>) {
+    println("48h columns: four-a-day player. Fortnight columns: hour-stepped colony, fleet still four")
+    println("a day. `hulls` is the count at the end of each run, so the two differ by design.")
+    println()
+    println("The two income shares come from a **metal-seeking** and a **crystal-seeking** run of the")
+    println("same 48 hours, because the adaptive player never wants crystal in the opening and that")
+    println("column would otherwise read 0.0% at every rate. `crystal runs` is the share of the")
+    println("fortnight's dispatches the *adaptive* player sent for crystal — the feedback loop that")
+    println("makes the blocker column flatter than it looks.")
+    println()
+    println("| Candidate | levels @48h | hulls @48h | dispatches @48h | duty cycle @48h " +
+        "| fleet metal / colony **metal** | fleet crystal / colony **crystal** " +
+        "| crystal **short-at-all**, 336h | crystal sole-blocker, 336h | crystal runs " +
+        "| hulls @14d | Robotics 4 at |")
+    println("|---|---|---|---|---|---|---|---|---|---|---|---|")
+    val control = fleetRun(days = 2, withFleet = false, tuning = SHIPPED_FLEET)
+    val controlLong = fleetRun(days = 14, withFleet = false, tuning = SHIPPED_FLEET, hourlyColony = true)
+    println("| **no fleet — the control** | ${control.levels} | 1 | 0 | — | — | — " +
+        "| ${controlLong.ledger.shortHours.getValue(Blocker.CRYSTAL)} " +
+        "| ${controlLong.ledger.soleBlockerHours.getValue(Blocker.CRYSTAL)} | — | 1 " +
+        "| ${controlLong.roboticsFourAtHour?.let { "hour $it" } ?: "never"} |")
+    for (tuning in candidates) {
+        val short = fleetRun(days = 2, withFleet = true, tuning = tuning)
+        val forMetal = fleetRun(days = 2, withFleet = true, tuning = tuning, forceGathering = ResourceKind.METAL)
+        val forCrystal = fleetRun(days = 2, withFleet = true, tuning = tuning, forceGathering = ResourceKind.CRYSTAL)
+        val long = fleetRun(days = 14, withFleet = true, tuning = tuning, hourlyColony = true)
+        val crystalRuns = long.gatheringChosen[ResourceKind.CRYSTAL] ?: 0
+        println("| ${tuning.label} | ${short.levels} | ${short.hullsOwned} | ${short.dispatches} " +
+            "| ${short.dutyCycle} | ${forMetal.fleetMetalShare} | ${forCrystal.fleetCrystalShare} " +
+            "| ${long.ledger.shortHours.getValue(Blocker.CRYSTAL)} " +
+            "| ${long.ledger.soleBlockerHours.getValue(Blocker.CRYSTAL)} " +
+            "| ${percent(crystalRuns, long.dispatches)} | ${long.hullsOwned} " +
+            "| ${long.roboticsFourAtHour?.let { "hour $it" } ?: "never"} |")
+    }
+    println()
+}
+
 // ── The screen, as a colour ──────────────────────────────────────────────────────────────────
 //
 // Every reading above counts what a strategy *could buy*. None of them can see the thing a player
@@ -1254,7 +2277,10 @@ private class Census {
     fun kindsOffered(): List<String> = byKind.filterValues { it.getValue(Barrier.OFFERED) > 0 }.keys.toList()
 }
 
-private fun censusOf(state: GameState): Census {
+// `fleet` is null for every report that predates the fleet, and that is not tidiness: adding two rows
+// unconditionally would move the barrier percentages of a census whose numbers are already quoted in
+// the balance log, so the old reports would appear to change when nothing about them had.
+private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
     val census = Census()
 
     for (type in BuildingType.entries) {
@@ -1299,6 +2325,28 @@ private fun censusOf(state: GameState): Census {
     // drown every other row in this table and would make "add more systems" read as "add more to
     // do", which is precisely the mistake round 8 caught in the old options column.
     census.add("survey", if (state.resources.covers(SurveyBalance.cost())) Barrier.OFFERED else Barrier.PRICE)
+
+    // **One verb, not twenty-seven**, which is the same lesson applied to the newest verb rather than
+    // the oldest: a dispatch is one decision with a different number on each world, so counting the
+    // surveyed set would make "buy another probe" read as "add more to do".
+    //
+    // A gather is never refused for a **price** — the hull is the cost and it was paid once — so the
+    // barrier it can carry is a **slot**, meaning every hull is away. That is the single most
+    // informative thing this census says about the mechanic.
+    if (fleet != null) {
+        val reachable = state.galaxy.surveyed.any { at ->
+            at != state.galaxy.home &&
+                state.galaxy.holderOf(at) == null &&
+                FleetBalance.windowsFor(state.galaxy.home, at).isNotEmpty()
+        }
+        census.add("gather", when {
+            !reachable -> Barrier.GATE
+            state.ships.countOf(ShipType.SKIFF) == 0 -> Barrier.SLOT
+            else -> Barrier.OFFERED
+        })
+        val hull = hullCostAt(fleet, ownedSkiffs(state))
+        census.add("hulls", if (state.resources.covers(hull)) Barrier.OFFERED else Barrier.PRICE)
+    }
     return census
 }
 
@@ -1342,7 +2390,7 @@ private fun interactionCensus(days: Int, showTable: Boolean) {
         state = advance(state, from = now, to = at)
         now = at
 
-        val census = censusOf(state)
+        val census = censusOf(state, fleet = null)
         offered += census.count(Barrier.OFFERED)
         kinds += census.kindsOffered().size
         for (barrier in Barrier.entries) barriers[barrier] = barriers.getValue(barrier) + census.count(barrier)
@@ -1716,7 +2764,7 @@ private fun printWholeTreeRun() {
 }
 
 // Mean of one richness across a set of worlds, in the same 1.00 units the yield table reads in.
-private fun meanRichness(worlds: List<dev.fardavide.oltre.core.World>, of: (WorldTraits) -> Int): String {
+private fun meanRichness(worlds: List<World>, of: (WorldTraits) -> Int): String {
     if (worlds.isEmpty()) return "—"
     val mean = worlds.sumOf { of(it.traits).toLong() } / worlds.size
     return yieldLabel(mean.toInt())
