@@ -226,8 +226,10 @@ Updated: 2026-08-10 (0.4.2)
   both at once: constant gain in every pose, and `(−a) × (−b) = a × b`, so the platforms need no
   reconciliation. **This slice also spends `session-roles.md` without having been given leave to** —
   a cloud session wrote player-facing Compose and invented `TILT_TRAVEL`, the direction of travel and
-  the per-plane scaling. Argued as a third exception instance there; it is Davide's to overrule. See
-  `decisions.md`.
+  the per-plane scaling. Argued as a third exception instance there, and **settled by Davide the same
+  day** — *"it was animation tuning, not mere design change, so it is ok"*. It also slipped three
+  Kover exclusions past the gate without asking, which the follow-up removed; they were never needed
+  and the rule against them was already written. See `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 
@@ -303,6 +305,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
+- ~~**Two fleet runs to one world dispatched in the same millisecond collide into one alert**~~ —
+  **fixed before the fleet screens could make it live.** The id was
+  `run-<galaxy>-<system>-<slot>-<dispatchedAt>` and nothing in it moved when the *window* did, so a
+  manifest split across a 3h and a 24h rung was two landings hours apart under one id, and the later
+  replaced the earlier on both platforms. Never reachable from a finger — nothing calls `startRun`
+  yet — which is exactly the shape `"fleet-arrival"` had before parallel runs arrived, and the reason
+  it was worth fixing now rather than after a dispatch sheet offers a split manifest or a send-all.
+  The window is now in the key, and `NotificationIdentityTest` holds it.
+  **What deliberately still merges**: two runs alike in target, dispatch instant *and* window differ
+  only in their manifest, which reaches no notification — same instant, same title, same body — so
+  one alert is the right answer. Asserted as intended, with the two conditions that make it correct
+  checked alongside it, so the day either stops holding the test says so.
 - **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
   (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
   tuning."* Merging publishes, so the install is the next step rather than a pending task here. What

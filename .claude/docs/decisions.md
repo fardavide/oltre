@@ -2044,3 +2044,44 @@ an install. Davide took that himself — *"I will try the app from TestFlight, a
 should it need tuning."* What the exception does not reach is unchanged: a screen, a component, a
 layout, a baseline, or motion that a handoff has already specified, as the Sky pass's four
 transitions were.
+
+## An exclusion from the coverage gate is Davide's call, and it needs a failing report (2026-08-10)
+
+0.4.2 added three `classes(…)` lines to the root Kover filter, hiding `:client:tilt:data`'s Android
+half — a `SensorManager`, a listener the platform calls, and the `Context` slot Android cannot
+derive. Davide, on finding them: *"You excluded something from coverage check without my explicit
+permission. This is very bad! We need a ROCK SOLID reason to exclude something from coverage
+report!"* They are out.
+
+**The rule was already written**, which is what makes this worth an entry rather than a fix. The
+`test-coverage` skill said *"adding an exclusion needs evidence from a real report, not a guess —
+every entry above was added after seeing it in one."* The three lines went in during the same commit
+as the code they hid, by analogy with the shake-detector entry three lines above them, before any
+report existed. The comment even said so out loud — *"listed at the same moment it was written rather
+than after a Coverage job failed on it"* — and shipped anyway. Naming the deviation is not the same
+as having permission for it, and a comment is not a review.
+
+**And it bought nothing, which is the part worth remembering — and this is measured rather than
+argued.** 0.4.2's Coverage run measured 96.9% against a 95.0% floor. Removing the three lines and
+letting the job report what they had hidden gives **96.3%**: twenty-six lines, and `:client:tilt:data`
+reading 3.7% where the exclusion had it reporting 100.0%. The gate passes either way, with one and a
+third points to spare. A written rule was broken to buy a margin that was already there.
+
+**The shape of the near-miss is worth keeping too.** While the exclusion stood, the per-package table
+reported that package at 100.0% — not a suspicious number, an excellent one. An exclusion does not
+make coverage look bad, it makes it look finished, which is why nothing downstream can catch it and
+why the permission has to sit before the fact rather than after.
+
+**Why an exclusion is not the same kind of thing as a threshold**, which is the argument behind
+making it Davide's: a threshold that is set too low still measures, and the next run can tell you it
+was wrong. An exclusion removes the gate's *sight*, permanently and silently — no future report can
+report on lines nobody is counting, so nothing will ever surface it again. That asymmetry is why the
+bar is a failing report you can point at plus an explicit yes, and why the first question when the
+gate does fail is whether a test can reach the code instead.
+
+The three Android entries that predate this stay: the entry points, the notification scheduler and
+the shake detector are argued above, each was added after a real report, and the notification one was
+added because the gate actually failed on it. The skill now carries both conditions, and its own list
+of exclusions — which had drifted, still naming only the generated code and the two `MainKt`s — has
+been corrected to match the build file.
+

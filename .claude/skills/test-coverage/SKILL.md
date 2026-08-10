@@ -70,13 +70,51 @@ them alone and read the report.
 - `./gradlew koverHtmlReport` → `build/reports/kover/html/index.html` for a local look.
 - `.github/scripts/coverage.py` folds Kover XML + JUnit XML into `build/coverage/summary.json`
   and renders the Markdown report.
-- Excluded from the numbers: Compose's generated `ComposableSingletons*`, serialization's
-  `$$serializer` classes, compose-resources' `*.generated.resources` accessors, and the two
-  `MainKt` entry points (`:sim`, `:server`) — generated code, or process entry points exercised
-  by running them, so leaving them in only depresses the total with a number no test can move.
-  Nothing else is excluded; if a number looks wrong, it is the tests that are wrong.
-  **Adding an exclusion needs evidence from a real report**, not a guess that something is
-  generated — every entry above was added after seeing it in one.
+- Excluded from the numbers, in two groups. **Generated or unreachable code**: Compose's
+  `ComposableSingletons*`, serialization's `$$serializer` classes, compose-resources'
+  `*.generated.resources` accessors, and the `MainKt` entry points (`:sim` — the whole package —
+  and `:server`). **Android platform edges the repo has no way to reach**: `MainActivity`,
+  `OltreApplication`, `BootReceiver`, the notification scheduler and receiver, and the shake
+  detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
+  with no seam a test can take without Robolectric or an instrumented run, neither of which exists
+  here. The full list is in the root `build.gradle.kts`, each entry with its own argument; this
+  paragraph goes stale if that list moves, so read the file.
+
+  If a number looks wrong, it is the tests that are wrong.
+
+### An exclusion is Davide's call, and the bar is a failing report
+
+**Two conditions, both required, and 0.4.2 is the case that proves they are not pedantry.**
+
+1. **Evidence from a real report** — a Coverage run you can point at, showing the lines and what
+   they cost. Not a guess that something is generated, not a pattern-match onto an entry already in
+   the list.
+2. **Davide's explicit permission**, asked for and given. An exclusion is permanent and silent: it
+   does not lower the gate, it removes the gate's ability to *see*, and no future run can notice
+   what is no longer being counted. That is not a call the build makes for itself.
+
+The tilt parallax broke both. Three `classes(…)` lines went in during the same commit as the code
+they hid, reasoning by analogy from the shake detector three lines above them, before any report
+existed — the comment even said so out loud and shipped anyway. **The exclusion turned out to buy
+nothing, measured rather than argued**: taking it back out moved the total from 96.9% to 96.3%
+against a 95.0% floor, because it had been hiding twenty-six lines. The gate passes either way. So a
+rule was broken to purchase a margin that was already there, which is the worst version of this
+mistake and the easy one to make.
+
+Note what the report said while the exclusion was in place: `client.tilt.data` at **100.0%**. A
+package can read fully covered because it is fully tested, or because the untested half of it has
+been hidden, and the table cannot tell you which. That is the failure mode — not a number that looks
+bad, a number that looks *good*.
+
+Davide, on finding it: *"You excluded something from coverage check without my explicit permission.
+This is very bad! We need a ROCK SOLID reason to exclude something from coverage report!"* (The
+three lines came back out in the next PR, which carried no version bump — nothing a shipped build
+does was ever affected.)
+
+**The order to work in**: write the code, let the Coverage job measure it, read the number. Most of
+the time there is nothing to ask for. If the gate does fail, the first question is whether a test
+can reach the code — an exclusion is the last answer, never the first, and it is a request rather
+than a decision.
 
 ## The PR report
 
