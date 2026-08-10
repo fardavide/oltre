@@ -24,15 +24,22 @@ import androidx.compose.runtime.remember
 //
 // **There is a second place the rule is spent, and since 0.4.2 it is not this one.** The starfield
 // used to be the clean case — a pure function of the scroll offset with no duration in it — and the
-// tilt parallax took that away: `TiltMonitor.SMOOTHING` and `RECENTRING` are time constants, and a
-// lean settles back to level over about ten seconds after the hand stops. They are spent differently
-// enough to be worth the distinction this file draws — a time constant filtering an input is not a
-// duration something plays *for* — but "the one place" would be false without the qualifier above.
+// tilt parallax took that away: `TiltMonitor.SMOOTHING` is a time constant, so a lean arrives over
+// about a tenth of a second rather than on one frame. It is spent differently enough to be worth the
+// distinction this file draws — a time constant filtering an input is not a duration something plays
+// *for* — but "the one place" would be false without the qualifier above.
 //
-// Those two constants are deliberately not tokens here. `:client:tilt:domain` is pure Kotlin with no
-// Compose in it, and reaching this object would mean giving a domain module a Compose dependency to
-// fetch two numbers it is the only reader of. The dependency direction decides it, not the argument.
-// See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.4.2.
+// **0.4.2 owed a larger admission here and 0.4.3 paid it off.** There was a second constant,
+// `RECENTRING`, a four-second average that chased the pose — and it meant a lean that had already
+// finished went on settling back to level for about ten seconds afterwards, which is movement with
+// the device lying still. It existed only to stop a held pose pinning a *clamped* travel against its
+// stop; with the clamp gone it had nothing to do and was deleted. Put the phone down and the sky now
+// stops.
+//
+// The surviving constant is deliberately not a token here. `:client:tilt:domain` is pure Kotlin with
+// no Compose in it, and reaching this object would mean giving a domain module a Compose dependency
+// to fetch one number it is the only reader of. The dependency direction decides it, not the
+// argument. See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.4.3.
 object OltreMotion {
 
     // The stock roll on the rail, the dial and bar fills, and the energy meter's fill. One number

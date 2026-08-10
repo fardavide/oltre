@@ -96,7 +96,9 @@ What that permits, precisely:
   filter time constants, which axis moves which way — chosen as *starting values*, marked as
   arithmetic rather than measurement in the code, and expected to move on the first device session.
   That marking is not decoration; it is the condition. A motion number a cloud session presents as
-  settled is outside this.
+  settled is outside this. (Two of those four names no longer exist: 0.4.3 made the deflection angle
+  a scale rather than a stop and deleted the second time constant. The list is 0.4.2's, kept as
+  written because it is a record of what that session was permitted, not a menu for the next one.)
 - **The thin Compose layer that carries them**, when the logic has already been pushed down into a
   module the session can test. Here that is `:client:tilt:{domain,data}` — thirty-one tests, all
   runnable in a cloud session — against a parameter threaded through two files and about twenty
@@ -122,6 +124,23 @@ Two things that made this one safe beyond the argument, worth reproducing rather
 the app from TestFlight, and open another session should it need tuning."* That is the shape to
 repeat — a cloud session lands the starting values and says plainly which ones it invented, and a
 device decides whether they were right.
+
+**And it closed, which is the part worth recording.** The install happened, it found two things, and
+0.4.3 is the session it opened. Read that as the exception working rather than as a mark against it:
+what came back was not "the numbers are wrong" but *"horizontal tilt is very lazy"* and *"after ~20°
+it stops"* — two defects a cloud session had already reasoned about and got wrong on paper, and which
+no amount of further reasoning would have surfaced. What the loop is for is exactly the class of
+error that only exists once a hand is holding the thing.
+
+Two cautions from how 0.4.3 then went, both cheap to reproduce:
+
+- **The fix introduced two more defects, and an adversarial review of the diff found them before
+  merge, not the next install.** Lifting a bound is not a neutral act: the clamp had been hiding two
+  errors smaller than itself. Anything a removed limit was limiting has to be re-derived rather than
+  assumed to have been fine underneath it.
+- **A green suite is not evidence of coverage of the thing you changed.** Both defects lived in the
+  gap between two coordinates the tests never varied together — every pose walk left the roll at
+  zero, and every roll test used six degrees. Cheap to check for; invisible from inside the suite.
 
 ### It *can* build and run `:core` and `:sim` — use it
 

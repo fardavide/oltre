@@ -2085,3 +2085,182 @@ added because the gate actually failed on it. The skill now carries both conditi
 of exclusions — which had drifted, still naming only the generated code and the two `MainKt`s — has
 been corrected to match the build file.
 
+## The lean loses its stop, its centre and its pose penalty (2026-08-10, 0.4.3)
+
+The first device session — Davide, on TestFlight, which is exactly the check 0.4.2's entry said would
+replace a design review — came back with two sentences: *"horizontal tilt is very lazy, vertical is
+ok"* and *"the area is too narrow… after moving the phone ~20° it stops, I would like to be 360, or
+almost."* Both are defects rather than taste, both were predicted by the 0.4.2 entry above without
+its knowing it, and the second one turns out to be the cause of most of the first.
+
+### The lazy axis was a gain where it should have been a precision
+
+0.4.2 pinned `sin²(elevation)` as **physics**, in a test named so nobody would "fix" it, with the
+argument that an in-plane lean of a phone lying flat is a spin about the vertical and moves `down`
+not at all. The physics is right and the conclusion drawn from it was not. That factor is a statement
+about **how well the in-plane angle can be read**, and the cross product folded it into **how far the
+sky should move** — so a phone held at 45°, which is how a phone is held, answered a sideways lean at
+half strength, and one at 30° at a quarter, while the tip axis kept full gain in every pose. The two
+axes were built to be independent and were never built to be equal.
+
+Reading the lean as an angle rather than as the sine of a turn removes the factor entirely: the
+in-plane roll is `atan2(x, -y)`, which is the same number at every elevation. Where the pose is now
+allowed to act is `Bearing.inPlane`, which fades the axis out only across the last stretch into poses
+where the reading really is untrustworthy — 30° of elevation down to 15° — and **holds rather than
+jumping** past the bottom of it, so a phone laid on a desk leaves the sky where it was.
+
+### The narrow area was the clamp, and the clamp was holding up everything else
+
+`FULL_DEFLECTION_DEGREES` was a stop as well as a scale, so every movement past a small wrist flick
+arrived in the same place. It could not simply be widened: a wider clamp makes small movements do
+less, and Davide asked for both.
+
+**A cross product cannot answer this**, and that is worth recording because it was the right answer
+to the previous question. It reports the **sine** of a turn, so it reads only the quadrant either side
+of where it started and folds one quadrant further out than the `asin` formulation it replaced —
+invisible inside a 12° clamp, fatal to a full turn. `atan2` of a *pair* of components knows its
+quadrant. A running total of shortest steps between such readings is then unbounded **and does not
+drift**: each step is measured from the device's own axes, so the total is the current angle plus a
+whole number of turns, and the integer is the only part that accumulates. An integrated gyroscope —
+the other route to an unbounded reading, and the one Davide's original prompt named — has no such
+guarantee; see the entry above for why it was already refused.
+
+The rendering side needed no change at all. `Starfield` already took both shifts modulo the box and
+`StarfieldTest` already walked leans past a full turn of the phone, because the wrap existed for the
+*scroll* term. One full roll is thirty units, which carries the near plane 418dp — a little over one
+screen width. It does **not** put the field back where it started (418 into a 393dp box leaves 25dp,
+and the other two planes land 216dp and 86dp out), and it does not need to: there is no landmark in a
+tiling field of stars to measure the difference against, which is the same reason the zero point can
+be anywhere.
+
+### And the vertical axis cannot have it, which is a theorem rather than a budget
+
+**The first draft of this entry shipped a defect here and the fix is the more interesting half of the
+round.** It read the tip as `atan2(-y, -z)` — the elevation of the phone's long *edge* — which is
+full-circle and is **not invariant under roll**, because rolling the phone sweeps that edge around a
+cone. Under the old clamp the leak was capped at one unit and nobody could see it. Unbounded, a
+measured 90° roll at a fifty-degree hold dragged the sky **4.17 units vertically** and a 180° roll
+8.33 — more vertical than the sideways movement being asked for, from a purely sideways gesture. The
+guard test could not catch it because every sideways case in the suite rolled six or eight degrees,
+where the leak is second order.
+
+Trying to fix it turned up the reason it was there. **No reading of the tip can be all three of:
+(A) unmoved by a roll, (B) monotonic through a full end-over-end turn, (C) a function of where the
+phone is now.** Proof, in this module's own pose model:
+
+    g(elevation, lean + 180°) == g(-elevation, lean)
+
+Roll the phone upside down and tip it *forward*, and gravity reports exactly what tipping it
+*backward* the right way up reports. One of those must add and the other subtract, so a reading blind
+to the roll cannot separate them. More generally (A)+(C) means the travel is a function of the screen
+normal's direction in the world, and an end-over-end turn returns that direction to where it started
+— so the travel returns to where *it* started, which is not (B). **This is not a gravity limitation.**
+It holds for a fused attitude quaternion too, so `TYPE_GAME_ROTATION_VECTOR` and `CMDeviceMotion`
+would buy nothing here; that is worth knowing before anyone reaches for them for a different reason.
+
+The three corners are the three designs that have existed:
+
+| | (A) roll-invariant | (B) full-circle | (C) conservative | |
+|---|---|---|---|---|
+| `atan2(-y, -z)` | ✗ | ✓ | ✓ | 0.4.3 draft — the defect |
+| integrated `∫ω_x dt` | ✓ | ✓ | ✗ | a gyroscope, refused above |
+| `atan2(√(x²+y²), -z)` | ✓ | ✗ | ✓ | **shipped** |
+
+**Davide picked roll-invariant, 2026-08-10**, shown the trade. What ships is the elevation of the
+*screen normal*: exactly the tip angle at every roll, identical to the old reading at zero roll (so
+nothing changes in the pose the effect was tuned in), never degenerate — and running `0..π`, so
+tipping on past face-down retraces rather than continuing. The range given up is the half turn in
+which the screen points away from the player. The sideways axis keeps its whole turn, and it is the
+axis the device session complained about.
+
+It also fixed a pose the draft lost outright: that reading died completely in landscape held with the
+long edge horizontal — measured as no vertical response at any roll — because its plane had emptied
+out. The screen normal has no such pose, so the tip needs no companion measure of trust at all.
+
+**One cost, and it is the first time this module has needed a sign convention.** Every earlier
+formulation was blind to the platform difference for free — the cross product because
+`(-a) × (-b) = a × b`, the pair of `atan2`s because negating all three components turned both
+bearings by half a circle and every difference cancelled. `√(x² + y²)` does not care about the sign
+and `z` does, so the two platforms now come out **reflected**: `tip(-g) = π - tip(g)`, and differences
+negate instead of cancelling. A phone would have leaned the right way on an iPhone and upside down on
+a Pixel. Since a convention is now unavoidable it is stated in the shared module as two named entry
+points, `sampleGravity` and `sampleReactionToGravity`, rather than as a minus sign in a sensor
+callback that only one of the two platform files would ever grow.
+
+### Which retires the centre, and with it the rule this feature was spending
+
+The slow average existed **only because of the stop**: with a clamp, any pose simply held would have
+pinned the sky against it for the rest of the session, so the zero point had to chase the pose. That
+is what left a finished lean settling back to level for ten seconds afterwards — the one thing in
+this app a player could watch happen with their hands in their lap, and the admission the 0.4.2 entry
+had to make twice.
+
+Without a stop the question does not arise, and none of the three centres that entry weighed is
+needed: not a following one, not one captured at the first sample, not "absolute with no centre at
+all", which it *rejected hardest* and which is closest to what shipped. What makes it work now is the
+thing that was missing then — with a clamp, a wrong zero point is a sky pinned against a stop; with a
+wrapping field and no stop, a zero point is not observable at all, because there is no landmark in a
+tiling field of stars to be offset from. **Put the phone down and the sky stops** is now simply true,
+and what remains is the smoothing arriving over a tenth of a second, which is a response to a
+movement that has just happened.
+
+`MAX_GAP` survives and changed meaning: a gap longer than two seconds is still an absence, but it now
+**keeps** the travel already made and re-anchors only the direction. Resetting it was harmless against
+a clamped reading that was usually near zero anyway; against an unbounded one it would snap the field
+back on the first frame after a resume — the same lurch that cut exists to prevent, arriving from the
+other side.
+
+### The pose weight had to become a gate, for the same reason
+
+The draft also scaled every accumulated step by a weight that ramped in across a band of poses. That
+is unsound and the unsoundness is the same shape as the one above: the weight is a function of the
+**elevation** while the step it scales is a **roll**, so the total became a line integral of a form
+that is not closed. Retracing a path cancelled — which is all the suite tested — and going round a
+*loop* did not. Measured: the walk (50°,0) → (50°,40°) → (20°,40°) → (20°,0) → (50°,0), four ordinary
+movements ending exactly where they began, left **2.2 units behind per lap and 11.0 after five**,
+without bound.
+
+No weight that varies with the pose can avoid this, so the weight does not vary: it is 1 inside the
+readable range and 0 outside it. Inside, the steps telescope exactly and the loop returns to zero.
+Outside, a zero step is a *re-anchor* rather than a discard — the reference bearing advances every
+sample regardless — so a phone laid flat and spun leaves the sky exactly where it was and picks up
+again from wherever the roll then is. Taking the smaller of the two ends keeps the gate symmetric in
+time, and there is deliberately **no hysteresis**, since a sticky gate would be the same path
+dependence rebuilt by hand.
+
+What is left is bounded and forced: a loop that *crosses* the gate leaves the arc rolled below it
+uncounted. Down there the roll is a spin about the vertical, so there is nothing to count.
+
+### What did not move, deliberately
+
+Neither feel constant. 12° per unit of travel and 24dp on the reference plane are unchanged, because
+what the device session reported was not that a small movement moved too little — it was that a large
+one moved no further, and that the two axes disagreed. Changing the scale in the same round would
+have made the two reports impossible to tell apart on the next install. The sideways axis is roughly
+two to three times livelier at a normal hold, and all of that comes from removing the `sin²` penalty
+rather than from a bigger number.
+
+### How the two defects got out, which is the transferable part
+
+Both were introduced by *removing a clamp*, and both had existed underneath it. The clamp was not
+only limiting the effect, it was hiding two errors that were smaller than it — so lifting a bound is
+not a neutral act, and the things it was bounding have to be re-derived rather than assumed to have
+been fine all along.
+
+Both also survived a suite that was green and, on the face of it, thorough. What it never did was
+**vary two coordinates at once**: `EVERY_POSE` walks elevation with `lean` left at its default, and
+every sideways test rolled six or eight degrees. A lean sweep at a fixed elevation asserting the tip
+does not move, and a closed pose loop asserting the total returns, are the two tests that would have
+caught them the day they were written. Both are now in `TiltMonitorTest`.
+
+### Still open, and it is the one thing gravity cannot be asked for
+
+**Yaw — turning the phone left and right about the vertical — remains invisible**, and it is the
+movement most people reach for first when told a background responds to the phone. Nothing in this
+round changes that: spinning a phone flat on a table does not move `down`, so no reading off gravity
+can see it. Answering it means the fused rotation vector on Android and `CMDeviceMotion.attitude` on
+iOS, which the entry above rejected for the gimbal singularity at upright-in-portrait and for
+dragging the magnetometer into a heading nothing here uses. Both objections still stand and both are
+now avoidable — a quaternion has no singularity, and the game rotation vector omits the magnetometer
+— so this is a scope call rather than a settled refusal. It is Davide's, and it is not implied by
+either sentence he sent.
