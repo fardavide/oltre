@@ -25,6 +25,8 @@ internal fun researchScreen(
     width: Int = PHONE_WIDTH,
     onStartResearch: (Technology) -> Unit = {},
     onStartAdaptation: (AdaptationTechnology) -> Unit = {},
+    onToggleTechnologyWatch: (Technology) -> Unit = {},
+    onToggleAdaptationWatch: (AdaptationTechnology) -> Unit = {},
     block: ResearchRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
@@ -35,6 +37,8 @@ internal fun researchScreen(
                         uiState = uiState,
                         onStartResearch = onStartResearch,
                         onStartAdaptation = onStartAdaptation,
+                        onToggleTechnologyWatch = onToggleTechnologyWatch,
+                        onToggleAdaptationWatch = onToggleAdaptationWatch,
                     )
                 }
             }
@@ -108,6 +112,20 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
     fun assertRowReads(technology: Technology, text: String) = apply {
         test.onNodeWithTag(ResearchTestTags.row(technology))
             .assert(hasAnyDescendant(hasText(text, substring = true)))
+    }
+
+    // The square carries no text, so these two are the only controls the Robot reaches by tag for a
+    // reason other than ambiguity.
+    fun tapTheWatchOn(technology: Technology) = apply {
+        test.onNodeWithTag(ResearchTestTags.watch(technology)).performClick()
+    }
+
+    fun tapTheWatchOn(technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(ResearchTestTags.watch(technology)).performClick()
+    }
+
+    fun assertHasNoWatch(technology: Technology) = apply {
+        test.onNodeWithTag(ResearchTestTags.watch(technology)).assertDoesNotExist()
     }
 
     // Substring, because a line the screen composes from several Texts is still one line to the

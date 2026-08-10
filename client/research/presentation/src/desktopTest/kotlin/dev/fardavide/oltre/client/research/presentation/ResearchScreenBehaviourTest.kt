@@ -184,18 +184,20 @@ class ResearchScreenBehaviourTest {
 
     @Test
     fun `the effect line keeps its percentages and drops only a noun in a Slide Over pane`() {
-        // given the same state at both widths
+        // given the same state at both widths, on a row with **no square** — that is the whole of
+        // what this test is about now. A row carrying one drops the noun at every width, because
+        // the square took the space the noun was in; see `ResearchWatchBehaviourTest`. Here the
+        // width is the only thing that changes, which is what makes the cut a width decision.
         researchScreen(uiState = oneProjectInFlightUiState, width = PHONE_WIDTH) {
-            assertRowReads(Technology.EXTRACTION, "metal · crystal output")
+            assertRowReads(Technology.ENRICHMENT, "deuterium output")
             assertReads("one project at a time")
         }
 
         // then — abbreviation is a width decision, not a change of voice
         researchScreen(uiState = oneProjectInFlightUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(Technology.EXTRACTION, "+36%")
-            assertRowReads(Technology.EXTRACTION, "+47%")
-            assertRowReads(Technology.EXTRACTION, "metal · crystal")
-            assertNothingReads("metal · crystal output")
+            assertRowReads(Technology.ENRICHMENT, "+14%")
+            assertRowReads(Technology.ENRICHMENT, "deuterium")
+            assertNothingReads("deuterium output")
             assertReads("one at a time")
             assertNothingReads("one project at a time")
         }

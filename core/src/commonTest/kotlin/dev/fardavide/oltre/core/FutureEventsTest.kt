@@ -9,7 +9,7 @@ class FutureEventsTest {
 
     @Test
     fun `a colony with nothing in flight has nothing coming`() {
-        assertEquals(emptyList(), futureEvents(GameState.initial()))
+        assertEquals(emptyList(), futureEvents(GameState.initial(), now = Instant.fromEpochMilliseconds(0)))
     }
 
     @Test
@@ -22,7 +22,7 @@ class FutureEventsTest {
             .started(BuildingType.SOLAR_PLANT, at = t0)
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(
@@ -42,7 +42,7 @@ class FutureEventsTest {
         val state = GameState.initial().fundedFor(BuildingType.METAL_MINE).started(BuildingType.METAL_MINE, at = t0)
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(
@@ -65,7 +65,7 @@ class FutureEventsTest {
         val state = GameState.initial().researching(Technology.EXTRACTION, at = t0)
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(
@@ -90,7 +90,7 @@ class FutureEventsTest {
             .researching(Technology.EXTRACTION, at = t0)
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(2, upcoming.size)
@@ -120,7 +120,7 @@ class FutureEventsTest {
         )
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then - the last building in the enum still sorts ahead of the research
         assertEquals(listOf("BuildCompletes", "ResearchCompletes"), upcoming.map { it::class.simpleName })
@@ -142,7 +142,7 @@ class FutureEventsTest {
         )
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(listOf("ResearchCompletes", "FleetReturns"), upcoming.map { it::class.simpleName })
@@ -166,7 +166,7 @@ class FutureEventsTest {
         val state = GameState.initial().copy(runs = listOf(run))
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then — the prediction carries the hold as well as the manifest, because an alert booked
         // in advance may only say what `advance` will actually credit
@@ -205,7 +205,7 @@ class FutureEventsTest {
             }
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then — the metal mine is the cheapest and quickest of the two so it lands first
         assertEquals(
@@ -238,7 +238,7 @@ class FutureEventsTest {
         )
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then — building order, exactly as the event log will record them
         assertEquals(
@@ -265,7 +265,7 @@ class FutureEventsTest {
         )
 
         // when
-        val upcoming = futureEvents(state)
+        val upcoming = futureEvents(state, now = t0)
 
         // then
         assertEquals(listOf("BuildCompletes", "FleetReturns"), upcoming.map { it::class.simpleName })

@@ -59,7 +59,7 @@ class ColonyScreenLayoutBehaviourTest {
         runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {
                 OltreTheme {
-                    ColonyScreen(uiState = testColonyUiState, onUpgrade = {})
+                    ColonyScreen(uiState = testColonyUiState, onUpgrade = {}, onToggleWatch = {})
                 }
             }
 

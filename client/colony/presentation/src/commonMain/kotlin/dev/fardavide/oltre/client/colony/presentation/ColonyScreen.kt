@@ -21,6 +21,7 @@ import dev.fardavide.oltre.core.BuildingType
 fun ColonyScreen(
     uiState: ColonyUiState,
     onUpgrade: (BuildingType) -> Unit,
+    onToggleWatch: (BuildingType) -> Unit,
     // Hoisted since the Sky pass, because the starfield behind this screen shifts with it and the
     // frame that draws the field is the shell's. Defaulted so that the screenshot fixtures and the
     // layout assertions, none of which scroll, still read as a screen and not as a wiring exercise.
@@ -51,8 +52,16 @@ fun ColonyScreen(
                 // First in the column, so the reading order is the state of the colony and then
                 // the things that produce it.
                 PowerIndicator(uiState = uiState.energy, modifier = Modifier.padding(bottom = 8.dp))
-                SectionLabel(text = "FACILITIES")
-                FacilityList(facilities = uiState.facilities, onUpgrade = onUpgrade)
+                // The label's trailing slot carries the watch, which is what makes one slot shared
+                // across three ladders legible: it names the watched row even when that row is on
+                // the Research tab, so moving the watch there is never a thing that happened
+                // somewhere the player was not looking.
+                SectionLabel(text = "FACILITIES", rule = uiState.watching)
+                FacilityList(
+                    facilities = uiState.facilities,
+                    onUpgrade = onUpgrade,
+                    onToggleWatch = onToggleWatch,
+                )
             }
         }
     }

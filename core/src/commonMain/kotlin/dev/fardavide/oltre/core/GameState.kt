@@ -41,6 +41,11 @@ data class GameState(
     // `surveys`. See `startRun`: a one-per-target rule would turn each probe into ~4.75 guaranteed
     // dispatch slots and make surveying strictly efficient, which the galaxy sheet forbids.
     val runs: List<FleetRun>,
+    // The one row the player has asked to be told about, across the facilities, the technologies and
+    // the ladders alike — null when there is none. Not a job and not a booking: it schedules nothing
+    // and `advance` never applies it, it only points at a row whose price the stores have not
+    // reached yet. See `WatchTarget`.
+    val watching: WatchTarget?,
     val eventLog: List<Event>,
 ) {
     init {
@@ -83,6 +88,7 @@ data class GameState(
             // player learns the shop exists by wanting something from it.
             ships = Ships.of(ShipType.SKIFF, 1),
             runs = emptyList(),
+            watching = null,
             eventLog = emptyList(),
         )
     }

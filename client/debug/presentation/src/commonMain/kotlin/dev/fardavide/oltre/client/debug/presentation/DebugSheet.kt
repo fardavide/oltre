@@ -46,6 +46,7 @@ import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.core.FutureEvent
+import dev.fardavide.oltre.core.WatchedPurchase
 import kotlin.time.Duration
 
 // The debug menu. Not a tab and not a screen — a sheet over whatever the player was looking at,
@@ -328,4 +329,20 @@ private fun FutureEvent.describe(): String = when (this) {
     is FutureEvent.AdaptationCompletes -> "${technology.name} → ${toLevel.value}"
     is FutureEvent.SurveyLands -> "PROBE → ${target.galaxy}:${target.system}"
     is FutureEvent.FleetReturns -> "FLEET RETURNS"
+    // The one entry here that is not a job: nothing is in flight, the stores are simply on their
+    // way to a price. Named `AFFORDABLE` rather than by its subject alone so a developer reading
+    // the panel can tell it apart from the completion of the same row.
+    is FutureEvent.AffordableAt -> "AFFORDABLE ${purchase.subject()} → ${purchase.level()}"
+}
+
+private fun WatchedPurchase.subject(): String = when (this) {
+    is WatchedPurchase.Facility -> building.name
+    is WatchedPurchase.Project -> technology.name
+    is WatchedPurchase.Ladder -> technology.name
+}
+
+private fun WatchedPurchase.level(): Int = when (this) {
+    is WatchedPurchase.Facility -> toLevel.value
+    is WatchedPurchase.Project -> toLevel.value
+    is WatchedPurchase.Ladder -> toLevel.value
 }

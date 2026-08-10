@@ -158,6 +158,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.5.0 — 2026-08-10
+
+- **A row you cannot afford will now tell you when you can.** Every facility, technology and
+  adaptation ladder that is waiting on your stores has a small square beside the time it prints.
+  Tap it and the game books one alert for that exact instant, then clears itself.
+- **One watch at a time, across the whole empire.** Tapping another row's square moves it; tapping
+  the lit one takes it back, and no sheet asks whether you meant it. Both screens name what is being
+  watched beside their heading, so a watch set on Research is never a thing that vanished quietly
+  from the Colony tab.
+- **The instant stays true.** Spend the resources on something else and the alert slides later on
+  the same tap that spent them; finish a Solar Plant that lifts a shortage and it slides earlier.
+  While the app is closed nothing spends, so an alert can only ever fire early.
+- Saves from 0.4.1 carry forward untouched.
+
 ### 0.4.1 — 2026-08-10
 
 - **Nothing you can see or do changes in this build.** The fleet that landed in 0.3.0 is still

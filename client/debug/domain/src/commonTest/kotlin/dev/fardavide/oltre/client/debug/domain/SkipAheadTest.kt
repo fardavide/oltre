@@ -46,7 +46,7 @@ class SkipAheadTest {
         // that says one thing while the lock screen says another is worse than either being wrong.
         val state = buildingColony()
 
-        val soonest = futureEvents(state).minByOrNull { it.at }
+        val soonest = futureEvents(state, now = EPOCH).minByOrNull { it.at }
 
         assertEquals(soonest?.at, skipAhead(state, now = EPOCH).to)
     }
@@ -100,7 +100,7 @@ class SkipAheadTest {
         val state = assertIs<StartUpgradeResult.Started>(
             startUpgrade(advance(started, from = EPOCH, to = later), BuildingType.CRYSTAL_MINE, at = later),
         ).state
-        val pending = futureEvents(state).map { it.at }
+        val pending = futureEvents(state, now = later).map { it.at }
 
         assertEquals(2, state.builds.size, "both facilities should be building, was ${state.builds.keys}")
         assertEquals(2, pending.distinct().size, "the two completions should differ, were $pending")
@@ -131,4 +131,4 @@ class SkipAheadTest {
     }
 }
 
-private fun soonest(state: GameState): Instant = futureEvents(state).minOf { it.at }
+private fun soonest(state: GameState): Instant = futureEvents(state, now = EPOCH).minOf { it.at }

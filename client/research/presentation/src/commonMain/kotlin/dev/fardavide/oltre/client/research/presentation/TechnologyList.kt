@@ -23,6 +23,8 @@ import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
+import dev.fardavide.oltre.client.design.component.WatchSquare
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
@@ -40,6 +42,7 @@ internal fun TechnologyList(
     technologies: List<TechnologyRowUiState>,
     compact: Boolean,
     onStartResearch: (Technology) -> Unit,
+    onToggleWatch: (Technology) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -52,11 +55,14 @@ internal fun TechnologyList(
                 duration = row.duration,
                 shortlist = row.shortlist,
                 action = row.action,
+                watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
+                watchTag = ResearchTestTags.watch(row.technology),
                 compact = compact,
                 onStart = { onStartResearch(row.technology) },
+                onToggleWatch = { onToggleWatch(row.technology) },
             )
         }
     }
@@ -72,6 +78,7 @@ internal fun AdaptationList(
     ladders: List<AdaptationRowUiState>,
     compact: Boolean,
     onStartAdaptation: (AdaptationTechnology) -> Unit,
+    onToggleWatch: (AdaptationTechnology) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -84,11 +91,14 @@ internal fun AdaptationList(
                 duration = row.duration,
                 shortlist = row.shortlist,
                 action = row.action,
+                watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
+                watchTag = ResearchTestTags.watch(row.technology),
                 compact = compact,
                 onStart = { onStartAdaptation(row.technology) },
+                onToggleWatch = { onToggleWatch(row.technology) },
             )
         }
     }
@@ -110,13 +120,17 @@ private fun ProjectRow(
     // technology — see `AdaptationList`.
     shortlist: ShortlistUiState?,
     action: ResearchActionUiState,
+    // Null on every row with no instant to book. See `WatchUiState`.
+    watch: WatchUiState?,
     // True on at most one row in the whole app, and only just after a launch: this is the project
     // that landed while it was closed. See `CompletionSweep`.
     finishedWhileAway: Boolean,
     rowTag: String,
     actionTag: String,
+    watchTag: String,
     compact: Boolean,
     onStart: () -> Unit,
+    onToggleWatch: () -> Unit,
 ) {
     val mono = oltreMono()
     val locked = action is ResearchActionUiState.Locked
@@ -189,7 +203,13 @@ private fun ProjectRow(
                     ResearchActionUiState.Start,
                     is ResearchActionUiState.AvailableIn,
                     -> {
-                        EffectLine(effect = effect, compact = compact)
+                        // **A row carrying a square drops its trailing noun at any width**, which
+                        // is the design's own remedy for what the square costs: 29dp plus its gap,
+                        // measured, is enough to ellipsise "metal · crystal output" on a phone. The
+                        // figures and the resource names are load-bearing and the word "output" is
+                        // not, so the cut goes there rather than mid-word. Rows with no square keep
+                        // it — they still have the room.
+                        EffectLine(effect = effect, compact = compact || watch != null)
                         // Under the band line rather than beside it: the band is what the level
                         // *is* and this is what it *buys*, so it reads as the second half of one
                         // consequence rather than as a competing fact. It is absent while a
@@ -218,6 +238,18 @@ private fun ProjectRow(
                                 fontSize = 10.5.sp,
                             )
                         }
+                        // Last on the card, under the price it is about, and the same line the
+                        // colony's watched row carries — see `watchedAtLabel`. Accent text and not
+                        // an accent border: the border means in flight, this means booked.
+                        (watch as? WatchUiState.Booked)?.let { booked ->
+                            Text(
+                                text = booked.affordableAt,
+                                color = OltreColors.accent,
+                                fontFamily = mono,
+                                fontSize = 10.5.sp,
+                                modifier = Modifier.padding(top = 6.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -236,17 +268,31 @@ private fun ProjectRow(
                         .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
-                is ResearchActionUiState.AvailableIn -> Text(
-                    text = action.label,
-                    color = OltreColors.textTertiary,
-                    fontFamily = mono,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
-                        .testTag(actionTag)
-                        .padding(horizontal = 11.dp, vertical = 7.dp),
-                )
+                // The ghost time, and — only when the wait is about the price rather than about the
+                // slot — the square that books an alert for it. See `watchOn`.
+                is ResearchActionUiState.AvailableIn -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    Text(
+                        text = action.label,
+                        color = OltreColors.textTertiary,
+                        fontFamily = mono,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .testTag(actionTag)
+                            .padding(horizontal = 11.dp, vertical = 7.dp),
+                    )
+                    watch?.let {
+                        WatchSquare(
+                            watched = it is WatchUiState.Booked,
+                            onClick = onToggleWatch,
+                            modifier = Modifier.testTag(watchTag),
+                        )
+                    }
+                }
                 // The same pair the colony's running row draws, in the same order and at the same
                 // gaps: how long is left, and how far round it has got. Identical by construction is
                 // the whole point — from three rows away a running ladder, a running technology and

@@ -76,6 +76,8 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 ),
                                 onStartResearch = {},
                                 onStartAdaptation = { game.start(it) },
+                                onToggleTechnologyWatch = {},
+                                onToggleAdaptationWatch = {},
                             )
                         },
                         galaxy = { scroll, openResearch ->

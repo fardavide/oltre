@@ -1,10 +1,12 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.format.watchedAtLabel
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -16,6 +18,7 @@ import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.math.abs
@@ -29,6 +32,12 @@ data class ColonyUiState(
     val energy: EnergyUiState,
     val facilities: List<FacilityRowUiState>,
     val returningFleet: ReturningFleetUiState?,
+    // "watching Metal Mine" over the facility list, and null when nothing is watched. It names the
+    // watched row **even when that row is on another screen**, which is the whole answer to a slot
+    // shared with research and adaptation: one watch exists in the game, and this is where you read
+    // which. Handed in rather than derived, because what a technology is called is not the colony's
+    // to know — see the same field on `ResearchUiState`.
+    val watching: String?,
 )
 
 // Energy is not shown as a fourth resource, because it is not one: it never accumulates, so a
@@ -79,6 +88,11 @@ data class FacilityRowUiState(
     // sits in the slot a card already uses to say what its next level is, which is why it is a
     // specification rather than a nag.
     val fix: String?,
+    // The square beside the ghost time, and null on every row that has no instant to book: an
+    // affordable row is not waiting for anything, a building one is already the thing happening, a
+    // locked one has no price yet, and a row whose binding resource has no net income never reaches
+    // its price at all. See `WatchUiState`.
+    val watch: WatchUiState?,
     // True on at most one row, and only for the first couple of seconds after a launch: this is the
     // upgrade that landed while the app was closed. The row answers it with a band of light crossing
     // the card once and a level badge that changes behind the band.
@@ -108,10 +122,16 @@ sealed interface FacilityActionUiState {
 // between the instant the save was written and the instant the app came back. Defaulted to nothing,
 // so the fifteen existing calls in the tests still say what they meant — and so that every render
 // after the arrival window has passed is a plain render with no announcement in it.
+//
+// `watching` is the other thing this screen is told rather than derives, and for a different reason:
+// the watch is empire-wide, so the row it points at may be a technology, and what a technology is
+// called belongs to the screen that draws technologies. Which of *these* rows holds it is read off
+// the state below, where it can be.
 fun GameState.toColonyUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: BuildingType? = null,
+    watching: String? = null,
 ): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
@@ -124,6 +144,7 @@ fun GameState.toColonyUiState(
         )
     },
     returningFleet = runs.toStrip(now),
+    watching = watching,
 )
 
 private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
@@ -197,6 +218,11 @@ private fun GameState.toFacilityRow(
     val locked = building == BuildingType.NANITE_FACTORY &&
         buildings.roboticsFactory.value < PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT
     val job = builds[building]
+    // Null when the wait never ends, which is the one reading both the ghost and the square have to
+    // agree about: the button prints "—" because it has no time to print, and the square is absent
+    // because there is no instant to book. Computed once so the two cannot disagree.
+    val untilAffordable = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() }
+    val waiting = job == null && !locked && short.isNotEmpty()
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
@@ -210,6 +236,17 @@ private fun GameState.toFacilityRow(
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
         finishedWhileAway = finishedWhileAway,
+        watch = if (waiting) {
+            untilAffordable?.let { wait ->
+                watchState(
+                    watched = watching == WatchTarget.Facility(building),
+                    at = now + wait,
+                    timeZone = timeZone,
+                )
+            }
+        } else {
+            null
+        },
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(
@@ -217,13 +254,20 @@ private fun GameState.toFacilityRow(
             )
             short.isEmpty() -> FacilityActionUiState.Upgrade
             else -> FacilityActionUiState.AffordableIn(
-                timeUntilAffordable(resources, cost, buildings, research)
-                    .takeIf { it.isFinite() }
-                    ?.let { "in ${it.toChipLabel()}" }
-                    ?: "—",
+                untilAffordable?.let { "in ${it.toChipLabel()}" } ?: "—",
             )
         },
     )
+}
+
+// The one line the watch adds to a card, and it is built like the line a running row already
+// carries — an arrow, a fact, in accent. **Relative on the right, absolute here**: the ghost says
+// "in 8h 13m" because that is what you weigh against your evening, and this says "19:51" because
+// that is what the alert on the lock screen will be stamped with.
+private fun watchState(watched: Boolean, at: Instant, timeZone: TimeZone): WatchUiState {
+    if (!watched) return WatchUiState.Offered
+    val local = at.toLocalDateTime(timeZone)
+    return WatchUiState.Booked(watchedAtLabel(hour = local.hour, minute = local.minute))
 }
 
 // Signed, because the sign is what makes the top of the list the supply side and the rest of it
@@ -268,7 +312,11 @@ private fun BuildJob.toUpgradingAction(now: Instant, timeZone: TimeZone): Facili
 private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
     takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }
 
-internal fun BuildingType.displayName(): String = when (this) {
+// Public rather than internal since the watch: the shell writes "watching Deuterium Synth." over
+// both lists, and what a facility is called is this module's to say. One name, read by whoever
+// needs it, beats a second table in the composition root that would drift the first time one of
+// these is renamed.
+fun BuildingType.displayName(): String = when (this) {
     BuildingType.METAL_MINE -> "Metal Mine"
     BuildingType.CRYSTAL_MINE -> "Crystal Mine"
     BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium Synth."

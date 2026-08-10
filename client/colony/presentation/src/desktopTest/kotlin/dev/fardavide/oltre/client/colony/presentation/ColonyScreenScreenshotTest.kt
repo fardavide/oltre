@@ -43,13 +43,42 @@ class ColonyScreenScreenshotTest {
         captureColonyScreen(width = 320, height = 834, name = "colony_screen_ipad_slide_over")
     }
 
-    private fun captureColonyScreen(width: Int, height: Int, name: String) {
+    // The watch set, at the width it has to survive: the square sits outside the ghost button, so
+    // the 29dp comes off the name column — 320dp is where that is decided.
+    @Test
+    fun `colony screen watching a row in a Slide Over window`() {
+        captureColonyScreen(
+            width = 320,
+            height = 834,
+            name = "colony_screen_watching_slide_over",
+            uiState = watchedColonyUiState,
+        )
+    }
+
+    // A phone, which is where the three things the watch moves are read together: the heading names
+    // the row, the square is lit, and the card says the instant.
+    @Test
+    fun `colony screen watching a row on a phone`() {
+        captureColonyScreen(
+            width = 393,
+            height = 852,
+            name = "colony_screen_watching_phone",
+            uiState = watchedColonyUiState,
+        )
+    }
+
+    private fun captureColonyScreen(
+        width: Int,
+        height: Int,
+        name: String,
+        uiState: ColonyUiState = testColonyUiState,
+    ) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
-                        ColonyScreen(uiState = testColonyUiState, onUpgrade = {})
+                        ColonyScreen(uiState = uiState, onUpgrade = {}, onToggleWatch = {})
                     }
                 }
             }

@@ -70,6 +70,7 @@ class CompletionSweepBehaviourTest {
         action = FacilityActionUiState.Upgrade,
         power = null,
         fix = null,
+        watch = null,
         finishedWhileAway = true,
     )
 }

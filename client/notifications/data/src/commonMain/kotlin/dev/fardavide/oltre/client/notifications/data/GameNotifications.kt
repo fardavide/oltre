@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchedPurchase
 import dev.fardavide.oltre.core.futureEvents
 import kotlin.time.Instant
 
@@ -51,18 +52,21 @@ class GameNotifications(private val scheduler: NotificationScheduler) {
 internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
 
 internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotification> {
-    val pending = futureEvents(state)
+    // `now` reaches core as well as filtering its answer, and the two uses are not the same. One
+    // member of that list is not a job with a stored instant — the watch is projected forward from
+    // the moment these stocks are accurate as of, which is this one.
+    val pending = futureEvents(state, now = now)
         // core hands back everything still in flight; an event at or before `now` is either
         // about to be applied by `advance` or already has been, and either way an alert for it
         // would fire in the past. The platforms reject that anyway — dropping it here means one
         // rule instead of one per platform.
         .filter { it.at > now }
 
-    // **Two kinds are now unbounded, not one.** Six facilities and one research slot are bounded by
-    // the model — seven at the ceiling, and none of them can ever be the thing that overflows. Probes
-    // were the only kind that ran in parallel with no cap; fleet runs are the second, so the
-    // partition has to name both or `bounded.size` stops describing the protected set and the trim
-    // arithmetic quietly under-counts.
+    // **Two kinds are now unbounded, not one.** Six facilities, one research slot and one watch are
+    // bounded by the model — eight at the ceiling, and none of them can ever be the thing that
+    // overflows. Probes were the only kind that ran in parallel with no cap; fleet runs are the
+    // second, so the partition has to name both or `bounded.size` stops describing the protected set
+    // and the trim arithmetic quietly under-counts.
     //
     // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
     // one: protect the model-bounded seven, then returns, then probe landings — because a return
@@ -147,6 +151,44 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = "The cargo from ${target.label()} is in your stores.",
         at = at,
     )
+    // **The only alert in the game that is not about something that happened** — it is about
+    // something that became possible. It still obeys the rule the others do: it is a sentence a
+    // player is happy to miss, and it asks for nothing.
+    //
+    // One id space across the three branches, unlike the research/adaptation pair above, and for a
+    // reason that pair does not have: there is one watch in the whole game, so this set can never
+    // hold two of these to collide.
+    is FutureEvent.AffordableAt -> LocalNotification(
+        id = "affordable-${purchase.subject()}",
+        title = "You can afford ${purchase.displayName()}",
+        body = "The colony has the resources for level ${purchase.level()}.",
+        at = at,
+    )
+}
+
+// The enum constant, which is what every other id here is derived from and for the same reason: the
+// same colony always produces the same alerts, which is what makes replacing the set idempotent.
+private fun WatchedPurchase.subject(): String = when (this) {
+    is WatchedPurchase.Facility -> building.name
+    is WatchedPurchase.Project -> technology.name
+    is WatchedPurchase.Ladder -> technology.name
+}
+
+// The same names the completion alerts use, so a player who is told they can afford a Deuterium
+// Synthesizer and then told it reached level 8 is being told about one thing.
+private fun WatchedPurchase.displayName(): String = when (this) {
+    is WatchedPurchase.Facility -> building.displayName()
+    is WatchedPurchase.Project -> technology.displayName()
+    is WatchedPurchase.Ladder -> technology.displayName()
+}
+
+// The two level types the branches carry, read for the one sentence that states a number. Written
+// as a `when` rather than hidden behind a shared interface, because `BuildingLevel` and `TechLevel`
+// staying different types is what stops one being passed where the other was meant.
+private fun WatchedPurchase.level(): Int = when (this) {
+    is WatchedPurchase.Facility -> toLevel.value
+    is WatchedPurchase.Project -> toLevel.value
+    is WatchedPurchase.Ladder -> toLevel.value
 }
 
 // PLACEHOLDER copy, and the two strings are the design rather than a formatting convenience.

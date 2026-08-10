@@ -984,7 +984,7 @@ private fun openingReport(withProbes: Boolean) {
             }
         }
 
-        val pending = futureEvents(state)
+        val pending = futureEvents(state, now = now)
         checkIns += CheckIn(
             label = clockLabel(offset),
             finished = finished,
@@ -1549,7 +1549,7 @@ private fun fleetRun(
                 }
             }
 
-            bookedMinutes += futureEvents(state).lastOrNull()?.let { (it.at - now).inWholeMinutes } ?: 0L
+            bookedMinutes += futureEvents(state, now = now).lastOrNull()?.let { (it.at - now).inWholeMinutes } ?: 0L
         }
 
         shipMinutesOwned += ownedSkiffs(state) * 60L

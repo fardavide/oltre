@@ -15,7 +15,7 @@ class SkippingTest {
     fun `a skip lands on the next event and takes the clock with it`() {
         // given
         val state = buildingColony()
-        val completesAt = futureEvents(state).minOf { it.at }
+        val completesAt = futureEvents(state, now = EPOCH).minOf { it.at }
 
         // when
         val outcome = skipping(state, lastUpdatedAt = EPOCH, clock = DebugClock(), wallClock = EPOCH)
@@ -76,7 +76,7 @@ class SkippingTest {
 
         val outcome = skipping(state, lastUpdatedAt = savedAt, clock = DebugClock(), wallClock = now)
 
-        val expected = futureEvents(advance(state, from = savedAt, to = now))
+        val expected = futureEvents(advance(state, from = savedAt, to = now), now = now)
             .filter { it.at > now }
             .minOfOrNull { it.at }
             ?: (now + SKIP_FALLBACK)

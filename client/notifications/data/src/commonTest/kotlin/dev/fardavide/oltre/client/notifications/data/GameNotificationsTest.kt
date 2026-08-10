@@ -24,7 +24,11 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.futureEvents
+import dev.fardavide.oltre.core.timeUntilAffordable
+import dev.fardavide.oltre.core.toggleWatch
+import dev.fardavide.oltre.core.watchedPurchase
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
@@ -109,6 +113,97 @@ class GameNotificationsTest {
             setOf("The cargo from [2:117:9] is in your stores.", "The cargo from [4:3:2] is in your stores."),
             scheduler.scheduled.map { it.body }.toSet(),
         )
+    }
+
+    @Test
+    fun `a watched row is announced at the instant the colony can pay for it`() = runTest {
+        // given — the only alert in the game about something that has not happened
+        val scheduler = FakeNotificationScheduler()
+        val state = watching(WatchTarget.Facility(BuildingType.METAL_MINE))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — the instant is the one the row itself prints, so the lock screen and the card
+        // cannot disagree about when
+        val notification = scheduler.scheduled.single()
+        val purchase = checkNotNull(state.watchedPurchase())
+        assertEquals(
+            EPOCH + timeUntilAffordable(state.resources, purchase.cost, state.buildings, state.research),
+            notification.at,
+        )
+        assertEquals("You can afford Metal Mine", notification.title)
+        assertEquals("The colony has the resources for level 2.", notification.body)
+    }
+
+    @Test
+    fun `a watched row the colony can already pay for books nothing`() = runTest {
+        // given — the opening stocks cover the first mine level outright, so there is no instant
+        val scheduler = FakeNotificationScheduler()
+        val state = toggleWatch(freshState(), WatchTarget.Facility(BuildingType.METAL_MINE))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(emptyList(), scheduler.scheduled)
+    }
+
+    @Test
+    fun `a watched technology names the discipline and the level it would buy`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler).sync(watching(WatchTarget.Project(Technology.EXTRACTION)), now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertEquals("You can afford Extraction", notification.title)
+        assertEquals("The colony has the resources for level 1.", notification.body)
+    }
+
+    @Test
+    fun `a watched ladder is named the way the lock screen names one`() = runTest {
+        // given — spelled out with the word the row drops, like every other adaptation alert
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler).sync(watching(WatchTarget.Ladder(AdaptationTechnology.GRAVITIC)), now = EPOCH)
+
+        // then
+        assertEquals("You can afford Gravitic Adaptation", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `a watched facility is spelled out in full`() = runTest {
+        // given — the row abbreviates to fit its width and a lock screen has the room
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler)
+            .sync(watching(WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER)), now = EPOCH)
+
+        // then
+        assertEquals("You can afford Deuterium Synthesizer", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `the watch never competes with probe landings for the platform's ceiling`() = runTest {
+        // given a swarm of probes big enough to overflow iOS's 64, plus a watch
+        val scheduler = FakeNotificationScheduler()
+        val state = toggleWatch(
+            swarming(probes = IOS_PENDING_REQUEST_LIMIT + 10).copy(resources = Resources.of()),
+            WatchTarget.Facility(BuildingType.METAL_MINE),
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — one watch is bounded by the model exactly as the six facilities and the one
+        // research slot are, so it is protected rather than trimmed
+        assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
+        assertEquals(1, scheduler.scheduled.count { it.id.startsWith("affordable-") })
     }
 
     @Test
@@ -280,7 +375,7 @@ class GameNotificationsTest {
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
-            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             val scheduler = FakeNotificationScheduler()
             GameNotifications(scheduler).sync(started.state, now = EPOCH)
             val body = scheduler.scheduled.single().body
@@ -327,7 +422,7 @@ class GameNotificationsTest {
         // set on the transition it causes, so a dropped far landing is re-booked long before it
         // was due. Dropping the near ones instead would lose alerts nothing would ever re-book.
         val kept = scheduler.scheduled.map { it.at }
-        val dropped = futureEvents(state).map { it.at } - kept.toSet()
+        val dropped = futureEvents(state, now = EPOCH).map { it.at } - kept.toSet()
         assertEquals(IOS_PENDING_REQUEST_LIMIT, kept.size)
         assertTrue(dropped.isNotEmpty() && kept.max() <= dropped.min())
     }
@@ -569,7 +664,7 @@ class GameNotificationsTest {
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
-            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             if ((landing.settleable > 0) == settleable) return started.state
         }
         error("no target within a galaxy of home charts ${if (settleable) "somewhere" else "nowhere"} settleable")
@@ -613,6 +708,11 @@ class GameNotificationsTest {
 
     private fun wealthy(): GameState =
         freshState().copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000, deuterium = 1_000))
+
+    // A colony with empty stores and one row watched, which is the only shape a watch is ever set
+    // in: the square exists on a row the colony cannot pay for, and nowhere else.
+    private fun watching(target: WatchTarget): GameState =
+        toggleWatch(freshState().copy(resources = Resources.of()), target)
 
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
     // every colony in the same galaxy. Alerts do not care which map they are scheduled over.

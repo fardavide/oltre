@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.ResourceKind
@@ -39,6 +40,7 @@ internal val testColonyUiState = ColonyUiState(
             ),
             power = FacilityPowerUiState(label = "−120", supply = false),
             fix = null,
+            watch = null,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
@@ -53,6 +55,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Upgrade,
             power = FacilityPowerUiState(label = "+400", supply = true),
             fix = "→ LV 9 covers all 440 drawn",
+            watch = null,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
@@ -67,6 +70,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.AffordableIn("in 3h 12m"),
             power = FacilityPowerUiState(label = "−320", supply = false),
             fix = null,
+            watch = WatchUiState.Offered,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
@@ -82,6 +86,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Locked("Requires Robotics 10"),
             power = null,
             fix = null,
+            watch = null,
             finishedWhileAway = false,
         ),
     ),
@@ -90,4 +95,17 @@ internal val testColonyUiState = ColonyUiState(
         subtitle = "from [1:42:7] · 12 cargo",
         countdown = "02:11:40",
     ),
+    // The square is offered on the one row that is waiting on its stocks, and nothing holds the
+    // watch. The watched reading is its own frame — see `watchedColonyUiState`.
+    watching = null,
+)
+
+// The same colony with the watch set on the row that was offering it: the heading names it, the
+// square is lit, and the card gains the one line that says when. Three things move together, which
+// is the frame the whole slice is about.
+internal val watchedColonyUiState = testColonyUiState.copy(
+    watching = "watching Deuterium Synth.",
+    facilities = testColonyUiState.facilities.map { row ->
+        if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+    },
 )

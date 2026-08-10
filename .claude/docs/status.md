@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.4.0)
+Updated: 2026-08-10 (0.5.0)
 
 ## Landed
 
@@ -192,6 +192,20 @@ Updated: 2026-08-10 (0.4.0)
   into one alert and one silently vanished; and `FutureEvents`' tie-break ladder was *derived* from
   `BuildingType.entries.size`, so a seventh building would have moved three unrelated constants, with
   `Int.MAX_VALUE` sealing the end so the next kind had nowhere to go. Both are explicit now.
+- **0.5.0 the upgrade watch** (`Upgrade Watch.dc.html`) — a 29dp square beside the ghost time on
+  any row the empire cannot pay for, on Colony and on Research alike. Tapping it books one alert for
+  the instant the row already prints; it fires once and clears itself. **State, not a booking**: one
+  nullable `watching` on `GameState` (schema 9), a `FutureEvent.AffordableAt` that `futureEvents`
+  projects from stocks, rates and the row's cost, and one more branch in `toNotification` — so
+  nothing is amended and the instant moves the moment anything else about the colony does.
+  `futureEvents` takes `now` for the first time, because that one member's instant is stored nowhere;
+  `advance` clears a spent watch, which is the only state change in the game that writes no event, so
+  the shell's watch action commits unconditionally the way the debug skip does. One slot across three
+  ladders, named in both screens' section headings — on Research it takes the trailing slot from
+  "one project at a time" while a watch exists. Two width consequences were **measured**: a Research
+  row carrying a square drops its trailing noun at any width (the design's own remedy), and the
+  Colony name's 320dp truncation is [issue #38](https://github.com/fardavide/oltre/issues/38), which
+  predates this slice by two characters' worth. Four new baselines.
 - **0.4.0 the Sky pass** — the accepted direction from a four-option graphics review
   (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
   replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot

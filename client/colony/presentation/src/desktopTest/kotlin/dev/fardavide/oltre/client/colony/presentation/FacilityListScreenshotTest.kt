@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
@@ -43,6 +44,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -58,6 +60,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -72,6 +75,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 3h 12m"),
                                     power = null,
                                     fix = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -87,10 +91,12 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
+                            onToggleWatch = {},
                         )
                     }
                 }
@@ -134,10 +140,12 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = true,
                                 ),
                             ),
                             onUpgrade = {},
+                            onToggleWatch = {},
                         )
                     }
                 }
@@ -175,6 +183,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 15m"),
                                     power = FacilityPowerUiState(label = "+50", supply = true),
                                     fix = "→ LV 2 covers all 90 drawn",
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 // A draw on a row that is affordable: taking it deepens the
@@ -191,6 +200,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = FacilityPowerUiState(label = "−30", supply = false),
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -207,6 +217,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = FacilityPowerUiState(label = "−20", supply = false),
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
@@ -224,10 +235,12 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
+                            onToggleWatch = {},
                         )
                     }
                 }

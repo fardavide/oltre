@@ -32,10 +32,12 @@ import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleWatch
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -155,6 +157,20 @@ fun App(
                     }
                 }
 
+                // The watch, and it is `act`'s shape with one difference that matters: **it commits
+                // unconditionally.** Setting a watch writes no event — nothing happened, a row was
+                // pointed at — so `hasNewEventsSince` is false and `act` would decline to save. The
+                // save is not the point either: booking the alert is, and the alert is only booked
+                // by the `notifications.sync` inside `commit`. A watch that did not commit would be
+                // a square that lit up and told nobody. Same shape as `skip()`, for the same reason.
+                fun watch(target: WatchTarget) {
+                    val next = current.acting(debugClock, wallClock = Clock.System.now()) { state, _ ->
+                        toggleWatch(state, target)
+                    }
+                    session = next
+                    scope.launch { next.commit(store, notifications, debugClock) }
+                }
+
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
                 // both are the point: the instant is chosen by the simulation rather than by the
                 // clock, and it commits unconditionally — a skip that changed no event still moved
@@ -179,6 +195,9 @@ fun App(
                     }
                 }
 
+                // One string for both destinations, because there is one watch: see `watchingLabel`.
+                val watching = current.state.watching?.watchingLabel()
+
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScaffold(
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
@@ -197,6 +216,7 @@ fun App(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedFacility,
+                                    watching = watching,
                                 ),
                                 onUpgrade = { building ->
                                     act { state, at ->
@@ -209,6 +229,7 @@ fun App(
                                         }
                                     }
                                 },
+                                onToggleWatch = { building -> watch(WatchTarget.Facility(building)) },
                             )
                         },
                         research = { scroll ->
@@ -225,6 +246,7 @@ fun App(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedProject,
+                                    watching = watching,
                                 ),
                                 onStartResearch = { technology ->
                                     act { state, at ->
@@ -250,6 +272,16 @@ fun App(
                                             -> state
                                         }
                                     }
+                                },
+                                // Two callbacks rather than one taking a `WatchTarget`, so the
+                                // screen keeps speaking in its own two vocabularies exactly as its
+                                // two start verbs do. Assembling the target is the shell's job,
+                                // which is also the only place both branches are in scope.
+                                onToggleTechnologyWatch = { technology ->
+                                    watch(WatchTarget.Project(technology))
+                                },
+                                onToggleAdaptationWatch = { technology ->
+                                    watch(WatchTarget.Ladder(technology))
                                 },
                             )
                         },
