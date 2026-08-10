@@ -1765,3 +1765,222 @@ measurement says it is not income.
   `_DENOMINATOR` in `Curves.kt` (2/3 — the clock's steepness), `MINIMUM_UPGRADE_DURATION` in
   `PlaceholderBalance` (2 minutes — the floor of the whole game), then `FULL_PRICE_LEVEL` (9) with
   the sweep above, and `OPENING_DISCOUNT_DIVISOR` (10 — the price only).
+
+## Round 17 — 0.3.0, the fleet constant gets measured and halved (2026-08-10)
+
+**A measurement round, like round 12 — except this one moved something.**
+`FleetBalance.EXTRACTION_PER_HOUR = 40` was written into `core` having never been through
+`:sim:run`, and the fleet sheet's §9 says in as many words that it *"must not ship unswept"*. This
+round builds `printFleetReport()`, runs the sweep, and **takes the constant to 20 before the slice
+merges**. Davide delegated the call — *"You decide for me based on your research and logs"*,
+2026-08-10 — so what follows is the evidence and then the decision, in that order.
+
+**Two other calls were settled in the same breath and are written up at the end**: the frontier band
+multipliers, which Claude Design corrected and this round ratifies, and the hauler's price, which
+Design invented and this round rejects by about an order of magnitude.
+
+### What was added to the harness
+
+`printFleetReport()`, after `printOpeningReport`, and it is deliberately shaped by three mistakes
+this file already made:
+
+1. **The no-fleet column is in the same run**, probes on in both, so the fleet is the only variable.
+2. **A third ledger.** `fleetBusy` joins `colonyBusy` and `probeBusy`, and what is printed is the
+   share of covered time each one is the **only** thing covering.
+3. **Kinds first, count second** — `gather` is one verb with 266 surveyed targets, not 266 actions.
+
+Plus `FleetBalance.shipCost`, which the sheet's §4 specified and nobody had written. Everything else
+in `:sim:run` is byte-identical to the pre-round output, checked by diff.
+
+### The three findings that matter, in order
+
+**1. The fleet buys back no idle time at all.** The third ledger, 48h, shipped tuning:
+
+| Ledger | Covers | Is the **only** cover for |
+|---|---|---|
+| colony | 3.15% | **0.00%** |
+| probes | 96.77% | **22.49%** (10h 27m) |
+| fleet | 75.00% | **0.00%** (0h 0m) |
+
+`Hours with nothing at all in flight` is **2.08% with and without the fleet**; the longest silence is
+**0h 47m** either way; the median check-in books **360 minutes** either way. The probe already took
+that ground at 0.2.x, and §0 of the sheet predicted exactly this — *"a slice justified by the
+idleness number is a second probe"*. **Whatever this mechanic is for, it is not for the idleness
+number, and no future round may claim it.**
+
+**2. Distance buys nothing, measured — §3.5's worst case, confirmed.** Over a fortnight, **56 of 56
+dispatches went to band 0**, to **two worlds**, both in the home system: `[3:165:8]` ×32 for metal and
+`[3:165:13]` ×24 for crystal. Of 266 surveyed worlds the bands available were **4 / 0 / 66 / 196** —
+there is **no band 1 at all**, because `probeTargetFor` aims at the longest flight that still lands
+before the next check-in and therefore only ever surveys distant systems. And at a four-a-day cadence
+the gaps are 5h, 6h, 4h and 9h, so the player **never asks for the 1h rung and never asks for the 24h
+one** — which are the only rungs a far world can be reached on. The map is a backdrop, twice over.
+
+**3. The crystal column cannot size the constant, and the reason is a feedback loop.** Crystal
+short-at-all over the fortnight lands in **180–275 of 336 against a 292 control** across the whole
+12-cell grid — every difference inside the ~50-hour band round 12 established as noise. The mechanism
+is that the adaptive player gathers crystal *only while crystal is short*, so a higher rate buys
+**fewer crystal runs** (68% → 43% of dispatches from rate 10 to 40) rather than less scarcity. The
+sole-blocker ledger meanwhile flips to metal — 100 → 296 hours — because hulls are bought with metal.
+**Crystal is relieved by about a quarter and stays the dominant shortage at every candidate rate.**
+
+### The sweep
+
+48h columns from the four-a-day player; fortnight columns from the hour-stepped colony, which is the
+bot the numbers above are quoted against. Hulls are bought greedily out of what is left after the
+buildings — the sheet's own account of why the fleet gets bought. Control: 32 levels @48h, Robotics 4
+at hour 34, crystal short-at-all 292.
+
+| `EXTRACTION_PER_HOUR` | levels @48h | hulls @48h | duty | fleet metal / colony **metal** | fleet crystal / colony **crystal** | crystal short-at-all | Robotics 4 |
+|---|---|---|---|---|---|---|---|
+| 10 | 33 | 5 | 75.0% | 10.8% | 7.6% | 246 | hour 34 |
+| **20** | 34 | 6 | 74.6% | 25.9% | **15.5%** | 275 | hour 34 |
+| 30 | 33 | 7 | 74.4% | 46.3% | 23.3% | 202 | hour 33 |
+| **40 — shipped** | 33 | 7 | 74.1% | 63.8% | **31.1%** | 222 | hour 34 |
+
+| hull base | levels @48h | hulls @48h | hulls @14d | fleet crystal / colony crystal |
+|---|---|---|---|---|
+| 40 metal | 33 | 9 | 18 | 65.0% |
+| **80 — shipped** | 33 | 7 | 17 | 31.1% |
+| 140 metal | 34 | 5 | 15 | 29.6% |
+
+**Every guardrail is met at every candidate.** Levels at 48h never leave 32–34 against a control of
+32; Robotics 4 never leaves hour 33–34 against a control of 34 — the deuterium exclusion does exactly
+the job §1 gave it; the fleet is bought at every price and the mine out-paybacks every hull at every
+rate by 4× or more, so §4's invariant holds and §6's proposed `BalanceCurveTest` would pass at 40.
+**Nothing in the guardrails constrains the choice.** The only reading that moves monotonically with
+the rate is the fleet's share of the opening colony's income in the currency it chose.
+
+### The recommendation, for Davide
+
+**`EXTRACTION_PER_HOUR` 40 → 20. Hull base unchanged at 80 metal / 20 crystal.** Three arguments:
+
+1. **A fleet-first player must not out-produce their own colony.** The purchase order is worth
+   measuring and it brackets the answer: buying hulls *before* the buildings rather than out of the
+   residual takes the crystal share at rate 40 from 31.1% to **98.6%** — the fleet delivering as much
+   crystal in 48 hours as the whole colony. At rate 20 the same aggressive player reaches 49.2%.
+   **20 is the highest rate at which no purchase order makes the fleet the economy.**
+2. **Per hull, against the colony that receives it.** At 40 one skiff on a 6h run brings home
+   **3.4 hours** of a genesis colony's crystal income — ~55% of a crystal mine while it is out, which
+   is the *"47%"* §4 flagged as the number most likely to be wrong. At 20 it is 1.7 hours, ~28%: three
+   or four skiffs match your crystal mine, which is a fleet you build up to.
+3. **§3.5's frontier band is not implemented and will multiply this.** Design's ratified multipliers
+   are ×1.15 / ×1.55 / ×2.30 by band. A rate sized against today's flat hold is a rate that becomes
+   up to 2.3× larger the day the band lands. 20 leaves the frontier at ~46 effective; 40 puts it at 92.
+
+**30 is the upper bound defensible on this evidence** if the opening kick matters more than the
+ceiling. **40 is not defensible.** **10 is too small**: §4's own hour-zero story — 132 metal from a 3h
+run next door, *"the first thing that ever arrived from outside the colony"* — becomes 33 metal, which
+is 22 minutes of the genesis colony's metal income and does not read as an event. At 20 it is 66 metal
+and 44 minutes, which does. **Halving the rate halves that anchor, and that is the cost of the
+recommendation, stated rather than buried.**
+
+**The hull base is left alone because nothing measured argues with it** — the colony guardrail is met
+at 40, 80 and 140, hulls are bought at all three, and the invariant holds at all three. The only thing
+the base changes is fleet size, and there the sheet's stated intent is out by ~2× at every price:
+§4 expects *"three to four skiffs at the opening and six or seven at depth"* and the measurement is
+**7 at 48 hours and 17 at a fortnight** at the shipped 80. Landing the sheet's numbers needs a base
+well above 140, and that is a design intent question rather than a measurement.
+
+### Watch next round
+
+- **Still nothing played.** Seven rounds on one session's feedback.
+- **The window ladder is half-unmeasurable and will stay that way.** Every report but
+  `printFirstSitting` checks in at three hours or more, so the 1h rung has never been simulated by
+  anything, and a four-a-day player never wants the 24h one. If the frontier is meant to be reachable,
+  something has to make a player want a window longer than their own absence.
+- **`printFleetReport` measures a strategy, and two of its free choices move the answer.** The window
+  policy is worth ~25 points of duty cycle; the purchase order is worth four to six building levels and
+  roughly 3× the crystal income share. Both are printed rather than chosen, and both are the first
+  thing to re-read if a later round disagrees with this one.
+- **The dials, in order:** `EXTRACTION_PER_HOUR` (now 20, and the sweep above), then the §3.5 frontier
+  band (decided below, not implemented), then `HULL_BASE_METAL` (80), then `DANGER_PERCENT_PER_POINT`
+  (10), which this round never had a reason to touch because every dispatch went to band 0.
+
+### The three calls, decided — Davide delegating, 2026-08-10
+
+> "You decide for me based on your research and logs"
+
+**1. `EXTRACTION_PER_HOUR` 40 → 20.** Not a guardrail decision: levels at 48h never left 32–34 and
+Robotics 4 never left hour 33–34 at any candidate, so the guardrails constrain nothing here. Three
+readings decided it, and the first is the one that matters.
+
+**A fleet-first player must not out-produce their own colony.** The sweep's headline number is taken
+from a player who buys hulls out of what is left after the buildings. Invert the purchase order — buy
+hulls *first* — and at 40 the fleet's crystal goes from 31% of the colony's to **98.6%**: a fleet
+delivering as much crystal in forty-eight hours as everything else put together. At 20 the same
+aggressive player reaches 49%. **20 is the highest rate at which no purchase order makes the fleet the
+economy**, and a constant that is only safe if the player buys in the order the designer imagined is
+not a safe constant. Round 8's cap proposals died on the same principle from the other side.
+
+Per hull it is also the legible number: at 20 a skiff on a 6h run brings home 1.7 hours of a genesis
+colony's crystal income — about 28% of a Crystal Mine while it is away, so three or four skiffs match
+the mine. At 40 it is 3.4 hours and ~55%, which is the "47%" the sheet's own reviewer had already
+flagged.
+
+And **§3.5's frontier band is not built yet and multiplies this by up to ×2.30.** Sizing at 20 lands
+the frontier near an effective 46; sizing at 40 would put it at 92 the day slice 2 ships, which is a
+rebalance arriving disguised as a feature.
+
+**The cost, stated rather than buried:** the sheet's hour-zero anchor halves. A first run next door
+brings 66 metal instead of 132 — and 30 is the upper bound this evidence defends, so if the opening
+reads thin that is the move and it is one number. **10 was rejected**: 33 metal is twenty-two minutes
+of income, and the first thing that ever arrives from outside the colony should not read as a
+rounding error.
+
+**2. The frontier bands: ×1.00 / ×1.15 / ×1.55 / ×2.30, ratified.** The sheet proposed ×1.35 and
+×1.60 for bands 2 and 3 and Claude Design showed they create no crossover at all. Reproduced here
+against the shipped formulas, at the 24h window, against a same-richness world at home:
+
+| band | round trip | station | danger | sheet's | net vs near | break-even |
+|---|---|---|---|---|---|---|
+| 0 · own system | 20m | 23h 40m | 0 | ×1.00 | 1.00 | — |
+| 1 · within 125 systems | 58m | 23h 02m | 1 | ×1.15 | 1.01 | ×1.14 |
+| 2 · rest of galaxy | 4h 48m | 19h 12m | 2 | ×1.35 | **0.88** | **×1.54** |
+| 3 · another galaxy | 9h 20m | 14h 40m | 3 | ×1.60 | **0.69** | **×2.31** |
+
+The error is structural rather than a slip: **the flight is subtracted from the window while the band
+is multiplied into the hold, and danger climbs with the same distance the band pays for.** Break-even
+is the right target rather than a timid one — the band cancels the distance penalty exactly and then
+*richness* decides, which is the only thing that makes a map worth reading, and there is no unpriced
+risk left to compensate because danger is deterministic and already inside that arithmetic. Band 3
+sits a hair under its own break-even deliberately, because the galaxy sheet prices a galaxy hop as a
+late-game undertaking. Written into `FleetBalance.FRONTIER_PERCENT` and **read by nothing until slice
+2.**
+
+**3. The hauler is not 240 metal. It is ~1,000, and the reasoning was inverted.** Design drew
+240 / 60 as "three times a skiff for four berths at half the speed". The comparison that decides it is
+not hauler-against-skiff, it is **hauler against the four skiffs it replaces**, since it carries four
+berths:
+
+| hauler ÷ four skiffs | 3h | 6h | 12h | 24h |
+|---|---|---|---|---|
+| own system | 0.86 | 0.94 | 0.97 | 0.98 |
+| twenty systems out | 0.51 | 0.80 | 0.91 | 0.96 |
+| across your galaxy | — | — | 0.33 | 0.75 |
+
+**A hauler is strictly worse than four skiffs per berth, at every target and every window.** Its
+entire case is therefore price — which makes the price the whole design rather than a detail. At 240
+it is 60 per berth against **243** per berth for the four skiffs it replaces at the earliest
+opportunity, and against **548** once you own three. Four to nine times cheaper on arrival: the hauler
+would dominate the moment it unlocked and the skiff would become a hull you buy once, which deletes
+the composition decision the second hull exists to create.
+
+**Anchor it to the four skiffs it replaces: base 1,000 metal / 250 crystal, its own ×1.5 curve.** That
+is 250 per berth against 243 for four skiffs when you own one, and against 548 when you own three — so
+**skiffs are the early buy and the hauler is the buy at scale**, a crossover in *ownership* laid on top
+of the window-and-distance one. Marked for the slice-4 sweep the way `SurveyBalance.COST_METAL` was,
+and not implemented here: the hauler is slice 4 and nothing should ship a constant a report cannot yet
+read.
+
+### What this round could not measure, and what slice 2 owes because of it
+
+**The frontier is untestable by this harness as shaped**, and that is now a blocker rather than a
+footnote. A four-a-day player faces gaps of 5h, 6h, 4h and 9h, so they never ask for the 1h rung and
+never ask for the 24h one — and the 24h rung is the only one a band-2 or band-3 world can be reached
+on. Confirmed from the other side by the run itself: **56 of 56 dispatches went to band 0, to two
+worlds, both in the home system.** Of 266 surveyed worlds the bands available were 4 / **0** / 66 /
+196 — not one band-1 world, because `probeTargetFor` only ever surveys distant systems.
+
+So the bands ratified above are, at this moment, a decision no report can check. **Slice 2 owes a
+once-a-day runner and a probe strategy that surveys near systems**, or §3.5 ships on arithmetic alone.

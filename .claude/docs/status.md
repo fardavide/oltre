@@ -258,17 +258,23 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   (three controls, one figure, **no cost line and no affordability state** — a run is free), and the
   Colony strip naming the next event with a `2 more away` clause. The Shipyard and Fleets tabs are
   slices 3 and 4 of the same arc. See `fleet-sheet.md` §12 for all seven calls.
-- **Two balance numbers are Davide's before the arc finishes.** The **frontier bands** — Design
-  showed the sheet's ×1.35 / ×1.6 never create a crossover, because the flight is subtracted while
-  the band is multiplied and danger rises with the same distance the band pays for; the break-evens
-  are **×1.15 / ×1.55 / ×2.30**, reproduced against the formulas and recorded in §3.5. And the
-  **hauler's price and extraction constant**, which the sheet never gave and Design had to invent at
-  240 / 60 to draw the frame.
-- **`EXTRACTION_PER_HOUR = 40` has not been through `:sim:run`** and is the number most likely to be
-  wrong. Two corrections already landed on it and both push down — the draft's "16% of a genesis
-  colony" divided by a colony 0.2.7 deleted, and it measured the priced basket rather than the chosen
-  currency, where it reads **47% of a genesis colony's crystal income**. The sweep is specified in
-  `fleet-sheet.md` §6 and `printFleetReport` does not exist yet.
+- ~~**Two balance numbers are Davide's**~~ and ~~**`EXTRACTION_PER_HOUR` has not been swept**~~ —
+  **all three settled 2026-08-10**, Davide delegating (*"You decide for me based on your research and
+  logs"*). `printFleetReport` is built and balance-log **round 17** has the grid.
+  **`EXTRACTION_PER_HOUR` 40 → 20**, decided by the fleet-first purchase order rather than by a
+  guardrail: buying hulls before the buildings takes the fleet's crystal from 31% of the colony's to
+  98.6% at 40 and to 49% at 20, and a constant that is only safe if the player buys in the order the
+  designer imagined is not safe. **The frontier bands ratified at ×1.00 / ×1.15 / ×1.55 / ×2.30** —
+  the break-evens; the sheet's own ×1.35 / ×1.6 left the far world losing at every window. **The
+  hauler priced at 1,000 metal / 250 crystal**, rejecting Design's 240 / 60: a hauler is strictly worse
+  per berth than the four skiffs it replaces, so its whole case is price, and 240 would have deleted
+  the skiff. The last two are recorded and **not implemented** — they belong to slices 2 and 4.
+- **Slice 2 owes the harness a way to reach the frontier.** A four-a-day player faces gaps of 5/6/4/9h,
+  so they never ask for the 1h rung and never for the 24h one — and 24h is the only rung a band-2 or
+  band-3 world can be reached on. Measured from the other side: **56 of 56 dispatches went to band 0**,
+  to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
+  `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
+  currently check.
 - **`ResourceRailScreenshotTest`'s two baselines fail to verify on a local macOS run** and did so
   before 0.3.0 touched anything — measured by stashing the whole branch and re-running against a
   clean tree. CI verifies on Linux and is green, so this is a recording-machine difference rather

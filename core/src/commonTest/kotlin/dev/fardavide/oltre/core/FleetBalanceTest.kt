@@ -237,22 +237,30 @@ class FleetBalanceTest {
             danger = FleetBalance.danger(home, rich),
         )
 
-        // then
-        assertEquals(132L, cargo.metal)
+        // then — 66 at the measured `EXTRACTION_PER_HOUR` of 20. The sheet's §4 first published this
+        // row as 132 against a draft constant of 40; round 17 halved the constant and the row with
+        // it. Pinned as a literal on purpose, the way `GalaxyBalanceTest` pins its published tables:
+        // a balance change should have to edit a test.
+        assertEquals(66L, cargo.metal)
         assertEquals(0L, cargo.crystal)
         assertEquals(0L, cargo.deuterium)
     }
 
     @Test
     fun `the arithmetic divides once at the end`() {
-        // The two orderings the sheet rules out are computed here rather than described so the
-        // comparison is arithmetic: flooring the priced hold before the richness lands a unit low
-        // and rounding at each step lands a unit high. The shipped answer is neither.
-        val holdMinutes = 1L * FleetBalance.EXTRACTION_PER_HOUR * 160
+        // The ordering the sheet rules out is computed here rather than described, so the comparison
+        // is arithmetic rather than prose: flooring the priced hold *before* applying richness lands
+        // a unit low, because it throws away the fraction of an hour twice.
+        //
+        // **A 170-minute station rather than the worked example's 160.** At the measured constant of
+        // 20 the worked example divides evenly enough that all three orderings agree on 66 — so the
+        // row that documents the design can no longer be the row that proves it, and a test asserting
+        // a coincidence is worse than no test. 170 minutes separates them by construction, and the
+        // property is the point rather than the number.
+        val station = 170.minutes
+        val holdMinutes = 1L * FleetBalance.EXTRACTION_PER_HOUR * station.inWholeMinutes
         val flooredEarly = holdMinutes / 60 * 1_240_000 / 1_000_000
-        val roundedEachStep = ((holdMinutes + 30) / 60 * 1_240_000 + 500_000) / 1_000_000
-        assertEquals(131L, flooredEarly)
-        assertEquals(133L, roundedEachStep)
+        assertEquals(69L, flooredEarly)
 
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
@@ -260,21 +268,22 @@ class FleetBalanceTest {
             world = rich,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 1),
-            station = 160.minutes,
+            station = station,
             danger = 0,
         )
-        assertEquals(132L, cargo.metal)
+        assertEquals(70L, cargo.metal)
+        assertTrue(cargo.metal > flooredEarly)
 
-        // Four hulls carry more than four times one hull's rounded answer — 529 against 528 — which
-        // is the same property stated where it is impossible to fudge.
+        // Four hulls carry more than four times one hull's answer — 281 against 280 — which is the
+        // same property stated where it is impossible to fudge.
         val four = FleetBalance.cargo(
             world = rich,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 4),
-            station = 160.minutes,
+            station = station,
             danger = 0,
         )
-        assertEquals(529L, four.metal)
+        assertEquals(281L, four.metal)
         assertTrue(four.metal > 4 * cargo.metal)
     }
 
@@ -288,8 +297,8 @@ class FleetBalanceTest {
         val metal = FleetBalance.cargo(even, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
         val crystal = FleetBalance.cargo(even, ResourceKind.CRYSTAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
 
-        assertEquals(132L, metal.metal)
-        assertEquals(66L, crystal.crystal)
+        assertEquals(66L, metal.metal)
+        assertEquals(33L, crystal.crystal)
         assertEquals(0L, crystal.metal)
     }
 
@@ -300,10 +309,10 @@ class FleetBalanceTest {
         fun holdAt(danger: Int): Long =
             FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger).metal
 
-        assertEquals(132L, holdAt(0))
-        assertEquals(119L, holdAt(1))
+        assertEquals(66L, holdAt(0))
+        assertEquals(59L, holdAt(1))
         // A fully exposed run keeps half of it, which is the ceiling the tenth was sized against.
-        assertEquals(66L, holdAt(5))
+        assertEquals(33L, holdAt(5))
     }
 
     @Test
@@ -364,6 +373,65 @@ class FleetBalanceTest {
         assertFailsWith<IllegalArgumentException> {
             FleetBalance.cargo(rich, ResourceKind.DEUTERIUM, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
         }
+    }
+
+    // ── The hull ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the hull curve compounds by half per hull already owned`() {
+        // The sheet's §4 table, metal column, value by value. This curve is the fleet's ceiling and
+        // the reason there is no Shipyard building: a compounding price against a linear return is
+        // how every bound in this game is proved.
+        val metal = (0..5).map { FleetBalance.shipCost(ShipType.SKIFF, it).metal }
+        assertEquals(listOf(80L, 120L, 180L, 270L, 405L, 607L), metal)
+    }
+
+    @Test
+    fun `the crystal component compounds on its own base rather than tracking the metal one`() {
+        // Per-step flooring on each component separately, which is `Curves.compound`'s rule and the
+        // one the whole game's costs already follow. It drifts a unit below a quarter of the metal
+        // column from the fifth hull on — 100 against 101 — and the quarter is the coincidence
+        // rather than the rule.
+        val crystal = (0..5).map { FleetBalance.shipCost(ShipType.SKIFF, it).crystal }
+        assertEquals(listOf(20L, 30L, 45L, 67L, 100L, 150L), crystal)
+    }
+
+    @Test
+    fun `the first hull is the published base`() {
+        assertEquals(Resources.of(metal = 80, crystal = 20), FleetBalance.shipCost(ShipType.SKIFF, 0))
+        assertEquals(FleetBalance.HULL_BASE_METAL, FleetBalance.shipCost(ShipType.SKIFF, 0).metal)
+        assertEquals(FleetBalance.HULL_BASE_CRYSTAL, FleetBalance.shipCost(ShipType.SKIFF, 0).crystal)
+    }
+
+    @Test
+    fun `a hull is never priced in deuterium`() {
+        // Metal-led for `SurveyBalance`'s own reason — metal is the resource with nothing to buy —
+        // and the deuterium column stays empty because deuterium is the Robotics gate's currency.
+        for (owned in 0..8) {
+            assertEquals(0L, FleetBalance.shipCost(ShipType.SKIFF, owned).deuterium)
+        }
+    }
+
+    @Test
+    fun `a deep fleet is priced rather than overflowed`() {
+        // The curve is the ceiling, so it has to stay arithmetic all the way out rather than wrap
+        // into a cost `covers()` reads as free — the bug `checkedTimes` exists for.
+        assertTrue(FleetBalance.shipCost(ShipType.SKIFF, 40).metal > FleetBalance.shipCost(ShipType.SKIFF, 39).metal)
+    }
+
+    @Test
+    fun `only the skiff has a price this slice`() {
+        // The other three hulls each wait on exactly one design call — the hauler on slice 4, the
+        // escort on a combat model, the settler on colonisation — and a made-up price for one of
+        // them would be a number nobody chose sitting in a balance object that forbids exactly that.
+        for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
+            assertFailsWith<IllegalStateException> { FleetBalance.shipCost(type, 0) }
+        }
+    }
+
+    @Test
+    fun `a negative fleet cannot be priced`() {
+        assertFailsWith<IllegalArgumentException> { FleetBalance.shipCost(ShipType.SKIFF, -1) }
     }
 
     // Constructed rather than generated, deliberately: these curves have to be pinned against numbers
