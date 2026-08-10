@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":7,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":8,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -85,7 +85,10 @@ class GameSaveTest {
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
-                """"returningFleet":null,"eventLog":[]}}""",
+                // The fleet, in the two keys schema 8 traded `returningFleet` for: the idle pool,
+                // which opens holding the one granted skiff, and the runs in flight, which at
+                // genesis are none.
+                """"ships":{"counts":{"SKIFF":1}},"runs":[],"eventLog":[]}}""",
             encoded,
         )
     }
@@ -256,55 +259,77 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a fleet in flight survives a round trip with its origin and manifest`() {
+    fun `a run in flight survives a round trip with its target and manifest`() {
         // given
-        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 4.hours))
+        val state = GameState.initial().copy(runs = listOf(fleetRun(returnsAt = EPOCH + 4.hours)))
         val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
 
         // when
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
 
         // then
-        assertEquals(state.returningFleet, decoded.state.returningFleet)
+        assertEquals(state.runs, decoded.state.runs)
+    }
+
+    @Test
+    fun `an idle pool and the runs in flight both survive a round trip`() {
+        // The schema 8 round trip, and it has to be both halves at once: the fleet a player owns is
+        // the pool plus every run's manifest, so a save that carried one and dropped the other would
+        // hand back a smaller fleet than it was given without failing to decode.
+        val state = GameState.initial().copy(
+            ships = Ships(mapOf(ShipType.SKIFF to 3, ShipType.HAULER to 2)),
+            runs = listOf(fleetRun(returnsAt = EPOCH + 4.hours), fleetRun(returnsAt = EPOCH + 9.hours)),
+        )
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        // then
+        assertEquals(snapshot, decoded)
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(Ships(mapOf(ShipType.SKIFF to 3, ShipType.HAULER to 2)), decoded.state.ships)
+        assertEquals(2, decoded.state.runs.size)
     }
 
     @Test
     fun `a fleet that landed while the app was closed has unloaded on reopening`() {
-        // given a fleet carrying metal, arriving an hour after the save
-        val arrivesAt = EPOCH + 1.hours
-        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = arrivesAt))
+        // given a run carrying metal, returning an hour after the save
+        val returnsAt = EPOCH + 1.hours
+        val state = GameState.initial().copy(runs = listOf(fleetRun(returnsAt = returnsAt)))
 
         // when
         val reloaded = assertIs<DecodeResult.Success>(
             GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))),
         ).snapshot
-        val resumed = advance(reloaded.state, from = reloaded.lastUpdatedAt, to = arrivesAt + 1.minutes)
+        val resumed = advance(reloaded.state, from = reloaded.lastUpdatedAt, to = returnsAt + 1.minutes)
 
-        // then
-        assertEquals(null, resumed.returningFleet)
+        // then — the hold is credited and the hulls are back in the pool
+        assertEquals(emptyList(), resumed.runs)
         assertTrue(resumed.eventLog.any { it is Event.FleetReturned })
         assertTrue(resumed.resources.metal >= CARGO_METAL)
+        assertEquals(Ships(mapOf(ShipType.SKIFF to 15, ShipType.HAULER to 1)), resumed.ships)
     }
 
     @Test
     fun `ship types keep their names on disk`() {
         // given — the manifest is a map keyed by enum, so the constant names are on-disk keys
-        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 1.hours))
+        val state = GameState.initial().copy(runs = listOf(fleetRun(returnsAt = EPOCH + 1.hours)))
 
         // when
         val encoded = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
 
         // then
-        assertTrue(encoded.contains(""""CARGO":14"""), encoded)
-        assertTrue(encoded.contains(""""CRUISER":1"""), encoded)
+        assertTrue(encoded.contains(""""SKIFF":14"""), encoded)
+        assertTrue(encoded.contains(""""HAULER":1"""), encoded)
     }
 
     @Test
     fun `a save with an impossible fleet decodes to a failure`() {
-        // given — hand-edited to a negative ship count, which ReturningFleet forbids
-        val state = GameState.initial().copy(returningFleet = fleet(arrivesAt = EPOCH + 1.hours))
+        // given — hand-edited to a negative ship count, which `Ships` forbids
+        val state = GameState.initial().copy(runs = listOf(fleetRun(returnsAt = EPOCH + 1.hours)))
         val tampered = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
-            .replace(""""CARGO":14""", """"CARGO":-14""")
+            .replace(""""SKIFF":14""", """"SKIFF":-14""")
 
         // when / then
         assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
@@ -420,15 +445,16 @@ class GameSaveTest {
         // when
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_2_FULL)).snapshot
 
-        // then
+        // then — the 500 metal it had plus the 500 the inbound fleet was carrying. The 7 -> 8 hop
+        // drops the fleet and credits its hold: the old `origin` is a position and the new `target`
+        // is a slot, so folding it into a run would have to invent both a target and a `gathering`
+        // the save never recorded.
         assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
-        assertEquals(500L, decoded.state.resources.metal)
+        assertEquals(1_000L, decoded.state.resources.metal)
         assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
         assertEquals(1, decoded.state.eventLog.size)
-        assertEquals(
-            Coordinates(galaxy = 2, system = 117, position = 9),
-            checkNotNull(decoded.state.returningFleet).origin,
-        )
+        assertEquals(emptyList(), decoded.state.runs)
+        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
         assertEquals(Research.initial(), decoded.state.research)
     }
 
@@ -474,8 +500,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 7 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":7"""), rewritten)
+        // then — and from then on it is a version 8 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":8"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -593,15 +619,14 @@ class GameSaveTest {
 
         // then
         assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
-        assertEquals(500L, decoded.state.resources.metal)
+        // 500 in the store plus the 500 the 7 -> 8 hop credited from the inbound fleet's hold
+        assertEquals(1_000L, decoded.state.resources.metal)
         assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
         assertEquals(TechLevel(3), decoded.state.research.extraction)
         assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
         assertEquals(1, decoded.state.eventLog.size)
-        assertEquals(
-            Coordinates(galaxy = 2, system = 117, position = 9),
-            checkNotNull(decoded.state.returningFleet).origin,
-        )
+        assertEquals(emptyList(), decoded.state.runs)
+        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
     }
 
     @Test
@@ -655,7 +680,8 @@ class GameSaveTest {
 
         // then
         assertEquals(BuildingLevel(4), decoded.state.buildings.metalMine)
-        assertEquals(500L, decoded.state.resources.metal)
+        // 500 in the store plus the 500 the 7 -> 8 hop credited from the inbound fleet's hold
+        assertEquals(1_000L, decoded.state.resources.metal)
         assertEquals(BuildingLevel(5), decoded.state.builds.getValue(BuildingType.METAL_MINE).toLevel)
         assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
         assertEquals(GalaxySeed(20_260_807), decoded.state.galaxy.seed)
@@ -699,6 +725,44 @@ class GameSaveTest {
         assertEquals(GalaxyCoordinate(galaxy = 3, system = 165, slot = 7), decoded.state.galaxy.home)
         assertEquals(4, decoded.state.galaxy.surveyed.size)
         assertEquals(TechLevel(3), decoded.state.research.gravitic)
+    }
+
+    @Test
+    fun `a colony saved before the fleet existed wakes up with one skiff and nothing out`() {
+        // The 7 -> 8 hop is the only one in the table that grants something rather than writing the
+        // truthful zero, and it is deliberate: nothing in this slice can *buy* a hull, so an empty
+        // pool would hand an existing colony a verb it could never use. One skiff is what a colony
+        // founded a moment later gets.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_6_IDLE)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
+        assertEquals(emptyList(), decoded.state.runs)
+    }
+
+    @Test
+    fun `the 7 to 8 hop rewrites the fleet entries already in the event log`() {
+        // given a legacy save whose log already holds a `FleetReturned` in the old shape — a bare
+        // `Map<ShipType, Int>` under `ships`, a `CARGO` key and no `from` at all. Not a frozen
+        // capture: no shipped build ever wrote one, because nothing outside test code ever
+        // constructed a `ReturningFleet`. It is here because the rewrite is total and has to be —
+        // an entry left in the old shape decodes as an unknown enum constant and takes the whole
+        // save down with it.
+        val logged = VERSION_6_IDLE.replace(
+            """"eventLog":[]""",
+            """"eventLog":[{"type":"FleetReturned","ships":{"CARGO":14},""" +
+                """"cargo":{"metalFine":1800000000,"crystalFine":0,"deuteriumFine":0},""" +
+                """"at":"1970-01-01T01:00:00Z"}]""",
+        )
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(logged)).snapshot
+
+        // then — the hull is renamed and the coordinate is honestly unknown rather than invented
+        val returned = assertIs<Event.FleetReturned>(decoded.state.eventLog.single())
+        assertEquals(Ships.of(ShipType.SKIFF, 14), returned.ships)
+        assertEquals(null, returned.from)
+        assertEquals(500L, returned.cargo.metal)
     }
 
     @Test
@@ -759,11 +823,13 @@ class GameSaveTest {
         assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
     }
 
-    private fun fleet(arrivesAt: Instant): ReturningFleet = ReturningFleet(
-        ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
+    private fun fleetRun(returnsAt: Instant): FleetRun = FleetRun(
+        target = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+        ships = Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)),
+        gathering = ResourceKind.METAL,
         cargo = Resources.of(metal = CARGO_METAL),
-        origin = Coordinates(galaxy = 2, system = 117, position = 9),
-        arrivesAt = arrivesAt,
+        dispatchedAt = returnsAt - 1.hours,
+        returnsAt = returnsAt,
     )
 
     private fun funded(building: BuildingType): GameState {

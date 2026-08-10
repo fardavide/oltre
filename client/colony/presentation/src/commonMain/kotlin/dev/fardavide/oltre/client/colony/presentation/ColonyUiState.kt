@@ -14,7 +14,7 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
-import dev.fardavide.oltre.core.ReturningFleet
+import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
@@ -106,7 +106,7 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
             timeZone = timeZone,
         )
     },
-    returningFleet = returningFleet?.toStrip(now),
+    returningFleet = runs.toStrip(now),
 )
 
 private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
@@ -135,23 +135,35 @@ private fun EnergyBalance.verdict(headroomLevels: Long): String = when {
     else -> "room for $headroomLevels mine levels"
 }
 
-private fun ReturningFleet.toStrip(now: Instant): ReturningFleetUiState {
-    val remainingMs = (arrivesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
+// The strip stays exactly what it was drawn as at 0.0.6 — coordinate, manifest, cargo, countdown, in
+// one 48dp row — and it finally has something real to say. Claude Design's call, 2026-08-10: it names
+// the **next return only**, and with several runs out it gains one trailing clause and nothing else.
+// A strip that grew a row per run would push a facility row off a 393×852 phone at the measured
+// 106dp, and the full list already has a tab; the count is a door to Fleets, not a summary of it.
+//
+// Runs are unordered on `GameState`, so the soonest is picked here rather than assumed — the same
+// reason `advance` sorts its arrivals on an intrinsic key instead of on list order.
+private fun List<FleetRun>.toStrip(now: Instant): ReturningFleetUiState? {
+    val next = minByOrNull { it.returnsAt } ?: return null
+    val remainingMs = (next.returnsAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val composition = ShipType.entries
-        .mapNotNull { type -> ships[type]?.let { count -> "$count ${type.displayName()}" } }
+        .mapNotNull { type -> next.ships.counts[type]?.let { count -> "$count ${type.displayName()}" } }
         .joinToString(" · ")
+    val others = size - 1
+    val trailing = if (others > 0) " · $others more away" else ""
     return ReturningFleetUiState(
         title = "Fleet returning",
-        subtitle = "from [${origin.galaxy}:${origin.system}:${origin.position}] · $composition",
+        subtitle = "from [${next.target.galaxy}:${next.target.system}:${next.target.slot}] · " +
+            "$composition$trailing",
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
     )
 }
 
 private fun ShipType.displayName(): String = when (this) {
-    ShipType.CARGO -> "cargo"
-    ShipType.FIGHTER -> "fighter"
-    ShipType.CRUISER -> "cruiser"
-    ShipType.COLONY_SHIP -> "colony ship"
+    ShipType.SKIFF -> "skiff"
+    ShipType.HAULER -> "hauler"
+    ShipType.ESCORT -> "escort"
+    ShipType.SETTLER -> "settler"
 }
 
 private fun GameState.toFacilityRow(

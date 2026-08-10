@@ -5,16 +5,18 @@ import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
-import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
-import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
@@ -69,15 +71,44 @@ class GameNotificationsTest {
     fun `a returning fleet is announced at the instant it lands`() = runTest {
         // given
         val scheduler = FakeNotificationScheduler()
-        val state = freshState().copy(returningFleet = fleetArrivingAt(EPOCH + 3.hours))
+        val state = freshState().copy(runs = listOf(fleetReturningAt(EPOCH + 3.hours)))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — the world the hold was filled at is what the alert is about
+        val notification = scheduler.scheduled.single()
+        assertEquals(EPOCH + 3.hours, notification.at)
+        assertTrue("2:117:9" in notification.body, "body was '${notification.body}'")
+    }
+
+    @Test
+    fun `two runs landing at the same instant each get their own alert`() = runTest {
+        // The defect the run-shaped id exists to fix. A colony could once hold exactly one returning
+        // fleet, so the constant `"fleet-arrival"` was unique by construction; runs are parallel and
+        // uncapped, and two landing together would collapse into a single alert with one of them
+        // silently gone — a check-in loop that hides half of what happened while it was closed.
+        val scheduler = FakeNotificationScheduler()
+        val together = EPOCH + 3.hours
+        val state = freshState().copy(
+            runs = listOf(
+                fleetReturningAt(together),
+                fleetReturningAt(together, target = GalaxyCoordinate(galaxy = 4, system = 3, slot = 2)),
+            ),
+        )
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
 
         // then
-        val notification = scheduler.scheduled.single()
-        assertEquals(EPOCH + 3.hours, notification.at)
-        assertTrue("2:117:9" in notification.body, "body was '${notification.body}'")
+        assertEquals(2, scheduler.scheduled.size)
+        assertEquals(2, scheduler.scheduled.map { it.id }.toSet().size, "ids must not collide")
+        // And each one speaks about its own run rather than about the fleet in general — asserted
+        // as a set because which of two simultaneous returns sorts first is core's call.
+        assertEquals(
+            setOf("The cargo from [2:117:9] is in your stores.", "The cargo from [4:3:2] is in your stores."),
+            scheduler.scheduled.map { it.body }.toSet(),
+        )
     }
 
     @Test
@@ -130,7 +161,7 @@ class GameNotificationsTest {
         // given a fleet landing before either build finishes
         val scheduler = FakeNotificationScheduler()
         val state = building(BuildingType.METAL_MINE, BuildingType.SOLAR_PLANT)
-            .copy(returningFleet = fleetArrivingAt(EPOCH + 1.hours))
+            .copy(runs = listOf(fleetReturningAt(EPOCH + 1.hours)))
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
@@ -306,7 +337,7 @@ class GameNotificationsTest {
         // given
         val first = FakeNotificationScheduler()
         val second = FakeNotificationScheduler()
-        val state = building(BuildingType.METAL_MINE).copy(returningFleet = fleetArrivingAt(EPOCH + 3.hours))
+        val state = building(BuildingType.METAL_MINE).copy(runs = listOf(fleetReturningAt(EPOCH + 3.hours)))
 
         // when
         GameNotifications(first).sync(state, now = EPOCH)
@@ -587,11 +618,19 @@ class GameNotificationsTest {
     // every colony in the same galaxy. Alerts do not care which map they are scheduled over.
     private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 
-    private fun fleetArrivingAt(instant: Instant): ReturningFleet = ReturningFleet(
-        ships = mapOf(ShipType.CARGO to 14),
+    // A run out to one world and home again. `instant` is the landing — the only end an alert is
+    // about — and the dispatch is an hour before it because `FleetRun` insists a run returns after
+    // it left. The target is a parameter because it is half of what keeps two ids apart.
+    private fun fleetReturningAt(
+        instant: Instant,
+        target: GalaxyCoordinate = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+    ): FleetRun = FleetRun(
+        target = target,
+        ships = Ships.of(ShipType.SKIFF, 14),
+        gathering = ResourceKind.METAL,
         cargo = Resources.of(metal = 500),
-        origin = Coordinates(galaxy = 2, system = 117, position = 9),
-        arrivesAt = instant,
+        dispatchedAt = instant - 1.hours,
+        returnsAt = instant,
     )
 
     private companion object {

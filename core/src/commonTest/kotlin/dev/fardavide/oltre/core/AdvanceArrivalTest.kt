@@ -9,17 +9,17 @@ class AdvanceArrivalTest {
 
     @Test
     fun `a returning fleet deposits its cargo on arrival`() {
-        // given a fleet arriving one hour in, advanced over two hours
+        // given a run returning one hour in, advanced over two hours
         val t0 = Instant.fromEpochMilliseconds(0)
         val state = GameState.initial().copy(
-            returningFleet = fleet(cargo = Resources.of(metal = 500, crystal = 200), arrivesAt = t0 + 1.hours),
+            runs = listOf(fleetRun(cargo = Resources.of(metal = 500, crystal = 200), returnsAt = t0 + 1.hours)),
         )
 
         // when
         val result = advance(state, from = t0, to = t0 + 2.hours)
 
         // then
-        assertEquals(null, result.returningFleet)
+        assertEquals(emptyList(), result.runs)
         assertEquals(
             state.resources.metal + 2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR + 500,
             result.resources.metal,
@@ -30,23 +30,41 @@ class AdvanceArrivalTest {
         )
     }
 
+    // The half of an arrival that the old `ReturningFleet` had no way to express: a run carries its
+    // own manifest away from the idle pool, so landing has to hand the hulls back as well as the
+    // cargo. A version that credited only the cargo would quietly eat the fleet.
     @Test
-    fun `the arrival is logged as a fleet-returned event at its instant`() {
-        // given
+    fun `a returning fleet hands its hulls back to the idle pool`() {
+        // given a colony whose one skiff is still at home and a run of fifteen more hulls inbound
         val t0 = Instant.fromEpochMilliseconds(0)
-        val arrivesAt = t0 + 1.hours
-        val cargo = Resources.of(metal = 500)
-        val ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1)
         val state = GameState.initial().copy(
-            returningFleet = fleet(cargo = cargo, arrivesAt = arrivesAt, ships = ships),
+            runs = listOf(fleetRun(cargo = Resources.of(metal = 500), returnsAt = t0 + 1.hours)),
         )
 
         // when
         val result = advance(state, from = t0, to = t0 + 2.hours)
 
         // then
+        assertEquals(Ships(mapOf(ShipType.SKIFF to 15, ShipType.HAULER to 1)), result.ships)
+    }
+
+    @Test
+    fun `the arrival is logged as a fleet-returned event at its instant`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val returnsAt = t0 + 1.hours
+        val cargo = Resources.of(metal = 500)
+        val ships = Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1))
+        val state = GameState.initial().copy(
+            runs = listOf(fleetRun(cargo = cargo, returnsAt = returnsAt, ships = ships)),
+        )
+
+        // when
+        val result = advance(state, from = t0, to = t0 + 2.hours)
+
+        // then — the entry now says where the hold was filled as well as what came back
         assertEquals(
-            listOf(Event.FleetReturned(ships = ships, cargo = cargo, at = arrivesAt)),
+            listOf(Event.FleetReturned(from = TARGET, ships = ships, cargo = cargo, at = returnsAt)),
             result.eventLog,
         )
     }
@@ -55,14 +73,15 @@ class AdvanceArrivalTest {
     fun `a fleet still in flight stays in flight`() {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
-        val inFlight = fleet(cargo = Resources.of(metal = 500), arrivesAt = t0 + 3.hours)
-        val state = GameState.initial().copy(returningFleet = inFlight)
+        val inFlight = fleetRun(cargo = Resources.of(metal = 500), returnsAt = t0 + 3.hours)
+        val state = GameState.initial().copy(runs = listOf(inFlight))
 
         // when
         val result = advance(state, from = t0, to = t0 + 2.hours)
 
-        // then
-        assertEquals(inFlight, result.returningFleet)
+        // then — and the hulls it carries are still out with it
+        assertEquals(listOf(inFlight), result.runs)
+        assertEquals(GameState.initial().ships, result.ships)
         assertEquals(
             state.resources.metal + 2 * PlaceholderBalance.METAL_PRODUCTION_PER_HOUR,
             result.resources.metal,
@@ -75,7 +94,7 @@ class AdvanceArrivalTest {
         val t0 = Instant.fromEpochMilliseconds(0)
         val state = GameState.initial().copy(
             resources = Resources.of(metal = PlaceholderBalance.STORAGE_CAPACITY),
-            returningFleet = fleet(cargo = Resources.of(metal = 500), arrivesAt = t0 + 1.hours),
+            runs = listOf(fleetRun(cargo = Resources.of(metal = 500), returnsAt = t0 + 1.hours)),
         )
 
         // when
@@ -91,7 +110,9 @@ class AdvanceArrivalTest {
         val t0 = Instant.fromEpochMilliseconds(0)
         val t2 = t0 + 4.hours
         val state = GameState.initial().copy(
-            returningFleet = fleet(cargo = Resources.of(metal = 500, deuterium = 30), arrivesAt = t0 + 2.hours),
+            runs = listOf(
+                fleetRun(cargo = Resources.of(metal = 500, deuterium = 30), returnsAt = t0 + 2.hours),
+            ),
         )
         val oneShot = advance(state, from = t0, to = t2)
 
@@ -116,7 +137,7 @@ class AdvanceArrivalTest {
         )
         val started = (startUpgrade(funded, BuildingType.METAL_MINE, at = t0) as StartUpgradeResult.Started).state
         val state = started.copy(
-            returningFleet = fleet(cargo = Resources.of(metal = 500), arrivesAt = t0 + 1.hours),
+            runs = listOf(fleetRun(cargo = Resources.of(metal = 500), returnsAt = t0 + 1.hours)),
         )
 
         // when
@@ -124,7 +145,7 @@ class AdvanceArrivalTest {
 
         // then
         assertEquals(BuildingLevel(2), result.buildings.metalMine)
-        assertEquals(null, result.returningFleet)
+        assertEquals(emptyList(), result.runs)
         assertEquals(
             listOf("BuildStarted", "BuildCompleted", "FleetReturned"),
             result.eventLog.map { it::class.simpleName },
@@ -132,13 +153,22 @@ class AdvanceArrivalTest {
     }
 }
 
-private fun fleet(
+// The old `Coordinates(2, 117, 9)` every fixture in this file flew home from, as the bounded
+// coordinate that replaced it — a run names where it *went*, not where it is.
+private val TARGET = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9)
+
+private fun fleetRun(
     cargo: Resources,
-    arrivesAt: Instant,
-    ships: Map<ShipType, Int> = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
-): ReturningFleet = ReturningFleet(
+    returnsAt: Instant,
+    ships: Ships = Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)),
+): FleetRun = FleetRun(
+    target = TARGET,
     ships = ships,
+    gathering = ResourceKind.METAL,
     cargo = cargo,
-    origin = Coordinates(galaxy = 2, system = 117, position = 9),
-    arrivesAt = arrivesAt,
+    // A run has two ends where the old model stored one. Nothing in `advance` reads this end, but
+    // `FleetRun` requires a run to return after it left, so it is an hour before the landing rather
+    // than an arbitrary instant.
+    dispatchedAt = returnsAt - 1.hours,
+    returnsAt = returnsAt,
 )
