@@ -16,7 +16,7 @@ class WatchingTest {
     fun `a watched facility is named the way its own row names it`() {
         assertEquals(
             "watching Metal Mine",
-            WatchTarget.Facility(BuildingType.METAL_MINE).watchingLabel(),
+            WatchTarget.Facility(BuildingType.METAL_MINE).watchingLabel(compact = false),
         )
     }
 
@@ -26,7 +26,30 @@ class WatchingTest {
     fun `a long facility name keeps the row's abbreviation`() {
         assertEquals(
             "watching Deuterium Synth.",
-            WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(),
+            WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = false),
+        )
+    }
+
+    // The one name that shortens at a Slide Over's width. The row calls it "Robotics" there, so a
+    // heading still saying "Robotics Factory" would be naming a row by a name nowhere on the screen.
+    @Test
+    fun `the one facility whose row shortens is named the short way in a narrow window`() {
+        assertEquals(
+            "watching Robotics",
+            WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = true),
+        )
+        assertEquals(
+            "watching Robotics Factory",
+            WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = false),
+        )
+    }
+
+    // Every other facility is the same string at both widths, so nothing else moves under the flag.
+    @Test
+    fun `a name that fits at both widths is the same string twice`() {
+        assertEquals(
+            "watching Deuterium Synth.",
+            WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = true),
         )
     }
 
@@ -34,7 +57,7 @@ class WatchingTest {
     fun `a watched technology is named from the screen that draws technologies`() {
         assertEquals(
             "watching Extraction",
-            WatchTarget.Project(Technology.EXTRACTION).watchingLabel(),
+            WatchTarget.Project(Technology.EXTRACTION).watchingLabel(compact = false),
         )
     }
 
@@ -44,7 +67,7 @@ class WatchingTest {
     fun `a watched ladder drops the trailing noun its rows drop`() {
         assertEquals(
             "watching Gravitic",
-            WatchTarget.Ladder(AdaptationTechnology.GRAVITIC).watchingLabel(),
+            WatchTarget.Ladder(AdaptationTechnology.GRAVITIC).watchingLabel(compact = false),
         )
     }
 }

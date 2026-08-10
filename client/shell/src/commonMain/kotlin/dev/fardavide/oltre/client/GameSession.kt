@@ -7,7 +7,9 @@ import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.toggleAlert
 import kotlin.time.Instant
 
 // What the shell holds between ticks: the simulation and the instant it is accurate as of. The
@@ -78,6 +80,25 @@ internal fun GameSession.acting(
     val at = maxOf(clock.now(wallClock), lastUpdatedAt)
     val advanced = advance(state, from = lastUpdatedAt, to = at)
     return copy(state = transition(advanced, at), lastUpdatedAt = at)
+}
+
+// The square's action, and **the one verb in the app that transitions *before* it advances.**
+//
+// `acting`'s order — advance, then apply — exists to stop a player spending resources the colony has
+// not accrued yet. Asking for an alert spends nothing, and the order actively hurts it: `toggleAlert`
+// reads whether the row is running to decide which of the two things a tap means, and `advance` can
+// finish that very job inside the span. A tap on the lit bell of a build that landed 400ms ago would
+// then find it settled, fall through to the affordability branch, and quietly move the empire's one
+// watch onto it — unbooking the alert the player had actually set, and persisting it, because this
+// action commits unconditionally.
+//
+// Toggling first asks the question against the state the player was looking at, which is the state
+// they answered. The advance that follows is not skipped and is what keeps the result honest:
+// `withoutSpentWatch` drops a subscription whose job landed inside the span, so a tap on a row that
+// finished mid-gesture ends where it would have ended anyway — with nothing subscribed.
+internal fun GameSession.alerting(clock: DebugClock, wallClock: Instant, target: WatchTarget): GameSession {
+    val at = maxOf(clock.now(wallClock), lastUpdatedAt)
+    return copy(state = advance(toggleAlert(state, target), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
 }
 
 // A session and the clock that goes with it. The two always move together — a session stamped in

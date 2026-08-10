@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.debug.domain.DebugClock
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
@@ -8,15 +9,19 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GameSessionTest {
@@ -126,6 +131,44 @@ class GameSessionTest {
 
         // then
         assertTrue(after.hasNewEventsSince(before))
+    }
+
+    // **The race `alerting` exists for, and the reason it is the one verb that transitions before it
+    // advances.** The tick loop runs once a second, so a card can show a lit bell on a build that
+    // finished 400ms ago. Advance-first, that tap would find the row settled, fall through to the
+    // affordability branch, and move the empire's single watch onto it — unbooking the alert the
+    // player had actually set, and persisting it, because this action commits unconditionally.
+    @Test
+    fun `a square tapped on a build that has just landed does not steal the watch`() {
+        // given a colony watching one row and building another it has asked about, and a clock that
+        // has passed the build's completion without the tick loop having caught up
+        val watched = WatchTarget.Facility(BuildingType.CRYSTAL_MINE)
+        val subscribed = WatchTarget.Facility(BuildingType.METAL_MINE)
+        val state = toggleAlert(toggleAlert(midBuild(), watched), subscribed)
+        val session = GameSession(state, EPOCH)
+        val landed = checkNotNull(state.builds[BuildingType.METAL_MINE]).completesAt
+
+        // when the player taps the lit bell on the row that has just landed
+        val after = session.alerting(DebugClock(), wallClock = landed, target = subscribed)
+
+        // then the build is done, its subscription is spent, and the watch is where it was
+        assertEquals(BuildingLevel(2), after.state.buildings.metalMine)
+        assertEquals(emptySet(), after.state.subscribed)
+        assertEquals(watched, after.state.watching)
+    }
+
+    @Test
+    fun `a square tapped on a running build subscribes to it`() {
+        // given the ordinary case, well inside the build
+        val target = WatchTarget.Facility(BuildingType.METAL_MINE)
+        val session = GameSession(midBuild(), EPOCH)
+
+        // when
+        val after = session.alerting(DebugClock(), wallClock = EPOCH + 1.seconds, target = target)
+
+        // then
+        assertEquals(setOf(target), after.state.subscribed)
+        assertNull(after.state.watching)
     }
 
     private fun midBuild(): GameState {

@@ -76,6 +76,11 @@ data class ReturningFleetUiState(
 data class FacilityRowUiState(
     val building: BuildingType,
     val name: String,
+    // What the row is called when the window is a Slide Over pane. One name differs — "Robotics
+    // Factory" becomes "Robotics", which is what the game already calls it in "Requires Robotics 10"
+    // — and it differs because it is the one name the square's 29dp would otherwise clip mid-word,
+    // which this app never does. The other five fit at both widths and are the same string twice.
+    val compactName: String,
     val level: BuildingLevel,
     val costs: List<CostChipUiState>,
     val duration: String,
@@ -226,6 +231,7 @@ private fun GameState.toFacilityRow(
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
+        compactName = building.compactName(),
         level = level,
         costs = listOfNotNull(
             cost.metal.toCostChip(ResourceKind.METAL, short),
@@ -236,16 +242,23 @@ private fun GameState.toFacilityRow(
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
         finishedWhileAway = finishedWhileAway,
-        watch = if (waiting) {
-            untilAffordable?.let { wait ->
+        // Three cases, and the row's own state picks between them. A job in flight can be asked
+        // about its completion, a row waiting on its stores about its price, and everything else —
+        // affordable, locked, or waiting on a resource that will never arrive — about nothing.
+        watch = when {
+            job != null -> if (WatchTarget.Facility(building) in subscribed) {
+                WatchUiState.Subscribed
+            } else {
+                WatchUiState.Offered
+            }
+            waiting -> untilAffordable?.let { wait ->
                 watchState(
                     watched = watching == WatchTarget.Facility(building),
                     at = now + wait,
                     timeZone = timeZone,
                 )
             }
-        } else {
-            null
+            else -> null
         },
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
@@ -323,4 +336,21 @@ fun BuildingType.displayName(): String = when (this) {
     BuildingType.SOLAR_PLANT -> "Solar Plant"
     BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
     BuildingType.NANITE_FACTORY -> "Nanite Factory"
+}
+
+// **One name shortens at 320dp and the other five do not**, which is a measurement rather than a
+// style: with the square stacked under the ghost the name column is back to the width it had before
+// the watch existed, and at that width only "Robotics Factory" runs past it. The short form is not
+// invented here either — it is what the Research screen already prints in "Requires Robotics 10".
+//
+// Public for the same reason `displayName` is: the section label over both lists names the watched
+// row, and at this width it has to call it what the row calls it.
+fun BuildingType.compactName(): String = when (this) {
+    BuildingType.ROBOTICS_FACTORY -> "Robotics"
+    BuildingType.METAL_MINE,
+    BuildingType.CRYSTAL_MINE,
+    BuildingType.DEUTERIUM_SYNTHESIZER,
+    BuildingType.SOLAR_PLANT,
+    BuildingType.NANITE_FACTORY,
+    -> displayName()
 }

@@ -59,6 +59,7 @@ class WatchBehaviourTest {
     ) = FacilityRowUiState(
         building = building,
         name = "Metal Mine",
+        compactName = "Metal Mine",
         level = BuildingLevel(12),
         costs = listOf(CostChipUiState(kind = ResourceKind.METAL, amount = "12,458", short = true)),
         duration = "6h 12m",

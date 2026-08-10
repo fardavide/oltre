@@ -61,6 +61,7 @@ class CompletionSweepBehaviourTest {
     private fun finishedSolarPlant() = FacilityRowUiState(
         building = BuildingType.SOLAR_PLANT,
         name = "Solar Plant",
+        compactName = "Solar Plant",
         level = BuildingLevel(9),
         costs = listOf(
             CostChipUiState(kind = ResourceKind.METAL, amount = "2,868", short = false),

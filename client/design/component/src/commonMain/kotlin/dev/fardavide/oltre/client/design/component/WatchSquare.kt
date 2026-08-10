@@ -10,7 +10,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -24,22 +27,32 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreMotion
-import dev.fardavide.oltre.client.design.icon.WatchBeacon
+import dev.fardavide.oltre.client.design.icon.WatchBell
 
-// Whether a row offers a watch, and whether it is the one holding it. Null on the row means no
-// square at all — an affordable row has nothing to wait for, a running one is already the thing
-// happening, a locked one has no price yet, and a row whose binding resource has no net income has
-// no instant to name. Every one of those is *the absence of a control*, not a disabled one: nothing
-// in this app is greyed out.
+// What the square on a row says, and whether the row has one at all. Null means no square: an
+// affordable row has nothing to wait for, a locked one has no price yet, and a row whose binding
+// resource has no net income has no instant to name. Every one of those is *the absence of a
+// control*, not a disabled one — nothing in this app is greyed out.
+//
+// Three members for two kinds of alert, and the asymmetry is the design's. A row that is waiting on
+// its price gains a line when it is booked, because the instant it named is not otherwise anywhere
+// on the card. A row that is building already prints `→ LV 13 · done 11:23`, so subscribing to it
+// adds nothing: the lit square is the whole state.
 sealed interface WatchUiState {
 
-    // A square, unlit. There is an instant to book here and the player has not booked it.
+    // A square, unlit. There is an instant to book here and the player has not booked it — either
+    // a price they are waiting for or a completion they have not asked about.
     data object Offered : WatchUiState
 
-    // The one row in the whole game holding the watch, and the instant it named. The line is
-    // carried here rather than on the row because the two are one fact — a lit square with no
-    // instant beside it would be a state the row could get into and could not explain.
+    // The one row in the whole game holding the affordability watch, and the instant it named. The
+    // line is carried here rather than on the row because the two are one fact — a lit square with
+    // no instant beside it would be a state the row could get into and could not explain.
     data class Booked(val affordableAt: String) : WatchUiState
+
+    // A running job whose completion the player asked about. No line, deliberately: the row's own
+    // accent line already says when it lands, and repeating it under the price would be the second
+    // time one card said the same thing.
+    data object Subscribed : WatchUiState
 }
 
 // The one new affordance the watch slice adds, and deliberately the only one: a 29dp square beside
@@ -50,16 +63,22 @@ sealed interface WatchUiState {
 // something happening, accent text is something booked — which is why the lit square and the
 // `→ affordable` line are the whole of what changes.
 //
-// **44dp of touch vertically and 29dp horizontally, and the asymmetry is measured rather than
-// lazy.** The design budgets 29dp off the name column and no more; a 44dp-wide target spends 15dp
-// the text does not have, and at 393dp it is enough to ellipsise "metal · crystal output" on the
-// Research row next door. Height is free — the card is taller than 44dp whatever this does — so the
-// finger gets the platform's minimum in the axis that costs nothing. Compose cannot buy the other
-// axis for free either: a child placed outside its parent's bounds does not reliably receive touch,
-// which is why Material's own `minimumInteractiveComponentSize` expands the layout rather than
-// overflowing it. Worth revisiting if the row ever has width to spare.
+// **The touch target is 29dp wide and as tall as the row can spare, and both halves of that are
+// measured rather than lazy.**
+//
+// *Width* is 29dp because the design budgets 29dp off the name column and no more; a 44dp-wide
+// target spends 15dp the text does not have, and at 393dp that is enough to ellipsise
+// "metal · crystal output" on the Research row next door. Compose cannot buy the axis for free
+// either — a child placed outside its parent's bounds does not reliably receive touch, which is why
+// Material's own `minimumInteractiveComponentSize` expands the layout rather than overflowing it.
+//
+// *Height* is 44dp beside the ghost time, where the card is taller than that whatever this does, and
+// 29dp when the row has **stacked** the square under the ghost — because there it is the tallest
+// thing in the action column and every pixel of it is a pixel of row. Stacked at 44dp the column is
+// 28 + 7 + 44 = 79dp against a 56dp content column, which grows the row to 101dp where the design
+// drew 88. At 29dp it is 64dp and the row lands where it was drawn.
 @Composable
-fun WatchSquare(watched: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     // `pressable`'s spring, restated rather than called: that modifier puts the click and the
@@ -71,7 +90,7 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, modifier: Modifier = Modi
     )
     Box(
         modifier = modifier
-            .size(width = SQUARE, height = HIT_TARGET)
+            .size(width = SQUARE, height = if (stacked) SQUARE else HIT_TARGET)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -102,10 +121,46 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, modifier: Modifier = Modi
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            WatchBeacon(
-                color = if (watched) OltreColors.accent else OltreColors.textTertiary,
-                lit = watched,
+            WatchBell(color = if (watched) OltreColors.accent else OltreColors.textTertiary)
+        }
+    }
+}
+
+// The ghost time and the square that books an alert for it — **side by side above the compact
+// width, stacked and right-aligned below it.** Shared by the colony's facility rows and Research's
+// project rows, because the two screens must not be able to disagree about where the control sits.
+//
+// Stacking is what pays for the square at 320dp. Beside the ghost its 29dp comes out of the name
+// column, and there it clips "Robotics Factory" mid-word — which this app never does; it authors a
+// short name instead. Under the ghost it costs the row about eight pixels of height and no words at
+// all, and the name column goes back to the width it had before the square existed.
+@Composable
+fun WatchableAction(
+    watch: WatchUiState?,
+    stacked: Boolean,
+    onToggleWatch: () -> Unit,
+    watchModifier: Modifier = Modifier,
+    ghost: @Composable () -> Unit,
+) {
+    val square: @Composable () -> Unit = {
+        watch?.let {
+            WatchSquare(
+                watched = it != WatchUiState.Offered,
+                onClick = onToggleWatch,
+                stacked = stacked,
+                modifier = watchModifier,
             )
+        }
+    }
+    if (stacked) {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(GAP)) {
+            ghost()
+            square()
+        }
+    } else {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(GAP)) {
+            ghost()
+            square()
         }
     }
 }
@@ -113,3 +168,6 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, modifier: Modifier = Modi
 private val HIT_TARGET = 44.dp
 private val SQUARE = 29.dp
 private val RADIUS = 9.dp
+
+// The same gap either way, so the pair reads as one control at both widths.
+private val GAP = 7.dp

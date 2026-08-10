@@ -243,7 +243,8 @@ private fun GameState.toTechnologyRow(
         watch = watchOn(
             target = WatchTarget.Project(technology),
             cost = cost,
-            offered = running == null && requirement.isMetBy(this),
+            running = running != null,
+            requirementMet = requirement.isMetBy(this),
             now = now,
             timeZone = timeZone,
         ),
@@ -289,7 +290,8 @@ private fun GameState.toAdaptationRow(
         watch = watchOn(
             target = WatchTarget.Ladder(technology),
             cost = cost,
-            offered = running == null && requirement.isMetBy(this),
+            running = running != null,
+            requirementMet = requirement.isMetBy(this),
             now = now,
             timeZone = timeZone,
         ),
@@ -319,11 +321,15 @@ private fun GameState.toAdaptationRow(
 private fun GameState.watchOn(
     target: WatchTarget,
     cost: Resources,
-    offered: Boolean,
+    running: Boolean,
+    requirementMet: Boolean,
     now: Instant,
     timeZone: TimeZone,
 ): WatchUiState? {
-    if (!offered || resources.covers(cost)) return null
+    // A project in flight is asked about its completion, not its price — the price is paid. This is
+    // the same square and a different question, and which one it is is a fact about the row.
+    if (running) return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    if (!requirementMet || resources.covers(cost)) return null
     val wait = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() } ?: return null
     if (watching != target) return WatchUiState.Offered
     val local = (now + wait).toLocalDateTime(timeZone)

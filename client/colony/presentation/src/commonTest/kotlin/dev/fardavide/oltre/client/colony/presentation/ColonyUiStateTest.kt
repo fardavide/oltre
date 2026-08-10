@@ -20,6 +20,7 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -488,7 +489,7 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a row waiting on its stocks offers a square and nothing else does`() {
+    fun `every row with an instant to name offers a square and nothing else does`() {
         // given a colony that can pay for nothing, with one facility already building and one
         // behind its requirement — every kind of row on the screen at once
         val t0 = Instant.fromEpochMilliseconds(0)
@@ -501,16 +502,59 @@ class ColonyUiStateTest {
             .filter { it.watch != null }
             .map { it.building }
 
-        // then — the crystal mine is building, the nanite factory is locked, and the other four are
-        // waiting on stocks they have none of
+        // then — the crystal mine is building, which since this version is something to ask about
+        // rather than something already told; the nanite factory is locked and has no price yet;
+        // the other four are waiting on stocks they have none of
         assertEquals(
             listOf(
                 BuildingType.METAL_MINE,
+                BuildingType.CRYSTAL_MINE,
                 BuildingType.DEUTERIUM_SYNTHESIZER,
                 BuildingType.SOLAR_PLANT,
                 BuildingType.ROBOTICS_FACTORY,
             ),
             offering,
+        )
+    }
+
+    @Test
+    fun `a subscribed build lights its square and adds no line`() {
+        // given — the row already prints "→ LV 13 · done 11:23", so there is nothing for the
+        // subscription to say that the card is not saying
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+            .let { toggleAlert(it, WatchTarget.Facility(BuildingType.METAL_MINE)) }
+
+        // then
+        assertEquals(WatchUiState.Subscribed, state.rowFor(BuildingType.METAL_MINE, now = t0).watch)
+    }
+
+    @Test
+    fun `a build nobody has asked about offers its square unlit`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // then
+        assertEquals(WatchUiState.Offered, state.rowFor(BuildingType.METAL_MINE, now = t0).watch)
+    }
+
+    @Test
+    fun `one name shortens at a Slide Over's width and the rest do not`() {
+        // given — the square costs the name column nothing once it stacks under the ghost, so only
+        // the one name that never fit is authored short. "Robotics" is what the game already calls
+        // it in "Requires Robotics 10".
+        val rows = colony().toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
+            .facilities
+
+        // then
+        assertEquals(
+            listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics", "Nanite Factory"),
+            rows.map { it.compactName },
+        )
+        assertEquals(
+            listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics Factory", "Nanite Factory"),
+            rows.map { it.name },
         )
     }
 
@@ -610,6 +654,7 @@ class ColonyUiStateTest {
         resources: Resources = Resources.of(),
         buildings: Buildings = Buildings.initial(),
         watching: WatchTarget? = null,
+        subscribed: Set<WatchTarget> = emptySet(),
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
@@ -630,6 +675,7 @@ class ColonyUiStateTest {
         // Which row the empire is watching, when it is watching one. A parameter rather than a
         // constant because it is the input half of the square: `watch` on a row is derived from it.
         watching = watching,
+        subscribed = subscribed,
         eventLog = emptyList(),
     )
 

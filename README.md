@@ -158,6 +158,27 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.6.0 — 2026-08-10
+
+- **Upgrade alerts are now something you ask for.** A build, a technology or an adaptation ladder no
+  longer tells you it finished unless you tapped the bell on its row while it was running. Every
+  alert the game sends is one you asked for — and a colony you have asked nothing about is a colony
+  that stays quiet.
+- **The same bell asks two questions, and the row decides which.** On a row you cannot afford it
+  books the moment you will be able to; on a row that is building it books the moment it lands. Any
+  number of builds at once, but still only one "when can I afford it" in the whole empire.
+- **Several finishing together arrive as one alert.** Anything you asked about that lands within five
+  minutes of the one before it collapses into a single line — *"Three upgrades are done"* — instead
+  of three buzzes for one check-in.
+- **The bell replaces the beacon.** Three bespoke marks were drawn for this control and every one of
+  them had to be explained; a bell is the one shape that already means *tell me later*.
+- **A narrower window loses no words.** In a Slide Over pane the bell drops under the time instead of
+  beside it, the resource rail puts each rate under its stock, and the Robotics Factory goes by
+  Robotics — which is what the game already calls it.
+- Saves from 0.5.0 carry forward untouched — the row you had watched is still watched. What starts
+  empty is the asking: anything already building when you update lands quietly, because nobody
+  tapped its bell.
+
 ### 0.5.0 — 2026-08-10
 
 - **A row you cannot afford will now tell you when you can.** Every facility, technology and

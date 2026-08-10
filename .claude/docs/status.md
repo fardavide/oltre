@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.5.0)
+Updated: 2026-08-10 (0.6.0)
 
 ## Landed
 
@@ -192,6 +192,24 @@ Updated: 2026-08-10 (0.5.0)
   into one alert and one silently vanished; and `FutureEvents`' tie-break ladder was *derived* from
   `BuildingType.entries.size`, so a seventh building would have moved three unrelated constants, with
   `Int.MAX_VALUE` sealing the end so the next kind had nowhere to go. Both are explicit now.
+- **0.6.0 opt-in completions** (`Upgrade Watch.dc.html`, revised) — **the check-in loop is now
+  opt-in.** A completion books nothing unless the player tapped the square on its running row, and
+  the same square on an unaffordable row still books the price. One verb, `toggleAlert`, picks which
+  from `isRunning(target)` — deciding in core rather than at two call sites, because the screen
+  renders a snapshot and the tap lands on a state that has been advanced since. One affordability
+  watch, **any number of subscriptions** (`Set<WatchTarget>`, schema 10): a completion is a job the
+  player started and the model caps those at seven. Anything subscribed landing within **five
+  minutes of the one before it** collapses into one alert, chained rather than windowed, fired at the
+  *last* member's instant under the one id in the file not derived from its subject. The beacon glyph
+  is gone — a bell replaces it, on the design's own argument that three bespoke marks all had to be
+  explained. At the compact width the square stacks under the ghost (and drops its 44dp hit height to
+  29dp, measured: at 44 the row grows to 101dp where the design drew 88), the rail stacks every rate
+  under its stock, and the Robotics Factory goes by "Robotics".
+  **Open, from the design's own sheet:** *"if subscription rate on started builds is high, the tap
+  was a tax and the default should flip"* — and the app records neither number, so the bet is
+  currently un-settleable. Also open: whether the section label should follow the row's width-aware
+  name (implemented) or always use the short one, which is the one place frame E disagrees with
+  frames A–D.
 - **0.5.0 the upgrade watch** (`Upgrade Watch.dc.html`) — a 29dp square beside the ghost time on
   any row the empire cannot pay for, on Colony and on Research alike. Tapping it books one alert for
   the instant the row already prints; it fires once and clears itself. **State, not a booking**: one

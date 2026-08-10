@@ -26,6 +26,7 @@ internal val testColonyUiState = ColonyUiState(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,
             name = "Metal Mine",
+            compactName = "Metal Mine",
             level = BuildingLevel(12),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
@@ -40,12 +41,13 @@ internal val testColonyUiState = ColonyUiState(
             ),
             power = FacilityPowerUiState(label = "−120", supply = false),
             fix = null,
-            watch = null,
+            watch = WatchUiState.Offered,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
             name = "Solar Plant",
+            compactName = "Solar Plant",
             level = BuildingLevel(8),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "1,912", short = false),
@@ -61,6 +63,7 @@ internal val testColonyUiState = ColonyUiState(
         FacilityRowUiState(
             building = BuildingType.DEUTERIUM_SYNTHESIZER,
             name = "Deuterium Synth.",
+            compactName = "Deuterium Synth.",
             level = BuildingLevel(16),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
@@ -76,6 +79,7 @@ internal val testColonyUiState = ColonyUiState(
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,
             name = "Nanite Factory",
+            compactName = "Nanite Factory",
             level = BuildingLevel(0),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -100,12 +104,17 @@ internal val testColonyUiState = ColonyUiState(
     watching = null,
 )
 
-// The same colony with the watch set on the row that was offering it: the heading names it, the
-// square is lit, and the card gains the one line that says when. Three things move together, which
-// is the frame the whole slice is about.
+// The same colony with both halves of the square lit, which is what makes this the frame the whole
+// slice is about: **the two states look identical and say different things.** The row waiting on its
+// stores gains a line naming the instant, because nothing else on the card says it. The row that is
+// building gains nothing at all, because its own accent line already does.
 internal val watchedColonyUiState = testColonyUiState.copy(
     watching = "watching Deuterium Synth.",
     facilities = testColonyUiState.facilities.map { row ->
-        if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+        when (row.action) {
+            is FacilityActionUiState.Upgrading -> row.copy(watch = WatchUiState.Subscribed)
+            is FacilityActionUiState.AffordableIn -> row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+            FacilityActionUiState.Upgrade, is FacilityActionUiState.Locked -> row
+        }
     },
 )

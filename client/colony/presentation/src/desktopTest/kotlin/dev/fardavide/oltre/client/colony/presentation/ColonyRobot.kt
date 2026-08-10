@@ -76,6 +76,7 @@ internal fun facilityList(rows: List<FacilityRowUiState>, block: ColonyRobot.() 
                     FacilityList(
                         facilities = rows.map { it.copy(finishedWhileAway = it.finishedWhileAway && announced.value) },
                         onUpgrade = {},
+                        compact = false,
                         onToggleWatch = { watchTaps += it },
                     )
                 }

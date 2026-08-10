@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -44,7 +45,7 @@ import dev.fardavide.oltre.client.design.icon.PowerMark
 internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Modifier) {
     // The bar itself is full-bleed — it reads as the top edge of the window — but its cells
     // stay on the same centred column as the content below, whatever the window's width.
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .background(OltreColors.surface)
@@ -62,6 +63,12 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
             },
         contentAlignment = Alignment.TopCenter,
     ) {
+        // **Measured on the window rather than on the capped column**, like every other compact
+        // decision in the app: the rail is full-bleed, so what decides whether a cell has room is
+        // the pane it is in. Below the threshold every cell stacks its rate under its stock — all
+        // three, not the two that happened to overflow, because a bar where one cell is a line
+        // taller than its neighbours is ragged rather than compact.
+        val compact = maxWidth < OltreLayout.compactWidth
         Row(
             modifier = Modifier
                 .widthIn(max = OltreLayout.maxContentWidth)
@@ -94,18 +101,21 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
                 stock = uiState.metal,
                 orb = OltreColors.metal,
                 throttled = throttled,
+                compact = compact,
             )
             ResourceCell(
                 name = "CRYSTAL",
                 stock = uiState.crystal,
                 orb = OltreColors.crystal,
                 throttled = throttled,
+                compact = compact,
             )
             ResourceCell(
                 name = "DEUTERIUM",
                 stock = uiState.deuterium,
                 orb = OltreColors.deuterium,
                 throttled = throttled,
+                compact = compact,
             )
         }
     }
@@ -120,6 +130,7 @@ private fun RowScope.ResourceCell(
     stock: ResourceStockUiState,
     orb: Color,
     throttled: Boolean,
+    compact: Boolean,
 ) {
     val mono = oltreMono()
     // The one thing on the frame that says what happened while the app was closed. It counts from
@@ -157,22 +168,29 @@ private fun RowScope.ResourceCell(
                 modifier = Modifier.padding(start = 5.dp),
             )
         }
-        // FlowRow rather than Row, and the 320dp six-figure case in MainScaffoldLayoutBehaviourTest
-        // is why: a Row gives the stock the whole line and measures the rate into what is left,
-        // which at 320dp is 10dp of a 59dp string. The rate has to be able to fall under the stock
-        // and take the cell back to the height it had before this change.
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        // **A row above the compact width, a column below it, and the two are not the same thing
+        // with a flag.** Wide, the rate sits on the stock's own baseline and the pair is one line;
+        // that is the whole of what the rail's second version bought, and it is what saves the bar
+        // twelve pixels. Narrow, the pair does not fit — and which cells overflow depends on the
+        // figures they happen to hold, so leaving it to the measurement wraps two of the three and
+        // leaves the bar ragged. Below the threshold every cell stacks, so the three stay a set.
+        //
+        // `alignByBaseline` is why this is two branches rather than one with a direction: it is a
+        // row's alignment and has no meaning in a column, where the two lines have their own.
+        val figure: @Composable (Modifier) -> Unit = { modifier ->
             Text(
                 text = counted,
                 color = OltreColors.text,
                 fontFamily = mono,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.alignByBaseline(),
+                modifier = modifier,
             )
+        }
+        val rate: @Composable (Modifier) -> Unit = { modifier ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.alignByBaseline().testTag(ShellTestTags.resourceRate(name)),
+                modifier = modifier.testTag(ShellTestTags.resourceRate(name)),
             ) {
                 if (throttled) {
                     PowerMark(color = OltreColors.warn, width = 7.dp, height = 10.dp)
@@ -186,6 +204,18 @@ private fun RowScope.ResourceCell(
                     softWrap = false,
                     modifier = Modifier.padding(start = if (throttled) 2.dp else 0.dp),
                 )
+            }
+        }
+        if (compact) {
+            // 2dp: enough that the rate reads as its own line rather than as the figure's descender.
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                figure(Modifier)
+                rate(Modifier)
+            }
+        } else {
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                figure(Modifier.alignByBaseline())
+                rate(Modifier.alignByBaseline())
             }
         }
     }

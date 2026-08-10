@@ -55,6 +55,10 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 10 — the completion subscriptions: the set of jobs whose landing the player asked to be told
+    //      about. Additive like 9, and it changes what an *existing* colony hears — completions no
+    //      longer fire unless asked for — but not what it holds, so there is nothing to migrate
+    //      beyond the empty set that is the truth about it.
     // 9 — the watch: one nullable row the player has asked to be told about, shared by the
     //     facilities, the technologies and the ladders. Additive, and the shallowest hop in the
     //     table — a colony saved before the square existed is watching nothing.
@@ -73,7 +77,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 9
+    const val SCHEMA_VERSION: Int = 10
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -181,6 +185,12 @@ object GameSave {
         // `watching` deliberately has none: a nullable field with a default is a field a future
         // migration can forget about and still decode.
         8 to { root -> root.withState("watching" to JsonNull) },
+        // 9 -> 10: the completion subscriptions. Empty, which is the truthful answer for a colony
+        // saved before the square could be tapped on a running row — and it is the answer that makes
+        // the hop *behavioural* as well as structural: an existing colony stops hearing about builds
+        // it never asked about, which is the change this version is. Nothing about the colony itself
+        // moves.
+        9 to { root -> root.withState("subscribed" to JsonArray(emptyList())) },
     )
 
     // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a

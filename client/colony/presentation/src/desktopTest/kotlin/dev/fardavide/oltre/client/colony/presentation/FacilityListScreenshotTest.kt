@@ -30,6 +30,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.METAL_MINE,
                                     name = "Metal Mine",
+                                    compactName = "Metal Mine",
                                     level = BuildingLevel(12),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
@@ -44,12 +45,13 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = null,
                                     fix = null,
-                                    watch = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.ROBOTICS_FACTORY,
                                     name = "Robotics Factory",
+                                    compactName = "Robotics Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "400", short = false),
@@ -66,6 +68,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.DEUTERIUM_SYNTHESIZER,
                                     name = "Deuterium Synth.",
+                                    compactName = "Deuterium Synth.",
                                     level = BuildingLevel(16),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
@@ -81,6 +84,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
                                     name = "Nanite Factory",
+                                    compactName = "Nanite Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -96,6 +100,7 @@ class FacilityListScreenshotTest {
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
                             onToggleWatch = {},
                         )
                     }
@@ -131,6 +136,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.SOLAR_PLANT,
                                     name = "Solar Plant",
+                                    compactName = "Solar Plant",
                                     level = BuildingLevel(9),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "2,868", short = false),
@@ -145,6 +151,7 @@ class FacilityListScreenshotTest {
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
                             onToggleWatch = {},
                         )
                     }
@@ -174,6 +181,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.SOLAR_PLANT,
                                     name = "Solar Plant",
+                                    compactName = "Solar Plant",
                                     level = BuildingLevel(1),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "112", short = true),
@@ -191,6 +199,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.METAL_MINE,
                                     name = "Metal Mine",
+                                    compactName = "Metal Mine",
                                     level = BuildingLevel(3),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "202", short = false),
@@ -206,6 +215,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.CRYSTAL_MINE,
                                     name = "Crystal Mine",
+                                    compactName = "Crystal Mine",
                                     level = BuildingLevel(2),
                                     costs = emptyList(),
                                     duration = "36m",
@@ -217,7 +227,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = FacilityPowerUiState(label = "−20", supply = false),
                                     fix = null,
-                                    watch = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
@@ -225,6 +235,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
                                     name = "Nanite Factory",
+                                    compactName = "Nanite Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -240,6 +251,7 @@ class FacilityListScreenshotTest {
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
                             onToggleWatch = {},
                         )
                     }

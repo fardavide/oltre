@@ -60,11 +60,39 @@ sealed interface WatchedPurchase {
     ) : WatchedPurchase
 }
 
-// **One watch in the whole game**, shared by the facilities, the technologies and the ladders — so
-// there is no verb for adding a second. Tapping another row's square moves it; tapping the watched
-// row's takes it back. That is also why taking it back asks nothing: the undo is the same tap.
-fun toggleWatch(state: GameState, target: WatchTarget): GameState =
-    state.copy(watching = target.takeIf { it != state.watching })
+// **The square is one control with two meanings, and the row decides which** — so there is one verb
+// and the state picks. A row that is building can only be asked about its completion; a row that is
+// not can only be asked about its price. Deciding here rather than at the two call sites is not
+// tidiness: the screen renders a snapshot and the tap is applied to a state that has been advanced
+// since, so a build that finished in between would otherwise be "subscribed" after it had landed.
+//
+// The two halves count differently. **One affordability watch in the whole game**, shared by the
+// facilities, the technologies and the ladders, so pointing it at another row moves it; **any number
+// of subscriptions**, because each is a job the player started and the model caps those at seven.
+// Either way the undo is the same tap, which is why neither asks for confirmation.
+fun toggleAlert(state: GameState, target: WatchTarget): GameState = when {
+    state.isRunning(target) -> state.copy(
+        subscribed = if (target in state.subscribed) state.subscribed - target else state.subscribed + target,
+    )
+    else -> state.copy(watching = target.takeIf { it != state.watching })
+}
+
+// Which row a completion belongs to, so a caller can ask whether it was subscribed. The map is here
+// rather than in the client because it is the same correspondence `isRunning` reads in the other
+// direction, and the two must not be able to disagree about what a target points at.
+fun FutureEvent.Completion.target(): WatchTarget = when (this) {
+    is FutureEvent.BuildCompletes -> WatchTarget.Facility(building)
+    is FutureEvent.ResearchCompletes -> WatchTarget.Project(technology)
+    is FutureEvent.AdaptationCompletes -> WatchTarget.Ladder(technology)
+}
+
+// Whether the thing this target points at is in flight right now. The research slot is shared by
+// two branches, so a technology is running only when *that* technology holds it.
+fun GameState.isRunning(target: WatchTarget): Boolean = when (target) {
+    is WatchTarget.Facility -> target.building in builds
+    is WatchTarget.Project -> activeResearch?.technology == target.technology
+    is WatchTarget.Ladder -> activeAdaptation?.technology == target.technology
+}
 
 // Null when nothing is watched. Total for every other case: a locked row and a row already building
 // both have a next level and a price, and it is the screen that decides which rows offer a square
@@ -97,15 +125,27 @@ fun GameState.watchedPurchase(): WatchedPurchase? = when (val target = watching)
     }
 }
 
-// A watch is spent the instant the colony can pay for what it points at: it exists to name one
-// moment, and past that moment it has nothing left to say. Applied by `advance` rather than written
-// to the event log, because nothing *happened* — a store crossed a line the watch was only reading,
-// and a log entry for it would be the one entry a player could not have caused.
+// Both halves of the square are spent by the thing they were waiting for, and `advance` is where
+// that is noticed. Neither is written to the event log, because in neither case did anything
+// *happen* — a store crossed a line the watch was only reading, and a job the subscription was
+// about has a completion of its own already in the log.
 //
-// Checked at the end of the span rather than at each boundary inside it, which is exact for the
-// same reason the alert can only fire early and never late: nothing inside `advance` spends, so
-// stores only rise, and a colony that could pay at any instant of the span can still pay at its end.
+// **The watch** is checked at the end of the span rather than at each boundary inside it, which is
+// exact for the same reason the alert can only fire early and never late: nothing inside `advance`
+// spends, so stores only rise, and a colony that could pay at any instant of the span can still pay
+// at its end.
+//
+// **A subscription** is dropped as soon as its job is no longer in flight, which after a span means
+// it completed inside it. That is what makes a subscription about the job the player started rather
+// than a standing preference about the row: start the same facility again and the square is unlit,
+// because the second build is a second decision.
 internal fun GameState.withoutSpentWatch(): GameState {
-    val purchase = watchedPurchase() ?: return this
-    return if (resources.covers(purchase.cost)) copy(watching = null) else this
+    val purchase = watchedPurchase()
+    val stillWatching = watching?.takeIf { purchase == null || !resources.covers(purchase.cost) }
+    val stillSubscribed = subscribed.filterTo(mutableSetOf()) { isRunning(it) }
+    return if (stillWatching == watching && stillSubscribed.size == subscribed.size) {
+        this
+    } else {
+        copy(watching = stillWatching, subscribed = stillSubscribed)
+    }
 }

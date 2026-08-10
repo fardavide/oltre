@@ -25,6 +25,7 @@ import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
@@ -270,9 +271,11 @@ private fun ProjectRow(
                 )
                 // The ghost time, and — only when the wait is about the price rather than about the
                 // slot — the square that books an alert for it. See `watchOn`.
-                is ResearchActionUiState.AvailableIn -> Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                is ResearchActionUiState.AvailableIn -> WatchableAction(
+                    watch = watch,
+                    stacked = compact,
+                    onToggleWatch = onToggleWatch,
+                    watchModifier = Modifier.testTag(watchTag),
                 ) {
                     Text(
                         text = action.label,
@@ -285,13 +288,6 @@ private fun ProjectRow(
                             .testTag(actionTag)
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )
-                    watch?.let {
-                        WatchSquare(
-                            watched = it is WatchUiState.Booked,
-                            onClick = onToggleWatch,
-                            modifier = Modifier.testTag(watchTag),
-                        )
-                    }
                 }
                 // The same pair the colony's running row draws, in the same order and at the same
                 // gaps: how long is left, and how far round it has got. Identical by construction is
@@ -311,6 +307,16 @@ private fun ProjectRow(
                         modifier = Modifier.testTag(actionTag),
                     )
                     LevelDial(level = level.value, percent = action.progressPercent)
+                    // Last, so the square is the rightmost thing on every row that has one — see the
+                    // colony's running row, which draws the same three in the same order.
+                    watch?.let {
+                        WatchSquare(
+                            watched = it != WatchUiState.Offered,
+                            onClick = onToggleWatch,
+                            stacked = false,
+                            modifier = Modifier.testTag(watchTag),
+                        )
+                    }
                 }
                 is ResearchActionUiState.Locked -> Unit
             }

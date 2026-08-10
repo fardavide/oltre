@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,7 +29,12 @@ fun ColonyScreen(
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        // A width decision, not a change of voice, and the same one Research has made since 0.3:
+        // below this the square stacks under the ghost time and one facility name shortens.
+        // Measured on the window rather than on the capped column, because it is the window that is
+        // a Slide Over pane.
+        val compact = maxWidth < OltreLayout.compactWidth
         // The window can be any width — iPad, Split View, Stage Manager, a desktop window — so
         // the colony caps its content and centres it instead of stretching the cards.
         Column(
@@ -59,6 +65,7 @@ fun ColonyScreen(
                 SectionLabel(text = "FACILITIES", rule = uiState.watching)
                 FacilityList(
                     facilities = uiState.facilities,
+                    compact = compact,
                     onUpgrade = onUpgrade,
                     onToggleWatch = onToggleWatch,
                 )

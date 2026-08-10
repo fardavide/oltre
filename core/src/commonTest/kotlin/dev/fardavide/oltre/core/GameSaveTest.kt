@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":9,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":10,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -92,7 +92,10 @@ class GameSaveTest {
                 // The watch, which schema 9 added: null at genesis and null on every colony that
                 // has never tapped a square. Not a job — it schedules nothing and `advance` never
                 // applies it; it names the one row the player asked to be told about.
-                """"watching":null,"eventLog":[]}}""",
+                """"watching":null,""" +
+                // The completion subscriptions, which schema 10 added: empty at genesis, and empty
+                // on every colony that has never asked to be told a build had landed.
+                """"subscribed":[],"eventLog":[]}}""",
             encoded,
         )
     }
@@ -504,8 +507,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 9 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":9"""), rewritten)
+        // then — and from then on it is a version 10 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":10"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 

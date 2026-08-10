@@ -254,7 +254,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
                 progressPercent = 60,
                 doneAt = "done 11:23",
             ),
-            watch = null,
+            watch = WatchUiState.Offered,
             finishedWhileAway = false,
         ),
         TechnologyRowUiState(
@@ -293,6 +293,15 @@ internal val watchedUiState = gateOpenUiState.copy(
     watching = "watching Gravitic",
     adaptation = gateOpenUiState.adaptation.map { row ->
         if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 12:55"))
+    },
+)
+
+// A project in flight with the player asked to be told when it lands, beside two ladders that have
+// not been asked about. **The square is the only difference between them**, which is the whole of
+// what a subscribed running row shows — its accent line already says when it is due.
+internal val subscribedUiState = oneProjectInFlightUiState.copy(
+    technologies = oneProjectInFlightUiState.technologies.map { row ->
+        if (row.action is ResearchActionUiState.Running) row.copy(watch = WatchUiState.Subscribed) else row
     },
 )
 

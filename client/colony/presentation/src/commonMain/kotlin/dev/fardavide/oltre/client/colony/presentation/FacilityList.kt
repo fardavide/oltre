@@ -27,6 +27,7 @@ import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
@@ -43,13 +44,14 @@ import dev.fardavide.oltre.core.BuildingType
 @Composable
 fun FacilityList(
     facilities: List<FacilityRowUiState>,
+    compact: Boolean,
     onUpgrade: (BuildingType) -> Unit,
     onToggleWatch: (BuildingType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         facilities.forEach { row ->
-            FacilityRow(row = row, onUpgrade = onUpgrade, onToggleWatch = onToggleWatch)
+            FacilityRow(row = row, compact = compact, onUpgrade = onUpgrade, onToggleWatch = onToggleWatch)
         }
     }
 }
@@ -57,6 +59,7 @@ fun FacilityList(
 @Composable
 private fun FacilityRow(
     row: FacilityRowUiState,
+    compact: Boolean,
     onUpgrade: (BuildingType) -> Unit,
     onToggleWatch: (BuildingType) -> Unit,
 ) {
@@ -83,7 +86,7 @@ private fun FacilityRow(
                 // level badge keeps its one line rather than wrapping "LV" above its number.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = row.name,
+                        text = if (compact) row.compactName else row.name,
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 13.5.sp,
@@ -193,9 +196,11 @@ private fun FacilityRow(
                 // names. The square sits *outside* the ghost rather than inside it, because the two
                 // are different things: one is how long you have to wait, the other is whether you
                 // want to be told when the wait is over.
-                is FacilityActionUiState.AffordableIn -> Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                is FacilityActionUiState.AffordableIn -> WatchableAction(
+                    watch = row.watch,
+                    stacked = compact,
+                    onToggleWatch = { onToggleWatch(row.building) },
+                    watchModifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
                 ) {
                     Text(
                         text = action.label,
@@ -207,18 +212,15 @@ private fun FacilityRow(
                             .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )
-                    row.watch?.let { watch ->
-                        WatchSquare(
-                            watched = watch is WatchUiState.Booked,
-                            onClick = { onToggleWatch(row.building) },
-                            modifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
-                        )
-                    }
                 }
                 // How long is left, and how far round it has got. The two used to sit at opposite
                 // ends of the card — a countdown here and a 3dp bar under everything — and the bar
                 // was the widest thing on a running row while saying the least. The dial says the
                 // same fraction in a tenth of the ink and takes the level with it.
+                // The square joins the pair the running row already draws, and joins it **last**:
+                // it is the rightmost thing on every row that has one, which is what lets the eye
+                // run down the column and see what it has asked about. Nothing else on a running
+                // row changes — the design's own words are "the square is the only difference".
                 is FacilityActionUiState.Upgrading -> Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -232,6 +234,16 @@ private fun FacilityRow(
                         fontWeight = FontWeight.SemiBold,
                     )
                     LevelDial(level = row.level.value, percent = action.progressPercent)
+                    row.watch?.let { watch ->
+                        WatchSquare(
+                            watched = watch != WatchUiState.Offered,
+                            onClick = { onToggleWatch(row.building) },
+                            // Never stacked: a running row's action is a line of three things, and
+                            // its card is taller than 44dp already.
+                            stacked = false,
+                            modifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
+                        )
+                    }
                 }
                 is FacilityActionUiState.Locked -> Unit
             }

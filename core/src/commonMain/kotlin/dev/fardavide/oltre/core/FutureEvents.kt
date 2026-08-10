@@ -11,23 +11,33 @@ import kotlin.time.Instant
 sealed interface FutureEvent {
     val at: Instant
 
+    // The three kinds a player now has to ask about, named as a set so that asking is one
+    // `filterIsInstance` rather than three branches that could drift apart. A marker and nothing
+    // else: what the three share is that each is a job the player started, that the model caps them
+    // at seven, and that several landing together are one piece of news.
+    //
+    // It lives in `core` although only the notification layer reads it, for the reason the rest of
+    // this file does: what "an upgrade completing" *is* belongs with the simulation, and a client
+    // that enumerated the three by hand would silently stop covering a fourth.
+    sealed interface Completion : FutureEvent
+
     data class BuildCompletes(
         val building: BuildingType,
         val toLevel: BuildingLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class ResearchCompletes(
         val technology: Technology,
         val toLevel: TechLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class AdaptationCompletes(
         val technology: AdaptationTechnology,
         val toLevel: TechLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class SurveyLands(
         val target: SystemAddress,

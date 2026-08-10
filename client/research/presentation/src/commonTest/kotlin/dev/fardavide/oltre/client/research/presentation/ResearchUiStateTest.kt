@@ -639,17 +639,37 @@ class ResearchUiStateTest {
         assertEquals(null, row.watch)
     }
 
+    // **This reverses what 0.5 asserted here.** A running row used to offer nothing, because the
+    // square was only ever about a price. Since completions went opt-in it is the one row where the
+    // square is the whole of how the player hears about anything.
     @Test
-    fun `a running row is the thing happening rather than a thing to wait for`() {
+    fun `a running row offers its square for the completion instead`() {
         // given the project the row itself is about — `project`'s default is deliberately another
         // technology, so it has to be named here
-        val row = colony(
+        val running = colony(
             buildings = gated(),
             activeResearch = project(completesAt = EPOCH + 2.hours, technology = Technology.PHOTOVOLTAICS),
-        ).rowFor(Technology.PHOTOVOLTAICS)
+        )
 
         // then
-        assertEquals(null, row.watch)
+        assertEquals(WatchUiState.Offered, running.rowFor(Technology.PHOTOVOLTAICS).watch)
+        assertEquals(
+            WatchUiState.Subscribed,
+            running.copy(subscribed = setOf(WatchTarget.Project(Technology.PHOTOVOLTAICS)))
+                .rowFor(Technology.PHOTOVOLTAICS).watch,
+        )
+    }
+
+    @Test
+    fun `a running ladder offers its square the same way a running technology does`() {
+        // given — the two branches share one composable, so they have to share the rule too
+        val running = colony(
+            buildings = gated(robotics = 4),
+            activeAdaptation = ladder(completesAt = EPOCH + 2.hours),
+        )
+
+        // then — `ladder` runs Gravitic
+        assertEquals(WatchUiState.Offered, running.adaptationRowFor(AdaptationTechnology.GRAVITIC).watch)
     }
 
     @Test
@@ -735,6 +755,7 @@ class ResearchUiStateTest {
         activeResearch: ResearchJob? = null,
         activeAdaptation: AdaptationJob? = null,
         watching: WatchTarget? = null,
+        subscribed: Set<WatchTarget> = emptySet(),
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
@@ -755,6 +776,7 @@ class ResearchUiStateTest {
         // The one slot the watch holds, which this screen shares with the colony's — a parameter,
         // because `watch` on a row is derived from it.
         watching = watching,
+        subscribed = subscribed,
         eventLog = emptyList(),
     )
 
