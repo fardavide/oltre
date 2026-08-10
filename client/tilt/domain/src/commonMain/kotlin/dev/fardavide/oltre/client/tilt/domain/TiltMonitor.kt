@@ -23,7 +23,9 @@ import kotlin.time.Instant
 //   *There is no stop.* 0.4.2 clamped at twelve degrees, so every movement larger than a small wrist
 //   flick arrived at the same place — which is exactly what the first device session reported as the
 //   effect having too narrow an area. A total counts turns, and the field it feeds wraps, so a phone
-//   turned all the way round moves the sky all the way round.
+//   rolled all the way round carries the sky a whole turn's worth. **Sideways only**: the tip runs
+//   from face up to face down and turns back, which is not a shortfall but the corner this module is
+//   forced to pick — the proof is on `Gravity`, and the reason is on `Gravity.tip`.
 //
 //   *There is no centre to chase, so nothing moves on its own.* The old slow average existed only
 //   because of the stop: with a clamp, a pose simply held would have pinned the sky against it for
@@ -33,9 +35,17 @@ import kotlin.time.Instant
 //   claim 0.4.0 made, 0.4.2 had to retract, and this restores.
 //
 //   *It does not drift.* Every angle is measured from the device's own axes, so the total is the
-//   current angle plus a whole number of turns minus wherever it started — see `turnedFrom`. Put the
-//   phone back where it was and the sky is back where it was, however far it went in between. An
+//   current angle plus a whole number of turns minus wherever it started — see `turnedFrom`. An
 //   integrated gyroscope, the other way to get an unbounded reading, has no such guarantee.
+//
+//   **Stated exactly, because the loose version of it was a defect.** Return the phone to a pose and
+//   the sky returns, *for any path that stays where the reading can be taken and does not roll a net
+//   whole number of turns on the way*. Both qualifiers are real and both are pinned: a net whole turn
+//   is travel that genuinely happened (`a full turn of the phone is a full turn of travel`), and a
+//   path that dips below `FAINT` leaves the arc rolled down there uncounted, because down there the
+//   roll is a spin about the vertical. 0.4.3's first draft claimed the unqualified version and paid
+//   for it — a weight that varied with the pose made an ordinary four-movement loop leave 2.2 units
+//   behind and repeat it every lap. See `Bearing.turnTo`.
 //
 // What survives from the band-pass is the fast average, and only that: a gravity sensor at rest
 // wanders a fraction of a degree, and a field that shimmers in a still hand is worse than no field
@@ -64,13 +74,15 @@ data class TiltMonitor(val turned: Turned? = null) {
             return Tilt(x = travel(-reading.lean), y = travel(reading.tip))
         }
 
+    // What iOS's `CMDeviceMotion.gravity` hands over: the vector pointing at the ground.
+    //
     // A value, exactly as `ShakeMonitor` is: the same monitor sampled with the same arguments always
     // gives the same answer, so a test is arithmetic and a dropped frame cannot corrupt anything.
     //
     // Three raw components rather than a `Gravity`, so the platform edges hand over exactly what
     // their sensor gave them and every judgement about it — including whether it is usable at all —
     // is made once, here.
-    fun sample(x: Double, y: Double, z: Double, at: Instant): TiltMonitor {
+    fun sampleGravity(x: Double, y: Double, z: Double, at: Instant): TiltMonitor {
         // A reading with no direction in it is dropped rather than filtered. See `Gravity.normalised`.
         val now = Gravity.normalised(x = x, y = y, z = z) ?: return this
         val previous = turned
@@ -112,11 +124,35 @@ data class TiltMonitor(val turned: Turned? = null) {
                 // `previous.at + gap` rather than `at`, so the stored instant can never go backwards
                 // and always matches the gap actually applied.
                 at = previous.at + gap,
-                tip = previous.tip + previous.smoothed.tip.turnTo(smoothed.tip),
+                // A plain subtraction rather than a shortest arc, because `Gravity.tip` runs `0..π`
+                // and cannot wrap — and no trust term, because it cannot be unreadable either. The
+                // running sum is kept rather than an anchor only to hold the two axes in the same
+                // shape; it telescopes to exactly `now − where the count started` either way.
+                tip = previous.tip + (smoothed.tip - previous.smoothed.tip),
                 lean = previous.lean + previous.smoothed.lean.turnTo(smoothed.lean),
             ),
         )
     }
+
+    // What Android's `TYPE_GRAVITY` hands over: the *reaction* to gravity, pointing at the sky. Its
+    // own documentation says a phone lying flat on a table reads `z = +9.81` where iOS calls the
+    // same phone `z = -1.0`.
+    //
+    // **A named entry point rather than a correction inside one of the two platform files, and the
+    // difference is a defect this module has already had twice.** Until 0.4.3 nothing here needed
+    // the sign: the cross product was blind to it, and so was the pair of `atan2`s that replaced the
+    // cross product, because negating all three components turned both bearings by exactly half a
+    // circle and every difference cancelled it. Reading the tip off `√(x²+y²)` and `z` breaks that
+    // for the first time — the magnitude does not care about the sign and `z` does, so the two
+    // platforms come out *reflected* rather than offset, and differences negate instead of
+    // cancelling. A phone would have leaned the right way on an iPhone and upside down on a Pixel.
+    //
+    // Since a convention is now needed, it is stated here, in the module both platforms share and
+    // the one place a test can drive both — rather than as a minus sign in a sensor callback that
+    // only one of the two files would ever grow. `both phones report the same movement the same way`
+    // walks it.
+    fun sampleReactionToGravity(x: Double, y: Double, z: Double, at: Instant): TiltMonitor =
+        sampleGravity(x = -x, y = -y, z = -z, at = at)
 
     // The smoothed direction, the instant it was taken at, and how far each axis has turned since
     // the count started. One nullable holder rather than four nullable fields, because they are only
@@ -154,23 +190,21 @@ data class TiltMonitor(val turned: Turned? = null) {
         // Beyond this, a gap is an absence rather than a long interval. See `sample`.
         val MAX_GAP: Duration = 2.seconds
 
-        // How much of `down` has to lie in an axis's plane before that axis is read at its word, and
-        // below what it is not read at all. See `Bearing`: each axis has a pose in which the turn it
-        // describes is a spin about the vertical, and gravity cannot see one.
+        // How much of `down` has to lie in the plane of the glass before a roll is counted at all.
+        // Below it the sideways axis holds rather than answering noise: an in-plane roll of a phone
+        // lying flat is a spin about the vertical, which does not move `down` and which gravity
+        // therefore cannot see.
         //
-        // **These are a fade in *precision*, and the distinction is the fix this round is named
-        // for.** 0.4.2 had no such pair because the cross product folded the same fact into the
-        // sideways gain as `sin²(elevation)` — so the sky answered a lean at a quarter strength on a
-        // phone held at thirty degrees, half at forty-five, and it read as the axis being lazy
-        // rather than as the instrument being unsure. Kept apart, the gain is flat across every pose
-        // a hand rests in and only the last stretch into genuinely unreadable poses fades.
+        // **A threshold in *readability*, and the distinction is the fix 0.4.3 is named for.** 0.4.2
+        // had no such number because the cross product folded the same fact into the sideways gain
+        // as `sin²(elevation)` — so the sky answered a lean at a quarter strength on a phone held at
+        // thirty degrees, half at forty-five, and it read as the axis being lazy rather than as the
+        // instrument being unsure. Kept apart, the response is flat across every pose a hand rests
+        // in and stops only where the reading stops meaning anything.
         //
-        // Thirty degrees of elevation is well under anything somebody holds a phone at to look at
-        // it; fifteen is a phone all but flat on a desk. Between them the axis fades out rather than
-        // cutting, and past the bottom it holds rather than jumping — a phone put down leaves the
-        // sky where it was.
-        const val CLEAR: Double = 0.5
-
+        // 0.26 is a phone about fifteen degrees off flat — all but face up on a desk, and well under
+        // anything somebody holds a phone at to look at it. See `Bearing.turnTo` for why this is a
+        // hard edge rather than the fade the first draft had.
         const val FAINT: Double = 0.26
 
         // The grid every reported value is snapped to, and it is a performance decision rather than
@@ -200,20 +234,29 @@ private fun easing(over: Duration, elapsed: Duration): Double =
 // far the shakier of the two ends can be trusted. Taking the *smaller* of the two is what makes a
 // phone being laid down on a desk fade out on the way rather than at the moment it lands.
 //
-// **This weight is the one place the total stops being exact, and it is worth naming.** At full
-// trust the steps telescope — they sum to the current angle minus where the count started, so sensor
-// noise cannot accumulate however long the session runs. Scaled by anything less, they no longer
-// cancel perfectly, and a phone left sitting *inside* the fade band walks by something like a
-// hundredth of a unit over ten minutes. That is a pixel and a half on the nearest plane, in the one
-// range of poses where the reading is admittedly unsure; a hard gate instead of a fade would trade it
-// for the axis cutting out mid-movement, which is worse and also does not remove the effect at the
-// boundary. Also protective: both bearings go undefined only where their own `inPlane` goes to zero,
-// so a swing large enough to take the short way round the *wrong* way is already weighted to nothing.
+// **A gate and not a fade, and 0.4.3's first draft got that wrong in a way worth keeping written
+// down.** It scaled each step by a weight that ramped in over a band of poses, which sounds gentler
+// and is unsound: the weight is a function of the *elevation* while the step it scales is a *roll*,
+// so the total became a line integral of a form that is not closed. Retracing a path cancelled —
+// which is all the suite tested — and going round a loop did not. Four ordinary movements ending
+// where they began left 2.2 units behind, and repeating them left 2.2 more, without bound.
+//
+// No weight that varies with the pose can avoid that; the fix is for it not to vary. Inside the
+// readable range the weight is exactly one, so the steps telescope to the current angle minus where
+// the count started and sensor noise cannot accumulate however long the session runs. Outside it the
+// weight is exactly zero, which is a *re-anchor* rather than a discard, because the reference bearing
+// advances every sample regardless: a phone laid down and spun leaves the sky where it was and picks
+// up again from wherever the roll now is.
+//
+// Taking the *smaller* of the two ends keeps the gate symmetric in time, so a path and its reverse
+// count exactly the same steps. **No hysteresis, deliberately** — a sticky gate that counted on the
+// way down but not on the way up would be the same path dependence rebuilt by hand.
+//
+// What survives is bounded and forced: a loop that *crosses* the gate leaves the arc rolled below it
+// uncounted. At that elevation the roll genuinely is a spin about the vertical, so there is nothing
+// there to count.
 private fun Bearing.turnTo(other: Bearing): Double =
-    turnedFrom(radians, to = other.radians) * trust(min(inPlane, other.inPlane))
-
-private fun trust(inPlane: Double): Double =
-    ((inPlane - TiltMonitor.FAINT) / (TiltMonitor.CLEAR - TiltMonitor.FAINT)).coerceIn(0.0, 1.0)
+    if (min(inPlane, other.inPlane) < TiltMonitor.FAINT) 0.0 else turnedFrom(radians, to = other.radians)
 
 // A total turn, in radians, to units of travel — snapped to the grid and **not clamped**, which is
 // the one-word version of what changed. The rounding is done in whole steps and multiplied back in

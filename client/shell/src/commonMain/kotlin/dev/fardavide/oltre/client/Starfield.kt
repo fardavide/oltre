@@ -160,9 +160,15 @@ internal fun leanedAcross(fraction: Float, lean: Float, width: Float): Float =
 // the near plane covers 0.58 of this, the far one 0.12, and the spread between them is the depth.
 //
 // **No longer the whole of what a lean can move**, which is what it was until 0.4.3: one unit is
-// twelve degrees of turn and nothing stops there, so a phone rolled right round reports thirty of
-// them and carries the near plane 418dp — a little over one screen width, which is why turning the
-// phone all the way round takes the sky all the way round and lands it back where it started.
+// twelve degrees of turn and nothing stops there sideways, so a phone rolled right round reports
+// thirty of them and carries the near plane 418dp — a little over one screen width. Note what that
+// does *not* say: 418 into a 393dp box leaves the near plane 25dp from where it began, and the other
+// two planes travel 216dp and 86dp, so a full roll does not put the field back. Nothing in the
+// wrapping makes it, and nothing needs it to — there is no landmark in a tiling field of stars for a
+// viewer to measure the difference against, which is the same reason the zero point can be anywhere.
+//
+// The vertical is a different shape: `y` runs to fifteen units at face-down and comes back, so the
+// most the tip can move the near plane is 209dp end to end. See `Tilt`.
 //
 // That the number itself did not have to change is the point of leaving it here. Fourteen
 // device-independent pixels on the nearest plane for an ordinary wrist flick is still an accent on

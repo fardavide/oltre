@@ -167,11 +167,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   distance for the same movement, from every pose a hand rests in.
 - **There is no longer an edge to the effect.** It used to stop about twenty degrees out, so
   anything more than a small wrist flick arrived in the same place and the sky went dead in your
-  hand. Now it just keeps going: turn the phone right round and the sky goes right round with you
-  and lands back where it started. A small movement still moves it exactly as far as it did before.
+  hand. Roll the phone now and it just keeps going, right round and round again. Tipping it forward
+  and back tracks the whole way from flat on its back to flat on its face, then retraces as you
+  carry on over — the sky can follow a roll for ever, but it can only follow a tip through the poses
+  you can actually see the screen from.
+- **A sideways roll no longer drags the sky diagonally.** It always did a little; once the limit came
+  off, a big roll dragged it further up than the roll itself moved it sideways. Rolling now moves the
+  sky sideways and nothing else.
 - **Put the phone down and the sky stops.** 0.4.2 spent about ten seconds drifting back to level
   after you stopped moving, which was the price of the old limit; there is no limit and so no drift.
-  Wherever you leave it is where it stays, however long you leave the game open.
+  Wherever you leave it is where it stays, however long you leave the game open — and putting it flat
+  on a desk and spinning it leaves the sky alone, because from down there your phone genuinely cannot
+  tell it is being turned.
 - Still off entirely if you have asked your phone for less movement, and a phone with no motion
   sensor still holds still.
 - Saves from 0.4.2 carry forward untouched.

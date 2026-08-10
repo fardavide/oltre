@@ -28,14 +28,46 @@ import kotlin.math.sqrt
 //   `Bearing.inPlane` — which is what made the lean read as lazy on a phone held at any angle.
 //
 // What is here now is `atan2` of a *pair* of components, which is not the first mistake wearing a
-// hat: knowing the quadrant is exactly what a fold is the absence of, so it walks the whole circle,
-// and it is measured from the axes rather than from a previous reading, so nothing accumulates.
+// hat: knowing the quadrant is exactly what a fold is the absence of, and it is measured from the
+// axes rather than from a previous reading, so nothing accumulates.
+//
+// **And the two axes are read differently, which is forced rather than chosen.** No reading of the
+// tip can be all three of: unmoved by a roll, monotonic through a full end-over-end turn, and
+// dependent only on where the phone is now. The proof is one line of this module's own pose model:
+//
+//     g(elevation, lean + 180°) == g(-elevation, lean)
+//
+// Roll the phone upside down and tip it *forward*, and gravity reports exactly what tipping it
+// *backward* the right way up reports. One of those has to add and the other to subtract, so a
+// reading that is blind to the roll cannot tell them apart, and one that can tell them apart is
+// answering the roll. It is not a shortcoming of gravity — a fused attitude quaternion is subject
+// to the same argument — so a second sensor buys nothing here.
+//
+// 0.4.3's first draft picked the corner that gives up being unmoved by a roll, and it was measured
+// on a device before it shipped: at a fifty-degree hold a ninety-degree roll dragged the sky 4.17
+// units *vertically* and a half turn dragged it 8.33, off a gesture that asked for none. What is
+// here now gives up the full turn instead. See `tip`.
 data class Gravity(val x: Double, val y: Double, val z: Double) {
 
-    // Where `down` sits in the plane of the long edge and the glass — the elevation the phone is
-    // held at, and the axis a tip moves. Zero is face up on a table, a quarter turn is upright in
-    // portrait, half a turn is face down, and it keeps going.
-    val tip: Bearing get() = Bearing(radians = atan2(-y, -z), inPlane = sqrt(y * y + z * z))
+    // How far the glass is tipped back from facing straight up — the elevation of the screen's own
+    // normal, which is the thing a window's vertical parallax is actually a function of. Zero is
+    // face up on a table, a quarter turn is upright in portrait, half a turn is face down.
+    //
+    // **Exactly independent of the roll, at every pose, and never undefined** — `x² + y²` and `z`
+    // cannot both vanish on a unit vector, so unlike every other reading in this module it needs no
+    // companion measure of how far to trust it. Rolling the phone spins it about this very axis and
+    // moves the normal not at all; the draft this replaced read the elevation of the phone's long
+    // *edge*, which a roll sweeps round a cone, and that was the whole of the defect.
+    //
+    // **The price is that it runs `0..π` and turns back rather than round**, so tipping the phone on
+    // past face-down retraces its travel instead of continuing. That is the trade named above, taken
+    // deliberately: the range it gives up is the half of a turn where the screen is pointing away
+    // from the player, and the range it keeps is every pose the screen can be read from.
+    //
+    // **It also fixes a pose the draft lost entirely.** That reading died in landscape held with the
+    // long edge horizontal — measured as no vertical response at all at any roll — because its plane
+    // had emptied out. This one has no such pose.
+    val tip: Double get() = atan2(sqrt(x * x + y * y), -z)
 
     // Where `down` sits in the plane of the glass — the in-plane roll, positive dropping the right
     // edge, and the axis a lean moves.
@@ -72,21 +104,20 @@ data class Gravity(val x: Double, val y: Double, val z: Double) {
     }
 }
 
-// An angle read off `down` in one of the device's two turning planes, together with how much of
-// `down` was in that plane to read it from.
+// An angle read off `down` in the plane of the glass, together with how much of `down` was in that
+// plane to read it from. Only the lean needs this shape — `tip` above is readable from every pose
+// there is — and that asymmetry is the honest one: a phone lying flat has no in-plane roll gravity
+// can see, and there is no pose in which the screen has no elevation.
 //
 // **The second field is the whole reason this is a pair rather than a `Double`, and getting it wrong
-// is what 0.4.2 shipped.** Each plane has a pose in which the turn it describes is a spin about the
-// vertical, which gravity physically cannot see: for the lean that is a phone lying flat, for the
-// tip it is a phone in landscape with its long edge horizontal. Approaching such a pose does not
-// make the angle *smaller*, it makes it *less certain* — the projection it is read off shrinks
-// towards nothing and the last digits become noise.
+// is what 0.4.2 shipped.** Approaching flat does not make the roll *smaller*, it makes it *less
+// certain* — the projection it is read off shrinks towards nothing and the last digits become noise.
 //
 // The cross product conflated those two things, because a sine of a turn about a shrinking
 // projection is one number carrying both. So the sideways axis moved the sky by `sin²(elevation)` of
 // what the same wrist gave upright — a quarter at 30°, half at 45° — and it read as the axis being
 // half asleep rather than as the instrument being unsure. Kept apart, `radians` is the movement and
-// `inPlane` is only ever allowed to say *how much to trust it*.
+// `inPlane` is only ever allowed to say *whether to trust it*.
 data class Bearing(val radians: Double, val inPlane: Double)
 
 // The turn from one bearing to another, taking the short way round: `(-π, π]`, so a phone rolling

@@ -60,7 +60,7 @@ private class IosTiltSource : TiltSource {
             // between two of them, which is all it ever takes.
             val reading = data?.gravity?.useContents { Triple(x, y, z) }
             if (reading != null) {
-                monitor = monitor.sample(
+                monitor = monitor.sampleGravity(
                     x = reading.first,
                     y = reading.second,
                     z = reading.third,

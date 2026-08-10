@@ -77,7 +77,7 @@ private class AndroidTiltSource(private val context: Context) : TiltSource {
                 // the only thing anything downstream looks at. A correction applied in one of these
                 // two files and not the other is exactly how the sky ends up leaning the wrong way on
                 // one phone, so neither file holds one.
-                monitor = monitor.sample(
+                monitor = monitor.sampleReactionToGravity(
                     x = event.values[0].toDouble(),
                     y = event.values[1].toDouble(),
                     z = event.values[2].toDouble(),

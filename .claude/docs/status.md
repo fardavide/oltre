@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.4.2)
+Updated: 2026-08-10 (0.4.3)
 
 ## Landed
 
@@ -303,16 +303,27 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
-- **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
-  (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
-  tuning."* Merging publishes, so the install is the next step rather than a pending task here. What
-  he is looking at: every feel constant in `TiltMonitor` and `Starfield.TILT_TRAVEL` is arithmetic
-  rather than a measurement, exactly as `ShakeMonitor`'s three were — 12° to full deflection, 24dp of
-  travel, 120ms and 4s. **The sign is the likeliest thing to be wrong**: the sky moves against the
-  lean, and both axes are one subtraction from being the other way round, in one place in
-  `TiltMonitor.tilt`. There is also **no screenshot test of a leaning field**, because recording a
-  baseline needs a machine that can run Roborazzi; the tilted draw path reaches `main` verified by
-  compilation and by unit tests alone.
+- **The tilt parallax has been held in a hand and 0.4.3 is what came back** (2026-08-10). Davide
+  reported two defects — *"horizontal tilt is very lazy, vertical is ok"* and *"after moving the phone
+  ~20° it stops"* — and both were real: the sideways axis carried a `sin²(elevation)` gain out of the
+  cross product, and the travel was clamped at one unit. Both are fixed, and fixing them turned up a
+  theorem worth knowing before anyone asks for more: **no reading of the tip can be unmoved by a roll,
+  monotonic through a full end-over-end turn, and a function of the current pose all at once** — not
+  from gravity and not from a fused quaternion either. Davide picked roll-invariant, so the sideways
+  axis turns without end and the vertical runs face-up to face-down and retraces. See `decisions.md`
+  at 0.4.3.
+  **Still arithmetic rather than measurement**, and unchanged on purpose so the next install measures
+  the fix rather than three changes at once: 12° per unit of travel, 24dp on the reference plane,
+  120ms of smoothing, and the 0.26 readability gate. The sign is no longer the likeliest thing to be
+  wrong — a device has now confirmed both axes move the right way. There is still **no screenshot test
+  of a leaning field**, because recording a baseline needs a machine that can run Roborazzi; the
+  tilted draw path reaches `main` verified by compilation and unit tests alone.
+- **Yaw is invisible and always will be from this sensor.** Turning the phone left and right about the
+  vertical is the movement most people reach for first, and gravity cannot see it — spinning a phone
+  flat on a table does not move `down`. Answering it needs `TYPE_GAME_ROTATION_VECTOR` /
+  `CMDeviceMotion.attitude` on both platforms. **Open, and Davide's call**: it is not implied by
+  anything he has asked for, and the theorem above says the second sensor would not make the vertical
+  axis full-circle either, so it buys yaw and nothing else.
 - **The tilt is in the device's frame rather than the interface's**, so landscape swaps the two axes
   and mirrors one — a lean moves the sky diagonally where it should move it sideways. It degrades
   rather than breaks, and it is left alone deliberately: Android would read the rotation from

@@ -60,7 +60,10 @@ class TiltMonitorTest {
         // level a player would feel it: the same wrist movement has to move the sky the same way and
         // by about the same amount whether the phone started flat on a desk, upright, or tipped
         // past vertical in bed. It used to rectify at exactly upright and invert past it.
-        val readings = EVERY_POSE.map { elevation ->
+        // Face up on a table is excluded because it is the one end of the reading's range: tipping
+        // *past* flat is the fold, and `tipping on past face down retraces its travel` is where that
+        // is pinned deliberately rather than tripped over here.
+        val readings = EVERY_POSE.filter { it != 0.0 }.map { elevation ->
             elevation to leaned(from = Pose(elevation), to = Pose(elevation - 6.0)).tilt.y
         }
 
@@ -79,7 +82,7 @@ class TiltMonitorTest {
         // quarter of the travel on a phone held at 30 degrees and half of it at 45, while the tip
         // axis kept full gain in every pose. Reading the lean as an angle rather than as the sine of
         // a turn is what removes the factor; `Bearing.inPlane` is where the pose is allowed to act
-        // instead, and it only says how far to trust the angle.
+        // instead, and it only says *whether* to trust the angle.
         //
         // Held at anything a hand rests in, the two axes now answer identically — which is the whole
         // of the fix and the one property most easily lost again.
@@ -105,20 +108,71 @@ class TiltMonitorTest {
     }
 
     @Test
-    fun `a sideways lean does not visibly push the sky up or down`() {
-        // Rolling the phone in its own plane sweeps the long edge round a cone, so it does move the
-        // elevation of that edge a little and the two axes are not exactly independent. What is left
-        // is second order in the lean angle — three steps out of a hundred at the worst pose, a
-        // third of a pixel on the nearest plane — where the very first version of this module was
-        // first order and sent the sky diagonally on every sideways lean.
-        EVERY_POSE.filter { it != 0.0 && it != 180.0 }.forEach { elevation ->
-            val monitor = leaned(from = Pose(elevation), to = Pose(elevation, lean = 8.0))
+    fun `tipping on past face down retraces its travel rather than continuing`() {
+        // **The price of the axis being unmoved by a roll, pinned rather than left to be discovered.**
+        // No reading of the tip can be all three of blind to the roll, monotonic through a full
+        // end-over-end turn, and a function of where the phone is now — see the note on `Gravity`,
+        // where the proof is one line of the pose model. This is the corner that was chosen: the
+        // reading runs from face up through upright to face down and then comes back the way it
+        // went, so an end-over-end turn returns the sky to level rather than carrying it round.
+        //
+        // The range given up is the half turn in which the screen is pointing away from the player.
+        // The range kept is every pose the screen can be read from, and the sideways axis keeps its
+        // whole turn — `a full turn of the phone is a full turn of travel` still holds.
+        val short = leaned(to = Pose(170.0), over = 1.seconds, settle = 1.seconds)
+        val far = leaned(from = Pose(170.0), to = Pose(180.0), over = 1.seconds, settle = 1.seconds, of = short)
+        val past = leaned(from = Pose(180.0), to = Pose(190.0), over = 1.seconds, settle = 1.seconds, of = far)
 
-            assertTrue(
-                abs(monitor.tilt.y) <= 3 * TiltMonitor.STEP,
-                "a lean at $elevation moved the sky ${monitor.tilt.y} vertically",
-            )
-            assertTrue(monitor.tilt.x < 0f, "a lean at $elevation did not move it sideways")
+        assertTrue(far.tilt.y > short.tilt.y, "tipping towards face down did not travel: ${far.tilt.y}")
+        assertEquals(short.tilt.y, past.tilt.y, 2 * TiltMonitor.STEP, "tipping past face down kept going")
+    }
+
+    @Test
+    fun `a roll of any size never pushes the sky up or down`() {
+        // **The regression test for the defect 0.4.3's first draft shipped**, and the one property
+        // the suite it replaced could not have caught: every sideways test in it rolled by six or
+        // eight degrees, where the leak is second order and genuinely invisible. Measured at the
+        // angles a full turn actually passes through, the same formulation dragged the sky 4.17
+        // units up on a 90-degree roll and 8.33 on a 180-degree one — more vertical than the
+        // sideways movement that was asked for, off a purely sideways gesture.
+        //
+        // The cause was reading the tip as the elevation of the phone's *long edge*, which a roll
+        // sweeps round a cone. The screen normal does not move when the phone is rolled, so reading
+        // the tip off that is exact rather than nearly right: this asserts zero, not a small number.
+        listOf(30.0, 50.0, 90.0, 120.0).forEach { elevation ->
+            listOf(8.0, 45.0, 90.0, 180.0).forEach { roll ->
+                val monitor = leaned(from = Pose(elevation), to = Pose(elevation, lean = roll), settle = 1.seconds)
+
+                assertEquals(0f, monitor.tilt.y, TiltMonitor.STEP, "a $roll roll at $elevation")
+            }
+        }
+    }
+
+    @Test
+    fun `a closed loop of poses leaves the sky exactly where it started`() {
+        // **The second regression test for that draft**, and the deeper of the two. The pose weight
+        // was applied to each accumulated step rather than to the reading, which makes the total a
+        // line integral of a form that is not closed — so retracing a path cancelled, which is all
+        // the suite tested, while going round a *loop* did not. Every lap of the walk below left
+        // 2.2 units behind, without bound: five laps came to eleven units, about 154dp of permanent
+        // sideways offset on the nearest plane, with the phone back in the pose it started in.
+        //
+        // Every pose here is readable, so nothing about this loop is a case the instrument cannot
+        // see — it is four ordinary movements that happen to end where they began.
+        val loop = listOf(Pose(50.0, lean = 40.0), Pose(20.0, lean = 40.0), Pose(20.0), REST)
+
+        var monitor = held(TiltMonitor(), REST, from = EPOCH, for_ = 3.seconds)
+        repeat(5) { lap ->
+            var from = REST
+            // A full second of settle per leg, not because the loop needs it but because the reading
+            // does: a roll in progress dips the smoothed direction inside the cone it is sweeping,
+            // so the tip is momentarily low and only exact once the hand has arrived. Every gesture
+            // ends by arriving somewhere; this measures it there, as the rest of the file does.
+            loop.forEach { to ->
+                monitor = leaned(from = from, to = to, over = 500.milliseconds, settle = 1.seconds, of = monitor)
+                from = to
+            }
+            assertEquals(Tilt.NONE, monitor.tilt, "after lap ${lap + 1}")
         }
     }
 
@@ -261,26 +315,43 @@ class TiltMonitorTest {
     @Test
     fun `a reading with no direction in it leaves the monitor alone`() {
         val monitor = leaned(to = Pose(REST.elevation, lean = 6.0))
-        val freeFall = monitor.sample(x = 0.0, y = 0.0, z = 0.0, at = monitor.at() + 20.milliseconds)
+        val freeFall = monitor.sampleGravity(x = 0.0, y = 0.0, z = 0.0, at = monitor.at() + 20.milliseconds)
 
         assertEquals(monitor, freeFall)
     }
 
     @Test
-    fun `the sideways axis fades out as the phone goes flat rather than jumping`() {
+    fun `the sideways axis stops at the pose gravity cannot read and holds rather than jumping`() {
         // The pose gravity genuinely cannot read: an in-plane lean of a phone lying flat is a spin
-        // about the vertical and moves `down` not at all. The old formulation handled it by having
-        // the gain go to zero *through the whole useful range on the way*, which is the laziness
-        // this round removed. What replaces it fades only where the reading really is untrustworthy
-        // — and holds rather than lurching once it is, so a phone put down on a desk leaves the sky
-        // where it was instead of throwing it somewhere.
+        // about the vertical and moves `down` not at all. 0.4.2 handled it by having the gain go to
+        // zero *through the whole useful range on the way*, which is the laziness this round removed;
+        // 0.4.3's first draft replaced that with a fade across a band of poses, which is what made
+        // the total path-dependent — the fade and the drift were the same thing seen twice.
+        //
+        // What is left is a hard edge low enough that no hand reaches it, full response above it,
+        // and a hold rather than a lurch below: a phone put down on a desk and spun leaves the sky
+        // exactly where it was, and picks up again from wherever the roll then is.
         val flat = leaned(from = Pose(6.0), to = Pose(6.0, lean = 20.0))
         val shallow = leaned(from = Pose(20.0), to = Pose(20.0, lean = 20.0))
         val handHeld = leaned(from = Pose(50.0), to = Pose(50.0, lean = 20.0))
 
         assertEquals(0f, flat.tilt.x)
-        assertTrue(handHeld.tilt.x < shallow.tilt.x, "${handHeld.tilt.x} was not further than ${shallow.tilt.x}")
+        assertEquals(handHeld.tilt.x, shallow.tilt.x, 2 * TiltMonitor.STEP)
         assertTrue(shallow.tilt.x < 0f, "a lean at 20 degrees moved nothing: ${shallow.tilt.x}")
+    }
+
+    @Test
+    fun `a phone laid down and spun leaves the sky where it was`() {
+        // The other half of the gate, and the behaviour it is chosen for: what happens below the
+        // edge is a *hold*, not a discard and not a return. The reference bearing keeps advancing
+        // while the steps are dropped, so the spin is silently absorbed and nothing jumps when the
+        // phone comes back up.
+        val leant = leaned(to = Pose(REST.elevation, lean = 12.0), settle = 1.seconds)
+        val down = leaned(from = Pose(REST.elevation, lean = 12.0), to = Pose(4.0, lean = 12.0), of = leant)
+        val spun = leaned(from = Pose(4.0, lean = 12.0), to = Pose(4.0, lean = 192.0), over = 2.seconds, of = down)
+        val up = leaned(from = Pose(4.0, lean = 192.0), to = Pose(REST.elevation, lean = 192.0), settle = 1.seconds, of = spun)
+
+        assertEquals(leant.tilt.x, up.tilt.x, 2 * TiltMonitor.STEP)
     }
 
     @Test
@@ -330,10 +401,9 @@ class TiltMonitorTest {
         // Inside the range of a wrist that is not trying. This is no longer a stop the effect
         // reaches — it is the scale, and a wrist that is not trying is what the scale is set by.
         assertTrue(TiltMonitor.FULL_TRAVEL_DEGREES in 5.0..25.0, "was ${TiltMonitor.FULL_TRAVEL_DEGREES}")
-        // A fade needs somewhere to fade across, and both ends have to sit under any pose a hand
-        // rests in or the fix above is undone by the thing that was meant to keep it honest.
-        assertTrue(TiltMonitor.FAINT < TiltMonitor.CLEAR, "${TiltMonitor.FAINT} is not below ${TiltMonitor.CLEAR}")
-        assertTrue(TiltMonitor.CLEAR <= 0.5, "was ${TiltMonitor.CLEAR}")
+        // The gate has to sit under any pose a hand rests in, or the fix above is undone by the
+        // thing meant to keep it honest. 0.26 is about fifteen degrees off flat.
+        assertTrue(TiltMonitor.FAINT <= 0.3, "was ${TiltMonitor.FAINT}")
     }
 }
 
@@ -345,17 +415,22 @@ private val EPOCH = Instant.fromEpochSeconds(0)
 private val REST = Pose(elevation = 50.0)
 
 // The poses of `EVERY_POSE` a hand actually rests in, which is where the sideways axis has to answer
-// identically. Below about 30 degrees the reading is genuinely losing its footing and is allowed to
-// fade — see `the sideways axis fades out as the phone goes flat rather than jumping`.
-private val HELD_IN_A_HAND = EVERY_POSE.filter { it in 30.0..150.0 }
+// identically. The gate sits at about fifteen degrees off flat, well below any of these — see
+// `the sideways axis stops at the pose gravity cannot read and holds rather than jumping`.
+private val HELD_IN_A_HAND = EVERY_POSE.filter { it in 20.0..160.0 }
 
 private fun Int.hoursLater(): Duration = (this * 60 * 60).seconds
 
 private fun TiltMonitor.at(): Instant = turned?.at ?: EPOCH
 
 private fun TiltMonitor.sampled(pose: Pose, at: Instant, android: Boolean = false): TiltMonitor {
-    val (x, y, z) = if (android) pose.androidReading else pose.gravity
-    return sample(x = x, y = y, z = z, at = at)
+    return if (android) {
+        val (x, y, z) = pose.androidReading
+        sampleReactionToGravity(x = x, y = y, z = z, at = at)
+    } else {
+        val (x, y, z) = pose.gravity
+        sampleGravity(x = x, y = y, z = z, at = at)
+    }
 }
 
 // A movement from `from` to `to`, sampled the way a device would sample it: the pose is established

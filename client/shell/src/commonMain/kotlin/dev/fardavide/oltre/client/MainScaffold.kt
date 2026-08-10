@@ -116,11 +116,10 @@ private fun ColumnScope.Destination(
         //
         // The three planes are a function of the scroll offset and of how the device is being held,
         // and of nothing else — **nothing here starts on its own.** A frame that has been closed for
-        // two days opens drawn exactly as it was left. A lean does settle back to level over about
-        // ten seconds after the hand stops, which is real movement with the device still, and
-        // `Starfield` argues at length why that is the same one-shot settle the Sky pass's four
-        // transitions already are rather than a clock. What it is not, on any reading, is the game
-        // telling you that something is happening.
+        // two days opens drawn exactly as it was left, and a phone put down leaves the sky where it
+        // is. Until 0.4.3 that last clause was false — a lean went on settling back to level for
+        // about ten seconds after the hand stopped — and `Starfield` carries what removing it cost
+        // and bought. What it is not, on any reading, is the game telling you something is happening.
         //
         // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.
