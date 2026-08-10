@@ -158,6 +158,17 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.4.1 — 2026-08-10
+
+- **Nothing you can see or do changes in this build.** The fleet that landed in 0.3.0 is still
+  underneath the game rather than on a screen, and this is the round that measured what it is worth
+  before any screen offers it.
+- **A gathering run brings back half what it used to.** The rate was written from arithmetic and had
+  never been simulated; simulating it showed that a player who bought ships before buildings would
+  have had a fleet out-producing their own colony. Halving it means three or four ships match a mine
+  rather than replacing it — the fleet is a second income, never the income.
+- Saves from 0.4.0 carry forward untouched.
+
 ### 0.4.0 — 2026-08-10
 
 - **The colony floats over a sky now.** Three planes of stars sit behind every screen and drift
