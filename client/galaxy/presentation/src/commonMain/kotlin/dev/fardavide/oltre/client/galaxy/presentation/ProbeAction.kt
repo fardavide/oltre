@@ -2,7 +2,6 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -23,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -50,11 +50,14 @@ internal fun ProbeAction(
                     //
                     // Nothing else in the footer is tappable, so there is nothing for the expanded
                     // area to collide with.
+                    // `pressable` rather than `clickable` since the Sky pass: it is the same tap
+                    // with the same ripple and a 1.5% shrink under the finger. It sits where the
+                    // `clickable` sat, so the 44dp hit area is unchanged.
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .heightIn(min = TOUCH_MINIMUM)
-                            .clickable(onClick = onDispatch)
+                            .pressable(onClick = onDispatch)
                             .testTag(GalaxyTestTags.DISPATCH),
                     ) {
                         Text(

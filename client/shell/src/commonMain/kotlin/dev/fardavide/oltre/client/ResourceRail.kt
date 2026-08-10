@@ -16,6 +16,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +27,8 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.rememberOneShotFill
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.icon.PowerMark
 
 // Chrome, like the tab bar below it, and here for the same reason: what it shows is the empire's,
@@ -40,14 +45,44 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
     // The bar itself is full-bleed — it reads as the top edge of the window — but its cells
     // stay on the same centred column as the content below, whatever the window's width.
     Box(
-        modifier = modifier.fillMaxWidth().background(OltreColors.surface),
+        modifier = modifier
+            .fillMaxWidth()
+            .background(OltreColors.surface)
+            // The rail's own bottom edge. The bar is a surface the destinations pass under, and a
+            // surface with no edge on the side things move past it reads as a gap in the window
+            // rather than as a thing in front of one — which is exactly what it became once the
+            // starfield started sliding underneath.
+            .drawBehind {
+                val line = HAIRLINE_WIDTH.toPx()
+                drawRect(
+                    color = HAIRLINE,
+                    topLeft = Offset(x = 0f, y = size.height - line),
+                    size = Size(width = size.width, height = line),
+                )
+            },
         contentAlignment = Alignment.TopCenter,
     ) {
         Row(
             modifier = Modifier
                 .widthIn(max = OltreLayout.maxContentWidth)
                 .fillMaxWidth()
-                .testTag(ShellTestTags.RESOURCE_RAIL_CONTENT),
+                .testTag(ShellTestTags.RESOURCE_RAIL_CONTENT)
+                // Drawn rather than laid out, and deliberately: the three cells are the one place in
+                // the app with no width to spare, and a 1dp element between them is 2dp taken off
+                // the figures. Every cell carries `weight(1f)`, so the boundaries are exactly at a
+                // third and two thirds of the row — this is not an approximation of where the cells
+                // divide, it is where they divide.
+                .drawBehind {
+                    val line = HAIRLINE_WIDTH.toPx()
+                    val inset = DIVIDER_INSET.toPx()
+                    listOf(1f / 3f, 2f / 3f).forEach { fraction ->
+                        drawRect(
+                            color = HAIRLINE,
+                            topLeft = Offset(x = size.width * fraction - line / 2f, y = inset),
+                            size = Size(width = line, height = size.height - inset * 2),
+                        )
+                    }
+                },
         ) {
             // The rates are already the throttled figures. What misled the player was not the
             // number but the absence of any mark saying it was being held down — a true rate
@@ -56,22 +91,19 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
             val throttled = uiState.throttled
             ResourceCell(
                 name = "METAL",
-                value = uiState.metal,
-                rate = uiState.metalRatePerHour,
+                stock = uiState.metal,
                 orb = OltreColors.metal,
                 throttled = throttled,
             )
             ResourceCell(
                 name = "CRYSTAL",
-                value = uiState.crystal,
-                rate = uiState.crystalRatePerHour,
+                stock = uiState.crystal,
                 orb = OltreColors.crystal,
                 throttled = throttled,
             )
             ResourceCell(
                 name = "DEUTERIUM",
-                value = uiState.deuterium,
-                rate = uiState.deuteriumRatePerHour,
+                stock = uiState.deuterium,
                 orb = OltreColors.deuterium,
                 throttled = throttled,
             )
@@ -85,12 +117,26 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
 @Composable
 private fun RowScope.ResourceCell(
     name: String,
-    value: String,
-    rate: String,
+    stock: ResourceStockUiState,
     orb: Color,
     throttled: Boolean,
 ) {
     val mono = oltreMono()
+    // The one thing on the frame that says what happened while the app was closed. It counts from
+    // the figure the player was last looking at to the one the colony has accrued to, once, over
+    // 900ms — and then it is a number again, tracking the tick instantly like every other reading.
+    //
+    // The font is monospaced, so the count is a stable width rather than a reflow: the cell does not
+    // grow and shrink under a rolling figure, and the three cells stay on their columns throughout.
+    val fill = rememberOneShotFill()
+    val rolled = stock.lastSeenStock + ((stock.stock - stock.lastSeenStock) * fill).toLong()
+    // Padded to the width of the figure it is heading for, and that is what "a stable-width count,
+    // not a reflow" actually takes. Tabular numerals fix the width of a *digit*; they do nothing
+    // about a count that grows from "900" to "1,400" and takes two characters with it. At 320dp the
+    // stock and its rate share a wrapping row, so those two characters are enough to throw the rate
+    // onto a second line halfway through the roll and pull it back at the end. Trailing spaces in a
+    // monospaced face reserve the final width without moving a single digit.
+    val counted = rolled.groupedByThousands().padEnd(stock.stock.groupedByThousands().length)
     Column(
         modifier = Modifier
             .weight(1f)
@@ -117,7 +163,7 @@ private fun RowScope.ResourceCell(
         // and take the cell back to the height it had before this change.
         FlowRow(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             Text(
-                text = value,
+                text = counted,
                 color = OltreColors.text,
                 fontFamily = mono,
                 fontSize = 15.sp,
@@ -132,7 +178,7 @@ private fun RowScope.ResourceCell(
                     PowerMark(color = OltreColors.warn, width = 7.dp, height = 10.dp)
                 }
                 Text(
-                    text = rate,
+                    text = stock.ratePerHour,
                     color = if (throttled) OltreColors.warn else OltreColors.ok,
                     fontFamily = mono,
                     fontSize = 10.sp,
@@ -144,3 +190,12 @@ private fun RowScope.ResourceCell(
         }
     }
 }
+
+// The same white 9% the cards use for their hairlines, so the rail's edge and a row's edge are one
+// decision rather than two that happen to match.
+private val HAIRLINE = Color.White.copy(alpha = 0.09f)
+private val HAIRLINE_WIDTH = 1.dp
+
+// The divider stops short of the cell's own top and bottom padding, so it reads as a rule between
+// two columns rather than as the bar being cut into three boxes.
+private val DIVIDER_INSET = 7.dp

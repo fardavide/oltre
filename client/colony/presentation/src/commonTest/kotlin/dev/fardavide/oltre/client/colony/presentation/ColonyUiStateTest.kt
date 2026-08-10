@@ -447,6 +447,39 @@ class ColonyUiStateTest {
         assertEquals(null, strip)
     }
 
+    @Test
+    fun `the facility that finished while the app was closed is the only row that sweeps`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state
+            .toColonyUiState(
+                now = Instant.fromEpochMilliseconds(0),
+                timeZone = TimeZone.UTC,
+                finishedWhileAway = BuildingType.SOLAR_PLANT,
+            )
+            .facilities
+
+        // then
+        assertEquals(
+            listOf(BuildingType.SOLAR_PLANT),
+            rows.filter { it.finishedWhileAway }.map { it.building },
+        )
+    }
+
+    @Test
+    fun `a launch that found nothing finished sweeps no row at all`() {
+        // given
+        val state = colony()
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then
+        assertEquals(emptyList(), rows.filter { it.finishedWhileAway })
+    }
+
     // Seven levels of mine on one solar plant: 50 produced against 90 consumed.
     private fun starved(): Buildings = Buildings(
         metalMine = BuildingLevel(3),

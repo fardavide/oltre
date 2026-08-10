@@ -8,6 +8,15 @@ question, name what was rejected, say what it should feel like so the next round
 Nothing here contradicts the Notion page. Where the page already decided something it is quoted
 and obeyed; where it named an option without choosing, this sheet chooses and says why.
 
+> **Superseded in one place, 2026-08-10 (0.3.0).** The Sky graphics pass replaced the map's
+> fifteen-tick strip with the orbit view, which draws one ellipse per *occupied* slot and no band
+> strip. Two things this sheet treats as load-bearing therefore no longer appear on the map: the
+> shape of a system — that four of fifteen slots are occupied and where the gaps fall — and the
+> Hot / Temperate / Cold strip that taught the temperature axis by showing it. The bands survive as
+> the world list's section headings. **Davide's call, asked directly**, with the alternatives on the
+> table; the reasoning is in `decisions.md` under "The Sky pass". Everything else here — the
+> verdicts, the thresholds, the balance — is untouched.
+
 ---
 
 ## The one-sentence version

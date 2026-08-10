@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -67,6 +68,7 @@ class PowerIndicatorScreenshotTest {
         // Tall enough for the wrapped second line. On the real screen the card sits in a
         // vertical scroll and has no height ceiling at all; only this harness imposes one.
         runDesktopComposeUiTest(width = 320, height = 150) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -82,6 +84,7 @@ class PowerIndicatorScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/power_indicator_slide_over.png",
                 roborazziOptions = oltreRoborazziOptions(),
@@ -94,6 +97,7 @@ class PowerIndicatorScreenshotTest {
         // nominal 72dp leaves the terms line nothing to measure into once real font metrics are
         // applied — it disappears from the baseline rather than failing the test.
         runDesktopComposeUiTest(width = 393, height = 120) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -101,6 +105,7 @@ class PowerIndicatorScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),

@@ -543,6 +543,59 @@ class ResearchUiStateTest {
         assertTrue(expected in row.shortlist.label, "was '${row.shortlist.label}'")
     }
 
+    @Test
+    fun `the project that finished while the app was closed is the only row that sweeps`() {
+        // given
+        val state = adaptable()
+
+        // when
+        val uiState = state.toResearchUiState(
+            now = EPOCH,
+            timeZone = TimeZone.UTC,
+            finishedWhileAway = FinishedWhileAway.Project(Technology.EXTRACTION),
+        )
+
+        // then nothing on the other branch answers for a technology that finished
+        assertEquals(
+            listOf(Technology.EXTRACTION),
+            uiState.technologies.filter { it.finishedWhileAway }.map { it.technology },
+        )
+        assertEquals(emptyList(), uiState.adaptation.filter { it.finishedWhileAway })
+    }
+
+    @Test
+    fun `a ladder that finished while the app was closed sweeps on its own branch`() {
+        // given
+        val state = adaptable()
+
+        // when
+        val uiState = state.toResearchUiState(
+            now = EPOCH,
+            timeZone = TimeZone.UTC,
+            finishedWhileAway = FinishedWhileAway.Ladder(AdaptationTechnology.GRAVITIC),
+        )
+
+        // then
+        assertEquals(
+            listOf(AdaptationTechnology.GRAVITIC),
+            uiState.adaptation.filter { it.finishedWhileAway }.map { it.technology },
+        )
+        assertEquals(emptyList(), uiState.technologies.filter { it.finishedWhileAway })
+    }
+
+    @Test
+    fun `a launch that found nothing finished sweeps no project and no ladder`() {
+        // given
+        val state = adaptable()
+
+        // when
+        val uiState = state.toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
+
+        // then
+        assertEquals(emptyList(), uiState.technologies.filter { it.finishedWhileAway })
+        assertEquals(emptyList(), uiState.adaptation.filter { it.finishedWhileAway })
+    }
+
     private fun GameState.rowFor(technology: Technology, now: Instant = EPOCH): TechnologyRowUiState =
         toResearchUiState(now = now, timeZone = TimeZone.UTC).technologies.first { it.technology == technology }
 

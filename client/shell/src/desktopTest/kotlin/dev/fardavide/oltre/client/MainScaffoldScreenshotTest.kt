@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -25,9 +26,37 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class MainScaffoldScreenshotTest {
 
+    // The parallax's only witness. The field behind a destination is a function of that
+    // destination's scroll offset and of nothing else, so the way to photograph it is to hand it an
+    // offset — no gesture, no clock, no scrollable content to measure against.
+    //
+    // 620 is past a phone's own height, which is the case the un-wrapped first draft got wrong: the
+    // near plane keeps 58% of the list's speed, so at this offset an unwrapped field would have
+    // carried its stars 360dp up and left the bottom of the frame empty. What this baseline holds is
+    // that the sky still reaches both edges.
+    @Test
+    fun `the field behind a destination that has been scrolled`() {
+        runDesktopComposeUiTest(width = 393, height = 600) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        Starfield(scrollOffset = { 620f })
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/starfield_scrolled.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
     @Test
     fun `the frame and the field behind it in a phone-sized window`() {
         runDesktopComposeUiTest(width = 393, height = 852) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -35,11 +64,12 @@ class MainScaffoldScreenshotTest {
                             resources = testResourceRailUiState,
                             colony = { Text("colony-under-test") },
                             research = { Text("research-under-test") },
-                            galaxy = { Text("galaxy-under-test") },
+                            galaxy = { _, _ -> Text("galaxy-under-test") },
                         )
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/main_scaffold.png",
                 roborazziOptions = oltreRoborazziOptions(),

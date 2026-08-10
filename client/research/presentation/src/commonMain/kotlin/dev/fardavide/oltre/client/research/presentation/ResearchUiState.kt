@@ -50,6 +50,14 @@ data class ResearchUiState(
     val adaptation: List<AdaptationRowUiState>,
 )
 
+// Which project landed between the instant the save was written and the instant the app came back.
+// One or the other, never both: the two branches share one slot, so at most one thing can have been
+// in flight while the app was closed.
+sealed interface FinishedWhileAway {
+    data class Project(val technology: Technology) : FinishedWhileAway
+    data class Ladder(val technology: AdaptationTechnology) : FinishedWhileAway
+}
+
 data class TechnologyRowUiState(
     val technology: Technology,
     val name: String,
@@ -58,6 +66,10 @@ data class TechnologyRowUiState(
     val costs: List<CostChipUiState>,
     val duration: String,
     val action: ResearchActionUiState,
+    // True on at most one row in the whole app, and only for the first couple of seconds after a
+    // launch. See the same field on the colony's facility rows — it is a fact about this launch
+    // rather than about the empire.
+    val finishedWhileAway: Boolean,
 ) {
     // Always absent, and it is a field rather than nothing at all so that `ProjectRow` can draw
     // both branches from one set of parts. An applied technology multiplies a rate; it cannot make
@@ -83,6 +95,7 @@ data class AdaptationRowUiState(
     // rather than going quiet, because "Thermal 1 unlocks nothing" is the sentence that makes the
     // other two mean something.
     val shortlist: ShortlistUiState,
+    val finishedWhileAway: Boolean,
 )
 
 // What the next level of this ladder would buy, counted over the worlds the player has **already
@@ -141,15 +154,31 @@ sealed interface ResearchActionUiState {
     ) : ResearchActionUiState
 }
 
-fun GameState.toResearchUiState(now: Instant, timeZone: TimeZone): ResearchUiState {
+// `finishedWhileAway` defaults to nothing, so the existing calls in the tests still say what they
+// meant and every render after the arrival window is a plain one.
+fun GameState.toResearchUiState(
+    now: Instant,
+    timeZone: TimeZone,
+    finishedWhileAway: FinishedWhileAway? = null,
+): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
     // for one answer it already computes in full.
     val shortlists = adaptationShortlist(this).associateBy { it.technology }
+    val finishedProject = (finishedWhileAway as? FinishedWhileAway.Project)?.technology
+    val finishedLadder = (finishedWhileAway as? FinishedWhileAway.Ladder)?.technology
     return ResearchUiState(
-        technologies = Technology.entries.map { toTechnologyRow(it, now = now, timeZone = timeZone) },
+        technologies = Technology.entries.map {
+            toTechnologyRow(it, now = now, timeZone = timeZone, finishedWhileAway = it == finishedProject)
+        },
         adaptation = AdaptationTechnology.entries.map {
-            toAdaptationRow(it, shortlist = shortlists.getValue(it), now = now, timeZone = timeZone)
+            toAdaptationRow(
+                it,
+                shortlist = shortlists.getValue(it),
+                now = now,
+                timeZone = timeZone,
+                finishedWhileAway = it == finishedLadder,
+            )
         },
     )
 }
@@ -158,6 +187,7 @@ private fun GameState.toTechnologyRow(
     technology: Technology,
     now: Instant,
     timeZone: TimeZone,
+    finishedWhileAway: Boolean,
 ): TechnologyRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -193,6 +223,7 @@ private fun GameState.toTechnologyRow(
             !requirement.isMetBy(this) -> ResearchActionUiState.Locked(requirement.label())
             else -> startOrWait(cost = cost, now = now)
         },
+        finishedWhileAway = finishedWhileAway,
     )
 }
 
@@ -205,6 +236,7 @@ private fun GameState.toAdaptationRow(
     shortlist: LadderShortlist,
     now: Instant,
     timeZone: TimeZone,
+    finishedWhileAway: Boolean,
 ): AdaptationRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -230,6 +262,7 @@ private fun GameState.toAdaptationRow(
         ),
         duration = AdaptationBalance.adaptationDuration(technology, toLevel, buildings.roboticsFactory).toChipLabel(),
         shortlist = shortlist.toUiState(),
+        finishedWhileAway = finishedWhileAway,
         action = when {
             running != null -> runningAction(
                 toLevel = running.toLevel,

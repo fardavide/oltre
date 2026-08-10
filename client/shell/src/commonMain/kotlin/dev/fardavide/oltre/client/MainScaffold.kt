@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,15 +34,28 @@ import androidx.compose.ui.Modifier
 // destination is showing is the scaffold's state, so the galaxy cannot select a tab and must be
 // handed the ability to ask. It stays a lambda rather than becoming a hoisted `selected` because
 // the feature has no opinion about tabs beyond "take me to that one".
+// Each destination takes the `ScrollState` it must scroll with rather than remembering one of its
+// own, and that is the Sky pass's one structural change to this file. The starfield behind the
+// destinations is the scaffold's, and it shifts with the list in front of it — so the scaffold has
+// to be able to read how far that list has got. Hoisting the state is the only way to say it out
+// loud; the alternative is a screen writing its offset into somewhere the frame happens to read,
+// which is the same coupling with none of it visible in a signature.
+//
+// One state per destination rather than one shared, because they are three different lists: coming
+// back to Colony from Research should find Colony where it was left, and a single hoisted state
+// would make every tab scroll every other one.
 @Composable
 fun MainScaffold(
     resources: ResourceRailUiState,
-    colony: @Composable () -> Unit,
-    research: @Composable () -> Unit,
-    galaxy: @Composable (onOpenResearch: () -> Unit) -> Unit,
+    colony: @Composable (ScrollState) -> Unit,
+    research: @Composable (ScrollState) -> Unit,
+    galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
+    val colonyScroll = rememberScrollState()
+    val researchScroll = rememberScrollState()
+    val galaxyScroll = rememberScrollState()
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
@@ -52,6 +67,9 @@ fun MainScaffold(
             colony = colony,
             research = research,
             galaxy = galaxy,
+            colonyScroll = colonyScroll,
+            researchScroll = researchScroll,
+            galaxyScroll = galaxyScroll,
             onOpenResearch = { selected = OltreTab.RESEARCH },
         )
         OltreTabBar(selected = selected, onSelect = { selected = it })
@@ -61,24 +79,39 @@ fun MainScaffold(
 @Composable
 private fun ColumnScope.Destination(
     selected: OltreTab,
-    colony: @Composable () -> Unit,
-    research: @Composable () -> Unit,
-    galaxy: @Composable (onOpenResearch: () -> Unit) -> Unit,
+    colony: @Composable (ScrollState) -> Unit,
+    research: @Composable (ScrollState) -> Unit,
+    galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
+    colonyScroll: ScrollState,
+    researchScroll: ScrollState,
+    galaxyScroll: ScrollState,
     onOpenResearch: () -> Unit,
 ) {
+    // The two tabs with no screen have nothing to scroll, so the field behind them holds still. A
+    // null here rather than a zero constant, because "this destination does not scroll" and "this
+    // destination is at the top" are different facts and only one of them can change.
+    val scroll = when (selected) {
+        OltreTab.COLONY -> colonyScroll
+        OltreTab.RESEARCH -> researchScroll
+        OltreTab.GALAXY -> galaxyScroll
+        OltreTab.SHIPYARD, OltreTab.FLEETS -> null
+    }
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         // Inside the destination box and first in it, so it sits under every screen and under none
         // of the chrome: the rail and the tab bar are surfaces, and space does not show through a
-        // surface. It draws nothing that moves — no twinkle, no drift, no timer — because a frame
-        // that animates is a frame that has to still be right after the app was closed for two
-        // days, and this one is simply always the same.
-        Starfield()
+        // surface. Nothing here runs on a clock — the three planes are a function of the scroll
+        // offset and of nothing else, so a frame that has been closed for two days is drawn exactly
+        // as it was left.
+        //
+        // The offset goes in as a lambda so that a drag is a redraw rather than a recomposition of
+        // the whole destination.
+        Starfield(scrollOffset = { scroll?.value?.toFloat() ?: 0f })
         // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
         // impossible to reach by accident, and `pendingWork` is the table saying which those are.
         when (selected) {
-            OltreTab.COLONY -> colony()
-            OltreTab.RESEARCH -> research()
-            OltreTab.GALAXY -> galaxy(onOpenResearch)
+            OltreTab.COLONY -> colony(colonyScroll)
+            OltreTab.RESEARCH -> research(researchScroll)
+            OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
             OltreTab.SHIPYARD,
             OltreTab.FLEETS,
             -> UnbuiltTabScreen(

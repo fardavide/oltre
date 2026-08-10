@@ -83,16 +83,14 @@ internal val everyVerdictUiState = GalaxyUiState(
     // reads a verdict, so taking them from the real mapper costs this fixture nothing.
     reach = elsewhereUiState.reach,
     probe = elsewhereUiState.probe,
-    map = SystemMapUiState(
-        slots = marks(
-            3 to MapMark.RELAY,
-            4 to MapMark.HOME,
-            5 to MapMark.OCCUPIED,
-            6 to MapMark.UNSURVEYED,
-            8 to MapMark.BLOCKED,
-            9 to MapMark.BARREN,
-            11 to MapMark.SETTLEABLE,
-        ),
+    map = bodies(
+        3 to MapMark.RELAY,
+        4 to MapMark.HOME,
+        5 to MapMark.OCCUPIED,
+        6 to MapMark.UNSURVEYED,
+        8 to MapMark.BLOCKED,
+        9 to MapMark.BARREN,
+        11 to MapMark.SETTLEABLE,
     ),
     bands = listOf(
         OrbitBandUiState(
@@ -225,11 +223,12 @@ internal val probeNearMissUiState: GalaxyUiState = homeSystemUiState.copy(
     ),
 )
 
-// One system in 390: fifteen ticks, no dots, and a card that refuses the sale in the words of the
-// thing above it. The world list under it is empty too, which is the frame's other half.
+// One system in 390: a star with nothing round it, and a card that refuses the sale in the words of
+// the thing above it. The world list under it is empty too, which is the frame's other half — and
+// since the orbit view draws one ellipse per body, an empty system is now literally an empty sky.
 internal val probeNothingToSurveyUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
     probe = ProbeActionUiState.NothingToSurvey(note = "15 empty slots · nothing to survey"),
-    map = SystemMapUiState(slots = (1..15).map { MapSlotUiState(slot = it, mark = MapMark.EMPTY) }),
+    map = SystemMapUiState(bodies = emptyList(), trajectory = null),
     bands = emptyList(),
 )
 
@@ -269,7 +268,44 @@ private fun blocked(
         label = "${technology.name.lowercase().replaceFirstChar { it.uppercase() }} $level",
     )
 
-private fun marks(vararg occupied: Pair<Int, MapMark>): List<MapSlotUiState> {
-    val bySlot = occupied.toMap()
-    return (1..15).map { slot -> MapSlotUiState(slot = slot, mark = bySlot[slot] ?: MapMark.EMPTY) }
+// The geometry is the mapper's — a slot's orbit and its phase are functions of the slot and of
+// nothing else — so the fixture states which slots hold what and derives the rest exactly as the
+// app does. Hand-written coordinates here would let a baseline assert a picture the app cannot draw.
+private fun bodies(vararg occupied: Pair<Int, MapMark>): SystemMapUiState {
+    val sorted = occupied.sortedBy { it.first }
+    return SystemMapUiState(
+        bodies = sorted.mapIndexed { index, (slot, mark) ->
+            MapBodyUiState(
+                slot = slot,
+                mark = mark,
+                orbit = index.toFloat() / (sorted.size - 1).toFloat(),
+            )
+        },
+        trajectory = null,
+    )
 }
+
+// The home system with a probe out, which is the one frame that draws a trajectory: an arc leaving
+// the colony for the edge of the map, fading along its own length toward where it is going, with
+// the target and the time left at the faint end. Every probe in this game is launched from home, so
+// this is the only place the arc can be — see `SystemMapUiState.trajectory`.
+internal val homeWithProbeOutUiState: GalaxyUiState = homeSystemUiState.copy(
+    map = homeSystemUiState.map.copy(trajectory = MapTrajectoryUiState(label = "[3:152] · 4h 12m")),
+)
+
+// A system holding nine bodies, which the seed can produce and the four-body home cannot show: past
+// this density the orbits are closer together than a slot number is wide, so the numbers interleave
+// on two rows instead of overprinting each other. See `SystemMap`.
+internal val crowdedSystemUiState: GalaxyUiState = unsurveyedSystemUiState.copy(
+    map = bodies(
+        1 to MapMark.UNSURVEYED,
+        2 to MapMark.UNSURVEYED,
+        4 to MapMark.BLOCKED,
+        5 to MapMark.UNSURVEYED,
+        7 to MapMark.HOME,
+        9 to MapMark.BARREN,
+        11 to MapMark.SETTLEABLE,
+        13 to MapMark.RELAY,
+        15 to MapMark.UNSURVEYED,
+    ),
+)

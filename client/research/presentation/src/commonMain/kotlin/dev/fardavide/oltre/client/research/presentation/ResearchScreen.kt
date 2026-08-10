@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -40,6 +41,8 @@ fun ResearchScreen(
     uiState: ResearchUiState,
     onStartResearch: (Technology) -> Unit,
     onStartAdaptation: (AdaptationTechnology) -> Unit,
+    // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
+    scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -48,7 +51,7 @@ fun ResearchScreen(
         // column, because it is the window that is a Slide Over pane.
         val compact = maxWidth < OltreLayout.compactWidth
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(

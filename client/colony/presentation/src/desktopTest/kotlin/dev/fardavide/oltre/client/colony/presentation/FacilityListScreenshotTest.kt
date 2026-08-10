@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -19,6 +20,7 @@ class FacilityListScreenshotTest {
     @Test
     fun `facility list with building, affordable, unaffordable and locked rows`() {
         runDesktopComposeUiTest(width = 393, height = 500) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -41,6 +43,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = null,
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.ROBOTICS_FACTORY,
@@ -55,6 +58,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = null,
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.DEUTERIUM_SYNTHESIZER,
@@ -68,6 +72,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 3h 12m"),
                                     power = null,
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
@@ -82,6 +87,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
@@ -89,8 +95,56 @@ class FacilityListScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/facility_list.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
+    // The one frame in the repo that is deliberately captured *mid*-transition, and the only way to
+    // see the completion sweep at all: it is 750ms of light crossing a card once, so a settled
+    // baseline of the same row is a baseline of a row with nothing on it.
+    //
+    // 795ms is 420ms of delay plus half of the 750ms crossing, so the band is at the middle of the
+    // card and at its brightest. It is deterministic for the same reason every other baseline here
+    // is — the clock is stopped and wound by hand, so this is not a race with a real frame time.
+    //
+    // The badge still reads LV 8 rather than LV 9: the swap is at 930ms, so at 795 the band has not
+    // reached it yet. That is the assertion, not a detail — the level changes behind the light.
+    @Test
+    fun `the row that finished while the app was closed mid-sweep`() {
+        runDesktopComposeUiTest(width = 393, height = 120) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        FacilityList(
+                            facilities = listOf(
+                                FacilityRowUiState(
+                                    building = BuildingType.SOLAR_PLANT,
+                                    name = "Solar Plant",
+                                    level = BuildingLevel(9),
+                                    costs = listOf(
+                                        CostChipUiState(kind = ResourceKind.METAL, amount = "2,868", short = false),
+                                        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,135", short = false),
+                                    ),
+                                    duration = "1h 48m",
+                                    action = FacilityActionUiState.Upgrade,
+                                    power = null,
+                                    fix = null,
+                                    finishedWhileAway = true,
+                                ),
+                            ),
+                            onUpgrade = {},
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(MID_SWEEP_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/facility_list_finished_while_away.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }
@@ -102,6 +156,7 @@ class FacilityListScreenshotTest {
     @Test
     fun `facility list while a power shortage throttles it`() {
         runDesktopComposeUiTest(width = 393, height = 500) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -120,6 +175,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 15m"),
                                     power = FacilityPowerUiState(label = "+50", supply = true),
                                     fix = "→ LV 2 covers all 90 drawn",
+                                    finishedWhileAway = false,
                                 ),
                                 // A draw on a row that is affordable: taking it deepens the
                                 // throttle, and the screen says so without arguing about it.
@@ -135,6 +191,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = FacilityPowerUiState(label = "−30", supply = false),
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.CRYSTAL_MINE,
@@ -150,6 +207,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = FacilityPowerUiState(label = "−20", supply = false),
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
                                 // nothing to attribute and nothing to fight the dim.
@@ -166,6 +224,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
@@ -173,10 +232,17 @@ class FacilityListScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/facility_list_throttled.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }
+    }
+
+    private companion object {
+        // 420ms of delay plus half of the 750ms crossing: the band is at the middle of the card,
+        // and 135ms short of the level swap at 930ms.
+        const val MID_SWEEP_MILLIS: Long = 795
     }
 }

@@ -79,6 +79,14 @@ data class FacilityRowUiState(
     // sits in the slot a card already uses to say what its next level is, which is why it is a
     // specification rather than a nag.
     val fix: String?,
+    // True on at most one row, and only for the first couple of seconds after a launch: this is the
+    // upgrade that landed while the app was closed. The row answers it with a band of light crossing
+    // the card once and a level badge that changes behind the band.
+    //
+    // It is a fact about *this launch* rather than about the colony, which is why it lives on the
+    // row rather than on the action: the same colony rendered a minute later has the same levels and
+    // nothing to announce.
+    val finishedWhileAway: Boolean,
 )
 
 sealed interface FacilityActionUiState {
@@ -96,7 +104,15 @@ sealed interface FacilityActionUiState {
     ) : FacilityActionUiState
 }
 
-fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState = ColonyUiState(
+// `finishedWhileAway` is what the launch found and nothing else knows: which upgrade completed
+// between the instant the save was written and the instant the app came back. Defaulted to nothing,
+// so the fifteen existing calls in the tests still say what they meant — and so that every render
+// after the arrival window has passed is a plain render with no announcement in it.
+fun GameState.toColonyUiState(
+    now: Instant,
+    timeZone: TimeZone,
+    finishedWhileAway: BuildingType? = null,
+): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
         toFacilityRow(
@@ -104,6 +120,7 @@ fun GameState.toColonyUiState(now: Instant, timeZone: TimeZone): ColonyUiState =
             energy = PlaceholderBalance.energyBalance(buildings, research),
             now = now,
             timeZone = timeZone,
+            finishedWhileAway = it == finishedWhileAway,
         )
     },
     returningFleet = runs.toStrip(now),
@@ -171,6 +188,7 @@ private fun GameState.toFacilityRow(
     energy: EnergyBalance,
     now: Instant,
     timeZone: TimeZone,
+    finishedWhileAway: Boolean,
 ): FacilityRowUiState {
     val level = buildings.levelOf(building)
     val toLevel = BuildingLevel(level.value + 1)
@@ -191,6 +209,7 @@ private fun GameState.toFacilityRow(
         duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
+        finishedWhileAway = finishedWhileAway,
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(

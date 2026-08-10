@@ -24,3 +24,16 @@ fun oltreRoborazziOptions(): RoborazziOptions = RoborazziOptions(
         resultValidator = ThresholdValidator(0.08f),
     ),
 )
+
+// How far every screenshot test winds the paused clock forward before it opens the shutter.
+//
+// The Sky pass gave the app four one-shot transitions, and a baseline caught in the middle of one
+// is the only way any of them can flake: the fills take 900ms and the completion band leaves the
+// card at 1,170ms, so a capture at an arbitrary frame between those records a half-drawn arc that
+// the next run will not reproduce. Every screenshot test therefore stops the clock before
+// `setContent` and advances it by this, so what a baseline holds is the settled screen — the one a
+// player is looking at a moment after opening the app, and the one they go on looking at.
+//
+// Comfortably past the last of them rather than exactly on it, because "exactly on it" is a
+// boundary and boundaries are what round differently on two machines.
+const val SETTLED_MILLIS: Long = 2_000

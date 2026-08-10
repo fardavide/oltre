@@ -2,7 +2,6 @@ package dev.fardavide.oltre.client.colony.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -23,9 +22,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
-import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
+import dev.fardavide.oltre.client.design.component.pressable
+import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.icon.PowerMark
@@ -52,11 +54,14 @@ fun FacilityList(
 private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Unit) {
     val mono = oltreMono()
     val locked = row.action is FacilityActionUiState.Locked
-    val upgrading = row.action as? FacilityActionUiState.Upgrading
+    val sweep = rememberCompletionSweep(play = row.finishedWhileAway)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .oltreCard(row.action.cardState())
+            // Over the fill and over the content, which is what makes it read as light falling on
+            // the card rather than as a shape drawn on it.
+            .completionSweep(sweep)
             // After the card, not before it — see the same ordering in TechnologyList. An alpha
             // ahead of the fill dims the card and lets the starfield through a locked row; here
             // the card stays solid and only its content recedes.
@@ -80,7 +85,11 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     Text(
-                        text = "LV ${row.level.value}",
+                        // The level the row arrived at, except for the half-second while a
+                        // completion band is still short of the badge — see `CompletionSweep`.
+                        // The number changes behind the light, so the eye is pulled to the badge
+                        // by the sweep and finds the new level already there.
+                        text = "LV ${if (sweep.settled) row.level.value else row.level.value - 1}",
                         color = OltreColors.textSecondary,
                         fontFamily = mono,
                         fontSize = 10.sp,
@@ -149,9 +158,12 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                     fontFamily = mono,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
+                    // `pressable` ahead of the fill rather than after it: it scales what is drawn
+                    // inside it, and a background declared first is drawn outside, which would
+                    // shrink the word and leave the blue behind.
                     modifier = Modifier
+                        .pressable { onUpgrade(row.building) }
                         .background(OltreColors.accent, RoundedCornerShape(9.dp))
-                        .clickable { onUpgrade(row.building) }
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 is FacilityActionUiState.AffordableIn -> Text(
@@ -164,19 +176,26 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
-                is FacilityActionUiState.Upgrading -> Text(
-                    text = action.countdown,
-                    color = OltreColors.text,
-                    fontFamily = mono,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
+                // How long is left, and how far round it has got. The two used to sit at opposite
+                // ends of the card — a countdown here and a 3dp bar under everything — and the bar
+                // was the widest thing on a running row while saying the least. The dial says the
+                // same fraction in a tenth of the ink and takes the level with it.
+                is FacilityActionUiState.Upgrading -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(start = 11.dp),
+                ) {
+                    Text(
+                        text = action.countdown,
+                        color = OltreColors.text,
+                        fontFamily = mono,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    LevelDial(level = row.level.value, percent = action.progressPercent)
+                }
                 is FacilityActionUiState.Locked -> Unit
             }
-        }
-        if (upgrading != null) {
-            ProgressBar(percent = upgrading.progressPercent)
         }
     }
 }

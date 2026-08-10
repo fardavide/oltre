@@ -27,6 +27,7 @@ import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
@@ -39,8 +40,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+
+// How long the rail goes on having somewhere to roll from. The roll itself takes 900ms; this is
+// comfortably past it and well short of anything a player would still be reading.
+private val ARRIVAL_WINDOW: Duration = 2.seconds
 
 // The shell is the impure boundary: it reads the clock, reads and writes the save file, books
 // the local notifications, ticks the UI, and holds the current session. Game state itself only
@@ -69,6 +75,18 @@ fun App(
             // so a skip is one state change that the tick loop and the commit both read.
             var debugClock by remember { mutableStateOf(DebugClock()) }
             var debugOpen by remember { mutableStateOf(false) }
+            // What this launch found, in two halves that are forgotten at two different moments —
+            // because the two things that announce them live in two different places.
+            //
+            // The stocks the player last saw. The rail is chrome and is composed from the first
+            // frame, so this one is always seen and is dropped on a timer.
+            var lastSeen by remember { mutableStateOf<Resources?>(null) }
+            // The one job that landed while the app was closed. **Not on a timer**: the screen that
+            // announces it may not be the one the app opens on, and a research project's row does
+            // not exist until the player taps the tab. It is dropped by whichever destination shows
+            // it, the moment it has been shown — and by the first action the player takes, because
+            // once they have changed the colony themselves, "while you were away" is old news.
+            var finishedWhileAway by remember { mutableStateOf<AwayCompletion?>(null) }
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
@@ -83,6 +101,14 @@ fun App(
                 val clock = DebugClock.resuming(saved?.lastUpdatedAt, wallClock = wall)
                 debugClock = clock
                 val resumed = resume(saved, now = clock.now(wall))
+                // Before the session is published, so the first frame the player sees is already
+                // the one that knows what to announce. Setting it afterwards would compose the rail
+                // once with nothing to roll from and only then hand it a starting figure — which is
+                // a roll that begins in the wrong place.
+                arrivalOf(saved = saved?.state, resumed = resumed.state)?.let { arrival ->
+                    lastSeen = arrival.lastSeen
+                    finishedWhileAway = arrival.finished
+                }
                 session = resumed
                 // Commit immediately, save included: a player who opens the game once and
                 // closes it must still come back to hours of production, and on a first launch
@@ -90,6 +116,16 @@ fun App(
                 // opening also books the alerts for whatever was already in flight — a colony
                 // restored from disk has a schedule that no longer exists on the device.
                 resumed.commit(store, notifications, clock)
+            }
+
+            // The roll's window. Without it the rail would roll a second time from a figure nobody
+            // has been looking at since — `lastSeen` feeds a `remember`ed animation, so it only has
+            // to survive long enough for that animation to start.
+            LaunchedEffect(lastSeen) {
+                if (lastSeen != null) {
+                    delay(ARRIVAL_WINDOW)
+                    lastSeen = null
+                }
             }
 
             val current = session
@@ -109,6 +145,9 @@ fun App(
                 // that instant, then commit if the event log grew. Acting on a stale state would
                 // spend resources the colony has not accrued yet.
                 fun act(transition: (GameState, Instant) -> GameState) {
+                    // Whatever landed while the app was closed stops being news the moment the
+                    // player changes the colony themselves.
+                    finishedWhileAway = null
                     val next = current.acting(debugClock, wallClock = Clock.System.now(), transition = transition)
                     session = next
                     if (next.hasNewEventsSince(current)) {
@@ -142,12 +181,22 @@ fun App(
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScaffold(
-                        resources = current.state.toResourceRailUiState(),
-                        colony = {
+                        resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
+                        colony = { scroll ->
+                            val finishedFacility = (finishedWhileAway as? AwayCompletion.Facility)?.building
+                            // Consumed by the screen that shows it. Effects run after the frame that
+                            // composed them, and the row latches the announcement while it composes
+                            // — so by the time this clears it, the sweep is already running and
+                            // cannot be cut short. What it prevents is the second showing.
+                            if (finishedFacility != null) {
+                                LaunchedEffect(finishedFacility) { finishedWhileAway = null }
+                            }
                             ColonyScreen(
+                                scrollState = scroll,
                                 uiState = current.state.toColonyUiState(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
+                                    finishedWhileAway = finishedFacility,
                                 ),
                                 onUpgrade = { building ->
                                     act { state, at ->
@@ -162,11 +211,20 @@ fun App(
                                 },
                             )
                         },
-                        research = {
+                        research = { scroll ->
+                            // The reason `finishedWhileAway` is not on a timer: this row does not
+                            // exist until the player taps the tab, which may be a minute after the
+                            // launch that has something to tell them about it.
+                            val finishedProject = finishedWhileAway?.toResearchArrival()
+                            if (finishedProject != null) {
+                                LaunchedEffect(finishedProject) { finishedWhileAway = null }
+                            }
                             ResearchScreen(
+                                scrollState = scroll,
                                 uiState = current.state.toResearchUiState(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
+                                    finishedWhileAway = finishedProject,
                                 ),
                                 onStartResearch = { technology ->
                                     act { state, at ->
@@ -201,8 +259,9 @@ fun App(
                         // rather than the shell's — what it asks the shell for is the way to the
                         // Research tab, because a blocked world's remedy is a tap target and only the
                         // scaffold can change destination.
-                        galaxy = { openResearch ->
+                        galaxy = { scroll, openResearch ->
                             GalaxyScreen(
+                                scrollState = scroll,
                                 state = current.state,
                                 now = current.lastUpdatedAt,
                                 timeZone = TimeZone.currentSystemDefault(),

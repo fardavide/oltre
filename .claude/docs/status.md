@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-09 (0.2.1)
+Updated: 2026-08-10 (0.4.0)
 
 ## Landed
 
@@ -192,6 +192,14 @@ Updated: 2026-08-09 (0.2.1)
   into one alert and one silently vanished; and `FutureEvents`' tie-break ladder was *derived* from
   `BuildingType.entries.size`, so a seventh building would have moved three unrelated constants, with
   `Int.MAX_VALUE` sealing the end so the next kind had nowhere to go. Both are explicit now.
+- **0.4.0 the Sky pass** — the accepted direction from a four-option graphics review
+  (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
+  replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot
+  transitions keyed on the launch, and the Galaxy map redrawn as orbits around a star. **It spends
+  the flat-background rule and the no-animation rule, both knowingly**, and it drops the fifteen-tick
+  strip's empty slots and its temperature bands — Davide's call, asked directly. Scroll state is
+  hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
+  one new one; every galaxy frame is 210dp taller. See `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 

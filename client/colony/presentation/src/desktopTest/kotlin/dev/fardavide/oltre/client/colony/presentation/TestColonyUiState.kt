@@ -39,6 +39,7 @@ internal val testColonyUiState = ColonyUiState(
             ),
             power = FacilityPowerUiState(label = "−120", supply = false),
             fix = null,
+            finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
@@ -52,6 +53,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Upgrade,
             power = FacilityPowerUiState(label = "+400", supply = true),
             fix = "→ LV 9 covers all 440 drawn",
+            finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.DEUTERIUM_SYNTHESIZER,
@@ -65,6 +67,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.AffordableIn("in 3h 12m"),
             power = FacilityPowerUiState(label = "−320", supply = false),
             fix = null,
+            finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,
@@ -79,6 +82,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Locked("Requires Robotics 10"),
             power = null,
             fix = null,
+            finishedWhileAway = false,
         ),
     ),
     returningFleet = ReturningFleetUiState(

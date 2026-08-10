@@ -14,15 +14,21 @@ import kotlin.test.assertTrue
 
 // Moved here with the rail itself at 0.0.12: it stopped being the Colony screen's and became the
 // frame's, because Research shows it too.
+//
+// The stocks are numbers rather than strings since the Sky pass, and the rail writes them. A value
+// that rolls from one figure to another over 900ms has to be arithmetic on the way — a formatted
+// string is the end of that journey and cannot be the middle of it. How a figure is *written* is
+// still one decision in one place: `groupedByThousands` in `:client:design:format`, which has its
+// own tests. What this file answers for is which figures the rail is given.
 class ResourceRailUiStateTest {
 
     @Test
-    fun `metal stock is grouped by thousands`() {
+    fun `the rail carries the metal the colony holds`() {
         // given
         val state = freshState().copy(resources = Resources.of(metal = 482_910))
 
         // then
-        assertEquals("482,910", state.toResourceRailUiState().metal)
+        assertEquals(482_910L, state.toResourceRailUiState().metal.stock)
     }
 
     @Test
@@ -33,7 +39,7 @@ class ResourceRailUiStateTest {
         }
 
         // then
-        assertEquals("+112/h", state.toResourceRailUiState().metalRatePerHour)
+        assertEquals("+112/h", state.toResourceRailUiState().metal.ratePerHour)
     }
 
     @Test
@@ -47,12 +53,12 @@ class ResourceRailUiStateTest {
         val uiState = state.toResourceRailUiState()
 
         // then
-        assertEquals("1,000", uiState.metal)
-        assertEquals("+90/h", uiState.metalRatePerHour)
-        assertEquals("2,000", uiState.crystal)
-        assertEquals("+36/h", uiState.crystalRatePerHour)
-        assertEquals("3,000", uiState.deuterium)
-        assertEquals("+15/h", uiState.deuteriumRatePerHour)
+        assertEquals(1_000L, uiState.metal.stock)
+        assertEquals("+90/h", uiState.metal.ratePerHour)
+        assertEquals(2_000L, uiState.crystal.stock)
+        assertEquals("+36/h", uiState.crystal.ratePerHour)
+        assertEquals(3_000L, uiState.deuterium.stock)
+        assertEquals("+15/h", uiState.deuterium.ratePerHour)
     }
 
     @Test
@@ -66,8 +72,8 @@ class ResourceRailUiStateTest {
         val uiState = state.toResourceRailUiState()
 
         // then - what the rail says has to be what advance will actually accrue
-        assertEquals("+104/h", uiState.metalRatePerHour)
-        assertEquals("+41/h", uiState.crystalRatePerHour)
+        assertEquals("+104/h", uiState.metal.ratePerHour)
+        assertEquals("+41/h", uiState.crystal.ratePerHour)
     }
 
     @Test
@@ -78,8 +84,37 @@ class ResourceRailUiStateTest {
         }
 
         // then - 531 per hour scaled by 50 produced over 120 consumed, and marked as throttled
-        assertEquals("+221/h", state.toResourceRailUiState().metalRatePerHour)
+        assertEquals("+221/h", state.toResourceRailUiState().metal.ratePerHour)
         assertTrue(state.toResourceRailUiState().throttled)
+    }
+
+    @Test
+    fun `a launch that found offline production rolls from the stock the player last saw`() {
+        // given a colony that was closed holding 1_000 metal and has accrued to 1_400
+        val state = freshState().copy(resources = Resources.of(metal = 1_400, crystal = 900))
+        val lastSeen = Resources.of(metal = 1_000, crystal = 900)
+
+        // when
+        val uiState = state.toResourceRailUiState(lastSeen = lastSeen)
+
+        // then the metal cell has somewhere to roll from and the crystal cell has not
+        assertEquals(1_000L, uiState.metal.lastSeenStock)
+        assertEquals(1_400L, uiState.metal.stock)
+        assertEquals(900L, uiState.crystal.lastSeenStock)
+        assertEquals(900L, uiState.crystal.stock)
+    }
+
+    @Test
+    fun `with nothing last seen every cell starts where it already is`() {
+        // given a first launch - there is no earlier reading to roll from
+        val state = freshState().copy(resources = Resources.of(metal = 1_400))
+
+        // when
+        val uiState = state.toResourceRailUiState()
+
+        // then
+        assertEquals(1_400L, uiState.metal.lastSeenStock)
+        assertEquals(1_400L, uiState.metal.stock)
     }
 
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
