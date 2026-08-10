@@ -485,6 +485,33 @@ is untouched and the adaptation ladders keep their prize.
 **Not built into §4's numbers.** Every table below assumes a flat hold, so if (i) is taken the sweep in
 §6 runs against the banded one and `EXTRACTION_PER_HOUR` moves with it.
 
+### Design took (i) and corrected its constants — 2026-08-10, and this is the ratification Davide owes
+
+Claude Design accepted the frontier band and then showed that **the multipliers proposed above do not
+create a crossover at all.** Reproduced here rather than taken on faith:
+
+| band | round trip | station at 24h | danger | proposed | net vs near | **break-even** |
+|---|---|---|---|---|---|---|
+| 0 · your own system | 20m | 23h 40m | 0 | ×1.00 | 1.00 | — |
+| 1 · within 125 systems | 58m | 23h 02m | 1 | ×1.15 | **1.01** | ×1.14 ✓ |
+| 2 · rest of your galaxy | 4h 48m | 19h 12m | 2 | ×1.35 | **0.88** | **×1.54** |
+| 3 · another galaxy | 9h 20m | 14h 40m | 3 | ×1.60 | **0.69** | **×2.31** |
+
+The reason is structural and I missed it: **the flight is subtracted and the band is multiplied, and
+danger rises with the same distance the band pays for.** At ×1.35 and ×1.6 the far world loses at every
+window, so the frontier would have been a worse buy dressed as a better one.
+
+**Recommended, from Design: ×1.00 / ×1.15 / ×1.55 / ×2.30.** These are the break-even points, which is
+the right target rather than a generous one — the band cancels the distance penalty exactly, and then
+**richness decides**, which is what makes the map worth reading.
+
+What falls out of it, and Design is right that it is a feature: because the flight is subtracted, the
+frontier can only pay at the **longest** window — at 12h a band-2 world still returns 0.77 of the near
+one even at ×1.55. So **short windows are for the neighbourhood and long windows are what the frontier
+is for**, and the ladder narrowing on a far target teaches that before any copy does.
+
+**This is a balance number, so it is Davide's to ratify.** Nothing else in §3.5 changes.
+
 ---
 
 ## 4. The numbers
@@ -1378,3 +1405,78 @@ findings, three fatal.** What changed, and what a reader must still not trust.
 
 **None of these blocks the Design round trip**: every one is a number or a migration detail, and none
 changes what a screen has to show.
+
+---
+
+## 12. What Design ruled — 2026-08-10, and it is the design now
+
+Returned as `Fleet Screens.dc.html` + `Fleet Decision Sheet.dc.html`, archived at
+[`design/fleet-screens.dc.html`](design/fleet-screens.dc.html) and
+[`design/fleet-decision-sheet.dc.html`](design/fleet-decision-sheet.dc.html). Frames are seed 20260807,
+home 3:165 DIM, worlds in slots 7, 8, 10, 13. Seven calls, all settled.
+
+**1 — the world row is 1b, "led", and the rule is one sentence: a row leads with what you can do about
+it today.** Blocked and Barren lead with **richness**, because their verdict is not an offer; Home,
+Occupied, Settleable and Unsurveyed lead with the **verdict**, because it is. One rule generates all six
+states. The diagnosis is the part worth keeping: the contradiction was never BLOCKED-against-OPPORTUNITY,
+it was **two claims set as verdicts, in the same weight, in the same slot** — demote one and the tension
+becomes an argument the row is making rather than a fight it is having. The blockage keeps its axis, its
+band, its accent technology and its tap into Research; it stops being a badge and becomes the second half
+of a sentence. 1a (stacked) and 1c (gutter) are kept as the argument — 1c costs 108dp of every row to a
+column empty on the 98% that are unsurveyed, and collapses to 1a at 320dp. **1b is the only treatment
+that does not grow at 320dp, because it moved a line rather than adding one.**
+
+**2 — danger is split where it is generated, and no row ever prints the sum.** The distance band is
+astronomy: free, known from first launch, identical for all fifteen slots — so it is stated **once, under
+the system header**: `195 units out · danger 1 from here · 58m out and back`. Hazards are per-world and
+need a survey, so they sit on the row as words carrying their own arithmetic: `radiation belt · +1
+danger`. The dispatch sheet — the only place the number is spent — states the sum and both sources. This
+also hands the unsurveyed row, 98% of the map, its first honest fleet fact for free.
+
+**3 — the frontier band is taken and its constants corrected.** §3.5 above, reproduced and confirmed.
+
+**4 — the dispatch sheet has no cost line and no affordability state.** §1 charges nothing per run, so
+the sheet has nothing to be short of. *"Cannot afford"* is a **Shipyard** state, drawn there in the
+shipped idiom: the metal chip reddens, the verb becomes a ghost carrying `in 1h 06m`. A cost line here
+would be the interface inventing a price to have something to say.
+
+**5 — the Colony strip stays, unchanged in every dimension**, and gains one trailing clause when more
+than one run is out: `2 more away`. One change of scope: it names the next **event**, not the next
+return, so an outbound run reads `On station at [3:185:4]`. The strip has always been amber for in
+transit and a run is in transit in both directions. The count is a door to Fleets, not a summary of it.
+
+**6 — Shipyard is a price list**, pool on the section label (`6 owned · 1 idle · 5 away`), not a hero
+panel. At one hull the tab is a single card and a sentence, and the sentence must name what the hull is
+*for* so that "four berths at half the speed" later lands as a trade rather than a bigger number. The
+Hauler ships from slice 3 as a **dimmed card** carrying its one line — the system's own rule for a thing
+that is coming and is not here.
+
+**7 — a run card shows three phases on one bar.** Two hairline ticks mark where the flight ends and
+begins again; the fill takes the phase colour — **accent outbound, green on station, amber inbound** —
+which is the three-hue vocabulary the app already spends. The 3dp bar's committed meaning is "a job is
+running" and a run is a job, so this is reuse rather than a second meaning. No cancel, no recall.
+
+### Four of my premises did not survive a real screen
+
+| My premise | What Design found |
+|---|---|
+| *"a 6h run brings 227 metal"*, on the row | The haul is a function of three things the row cannot know — window, manifest, resource — so a figure there changes when nothing about the world changed, and invites 227 to be read as a property of the world. The row carries richness, hazards and the round trip; **the haul belongs on the sheet where its three inputs are.** |
+| *"cannot afford"* as a dispatch state | Cannot occur. A run is free; the hull was the price. |
+| *"no window available"* as an early state | Unreachable with skiffs — the longest trip on the map is two galaxy hops, 18h 20m, and the 24h rung still covers it with 5h 40m on the surface. It first occurs with the **hauler in slice 4**. What teaches distance in slices 1–3 is the ladder **narrowing**, not an empty state. |
+| The frontier bands make it a three-way trade | Only at the corrected constants. §3.5. |
+
+### New, and it is a generation finding rather than a screen one
+
+**The cold-world dead end.** A DIM home system is cold-blocked from about slot 9 outward, and a cold
+world's best richness is **deuterium**, which §1 forbids a run from carrying. So the outer half of the
+system a player starts in is permanently second-best in both of its usable resources — *"your own
+neighbourhood"* is smaller than four worlds, and the frontier band matters more than §3.5 assumed.
+Worth a sim reading before slice 2.
+
+### Still open after the round trip
+
+- **The hauler's price** — drawn at 240 / 60 base on its own curve, three times a skiff for four berths
+  at half the speed. **Design invented it**, because §4 gives the hauler neither a cost nor an
+  extraction constant. Both are still owed.
+- **Whether the Colony strip earns a tap.** It goes to Fleets in these frames, and nothing on Colony
+  currently navigates — it would be the first cross-tab tap in the app.
