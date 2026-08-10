@@ -142,6 +142,25 @@ Two cautions from how 0.4.3 then went, both cheap to reproduce:
   gap between two coordinates the tests never varied together — every pose walk left the roll at
   zero, and every roll test used six degrees. Cheap to check for; invisible from inside the suite.
 
+**Then the loop ran a second time, and that is the sentence to take from this whole section.** The
+0.4.3 build went out, and back came *"vertical parallax is perfect, but horizontal is inverted"* —
+0.4.4, one minus sign. Three things about it belong here rather than only in `decisions.md`:
+
+- **A second report is the expected outcome of a fix, not a mark against it.** The sideways axis had
+  been backwards since 0.4.2 and nobody could see it, because until 0.4.3 removed the `sin²` penalty
+  the axis barely moved — and *an axis that barely moves is an axis whose direction nobody can judge*.
+  Fixing the magnitude is what made the direction findable. Expect the next install to find the thing
+  the last defect was standing in front of.
+- **0.4.3's session wrote into `status.md` that a device had confirmed both axes moved the right way.
+  It had not.** The report it read that off said "horizontal tilt is very lazy", which is a claim
+  about *magnitude*, and the session banked it as clearance for *direction*. A device confirms what
+  it was actually asked about; anything further is still paper.
+- **What a hand catches is the class of thing no test can.** A convention is not a property: the suite
+  pinned whichever sign it was handed and was green across two releases of the wrong one, and a test
+  written after the fix records the choice rather than checking it. This is not a gap in the suite to
+  be closed — it is the reason the loop exists, and the reason a motion number a cloud session invents
+  has to be flagged as invented rather than presented as settled.
+
 ### It *can* build and run `:core` and `:sim` — use it
 
 "A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`

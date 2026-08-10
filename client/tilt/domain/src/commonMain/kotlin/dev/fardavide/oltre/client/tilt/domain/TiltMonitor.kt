@@ -56,22 +56,49 @@ data class TiltMonitor(val turned: Turned? = null) {
     // just opened has no idea how the phone is being held, and any guess at it is a jerk on the
     // first frame the player sees.
     //
-    // **Both signs are one minus sign from being the other way round**, and this is the pair of
-    // lines to change. The sky moves *against* the lean, which is what makes it read as something
-    // seen past the cards rather than something sitting on them: drop the right edge and your eye
-    // moves right of the screen, so what was hidden behind the right margin comes into view and the
-    // field slides left. Tip the top away and your eye moves above it, so the field slides up.
+    // **The two signs come from two different places, and one sentence claiming to settle both is
+    // what shipped the sideways axis backwards.** It read: *drop the right edge and your eye moves
+    // right of the screen, so what was hidden behind the right margin comes into view and the field
+    // slides left. Tip the top away and your eye moves above it, so the field slides up.* Half of
+    // that is an argument and half of it is the same argument repeated somewhere it does not reach.
+    //
+    // **The vertical is derived, and nothing here chose it.** The glass is a window on a sky far
+    // behind it, so tipping the phone aims the window somewhere else: tip the top away and the line
+    // of sight through it swings *downwards*, which is a camera panning down, and a camera panning
+    // down carries what it is looking at up the frame. Hence up. That is the axis a device came back
+    // calling perfect, which is what a derivation is supposed to buy.
+    //
+    // **The sideways one cannot be derived at all**, and this file conceded exactly that a few lines
+    // down without anyone noticing what it meant for the sign above it. An in-plane roll turns the
+    // phone about the very line of sight the tip swings, so it aims the window nowhere new — taken
+    // literally it would *rotate* the field rather than translate it, and a translation is a thing
+    // somebody picks. What was picked was the vertical's reasoning carried across, which reads like
+    // a derivation, is not one, and pointed the wrong way. A hand settled it instead (Davide,
+    // 2026-08-10, *"vertical parallax is perfect, but horizontal is inverted"*): **the sky goes
+    // towards the edge you drop.**
+    //
+    // Note what had to happen first. The sign has been this one since 0.4.2, and until 0.4.3 the
+    // sideways axis carried a `sin²(elevation)` penalty that left it at a quarter strength in the
+    // hand — *"very lazy"* was the report, and an axis that barely moves is an axis whose direction
+    // nobody can judge. **Fixing the magnitude is what made the direction findable**, which is worth
+    // expecting rather than being surprised by the next time a defect is fixed and a new one appears.
+    //
+    // Both are still one minus sign from being the other way round and this is still the pair of
+    // lines to change. Neither has a test that could catch a flip, and that is not an omission to be
+    // repaired: a convention is not a property, so the suite pinned whichever sign it was given and
+    // was green across two releases of the wrong one. `a lean to the right pushes the sky right` is
+    // where the convention is *written down*, not where it is checked.
     //
     // Yaw — turning the phone left and right about the vertical, which is the movement most people
     // reach for first — is absent, and it is absent because gravity cannot see it: spinning a phone
-    // flat on a table changes nothing about where down is. Mapping an in-plane lean to a horizontal
-    // slide is therefore an artistic choice rather than a literal parallax, and it is the one this
-    // field is built on. A version that answered yaw would need the fused rotation vector and a
-    // magnetometer with it.
+    // flat on a table changes nothing about where down is. That is the same fact from the other
+    // side: the one movement that would have made a horizontal slide a literal parallax is the one
+    // movement this sensor has nothing to say about. A version that answered yaw would need the
+    // fused rotation vector and a magnetometer with it.
     val tilt: Tilt
         get() {
             val reading = turned ?: return Tilt.NONE
-            return Tilt(x = travel(-reading.lean), y = travel(reading.tip))
+            return Tilt(x = travel(reading.lean), y = travel(reading.tip))
         }
 
     // What iOS's `CMDeviceMotion.gravity` hands over: the vector pointing at the ground.
