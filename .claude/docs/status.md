@@ -303,12 +303,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
-- **The tilt parallax has never been held in a hand, and three things follow.** Every feel constant
-  in `TiltMonitor` and `Starfield.TILT_TRAVEL` is arithmetic rather than a measurement, exactly as
-  `ShakeMonitor`'s three were — 12° to full deflection, 24dp of travel, 120ms and 4s — so expect the
-  first device session to move them. **The sign is the likeliest thing to be wrong**: the sky moves
-  against the lean, and both axes are one subtraction from being the other way round, in one place in
-  `TiltMonitor.tilt`. And there is **no screenshot test of a leaning field**, because recording a
+- **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
+  (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
+  tuning."* Merging publishes, so the install is the next step rather than a pending task here. What
+  he is looking at: every feel constant in `TiltMonitor` and `Starfield.TILT_TRAVEL` is arithmetic
+  rather than a measurement, exactly as `ShakeMonitor`'s three were — 12° to full deflection, 24dp of
+  travel, 120ms and 4s. **The sign is the likeliest thing to be wrong**: the sky moves against the
+  lean, and both axes are one subtraction from being the other way round, in one place in
+  `TiltMonitor.tilt`. There is also **no screenshot test of a leaning field**, because recording a
   baseline needs a machine that can run Roborazzi; the tilted draw path reaches `main` verified by
   compilation and by unit tests alone.
 - **The tilt is in the device's frame rather than the interface's**, so landscape swaps the two axes
@@ -316,7 +318,8 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   rather than breaks, and it is left alone deliberately: Android would read the rotation from
   `DisplayManager` in five lines and iOS has no equivalent that is not a main-thread UIKit call from
   inside a sensor callback, so writing the easy half alone is the cross-platform drift
-  `:client:tilt:domain` exists to prevent. Both halves at once, with a device to check them on.
+  `:client:tilt:domain` exists to prevent. Both halves at once, with a device to check them on — and
+  worth watching for on the TestFlight build above, since a phone that rotates is where it shows.
 - **`ResourceRailScreenshotTest`'s two baselines fail to verify on a local macOS run** and did so
   before 0.3.0 touched anything — measured by stashing the whole branch and re-running against a
   clean tree. CI verifies on Linux and is green, so this is a recording-machine difference rather

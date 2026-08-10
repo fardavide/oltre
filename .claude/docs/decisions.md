@@ -2028,13 +2028,19 @@ The first draft of this entry argued the no-animation rule at length and never m
 which is the more consequential omission of the two — in a repository whose whole culture is the
 accounting.
 
-Neither recorded exception covers it. The platform-entry-point one is about hosting a design that
-already exists; `TILT_TRAVEL = 24.dp`, the direction the field moves against the lean, and the
-decision to scale the lean by each plane's existing parallax factor are decisions somebody made, and
-that somebody was not a designer. The debug-menu one turns on *"is there a design this code could be
-wrong about"*, and behind every destination there is.
+**Settled by Davide, 2026-08-10, on being shown it:** *"It is true this was a cloud session, but it
+was animation tuning, not mere design change, so it is ok."*
 
-It is argued properly, as a third instance, in `session-roles.md` — including the part that cannot be
-argued away: **no waiver was asked for.** Davide asked for the effect; that is evidence he wanted it,
-not evidence he wanted this session choosing how far a sky travels. Every such call is marked in the
-code as arithmetic rather than measurement and is the first thing a device session should overrule.
+That is a sharper line than the one this entry was reaching for, and it is now the third exception in
+`session-roles.md`. Claude Design returns frames; a frame can be authoritative about what a card
+looks like, and cannot be authoritative about how far a field should travel per degree of wrist or
+how long a lean should take to settle, because nobody knows that without holding a phone. So the
+debug menu's test — *is there a design this code could be wrong about* — answers no here too, for a
+different reason than it did there: not "nobody drew this screen" but "nobody can draw this quantity".
+
+The condition that comes with it is the one this slice already met: **every invented number is marked
+in the code as arithmetic rather than measurement**, and the check that replaces a design review is
+an install. Davide took that himself — *"I will try the app from TestFlight, and open another session
+should it need tuning."* What the exception does not reach is unchanged: a screen, a component, a
+layout, a baseline, or motion that a handoff has already specified, as the Sky pass's four
+transitions were.
