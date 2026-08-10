@@ -64,10 +64,26 @@ sealed interface Event {
         override val at: Instant,
     ) : Event
 
+    // `FleetReturned` finally gets the `Started` partner it has been missing since 0.0.6, which is
+    // the taxonomy's own rule rather than an invention.
+    @Serializable
+    @SerialName("FleetDispatched")
+    data class FleetDispatched(
+        val target: GalaxyCoordinate,
+        val gathering: ResourceKind,
+        val ships: Ships,
+        override val at: Instant,
+    ) : Event
+
     @Serializable
     @SerialName("FleetReturned")
     data class FleetReturned(
-        val ships: Map<ShipType, Int>,
+        // Nullable because it is a real value the domain lacks, not a default in the banned sense: a
+        // fleet folded forward by the schema-8 migration came from a coordinate no old event ever
+        // recorded, and *"we do not know"* is the truthful answer. Filling it from `galaxy.home`
+        // would be inventing a number, which the 2 → 3 hop's standard forbids.
+        val from: GalaxyCoordinate?,
+        val ships: Ships,
         val cargo: Resources,
         override val at: Instant,
     ) : Event

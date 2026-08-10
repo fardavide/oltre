@@ -58,6 +58,6 @@ fun debugReport(
     buildsInFlight = state.builds.size,
     surveysInFlight = state.surveys.size,
     researchSlotBusy = state.researchSlotFreesAt != null,
-    fleetInbound = state.returningFleet != null,
+    fleetInbound = state.runs.isNotEmpty(),
     nextEvent = (skipAhead(state, gameTime) as? SkipAhead.ToEvent)?.event,
 )

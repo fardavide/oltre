@@ -138,42 +138,48 @@ class FutureEventsTest {
                 startedAt = t0,
                 completesAt = together,
             ),
-            returningFleet = ReturningFleet(
-                ships = mapOf(ShipType.CARGO to 1),
-                cargo = Resources.of(metal = 10),
-                origin = Coordinates(galaxy = 1, system = 1, position = 1),
-                arrivesAt = together,
-            ),
+            runs = listOf(inboundRun(returnsAt = together)),
         )
 
         // when
         val upcoming = futureEvents(state)
 
         // then
-        assertEquals(listOf("ResearchCompletes", "FleetArrives"), upcoming.map { it::class.simpleName })
+        assertEquals(listOf("ResearchCompletes", "FleetReturns"), upcoming.map { it::class.simpleName })
     }
 
     @Test
     fun `a fleet in flight is one upcoming arrival`() {
         // given
         val t0 = Instant.fromEpochMilliseconds(0)
-        val origin = Coordinates(galaxy = 2, system = 117, position = 9)
-        val ships = mapOf(ShipType.CARGO to 14)
-        val state = GameState.initial().copy(
-            returningFleet = ReturningFleet(
-                ships = ships,
-                cargo = Resources.of(metal = 500),
-                origin = origin,
-                arrivesAt = t0 + 3.hours,
-            ),
+        val target = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9)
+        val ships = Ships.of(ShipType.SKIFF, 14)
+        val cargo = Resources.of(metal = 500)
+        val run = FleetRun(
+            target = target,
+            ships = ships,
+            gathering = ResourceKind.METAL,
+            cargo = cargo,
+            dispatchedAt = t0,
+            returnsAt = t0 + 3.hours,
         )
+        val state = GameState.initial().copy(runs = listOf(run))
 
         // when
         val upcoming = futureEvents(state)
 
-        // then
+        // then — the prediction carries the hold as well as the manifest, because an alert booked
+        // in advance may only say what `advance` will actually credit
         assertEquals(
-            listOf(FutureEvent.FleetArrives(origin = origin, ships = ships, at = t0 + 3.hours)),
+            listOf(
+                FutureEvent.FleetReturns(
+                    target = target,
+                    ships = ships,
+                    cargo = cargo,
+                    dispatchedAt = t0,
+                    at = t0 + 3.hours,
+                ),
+            ),
             upcoming,
         )
     }
@@ -195,14 +201,7 @@ class FutureEventsTest {
                 val betweenTheTwo = started.completionOf(BuildingType.METAL_MINE) +
                     (started.completionOf(BuildingType.DEUTERIUM_SYNTHESIZER) -
                         started.completionOf(BuildingType.METAL_MINE)) / 2
-                started.copy(
-                    returningFleet = ReturningFleet(
-                        ships = mapOf(ShipType.CARGO to 1),
-                        cargo = Resources.of(metal = 10),
-                        origin = Coordinates(galaxy = 1, system = 1, position = 1),
-                        arrivesAt = betweenTheTwo,
-                    ),
-                )
+                started.copy(runs = listOf(inboundRun(returnsAt = betweenTheTwo)))
             }
 
         // when
@@ -210,7 +209,7 @@ class FutureEventsTest {
 
         // then — the metal mine is the cheapest and quickest of the two so it lands first
         assertEquals(
-            listOf("BuildCompletes", "FleetArrives", "BuildCompletes"),
+            listOf("BuildCompletes", "FleetReturns", "BuildCompletes"),
             upcoming.map { it::class.simpleName },
         )
         assertEquals(upcoming.map { it.at }.sorted(), upcoming.map { it.at })
@@ -262,18 +261,24 @@ class FutureEventsTest {
                     completesAt = together,
                 ),
             ),
-            returningFleet = ReturningFleet(
-                ships = mapOf(ShipType.CARGO to 1),
-                cargo = Resources.of(metal = 10),
-                origin = Coordinates(galaxy = 1, system = 1, position = 1),
-                arrivesAt = together,
-            ),
+            runs = listOf(inboundRun(returnsAt = together)),
         )
 
         // when
         val upcoming = futureEvents(state)
 
         // then
-        assertEquals(listOf("BuildCompletes", "FleetArrives"), upcoming.map { it::class.simpleName })
+        assertEquals(listOf("BuildCompletes", "FleetReturns"), upcoming.map { it::class.simpleName })
     }
 }
+
+// The smallest run that stands in for "a fleet is coming home at this instant" — one skiff and a
+// token hold, so the tests above stay about ordering rather than about what a hold is worth.
+private fun inboundRun(returnsAt: Instant): FleetRun = FleetRun(
+    target = GalaxyCoordinate(galaxy = 1, system = 1, slot = 1),
+    ships = Ships.of(ShipType.SKIFF, 1),
+    gathering = ResourceKind.METAL,
+    cargo = Resources.of(metal = 10),
+    dispatchedAt = returnsAt - 1.hours,
+    returnsAt = returnsAt,
+)

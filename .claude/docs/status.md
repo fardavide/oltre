@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.3.0)
+Updated: 2026-08-10 (0.4.0)
 
 ## Landed
 
@@ -171,7 +171,28 @@ Updated: 2026-08-10 (0.3.0)
   desktop schedulers: the seam is above the platform edge, and `GameNotificationsTest` already
   holds it. See `decisions.md`.
 
-- **0.3.0 the Sky pass** — the accepted direction from a four-option graphics review
+- **0.3.0 the fleet (`core` only)** — slices #6 and #7 merged, built to
+  [`fleet-sheet.md`](fleet-sheet.md) and to the Claude Design return recorded in its §12. **Nothing a
+  player can see changed**, deliberately and on 0.0.17's precedent: the verb is playable in the
+  simulation and no screen offers it.
+  `ShipType` became `SKIFF / HAULER / ESCORT / SETTLER` — the rename was free exactly once, because
+  nothing had ever constructed a `ReturningFleet` outside test code, and it is a schema break from
+  the first hull a player owns. `Ships` is the idle pool, `FleetRun` is a run in flight, and
+  `Coordinates` / `ReturningFleet` are gone — the twins `status.md` flagged for slice #7 are folded.
+  `startRun(state, target, gathering, ships, window, at)` is the fifth verb; `advance` grew its fifth
+  completion term, an arrival **loop** sorted on `(dispatchedAt, packed coordinate)`, and the word
+  `tailrec` — recursion depth is the number of events in a span, which parallel runs make unbounded.
+  Save **schema 8 migrates 7**, the first hop that *removes* a key (so `withoutState` had to exist,
+  or a leftover `returningFleet` would fail every legacy decode) and the first that rewrites entries
+  already in the event log.
+  **Hostility gates settling and not gathering** — the one decision that makes 98% of the map usable,
+  and it moves no `GalaxyBalance` number, no `GalaxyDistributionTest` band and no `verdictFor` case.
+  Two latent defects fixed on the way, both of which the fleet turns from theoretical into live: the
+  fleet notification's id was the constant `"fleet-arrival"`, so two simultaneous returns collided
+  into one alert and one silently vanished; and `FutureEvents`' tie-break ladder was *derived* from
+  `BuildingType.entries.size`, so a seventh building would have moved three unrelated constants, with
+  `Int.MAX_VALUE` sealing the end so the next kind had nowhere to go. Both are explicit now.
+- **0.4.0 the Sky pass** — the accepted direction from a four-option graphics review
   (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
   replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot
   transitions keyed on the launch, and the Galaxy map redrawn as orbits around a star. **It spends
@@ -194,8 +215,8 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
 | ~~4~~ | ~~**Galaxy: procgen**~~ | Landed at 0.0.15 | — |
 | ~~5~~ | ~~**Galaxy: screen**~~ | Landed at 0.0.15 | — |
-| 6 | **Shipyard: core + screen** | The 4 v1 ship types, built from the shipyard, held in one empire-wide pool | **Yes** — the ship set (today's `CARGO/FIGHTER/CRUISER/COLONY_SHIP` are placeholders) |
-| 7 | **Fleets: outbound** | Sending a fleet: distance as travel time, an outbound leg, the Fleets tab. The return leg already exists | **Yes** — travel-time formula, fuel |
+| ~~6~~ | ~~**Shipyard: core**~~ | ship set answered and `core` landed at 0.3.0; the **tab** is slice 3 of the fleet arc | — |
+| ~~7~~ | ~~**Fleets: outbound, core**~~ | landed at 0.3.0 — travel-time formula settled, **no fuel** (Davide, 2026-08-10); the **screens** are next | — |
 | 8 | **Combat** | Seeded `resolve(a, b, seed)` and a battle report in the event log | **Yes** — the combat model |
 | 9 | **AI empires** | 3 scripted empires that grow and raid, driven from `advance` | **Yes** — how visible, how aggressive |
 | 10 | **Colonisation** | Settling a second world; the outpost → settlement → self-sufficient lifecycle | **Yes** — the pillar's rules |
@@ -229,6 +250,33 @@ carried here because the pressures that replace hard caps (upkeep, logistics, di
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
 
 ## Pending / not yet set up
+
+- **THE NEXT THING TO BUILD: the screens the fleet already has a design for.** `core` landed at
+  0.3.0 and nothing a player can reach changed. Claude Design has ruled on all three surfaces and the
+  frames are archived at [`design/fleet-screens.dc.html`](design/fleet-screens.dc.html) — the world
+  row in treatment **1b** (*a row leads with what you can do about it today*), the dispatch sheet
+  (three controls, one figure, **no cost line and no affordability state** — a run is free), and the
+  Colony strip naming the next event with a `2 more away` clause. The Shipyard and Fleets tabs are
+  slices 3 and 4 of the same arc. See `fleet-sheet.md` §12 for all seven calls.
+- **Two balance numbers are Davide's before the arc finishes.** The **frontier bands** — Design
+  showed the sheet's ×1.35 / ×1.6 never create a crossover, because the flight is subtracted while
+  the band is multiplied and danger rises with the same distance the band pays for; the break-evens
+  are **×1.15 / ×1.55 / ×2.30**, reproduced against the formulas and recorded in §3.5. And the
+  **hauler's price and extraction constant**, which the sheet never gave and Design had to invent at
+  240 / 60 to draw the frame.
+- **`EXTRACTION_PER_HOUR = 40` has not been through `:sim:run`** and is the number most likely to be
+  wrong. Two corrections already landed on it and both push down — the draft's "16% of a genesis
+  colony" divided by a colony 0.2.7 deleted, and it measured the priced basket rather than the chosen
+  currency, where it reads **47% of a genesis colony's crystal income**. The sweep is specified in
+  `fleet-sheet.md` §6 and `printFleetReport` does not exist yet.
+- **`ResourceRailScreenshotTest`'s two baselines fail to verify on a local macOS run** and did so
+  before 0.3.0 touched anything — measured by stashing the whole branch and re-running against a
+  clean tree. CI verifies on Linux and is green, so this is a recording-machine difference rather
+  than a drift in the app, but it means a local `verifyRoborazziDesktop` is not currently a clean
+  signal and the next person to record will silently rewrite forty baselines.
+- **The Colony strip's desktop fixture still says `12 cargo`**, a ship class that no longer exists.
+  Left alone deliberately: correcting it moves `fleet_strip` and four `colony_screen_*` baselines,
+  and the screen slice rewrites that strip anyway to Design's ruling.
 
 - ~~**The sheet's §9 `fails exactly one axis` target of 35–45% cannot be reached**~~ — settled
   2026-08-07, Davide delegating the call: the three comparable axes were kept and the target

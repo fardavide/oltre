@@ -4,9 +4,11 @@ import dev.fardavide.oltre.client.debug.domain.DebugReport
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
-import dev.fardavide.oltre.core.Coordinates
 import dev.fardavide.oltre.core.FutureEvent
+import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -77,9 +79,14 @@ internal val nextEventReports: List<Pair<FutureEvent, String>> = listOf(
         settleable = 0,
         at = EPOCH + 1.hours,
     ) to "PROBE → 3:165",
-    FutureEvent.FleetArrives(
-        origin = Coordinates(galaxy = 2, system = 117, position = 9),
-        ships = mapOf(ShipType.CARGO to 14),
+    FutureEvent.FleetReturns(
+        // A run names where it *went*, so the coordinate is the target rather than the origin the
+        // old arrival carried — and the sheet still says only that a fleet is coming back, because
+        // a developer tool's next-event line is about the kind of thing, not about its manifest.
+        target = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+        ships = Ships.of(ShipType.SKIFF, 14),
+        cargo = Resources.of(metal = 500),
+        dispatchedAt = EPOCH,
         at = EPOCH + 1.hours,
     ) to "FLEET RETURNS",
 )

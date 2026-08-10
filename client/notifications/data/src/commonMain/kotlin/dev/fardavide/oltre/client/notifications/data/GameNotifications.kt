@@ -2,7 +2,7 @@ package dev.fardavide.oltre.client.notifications.data
 
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
-import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.SystemAddress
@@ -58,25 +58,36 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
         // rule instead of one per platform.
         .filter { it.at > now }
 
-    // Everything except a landing is bounded by the model: six facilities, one research slot, one
-    // returning fleet — nine at the ceiling, and none of them can ever be the thing that overflows.
-    // Probes are the one kind that runs in parallel with no cap at all, so probes are what gets
-    // trimmed, and the bounded events are never in the running to be dropped.
-    val (landings, bounded) = pending.partition { it is FutureEvent.SurveyLands }
+    // **Two kinds are now unbounded, not one.** Six facilities and one research slot are bounded by
+    // the model — seven at the ceiling, and none of them can ever be the thing that overflows. Probes
+    // were the only kind that ran in parallel with no cap; fleet runs are the second, so the
+    // partition has to name both or `bounded.size` stops describing the protected set and the trim
+    // arithmetic quietly under-counts.
+    //
+    // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
+    // one: protect the model-bounded seven, then returns, then probe landings — because a return
+    // carries resources that a full store can void, and a probe carries information that does not
+    // spoil. Davide's to overrule.
+    val (unbounded, bounded) = pending.partition {
+        it is FutureEvent.SurveyLands || it is FutureEvent.FleetReturns
+    }
+    val (returns, landings) = unbounded.partition { it is FutureEvent.FleetReturns }
 
     // Trimmed from the far end, keeping the soonest. Two reasons, and the second is the one that
     // makes this safe: the near landings are the ones that will actually fire before the player
     // next opens the app, and every alert that fires causes a transition that re-derives this whole
     // set — so a far landing dropped today is re-booked long before it was due. Keeping the far
     // ones instead would drop alerts that nothing would ever come back for.
-    val kept = landings.take((IOS_PENDING_REQUEST_LIMIT - bounded.size).coerceAtLeast(0)).toSet()
+    val keptReturns = returns.take((IOS_PENDING_REQUEST_LIMIT - bounded.size).coerceAtLeast(0)).toSet()
+    val kept = keptReturns +
+        landings.take((IOS_PENDING_REQUEST_LIMIT - bounded.size - keptReturns.size).coerceAtLeast(0))
 
-    // Filtered out of the original list rather than reassembled from the two halves, so
-    // `futureEvents`' ordering survives intact — including its tie-breaks, which say a landing
-    // sorts before a fleet arrival at a shared instant. Concatenating `bounded + kept` would put
-    // that arrival first and quietly disagree with the log it is supposed to predict.
+    // Filtered out of the original list rather than reassembled from the halves, so `futureEvents`'
+    // ordering survives intact — including its tie-breaks, which say a landing sorts before a fleet
+    // return at a shared instant. Concatenating the halves would put the return first and quietly
+    // disagree with the log it is supposed to predict.
     return pending
-        .filter { it !is FutureEvent.SurveyLands || it in kept }
+        .filter { it in bounded || it in kept }
         // Belt and braces, and a no-op today: the bounded kinds top out at nine, so `kept` is
         // always sized to land exactly on the limit. It is here so the one promise this function
         // makes to the platform is enforced on the way out rather than inferred from the arithmetic
@@ -124,10 +135,16 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = charted(worldsFound = worldsFound, settleable = settleable),
         at = at,
     )
-    is FutureEvent.FleetArrives -> LocalNotification(
-        id = "fleet-arrival",
-        title = "Your fleet has landed",
-        body = "The cargo from ${origin.label()} is in your stores.",
+    is FutureEvent.FleetReturns -> LocalNotification(
+        // **This was the constant string `"fleet-arrival"`, and that was a latent defect that the
+        // fleet slice turns into a live one.** A colony could only ever hold one returning fleet, so
+        // one id was unique by construction; runs are parallel and uncapped, so two landing at once
+        // would collide into a single alert and one would silently vanish. Derived from the run —
+        // its target and the instant it left — for the same reason every other id here is derived
+        // from its subject: that is what makes replacing the whole set idempotent.
+        id = "run-${target.galaxy}-${target.system}-${target.slot}-${dispatchedAt.toEpochMilliseconds()}",
+        title = "Your ships are home",
+        body = "The cargo from ${target.label()} is in your stores.",
         at = at,
     )
 }
@@ -189,7 +206,9 @@ private fun AdaptationTechnology.displayName(): String = when (this) {
     AdaptationTechnology.ATMOSPHERIC -> "Atmospheric Adaptation"
 }
 
-private fun Coordinates.label(): String = "[$galaxy:$system:$position]"
+// A world, brackets and all — and now the bounded `GalaxyCoordinate` rather than the unbounded twin
+// it replaced, so a label can no longer be written for an address that is off the map.
+private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
 
 // No slot and no brackets: a probe is aimed at a star, not at a world, and the Galaxy screen's own
 // header writes a system the same way — bare, because there is nothing for a bracket to separate it

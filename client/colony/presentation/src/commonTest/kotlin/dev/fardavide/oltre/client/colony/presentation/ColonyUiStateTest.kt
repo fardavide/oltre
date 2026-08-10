@@ -4,15 +4,16 @@ import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
-import dev.fardavide.oltre.core.Coordinates
+import dev.fardavide.oltre.core.FleetRun
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
-import dev.fardavide.oltre.core.ReturningFleet
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.startUpgrade
 import kotlin.test.Test
@@ -388,16 +389,13 @@ class ColonyUiStateTest {
     }
 
     @Test
-    fun `a returning fleet appears as the strip with origin composition and countdown`() {
-        // given a fleet of 14 cargo and 1 cruiser from [2:117:9], 4h 11m 52s out
+    fun `a returning fleet appears as the strip with its target composition and countdown`() {
+        // given one run of 14 skiffs and 1 hauler home from [2:117:9], 4h 11m 52s out. The
+        // coordinate is where it *went* rather than where it is: a run names its target, and the
+        // strip says which world the hold was filled at
         val now = Instant.fromEpochMilliseconds(0)
         val state = colony().copy(
-            returningFleet = ReturningFleet(
-                ships = mapOf(ShipType.CARGO to 14, ShipType.CRUISER to 1),
-                cargo = Resources.of(metal = 500),
-                origin = Coordinates(galaxy = 2, system = 117, position = 9),
-                arrivesAt = now + 4.hours + 11.minutes + 52.seconds,
-            ),
+            runs = listOf(fleetRun(returnsAt = now + 4.hours + 11.minutes + 52.seconds)),
         )
 
         // when
@@ -407,11 +405,34 @@ class ColonyUiStateTest {
         assertEquals(
             ReturningFleetUiState(
                 title = "Fleet returning",
-                subtitle = "from [2:117:9] · 14 cargo · 1 cruiser",
+                subtitle = "from [2:117:9] · 14 skiff · 1 hauler",
                 countdown = "04:11:52",
             ),
             checkNotNull(strip),
         )
+    }
+
+    // Runs are parallel where the old model held exactly one fleet, so the strip has a case it never
+    // had before — and it is one 48dp row, so the ones that are not next are a count rather than a
+    // row each. The list is deliberately not in return order: nothing orders `runs`.
+    @Test
+    fun `several runs out name the soonest and count the rest`() {
+        // given three runs home at two five and nine hours
+        val now = Instant.fromEpochMilliseconds(0)
+        val state = colony().copy(
+            runs = listOf(
+                fleetRun(returnsAt = now + 9.hours, target = GalaxyCoordinate(galaxy = 1, system = 42, slot = 7)),
+                fleetRun(returnsAt = now + 2.hours, ships = Ships.of(ShipType.SKIFF, 3)),
+                fleetRun(returnsAt = now + 5.hours, target = GalaxyCoordinate(galaxy = 3, system = 8, slot = 1)),
+            ),
+        )
+
+        // when
+        val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
+
+        // then the soonest is the one named in full and the other two are the door to Fleets
+        assertEquals("from [2:117:9] · 3 skiff · 2 more away", strip.subtitle)
+        assertEquals("02:00:00", strip.countdown)
     }
 
     @Test
@@ -485,8 +506,26 @@ class ColonyUiStateTest {
         // A probe in flight competes with this screen's upgrades for the same metal and for
         // nothing else — it holds no construction slot and appears on no facility row.
         surveys = emptyList(),
-        returningFleet = null,
+        // The idle pool is the Fleets screen's subject: this screen draws only what is *out*, so a
+        // colony with no hull at home still renders every row asserted above.
+        ships = Ships.NONE,
+        runs = emptyList(),
         eventLog = emptyList(),
+    )
+
+    // A run in the shape `FleetRun` insists on — it left before it comes back, and it never gathers
+    // deuterium. The 14 skiffs and 1 hauler are the manifest the strip was drawn with at 0.0.6.
+    private fun fleetRun(
+        returnsAt: Instant,
+        target: GalaxyCoordinate = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+        ships: Ships = Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)),
+    ): FleetRun = FleetRun(
+        target = target,
+        ships = ships,
+        gathering = ResourceKind.METAL,
+        cargo = Resources.of(metal = 500),
+        dispatchedAt = returnsAt - 1.hours,
+        returnsAt = returnsAt,
     )
 
     private fun upgrading(building: BuildingType, at: Instant): GameState {

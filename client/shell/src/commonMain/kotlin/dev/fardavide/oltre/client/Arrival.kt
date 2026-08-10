@@ -15,9 +15,10 @@ import dev.fardavide.oltre.core.Technology
 // of numbers that were simply *different*, with nothing to attribute the difference to. This is the
 // difference itself, computed once on the way in and handed to the two screens that can show it.
 //
-// It is dropped a couple of seconds later — see `App`. That is deliberate rather than tidy: after
-// the transitions have played there is nothing left to arrive, and a switch back to a tab must not
-// replay an announcement about a launch that has already happened.
+// Both halves are forgotten again, at two different moments and for one reason: a switch back to a
+// tab must not replay an announcement about a launch that already happened. The stocks go on a
+// timer, because the rail is chrome and is on screen from the first frame. The completion does not,
+// because the screen that announces it may not be the one the app opens on — see `App`.
 internal data class Arrival(
     // The stocks the save was written with, which are the last figures the player actually saw.
     val lastSeen: Resources,
@@ -56,10 +57,13 @@ internal fun arrivalOf(saved: GameState?, resumed: GameState): Arrival? {
     )
 }
 
-// Exhaustive on `Event`, so a ninth kind of event has to decide whether it is something a row can
-// announce. Most are not: a build *starting* is something the player did rather than something they
-// came back to, a fleet returning already has its own strip at the top of the colony, and a probe
-// landing draws a receipt in the map card — which is not a row and has no level to change.
+// Exhaustive on `Event`, so an eleventh kind of event has to decide whether it is something a row
+// can announce — and the fleet slice is the first to be asked: `FleetDispatched` arrived with 0.3.0
+// and this refused to compile until it was answered, which is exactly what the exhaustiveness is
+// for. Most events are not announcements. A build *starting* is something the player did rather
+// than something they came back to; a run landing already has the fleet strip at the top of the
+// colony, which is a better place to say it than a band across a facility row; and a probe landing
+// draws a receipt in the map card, which is not a row and has no level to change.
 private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.BuildCompleted -> AwayCompletion.Facility(building)
     is Event.ResearchCompleted -> AwayCompletion.Project(technology)
@@ -67,6 +71,7 @@ private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.BuildStarted,
     is Event.ResearchStarted,
     is Event.AdaptationStarted,
+    is Event.FleetDispatched,
     is Event.FleetReturned,
     is Event.SurveyStarted,
     is Event.SurveyCompleted,

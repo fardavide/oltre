@@ -14,6 +14,7 @@ import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -638,7 +639,10 @@ class ResearchUiStateTest {
         // Probes hold no research slot and never will: the scarcity a ladder competes for is the
         // one slot, and the scarcity a probe competes for is metal.
         surveys = emptyList(),
-        returningFleet = null,
+        // The same holds for the fleet, and one line further: an idle hull and a run in flight both
+        // compete for metal, and neither can hold the slot this screen is entirely about.
+        ships = Ships.NONE,
+        runs = emptyList(),
         eventLog = emptyList(),
     )
 

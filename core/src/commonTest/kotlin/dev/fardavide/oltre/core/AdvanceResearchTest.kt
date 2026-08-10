@@ -229,11 +229,15 @@ class AdvanceResearchTest {
                 startedAt = EPOCH,
                 completesAt = together,
             ),
-            returningFleet = ReturningFleet(
-                ships = mapOf(ShipType.CARGO to 1),
-                cargo = Resources.of(metal = 10),
-                origin = Coordinates(galaxy = 1, system = 1, position = 1),
-                arrivesAt = together,
+            runs = listOf(
+                FleetRun(
+                    target = GalaxyCoordinate(galaxy = 1, system = 1, slot = 1),
+                    ships = Ships.of(ShipType.SKIFF, 1),
+                    gathering = ResourceKind.METAL,
+                    cargo = Resources.of(metal = 10),
+                    dispatchedAt = EPOCH,
+                    returnsAt = together,
+                ),
             ),
         )
 

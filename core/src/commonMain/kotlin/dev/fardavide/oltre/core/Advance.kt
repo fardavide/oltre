@@ -5,16 +5,24 @@ import kotlin.time.Instant
 // The single entry point for time. Accrues continuously between discrete events and applies
 // each event exactly at its instant, so any span produces the same state as any chain of
 // sub-spans (the composability property).
-fun advance(state: GameState, from: Instant, to: Instant): GameState {
+// `tailrec` because the recursive call below is already in tail position and the recursion depth is
+// the number of events in the span. That used to be bounded at ~6 builds + 1 project + N probes + 1
+// arrival; parallel runs across a week's absence — or a debug skip — make it unbounded, and a
+// StackOverflowError inside the one function the whole simulation rests on is not a failure mode
+// worth keeping for the sake of a word.
+tailrec fun advance(state: GameState, from: Instant, to: Instant): GameState {
     require(to >= from) { "advance must not go backwards: from=$from to=$to" }
     // Builds run in parallel, so several of them — plus a research project and a fleet arrival —
     // are in flight at once and each one changes what the following span accrues. Take the
     // earliest due event, apply it, and recurse.
+    // **There is no registry here, and a job kind missing from this expression never completes** —
+    // `advance` accrues straight past it forever and no test fails. Five terms, and the fifth is the
+    // runs.
     val nextEventAt = (
         state.builds.values.map { it.completesAt } +
             listOfNotNull(state.researchSlotFreesAt) +
             state.surveys.map { it.completesAt } +
-            listOfNotNull(state.returningFleet?.arrivesAt)
+            state.runs.map { it.returnsAt }
         ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
     // apply it defensively instead of wedging it forever.
@@ -91,15 +99,29 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
             ),
         )
     }
-    val fleet = next.returningFleet
-    if (fleet != null && fleet.arrivesAt == instant) {
+    // Runs land in parallel like probes, so this is a loop and not an `if`, and it is sorted on a key
+    // **intrinsic to the job and never list order** — the reason `Advance.kt` already gives for the
+    // survey landings transfers unchanged: *"list order would be insertion order, and a log whose
+    // order depends on the sequence of taps that produced it is one a reloaded save reproduces only
+    // by accident."*
+    //
+    // The key is `(dispatchedAt, packed coordinate)`. Both are `Comparable`, which the fields the
+    // event carries are not — `GalaxyCoordinate`, `Resources` and `Ships` are all plain data classes
+    // or a map — and together they fit a single `Long`, which is what lets `futureEvents`
+    // `secondaryTieBreak()` mirror this exactly rather than promise to.
+    val returned = next.runs
+        .filter { it.returnsAt == instant }
+        .sortedWith(compareBy({ it.dispatchedAt }, { packed(it.target) }))
+    for (run in returned) {
         next = next.copy(
-            resources = next.resources.deposit(fleet.cargo),
-            returningFleet = null,
+            resources = next.resources.deposit(run.cargo),
+            ships = next.ships + run.ships,
+            runs = next.runs - run,
             eventLog = next.eventLog + Event.FleetReturned(
-                ships = fleet.ships,
-                cargo = fleet.cargo,
-                at = fleet.arrivesAt,
+                from = run.target,
+                ships = run.ships,
+                cargo = run.cargo,
+                at = run.returnsAt,
             ),
         )
     }
@@ -156,6 +178,13 @@ private fun accrued(stockFine: Long, ratePerHour: Long, elapsedMilliseconds: Lon
     val effective = minOf(elapsedMilliseconds, millisecondsToFill)
     return minOf(CAP_FINE, stockFine + ratePerHour * effective)
 }
+
+// A coordinate as one monotone `Long`, so the arrival order and the prediction that mirrors it can be
+// stated in the same shape. Shared with `FutureEvents.secondaryTieBreak()`, which is the whole point:
+// two hand-maintained orderings that agree by construction rather than by promise.
+internal fun packed(at: GalaxyCoordinate): Long =
+    (at.galaxy.toLong() * GalaxyBalance.SYSTEMS_PER_GALAXY + at.system) * GalaxyBalance.SLOTS_PER_SYSTEM +
+        at.slot
 
 private fun Resources.deposit(cargo: Resources): Resources = copy(
     metalFine = minOf(CAP_FINE, metalFine + cargo.metalFine),

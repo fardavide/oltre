@@ -158,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.3.0 — 2026-08-10
+### 0.4.0 — 2026-08-10
 
 - **The colony floats over a sky now.** Three planes of stars sit behind every screen and drift
   against each other as the list scrolls, so the black reads as distance rather than as an empty
@@ -180,6 +180,29 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   three figures side by side read as three columns rather than as one crowded line.
 - **Every card takes the press.** A tap now shrinks its target by a hair under the ripple, which is
   the whole of what the app was missing to feel like it was being touched rather than read.
+
+### 0.3.0 — 2026-08-10
+
+- **Nothing on screen changes in this build.** Your colony can now send ships to a world it has
+  surveyed and get cargo back, and the whole thing is playable in the simulation — but no screen
+  offers it yet. The Galaxy tab still only lets you send a probe. The screens are the next slice.
+- **What landed underneath:** you own a fleet, and a run is one commitment — a world you have already
+  surveyed, whether the ships bring back metal or crystal, and how long until they are home. They fly
+  out, work the surface for whatever is left of the window, and come back. What they bring is stated
+  exactly before you commit and never rolled; nothing is hidden and every run comes home.
+- **You can work a world you could never live on.** Hostility still decides where you can *settle*,
+  and it no longer decides where you can *send a ship* — so the 98% of the map that reads BLOCKED
+  stops being a wall. The richest worlds are the ones you cannot stand on, which is what makes this
+  worth doing rather than a consolation prize.
+- **Far is dangerous and hazardous is dangerous**, and a run says so before it leaves: a world's
+  hazards and how far it sits from home each cost a tenth of the hold. Your own system, with nothing
+  wrong with it, is a completely safe first trip.
+- **Runs never cost deuterium and never bring it back**, so the Robotics Factory stays the thing you
+  save for.
+- **A new colony opens with one skiff**, the way it opens with 500 metal — the first session is a
+  decision rather than a wait.
+- **Colonies carry forward.** Saves from 0.2.7 migrate: your colony arrives with one skiff and
+  nothing away.
 
 ### 0.2.7 — 2026-08-09
 
