@@ -67,8 +67,9 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         // The colony is not what this test is about, and a screen it does not drive
                         // is a screen whose text could collide with an assertion.
                         colony = {},
-                        research = {
+                        research = { scroll ->
                             ResearchScreen(
+                                scrollState = scroll,
                                 uiState = game.state.toResearchUiState(
                                     now = game.now,
                                     timeZone = TimeZone.UTC,
@@ -77,8 +78,9 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 onStartAdaptation = { game.start(it) },
                             )
                         },
-                        galaxy = { openResearch ->
+                        galaxy = { scroll, openResearch ->
                             GalaxyScreen(
+                                scrollState = scroll,
                                 state = game.state,
                                 now = game.now,
                                 timeZone = TimeZone.UTC,

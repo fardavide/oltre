@@ -34,8 +34,8 @@ enum class OltreCardState {
 }
 
 fun Modifier.oltreCard(state: OltreCardState): Modifier = this
-    .border(1.dp, state.bevel(), SHAPE)
-    .background(state.fill(), SHAPE)
+    .border(1.dp, state.bevel(), oltreCardShape)
+    .background(state.fill(), oltreCardShape)
 
 // The white 4.5% that every card in the app carried before this pass, composited over the same
 // base as the three fills above — and carrying the same caveat about which base that is.
@@ -49,7 +49,10 @@ fun Modifier.oltreCard(state: OltreCardState): Modifier = this
 // never a raw alpha over the background.
 val oltreCardSurface = Color(0xFF101218)
 
-private val SHAPE = RoundedCornerShape(14.dp)
+// Public since the Sky pass, and for one caller: the completion sweep has to clip its band to the
+// card it crosses, and a band cut square across a rounded corner is the one way that transition can
+// look like a defect. Everything else about the card stays this file's business.
+val oltreCardShape = RoundedCornerShape(14.dp)
 
 // Opaque, and that is a knowing exception to "everything above the background is an alpha
 // overlay". The starfield behind the content column is the reason: an alpha fill lets the stars

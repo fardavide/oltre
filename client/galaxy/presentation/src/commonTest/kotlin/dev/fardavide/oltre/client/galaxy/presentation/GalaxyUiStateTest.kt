@@ -14,6 +14,10 @@ import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.StartSurveyResult
+import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.startSurvey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -46,14 +50,68 @@ class GalaxyUiStateTest {
         assertEquals(listOf(7, 8, 10, 13), slots)
     }
 
+    // The orbit view draws one ellipse per occupied slot and nothing at all for the empty ones —
+    // the trade Davide took at 0.3.0, recorded in `SystemMapUiState`. What is asserted here is that
+    // the map and the list can never disagree about what the system holds.
     @Test
-    fun `the map carries every slot including the empty ones`() {
+    fun `the map draws one orbit for each thing the system holds and none for a gap`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        assertEquals(GalaxyBalance.SLOTS_PER_SYSTEM, uiState.map.slots.size)
-        assertEquals((1..15).toList(), uiState.map.slots.map { it.slot })
-        assertEquals(11, uiState.map.slots.count { it.mark == MapMark.EMPTY })
-        assertEquals(1, uiState.map.slots.count { it.mark == MapMark.HOME })
+        assertEquals(listOf(7, 8, 10, 13), uiState.map.bodies.map { it.slot })
+        assertEquals(uiState.bands.flatMap { it.rows }.map { it.slot }, uiState.map.bodies.map { it.slot })
+        assertEquals(0, uiState.map.bodies.count { it.mark == MapMark.EMPTY })
+        assertEquals(1, uiState.map.bodies.count { it.mark == MapMark.HOME })
+    }
+
+    // The width of an orbit is the one thing the picture still says about the coordinate now that
+    // the fifteen ticks are gone, so it has to be monotone in the slot and it has to reach both
+    // ends of the range.
+    @Test
+    fun `an outer slot rides a wider orbit than an inner one`() {
+        val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+        val orbits = uiState.map.bodies.map { it.orbit }
+
+        assertEquals(orbits.sorted(), orbits)
+        assertEquals(orbits.distinct(), orbits)
+    }
+
+    // Whatever the system holds, the bodies use the whole frame: the first is on the inner edge and
+    // the last on the outer one. That is what keeps two worlds on neighbouring slots from landing on
+    // the same pixel, which linear-in-slot spacing did — see `MapBodyUiState`.
+    @Test
+    fun `the bodies use the whole frame however many there are`() {
+        val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+        val orbits = uiState.map.bodies.map { it.orbit }
+
+        assertEquals(listOf(0f, 1f / 3f, 2f / 3f, 1f), orbits)
+    }
+
+    @Test
+    fun `a probe out of home draws its flight on the home map and nowhere else`() {
+        // given a probe in flight to a neighbouring system
+        val at = SystemAddress(galaxy = 3, system = 164)
+        val launched = assertIs<StartSurveyResult.Started>(
+            startSurvey(state().copy(resources = Resources.of(metal = 1_000_000)), at, at = EPOCH),
+        ).state
+
+        // when the home system is on screen and when the target is
+        val home = launched.toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+        val target = launched.toGalaxyUiState(
+            at = SystemSelection(galaxy = 3, system = 164),
+            now = EPOCH,
+            timeZone = TimeZone.UTC,
+        )
+
+        // then the arc leaves from where the probe left from and is drawn nowhere else
+        assertEquals("[3:164]", checkNotNull(home.map.trajectory).label.substringBefore(" ·"))
+        assertEquals(null, target.map.trajectory)
+    }
+
+    @Test
+    fun `a home system with no probe out draws no flight`() {
+        val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+
+        assertEquals(null, uiState.map.trajectory)
     }
 
     @Test
@@ -209,7 +267,7 @@ class GalaxyUiStateTest {
 
         assertTrue(rows.isNotEmpty())
         assertTrue(rows.all { it.verdict == VerdictUiState.Unsurveyed })
-        assertTrue(uiState.map.slots.none { it.mark == MapMark.BLOCKED || it.mark == MapMark.BARREN })
+        assertTrue(uiState.map.bodies.none { it.mark == MapMark.BLOCKED || it.mark == MapMark.BARREN })
     }
 
     @Test
@@ -223,7 +281,7 @@ class GalaxyUiStateTest {
         val row = uiState.bands.flatMap { it.rows }.first { it.slot == 5 }
 
         assertEquals(VerdictUiState.Occupied(holder = "Held by kepler"), row.verdict)
-        assertEquals(MapMark.OCCUPIED, uiState.map.slots.first { it.slot == 5 }.mark)
+        assertEquals(MapMark.OCCUPIED, uiState.map.bodies.first { it.slot == 5 }.mark)
     }
 
     @Test
@@ -278,7 +336,7 @@ class GalaxyUiStateTest {
         val row = uiState.bands.flatMap { it.rows }.first { it.slot == relay.slot }
 
         assertIs<VerdictUiState.Relay>(row.verdict)
-        assertEquals(MapMark.RELAY, uiState.map.slots.first { it.slot == relay.slot }.mark)
+        assertEquals(MapMark.RELAY, uiState.map.bodies.first { it.slot == relay.slot }.mark)
     }
 
     @Test

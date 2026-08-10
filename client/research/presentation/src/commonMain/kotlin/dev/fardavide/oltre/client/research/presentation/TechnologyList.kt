@@ -2,7 +2,6 @@ package dev.fardavide.oltre.client.research.presentation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,9 +21,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
-import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
+import dev.fardavide.oltre.client.design.component.pressable
+import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.AdaptationTechnology
@@ -50,6 +52,7 @@ internal fun TechnologyList(
                 duration = row.duration,
                 shortlist = row.shortlist,
                 action = row.action,
+                finishedWhileAway = row.finishedWhileAway,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
                 compact = compact,
@@ -81,6 +84,7 @@ internal fun AdaptationList(
                 duration = row.duration,
                 shortlist = row.shortlist,
                 action = row.action,
+                finishedWhileAway = row.finishedWhileAway,
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
                 compact = compact,
@@ -106,6 +110,9 @@ private fun ProjectRow(
     // technology — see `AdaptationList`.
     shortlist: ShortlistUiState?,
     action: ResearchActionUiState,
+    // True on at most one row in the whole app, and only just after a launch: this is the project
+    // that landed while it was closed. See `CompletionSweep`.
+    finishedWhileAway: Boolean,
     rowTag: String,
     actionTag: String,
     compact: Boolean,
@@ -113,11 +120,13 @@ private fun ProjectRow(
 ) {
     val mono = oltreMono()
     val locked = action is ResearchActionUiState.Locked
-    val running = action as? ResearchActionUiState.Running
+    val sweep = rememberCompletionSweep(play = finishedWhileAway)
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .oltreCard(action.cardState())
+            // Over the fill and over the content, so it reads as light falling on the card.
+            .completionSweep(sweep)
             .testTag(rowTag)
             // After the card, not before it, and that ordering is the whole point: an alpha placed
             // ahead of the fill dims the card itself, which turns the one opaque thing on the
@@ -144,7 +153,9 @@ private fun ProjectRow(
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     Text(
-                        text = "LV ${level.value}",
+                        // The level the row arrived at, except while a completion band is still
+                        // short of the badge — the number changes behind the light.
+                        text = "LV ${if (sweep.settled) level.value else level.value - 1}",
                         color = OltreColors.textSecondary,
                         fontFamily = mono,
                         fontSize = 10.sp,
@@ -217,9 +228,11 @@ private fun ProjectRow(
                     fontFamily = mono,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
+                    // `pressable` ahead of the fill rather than after it — see the same ordering
+                    // on the colony's Upgrade button.
                     modifier = Modifier
+                        .pressable { onStart() }
                         .background(OltreColors.accent, RoundedCornerShape(9.dp))
-                        .clickable { onStart() }
                         .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
@@ -234,21 +247,27 @@ private fun ProjectRow(
                         .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
-                is ResearchActionUiState.Running -> Text(
-                    text = action.countdown,
-                    color = OltreColors.text,
-                    fontFamily = mono,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .padding(start = 8.dp)
-                        .testTag(actionTag),
-                )
+                // The same pair the colony's running row draws, in the same order and at the same
+                // gaps: how long is left, and how far round it has got. Identical by construction is
+                // the whole point — from three rows away a running ladder, a running technology and
+                // a running facility have to be one thing.
+                is ResearchActionUiState.Running -> Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.padding(start = 11.dp),
+                ) {
+                    Text(
+                        text = action.countdown,
+                        color = OltreColors.text,
+                        fontFamily = mono,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.testTag(actionTag),
+                    )
+                    LevelDial(level = level.value, percent = action.progressPercent)
+                }
                 is ResearchActionUiState.Locked -> Unit
             }
-        }
-        if (running != null) {
-            ProgressBar(percent = running.progressPercent)
         }
     }
 }

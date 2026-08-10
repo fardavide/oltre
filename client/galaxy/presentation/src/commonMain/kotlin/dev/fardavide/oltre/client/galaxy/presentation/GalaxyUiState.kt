@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.milli
+import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.signed
@@ -18,6 +19,7 @@ import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
+import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -67,12 +69,51 @@ data class GalaxyUiState(
 
 data class GalaxyTabUiState(val label: String, val galaxy: Int, val selected: Boolean)
 
-// What the map draws, which is deliberately more than the list holds: every slot, including the
-// eleven empty ones. That is the whole of what the map has that the list cannot — the shape of a
-// system, and where its gaps fall.
-data class SystemMapUiState(val slots: List<MapSlotUiState>)
+// What the map draws: the system as orbits seen at a shallow angle, one ellipse per occupied slot.
+//
+// **This is the Sky pass's one real subtraction, and it is worth naming.** Until 0.3.0 the map was
+// fifteen ticks on a horizontal line, and its whole argument was that it showed the *empty* slots —
+// the shape of a system, and where its gaps fall — which the list underneath could never do. The
+// orbit view cannot say that: eleven empty ellipses at 11dp apart read as noise rather than as
+// absence. Davide took the trade knowingly (2026-08-10) for the picture the design is built around.
+// What survives is the coordinate: an orbit's width is a function of its slot, so slot 13 is still
+// visibly further out than slot 4, and the number under each body still names it.
+//
+// What went with the ticks is the Hot / Temperate / Cold strip. The bands are still the world list's
+// section headings, so the vocabulary is not lost — but the map no longer teaches the axis by
+// showing it, and that is the second half of the same trade.
+data class SystemMapUiState(
+    val bodies: List<MapBodyUiState>,
+    // Only on the home system's map, and only while a probe is out: a flight leaves from where it
+    // was launched, and every probe in this game is launched from home. Null everywhere else.
+    val trajectory: MapTrajectoryUiState?,
+)
 
-data class MapSlotUiState(val slot: Int, val mark: MapMark)
+data class MapBodyUiState(
+    val slot: Int,
+    val mark: MapMark,
+    // Where this body's orbit sits between the innermost the map draws and the outermost: 0 for the
+    // first body in the system, 1 for the last, evenly spaced in between. A fraction rather than a
+    // length, because how wide the widest orbit is drawn is the Canvas's business.
+    //
+    // **Spaced by rank rather than by slot, and that is a real choice with a real cost.** Linear in
+    // the slot was tried first and it is what the coordinate would deserve: slot 13 twice as far out
+    // as slot 7, to scale. It does not survive contact with a real system. Fifteen slots across the
+    // frame puts neighbours 11dp apart, and once every body sits on the same phase — which is what
+    // stops them colliding with each other — an 11dp step is narrower than the number printed under
+    // it, so a system holding worlds in slots 7 and 8 drew two overlapping discs under two
+    // overlapping labels. Rank spacing gives every system the whole frame however many bodies it
+    // holds, which is also what the design reference does: four worlds, four evenly spread orbits.
+    //
+    // What is kept: the order. Bodies are sorted by slot, so further out is still colder, and the
+    // number under each one still says exactly which slot it is. What is lost is the *scale* — you
+    // can no longer read the gap between two worlds off the picture, only their sequence.
+    val orbit: Float,
+)
+
+// "[2:118] · 4h 12m" — where the probe is going and how long it has left, printed at the faint end
+// of the arc that carries it.
+data class MapTrajectoryUiState(val label: String)
 
 // What a dot on the map means. `EMPTY` is a tick rather than a dot, and it is most of them.
 enum class MapMark { EMPTY, HOME, OCCUPIED, UNSURVEYED, BLOCKED, BARREN, SETTLEABLE, RELAY }
@@ -213,8 +254,30 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZo
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
         reach = toReachBandUiState(at = at),
         map = SystemMapUiState(
-            slots = (1..GalaxyBalance.SLOTS_PER_SYSTEM).map { slot ->
-                MapSlotUiState(slot = slot, mark = markFor(rows.firstOrNull { it.slot == slot }))
+            // Only the slots that hold something. `rows` is already exactly that set — a world or
+            // the system's relay — so the map and the list below it can never disagree about what
+            // is there.
+            bodies = rows.sortedBy { it.slot }.let { sorted ->
+                sorted.mapIndexed { index, row ->
+                    MapBodyUiState(
+                        slot = row.slot,
+                        mark = markFor(row),
+                        orbit = orbitOf(index, of = sorted.size),
+                    )
+                }
+            },
+            trajectory = if (at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system) {
+                // The one landing soonest rather than whichever the list happens to hold first:
+                // nothing caps simultaneous probes, and the arc can only carry one of them, so it
+                // carries the one whose countdown the player is actually waiting on.
+                surveys.minByOrNull { it.completesAt }?.let { job ->
+                    MapTrajectoryUiState(
+                        label = "[${job.target.galaxy}:${job.target.system}]" +
+                            " · ${(job.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()}",
+                    )
+                }
+            } else {
+                null
             },
         ),
         probe = toProbeActionUiState(
@@ -240,6 +303,12 @@ private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): Stri
     val plural = if (worlds == 1) "world" else "worlds"
     return "${starClass.name} · $worlds $plural"
 }
+
+// Evenly across the frame, whatever the system holds. A lone body sits midway rather than at
+// either edge — an orbit pinned to the inner limit would say "hot" about a world that might be the
+// coldest slot in the system, and the map has no second body to say it against.
+private fun orbitOf(index: Int, of: Int): Float =
+    if (of <= 1) 0.5f else index.toFloat() / (of - 1).toFloat()
 
 private fun markFor(row: WorldRowUiState?): MapMark = when (row?.verdict) {
     null -> MapMark.EMPTY

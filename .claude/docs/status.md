@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-09 (0.2.1)
+Updated: 2026-08-10 (0.3.0)
 
 ## Landed
 
@@ -170,6 +170,15 @@ Updated: 2026-08-09 (0.2.1)
   `:client:notifications:data`, reduced from the master's own arc. No test, matching the iOS and
   desktop schedulers: the seam is above the platform edge, and `GameNotificationsTest` already
   holds it. See `decisions.md`.
+
+- **0.3.0 the Sky pass** — the accepted direction from a four-option graphics review
+  (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
+  replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot
+  transitions keyed on the launch, and the Galaxy map redrawn as orbits around a star. **It spends
+  the flat-background rule and the no-animation rule, both knowingly**, and it drops the fifteen-tick
+  strip's empty slots and its temperature bands — Davide's call, asked directly. Scroll state is
+  hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
+  one new one; every galaxy frame is 210dp taller. See `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 

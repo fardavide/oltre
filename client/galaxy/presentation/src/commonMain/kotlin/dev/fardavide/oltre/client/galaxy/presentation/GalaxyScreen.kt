@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -49,6 +50,8 @@ fun GalaxyScreen(
     timeZone: TimeZone,
     onOpenResearch: () -> Unit,
     onDispatchProbe: (SystemAddress) -> Unit,
+    // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
+    scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
     var at by remember(state.galaxy.seed) {
@@ -69,6 +72,7 @@ fun GalaxyScreen(
         // The system on screen *is* the target — a probe is aimed at the star the page is about,
         // which is why the footer needs no target picker and the world rows carry no button.
         onDispatchProbe = { onDispatchProbe(SystemAddress(galaxy = at.galaxy, system = at.system)) },
+        scrollState = scrollState,
         modifier = modifier,
     )
 }
@@ -81,6 +85,7 @@ internal fun GalaxyPage(
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
+    scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -89,7 +94,7 @@ internal fun GalaxyPage(
         // a Slide Over pane.
         val compact = maxWidth < OltreLayout.compactWidth
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(

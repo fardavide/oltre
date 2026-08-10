@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -20,6 +21,10 @@ import dev.fardavide.oltre.core.BuildingType
 fun ColonyScreen(
     uiState: ColonyUiState,
     onUpgrade: (BuildingType) -> Unit,
+    // Hoisted since the Sky pass, because the starfield behind this screen shifts with it and the
+    // frame that draws the field is the shell's. Defaulted so that the screenshot fixtures and the
+    // layout assertions, none of which scroll, still read as a screen and not as a wiring exercise.
+    scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxSize()) {
@@ -28,7 +33,7 @@ fun ColonyScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(scrollState),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(

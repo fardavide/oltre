@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -43,6 +44,7 @@ class TabBarScreenshotTest {
     @Test
     fun `an unbuilt tab`() {
         runDesktopComposeUiTest(width = 393, height = 852) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -53,6 +55,7 @@ class TabBarScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/unbuilt_tab_shipyard.png",
                 roborazziOptions = oltreRoborazziOptions(),
@@ -65,6 +68,7 @@ class TabBarScreenshotTest {
     // over empty space that would have passed forever.
     private fun captureBar(width: Int, selected: OltreTab, name: String) {
         runDesktopComposeUiTest(width = width, height = 84) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -72,6 +76,7 @@ class TabBarScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),

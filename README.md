@@ -158,6 +158,29 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.3.0 — 2026-08-10
+
+- **The colony floats over a sky now.** Three planes of stars sit behind every screen and drift
+  against each other as the list scrolls, so the black reads as distance rather than as an empty
+  window. It is a hundred and one stars where there were twenty-six, and none of them move on
+  their own — the field is a function of where the list is, exactly as the list is.
+- **A running row wears a dial instead of a bar.** The hairline that used to run under a building
+  facility or a research project is a 34dp ring beside the countdown, lit round to how far the job
+  has got, with the level it is on now in the middle of it. It says the same thing in a tenth of the
+  ink and takes the level with it.
+- **The Galaxy screen is a system rather than a strip.** The fifteen ticks on a line are now orbits
+  around a star with a corona, your colony carrying a halo of its own, and a probe in flight drawn as
+  the arc it is flying. Each body still carries its slot number; the world list below is unchanged.
+- **The app tells you what happened while you were away.** Stocks count up from the figure you last
+  saw rather than simply being different, the dials and the energy meter fill into place once, and
+  the one row that finished while the app was closed takes a band of light across it and changes its
+  level behind the light. All of it plays exactly once per launch and then holds — a colony closed
+  for two days still opens onto a screen with no clock ticking anywhere on it.
+- **The resource rail is ruled.** A hairline between each pair of resources and one under the bar, so
+  three figures side by side read as three columns rather than as one crowded line.
+- **Every card takes the press.** A tap now shrinks its target by a hair under the ripple, which is
+  the whole of what the app was missing to feel like it was being touched rather than read.
+
 ### 0.2.7 — 2026-08-09
 
 - **The first hour of a colony is a different game.** Upgrades in the opening cost a tenth of what

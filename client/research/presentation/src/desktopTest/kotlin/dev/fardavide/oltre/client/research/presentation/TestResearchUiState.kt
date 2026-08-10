@@ -27,6 +27,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "300", crystal = "150", deuterium = "100", short = null),
             duration = "1h 00m",
             action = ResearchActionUiState.Locked("Requires Robotics 1"),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -36,6 +37,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "600", crystal = "400", deuterium = "200", short = null),
             duration = "1h 30m",
             action = ResearchActionUiState.Locked("Requires Robotics 1"),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -45,6 +47,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 30m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
+        finishedWhileAway = false,
         ),
     ),
 )
@@ -66,6 +69,7 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "675", crystal = "338", deuterium = "225", short = null),
             duration = "2h 36m",
             action = ResearchActionUiState.Start,
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -75,6 +79,7 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "1,350", crystal = "900", deuterium = "450", short = ResourceKind.DEUTERIUM),
             duration = "3h 53m",
             action = ResearchActionUiState.AvailableIn("in 1h 45m"),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -84,6 +89,7 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 10m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
+        finishedWhileAway = false,
         ),
     ),
 )
@@ -107,6 +113,7 @@ internal val gateOpenUiState = ResearchUiState(
             // reading 3h 02m, which is exactly the comparison the shared slot asks a player to make.
             duration = "2h 17m",
             action = ResearchActionUiState.Start,
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -116,6 +123,7 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.METAL),
             duration = "5h 41m",
             action = ResearchActionUiState.AvailableIn("in 1h 16m"),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -125,6 +133,7 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
             action = ResearchActionUiState.Start,
+        finishedWhileAway = false,
         ),
     ),
     adaptation = listOf(
@@ -137,6 +146,7 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.Start,
+        finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.GRAVITIC,
@@ -147,6 +157,7 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 36m"),
+        finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.ATMOSPHERIC,
@@ -157,6 +168,7 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.Start,
+        finishedWhileAway = false,
         ),
     ),
 )
@@ -179,6 +191,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+        finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.GRAVITIC,
@@ -189,6 +202,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+        finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.ATMOSPHERIC,
@@ -199,6 +213,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+        finishedWhileAway = false,
         ),
     ),
     technologies = listOf(
@@ -215,6 +230,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
                 progressPercent = 60,
                 doneAt = "done 11:23",
             ),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -224,6 +240,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.DEUTERIUM),
             duration = "5h 41m",
             action = ResearchActionUiState.AvailableIn("in 3h 55m"),
+        finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -233,6 +250,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+        finishedWhileAway = false,
         ),
     ),
 )
@@ -251,6 +269,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 0, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
+    finishedWhileAway = false,
     ),
     AdaptationRowUiState(
         technology = AdaptationTechnology.GRAVITIC,
@@ -261,6 +280,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 5, worthTaking = 1),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
+    finishedWhileAway = false,
     ),
     AdaptationRowUiState(
         technology = AdaptationTechnology.ATMOSPHERIC,
@@ -271,6 +291,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 3, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
+    finishedWhileAway = false,
     ),
 )
 

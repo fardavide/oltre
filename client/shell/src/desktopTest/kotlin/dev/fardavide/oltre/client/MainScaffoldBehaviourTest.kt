@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import org.junit.Test
 
 // The bar is the one piece of navigation every later screen hangs off, so what it has to get
@@ -93,8 +94,8 @@ class MainScaffoldBehaviourTest {
         OltreTab.entries.forEach { tab ->
             scaffold {
                 onNodeWithTag(ShellTestTags.tab(tab)).performClick()
-                onNodeWithText(testResourceRailUiState.metal).assertIsDisplayed()
-                onNodeWithText(testResourceRailUiState.deuteriumRatePerHour).assertIsDisplayed()
+                onNodeWithText(testResourceRailUiState.metal.stock.groupedByThousands()).assertIsDisplayed()
+                onNodeWithText(testResourceRailUiState.deuterium.ratePerHour).assertIsDisplayed()
             }
         }
     }
@@ -109,7 +110,7 @@ class MainScaffoldBehaviourTest {
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
-                        galaxy = { Text(GALAXY_MARKER) },
+                        galaxy = { _, _ -> Text(GALAXY_MARKER) },
                     )
                 }
             }

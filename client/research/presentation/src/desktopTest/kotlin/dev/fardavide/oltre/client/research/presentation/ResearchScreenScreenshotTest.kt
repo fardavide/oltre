@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -76,6 +77,7 @@ class ResearchScreenScreenshotTest {
     // record of what the screen *is*, not of what one window happens to reveal.
     private fun capture(width: Int, uiState: ResearchUiState, name: String) {
         runDesktopComposeUiTest(width = width, height = 860) {
+            mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
@@ -83,6 +85,7 @@ class ResearchScreenScreenshotTest {
                     }
                 }
             }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),

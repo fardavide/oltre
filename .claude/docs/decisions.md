@@ -1658,3 +1658,167 @@ none: they are platform edges with no seam a test can reach without new infrastr
 place to introduce. What *is* tested is everything above the edge — `notificationsFor` derives the
 set, `GameNotificationsTest` pins it against `FakeNotificationScheduler`, and that is where the
 game logic lives. The platform half is verified by installing it, which is a local session's job.
+
+## The Sky pass: four one-shot transitions, and the map stops being a strip (2026-08-10, 0.3.0)
+
+The accepted direction out of a four-option graphics review — `1b` and `2b` in the design project's
+`Graphics Pass.dc.html`, handed over as `design_handoff_sky/`. Everything the pass adds sits
+**behind** the content: the cards, the rail, the tab bar and the type are untouched.
+
+### It spends two written rules, both knowingly
+
+1. **"Flat `#05070D`. No texture."** The starfield already broke this at the depth pass with 26
+   static stars. It is now 101 across three planes that translate against each other with the
+   scroll. The extension is larger than the original exception and is the same exception.
+2. **"Animation. Effectively none, and that is a rule rather than an omission."** Four transitions
+   are added. **The rule's reason survives intact and that is the whole argument**: nothing loops,
+   nothing repeats, and nothing implies a live clock. Every one of them runs once when the thing it
+   describes enters composition and then holds forever. A game whose premise is that it progresses
+   while closed must never draw anything a player could read as "it is happening now" — a value
+   settling into place on arrival is the opposite of that. See `OltreMotion`.
+
+The parallax is deliberately not counted as an animation and it is not a dodge: it has no duration,
+no clock and no running state. It is a function of the scroll offset, exactly as the position of the
+list is.
+
+### The starfield stayed in `:client:shell`, against the handoff's own path
+
+The handoff asks for `client/design/.../design/sky/Starfield.kt`. There is no `:client:design`
+module — it is a directory of layer modules — and the architecture skill's rule is that *a component
+whose one owner is obvious stays with it*. The starfield's one owner is `MainScaffold`. Moving it
+would have meant a new module or a new `:client:shell` → `:client:design:component` edge that the
+shell's build file explicitly declines. It stays put; only `rememberOneShotFill` went down into
+`:client:design:core`, beside `OltreMotion`, because four callers in three modules share it.
+
+**`clipToBounds` on that Canvas is load-bearing.** Star `y` runs −0.08..1.08 so a translated plane
+never exposes an empty edge, and Compose does not clip a child to its layout bounds — so the first
+recorded baseline had stars drawn over the resource rail and the tab bar. Space showing through a
+surface is the one thing the depth pass's opaque fills exist to prevent.
+
+### Scroll state is hoisted into `MainScaffold`
+
+The field is the frame's and the scroll is a screen's, so one of them has to reach the other. The
+scaffold now owns one `ScrollState` per destination and hands each screen its own — which also means
+returning to Colony from Research finds Colony where it was left. The alternative was a screen
+writing its offset somewhere the frame happens to read: the same coupling with none of it visible in
+a signature.
+
+### The Galaxy map replaces the fifteen-tick strip, and that is a real subtraction
+
+**Davide's call, 2026-08-10**, asked directly because the `1b` frame contains no strip, no
+Hot/Temperate/Cold band, and `galaxy-sheet.md` calls both load-bearing. The options put to him were
+"add the drawing above the strip", "the orbit view replaces it", "defer to a design round-trip" and
+"take `1b` literally". He chose the second.
+
+What went: the *shape of a system* — that four of fifteen slots are occupied and where the gaps fall
+— and the band strip, which was the only place a player could learn that slot 13 means cold without
+being told so in a sentence. The bands survive as the world list's section headings; the empty slots
+do not survive at all. `GalaxyNav`, `ReachBand`, the probe footer and `WorldList` were **not**
+touched, which is what separates the chosen option from taking the frame literally.
+
+**Orbits are spaced by rank, not by slot, and that is the second-order finding.** Linear-in-slot was
+built first and is what the coordinate deserves — slot 13 twice as far out as slot 7, to scale. It
+does not survive a real system: fifteen slots across the frame puts neighbours 11dp apart, and with
+every body on one phase an 11dp step is narrower than the number printed under it. The home system
+drew worlds 7 and 8 on the same pixel under two overlapping labels. Rank spacing gives every system
+the whole frame; the order and the slot numbers survive, the *scale* does not.
+
+**Every body sits at the same phase (−33°)**, which is what the reference does and what makes the
+map safe: with one angle both coordinates are monotone in the orbit's width, so no two bodies can
+land on each other. Varying the phase per body — the obvious way to make it look less mechanical —
+is exactly what caused the collision, because a wider orbit at a shallower angle reaches no further
+across than a narrower one at a steeper.
+
+The design file hand-placed its four worlds and no angle formula fits them (residuals 0.58–1.40 on
+the ellipse equation), so there was no rule to copy. This is the rule the build chose.
+
+### The energy card keeps its copy and takes only the drawing
+
+**Davide's call, same session.** The handoff's Change 4 draws a section label "Energy · 1,240 of
+1,480" over a card reading "Produced 1,240/h" / "Capacity 1,480/h", while claiming in its own prose
+that "copy is unchanged from what ships — no string here is new". Both cannot be true. The shipped
+`PowerIndicator` says POWER, a verdict sentence and three terms, and the verdict is what the colony
+docs call the teaching move. It keeps all of that and gains the 4dp track and the 26dp gradient head
+on the fill's leading edge. The handoff's "capacity" is also not the shipped model's "drawn" — it
+warns when production *exceeds* it, which inverts the deficit rule — so adopting its copy would have
+meant deciding a mechanic, not a drawing.
+
+### What the arrival window is for
+
+The two transitions that say "this changed while you were away" — the stock roll and the completion
+sweep — are fed by an `Arrival` the shell computes once from the difference between the saved state
+and the resumed one, and **drops two seconds later**. Without that, every return to a tab would
+replay a sweep about a launch that happened an hour ago. The fills (dial, meter, probe bar) are not
+gated that way and do replay when a destination is re-entered: they are one-shot per composition,
+which is honest — a value arriving is a value arriving — and gating them would mean threading a flag
+through every row on every screen.
+
+`arrivalOf` reads the event log's tail rather than comparing levels, which is what an append-only
+log buys. Only the **last** completion sweeps: one band crossing one card is a statement, four bands
+crossing four cards at once is a light show.
+
+### Screenshot baselines stop the clock
+
+Every screenshot test now sets `mainClock.autoAdvance = false` before `setContent` and advances by
+`SETTLED_MILLIS` (2,000) before capturing. A baseline caught mid-transition is the only way any of
+this can flake — the fills take 900ms and the band leaves the card at 1,170ms. One baseline is
+deliberately the exception: `facility_list_finished_while_away` winds to 795ms, because a settled
+baseline of a swept row is a baseline of a row with nothing on it.
+
+The 14 galaxy baselines each grew by exactly 210dp: the map block was a 76dp strip and is now the
+286dp orbit view. Nothing else on that screen moved.
+
+### The rail's dividers were skipped once, and that was wrong
+
+The first pass read `dividers="true"` and the rail's `border-bottom` as prototype framing, on the
+grounds that they appear in all six frames including the two rejected directions. Davide caught it.
+The component's own default is `false` and every frame overrides it — that is a choice, not
+scaffolding. Both are in: a 1dp white-9% rule between each pair of cells, inset 7dp top and bottom,
+and one under the bar. Both are **drawn rather than laid out**, because the three cells are the one
+place in the app with no width to spare and a 1dp element between them is 2dp off the figures; every
+cell carries `weight(1f)`, so a third and two thirds is where the cells divide rather than an
+approximation of it.
+
+### Four defects an adversarial review found after the pass was green
+
+All four survived `./gradlew build`, 41 verified baselines and 95.4% coverage, which is the point
+worth keeping: none of them were things a test in the repo was shaped to notice.
+
+1. **The completion sweep was dead on Research.** The arrival was dropped by a wall-clock timer two
+   seconds after the save was read, but the sweep's own clock starts when the *row* composes — and
+   `MainScaffold` opens on Colony and composes no other destination. A research project that landed
+   while the app was closed could only be announced if the player found the Research tab inside
+   0.83s; between 0.83s and 2s the band was cut off mid-crossing and the level badge snapped with
+   nothing on screen to explain it. **The fix is two-part**: the announcement is no longer on a
+   timer at all — it is consumed by whichever destination shows it, and by the first action the
+   player takes — and `rememberCompletionSweep` latches `play` at its first composition, so
+   withdrawing the announcement underneath a running crossing cannot cut it short.
+   `CompletionSweepBehaviourTest` is the regression, and it fails against the unlatched version.
+2. **The parallax emptied the sky.** Each plane translated by `-offset × parallax` with no wrap, and
+   the star table's −0.08..1.08 bleed only covers a shift of 8% of the viewport. The near plane
+   keeps 58% of the list's speed, so one screen of scroll left the bottom of the destination with no
+   near stars in it at all. The planes now tile: the shift is taken modulo the height and every star
+   is drawn twice, one height apart. `starfield_scrolled.png` is the witness — the first test in the
+   repo that renders the field at a non-zero offset.
+3. **Two Canvases painted outside their own bounds**, because Compose does not clip a child to its
+   layout. The starfield's bleed rows landed on the resource rail and the tab bar; the system map's
+   180dp ambient glow and its outermost orbit landed on the screen behind the card. Both take
+   `clipToBounds`. The first was caught by looking at a baseline; the second was not caught by
+   anything, because no galaxy baseline is recorded above 393dp.
+4. **The rolling stock re-wrapped the rail.** Tabular numerals fix the width of a digit and do
+   nothing about a count that grows from "900" to "1,400" — and at 320dp the stock shares a wrapping
+   row with its rate, so two characters were enough to throw the rate onto a second line halfway
+   through the roll and pull it back at the end. The rolled figure is now padded to the width of the
+   figure it is heading for.
+
+Two smaller ones from the same review: the map's geometry was absolute dp measured for a 361dp card
+and is now fractions of whatever width it is given (it clipped at 320dp and floated in the left half
+at the 560dp cap), and the trajectory follows the probe landing soonest rather than whichever the
+list happened to hold first, since nothing caps simultaneous probes.
+
+**One finding is accepted rather than fixed, and it is the honest limit of this pass.** The arrival
+is computed on a cold start only — there is no foreground observer anywhere in this app, on any
+platform. A player who backgrounds Oltre for four hours and brings it back without the process being
+killed sees the new numbers with no roll and no sweep. The handoff calls for a "foreground epoch";
+what the repo has is a launch. Wiring real lifecycle observation across three platforms is its own
+slice, and this one should not invent a heuristic for it.
