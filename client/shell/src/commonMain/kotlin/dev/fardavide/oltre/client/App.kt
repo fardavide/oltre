@@ -100,21 +100,30 @@ fun App(
 
             // How the device is being held, for the starfield behind every destination.
             //
-            // **`mutableStateOf` written here and read only inside a draw lambda**, which is the
-            // whole reason this is affordable at all. Compose invalidates by phase: a snapshot read
-            // that happens during composition schedules a recomposition, and one that happens
-            // during draw schedules only a redraw. This value is never read in a composable body —
-            // it is handed down as `{ tilt }` and unwrapped inside `Canvas`'s `DrawScope` — so a
-            // sensor sample repaints a hundred and one circles and touches nothing else. Read it in
-            // the body instead and every lean would recompose the whole destination, screen
-            // included, fifty times a second.
+            // **A `State` handle rather than a `by` delegate, and that is not style.** Compose
+            // invalidates by phase: a snapshot read during composition schedules a recomposition,
+            // one during draw schedules only a redraw. This value must only ever be read in the
+            // second place — it goes down as `{ lean.value }` and is unwrapped inside `Canvas`'s
+            // `DrawScope`, so a sensor sample repaints a hundred and one circles and touches nothing
+            // else. A delegate would make an accidental read in a composable body look like an
+            // ordinary variable, and nothing would fail: the app would simply recompose every
+            // destination fifty times a second. `.value` at every read site says out loud what is
+            // being touched.
             //
-            // Started once and collected for as long as the app is composed. `TiltSource` stops the
-            // sensor when collection ends, and the flow goes quiet by itself whenever the phone is
-            // still, which is most of the time.
-            var tilt by remember { mutableStateOf(Tilt.NONE) }
+            // The default `structuralEqualityPolicy` is the other half of the still-phone promise:
+            // `TiltMonitor` snaps its values to a grid, so a hand that is not moving writes a `Tilt`
+            // equal to the last one and Compose does not invalidate at all.
+            //
+            // Collected for as long as the app is composed, which is longer than the sensor actually
+            // runs: iOS suspends a backgrounded app and Android has cut continuous sensors off for
+            // background apps since API 28, so neither platform needs a lifecycle hook this
+            // repository does not have. Gating on `LocalWindowInfo.isWindowFocused` would also stop
+            // it under a pulled-down shade — worth doing the day somebody measures a battery cost,
+            // and not worth the risk before then, since a focus flag that reads `false` on iOS would
+            // silently switch the whole feature off with nothing to notice it.
+            val lean = remember { mutableStateOf(Tilt.NONE) }
             LaunchedEffect(tiltSource) {
-                tiltSource.tilts().collect { tilt = it }
+                tiltSource.tilts().collect { lean.value = it }
             }
 
             LaunchedEffect(Unit) {
@@ -207,7 +216,7 @@ fun App(
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScaffold(
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
-                        tilt = { tilt },
+                        tilt = { lean.value },
                         colony = { scroll ->
                             val finishedFacility = (finishedWhileAway as? AwayCompletion.Facility)?.building
                             // Consumed by the screen that shows it. Effects run after the frame that

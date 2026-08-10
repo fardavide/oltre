@@ -6,7 +6,6 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.provider.Settings
-import dev.fardavide.oltre.client.tilt.domain.Attitude
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.client.tilt.domain.TiltMonitor
 import kotlinx.coroutines.channels.awaitClose
@@ -50,7 +49,13 @@ private class AndroidTiltSource(private val context: Context) : TiltSource {
         // A device with no motion sensor at all is not an error — it is a Chromebook, or an emulator
         // with the sensors switched off — and neither is a player who has asked for less movement.
         // Both get a sky that holds still, which is a complete answer rather than a degraded one.
-        if (sensor == null || context.prefersReducedMotion()) {
+        //
+        // `sensors` is tested here as well as `sensor`, even though a null service already implies a
+        // null sensor: `getSystemService` comes back as a platform type, so relying on the
+        // implication would leave `registerListener` below compiling only by Kotlin's willingness to
+        // take Java at its word. Naming it makes the smart cast the compiler's rather than the
+        // platform's.
+        if (sensors == null || sensor == null || context.prefersReducedMotion()) {
             send(Tilt.NONE)
             awaitClose { }
             return@callbackFlow
@@ -60,17 +65,18 @@ private class AndroidTiltSource(private val context: Context) : TiltSource {
         val listener = object : SensorEventListener {
 
             override fun onSensorChanged(event: SensorEvent) {
-                // **`fromReactionToGravity`, not `fromGravity`, and the name is the whole safeguard
-                // — see the note on that function.** Android's vector points at the sky, iOS's
-                // points at the ground, and reading this one as though it were the other flips both
-                // angles and leans the sky the wrong way on this platform alone. Metres per second
-                // squared here against multiples of g on iOS, which needs no correction at all.
+                // **Handed over raw, and neither the sign nor the scale is corrected here.** Android
+                // reports the *reaction* to gravity — its own documentation says a phone lying flat
+                // on a table reads `z = +9.81` — where iOS reports gravity itself and would call the
+                // same phone `z = -1.0`. Every component is negated and the units differ by ten.
+                // `TiltMonitor` normalises the vector away and reads movement as a cross product,
+                // and a cross product is blind to both: `(-a) x (-b) = a x b`. A correction applied
+                // in one of these two files and not the other is exactly how the sky ends up leaning
+                // the wrong way on one phone, so neither file holds one.
                 monitor = monitor.sample(
-                    Attitude.fromReactionToGravity(
-                        x = event.values[0].toDouble(),
-                        y = event.values[1].toDouble(),
-                        z = event.values[2].toDouble(),
-                    ),
+                    x = event.values[0].toDouble(),
+                    y = event.values[1].toDouble(),
+                    z = event.values[2].toDouble(),
                     // The event's own timestamp is nanoseconds since boot on an unspecified base,
                     // so the wall clock is read instead — the same call and the same argument as
                     // `AndroidShakeDetector`. Only the gaps between samples matter, and the rule

@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 import org.junit.Test
 
 // The bar is the one piece of navigation every later screen hangs off, so what it has to get
@@ -107,6 +108,8 @@ class MainScaffoldBehaviourTest {
             setContent {
                 OltreTheme {
                     MainScaffold(
+                        // Desktop has no motion sensor, so this is also what the app itself passes here.
+                        tilt = { Tilt.NONE },
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },

@@ -10,8 +10,8 @@ import androidx.compose.runtime.remember
 
 // The Sky pass's four transitions, as tokens rather than as four numbers written down five times.
 //
-// **This object is the one place the "effectively no animation" rule is spent**, so it is worth
-// saying exactly what survives of that rule and what does not. What is gone: the claim that nothing
+// **This object is the one place the "effectively no animation" rule is spent by a transition**, so
+// it is worth saying exactly what survives of that rule and what does not. What is gone: the claim that nothing
 // moves. What is intact, and was always the reason: nothing here loops, nothing repeats, and nothing
 // implies a live clock. Every duration below belongs to a transition that runs **once** when the
 // thing it describes enters composition and then holds its value forever — a colony closed for two
@@ -22,8 +22,17 @@ import androidx.compose.runtime.remember
 // now"; a spinner or a pulse would be a lie about the simulation. A value settling into place on
 // arrival is the opposite — it is the app showing what changed while you were gone.
 //
-// The starfield's parallax is deliberately *not* here: it has no duration because it is not a
-// transition. It is a function of the scroll offset, exactly as the list's own position is.
+// **There is a second place the rule is spent, and since 0.5.0 it is not this one.** The starfield
+// used to be the clean case — a pure function of the scroll offset with no duration in it — and the
+// tilt parallax took that away: `TiltMonitor.SMOOTHING` and `RECENTRING` are time constants, and a
+// lean settles back to level over about ten seconds after the hand stops. They are spent differently
+// enough to be worth the distinction this file draws — a time constant filtering an input is not a
+// duration something plays *for* — but "the one place" would be false without the qualifier above.
+//
+// Those two constants are deliberately not tokens here. `:client:tilt:domain` is pure Kotlin with no
+// Compose in it, and reaching this object would mean giving a domain module a Compose dependency to
+// fetch two numbers it is the only reader of. The dependency direction decides it, not the argument.
+// See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.5.0.
 object OltreMotion {
 
     // The stock roll on the rail, the dial and bar fills, and the energy meter's fill. One number

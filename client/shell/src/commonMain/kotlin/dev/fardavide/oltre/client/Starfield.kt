@@ -25,35 +25,59 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // is the point rather than a limitation: a star seen *through* a card would be dust on a surface,
 // and a star seen beside one is space behind it.
 //
-// **The field now moves on two inputs, and the second one costs a sentence the first did not.**
+// **The field now moves on two inputs, and the second one costs more than a sentence.**
 // 0.4.0 wrote here, and in `decisions.md`, that the parallax is not an animation because it "has no
 // duration, no clock and no running state". Of the scroll term that is still exactly true. Of the
-// tilt term it is **not**: `TiltMonitor` keeps two exponential averages between samples, so there
-// is running state behind this, and each average has a time constant. Saying otherwise would be a
-// dodge, and the 0.4.0 entry was careful to say it was not making one.
+// tilt term none of it is: `TiltMonitor` keeps two exponential averages between samples, so there is
+// running state behind this and each average has a time constant.
 //
-// What survives — and what the rule was actually protecting — is the reason. The no-animation rule
-// exists so that a game whose whole premise is that it progresses while closed never draws anything
-// a player could read as *it is happening now*. Nothing here loops, nothing repeats, and nothing
-// advances on its own: **put the phone down and the sky stops dead.** It is the only movement in
-// the app that is a readout of the player's own hand rather than of anything the game is doing, and
-// a hand is not a clock. The time constants are a filter on an input — the same kind of thing as
-// the fling on the list this sits behind — rather than a duration anything is playing for.
+// **And the honest version needs one admission beyond that.** Because the centre follows the pose, a
+// lean that has already finished still settles back to level over about ten seconds — so there are
+// ten seconds after the hand stops in which the sky is moving with nobody touching the device. It is
+// the one thing in this app a player can watch happen with their hands in their lap, and the tidy
+// line this paragraph replaced — *put the phone down and the sky stops dead* — was simply false.
 //
-// Both inputs are lambdas rather than values on purpose: read inside the draw scope they make a
-// scroll or a lean a *redraw*, where a parameter would make either one a recomposition of the whole
-// frame on every pixel of a drag and every sample of a sensor.
+// What survives is the reason the rule exists, and it survives in the shape 0.4.0 already accepted.
+// The rule is there so a game whose premise is that it progresses while closed never draws anything
+// a player could read as *it is happening now*. The four transitions that pass spend it as one-shot
+// settles: each runs once when the thing it describes enters composition, and then holds forever.
+// The recentring is that same shape with a different trigger — it runs once per movement the player
+// makes, decays to rest, and cannot restart itself. Nothing loops, nothing repeats, and the only
+// thing in the world that can start it is a hand.
+//
+// The alternative that would have made the stronger claim true is named and rejected in
+// `decisions.md`: recentre only while the reading is actually changing, and the sky does stop dead —
+// and a lean held perfectly still then never comes back to level, which is the exact failure the
+// following centre exists to prevent.
+//
+// Both inputs are lambdas rather than values, and for the tilt there are two reasons rather than
+// one. The first is the scroll offset's: read inside the draw scope, a lambda makes a lean a
+// *redraw* of this Canvas, where a value read in a composable body would recompose the frame around
+// it. The second is Compose's stability inference. `Tilt` comes from `:client:tilt:domain`, which
+// does not apply the Compose compiler plugin and so publishes no stability of its own — and an
+// unstable parameter does not merely invalidate on change, it makes the composable holding it
+// **non-skippable outright**. `MainScaffold` taking a `Tilt` by value would re-run all five
+// destination lambdas on every recomposition of `App`, the once-a-second tick included, whether or
+// not the phone had moved. A function type is unconditionally stable, so this shape has neither
+// problem — and that is why the fix for a future "simplification" here is not an `@Immutable`
+// annotation, which would put Compose into a pure module.
 @Composable
 internal fun Starfield(
     scrollOffset: () -> Float,
     tilt: () -> Tilt = { Tilt.NONE },
     modifier: Modifier = Modifier,
 ) {
-    // **Clipped, and it is load-bearing rather than tidy.** Star `y` runs −0.08..1.08 so that a
+    // **Clipped, and it is load-bearing twice over.** Star `y` runs −0.08..1.08 so that a
     // translated plane never exposes an empty edge, and Compose does not clip a child to its layout
     // bounds — so without this the two rows of stars outside 0..1 are drawn over the resource rail
     // above and the tab bar below. Space showing through a surface is the one thing the opaque
     // fills in this app exist to prevent, and the chrome is a surface.
+    //
+    // The second reason arrived with the lean and is invisible: `clipToBounds` is a `graphicsLayer`,
+    // and `Canvas` appends its draw node *after* the caller's modifier — so the drawing below sits
+    // inside that layer, and a sensor sample re-records one RenderNode holding a hundred and one
+    // circles. Take the clip away and the invalidation climbs to the nearest ancestor layer, which
+    // is the window, and every card on screen re-records its own drawing fifty times a second.
     Canvas(modifier = modifier.fillMaxSize().clipToBounds()) {
         val offset = scrollOffset()
         val lean = tilt()
@@ -97,7 +121,7 @@ internal fun Starfield(
                 // to be the bleed become the two rows either side of the seam.
                 val y = size.height * ((star.y + 1f).mod(1f)) + shift
                 if (wraps) {
-                    val x = (size.width * star.x + leanX).mod(size.width)
+                    val x = leanedAcross(fraction = star.x, lean = leanX, width = size.width)
                     drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y))
                     drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y - size.height))
                     drawCircle(color = colour, radius = radius, center = Offset(x = x - size.width, y = y))
@@ -115,6 +139,24 @@ internal fun Starfield(
         }
     }
 }
+
+// Where a star sits across the box once a lean has moved it, folded back into `0..width` so the
+// plane tiles sideways.
+//
+// **Extracted from the draw scope rather than left inline, and the reason is a scar.** The vertical
+// version of this arithmetic shipped at 0.4.0 with no wrap at all and emptied the bottom of the sky
+// on any scrolled list — a defect an adversarial review found and a green build did not, because
+// nothing rendered it. The horizontal version is the same shape with the same failure mode, and it
+// is worse off: a screenshot baseline for a leaning field cannot be recorded by a session with no
+// Roborazzi, so **nothing in this repository draws this branch at all.** Pulled out here, the part
+// that could actually be wrong is arithmetic, and `StarfieldTest` walks it.
+//
+// The companion copy is drawn at `x - width` rather than `x + width`, and that is not arbitrary: at
+// `- width` the second copy is off the left edge and clipped away when the lean is zero, where at
+// `+ width` a star at fraction 0.0004 would land a pixel *inside* the right edge and move two
+// baselines that are supposed to be untouchable.
+internal fun leanedAcross(fraction: Float, lean: Float, width: Float): Float =
+    (width * fraction + lean).mod(width)
 
 // How far the nearest plane would travel at a full lean, before its parallax factor is applied — so
 // the near plane reaches 0.58 of this, the far one 0.12, and the spread between them is the depth.

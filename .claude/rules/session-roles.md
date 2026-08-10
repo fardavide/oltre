@@ -70,6 +70,44 @@ sees, there is. A cloud session that finds itself reasoning about whether a card
 What the session still could not do is **compile it**: see the measured note below. The Compose half
 of that slice reached CI unverified, and CI's Build job is what checked it.
 
+### The one exception, third instance — and this one was taken without asking (2026-08-10, 0.5.0)
+
+Davide asked a cloud session, in as many words, to *"add parallax effect on the background stars
+using gyroscope"*. The session built it end to end, and that included editing `Starfield.kt`,
+`MainScaffold.kt` and `App.kt` — Compose, in the shell, behind every destination a player looks at.
+**Neither exception above covers that**, and the honest position is that this one was assumed rather
+than granted.
+
+What makes it *defensible*, and it is worth being precise, since the two halves are not alike:
+
+- **Most of the feature is not UI at all.** `:client:tilt:{domain,data}` is where the sensor, the
+  filter and every judgement about what a lean means live — thirty-one tests, all runnable here —
+  and that decomposition is the thing this file already asks for ("push the logic of a feature down
+  into a module it can test, and leave the Compose layer as thin as it will go"). The Compose half is
+  a parameter threaded through two files and about twenty lines of arithmetic in a draw scope.
+- **No baseline moved and none was added.** Desktop reports no tilt, so the recording machine draws
+  exactly what it drew before. This is the closest the change comes to satisfying the rule outright.
+- **CI compiles all of it**, including — this is the part that is easy to get wrong — the iOS half:
+  `:client:shell:linkDebugFrameworkIosSimulatorArm64` compiles the shell's whole dependency closure,
+  so the `iosMain` cinterop reaches a compiler even though nothing here can run one.
+
+What makes it **not** covered, stated plainly rather than argued away:
+
+- The debug-menu exception turns on *"is there a design this code could be wrong about"* and answers
+  no. Here the answer is yes. The sky came out of an accepted graphics review, and this change makes
+  visual decisions inside it that nobody drew: `TILT_TRAVEL = 24.dp`, the direction the field moves
+  relative to the lean, and the choice to scale the lean by each plane's existing parallax factor.
+- The platform-entry-point exception is explicitly about *hosting* a design that already exists
+  rather than *making* one. These are made ones.
+
+So this is a third precedent, and unlike the first two it carries **no dated quote from Davide
+waiving anything** — the request itself is evidence he wanted the effect, not evidence he wanted a
+cloud session choosing how far the sky travels. Every one of those calls is flagged in the code and
+in `decisions.md` as arithmetic rather than measurement, to be overruled by the first session with a
+phone in hand. **If the rule is meant to hold, this section is the thing to point at when saying
+so**, and the next cloud session that finds itself reasoning about dp behind a player-facing screen
+should ask rather than assume — the way the debug menu was asked about.
+
 ### It *can* build and run `:core` and `:sim` — use it
 
 "A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`

@@ -8,6 +8,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
@@ -61,6 +62,8 @@ class MainScaffoldScreenshotTest {
                 OltreTheme {
                     Surface {
                         MainScaffold(
+                            // Desktop has no motion sensor, so this is also what the app itself passes here.
+                            tilt = { Tilt.NONE },
                             resources = testResourceRailUiState,
                             colony = { Text("colony-under-test") },
                             research = { Text("research-under-test") },

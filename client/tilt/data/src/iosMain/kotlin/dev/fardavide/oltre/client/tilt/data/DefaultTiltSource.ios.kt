@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.client.tilt.data
 
-import dev.fardavide.oltre.client.tilt.domain.Attitude
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.client.tilt.domain.TiltMonitor
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -48,19 +47,24 @@ private class IosTiltSource : TiltSource {
 
         var monitor = TiltMonitor()
         // The main queue, matching `IosShakeDetector`. The work per sample is two exponential
-        // averages and an `atan2`, which is nothing next to drawing the frame it feeds; a
+        // averages and a cross product, which is nothing next to drawing the frame it feeds; a
         // background queue would buy an unmeasurable amount of main-thread time and pay for it with
         // samples arriving out of order — a case `TiltMonitor` is written to survive, but not one
         // worth provoking on purpose.
         motion.startDeviceMotionUpdatesToQueue(NSOperationQueue.mainQueue) { data, _ ->
-            // Multiples of g, gravity already separated from whatever the hand is doing. iOS reports
-            // a phone lying face up as `z = -1` where Android reports `+9.81`; neither the sign nor
-            // the scale is corrected here, because `Attitude.fromGravity` is written so that neither
-            // matters. A correction applied in one of these two files and not the other is exactly
-            // how the sky ends up leaning the wrong way on one phone.
-            val attitude = data?.gravity?.useContents { Attitude.fromGravity(x = x, y = y, z = z) }
-            if (attitude != null) {
-                monitor = monitor.sample(attitude, at = Clock.System.now())
+            // Multiples of g, gravity already separated from whatever the hand is doing. iOS
+            // reports a phone lying face up as `z = -1` where Android reports `+9.81`, and neither
+            // the sign nor the scale is corrected here — see the note on the Android source, which
+            // does not correct them either. `TiltMonitor` normalises the vector and reads movement
+            // as a cross product, which is blind to both.
+            val reading = data?.gravity?.useContents { Triple(x, y, z) }
+            if (reading != null) {
+                monitor = monitor.sample(
+                    x = reading.first,
+                    y = reading.second,
+                    z = reading.third,
+                    at = Clock.System.now(),
+                )
                 trySend(monitor.tilt)
             }
         }

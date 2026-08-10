@@ -52,11 +52,15 @@ fun MainScaffold(
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
     // The second thing the field behind the destinations moves on, after the scroll above. A lambda
-    // and not a value, for the same reason the scroll offset is one: it is read inside the draw
-    // scope, so a lean redraws the sky rather than recomposing the frame around it. Defaulted, so
-    // the two behaviour tests and the screenshot that render this scaffold get a field that holds
-    // still without having to say so.
-    tilt: () -> Tilt = { Tilt.NONE },
+    // and not a value — `Starfield` argues both reasons, and the second one (Compose would infer a
+    // `Tilt` parameter unstable and stop skipping this whole scaffold) is the load-bearing one.
+    //
+    // **Required rather than defaulted, deliberately.** The obvious default is `{ Tilt.NONE }`, and
+    // it is also exactly the value that means *the feature is switched off* — so a composition root
+    // that forgot to pass one would compile, ship, and quietly do nothing, with no test able to tell
+    // the difference. `Starfield` keeps the default, where "no lean" is a real thing a screenshot
+    // wants to ask for; here it would only ever be a way of not noticing.
+    tilt: () -> Tilt,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
@@ -111,10 +115,12 @@ private fun ColumnScope.Destination(
         // surface.
         //
         // The three planes are a function of the scroll offset and of how the device is being held,
-        // and of nothing else — **nothing here advances on its own.** A frame that has been closed
-        // for two days opens drawn exactly as it was left, and a phone put down on a table stops the
-        // sky dead. `Starfield` argues the no-animation rule at length; the short version is that
-        // the second input is a readout of the player's hand rather than of the game's clock.
+        // and of nothing else — **nothing here starts on its own.** A frame that has been closed for
+        // two days opens drawn exactly as it was left. A lean does settle back to level over about
+        // ten seconds after the hand stops, which is real movement with the device still, and
+        // `Starfield` argues at length why that is the same one-shot settle the Sky pass's four
+        // transitions already are rather than a clock. What it is not, on any reading, is the game
+        // telling you that something is happening.
         //
         // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.

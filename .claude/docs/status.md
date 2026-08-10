@@ -206,19 +206,28 @@ Updated: 2026-08-10 (0.5.0)
   gyroscope reports angular rate, so a held pose reports nothing and reaching a pose means integrating
   a rate that drifts off the screen on a phone lying still; iOS's `CMAttitude` and Android's rotation
   vectors were rejected too, because their Euler pitch is at its gimbal singularity exactly where this
-  game is held — upright in portrait. New `client/tilt/{domain,data}`: `Attitude` and `TiltMonitor` are
-  pure and carry twenty tests, the sensor edge is `TYPE_GRAVITY` / `CMDeviceMotion.gravity`, and the
+  game is held — upright in portrait. New `client/tilt/{domain,data}`: `Gravity` and `TiltMonitor` are
+  pure and carry thirty tests, the sensor edge is `TYPE_GRAVITY` / `CMDeviceMotion.gravity`, and the
   filter is a band-pass whose slow half **is the centre** — so any holding posture becomes level and a
   lean that is merely held fades back over about ten seconds. **It spends the no-animation rule's
   letter and keeps its reason**, which 0.4.0 said this parallax had no need to: there is running state
-  and a time constant here now, and what survives is that nothing loops, nothing advances on its own,
-  and putting the phone down stops the sky dead. Reduce Motion switches it off on both platforms.
+  and a time constant here now, and — the admission that costs most — a lean settles back to level
+  over about ten seconds *after* the hand stops, so there is movement with the device sitting still.
+  What survives is that nothing loops, nothing repeats and nothing can start it but a hand, which is
+  the same one-shot settle the Sky pass's four transitions already are. Reduce Motion switches the
+  whole thing off on both platforms.
   **No baseline moved and none was added** — desktop has no sensor, so the tilt terms are
   multiplications by zero and the one line that would not have been (a horizontal wrap the star table
-  has no margin for) is guarded on the lean being exactly zero. The first draft shipped the classic
-  cross-platform sign bug — Android reports the reaction to gravity, iOS reports gravity, so the
-  vectors are exact negations — caught before merge and now held by two named entry points rather than
-  a minus sign. See `decisions.md`.
+  has no margin for) is guarded on the lean being exactly zero. **Two defects were caught before merge
+  and both are recorded rather than quietly fixed**: the first draft read a pose as two `asin`
+  elevations, which rectifies at exactly upright-in-portrait and inverts past it — the crease sitting
+  on the most common pose there is — and it had the classic cross-platform sign bug behind a test that
+  could not catch it. Reading a movement as the **cross product of two unit gravity vectors** answers
+  both at once: constant gain in every pose, and `(−a) × (−b) = a × b`, so the platforms need no
+  reconciliation. **This slice also spends `session-roles.md` without having been given leave to** —
+  a cloud session wrote player-facing Compose and invented `TILT_TRAVEL`, the direction of travel and
+  the per-plane scaling. Argued as a third exception instance there; it is Davide's to overrule. See
+  `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 

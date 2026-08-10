@@ -23,6 +23,13 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
   :client:notifications:data Books the platform's local alerts at the instants core computes.
                              No presentation layer either, for the same reason: the UI it has
                              is the operating system's.
+  :client:debug:{domain,data,presentation}  The shake-to-open debug menu. The first feature to
+                             hold all three layers: what a debug action decides is arithmetic,
+                             the accelerometer is a device service, the sheet is a screen.
+  :client:tilt:{domain,data} Which way the device is being held, for the parallax on the sky
+                             behind every destination. No presentation layer — what it feeds is
+                             a Canvas the shell already owns. `domain` depends on nothing at
+                             all, not even core (see the dependency rule below).
 server        JVM + Ktor. Compiling stub until multiplayer starts.
 iosApp/       Xcode wrapper around the client framework. An Info.plist, an asset catalogue and
               a few lines of Swift hosting MainViewController(). Not a Gradle module
@@ -37,7 +44,10 @@ Dependencies point inward to `core`; `core` depends on **nothing** but `kotlinx-
 (justified in at 0.0.6 — the save format is a rule client and server must agree on; see
 [decisions.md](decisions.md)). `client/*`, `server` and `sim` depend on `core`; feature modules
 depend on `core` + whichever `:client:design:*` layers they actually use; `:client:shell` composes
-the features. The module graph *is* the enforcement — a violating import fails to compile because
+the features. **`:client:tilt:domain` is the one module that depends on nothing at all** — which way
+a device is being held is geometry, and it has no more to do with a colony than it has with a
+screen. Read the rule as a ceiling rather than a floor: a module that needs less than `core` takes
+less. The module graph *is* the enforcement — a violating import fails to compile because
 the dependency simply is not declared.
 
 A feature declares the design layers it uses and no more, so its build file says what kind of UI it
