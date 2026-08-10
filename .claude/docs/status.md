@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.5.0)
+Updated: 2026-08-10 (0.4.2)
 
 ## Landed
 
@@ -201,7 +201,7 @@ Updated: 2026-08-10 (0.5.0)
   hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
   one new one; every galaxy frame is 210dp taller. See `decisions.md`.
 
-- **0.5.0 the sky leans with the phone** — Davide asked for "parallax on the background stars using
+- **0.4.2 the sky leans with the phone** — Davide asked for "parallax on the background stars using
   gyroscope"; it is built on **gravity** instead, and the substitution is the slice's main argument. A
   gyroscope reports angular rate, so a held pose reports nothing and reaching a pose means integrating
   a rate that drifts off the screen on a phone lying still; iOS's `CMAttitude` and Android's rotation

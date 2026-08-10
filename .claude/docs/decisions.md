@@ -1681,9 +1681,9 @@ The parallax is deliberately not counted as an animation and it is not a dodge: 
 no clock and no running state. It is a function of the scroll offset, exactly as the position of the
 list is.
 
-*Superseded in part at 0.5.0: the tilt parallax added running state and two time constants, and a
+*Superseded in part at 0.4.2: the tilt parallax added running state and two time constants, and a
 lean settles back to level for about ten seconds after the hand stops. The paragraph above is still
-true of the scroll term and of nothing else. See the 0.5.0 entry at the end of this file.*
+true of the scroll term and of nothing else. See the 0.4.2 entry at the end of this file.*
 
 ### The starfield stayed in `:client:shell`, against the handoff's own path
 
@@ -1827,7 +1827,7 @@ killed sees the new numbers with no roll and no sweep. The handoff calls for a "
 what the repo has is a launch. Wiring real lifecycle observation across three platforms is its own
 slice, and this one should not invent a heuristic for it.
 
-## The sky leans with the phone, and the parallax finally admits it has state (2026-08-10, 0.5.0)
+## The sky leans with the phone, and the parallax finally admits it has state (2026-08-10, 0.4.2)
 
 Davide asked for "parallax effect on the background stars using gyroscope". The effect is built and
 the field now moves on two inputs instead of one — but almost every decision below is about a word

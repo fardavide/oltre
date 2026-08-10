@@ -70,7 +70,7 @@ sees, there is. A cloud session that finds itself reasoning about whether a card
 What the session still could not do is **compile it**: see the measured note below. The Compose half
 of that slice reached CI unverified, and CI's Build job is what checked it.
 
-### The one exception, third instance — and this one was taken without asking (2026-08-10, 0.5.0)
+### The one exception, third instance — and this one was taken without asking (2026-08-10, 0.4.2)
 
 Davide asked a cloud session, in as many words, to *"add parallax effect on the background stars
 using gyroscope"*. The session built it end to end, and that included editing `Starfield.kt`,

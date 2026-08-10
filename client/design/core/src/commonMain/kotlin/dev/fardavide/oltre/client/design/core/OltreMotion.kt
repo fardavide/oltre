@@ -22,7 +22,7 @@ import androidx.compose.runtime.remember
 // now"; a spinner or a pulse would be a lie about the simulation. A value settling into place on
 // arrival is the opposite — it is the app showing what changed while you were gone.
 //
-// **There is a second place the rule is spent, and since 0.5.0 it is not this one.** The starfield
+// **There is a second place the rule is spent, and since 0.4.2 it is not this one.** The starfield
 // used to be the clean case — a pure function of the scroll offset with no duration in it — and the
 // tilt parallax took that away: `TiltMonitor.SMOOTHING` and `RECENTRING` are time constants, and a
 // lean settles back to level over about ten seconds after the hand stops. They are spent differently
@@ -32,7 +32,7 @@ import androidx.compose.runtime.remember
 // Those two constants are deliberately not tokens here. `:client:tilt:domain` is pure Kotlin with no
 // Compose in it, and reaching this object would mean giving a domain module a Compose dependency to
 // fetch two numbers it is the only reader of. The dependency direction decides it, not the argument.
-// See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.5.0.
+// See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.4.2.
 object OltreMotion {
 
     // The stock roll on the rail, the dial and bar fills, and the energy meter's fill. One number

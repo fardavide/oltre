@@ -158,7 +158,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.5.0 — 2026-08-10
+### 0.4.2 — 2026-08-10
 
 - **The sky behind every screen leans with the phone.** Tilt it and the three planes of stars slide
   against each other and against the cards in front of them, the near ones travelling further than
