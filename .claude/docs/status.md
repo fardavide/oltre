@@ -305,6 +305,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
+- **Two fleet runs to one world dispatched in the same millisecond collide into one alert**, and the
+  second is silently lost. Pinned by `NotificationIdentityTest` as a *known limit* rather than fixed:
+  the id is `run-<galaxy>-<system>-<slot>-<dispatchedAt>`, and a millisecond is its resolution. **Not
+  reachable today** — `startRun` has no screen, so nothing can dispatch twice in one millisecond —
+  which is precisely the shape `"fleet-arrival"` had before 0.3.0 made it live. It becomes reachable
+  the day the dispatch sheet lands (fleet slice 2), so that slice should either widen the id or
+  establish that two runs cannot leave in the same instant. The test fails loudly if somebody fixes
+  it, which is the reminder.
 - **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
   (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
   tuning."* Merging publishes, so the install is the next step rather than a pending task here. What
