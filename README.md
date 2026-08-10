@@ -158,6 +158,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.5.0 — 2026-08-10
+
+- **The sky behind every screen leans with the phone.** Tilt it and the three planes of stars slide
+  against each other and against the cards in front of them, the near ones travelling further than
+  the far ones — which is the whole of what makes a flat black background read as distance rather
+  than as an empty window. It is a small movement on purpose: less than an eighth of what one screen
+  of scrolling already moves the same field, and meant to be noticed on the third session rather
+  than the first.
+- **Put the phone down and it stops dead.** Nothing in the sky moves on its own, on a timer, or
+  while you are not touching the device — the field is a readout of how you are holding it and of
+  nothing else. Hold a lean and it eases back to level over a few seconds, so reading flat on a desk,
+  at an angle on a sofa or overhead in bed all behave the same way rather than leaving the sky
+  shoved permanently to one side.
+- **Off entirely if you have asked your phone for less movement.** The system's own reduce-motion
+  setting switches it off on iOS and on Android, and a device with no motion sensor simply holds
+  still.
+- Saves from 0.4.1 carry forward untouched.
+
 ### 0.4.1 — 2026-08-10
 
 - **Nothing you can see or do changes in this build.** The fleet that landed in 0.3.0 is still

@@ -105,6 +105,8 @@ dependencies {
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
     kover(projects.client.save.data)
+    kover(projects.client.tilt.data)
+    kover(projects.client.tilt.domain)
 }
 
 kover {
@@ -170,6 +172,17 @@ kover {
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeDetector*")
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeHost")
                 classes("dev.fardavide.oltre.client.debug.data.DefaultShakeDetector_androidKt")
+                // The gravity sensor, which is the same kind of thing a third time and listed at the
+                // same moment it was written rather than after a Coverage job failed on it. What the
+                // lean *means* — where the centre is, what the angles are, what a still hand should
+                // do — is `TiltMonitor` and `Attitude` in `:client:tilt:domain`, which are pure and
+                // covered by twenty tests. What is excluded here is only the wiring that registers a
+                // listener and reads a Context. The desktop `actual` is deliberately **not** in this
+                // list: it is three lines with no platform in them, `DefaultTiltSourceTest` covers
+                // it, and it is the promise every screenshot baseline in the repository rests on.
+                classes("dev.fardavide.oltre.client.tilt.data.AndroidTiltSource*")
+                classes("dev.fardavide.oltre.client.tilt.data.AndroidTiltHost")
+                classes("dev.fardavide.oltre.client.tilt.data.DefaultTiltSource_androidKt")
             }
         }
         total {

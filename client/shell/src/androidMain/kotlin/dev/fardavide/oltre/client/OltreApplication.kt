@@ -4,6 +4,7 @@ import android.app.Application
 import dev.fardavide.oltre.client.debug.data.AndroidShakeHost
 import dev.fardavide.oltre.client.notifications.data.AndroidNotificationHost
 import dev.fardavide.oltre.client.save.data.AndroidSaveLocation
+import dev.fardavide.oltre.client.tilt.data.AndroidTiltHost
 
 // Android is the one platform where the process can start without a screen: an alarm fires, the
 // system builds the process, and a BroadcastReceiver runs with no Activity anywhere. So the two
@@ -22,5 +23,10 @@ class OltreApplication : Application() {
         // same place and for the same reason, even though the debug gesture — unlike the other two
         // — only ever matters while there is an Activity on screen.
         AndroidShakeHost.context = this
+        // And the fourth, for the same service: the sky behind every destination leans with the
+        // device, and reading which way is down needs the same `SensorManager` and so the same
+        // Context. Absent rather than required, exactly as the gesture above is — a background
+        // effect that cannot arm itself should leave the game running.
+        AndroidTiltHost.context = this
     }
 }

@@ -26,6 +26,9 @@ import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.client.tilt.data.TiltSource
+import dev.fardavide.oltre.client.tilt.data.defaultTiltSource
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartAdaptationResult
@@ -63,6 +66,9 @@ fun App(
     // A parameter rather than a call, so the desktop entry point can hand in its keyboard chord —
     // a laptop cannot be shaken, and desktop is the platform where the menu is most wanted.
     shakeDetector: ShakeDetector = remember { defaultShakeDetector() },
+    // The other device service, and a parameter for the same reason: a test or an entry point can
+    // hand in a different one, and desktop's `actual` reports a sky that never leans.
+    tiltSource: TiltSource = remember { defaultTiltSource() },
     modifier: Modifier = Modifier,
 ) {
     OltreTheme {
@@ -90,6 +96,25 @@ fun App(
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
+            }
+
+            // How the device is being held, for the starfield behind every destination.
+            //
+            // **`mutableStateOf` written here and read only inside a draw lambda**, which is the
+            // whole reason this is affordable at all. Compose invalidates by phase: a snapshot read
+            // that happens during composition schedules a recomposition, and one that happens
+            // during draw schedules only a redraw. This value is never read in a composable body —
+            // it is handed down as `{ tilt }` and unwrapped inside `Canvas`'s `DrawScope` — so a
+            // sensor sample repaints a hundred and one circles and touches nothing else. Read it in
+            // the body instead and every lean would recompose the whole destination, screen
+            // included, fifty times a second.
+            //
+            // Started once and collected for as long as the app is composed. `TiltSource` stops the
+            // sensor when collection ends, and the flow goes quiet by itself whenever the phone is
+            // still, which is most of the time.
+            var tilt by remember { mutableStateOf(Tilt.NONE) }
+            LaunchedEffect(tiltSource) {
+                tiltSource.tilts().collect { tilt = it }
             }
 
             LaunchedEffect(Unit) {
@@ -182,6 +207,7 @@ fun App(
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScaffold(
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
+                        tilt = { tilt },
                         colony = { scroll ->
                             val finishedFacility = (finishedWhileAway as? AwayCompletion.Facility)?.building
                             // Consumed by the screen that shows it. Effects run after the frame that

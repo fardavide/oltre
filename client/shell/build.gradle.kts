@@ -60,6 +60,9 @@ kotlin {
             implementation(projects.client.notifications.data)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
+            // Only the `data` half is named, because it declares `api` on its own `domain` —
+            // `TiltSource` hands out a `Tilt`, so the type travels with the module that emits it.
+            implementation(projects.client.tilt.data)
 
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
