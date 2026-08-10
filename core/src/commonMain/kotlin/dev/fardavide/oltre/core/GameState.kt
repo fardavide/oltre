@@ -33,7 +33,14 @@ data class GameState(
     // `allowStructuredMapKeys`, which changes how the *whole* save encodes every map to buy an
     // unreadable one. The rule is checked in `init` instead.
     val surveys: List<SurveyJob>,
-    val returningFleet: ReturningFleet?,
+    // The **idle** pool, not the total: a dispatched hull leaves it and an arrival returns it, the
+    // same shape `resources` has. A run in flight carries its own manifest, so the fleet you own is
+    // `ships` plus every run's `ships` and nothing has to store the sum.
+    val ships: Ships,
+    // Runs in flight, in parallel, and deliberately with **no** one-per-target guard — unlike
+    // `surveys`. See `startRun`: a one-per-target rule would turn each probe into ~4.75 guaranteed
+    // dispatch slots and make surveying strictly efficient, which the galaxy sheet forbids.
+    val runs: List<FleetRun>,
     val eventLog: List<Event>,
 ) {
     init {
@@ -70,7 +77,12 @@ data class GameState(
             activeAdaptation = null,
             galaxy = GalaxyState.initial(galaxySeed),
             surveys = emptyList(),
-            returningFleet = null,
+            // One skiff, granted, on the same argument the 500 metal is granted and the mines start
+            // at level 1 — `BalanceCurveTest`'s own words, *"a new colony opens on a decision, not on
+            // a wait."* One and not two, so the second hull is the first fleet purchase and the
+            // player learns the shop exists by wanting something from it.
+            ships = Ships.of(ShipType.SKIFF, 1),
+            runs = emptyList(),
             eventLog = emptyList(),
         )
     }

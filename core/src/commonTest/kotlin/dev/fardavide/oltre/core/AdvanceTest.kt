@@ -162,11 +162,15 @@ class AdvanceTest {
             .started(BuildingType.SOLAR_PLANT, at = t0)
             .researching(Technology.EXTRACTION, at = t0)
             .copy(
-                returningFleet = ReturningFleet(
-                    ships = mapOf(ShipType.CARGO to 8),
-                    cargo = Resources.of(metal = 400, crystal = 120),
-                    origin = Coordinates(galaxy = 2, system = 117, position = 9),
-                    arrivesAt = t0 + 3.hours,
+                runs = listOf(
+                    FleetRun(
+                        target = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+                        ships = Ships.of(ShipType.SKIFF, 8),
+                        gathering = ResourceKind.METAL,
+                        cargo = Resources.of(metal = 400, crystal = 120),
+                        dispatchedAt = t0,
+                        returnsAt = t0 + 3.hours,
+                    ),
                 ),
             )
         val oneShot = advance(busy, from = t0, to = t2)

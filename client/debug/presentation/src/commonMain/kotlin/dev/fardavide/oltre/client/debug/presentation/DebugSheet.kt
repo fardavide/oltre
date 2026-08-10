@@ -327,5 +327,5 @@ private fun FutureEvent.describe(): String = when (this) {
     is FutureEvent.ResearchCompletes -> "${technology.name} → ${toLevel.value}"
     is FutureEvent.AdaptationCompletes -> "${technology.name} → ${toLevel.value}"
     is FutureEvent.SurveyLands -> "PROBE → ${target.galaxy}:${target.system}"
-    is FutureEvent.FleetArrives -> "FLEET RETURNS"
+    is FutureEvent.FleetReturns -> "FLEET RETURNS"
 }

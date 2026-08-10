@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/surfaces.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/layout.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/styles.css">
+  <script src="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/_ds_bundle.js"></script>
+  <style>
+    html, body { margin: 0; padding: 0; background: #05070D; }
+    a { color: #4C8DFF; text-decoration: none; border-bottom: 1px solid rgba(76,141,255,.35); }
+    a:hover { color: #E9EDF5; border-bottom-color: rgba(233,237,245,.35); }
+  </style>
+</helmet>
+
+<section style="width:2640px;box-sizing:border-box;padding:56px 56px 96px;background:var(--bg-window);font-family:var(--font-mono);color:var(--text-body);display:flex;flex-direction:column;gap:52px">
+
+  <div style="display:flex;flex-direction:column;gap:var(--space-7);max-width:700px">
+    <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Oltre 0.4 · slices 6 + 7 · proposal · turn 1</div>
+    <div style="font-size:26px;font-weight:var(--weight-bold);line-height:1.2">Fleets — you cannot live there, but you can send a ship</div>
+    <div style="font-size:12.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Three surfaces. The world row is the hard one, so it comes first and comes in three treatments — <a href="#1a">1a</a>, <a href="#1b">1b</a>, <a href="#1c">1c</a> — which differ on one axis: whether the settler's reading outranks the fleet's, the fleet's outranks the settler's, or neither is ranked at all. <span style="color:var(--status-ok)"><a href="#1b">1b</a> is accepted, 2026-08-10</span>; 1a and 1c are kept below as the argument, not as live options. Everything below is a ruling, argued in the <a href="Fleet Decision Sheet.dc.html">Fleet Decision Sheet</a>.</div>
+    <div style="font-size:var(--text-meta);line-height:1.7;color:var(--text-faint);text-wrap:pretty">Frames are seed 20260807, home 3:165, DIM, worlds in slots 7, 8, 10 and 13. Tolerance bands are §8's revised set — −30…+45 °C, 0.65…1.40 g, 0.5…2.6 atm. Every cargo figure is computed from §4's own formulas at EXTRACTION_PER_HOUR 40 and the frontier bands this sheet recommends; the hold is carried in fine units and the whole expression floors once at the end, and the arithmetic is on the decision sheet. Traits for slots 8, 10 and 13 are model-consistent placeholders. Frames exclude the status bar and home indicator.</div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:var(--space-9);max-width:700px">
+    <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">One — the world row</div>
+    <div style="font-size:15px;font-weight:var(--weight-semibold);line-height:1.4">Two readings that point in opposite directions</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">A row that says BLOCKED and OPPORTUNITY in one breath reads as the app arguing with itself, and the reason is structural: both are set as <em style="font-style:normal;color:var(--text-body)">verdicts</em>, in the same voice, competing for the same slot. All three treatments below fix that the same way — one badge-shaped state per row, never two — and differ only on which reading gets it.</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">One change is shared by all three and is not optional: <span style="color:var(--text-body)">danger is split where it is generated.</span> The distance band is astronomy, it is the same for all fifteen slots of a system, and it is known before anything is surveyed — so it is stated once, under the system header. Hazards are per-world and need a survey, so they sit on the row as words that carry their own arithmetic. No row ever prints a sum whose two halves have different scopes and different epistemic standing.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:56px;align-items:flex-start">
+
+    <div id="1a" style="display:flex;flex-direction:column;gap:20px;width:393px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;align-items:center;gap:var(--space-7)">
+          <span style="font-size:var(--text-badge);font-weight:var(--weight-bold);letter-spacing:var(--track-caption);color:var(--text-body);background:var(--fill-badge);border-radius:var(--radius-badge);padding:3px 7px">1a</span>
+          <span style="font-size:15px;font-weight:var(--weight-semibold)">Stacked — the settler still leads</span>
+          <span style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">Not taken</span>
+        </div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The shipped row, untouched, with a hairline under it and the fleet's reading below. The brief's literal version. It is the cheapest to build and the easiest to defend, and it is the one that most looks like the app contradicting itself: the eye reads BLOCKED, then a rule, then a haul, and has to construct the "but" itself.</div>
+      </div>
+      <div data-screen-label="1a galaxy" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM · 4 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+            <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here · 20–26m out and back</div>
+            <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+              <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:7]" verdict="home" orbit="temperate" hint-size="100%,44px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:8]" verdict="blocked" orbit="temperate" metal="1.24" crystal="0.74" hazards="no hazards" haul="a 3h run brings 132 metal" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.79 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 4&quot;}]" hint-size="100%,124px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:10]" verdict="blocked" orbit="cold" metal="1.21" crystal="0.71" hazards="seismic instability · +1 danger" haul="a 3h run brings 114 metal" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−78 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 4&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.71 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 3&quot;}]" hint-size="100%,148px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms · +1 danger" haul="a 3h run brings 52 crystal" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,172px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div id="1b" style="display:flex;flex-direction:column;gap:20px;width:393px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;align-items:center;gap:var(--space-7)">
+          <span style="font-size:var(--text-badge);font-weight:var(--weight-bold);letter-spacing:var(--track-caption);color:var(--bg-window);background:var(--status-active);border-radius:var(--radius-badge);padding:3px 7px">1b</span>
+          <span style="font-size:15px;font-weight:var(--weight-semibold)">Led — the row leads with what you can do today</span>
+          <span style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--status-ok)">Accepted</span>
+        </div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">One rule generates all six verdicts: the lead line carries whatever the row can offer you now. Blocked and Barren lead with richness, because their verdict is not an offer; Home, Occupied, Settleable and Unsurveyed lead with the verdict, because it is. The blockage is not deleted — it drops to the line below and becomes a clause rather than a badge, and the technology stays accent-coloured and stays a tap target into Research.</div>
+      </div>
+      <div data-screen-label="1b galaxy" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM · 4 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+            <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here · 20–26m out and back</div>
+            <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:7]" verdict="home" orbit="temperate" note="−16 °C · 0.96 g · 0.77 atm · 142 fields" hint-size="100%,64px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:8]" verdict="blocked" orbit="temperate" metal="1.24" crystal="0.74" hazards="no hazards" reach="20m out and back" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.79 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 4&quot;}]" hint-size="100%,104px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:10]" verdict="blocked" orbit="cold" metal="1.21" crystal="0.71" hazards="seismic instability · +1 danger" reach="22m out and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−78 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 4&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.71 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 3&quot;}]" hint-size="100%,128px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms · +1 danger" reach="26m out and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,152px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div id="1c" style="display:flex;flex-direction:column;gap:20px;width:393px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="display:flex;align-items:center;gap:var(--space-7)">
+          <span style="font-size:var(--text-badge);font-weight:var(--weight-bold);letter-spacing:var(--track-caption);color:var(--text-body);background:var(--fill-badge);border-radius:var(--radius-badge);padding:3px 7px">1c</span>
+          <span style="font-size:15px;font-weight:var(--weight-semibold)">Gutter — neither is ranked</span>
+          <span style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">Not taken</span>
+        </div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">A hairline down the row: the settler's question on the left, the fleet's on the right. It resolves the contradiction most explicitly, because two claims in two columns cannot be read as one sentence arguing with itself. It costs 108dp of every row to a column that is empty on the 98% of rows that are unsurveyed — and at 320dp it has to collapse back to stacked, so the idiom does not survive the second baselined width.</div>
+      </div>
+      <div data-screen-label="1c galaxy" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM · 4 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+            <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here · 20–26m out and back</div>
+            <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+              <dc-import name="WorldRowV3" treatment="gutter" coord="[3:165:7]" verdict="home" orbit="temperate" metal="1.00" crystal="0.73" hazards="home" reach="—" hint-size="100%,96px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="gutter" coord="[3:165:8]" verdict="blocked" orbit="temperate" metal="1.24" crystal="0.74" hazards="no hazards" reach="20m there and back" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.79 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 4&quot;}]" hint-size="100%,112px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="gutter" coord="[3:165:10]" verdict="blocked" orbit="cold" metal="1.21" crystal="0.71" hazards="seismic instability" reach="22m there and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−78 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 4&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.71 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 3&quot;}]" hint-size="100%,128px"></dc-import>
+              <dc-import name="WorldRowV3" treatment="gutter" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms" reach="26m there and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,152px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;width:320px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">320dp · the three-axis world</div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The row the brief names as already wrapping at 393dp, drawn at the narrower baseline in all three treatments. 1a adds two lines to a row that was already the tallest on the screen. 1c cannot hold two columns and falls back to 1a. 1b is the only one that does not grow, because it moved a line rather than adding one.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-9);padding:var(--space-10);box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;width:320px">
+        <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">1a stacked</div>
+        <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms · +1 danger" haul="a 3h run brings 52 crystal" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,200px"></dc-import>
+        <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--status-ok)">1b led</div>
+        <dc-import name="WorldRowV3" treatment="led" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms · +1 danger" reach="26m out and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,180px"></dc-import>
+        <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">1c gutter, collapsed</div>
+        <dc-import name="WorldRowV3" treatment="stacked" coord="[3:165:13]" verdict="blocked" orbit="cold" metal="1.17" crystal="1.13" hazards="ion storms" haul="26m there and back" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;−166 °C&quot;,&quot;band&quot;:&quot;−30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 10&quot;},{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.60 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 2&quot;},{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;3.18 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 1&quot;}]" hint-size="100%,200px"></dc-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:20px;width:393px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">1b · the other four verdicts</div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">A neighbouring system, one probe old. Unsurveyed keeps its badge and says nothing about hazards, because it knows nothing about them — the band above the list already told you the part that is astronomy. Settleable keeps its badge too: it is the rarest verdict in the game and the only one that is still an offer to a settler.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-9);padding:var(--space-10);box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;width:393px">
+        <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:166" detail="DIM · 5 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+        <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">100 units out · danger 1 from here · 40m out and back</div>
+        <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+          <dc-import name="WorldRowV3" treatment="led" coord="[3:166:2]" verdict="unsurveyed" orbit="hot" hint-size="100%,44px"></dc-import>
+          <dc-import name="WorldRowV3" treatment="led" coord="[3:166:6]" verdict="settleable" orbit="temperate" note="Yield 0.94 · metal 1.08 · crystal 0.91 · 128 fields" hint-size="100%,64px"></dc-import>
+          <dc-import name="WorldRowV3" treatment="led" coord="[3:166:9]" verdict="barren" orbit="temperate" metal="0.81" crystal="0.68" hazards="tidally locked · +1 danger" reach="40m out and back" blocks="[{&quot;axis&quot;:&quot;yield&quot;,&quot;reading&quot;:&quot;0.79&quot;,&quot;band&quot;:&quot;0.92&quot;,&quot;tech&quot;:&quot;&quot;}]" hint-size="100%,88px"></dc-import>
+          <dc-import name="WorldRowV3" treatment="led" coord="[3:166:11]" verdict="occupied" orbit="cold" note="Held by Sarmata since day 3" hint-size="100%,64px"></dc-import>
+          <dc-import name="WorldRowV3" treatment="led" coord="[3:166:14]" verdict="unsurveyed" orbit="cold" hint-size="100%,44px"></dc-import>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:var(--space-9);max-width:700px">
+    <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Two — the dispatch sheet</div>
+    <div style="font-size:15px;font-weight:var(--weight-semibold);line-height:1.4">Raised from a world row. Three controls, one figure.</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">Bring back, send, home in — in that order, because it is the order of decreasing permanence: what your colony is short of changes over days, how many hulls you have changes over hours, and how long you will be away changes every check-in. The figure sits under a rule, above the verb, and is the only thing on the sheet that moves when you touch a control. Below it, the three lines that explain it, and nothing else: legs, danger, frontier.</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The sheet has no cost line and no affordability state, and that is not an omission — §1 charges nothing per run. "Cannot afford" belongs to the Shipyard, and it is drawn there.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · the first run, hour one</div>
+      <div data-screen-label="dispatch first" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM · 4 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here · 20–26m out and back</div>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:8]" verdict="blocked" orbit="temperate" metal="1.24" crystal="0.74" hazards="no hazards" reach="20m out and back" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.79 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 4&quot;}]" hint-size="100%,104px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" coord="[3:165:8]" head="metal 1.24 · crystal 0.74 · no hazards" gather="metal" metal-richness="1.24" crystal-richness="0.74" ships="1 skiff" ships-max="1" pool="of 1 idle" windows="[{&quot;label&quot;:&quot;1h&quot;},{&quot;label&quot;:&quot;3h&quot;,&quot;sel&quot;:true},{&quot;label&quot;:&quot;6h&quot;},{&quot;label&quot;:&quot;12h&quot;},{&quot;label&quot;:&quot;24h&quot;}]" figure="132 metal" legs="out 10m · on station 2h 40m · home 10m" danger="danger 0 · no hazards, your own system · nothing taken" hint-size="100%,520px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · three skiffs, twenty systems out</div>
+      <div data-screen-label="dispatch frontier" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:185" detail="STANDARD · 6 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">195 units out · danger 1 from here · 58m out and back</div>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:185:4]" verdict="blocked" orbit="hot" metal="0.93" crystal="1.45" hazards="radiation belt · +1 danger" reach="58m out and back" blocks="[{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;5.10 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 3&quot;}]" hint-size="100%,104px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" coord="[3:185:4]" head="crystal 1.45 · metal 0.93 · radiation belt" gather="crystal" metal-richness="0.93" crystal-richness="1.45" ships="3 skiffs" ships-max="4" pool="of 4 idle" windows="[{&quot;label&quot;:&quot;3h&quot;},{&quot;label&quot;:&quot;6h&quot;},{&quot;label&quot;:&quot;12h&quot;,&quot;sel&quot;:true},{&quot;label&quot;:&quot;24h&quot;}]" ladder-note="A 1h window is not offered: 58m out and back leaves nothing on the surface." figure="882 crystal" per-ship="294 each" legs="out 29m · on station 11h 02m · home 29m" danger="danger 2 · one hazard, 195 units out · 20% of the hold" frontier="frontier ×1.15 · beyond your own system" hint-size="100%,560px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · the ladder narrows to one rung</div>
+      <div data-screen-label="dispatch narrow" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="1" coord="1:042" detail="BRIGHT · 3 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Another galaxy · danger 3 from here · 18h 20m out and back</div>
+              <dc-import name="WorldRowV3" treatment="led" coord="[1:042:9]" verdict="blocked" orbit="cold" metal="1.31" crystal="1.52" hazards="ion storms, radiation belt · +2 danger" reach="18h 20m out and back" blocks="[{&quot;axis&quot;:&quot;pressure&quot;,&quot;reading&quot;:&quot;5.52 atm&quot;,&quot;band&quot;:&quot;2.60 atm&quot;,&quot;tech&quot;:&quot;Atmospheric Adaptation 4&quot;}]" hint-size="100%,104px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" coord="[1:042:9]" head="crystal 1.52 · metal 1.31 · two hazards" gather="crystal" metal-richness="1.31" crystal-richness="1.52" ships="4 skiffs" ships-max="4" pool="of 4 idle" windows="[{&quot;label&quot;:&quot;24h&quot;,&quot;sel&quot;:true}]" ladder-note="18h 20m out and back. No shorter window leaves 20 minutes on the surface." figure="792 crystal" per-ship="198 each" legs="out 9h 10m · on station 5h 40m · home 9h 10m" danger="danger 5 · two hazards, another galaxy · half the hold" frontier="frontier ×2.30 · another galaxy" hint-size="100%,540px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · nothing surveyed yet</div>
+      <div data-screen-label="dispatch unsurveyed" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:166" detail="DIM · 5 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">100 units out · danger 1 from here · 40m out and back</div>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:166:2]" verdict="unsurveyed" orbit="hot" hint-size="100%,44px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" mode="refuse" coord="[3:166:2]" head="charted · unsurveyed" refuse-title="A hold cannot be priced from a world nobody has looked at." refuse-note="Richness and hazards need a survey. A probe surveys all fifteen slots at once, and this system holds five worlds. 150 metal · flight 39m." refuse-action="Dispatch probe" refuse-variant="primary" hint-size="100%,300px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · no idle ships</div>
+      <div data-screen-label="dispatch noships" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM · 4 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here · 20–26m out and back</div>
+              <dc-import name="WorldRowV3" treatment="led" coord="[3:165:8]" verdict="blocked" orbit="temperate" metal="1.24" crystal="0.74" hazards="no hazards" reach="20m out and back" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.79 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 4&quot;}]" hint-size="100%,104px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" mode="refuse" coord="[3:165:8]" head="metal 1.24 · crystal 0.74 · no hazards" refuse-title="Every skiff is away." refuse-note="Three runs are out. [3:165:13] is inbound with 52 crystal, then [3:185:4] with 882 crystal at 19:04, then [3:165:8] with 132 metal at 22:41." refuse-action="in 00:08:41" hint-size="100%,300px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:320px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">320dp · the first run</div>
+      <div data-screen-label="dispatch 320" style="width:320px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="425" metal-rate="+90/h" crystal="168" crystal-rate="+36/h" deuterium="33" deuterium-rate="+15/h" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="3" coord="3:165" detail="DIM" scope="250" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Your own system · danger 0 from here</div>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" coord="[3:165:8]" head="metal 1.24 · no hazards" gather="metal" metal-richness="1.24" crystal-richness="0.74" ships="1 skiff" ships-max="1" pool="of 1 idle" windows="[{&quot;label&quot;:&quot;1h&quot;},{&quot;label&quot;:&quot;3h&quot;,&quot;sel&quot;:true},{&quot;label&quot;:&quot;6h&quot;},{&quot;label&quot;:&quot;12h&quot;},{&quot;label&quot;:&quot;24h&quot;}]" figure="132 metal" legs="out 10m · station 2h 40m · home 10m" danger="danger 0 · nothing taken" hint-size="100%,520px"></dc-import></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · no window is long enough</div>
+      <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty;width:393px">This state is unreachable with skiffs from a home in galaxy 2 or 3 — the longest possible trip is two galaxy hops, 18h 20m out and back, which the 24h rung still covers. It is drawn as it first occurs: a hauler, at half a skiff's speed, in slice 4.</div>
+      <div data-screen-label="dispatch nowindow" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;position:relative">
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column"><dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10);opacity:.30"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyNav" variant="system" galaxy="1" coord="1:042" detail="BRIGHT · 3 worlds" scope="250 systems" hint-size="100%,84px"></dc-import>
+              <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Another galaxy · danger 3 from here · 18h 20m out and back</div>
+            </div>
+          </div>
+        </div>
+        <div style="position:relative;width:100%"><dc-import name="DispatchSheet" mode="refuse" coord="[1:042:9]" head="crystal 1.52 · metal 1.31 · two hazards" refuse-title="No window is long enough for a hauler." refuse-note="A hauler is 36h 40m out and back and the longest window is 24h. Skiffs reach it in 18h 20m and can take the 24h window." refuse-action="Send skiffs instead" hint-size="100%,300px"></dc-import></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:var(--space-9);max-width:700px">
+    <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Three — Fleets, Shipyard, and the strip</div>
+    <div style="font-size:15px;font-weight:var(--weight-semibold);line-height:1.4">Two tabs stop saying what will be there</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">Fleets is a list of runs and a ledger of what has landed. Shipyard is a price list, the pool, and what is away. The Colony strip stays, and it shows the next return only — a strip that grew with the fleet would push a 106dp facility row off a 852dp phone, and the full list already has a tab.</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:40px;align-items:flex-start">
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · Fleets, three runs out</div>
+      <div data-screen-label="fleets" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" trailing="5 of 6 away" hint-size="100%,24px">In flight</x-import>
+            <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+              <dc-import name="RunCard" coord="[3:165:13]" manifest="1 skiff" gathering="crystal" cargo="52 crystal" phase="inbound" countdown="00:08:41" percent="97" out-at="7" in-at="93" legs="out 13m · station 5h 34m · home 13m" lands="home 14:22" hint-size="100%,92px"></dc-import>
+              <dc-import name="RunCard" coord="[3:185:4]" manifest="3 skiffs" gathering="crystal" cargo="882 crystal" phase="station" countdown="08:12:44" percent="32" out-at="4" in-at="96" legs="out 29m · station 11h 02m · home 29m" lands="home 19:04" hint-size="100%,92px"></dc-import>
+              <dc-import name="RunCard" coord="[3:165:8]" manifest="1 skiff" gathering="metal" cargo="132 metal" phase="outbound" countdown="02:41:07" percent="4" out-at="6" in-at="94" legs="out 10m · station 2h 40m · home 10m" lands="home 22:41" hint-size="100%,92px"></dc-import>
+            </div>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" hint-size="100%,24px">Landed</x-import>
+            <div style="display:flex;flex-direction:column;gap:var(--space-4);font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">
+              <div style="display:flex;gap:var(--space-7)"><span style="flex:0 0 62px;color:var(--text-faint)">11:04</span><span style="flex:1;min-width:0">[3:185:4]</span><span style="color:var(--resource-crystal)">+588 crystal</span></div>
+              <div style="display:flex;gap:var(--space-7)"><span style="flex:0 0 62px;color:var(--text-faint)">07:22</span><span style="flex:1;min-width:0">[3:165:8]</span><span style="color:var(--resource-metal)">+281 metal</span></div>
+              <div style="display:flex;gap:var(--space-7)"><span style="flex:0 0 62px;color:var(--text-faint)">yest.</span><span style="flex:1;min-width:0">[3:165:13]</span><span style="color:var(--resource-crystal)">+113 crystal</span></div>
+              <div style="display:flex;gap:var(--space-7)"><span style="flex:0 0 62px;color:var(--text-faint)">yest.</span><span style="flex:1;min-width:0">[3:165:8]</span><span style="color:var(--resource-metal)">+132 metal</span></div>
+            </div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="fleets" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:320px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">320dp · Fleets</div>
+      <div data-screen-label="fleets 320" style="width:320px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;display:flex;flex-direction:column;gap:var(--space-9)">
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" trailing="5 of 6" hint-size="100%,24px">In flight</x-import>
+            <div style="display:flex;flex-direction:column;gap:var(--gap-card)">
+              <dc-import name="RunCard" coord="[3:165:13]" manifest="1 skiff" gathering="crystal" cargo="52 crystal" phase="inbound" countdown="00:08:41" percent="97" out-at="7" in-at="93" legs="13m · 5h 34m · 13m" lands="14:22" hint-size="100%,92px"></dc-import>
+              <dc-import name="RunCard" coord="[3:185:4]" manifest="3 skiffs" gathering="crystal" cargo="882 crystal" phase="station" countdown="08:12:44" percent="32" out-at="4" in-at="96" legs="29m · 11h 02m · 29m" lands="19:04" hint-size="100%,92px"></dc-import>
+              <dc-import name="RunCard" coord="[3:165:8]" manifest="1 skiff" gathering="metal" cargo="132 metal" phase="outbound" countdown="02:41:07" percent="4" out-at="6" in-at="94" legs="10m · 2h 40m · 10m" lands="22:41" hint-size="100%,92px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="fleets" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · Shipyard, one hull (slice 3)</div>
+      <div data-screen-label="shipyard one" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="3,180" metal-rate="+272/h" crystal="999" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" trailing="6 hulls" hint-size="100%,24px">Hulls</x-import>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Card" hint-size="100%,112px" style="width:100%">
+              <div style="display:flex;flex-direction:column;gap:var(--space-5);font-family:var(--font-mono)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-5)">
+                  <span style="font-size:var(--text-name);color:var(--text-body)">Skiff</span>
+                  <span style="flex:1;min-width:0;text-align:right;font-size:var(--text-meta);color:var(--text-faint);font-variant-numeric:tabular-nums">6 owned · 1 idle · 5 away</span>
+                </div>
+                <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">One berth of hold · 10m + 1m per 10 units, one way</div>
+                <div style="display:flex;align-items:center;gap:var(--space-7)">
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="metal" amount="910" hint-size="auto,18px"></x-import>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="crystal" amount="225" hint-size="auto,18px"></x-import>
+                  <span style="flex:1"></span>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Button" hint-size="auto,32px">Build</x-import>
+                </div>
+              </div>
+            </x-import>
+            <div style="font-size:var(--text-meta);line-height:1.65;color:var(--text-faint);text-wrap:pretty">The seventh skiff costs half again as much as the sixth. A Metal Mine level returns more per unit spent at every depth — the fleet is bought because it pays in the resource you choose, not because it pays better.</div>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" hint-size="100%,24px">Not yet built</x-import>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Card" locked="{{ true }}" hint-size="100%,64px" style="width:100%">
+              <div style="display:flex;flex-direction:column;gap:var(--space-4);font-family:var(--font-mono)">
+                <div style="font-size:var(--text-name);color:var(--text-body)">Hauler</div>
+                <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted)">Four berths of hold, at half a skiff's speed.</div>
+              </div>
+            </x-import>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="shipyard" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · Shipyard, two hulls (slice 4), one unaffordable</div>
+      <div data-screen-label="shipyard two" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+        <dc-import name="ResourceRailV2" metal="612" metal-rate="+272/h" crystal="184" crystal-rate="+118/h" deuterium="214" deuterium-rate="+41/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+        <div style="flex:1;min-height:0;position:relative;display:flex;justify-content:center;padding:var(--space-10)"><dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+          <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" trailing="7 hulls" hint-size="100%,24px">Hulls</x-import>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Card" hint-size="100%,112px" style="width:100%">
+              <div style="display:flex;flex-direction:column;gap:var(--space-5);font-family:var(--font-mono)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-5)">
+                  <span style="font-size:var(--text-name);color:var(--text-body)">Skiff</span>
+                  <span style="flex:1;min-width:0;text-align:right;font-size:var(--text-meta);color:var(--text-faint);font-variant-numeric:tabular-nums">6 owned · 1 idle · 5 away</span>
+                </div>
+                <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">One berth of hold · 10m + 1m per 10 units, one way</div>
+                <div style="display:flex;align-items:center;gap:var(--space-7)">
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="metal" amount="910" short="{{ true }}" hint-size="auto,18px"></x-import>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="crystal" amount="225" hint-size="auto,18px"></x-import>
+                  <span style="flex:1"></span>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Button" variant="ghost" hint-size="auto,32px">in 1h 06m</x-import>
+                </div>
+              </div>
+            </x-import>
+            <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Card" hint-size="100%,112px" style="width:100%">
+              <div style="display:flex;flex-direction:column;gap:var(--space-5);font-family:var(--font-mono)">
+                <div style="display:flex;align-items:baseline;gap:var(--space-5)">
+                  <span style="font-size:var(--text-name);color:var(--text-body)">Hauler</span>
+                  <span style="flex:1;min-width:0;text-align:right;font-size:var(--text-meta);color:var(--text-faint);font-variant-numeric:tabular-nums">1 owned · 1 idle</span>
+                </div>
+                <div style="font-size:var(--text-meta);line-height:1.5;color:var(--text-muted);font-variant-numeric:tabular-nums">Four berths of hold · 20m + 1m per 5 units, one way</div>
+                <div style="display:flex;align-items:center;gap:var(--space-7)">
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="metal" amount="360" hint-size="auto,18px"></x-import>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.CostChip" kind="crystal" amount="90" hint-size="auto,18px"></x-import>
+                  <span style="flex:1"></span>
+                  <x-import component-from-global-scope="OltreDesignSystem_22b3a6.Button" hint-size="auto,32px">Build</x-import>
+                </div>
+              </div>
+            </x-import>
+            <div style="font-size:var(--text-meta);line-height:1.65;color:var(--text-faint);text-wrap:pretty">A hauler carries four holds at half the speed, so it wins on the near rocks and on the long stays and loses everywhere else. In your own system it beats a skiff past a 49m window; twenty systems out, past 1h 33m; across your own galaxy, never inside a day.</div>
+          </div>
+        </div>
+        <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="shipyard" hint-size="100%,52px"></x-import>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+      <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · the Colony strip, finally fed</div>
+      <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty;width:393px">Shipped at 0.0.6 and never fed by anything real. It stays, unchanged in every dimension, and gains one trailing clause when more than one run is out. It names the next return only; the count is a door to Fleets, not a summary.</div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-11);padding:var(--space-10);box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;width:393px">
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">One run out</div>
+          <div style="width:100%;box-sizing:border-box;border:var(--border-fleet);background:#141111;border-radius:var(--radius-card);padding:11px var(--space-9);display:flex;align-items:center;gap:var(--space-8)">
+            <div style="flex:0 0 auto;width:7px;height:7px;border-radius:999px;background:var(--status-warn)"></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-1)">
+              <div style="font-size:var(--text-row);font-weight:var(--weight-semibold);color:var(--text-body);font-variant-numeric:tabular-nums">Inbound from [3:165:13]</div>
+              <div style="font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums">1 skiff · 52 crystal</div>
+            </div>
+            <div style="flex:0 0 auto;font-size:var(--text-countdown);font-weight:var(--weight-semibold);color:var(--status-warn);font-variant-numeric:tabular-nums">00:08:41</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">Three runs out</div>
+          <div style="width:100%;box-sizing:border-box;border:var(--border-fleet);background:#141111;border-radius:var(--radius-card);padding:11px var(--space-9);display:flex;align-items:center;gap:var(--space-8)">
+            <div style="flex:0 0 auto;width:7px;height:7px;border-radius:999px;background:var(--status-warn)"></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-1)">
+              <div style="font-size:var(--text-row);font-weight:var(--weight-semibold);color:var(--text-body);font-variant-numeric:tabular-nums">Inbound from [3:165:13]</div>
+              <div style="font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums">1 skiff · 52 crystal · 2 more away</div>
+            </div>
+            <div style="flex:0 0 auto;font-size:var(--text-countdown);font-weight:var(--weight-semibold);color:var(--status-warn);font-variant-numeric:tabular-nums">00:08:41</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-4)">
+          <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">Outbound — the strip is not only for returns</div>
+          <div style="width:100%;box-sizing:border-box;border:var(--border-fleet);background:#141111;border-radius:var(--radius-card);padding:11px var(--space-9);display:flex;align-items:center;gap:var(--space-8)">
+            <div style="flex:0 0 auto;width:7px;height:7px;border-radius:999px;background:var(--status-warn)"></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:var(--space-1)">
+              <div style="font-size:var(--text-row);font-weight:var(--weight-semibold);color:var(--text-body);font-variant-numeric:tabular-nums">On station at [3:185:4]</div>
+              <div style="font-size:11px;color:var(--text-muted);font-variant-numeric:tabular-nums">3 skiffs · 882 crystal · home 19:04</div>
+            </div>
+            <div style="flex:0 0 auto;font-size:var(--text-countdown);font-weight:var(--weight-semibold);color:var(--status-warn);font-variant-numeric:tabular-nums">08:12:44</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -3,34 +3,115 @@ package dev.fardavide.oltre.core
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
 
-// PLACEHOLDER taxonomy (Davide, 2026-08-06): OGame-lineage names standing in until the real
-// v1 ship set is decided on Notion. Rename here when it is — but note these constant names are
-// now on-disk identifiers in every save, so a rename is a save-format change too.
+// Four constants, matching Notion's v1 count, and **each one exists because a slice needs it** —
+// Davide's call, 2026-08-10, choosing "four fixed types now, hulls + modules later". Two are
+// buildable across this arc and two are reserved for the slice that gives them a job:
+//
+// | Hull      | What it is for                                        | Ships in  |
+// |-----------|-------------------------------------------------------|-----------|
+// | SKIFF     | going far and going soon. One berth of hold, full speed| this one  |
+// | HAULER    | the near rocks and the long stays. Four berths, half   | slice 4   |
+// | ESCORT    | surviving what a hauler cannot — a combat model        | slice #8  |
+// | SETTLER   | carrying a colony                                     | slice #10 |
+//
+// `FIGHTER` and `CRUISER` are gone because they differ only *inside* a combat model, so today they
+// would be two rows with different numbers and identical behaviour — a fake decision on a new tab,
+// which is the "boring idle" complaint with a fresh coat of paint.
+//
+// **The rename was free exactly once and this is it.** The old `CARGO / FIGHTER / CRUISER /
+// COLONY_SHIP` carried a comment warning that these names are on-disk identifiers in every save.
+// True, and cheaper than it looked: nothing in the repository had ever *constructed* a
+// `ReturningFleet` outside test code, so no save any player holds contains a `ShipType` string. From
+// the first hull a real player owns, a rename is a schema break again.
 @Serializable
-enum class ShipType { CARGO, FIGHTER, CRUISER, COLONY_SHIP }
+enum class ShipType { SKIFF, HAULER, ESCORT, SETTLER }
 
+// A bundle of hulls you spend and get back, mirroring `Resources` deliberately — an init guard,
+// `covers`, `plus`, `minus`, a companion — because it is the same kind of thing.
+//
+// A map rather than a flat record like `Buildings`: the ship set is scheduled to grow twice by
+// design, and a flat record would be edited by slice #8, by slice #10 and by every save hop between.
+// A map absorbs a constant for free.
 @Serializable
-data class Coordinates(
-    val galaxy: Int,
-    val system: Int,
-    val position: Int,
-) {
+data class Ships(val counts: Map<ShipType, Int>) {
+    // **This is not hygiene, it is the composability property.** Both `mapOf(SKIFF to 0)` and
+    // `emptyMap()` are reachable — a run that dispatches the last hull and later returns it reaches
+    // both — and `advance`'s property is asserted with `assertEquals` on whole `GameState`s. A
+    // non-canonical representation would make one span and two spans produce equal games that fail
+    // equality, which is the property test failing on something that is not a bug. `minus` drops
+    // zeroed entries so this guard can hold.
     init {
-        require(galaxy > 0 && system > 0 && position > 0) {
-            "coordinates must be positive, were [$galaxy:$system:$position]"
-        }
+        require(counts.values.all { it > 0 }) { "ship counts must be positive, were $counts" }
+    }
+
+    val isEmpty: Boolean get() = counts.isEmpty()
+
+    val total: Int get() = counts.values.sum()
+
+    fun countOf(type: ShipType): Int = counts[type] ?: 0
+
+    fun covers(other: Ships): Boolean = other.counts.all { (type, count) -> countOf(type) >= count }
+
+    operator fun plus(other: Ships): Ships = Ships(
+        (counts.keys + other.counts.keys)
+            .associateWith { type -> countOf(type) + other.countOf(type) }
+            .filterValues { it > 0 },
+    )
+
+    operator fun minus(other: Ships): Ships = Ships(
+        (counts.keys + other.counts.keys)
+            .associateWith { type -> countOf(type) - other.countOf(type) }
+            .filterValues { it > 0 },
+    )
+
+    companion object {
+        val NONE: Ships = Ships(emptyMap())
+
+        fun of(type: ShipType, count: Int): Ships = Ships(mapOf(type to count))
     }
 }
 
+// Which resource a run is out to fetch. Never `DEUTERIUM`, and the rule is checked rather than made
+// unrepresentable because `ResourceKind` is the game's one resource enum and a second three-minus-one
+// copy of it would be a type nobody could pass to `Resources`.
+//
+// The exclusion is load-bearing: deuterium buys the Robotics Factory, Robotics 1 opens research and
+// Robotics 4 opens the adaptation ladders, and the interaction census puts 35% of all refused actions
+// behind an unmet requirement with deuterium the shortage at 33 of 33. `SurveyBalance` refused to
+// *price* a verb in deuterium for exactly this; this refuses to *pay out* in it, for the mirror
+// reason. It also lands where the design wanted anyway — cold worlds are deuterium worlds, so **the
+// fleet wants heavy and thick and the colony wants cold**, which leaves Thermal the one ladder with a
+// prize the fleet can never undercut.
+//
+// A run in flight, and the fifth kind of job. It does **not** pretend to the `(subject, startedAt,
+// completesAt)` shape the other four share, because it is genuinely a different animal: it is the
+// only one that carries its own outcome.
+//
+// `cargo` is fixed at dispatch. That is the same rule every other verb follows one step further — a
+// Robotics Factory finishing mid-flight must not retroactively shorten a build, and a mine level
+// completing mid-flight must not retroactively enrich a run already out.
 @Serializable
-data class ReturningFleet(
-    val ships: Map<ShipType, Int>,
+data class FleetRun(
+    val target: GalaxyCoordinate,
+    val ships: Ships,
+    val gathering: ResourceKind,
     val cargo: Resources,
-    val origin: Coordinates,
-    val arrivesAt: Instant,
+    val dispatchedAt: Instant,
+    val returnsAt: Instant,
 ) {
     init {
-        require(ships.isNotEmpty()) { "a fleet must contain at least one ship" }
-        require(ships.values.all { it > 0 }) { "ship counts must be positive, were $ships" }
+        require(!ships.isEmpty) { "a run must carry at least one ship" }
+        require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
+        require(returnsAt > dispatchedAt) {
+            "a run must return after it left: dispatched $dispatchedAt, returns $returnsAt"
+        }
     }
+
+    // Where the outbound leg ends and the inbound leg begins, derived rather than stored so `core`
+    // holds one instant per end instead of three. The presentation layer renders the phase from
+    // these; nothing in `advance` reads them, because a run has exactly one transition and it is the
+    // return.
+    fun flightEndsAt(from: GalaxyCoordinate): Instant = dispatchedAt + FleetBalance.flight(from, target)
+
+    fun inboundBeginsAt(from: GalaxyCoordinate): Instant = returnsAt - FleetBalance.flight(from, target)
 }

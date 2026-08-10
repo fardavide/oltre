@@ -8,6 +8,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import kotlin.time.Instant
 
 // A save is the whole simulation plus the instant it is accurate as of, and nothing else: every
@@ -53,6 +55,9 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 8 — the fleet: an idle `ships` pool and the `runs` in flight, replacing `returningFleet`. The
+    //     first hop that *removes* a key as well as adding two, and the first that has to rewrite
+    //     entries already in the event log.
     // 7 — `debugUsed`, on the envelope rather than in the state. The first hop that adds nothing
     //     the simulation reads: it records that the debug menu touched this colony, so a save
     //     whose clock was moved by hand can be told apart from one that was played.
@@ -65,7 +70,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 7
+    const val SCHEMA_VERSION: Int = 8
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -135,7 +140,80 @@ object GameSave {
         // than absent because `migratedToCurrent` reads a missing step as "this build cannot get
         // there" and refuses the save; a hop that has nothing to do still has to say so.
         6 to { root -> root },
+        // 7 -> 8: the fleet. Two keys added, one removed, and one rewrite inside the event log —
+        // the deepest hop in the table, and the first that is not purely additive.
+        //
+        // **The granted skiff is a deliberate gift, and it settles a call the sheet left in two
+        // places.** Every other hop writes the truthful zero for a thing that did not exist, and by
+        // that standard this should write an empty pool. It does not, because in this slice there is
+        // no way to *buy* a hull — `buildShips` is slice 3 — so a zero pool would hand an existing
+        // colony a verb it cannot use and a Galaxy tab that still does nothing. One skiff is what a
+        // colony founded a moment later gets, so this is the migration handing back the colony the
+        // player would have had rather than inventing an asset.
+        //
+        // **`returningFleet` is dropped and its cargo credited, not folded into a run.** The
+        // temptation is to turn it into a `FleetRun`, and it is wrong: the old `origin` is an
+        // unbounded `Coordinates` carrying a *position*, the new `target` is a bounded
+        // `GalaxyCoordinate` carrying a *slot*, and a fold would have to invent both a target the
+        // save never recorded and a `gathering` nobody chose. Crediting the cargo is the truthful
+        // answer, and it is total — there is no shape it can refuse. It also cannot happen in the
+        // wild: **nothing in the repository has ever constructed a `ReturningFleet` outside test
+        // code**, so the only saves this branch will ever run on are `GameSaveTest`'s own frozen
+        // fixtures. Kept, and kept correct, for the reason the 6 -> 6 identity hop is kept.
+        7 to { root ->
+            val state = root["state"] as? JsonObject
+            val fleet = state?.get("returningFleet") as? JsonObject
+            root.withState(
+                "ships" to buildJsonObject {
+                    put("counts", buildJsonObject { put(ShipType.SKIFF.name, JsonPrimitive(1)) })
+                },
+                "runs" to JsonArray(emptyList()),
+                "resources" to creditedWith(state?.get("resources") as? JsonObject, fleet?.get("cargo") as? JsonObject),
+                "eventLog" to rewrittenLog(state?.get("eventLog") as? JsonArray),
+            ).withoutState("returningFleet")
+        },
     )
+
+    // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a
+    // `Resources` and read its internals back out, so it does the arithmetic on the wire shape.
+    private val FINE_FIELDS = listOf("metalFine", "crystalFine", "deuteriumFine")
+
+    private fun creditedWith(resources: JsonObject?, cargo: JsonObject?): JsonElement {
+        if (resources == null) return resources ?: JsonNull
+        if (cargo == null) return resources
+        val credited = FINE_FIELDS.associateWith { field ->
+            val have = (resources[field] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
+            val landing = (cargo[field] as? JsonPrimitive)?.content?.toLongOrNull() ?: 0L
+            JsonPrimitive(have + landing)
+        }
+        return JsonObject(resources + credited)
+    }
+
+    // `FleetReturned` is the one member whose payload changed shape rather than merely gaining a
+    // sibling: `ships` went from a bare `Map<ShipType, Int>` to a `Ships`, which nests under
+    // `counts`; `CARGO` became `SKIFF`; and `from` is a new non-defaulted nullable, so the key has to
+    // be present even when the answer is "we do not know".
+    //
+    // **The discriminator is `"FleetReturned"`, PascalCase**, like every other member — a rewrite
+    // written against a snake_case name would match nothing, silently skip the rename, and the save
+    // would then fail to decode on an unknown enum constant, because the `Json` above does not set
+    // `ignoreUnknownKeys`.
+    private fun rewrittenLog(log: JsonArray?): JsonElement {
+        if (log == null) return JsonArray(emptyList())
+        return JsonArray(
+            log.map { entry ->
+                val event = entry as? JsonObject ?: return@map entry
+                if ((event["type"] as? JsonPrimitive)?.content != "FleetReturned") return@map event
+                val old = event["ships"] as? JsonObject ?: JsonObject(emptyMap())
+                val renamed = old.mapKeys { (key, _) -> if (key == "CARGO") ShipType.SKIFF.name else key }
+                JsonObject(
+                    event +
+                        ("ships" to buildJsonObject { put("counts", JsonObject(renamed)) }) +
+                        ("from" to JsonNull),
+                )
+            },
+        )
+    }
 
     private val ADAPTATION_AT_ZERO: Map<String, JsonElement> = mapOf(
         "thermal" to JsonPrimitive(0),
@@ -204,6 +282,15 @@ object GameSave {
     private fun JsonObject.withState(vararg entries: Pair<String, JsonElement>): JsonObject {
         val state = this["state"] as? JsonObject ?: return this
         return JsonObject(this + ("state" to JsonObject(state + entries)))
+    }
+
+    // `withState` only ever *adds*, because until schema 8 no hop ever needed to take a key away.
+    // One does now, and without this the leftover `returningFleet` would make every legacy save
+    // decode as `Failure("malformed save")` — the `Json` above sets only `encodeDefaults`, so
+    // `ignoreUnknownKeys` is false and an unknown key is fatal rather than ignored.
+    private fun JsonObject.withoutState(vararg keys: String): JsonObject {
+        val state = this["state"] as? JsonObject ?: return this
+        return JsonObject(this + ("state" to JsonObject(state - keys.toSet())))
     }
 
     private fun JsonObject.intOrNull(key: String): Int? =

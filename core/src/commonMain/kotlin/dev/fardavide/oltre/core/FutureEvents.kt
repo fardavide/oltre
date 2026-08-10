@@ -57,9 +57,11 @@ sealed interface FutureEvent {
         override val at: Instant,
     ) : FutureEvent
 
-    data class FleetArrives(
-        val origin: Coordinates,
-        val ships: Map<ShipType, Int>,
+    data class FleetReturns(
+        val target: GalaxyCoordinate,
+        val ships: Ships,
+        val cargo: Resources,
+        val dispatchedAt: Instant,
         override val at: Instant,
     ) : FutureEvent
 }
@@ -94,14 +96,22 @@ fun futureEvents(state: GameState): List<FutureEvent> {
             at = job.completesAt,
         )
     }
-    val arrival = state.returningFleet?.let { fleet ->
-        FutureEvent.FleetArrives(origin = fleet.origin, ships = fleet.ships, at = fleet.arrivesAt)
+    val returns = state.runs.map { run ->
+        FutureEvent.FleetReturns(
+            target = run.target,
+            ships = run.ships,
+            cargo = run.cargo,
+            dispatchedAt = run.dispatchedAt,
+            at = run.returnsAt,
+        )
     }
     // Ties are broken exactly the way `advance` applies them — build completions in building
-    // order, then the research completion, then the adaptation completion, then the arrival — so
-    // this list and the event log it predicts never disagree on order.
-    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + listOfNotNull(arrival))
-        .sortedWith(compareBy({ it.at }, { it.tieBreak() }, { it.secondaryTieBreak() }))
+    // order, then the research completion, then the adaptation completion, then survey landings,
+    // then fleet returns — so this list and the event log it predicts never disagree on order.
+    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + returns)
+        .sortedWith(
+            compareBy({ it.at }, { it.tieBreak() }, { it.secondaryTieBreak() }, { it.tertiaryTieBreak() }),
+        )
 }
 
 // The `Settleable` test, spelled out rather than asked of `verdictFor` — and it has to be, because
@@ -118,20 +128,39 @@ private fun World.wouldBeSettleable(tolerance: Tolerance): Boolean {
         GalaxyBalance.yieldScore(traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion
 }
 
+// **Explicit integers, not a derived ladder.** This used to read `ResearchCompletes ->
+// BuildingType.entries.size`, `AdaptationCompletes -> + 1`, `SurveyLands -> + 2`, `FleetArrives ->
+// Int.MAX_VALUE` — which meant adding a seventh building silently moved three constants that have
+// nothing to do with buildings, and `Int.MAX_VALUE` sealed the end of the ladder so the next kind had
+// nowhere to go. The relative order is unchanged, so this is a pure refactor; what it buys is that
+// the next kind after this one costs nothing to add.
+//
+// Builds occupy 0…99 by ordinal, which is room for ninety-four more facilities than the design has.
 private fun FutureEvent.tieBreak(): Int = when (this) {
     is FutureEvent.BuildCompletes -> building.ordinal
-    // Immediately after the last possible build, whatever the building set grows to.
-    is FutureEvent.ResearchCompletes -> BuildingType.entries.size
-    is FutureEvent.AdaptationCompletes -> BuildingType.entries.size + 1
-    is FutureEvent.SurveyLands -> BuildingType.entries.size + 2
-    is FutureEvent.FleetArrives -> Int.MAX_VALUE
+    is FutureEvent.ResearchCompletes -> 100
+    is FutureEvent.AdaptationCompletes -> 200
+    is FutureEvent.SurveyLands -> 300
+    is FutureEvent.FleetReturns -> 400
 }
 
-// Probes are the first kind of job that can have *several* instances due at one instant, so the
-// primary tie-break is no longer enough to make this list total. Mirrors `advance`'s own ordering
-// of simultaneous landings — by target, which is intrinsic to the job — so the prediction and the
-// log it predicts still cannot disagree.
+// Probes were the first kind of job that can have *several* instances due at one instant, and runs
+// are the second — so the primary tie-break is not enough to make this list total, and a kind that
+// falls through to a constant produces a **non-total order** that only misbehaves when two land on
+// the same millisecond. That is exactly what a check-in dispatching three runs to one system
+// produces, so the branch is mandatory rather than defensive.
+//
+// Each mirrors `advance`'s own ordering of its kind, in the same shape: probes by target, runs by
+// `(dispatchedAt, packed coordinate)` — and `packed` is literally the function `advance` sorts with.
 private fun FutureEvent.secondaryTieBreak(): Long = when (this) {
     is FutureEvent.SurveyLands -> target.galaxy.toLong() * GalaxyBalance.SYSTEMS_PER_GALAXY + target.system
+    is FutureEvent.FleetReturns -> dispatchedAt.toEpochMilliseconds()
+    is FutureEvent.BuildCompletes, is FutureEvent.ResearchCompletes, is FutureEvent.AdaptationCompletes -> 0
+}
+
+// The runs' third key, needed because two runs dispatched at the same millisecond to different worlds
+// are ordinary rather than exotic — one check-in, two taps.
+private fun FutureEvent.tertiaryTieBreak(): Long = when (this) {
+    is FutureEvent.FleetReturns -> packed(target)
     else -> 0
 }
