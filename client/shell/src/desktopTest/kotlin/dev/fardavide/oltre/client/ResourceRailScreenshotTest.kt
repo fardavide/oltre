@@ -26,7 +26,7 @@ class ResourceRailScreenshotTest {
     }
 
     private fun capture(name: String, throttled: Boolean) {
-        runDesktopComposeUiTest {
+        runDesktopComposeUiTest(width = RAIL_WIDTH, height = RAIL_HEIGHT) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
@@ -61,5 +61,20 @@ class ResourceRailScreenshotTest {
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }
+    }
+
+    private companion object {
+
+        // **The one screenshot test in the repo that used to state no window size**, and the only
+        // one that could fail on a mismatch of *dimensions* rather than of pixels. Without a size
+        // the captured image is the rail's own measured height — which is text-driven, and rounds
+        // to 68 on macOS and 67 on Linux. A one-pixel difference in height is not something a
+        // tolerance can absorb: Roborazzi compares sizes first and fails outright.
+        //
+        // 1024 is the width it was already rendering at, so the composition is unchanged: the rail
+        // is full-bleed and its cells stay on the 560dp centred column, which is what these
+        // baselines are about. 68 is the taller of the two measurements, so neither platform clips.
+        const val RAIL_WIDTH = 1024
+        const val RAIL_HEIGHT = 68
     }
 }
