@@ -90,14 +90,17 @@ class NotificationIdentityTest {
     }
 
     @Test
-    fun `two runs that left in the same millisecond are still two alerts`() {
-        // The tightest pair the id can be asked to separate: one world, one instant. Reachable only
-        // through the debug menu's skip today — the wall clock does not hand out two actions inside a
-        // millisecond — which makes it exactly the kind of case that ships unnoticed. It is recorded
-        // as a **known limit** rather than asserted as working: the id is
-        // `run-<galaxy>-<system>-<slot>-<dispatchedAt>`, so this pair is genuinely equal and one
-        // alert is genuinely lost. If this ever starts failing somebody has fixed it and this test
-        // should become the assertion instead of the note.
+    fun `two runs that left together on different windows are still two alerts`() {
+        // The tightest pair the id has to separate: one world, one instant, two rungs. This shipped
+        // as a **collision** — the id was `run-<galaxy>-<system>-<slot>-<dispatchedAt>` and nothing
+        // in it moved when the window did, so the 7h landing replaced the 6h one and the first fleet
+        // came home to silence.
+        //
+        // It was not reachable from a finger, which is the whole reason it is worth a test rather
+        // than a shrug: nothing calls `startRun` yet, and every dispatch made inside one action
+        // carries one instant — so a sheet offering a split manifest, a repeat, or a send-all makes
+        // it live on the day it ships. That is precisely how `"fleet-arrival"` waited for parallel
+        // runs to arrive.
         val target = GalaxyCoordinate(galaxy = 3, system = 42, slot = 7)
         val together = EPOCH + 2.hours
         val state = freshState().copy(
@@ -110,7 +113,36 @@ class NotificationIdentityTest {
         val ids = notificationsFor(state, now = EPOCH).map { it.id }
 
         assertEquals(2, ids.size, "core stopped predicting both runs")
-        assertEquals(1, ids.toSet().size, "the same-instant limit is gone — make this an assertion")
+        assertEquals(2, ids.toSet().size, "two windows collapsed into one alert: $ids")
+    }
+
+    @Test
+    fun `two runs alike in every way a player could see are one alert on purpose`() {
+        // The residual, asserted as intended rather than left unsaid. Two runs to one world that left
+        // together on the same rung differ only in their manifest — and the manifest reaches no
+        // notification: both fire at `dispatchedAt + window`, both are titled "Your ships are home",
+        // and both bodies name `target.label()` and nothing else. Two identical sentences at one
+        // instant is not information the player is missing, it is the same alert twice.
+        //
+        // So the key deliberately stops at the window. Putting `ships` or `gathering` in it would
+        // split an id that nothing downstream can tell apart, and buy a duplicate notification.
+        val target = GalaxyCoordinate(galaxy = 3, system = 42, slot = 7)
+        val together = EPOCH + 2.hours
+        val landing = EPOCH + 6.hours
+        val state = freshState().copy(
+            runs = listOf(
+                run(target = target, dispatchedAt = together, returnsAt = landing, ships = 4),
+                run(target = target, dispatchedAt = together, returnsAt = landing, ships = 9),
+            ),
+        )
+
+        val notifications = notificationsFor(state, now = EPOCH)
+
+        assertEquals(1, notifications.map { it.id }.toSet().size)
+        // And the merge is only correct because the two say the same thing. If either half of this
+        // ever stops holding, the manifest has to go into the id after all.
+        assertEquals(1, notifications.map { it.title to it.body }.toSet().size, "merged two different alerts")
+        assertEquals(1, notifications.map { it.at }.toSet().size, "merged two different instants")
     }
 
     @Test
@@ -218,9 +250,14 @@ private fun crowdedColony(): GameState {
     return state.copy(runs = runs)
 }
 
-private fun run(target: GalaxyCoordinate, dispatchedAt: Instant, returnsAt: Instant): FleetRun = FleetRun(
+private fun run(
+    target: GalaxyCoordinate,
+    dispatchedAt: Instant,
+    returnsAt: Instant,
+    ships: Int = 4,
+): FleetRun = FleetRun(
     target = target,
-    ships = Ships.of(ShipType.SKIFF, 4),
+    ships = Ships.of(ShipType.SKIFF, ships),
     gathering = ResourceKind.METAL,
     cargo = Resources.of(metal = 100),
     dispatchedAt = dispatchedAt,

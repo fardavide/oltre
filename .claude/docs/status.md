@@ -305,14 +305,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
-- **Two fleet runs to one world dispatched in the same millisecond collide into one alert**, and the
-  second is silently lost. Pinned by `NotificationIdentityTest` as a *known limit* rather than fixed:
-  the id is `run-<galaxy>-<system>-<slot>-<dispatchedAt>`, and a millisecond is its resolution. **Not
-  reachable today** — `startRun` has no screen, so nothing can dispatch twice in one millisecond —
-  which is precisely the shape `"fleet-arrival"` had before 0.3.0 made it live. It becomes reachable
-  the day the dispatch sheet lands (fleet slice 2), so that slice should either widen the id or
-  establish that two runs cannot leave in the same instant. The test fails loudly if somebody fixes
-  it, which is the reminder.
+- ~~**Two fleet runs to one world dispatched in the same millisecond collide into one alert**~~ —
+  **fixed before the fleet screens could make it live.** The id was
+  `run-<galaxy>-<system>-<slot>-<dispatchedAt>` and nothing in it moved when the *window* did, so a
+  manifest split across a 3h and a 24h rung was two landings hours apart under one id, and the later
+  replaced the earlier on both platforms. Never reachable from a finger — nothing calls `startRun`
+  yet — which is exactly the shape `"fleet-arrival"` had before parallel runs arrived, and the reason
+  it was worth fixing now rather than after a dispatch sheet offers a split manifest or a send-all.
+  The window is now in the key, and `NotificationIdentityTest` holds it.
+  **What deliberately still merges**: two runs alike in target, dispatch instant *and* window differ
+  only in their manifest, which reaches no notification — same instant, same title, same body — so
+  one alert is the right answer. Asserted as intended, with the two conditions that make it correct
+  checked alongside it, so the day either stops holding the test says so.
 - **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
   (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
   tuning."* Merging publishes, so the install is the next step rather than a pending task here. What
