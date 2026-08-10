@@ -1333,3 +1333,48 @@ state at all.
 moving with the window and the distance rather than settling on one composition inside a week; and the
 balance-log round can answer the question this whole sheet exists to answer — **not whether the hours
 are covered, but whether the right answer changed between two consecutive check-ins.**
+
+---
+
+## 11. Corrections applied, and the defects still standing
+
+The draft was put through three adversarial passes on 2026-08-10 — engineering invariants, numbers,
+design — each verifying against the repo rather than against the sheet's own claims. **Twenty-nine
+findings, three fatal.** What changed, and what a reader must still not trust.
+
+### Fixed in place
+
+| | Was | Now |
+|---|---|---|
+| **`HOLD_CAP = 480`** *(fatal)* | "stops the longest window dominating" | **Removed.** It punished absence 2:1 — once-a-day 480/day against twice-a-day 933 — the one thing Davide ruled out. Uncapped, every cadence lands within 4%. |
+| **Distance is a dial** *(fatal)* | the window and the frontier are the decision | **§3.5 added.** Metal and crystal richness carry no positional term, so at equal richness the nearest world always wins and the player parks. Now the top open call. |
+| **The window is a strategy choice** *(fatal)* | "the only thing you really choose" | Demoted. Without §3.5(i) the optimal rung is a function of the target alone. |
+| **`@SerialName("fleet_returned")`** *(serious)* | snake_case | **PascalCase.** The real discriminator is `"FleetReturned"`; the draft's migration would have matched nothing and left the save undecodable. |
+| **Arrival tie-break `(target, cargo, ships)`** *(serious)* | not implementable — none is `Comparable`, and it cannot fit `secondaryTieBreak()`'s `Long` | `(dispatchedAt, packed coordinate)`. |
+| **Migration drop rule** *(serious)* | coordinate bound only | Whole-shape guard including `arrivesAt > lastUpdatedAt`, plus: **a hop must not be able to throw.** |
+| **`EXTRACTION_PER_HOUR = 40`** *(serious)* | "16% of a genesis colony" | Denominator and unit both wrong — 47% of *crystal* income against a colony 0.2.7 deleted. Sweep moved down to 10–40. |
+| **Sim baselines** *(minor)* | 95.83% in the nothing-at-all row | 93.75% / 2.08%, read off the with-probe report, so the fleet cannot claim the probe's credit. |
+
+### Still standing — do not trust these tables until they are recomputed
+
+- **§4's hull cost table is unfloored.** It prints `80 × 1.5ⁿ` exactly, but `Curves.compound` floors at
+  every step: the 5th skiff is 405/**100**, the 8th **1,365/337**. `compound` also takes a `Long`, so
+  `shipCost` is three per-resource calls, not one on a `Resources`.
+- **§4 gives the skiff two different returns per hour** — 34 in the share table, 17 in the
+  mine comparison — and §6 proposes a property test on the second. At 34 the property is **false** at
+  the third hull (0.126 against a mine's 0.122), so the test would fail on the slice that adds it.
+- **§2's skiff/hauler crossover table does not follow from §4's flight formulas.** Solving
+  `4(W − RTₕ) > (W − RTₛ)` gives 49m in your own system and 1h 33m to the next system, not 1h 40m and
+  4h; "never inside a day" across your galaxy is false. The hauler has no published extraction constant.
+- **§4's travel row "across your own system (7 → 15)"** reads 1h 12m; the formula gives **56m**.
+- **§4's "1h is the *I am still holding the phone* run"** is unreachable: `BASE_FLIGHT_MINUTES = 10`
+  plus `MINIMUM_STATION = 20` makes the shortest run 40 minutes.
+- **§5's migration grants an existing save a skiff**, which §9 simultaneously lists as an open call and
+  which is not the standard every other hop follows (they write the truthful zero).
+- **Parking is worse than §1 admits.** `crystalRichness` clamps at 1.6 for pressure ≥ 6 atm and
+  **19.3% of all worlds sit exactly at that clamp** (236 of 1,221 over galaxy 3 of the shipped seed), so
+  one probe finds an unbeatable crystal target with 65–88% probability. §1's *"a survey buys better
+  targets, never more"* expires in about two probes. Same finding as §3.5, from the other side.
+
+**None of these blocks the Design round trip**: every one is a number or a migration detail, and none
+changes what a screen has to show.
