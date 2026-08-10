@@ -2061,10 +2061,16 @@ report existed. The comment even said so out loud — *"listed at the same momen
 than after a Coverage job failed on it"* — and shipped anyway. Naming the deviation is not the same
 as having permission for it, and a comment is not a review.
 
-**And it bought nothing, which is the part worth remembering.** 0.4.2's Coverage run measured 96.9%
-against a 95.0% floor, with 1.9 points — roughly eighty-four lines — of headroom. The excluded file
-is about twenty-five executable lines, so unexcluded it would have landed near 96.3% and passed
-comfortably. A written rule was broken to buy a margin that was already there.
+**And it bought nothing, which is the part worth remembering — and this is measured rather than
+argued.** 0.4.2's Coverage run measured 96.9% against a 95.0% floor. Removing the three lines and
+letting the job report what they had hidden gives **96.3%**: twenty-six lines, and `:client:tilt:data`
+reading 3.7% where the exclusion had it reporting 100.0%. The gate passes either way, with one and a
+third points to spare. A written rule was broken to buy a margin that was already there.
+
+**The shape of the near-miss is worth keeping too.** While the exclusion stood, the per-package table
+reported that package at 100.0% — not a suspicious number, an excellent one. An exclusion does not
+make coverage look bad, it makes it look finished, which is why nothing downstream can catch it and
+why the permission has to sit before the fact rather than after.
 
 **Why an exclusion is not the same kind of thing as a threshold**, which is the argument behind
 making it Davide's: a threshold that is set too low still measures, and the next run can tell you it

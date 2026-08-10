@@ -96,9 +96,15 @@ them alone and read the report.
 The tilt parallax broke both. Three `classes(…)` lines went in during the same commit as the code
 they hid, reasoning by analogy from the shake detector three lines above them, before any report
 existed — the comment even said so out loud and shipped anyway. **The exclusion turned out to buy
-nothing**: that run measured 96.9% against a 95.0% floor, and the ~25 lines would have cost about
-half a point. So a rule was broken to purchase a margin that was already there, which is the worst
-version of this mistake and the easy one to make.
+nothing, measured rather than argued**: taking it back out moved the total from 96.9% to 96.3%
+against a 95.0% floor, because it had been hiding twenty-six lines. The gate passes either way. So a
+rule was broken to purchase a margin that was already there, which is the worst version of this
+mistake and the easy one to make.
+
+Note what the report said while the exclusion was in place: `client.tilt.data` at **100.0%**. A
+package can read fully covered because it is fully tested, or because the untested half of it has
+been hidden, and the table cannot tell you which. That is the failure mode — not a number that looks
+bad, a number that looks *good*.
 
 Davide, on finding it: *"You excluded something from coverage check without my explicit permission.
 This is very bad! We need a ROCK SOLID reason to exclude something from coverage report!"* (The

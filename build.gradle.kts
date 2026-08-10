@@ -175,10 +175,12 @@ kover {
                 // **`:client:tilt:data`'s Android half is deliberately absent from this list**, and
                 // saying why is the point of this comment. 0.4.2 added it here — three `classes(…)`
                 // lines written in the same commit as the code, before any report existed — and the
-                // next PR took them back out. It was never needed: 0.4.2's own run measured 96.9%
-                // against a 95.0% floor, and the ~25 lines it was hiding would have cost about half a
-                // point. An exclusion that buys nothing costs the one thing this filter can never
-                // give back, which is the gate's ability to notice.
+                // next PR took them back out and let the job measure what they had been hiding.
+                // **Twenty-six lines**: the package reads 3.7% rather than the 100.0% the exclusion
+                // was reporting, and the total went 96.9% -> 96.3% against a 95.0% floor. So the gate
+                // passes with one and a third points to spare, and the exclusion had bought nothing
+                // it was not already given. An exclusion that buys nothing still costs the one thing
+                // this filter can never give back, which is the gate's ability to notice.
                 //
                 // The three entries above it are real and predate that. **A fourth needs a failing
                 // report to point at and Davide's explicit say-so** — see the `test-coverage` skill,
