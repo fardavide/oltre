@@ -15,129 +15,131 @@ import kotlin.test.assertTrue
 class GravityTest {
 
     @Test
-    fun `a turn reads the same at every pose a hand can hold`() {
-        // **The regression test for the defect this formulation replaced.** Reading a pose as the
-        // elevation of an axis above the horizon folds at exactly upright-in-portrait: leaning
-        // either way from there moved the sky the same way, and past it — reading lying down — the
-        // whole effect ran backwards. A rotation between two real directions cannot fold, and this
-        // walks the full half-turn to say so.
-        val expected = sin(6.0 * PI / 180.0)
-
+    fun `the tip bearing is the elevation the phone is actually held at`() {
         EVERY_POSE.forEach { elevation ->
-            val from = gravityAt(Pose(elevation))
-            // Six degrees further from flat, whatever "flat" meant in this pose.
-            val to = gravityAt(Pose(elevation + 6.0))
-
-            assertEquals(-expected, from.rotationTo(to).aboutX, 1e-9, "at $elevation degrees")
+            assertEquals(elevation.radians(), gravityAt(Pose(elevation)).tip.radians, 1e-9, "at $elevation degrees")
         }
     }
 
     @Test
-    fun `a sideways lean barely touches the other axis`() {
-        // The second half of the same defect. The two elevations were not independent — because
-        // `sin²(pitch) + sin²(roll) <= 1` they were pinned to a disc — so a pure sideways lean of an
-        // upright phone produced **six degrees of spurious tip for six degrees of lean**, and the
-        // sky went diagonally.
+    fun `the tip bearing keeps climbing past upright rather than folding back at it`() {
+        // **The regression test for the defect the first version of this module shipped with**, kept
+        // word for word through a second formulation because it is the thing most easily broken
+        // again. Reading a pose as `asin` of a single component folds at exactly upright-in-portrait:
+        // leaning either way from there moved the sky the same way, and past it — reading lying down
+        // — the whole effect ran backwards.
         //
-        // The leak here is not zero, and pretending it were would be the same kind of overclaim.
-        // The shortest rotation carrying one gravity direction to another is not exactly about the
-        // device's own axis when the phone is tipped, so a little lands on the tip — but it is
-        // *second order* in the lean angle, where the old one was first order. Measured across every
-        // pose it peaks at 1.3% of full travel against the old 100%, and it is largest at 45° where
-        // it is a fortieth of the signal beside it.
-        val bound = 0.03 * FULL_DEFLECTION_SINE
+        // `atan2` of a *pair* of components is the fix and is not the same function wearing a hat: it
+        // knows which quadrant it is in, so it walks the full circle instead of turning round at the
+        // top of a half one. That is also what makes 360 degrees of travel available at all — a
+        // reading that folds has nowhere past the fold to report.
+        val walk = (0..350 step 10).map { gravityAt(Pose(it.toDouble())).tip.radians }
 
-        EVERY_POSE.forEach { elevation ->
-            val turn = gravityAt(Pose(elevation)).rotationTo(gravityAt(Pose(elevation, lean = 6.0)))
-
-            assertTrue(abs(turn.aboutX) < bound, "a lean at $elevation leaked ${turn.aboutX} into the tip")
+        walk.zipWithNext().forEach { (before, after) ->
+            assertTrue(
+                turnedFrom(before, to = after) > 0.0,
+                "the tip went backwards between $before and $after",
+            )
         }
     }
 
     @Test
-    fun `the sideways axis fades out as the phone goes flat`() {
-        // **Physics rather than a shortfall, and worth pinning so nobody 'fixes' it.** An in-plane
-        // lean of a phone lying flat is a spin about the vertical, which does not move `down` at
-        // all; upright, the same lean moves it the full amount. In between the gain is exactly
-        // `sin²(elevation)`, which this checks against the closed form.
-        //
-        // The tip axis has no such term — it is full gain in every pose, which the first test in
-        // this file holds — so the effect never disappears altogether, it just stops having a
-        // sideways component as the phone comes to rest face up.
-        val unit = sin(6.0 * PI / 180.0)
-
-        listOf(0.0, 20.0, 30.0, 45.0, 60.0, 90.0).forEach { elevation ->
-            val turn = gravityAt(Pose(elevation)).rotationTo(gravityAt(Pose(elevation, lean = 6.0)))
-            val expected = sin(elevation * PI / 180.0).let { it * it }
-
-            assertEquals(expected, turn.aboutZ / unit, 1e-9, "at $elevation degrees")
-        }
-    }
-
-    @Test
-    fun `dropping the right edge turns the same way whatever the pose`() {
-        // Sign, pinned once. Positive `aboutZ` is the right edge going down, and `TiltMonitor` is
-        // the one place that decides which way the sky answers it.
-        val expected = sin(6.0 * PI / 180.0)
-
-        // Flat on a table is excluded on purpose rather than by accident: an in-plane lean of a
-        // phone lying flat is a spin about the vertical, which is the one turn gravity physically
-        // cannot see. That it reads zero there is `a phone spun flat on a table` below.
+    fun `the lean bearing is the in-plane roll whatever the elevation`() {
+        // The property the sideways axis is built on, and the one the cross product could not give:
+        // the angle itself is the same number at every pose, where the *turn* the cross product
+        // reports carries a `sin²(elevation)` factor. See the two tests below for what became of it.
         EVERY_POSE.filter { it != 0.0 && it != 180.0 }.forEach { elevation ->
-            val from = gravityAt(Pose(elevation))
-            val to = gravityAt(Pose(elevation, lean = 6.0))
-
-            assertTrue(from.rotationTo(to).aboutZ > 0.0, "at $elevation degrees")
-            assertTrue(from.rotationTo(to).aboutZ <= expected + 1e-9, "at $elevation degrees")
+            assertEquals(
+                17.0.radians(),
+                gravityAt(Pose(elevation, lean = 17.0)).lean.radians,
+                1e-9,
+                "at $elevation degrees",
+            )
         }
     }
 
     @Test
-    fun `a phone spun flat on a table has not moved as far as gravity knows`() {
-        // Not a limitation to work around — a fact about the instrument, and the reason the sideways
-        // axis fades out as the phone goes flat. Down is still down.
-        val from = gravityAt(Pose(elevation = 0.0))
-        val to = gravityAt(Pose(elevation = 0.0, lean = 40.0))
-        val turn = from.rotationTo(to)
+    fun `the lean bearing goes all the way round`() {
+        val walk = (0..350 step 10).map { gravityAt(Pose(elevation = 60.0, lean = it.toDouble())).lean.radians }
 
-        assertEquals(0.0, turn.aboutX, 1e-12)
-        assertEquals(0.0, turn.aboutY, 1e-12)
-        assertEquals(0.0, turn.aboutZ, 1e-12)
+        walk.zipWithNext().forEach { (before, after) ->
+            assertTrue(
+                turnedFrom(before, to = after) > 0.0,
+                "the lean went backwards between $before and $after",
+            )
+        }
     }
 
     @Test
-    fun `yaw stays out of it because gravity cannot see yaw`() {
-        // `aboutY` is returned rather than dropped so that a reading near zero documents the
-        // instrument. A tip and a lean are both turns gravity can observe; neither should put
-        // anything meaningful on the axis that points out of the glass.
+    fun `how much of down lies in the sideways plane is the sine of the elevation`() {
+        // **Physics rather than a shortfall, and worth pinning so nobody 'fixes' it.** An in-plane
+        // lean of a phone lying flat is a spin about the vertical, which does not move `down` at all.
+        //
+        // What changed at 0.4.3 is where this number is allowed to act. It used to arrive *squared*,
+        // as a gain on the reported turn, so the sky answered a sideways lean at a quarter strength
+        // on a phone held at 30 degrees and at half on one held at 45 — which is exactly the
+        // laziness the first device session reported. It is now a statement about how well the angle
+        // can be *read* rather than about how far the sky should move: full strength wherever the
+        // reading is trustworthy, fading out only as it stops being.
+        listOf(0.0, 20.0, 30.0, 45.0, 60.0, 90.0).forEach { elevation ->
+            assertEquals(
+                sin(elevation.radians()),
+                gravityAt(Pose(elevation, lean = 33.0)).lean.inPlane,
+                1e-9,
+                "at $elevation degrees",
+            )
+        }
+    }
+
+    @Test
+    fun `how much of down lies in the tip plane empties out with the phone on its side`() {
+        // The same fact about the other axis, and the pose is the one nobody thinks of: a phone held
+        // in landscape with its long edge horizontal has its own `x` axis pointing at the sky, so
+        // turning about that axis is a spin about the vertical — the one turn gravity cannot see.
+        // Both axes have such a pose and neither has one a hand rests in.
+        assertEquals(1.0, gravityAt(Pose(elevation = 90.0)).tip.inPlane, 1e-9)
+        assertEquals(0.0, gravityAt(Pose(elevation = 90.0, lean = 90.0)).tip.inPlane, 1e-9)
+    }
+
+    @Test
+    fun `a sideways lean barely touches the tip`() {
+        // A pure in-plane lean does move the elevation of the long edge a little, because rolling
+        // the phone in its own plane sweeps that edge round a cone. So the two axes are not exactly
+        // independent — but the leak is *second order* in the lean angle, where the very first
+        // version of this module was first order and sent the sky diagonally on every sideways
+        // lean. Measured across every pose it peaks at 1.3% of full travel at 45 degrees, which is
+        // the same figure the cross product gave and about a third of a pixel on the nearest plane.
+        val bound = 0.03 * FULL_TRAVEL_RADIANS
+
         EVERY_POSE.forEach { elevation ->
-            val from = gravityAt(Pose(elevation))
-            val tipped = from.rotationTo(gravityAt(Pose(elevation + 6.0)))
+            val leaked = gravityAt(Pose(elevation, lean = 6.0)).tip.radians - elevation.radians()
 
-            assertEquals(0.0, tipped.aboutY, 1e-9, "a tip at $elevation")
+            assertTrue(abs(leaked) < bound, "a lean at $elevation leaked $leaked into the tip")
         }
     }
 
     @Test
-    fun `the two platforms read the same pose the same way`() {
+    fun `the two platforms read the same movement the same way`() {
         // **The cross-platform trap that shipped in the first draft of this module and was caught
         // before merge.** Android reports the reaction to gravity — pointing at the sky, in metres
         // per second squared — and iOS reports gravity itself, pointing at the ground, in multiples
         // of g. Every component is negated and the scale differs by ten.
         //
-        // The previous formulation needed a named conversion at the Android edge to survive that.
-        // This one needs nothing at all: normalising discards the scale and `(-a) x (-b) = a x b`
-        // discards the sign, so the same physical movement reads identically from either platform's
-        // numbers. That is what this walks — the same two poses, twice, as each device reports them.
+        // Normalising discards the scale, and negating every component turns both bearings by
+        // exactly half a circle — so the *angles* differ between the platforms and every *difference*
+        // between two of them is identical. Since nothing downstream ever reads a bearing except to
+        // subtract it from another one, the two phones lean the same way with no correction at
+        // either edge. That is what this walks: the same two poses, twice, as each device reports
+        // them.
         EVERY_POSE.forEach { elevation ->
-            val fromPose = Pose(elevation)
-            val toPose = Pose(elevation + 6.0, lean = 4.0)
+            val from = Pose(elevation)
+            val to = Pose(elevation + 6.0, lean = 4.0)
 
-            val ios = gravityAt(fromPose).rotationTo(gravityAt(toPose))
-            val android = gravityFrom(fromPose.androidReading).rotationTo(gravityFrom(toPose.androidReading))
+            val ios = gravityAt(from).turnedTo(gravityAt(to))
+            val android = gravityFrom(from.androidReading).turnedTo(gravityFrom(to.androidReading))
 
-            assertEquals(ios.aboutX, android.aboutX, 1e-9, "tip at $elevation")
-            assertEquals(ios.aboutZ, android.aboutZ, 1e-9, "lean at $elevation")
+            assertEquals(ios.first, android.first, 1e-9, "tip at $elevation")
+            assertEquals(ios.second, android.second, 1e-9, "lean at $elevation")
         }
     }
 
@@ -161,8 +163,9 @@ class GravityTest {
 
     @Test
     fun `an average of two directions comes back a direction`() {
-        // The renormalisation the filter depends on: the cross product only reads as a sine if both
-        // sides are unit length.
+        // The renormalisation the filter depends on: a bearing read off a vector that is not unit
+        // length is still the right angle, but `inPlane` beside it would be a number about the
+        // vector's size rather than about the pose.
         val from = gravityAt(Pose(elevation = 20.0))
         val to = gravityAt(Pose(elevation = 100.0, lean = 30.0))
         val part = from.towards(to, 0.4)
@@ -182,7 +185,9 @@ class GravityTest {
     }
 }
 
-private val FULL_DEFLECTION_SINE = sin(TiltMonitor.FULL_DEFLECTION_DEGREES * PI / 180.0)
+private val FULL_TRAVEL_RADIANS = TiltMonitor.FULL_TRAVEL_DEGREES * PI / 180.0
+
+private fun Double.radians(): Double = this * PI / 180.0
 
 private fun gravityAt(pose: Pose): Gravity = gravityFrom(pose.gravity)
 
@@ -190,6 +195,11 @@ private fun gravityFrom(reading: Triple<Double, Double, Double>): Gravity =
     checkNotNull(Gravity.normalised(reading.first, reading.second, reading.third)) {
         "$reading is not a direction"
     }
+
+private fun Gravity.turnedTo(other: Gravity): Pair<Double, Double> = Pair(
+    turnedFrom(tip.radians, to = other.tip.radians),
+    turnedFrom(lean.radians, to = other.lean.radians),
+)
 
 private fun magnitudeOf(gravity: Gravity?): Double {
     val g = checkNotNull(gravity)

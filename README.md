@@ -158,6 +158,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.4.3 — 2026-08-10
+
+- **The sky answers a sideways lean as readily as a forward one.** Rolling the phone used to move
+  the stars a fraction of what tipping it did — a quarter as far on a phone held at thirty degrees,
+  half at forty-five — because the sideways reading was being weakened by the angle you happen to
+  hold the phone at rather than by how far you turned it. The two directions now travel the same
+  distance for the same movement, from every pose a hand rests in.
+- **There is no longer an edge to the effect.** It used to stop about twenty degrees out, so
+  anything more than a small wrist flick arrived in the same place and the sky went dead in your
+  hand. Now it just keeps going: turn the phone right round and the sky goes right round with you
+  and lands back where it started. A small movement still moves it exactly as far as it did before.
+- **Put the phone down and the sky stops.** 0.4.2 spent about ten seconds drifting back to level
+  after you stopped moving, which was the price of the old limit; there is no limit and so no drift.
+  Wherever you leave it is where it stays, however long you leave the game open.
+- Still off entirely if you have asked your phone for less movement, and a phone with no motion
+  sensor still holds still.
+- Saves from 0.4.2 carry forward untouched.
+
 ### 0.4.2 — 2026-08-10
 
 - **The sky behind every screen leans with the phone.** Tilt it and the three planes of stars slide

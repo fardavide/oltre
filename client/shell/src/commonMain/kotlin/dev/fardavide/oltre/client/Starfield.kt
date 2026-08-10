@@ -25,30 +25,28 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // is the point rather than a limitation: a star seen *through* a card would be dust on a surface,
 // and a star seen beside one is space behind it.
 //
-// **The field now moves on two inputs, and the second one costs more than a sentence.**
+// **The field moves on two inputs, and the second one costs more than a sentence.**
 // 0.4.0 wrote here, and in `decisions.md`, that the parallax is not an animation because it "has no
 // duration, no clock and no running state". Of the scroll term that is still exactly true. Of the
-// tilt term none of it is: `TiltMonitor` keeps two exponential averages between samples, so there is
-// running state behind this and each average has a time constant.
+// tilt term the last clause is not: `TiltMonitor` keeps a smoothed direction between samples, and
+// that average has a time constant — so a lean arrives over about a tenth of a second rather than
+// on one frame.
 //
-// **And the honest version needs one admission beyond that.** Because the centre follows the pose, a
-// lean that has already finished still settles back to level over about ten seconds — so there are
-// ten seconds after the hand stops in which the sky is moving with nobody touching the device. It is
-// the one thing in this app a player can watch happen with their hands in their lap, and the tidy
-// line this paragraph replaced — *put the phone down and the sky stops dead* — was simply false.
+// **0.4.2 owed a larger admission here and 0.4.3 pays it off rather than restating it.** Under the
+// band-pass the zero point followed the pose, so a lean that had already finished went on settling
+// back to level for about ten seconds — ten seconds in which the sky moved with nobody touching the
+// device, which is the one thing in this app a player could have watched happen with their hands in
+// their lap. That centre existed only to stop a held pose pinning a *clamped* travel against its
+// stop. With the clamp gone there is no stop and no centre, and the plain sentence is true again:
+// **put the phone down and the sky stops.** What is left is the smoothing arriving, which is a
+// response to a movement that has just happened and is over in under a second.
 //
-// What survives is the reason the rule exists, and it survives in the shape 0.4.0 already accepted.
-// The rule is there so a game whose premise is that it progresses while closed never draws anything
-// a player could read as *it is happening now*. The four transitions that pass spend it as one-shot
-// settles: each runs once when the thing it describes enters composition, and then holds forever.
-// The recentring is that same shape with a different trigger — it runs once per movement the player
-// makes, decays to rest, and cannot restart itself. Nothing loops, nothing repeats, and the only
-// thing in the world that can start it is a hand.
-//
-// The alternative that would have made the stronger claim true is named and rejected in
-// `decisions.md`: recentre only while the reading is actually changing, and the sky does stop dead —
-// and a lean held perfectly still then never comes back to level, which is the exact failure the
-// following centre exists to prevent.
+// The rule that makes this matter is there so a game whose premise is that it progresses while
+// closed never draws anything a player could read as *it is happening now*. The four transitions
+// that pass spend it as one-shot settles: each runs once when the thing it describes enters
+// composition, and then holds forever. The lean is that same shape with a different trigger — it
+// runs once per movement the player makes and cannot restart itself. Nothing loops, nothing repeats,
+// and the only thing in the world that can start it is a hand.
 //
 // Both inputs are lambdas rather than values, and for the tilt there are two reasons rather than
 // one. The first is the scroll offset's: read inside the draw scope, a lambda makes a lean a
@@ -158,14 +156,18 @@ internal fun Starfield(
 internal fun leanedAcross(fraction: Float, lean: Float, width: Float): Float =
     (width * fraction + lean).mod(width)
 
-// How far the nearest plane would travel at a full lean, before its parallax factor is applied — so
-// the near plane reaches 0.58 of this, the far one 0.12, and the spread between them is the depth.
+// How far the nearest plane travels per unit of lean, before its parallax factor is applied — so
+// the near plane covers 0.58 of this, the far one 0.12, and the spread between them is the depth.
 //
-// **A feel decision made without a device, and the first one to move when there is one.** Fourteen
-// device-independent pixels of travel on the nearest plane is deliberately less than an eighth of
-// what a single screen of scrolling already moves it: the lean is meant to be an accent on a field
-// that is mostly driven by the list in front of it, and something a player notices only after a few
-// sessions. See `TiltMonitor`'s constants, which carry the same caveat for the same reason.
+// **No longer the whole of what a lean can move**, which is what it was until 0.4.3: one unit is
+// twelve degrees of turn and nothing stops there, so a phone rolled right round reports thirty of
+// them and carries the near plane 418dp — a little over one screen width, which is why turning the
+// phone all the way round takes the sky all the way round and lands it back where it started.
+//
+// That the number itself did not have to change is the point of leaving it here. Fourteen
+// device-independent pixels on the nearest plane for an ordinary wrist flick is still an accent on
+// a field mostly driven by the list in front of it; what the first device session reported was not
+// that a small movement moved too little, it was that a large one moved no further.
 private val TILT_TRAVEL: Dp = 24.dp
 
 // Fractions of the box rather than offsets, so the field survives every window the app has to live

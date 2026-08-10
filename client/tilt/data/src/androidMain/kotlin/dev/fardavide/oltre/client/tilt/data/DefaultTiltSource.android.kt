@@ -41,9 +41,11 @@ private class AndroidTiltSource(private val context: Context) : TiltSource {
         // gyroscope reports angular *rate*, so holding a pose reports nothing at all and the only
         // way to a pose is to integrate — which accumulates its own error until the sky drifts off
         // on a phone lying still. Gravity is the fused sensor that answers the actual question,
-        // "which way is down", with no drift to accumulate. The accelerometer is the fallback for a
-        // device that publishes no fused sensor: it is the same vector plus whatever the hand is
-        // doing, and the two averages behind this already reject both ends of that.
+        // "which way is down", with no drift to accumulate. That mattered more from 0.4.3, which
+        // made the travel unbounded: a reading that can count whole turns has to be one that cannot
+        // wander while nobody is turning it. The accelerometer is the fallback for a device that
+        // publishes no fused sensor: it is the same vector plus whatever the hand is doing, and the
+        // smoothing behind this rejects the fast end of that.
         val sensor = sensors?.getDefaultSensor(Sensor.TYPE_GRAVITY)
             ?: sensors?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
         // A device with no motion sensor at all is not an error — it is a Chromebook, or an emulator
@@ -69,10 +71,12 @@ private class AndroidTiltSource(private val context: Context) : TiltSource {
                 // reports the *reaction* to gravity — its own documentation says a phone lying flat
                 // on a table reads `z = +9.81` — where iOS reports gravity itself and would call the
                 // same phone `z = -1.0`. Every component is negated and the units differ by ten.
-                // `TiltMonitor` normalises the vector away and reads movement as a cross product,
-                // and a cross product is blind to both: `(-a) x (-b) = a x b`. A correction applied
-                // in one of these two files and not the other is exactly how the sky ends up leaning
-                // the wrong way on one phone, so neither file holds one.
+                // `TiltMonitor` normalises the vector away, and negating all three components turns
+                // both of the angles it reads by exactly half a circle — so the platforms disagree
+                // about every angle and agree about every *difference* between two of them, which is
+                // the only thing anything downstream looks at. A correction applied in one of these
+                // two files and not the other is exactly how the sky ends up leaning the wrong way on
+                // one phone, so neither file holds one.
                 monitor = monitor.sample(
                     x = event.values[0].toDouble(),
                     y = event.values[1].toDouble(),

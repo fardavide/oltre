@@ -2,67 +2,66 @@ package dev.fardavide.oltre.client.tilt.domain
 
 import kotlin.math.PI
 import kotlin.math.exp
+import kotlin.math.min
 import kotlin.math.round
-import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
-// Turning a stream of gravity readings into how far the sky is pushed. It lives here, with no
+// Turning a stream of gravity readings into how far the sky has travelled. It lives here, with no
 // platform in it, on `ShakeMonitor`'s argument: the platforms supply samples and this says what they
 // add up to, so the sky leans the same way on both phones and the whole judgement is testable
 // without a device.
 //
-// **It is a band-pass filter, and naming it that is the clearest way to say what it does.** Two
-// exponential averages of the same direction are kept — a `fast` one and a `slow` one — and the tilt
-// is the rotation from the second to the first. Each end earns its place:
+// **It keeps a running total of turn, and that is the whole of it.** Each sample smooths the gravity
+// direction, reads the two angles off it, and adds however far each one moved to a total that
+// started at zero when the app opened. The sky is that total, divided by FULL_TRAVEL_DEGREES.
 //
-//   *The fast average is the noise floor.* A gravity sensor at rest still wanders a fraction of a
-//   degree, and a field that shimmers in a still hand is worse than no field at all.
+// Three things follow, and each one is a thing the band-pass this replaced could not do:
 //
-//   *The slow average is the centre, and it is the part that makes this usable at all.* There is no
-//   correct pose to measure from: the phone is held flat on a desk, at forty degrees on a sofa, or
-//   overhead in bed, and any fixed zero point makes two of those three permanently pushed against
-//   the stop. Letting the centre follow the pose over RECENTRING seconds means wherever the phone
-//   is held becomes level, a *movement* registers, and a pose that is simply held fades back to
-//   centre over about ten seconds. The alternative — a centre captured once, at the first sample —
-//   was rejected for the case that breaks it: the app is opened flat on a table and then picked up,
-//   which is most launches, and the field spends the rest of the session at full deflection.
+//   *There is no stop.* 0.4.2 clamped at twelve degrees, so every movement larger than a small wrist
+//   flick arrived at the same place — which is exactly what the first device session reported as the
+//   effect having too narrow an area. A total counts turns, and the field it feeds wraps, so a phone
+//   turned all the way round moves the sky all the way round.
 //
-// Neither average has a target it converges to and stops at, so nothing here loops or repeats.
-// **What it does have is running state and a time constant, which the parallax did not**, and the
-// honest reading of that is in `Starfield.kt` rather than smuggled past here.
+//   *There is no centre to chase, so nothing moves on its own.* The old slow average existed only
+//   because of the stop: with a clamp, a pose simply held would have pinned the sky against it for
+//   the rest of the session, so the zero point had to follow the pose — and that is what left the
+//   sky settling back to level for ten seconds after the hand had stopped. Without a stop the
+//   question does not arise. **The sky now moves if and only if a hand moves it**, which is the
+//   claim 0.4.0 made, 0.4.2 had to retract, and this restores.
 //
-// One consequence of a band-pass worth stating rather than discovering: for input slower than the
-// filter it reads *rate* rather than angle, so a sustained slow turn — reclining a chair over ten
-// seconds — holds the sky against the stop for the whole movement instead of tracking it. That is
-// the same property that makes a held pose fade, seen from the other side.
-data class TiltMonitor(val filtered: FilteredGravity? = null) {
+//   *It does not drift.* Every angle is measured from the device's own axes, so the total is the
+//   current angle plus a whole number of turns minus wherever it started — see `turnedFrom`. Put the
+//   phone back where it was and the sky is back where it was, however far it went in between. An
+//   integrated gyroscope, the other way to get an unbounded reading, has no such guarantee.
+//
+// What survives from the band-pass is the fast average, and only that: a gravity sensor at rest
+// wanders a fraction of a degree, and a field that shimmers in a still hand is worse than no field
+// at all.
+data class TiltMonitor(val turned: Turned? = null) {
 
     // Null until the first sample, and that is the whole of the start-up behaviour: an app that has
     // just opened has no idea how the phone is being held, and any guess at it is a jerk on the
     // first frame the player sees.
+    //
+    // **Both signs are one minus sign from being the other way round**, and this is the pair of
+    // lines to change. The sky moves *against* the lean, which is what makes it read as something
+    // seen past the cards rather than something sitting on them: drop the right edge and your eye
+    // moves right of the screen, so what was hidden behind the right margin comes into view and the
+    // field slides left. Tip the top away and your eye moves above it, so the field slides up.
+    //
+    // Yaw — turning the phone left and right about the vertical, which is the movement most people
+    // reach for first — is absent, and it is absent because gravity cannot see it: spinning a phone
+    // flat on a table changes nothing about where down is. Mapping an in-plane lean to a horizontal
+    // slide is therefore an artistic choice rather than a literal parallax, and it is the one this
+    // field is built on. A version that answered yaw would need the fused rotation vector and a
+    // magnetometer with it.
     val tilt: Tilt
         get() {
-            val reading = filtered ?: return Tilt.NONE
-            val turn = reading.slow.rotationTo(reading.fast)
-            // **Both signs are one minus sign from being the other way round**, and this is the pair
-            // of lines to change. The sky moves *against* the lean, which is what makes it read as
-            // something seen past the cards rather than something sitting on them: drop the right
-            // edge and your eye moves right of the screen, so what was hidden behind the right
-            // margin comes into view and the field slides left. Tip the top away and your eye moves
-            // above it, so the field slides up. Nobody has held a phone running this yet — see the
-            // constants below.
-            //
-            // `turn.aboutY` is deliberately unread: it is yaw, which gravity cannot see, and a
-            // parallax that wanted it would have to take a rotation vector and a magnetometer with
-            // it. Mapping an in-plane lean to a horizontal slide is therefore an artistic choice
-            // rather than a literal parallax, and it is the one this field is built on.
-            return Tilt(
-                x = deflection(-turn.aboutZ),
-                y = deflection(-turn.aboutX),
-            )
+            val reading = turned ?: return Tilt.NONE
+            return Tilt(x = travel(-reading.lean), y = travel(reading.tip))
         }
 
     // A value, exactly as `ShakeMonitor` is: the same monitor sampled with the same arguments always
@@ -74,90 +73,117 @@ data class TiltMonitor(val filtered: FilteredGravity? = null) {
     fun sample(x: Double, y: Double, z: Double, at: Instant): TiltMonitor {
         // A reading with no direction in it is dropped rather than filtered. See `Gravity.normalised`.
         val now = Gravity.normalised(x = x, y = y, z = z) ?: return this
-        val previous = filtered
-            // The first sample is the centre, so the first frame is level whatever the pose.
-            ?: return TiltMonitor(FilteredGravity(fast = now, slow = now, at = at))
+        val previous = turned
+            // The first sample is where the count starts, so the first frame is level whatever the
+            // pose the app happened to be opened in.
+            ?: return TiltMonitor(Turned(smoothed = now, at = at, tip = 0.0, lean = 0.0))
         val elapsed = at - previous.at
-        // **A long gap is an absence, not a long interval, and the difference is the whole of what
-        // happens when the app comes back.** The sensor stops when the app is backgrounded — both
-        // platforms see to that themselves — so the next sample can arrive an hour later against a
-        // phone now held completely differently. Feeding that to the averages does not re-centre, it
-        // does the opposite: the fast one arrives instantly and the slow one, which is slow by
-        // construction, crawls a fifth of the way, so the gap between them opens to full deflection
-        // and the sky slams against the stop on the first frame back. Starting again from the new
-        // pose is the only reading of a gap that long which is both true and calm.
+        // **A long gap is an absence, not a long interval.** The sensor stops when the app is
+        // backgrounded — both platforms see to that themselves — so the next sample can arrive an
+        // hour later against a phone now held completely differently. The turn across that gap is
+        // not a movement anybody made and counting it would throw the sky a long way for nothing.
+        //
+        // **The totals are kept rather than reset, and that is the difference from 0.4.2.** Resetting
+        // them was harmless when the travel was clamped and usually near zero anyway; against an
+        // unbounded one it would snap the field back on the first frame after a resume, which is the
+        // lurch this cut exists to prevent, arriving from the other side. Adopting the new pose
+        // silently leaves the sky exactly where the player left it and starts answering the hand
+        // again from wherever the phone now is.
         //
         // It is a hard cut, so MAX_GAP has to be long enough that ordinary jank cannot reach it: at
         // fifty samples a second, two seconds is a hundred dropped in a row, which is a stall rather
         // than a slow frame.
-        if (elapsed > MAX_GAP) {
-            return TiltMonitor(FilteredGravity(fast = now, slow = now, at = at))
-        }
+        if (elapsed > MAX_GAP) return TiltMonitor(previous.copy(smoothed = now, at = at))
         // The other end, and it has happened too: iOS delivers motion on a queue and two samples can
         // be handed over out of order. A negative gap makes an easing factor greater than one — an
         // average that overshoots its target and rings — so it is floored rather than restarted,
         // because one sample arriving early is a hiccup and not an absence.
         val gap = elapsed.coerceAtLeast(Duration.ZERO)
+        // Falling back to the previous direction covers the one case an interpolation can fail: two
+        // exactly opposite readings, which is a phone that flipped over between two samples forty
+        // milliseconds apart. Holding still through it beats a `NaN`, which would stay in the average
+        // for the life of the process — and holding still is all it takes, because a step from a
+        // direction to itself is a turn of zero and the totals below simply do not move.
+        val eased = easing(over = SMOOTHING, elapsed = gap)
+        val smoothed = previous.smoothed.towards(now, eased) ?: previous.smoothed
         return TiltMonitor(
-            FilteredGravity(
-                // Falling back to the previous direction covers the one case an interpolation can
-                // fail: two exactly opposite readings, which is a phone that flipped over between
-                // two samples forty milliseconds apart. Holding still through it beats a `NaN`.
-                fast = previous.fast.towards(now, easing(over = SMOOTHING, elapsed = gap)) ?: previous.fast,
-                slow = previous.slow.towards(now, easing(over = RECENTRING, elapsed = gap)) ?: previous.slow,
+            Turned(
+                smoothed = smoothed,
                 // `previous.at + gap` rather than `at`, so the stored instant can never go backwards
                 // and always matches the gap actually applied.
                 at = previous.at + gap,
+                tip = previous.tip + previous.smoothed.tip.turnTo(smoothed.tip),
+                lean = previous.lean + previous.smoothed.lean.turnTo(smoothed.lean),
             ),
         )
     }
 
-    // The two averages and the instant they were taken at. One nullable holder rather than three
-    // nullable fields, because they are only ever all present or all absent and a shape that cannot
-    // express the half-filled case cannot be left in it.
-    data class FilteredGravity(val fast: Gravity, val slow: Gravity, val at: Instant)
+    // The smoothed direction, the instant it was taken at, and how far each axis has turned since
+    // the count started. One nullable holder rather than four nullable fields, because they are only
+    // ever all present or all absent and a shape that cannot express the half-filled case cannot be
+    // left in it.
+    data class Turned(val smoothed: Gravity, val at: Instant, val tip: Double, val lean: Double)
 
     companion object {
 
-        // **Every number here is arithmetic rather than a measurement, and the first session with a
-        // phone in hand should move them.** That is the same caveat `ShakeMonitor`'s three carry and
-        // it is the honest one: a cloud session cannot hold a device, and how far a sky *should*
-        // lean is not a thing that can be derived. They are chosen to be conservative — a player who
-        // never thinks about it should never notice the field move on purpose.
+        // **Every number here is arithmetic rather than a measurement, and a session with a phone in
+        // hand should move them.** That is the same caveat `ShakeMonitor`'s three carry and it is the
+        // honest one: how far a sky *should* lean is not a thing that can be derived. The two below
+        // that came back from the first such session — the scale and the smoothing — are unchanged,
+        // because what that session reported was not that they were wrong.
 
-        // The turn that puts an axis at the stop — **a scaling constant, not a threshold the effect
-        // reaches on its own.** A band-pass passes about seven-eighths of an instantaneous step at
-        // its peak, and the peak arrives a beat after the hand stops, so a movement of exactly this
-        // size lands near four-fifths of full travel rather than on the stop. Twelve degrees is
-        // about the range of a wrist that is not trying, which is the point: the effect has to be
-        // most of the way there inside the movement somebody makes without meaning to, or it only
-        // exists for people who go looking for it.
-        const val FULL_DEFLECTION_DEGREES: Double = 12.0
+        // The turn that moves the sky one full unit of travel — TILT_TRAVEL in `Starfield`, before
+        // each plane's own parallax factor is applied.
+        //
+        // **A scale and no longer a stop**, which is the change 0.4.3 is mostly about. It used to be
+        // both, and being a stop is what made the effect feel like it had an edge twenty degrees out.
+        // As a scale it says only how much wrist buys how much sky: twelve degrees is about the range
+        // of a wrist that is not trying, which is the point — the effect has to be well underway
+        // inside the movement somebody makes without meaning to, or it only exists for people who go
+        // looking for it. A full turn of the phone is thirty of these, which carries the nearest
+        // plane a little over one screen width, so turning the phone right round takes the sky right
+        // round.
+        const val FULL_TRAVEL_DEGREES: Double = 12.0
 
-        // The fast average's time constant. Long enough to swallow sensor noise, short enough that
-        // the field is not visibly behind the hand — a tenth of a second is roughly the threshold
-        // below which a response reads as immediate.
+        // The smoothing average's time constant. Long enough to swallow sensor noise, short enough
+        // that the field is not visibly behind the hand — a tenth of a second is roughly the
+        // threshold below which a response reads as immediate. It is now the only filter on this
+        // path, so there is nothing downstream to hide a longer one behind.
         val SMOOTHING: Duration = 120.milliseconds
-
-        // The slow average's. Four seconds means a deliberate movement is passed through nearly
-        // whole (the centre barely moves inside one), while a pose that is held decays to about a
-        // third of its deflection in four seconds and to nothing over ten.
-        val RECENTRING: Duration = 4.seconds
 
         // Beyond this, a gap is an absence rather than a long interval. See `sample`.
         val MAX_GAP: Duration = 2.seconds
+
+        // How much of `down` has to lie in an axis's plane before that axis is read at its word, and
+        // below what it is not read at all. See `Bearing`: each axis has a pose in which the turn it
+        // describes is a spin about the vertical, and gravity cannot see one.
+        //
+        // **These are a fade in *precision*, and the distinction is the fix this round is named
+        // for.** 0.4.2 had no such pair because the cross product folded the same fact into the
+        // sideways gain as `sin²(elevation)` — so the sky answered a lean at a quarter strength on a
+        // phone held at thirty degrees, half at forty-five, and it read as the axis being lazy
+        // rather than as the instrument being unsure. Kept apart, the gain is flat across every pose
+        // a hand rests in and only the last stretch into genuinely unreadable poses fades.
+        //
+        // Thirty degrees of elevation is well under anything somebody holds a phone at to look at
+        // it; fifteen is a phone all but flat on a desk. Between them the axis fades out rather than
+        // cutting, and past the bottom it holds rather than jumping — a phone put down leaves the
+        // sky where it was.
+        const val CLEAR: Double = 0.5
+
+        const val FAINT: Double = 0.26
 
         // The grid every reported value is snapped to, and it is a performance decision rather than
         // a visual one. **A still phone should produce a still field**: without a grid the last digit
         // of a gravity reading jitters forever, every sample is a new value, and the sky redraws
         // sixty times a second for the whole session to show nothing. Snapped, a still hand produces
-        // the same `Tilt` twice and the source stops emitting. The step is a two-hundredth of full
+        // the same `Tilt` twice and the source stops emitting. The step is a hundredth of a unit of
         // travel — well under a pixel of movement on the nearest plane, so nothing about it is
         // visible.
         //
         // How well it silences a still phone depends on how much the sensor actually wanders, which
-        // is a device fact nobody here has measured; the fast average knocks that down by roughly
-        // three before it reaches the grid. **If a phone lying on a table still redraws, this is the
+        // is a device fact nobody here has measured; the smoothing knocks that down by roughly three
+        // before it reaches the grid. **If a phone lying on a table still redraws, this is the
         // lever**, and raising it costs nothing visible for a long way yet.
         const val STEP: Float = 0.01f
     }
@@ -170,13 +196,29 @@ data class TiltMonitor(val filtered: FilteredGravity? = null) {
 private fun easing(over: Duration, elapsed: Duration): Double =
     1.0 - exp(-elapsed.inWholeMicroseconds.toDouble() / over.inWholeMicroseconds.toDouble())
 
-// The sine of the deflection at the stop. Compared against a sine rather than an angle because that
-// is what a cross product hands out, and because `asin` on the way in would only be undone here.
-private val FULL_DEFLECTION_SINE = sin(TiltMonitor.FULL_DEFLECTION_DEGREES * PI / 180.0)
+// How much of a step between two bearings to count, which is the shortest way round scaled by how
+// far the shakier of the two ends can be trusted. Taking the *smaller* of the two is what makes a
+// phone being laid down on a desk fade out on the way rather than at the moment it lands.
+//
+// **This weight is the one place the total stops being exact, and it is worth naming.** At full
+// trust the steps telescope — they sum to the current angle minus where the count started, so sensor
+// noise cannot accumulate however long the session runs. Scaled by anything less, they no longer
+// cancel perfectly, and a phone left sitting *inside* the fade band walks by something like a
+// hundredth of a unit over ten minutes. That is a pixel and a half on the nearest plane, in the one
+// range of poses where the reading is admittedly unsure; a hard gate instead of a fade would trade it
+// for the axis cutting out mid-movement, which is worse and also does not remove the effect at the
+// boundary. Also protective: both bearings go undefined only where their own `inPlane` goes to zero,
+// so a swing large enough to take the short way round the *wrong* way is already weighted to nothing.
+private fun Bearing.turnTo(other: Bearing): Double =
+    turnedFrom(radians, to = other.radians) * trust(min(inPlane, other.inPlane))
 
-// A turn, as the sine the cross product gave, to a fraction of full travel — clamped at the stop and
-// snapped to the grid. The rounding is done in whole steps and multiplied back in `Float`, so a
-// whole number of steps lands on the value a reader would write down: `0.5f`, not `0.49999999`.
+private fun trust(inPlane: Double): Double =
+    ((inPlane - TiltMonitor.FAINT) / (TiltMonitor.CLEAR - TiltMonitor.FAINT)).coerceIn(0.0, 1.0)
+
+// A total turn, in radians, to units of travel — snapped to the grid and **not clamped**, which is
+// the one-word version of what changed. The rounding is done in whole steps and multiplied back in
+// `Float`, so a whole number of steps lands on the value a reader would write down: `0.5f`, not
+// `0.49999999`.
 //
 // **The `+ 0.0f` is load-bearing and is the least obvious line in this module.** A small negative
 // value rounds to `-0.0f`, and IEEE negative zero is a distinct bit pattern that `Float.equals` —
@@ -185,7 +227,9 @@ private val FULL_DEFLECTION_SINE = sin(TiltMonitor.FULL_DEFLECTION_DEGREES * PI 
 // are the same. Left in, a phone lying still on a table flickers between two tilts that are both
 // level, and the sky redraws forever to show nothing: exactly the property `STEP` exists to
 // guarantee, defeated by a sign bit. Adding positive zero normalises it and changes no other value.
-private fun deflection(sine: Double): Float {
-    val fraction = (sine / FULL_DEFLECTION_SINE).coerceIn(-1.0, 1.0)
-    return round(fraction / TiltMonitor.STEP).toFloat() * TiltMonitor.STEP + 0.0f
+private fun travel(radians: Double): Float {
+    val units = radians / FULL_TRAVEL_RADIANS
+    return round(units / TiltMonitor.STEP).toFloat() * TiltMonitor.STEP + 0.0f
 }
+
+private val FULL_TRAVEL_RADIANS = TiltMonitor.FULL_TRAVEL_DEGREES * PI / 180.0

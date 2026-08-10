@@ -41,13 +41,13 @@ private class IosTiltSource : TiltSource {
         }
 
         // ~50 Hz, matching Android's SENSOR_DELAY_GAME so the shared filter sees the same shape of
-        // stream on both phones — its two time constants are meaningless if one device reports at
-        // five times the rate of the other.
+        // stream on both phones — and so that a turn counted a step at a time is counted off steps
+        // of about the same size on each.
         motion.deviceMotionUpdateInterval = 1.0 / 50.0
 
         var monitor = TiltMonitor()
-        // The main queue, matching `IosShakeDetector`. The work per sample is two exponential
-        // averages and a cross product, which is nothing next to drawing the frame it feeds; a
+        // The main queue, matching `IosShakeDetector`. The work per sample is one exponential
+        // average and a pair of `atan2`s, which is nothing next to drawing the frame it feeds; a
         // background queue would buy an unmeasurable amount of main-thread time and pay for it with
         // samples arriving out of order — a case `TiltMonitor` is written to survive, but not one
         // worth provoking on purpose.
@@ -55,8 +55,9 @@ private class IosTiltSource : TiltSource {
             // Multiples of g, gravity already separated from whatever the hand is doing. iOS
             // reports a phone lying face up as `z = -1` where Android reports `+9.81`, and neither
             // the sign nor the scale is corrected here — see the note on the Android source, which
-            // does not correct them either. `TiltMonitor` normalises the vector and reads movement
-            // as a cross product, which is blind to both.
+            // does not correct them either. `TiltMonitor` normalises the scale away, and the sign
+            // turns both angles it reads by half a circle and so cancels out of every difference
+            // between two of them, which is all it ever takes.
             val reading = data?.gravity?.useContents { Triple(x, y, z) }
             if (reading != null) {
                 monitor = monitor.sample(
