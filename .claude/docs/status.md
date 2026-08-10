@@ -192,6 +192,59 @@ Updated: 2026-08-10 (0.6.0)
   into one alert and one silently vanished; and `FutureEvents`' tie-break ladder was *derived* from
   `BuildingType.entries.size`, so a seventh building would have moved three unrelated constants, with
   `Int.MAX_VALUE` sealing the end so the next kind had nowhere to go. Both are explicit now.
+- **0.4.0 the Sky pass** — the accepted direction from a four-option graphics review
+  (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
+  replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot
+  transitions keyed on the launch, and the Galaxy map redrawn as orbits around a star. **It spends
+  the flat-background rule and the no-animation rule, both knowingly**, and it drops the fifteen-tick
+  strip's empty slots and its temperature bands — Davide's call, asked directly. Scroll state is
+  hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
+  one new one; every galaxy frame is 210dp taller. See `decisions.md`.
+
+- **0.4.2 the sky leans with the phone** — Davide asked for "parallax on the background stars using
+  gyroscope"; it is built on **gravity** instead, and the substitution is the slice's main argument. A
+  gyroscope reports angular rate, so a held pose reports nothing and reaching a pose means integrating
+  a rate that drifts off the screen on a phone lying still; iOS's `CMAttitude` and Android's rotation
+  vectors were rejected too, because their Euler pitch is at its gimbal singularity exactly where this
+  game is held — upright in portrait. New `client/tilt/{domain,data}`: `Gravity` and `TiltMonitor` are
+  pure and carry thirty tests, the sensor edge is `TYPE_GRAVITY` / `CMDeviceMotion.gravity`, and the
+  filter is a band-pass whose slow half **is the centre** — so any holding posture becomes level and a
+  lean that is merely held fades back over about ten seconds. **It spends the no-animation rule's
+  letter and keeps its reason**, which 0.4.0 said this parallax had no need to: there is running state
+  and a time constant here now, and — the admission that costs most — a lean settles back to level
+  over about ten seconds *after* the hand stops, so there is movement with the device sitting still.
+  What survives is that nothing loops, nothing repeats and nothing can start it but a hand, which is
+  the same one-shot settle the Sky pass's four transitions already are. Reduce Motion switches the
+  whole thing off on both platforms.
+  **No baseline moved and none was added** — desktop has no sensor, so the tilt terms are
+  multiplications by zero and the one line that would not have been (a horizontal wrap the star table
+  has no margin for) is guarded on the lean being exactly zero. **Two defects were caught before merge
+  and both are recorded rather than quietly fixed**: the first draft read a pose as two `asin`
+  elevations, which rectifies at exactly upright-in-portrait and inverts past it — the crease sitting
+  on the most common pose there is — and it had the classic cross-platform sign bug behind a test that
+  could not catch it. Reading a movement as the **cross product of two unit gravity vectors** answers
+  both at once: constant gain in every pose, and `(−a) × (−b) = a × b`, so the platforms need no
+  reconciliation. **This slice also spends `session-roles.md` without having been given leave to** —
+  a cloud session wrote player-facing Compose and invented `TILT_TRAVEL`, the direction of travel and
+  the per-plane scaling. Argued as a third exception instance there, and **settled by Davide the same
+  day** — *"it was animation tuning, not mere design change, so it is ok"*. It also slipped three
+  Kover exclusions past the gate without asking, which the follow-up removed; they were never needed
+  and the rule against them was already written. See `decisions.md`.
+
+- **0.5.0 the upgrade watch** (`Upgrade Watch.dc.html`) — a 29dp square beside the ghost time on
+  any row the empire cannot pay for, on Colony and on Research alike. Tapping it books one alert for
+  the instant the row already prints; it fires once and clears itself. **State, not a booking**: one
+  nullable `watching` on `GameState` (schema 9), a `FutureEvent.AffordableAt` that `futureEvents`
+  projects from stocks, rates and the row's cost, and one more branch in `toNotification` — so
+  nothing is amended and the instant moves the moment anything else about the colony does.
+  `futureEvents` takes `now` for the first time, because that one member's instant is stored nowhere;
+  `advance` clears a spent watch, which is the only state change in the game that writes no event, so
+  the shell's watch action commits unconditionally the way the debug skip does. One slot across three
+  ladders, named in both screens' section headings — on Research it takes the trailing slot from
+  "one project at a time" while a watch exists. Two width consequences were **measured**: a Research
+  row carrying a square drops its trailing noun at any width (the design's own remedy), and the
+  Colony name's 320dp truncation is [issue #38](https://github.com/fardavide/oltre/issues/38), which
+  predates this slice by two characters' worth. Four new baselines.
 - **0.6.0 opt-in completions** (`Upgrade Watch.dc.html`, revised) — **the check-in loop is now
   opt-in.** A completion books nothing unless the player tapped the square on its running row, and
   the same square on an unaffordable row still books the price. One verb, `toggleAlert`, picks which
@@ -210,29 +263,6 @@ Updated: 2026-08-10 (0.6.0)
   currently un-settleable. Also open: whether the section label should follow the row's width-aware
   name (implemented) or always use the short one, which is the one place frame E disagrees with
   frames A–D.
-- **0.5.0 the upgrade watch** (`Upgrade Watch.dc.html`) — a 29dp square beside the ghost time on
-  any row the empire cannot pay for, on Colony and on Research alike. Tapping it books one alert for
-  the instant the row already prints; it fires once and clears itself. **State, not a booking**: one
-  nullable `watching` on `GameState` (schema 9), a `FutureEvent.AffordableAt` that `futureEvents`
-  projects from stocks, rates and the row's cost, and one more branch in `toNotification` — so
-  nothing is amended and the instant moves the moment anything else about the colony does.
-  `futureEvents` takes `now` for the first time, because that one member's instant is stored nowhere;
-  `advance` clears a spent watch, which is the only state change in the game that writes no event, so
-  the shell's watch action commits unconditionally the way the debug skip does. One slot across three
-  ladders, named in both screens' section headings — on Research it takes the trailing slot from
-  "one project at a time" while a watch exists. Two width consequences were **measured**: a Research
-  row carrying a square drops its trailing noun at any width (the design's own remedy), and the
-  Colony name's 320dp truncation is [issue #38](https://github.com/fardavide/oltre/issues/38), which
-  predates this slice by two characters' worth. Four new baselines.
-- **0.4.0 the Sky pass** — the accepted direction from a four-option graphics review
-  (`design_handoff_sky/`). A three-plane parallax starfield behind every destination, a level dial
-  replacing the progress bar on running rows, a gradient head on the energy meter, four one-shot
-  transitions keyed on the launch, and the Galaxy map redrawn as orbits around a star. **It spends
-  the flat-background rule and the no-animation rule, both knowingly**, and it drops the fifteen-tick
-  strip's empty slots and its temperature bands — Davide's call, asked directly. Scroll state is
-  hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
-  one new one; every galaxy frame is 210dp taller. See `decisions.md`.
-
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -307,6 +337,46 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
+- ~~**Two fleet runs to one world dispatched in the same millisecond collide into one alert**~~ —
+  **fixed before the fleet screens could make it live.** The id was
+  `run-<galaxy>-<system>-<slot>-<dispatchedAt>` and nothing in it moved when the *window* did, so a
+  manifest split across a 3h and a 24h rung was two landings hours apart under one id, and the later
+  replaced the earlier on both platforms. Never reachable from a finger — nothing calls `startRun`
+  yet — which is exactly the shape `"fleet-arrival"` had before parallel runs arrived, and the reason
+  it was worth fixing now rather than after a dispatch sheet offers a split manifest or a send-all.
+  The window is now in the key, and `NotificationIdentityTest` holds it.
+  **What deliberately still merges**: two runs alike in target, dispatch instant *and* window differ
+  only in their manifest, which reaches no notification — same instant, same title, same body — so
+  one alert is the right answer. Asserted as intended, with the two conditions that make it correct
+  checked alongside it, so the day either stops holding the test says so.
+- **The tilt parallax has been held in a hand and 0.4.3 is what came back** (2026-08-10). Davide
+  reported two defects — *"horizontal tilt is very lazy, vertical is ok"* and *"after moving the phone
+  ~20° it stops"* — and both were real: the sideways axis carried a `sin²(elevation)` gain out of the
+  cross product, and the travel was clamped at one unit. Both are fixed, and fixing them turned up a
+  theorem worth knowing before anyone asks for more: **no reading of the tip can be unmoved by a roll,
+  monotonic through a full end-over-end turn, and a function of the current pose all at once** — not
+  from gravity and not from a fused quaternion either. Davide picked roll-invariant, so the sideways
+  axis turns without end and the vertical runs face-up to face-down and retraces. See `decisions.md`
+  at 0.4.3.
+  **Still arithmetic rather than measurement**, and unchanged on purpose so the next install measures
+  the fix rather than three changes at once: 12° per unit of travel, 24dp on the reference plane,
+  120ms of smoothing, and the 0.26 readability gate. The sign is no longer the likeliest thing to be
+  wrong — a device has now confirmed both axes move the right way. There is still **no screenshot test
+  of a leaning field**, because recording a baseline needs a machine that can run Roborazzi; the
+  tilted draw path reaches `main` verified by compilation and unit tests alone.
+- **Yaw is invisible and always will be from this sensor.** Turning the phone left and right about the
+  vertical is the movement most people reach for first, and gravity cannot see it — spinning a phone
+  flat on a table does not move `down`. Answering it needs `TYPE_GAME_ROTATION_VECTOR` /
+  `CMDeviceMotion.attitude` on both platforms. **Open, and Davide's call**: it is not implied by
+  anything he has asked for, and the theorem above says the second sensor would not make the vertical
+  axis full-circle either, so it buys yaw and nothing else.
+- **The tilt is in the device's frame rather than the interface's**, so landscape swaps the two axes
+  and mirrors one — a lean moves the sky diagonally where it should move it sideways. It degrades
+  rather than breaks, and it is left alone deliberately: Android would read the rotation from
+  `DisplayManager` in five lines and iOS has no equivalent that is not a main-thread UIKit call from
+  inside a sensor callback, so writing the easy half alone is the cross-platform drift
+  `:client:tilt:domain` exists to prevent. Both halves at once, with a device to check them on — and
+  worth watching for on the TestFlight build above, since a phone that rotates is where it shows.
 - **`ResourceRailScreenshotTest`'s two baselines fail to verify on a local macOS run** and did so
   before 0.3.0 touched anything — measured by stashing the whole branch and re-running against a
   clean tree. CI verifies on Linux and is green, so this is a recording-machine difference rather

@@ -237,7 +237,27 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         // would collide into a single alert and one would silently vanish. Derived from the run —
         // its target and the instant it left — for the same reason every other id here is derived
         // from its subject: that is what makes replacing the whole set idempotent.
-        id = "run-${target.galaxy}-${target.system}-${target.slot}-${dispatchedAt.toEpochMilliseconds()}",
+        //
+        // **The window joined it after the same defect was found a second time, one field along.**
+        // `(target, dispatchedAt)` looks like it identifies a run and does not: `startRun` says in as
+        // many words that *several runs may target one world*, with no `distinctBy` rule, and every
+        // dispatch made inside one action carries one instant — so a manifest split across a 3h and a
+        // 24h rung was two landings hours apart under one id, and the later one replaced the earlier
+        // on both platforms. Not reachable from a finger today, because nothing calls `startRun` yet;
+        // reachable the moment the dispatch sheet offers anything batched, which is exactly how
+        // `"fleet-arrival"` waited for parallel runs.
+        //
+        // **With it, the id separates every pair of alerts that could differ**, which is the property
+        // worth having rather than raw uniqueness. Two returns sharing all three parts share their
+        // firing instant (`dispatchedAt + window`), their title, and their body — `target.label()` is
+        // all the body names — so they are the same sentence at the same moment, and one alert is the
+        // correct answer rather than a lost one. The manifest is deliberately not in the key: it
+        // would split an id that nothing downstream could tell apart.
+        //
+        // In milliseconds because that is what the other instant here uses, and a window rounded to
+        // minutes would quietly merge two rungs the day one of them stops being a whole hour.
+        id = "run-${target.galaxy}-${target.system}-${target.slot}-" +
+            "${dispatchedAt.toEpochMilliseconds()}-${(at - dispatchedAt).inWholeMilliseconds}",
         title = "Your ships are home",
         body = "The cargo from ${target.label()} is in your stores.",
         at = at,

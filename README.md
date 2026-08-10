@@ -93,7 +93,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), `:client:debug:*` (the shake-to-open debug menu), `:client:tilt:*` (which way the device is being held, for the sky behind every screen), one directory per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -191,6 +191,47 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - **The instant stays true.** Spend the resources on something else and the alert slides later on
   the same tap that spent them; finish a Solar Plant that lifts a shortage and it slides earlier.
   While the app is closed nothing spends, so an alert can only ever fire early.
+### 0.4.3 — 2026-08-10
+
+- **The sky answers a sideways lean as readily as a forward one.** Rolling the phone used to move
+  the stars a fraction of what tipping it did — a quarter as far on a phone held at thirty degrees,
+  half at forty-five — because the sideways reading was being weakened by the angle you happen to
+  hold the phone at rather than by how far you turned it. The two directions now travel the same
+  distance for the same movement, from every pose a hand rests in.
+- **There is no longer an edge to the effect.** It used to stop about twenty degrees out, so
+  anything more than a small wrist flick arrived in the same place and the sky went dead in your
+  hand. Roll the phone now and it just keeps going, right round and round again. Tipping it forward
+  and back tracks the whole way from flat on its back to flat on its face, then retraces as you
+  carry on over — the sky can follow a roll for ever, but it can only follow a tip through the poses
+  you can actually see the screen from.
+- **A sideways roll no longer drags the sky diagonally.** It always did a little; once the limit came
+  off, a big roll dragged it further up than the roll itself moved it sideways. Rolling now moves the
+  sky sideways and nothing else.
+- **Put the phone down and the sky stops.** 0.4.2 spent about ten seconds drifting back to level
+  after you stopped moving, which was the price of the old limit; there is no limit and so no drift.
+  Wherever you leave it is where it stays, however long you leave the game open — and putting it flat
+  on a desk and spinning it leaves the sky alone, because from down there your phone genuinely cannot
+  tell it is being turned.
+- Still off entirely if you have asked your phone for less movement, and a phone with no motion
+  sensor still holds still.
+- Saves from 0.4.2 carry forward untouched.
+
+### 0.4.2 — 2026-08-10
+
+- **The sky behind every screen leans with the phone.** Tilt it and the three planes of stars slide
+  against each other and against the cards in front of them, the near ones travelling further than
+  the far ones — which is the whole of what makes a flat black background read as distance rather
+  than as an empty window. It is a small movement on purpose: less than an eighth of what one screen
+  of scrolling already moves the same field, and meant to be noticed on the third session rather
+  than the first.
+- **Nothing up there ever starts on its own.** The sky only moves when you move the phone; after
+  you stop, a lean settles back to level over a few seconds and then holds, however long you leave
+  the game open. Which also means every way of holding it works the same — flat on a desk, at an
+  angle on a sofa, overhead in bed — rather than the sky sitting shoved to one side because of how
+  you happen to be lying.
+- **Off entirely if you have asked your phone for less movement.** The system's own reduce-motion
+  setting switches it off on iOS and on Android, and a device with no motion sensor simply holds
+  still.
 - Saves from 0.4.1 carry forward untouched.
 
 ### 0.4.1 — 2026-08-10

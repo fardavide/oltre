@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 
 // The back layer of every destination, and the one change in the depth pass that broke a written
 // rule — the background is meant to be flat, with no texture on it. It is also the only thing that
@@ -24,46 +25,156 @@ import dev.fardavide.oltre.client.design.core.OltreColors
 // is the point rather than a limitation: a star seen *through* a card would be dust on a surface,
 // and a star seen beside one is space behind it.
 //
-// **The parallax is not an animation.** It has no duration, no clock and no running state; it is a
-// function of the scroll position, exactly as the position of the list itself is. Nothing here
-// implies that time is passing, which is the whole of what the no-animation rule was protecting.
+// **The field moves on two inputs, and the second one costs more than a sentence.**
+// 0.4.0 wrote here, and in `decisions.md`, that the parallax is not an animation because it "has no
+// duration, no clock and no running state". Of the scroll term that is still exactly true. Of the
+// tilt term the last clause is not: `TiltMonitor` keeps a smoothed direction between samples, and
+// that average has a time constant — so a lean arrives over about a tenth of a second rather than
+// on one frame.
 //
-// `scrollOffset` is a lambda rather than a value on purpose: read inside the draw scope it makes a
-// scroll a redraw, where a parameter would make it a recomposition of the whole frame on every
-// pixel of a drag.
+// **0.4.2 owed a larger admission here and 0.4.3 pays it off rather than restating it.** Under the
+// band-pass the zero point followed the pose, so a lean that had already finished went on settling
+// back to level for about ten seconds — ten seconds in which the sky moved with nobody touching the
+// device, which is the one thing in this app a player could have watched happen with their hands in
+// their lap. That centre existed only to stop a held pose pinning a *clamped* travel against its
+// stop. With the clamp gone there is no stop and no centre, and the plain sentence is true again:
+// **put the phone down and the sky stops.** What is left is the smoothing arriving, which is a
+// response to a movement that has just happened and is over in under a second.
+//
+// The rule that makes this matter is there so a game whose premise is that it progresses while
+// closed never draws anything a player could read as *it is happening now*. The four transitions
+// that pass spend it as one-shot settles: each runs once when the thing it describes enters
+// composition, and then holds forever. The lean is that same shape with a different trigger — it
+// runs once per movement the player makes and cannot restart itself. Nothing loops, nothing repeats,
+// and the only thing in the world that can start it is a hand.
+//
+// Both inputs are lambdas rather than values, and for the tilt there are two reasons rather than
+// one. The first is the scroll offset's: read inside the draw scope, a lambda makes a lean a
+// *redraw* of this Canvas, where a value read in a composable body would recompose the frame around
+// it. The second is Compose's stability inference. `Tilt` comes from `:client:tilt:domain`, which
+// does not apply the Compose compiler plugin and so publishes no stability of its own — and an
+// unstable parameter does not merely invalidate on change, it makes the composable holding it
+// **non-skippable outright**. `MainScaffold` taking a `Tilt` by value would re-run all five
+// destination lambdas on every recomposition of `App`, the once-a-second tick included, whether or
+// not the phone had moved. A function type is unconditionally stable, so this shape has neither
+// problem — and that is why the fix for a future "simplification" here is not an `@Immutable`
+// annotation, which would put Compose into a pure module.
 @Composable
-internal fun Starfield(scrollOffset: () -> Float, modifier: Modifier = Modifier) {
-    // **Clipped, and it is load-bearing rather than tidy.** Star `y` runs −0.08..1.08 so that a
+internal fun Starfield(
+    scrollOffset: () -> Float,
+    tilt: () -> Tilt = { Tilt.NONE },
+    modifier: Modifier = Modifier,
+) {
+    // **Clipped, and it is load-bearing twice over.** Star `y` runs −0.08..1.08 so that a
     // translated plane never exposes an empty edge, and Compose does not clip a child to its layout
     // bounds — so without this the two rows of stars outside 0..1 are drawn over the resource rail
     // above and the tab bar below. Space showing through a surface is the one thing the opaque
     // fills in this app exist to prevent, and the chrome is a surface.
+    //
+    // The second reason arrived with the lean and is invisible: `clipToBounds` is a `graphicsLayer`,
+    // and `Canvas` appends its draw node *after* the caller's modifier — so the drawing below sits
+    // inside that layer, and a sensor sample re-records one RenderNode holding a hundred and one
+    // circles. Take the clip away and the invalidation climbs to the nearest ancestor layer, which
+    // is the window, and every card on screen re-records its own drawing fifty times a second.
     Canvas(modifier = modifier.fillMaxSize().clipToBounds()) {
         val offset = scrollOffset()
+        val lean = tilt()
+        val travel = TILT_TRAVEL.toPx()
         // Back to front, so the near plane's brighter stars are the ones that survive an overlap.
         SKY_PLANES.forEach { plane ->
+            // **The lean reuses each plane's own parallax factor rather than introducing three more
+            // numbers.** The planes already have a settled spread — 0.12, 0.30, 0.58 — chosen so
+            // that the gap between any two of them reads as distance, and a second table of tilt
+            // weights would be a second opinion about the same depth that could only ever drift out
+            // of step with the first. One distance in dp, scaled by what each plane already is.
+            val leanX = lean.x * plane.parallax * travel
+            val leanY = lean.y * plane.parallax * travel
             // **Wrapped rather than translated**, which a plain shift is not enough for. The near
             // plane keeps 58% of the list's speed, so one viewport of scroll carries it more than
             // half a screen up and leaves the bottom of the destination with no stars in it at all
             // — an empty sky under a list that is still scrolling. Taking the shift modulo the
             // plane's height and drawing each star twice, one height apart, makes the field tile:
-            // whatever leaves the top comes back at the bottom, and it is still a pure function of
-            // the scroll offset with no clock in it.
-            val shift = (-offset * plane.parallax).mod(size.height)
+            // whatever leaves the top comes back at the bottom. The lean folds into the same shift
+            // and so tiles with it for free.
+            val shift = (-offset * plane.parallax + leanY).mod(size.height)
+            // The horizontal wrap has to be earned separately, because the star table has no margin
+            // across: `x` runs 0.0004..0.9845, edge to edge, where `y` was given bleed on purpose.
+            // So a sideways lean would drag a bare strip in at whichever edge it came from, and the
+            // fix is the one the vertical shift already uses — take it modulo the width and draw
+            // each star again one width across.
+            //
+            // **Guarded on the lean being exactly zero, and that guard is what protects forty-one
+            // screenshot baselines.** Desktop has no motion sensor and reports `Tilt.NONE` forever,
+            // so on the machine every baseline is recorded on this branch is not taken, no `mod` is
+            // applied to `x`, and the draw calls are the same two per star that were recorded before
+            // any of this existed. Without it, folding an unchanged `x` through `mod` would come
+            // back a fraction of a pixel different — small enough to pass the verifier and quite
+            // large enough to be a drift nobody could read off a diff.
+            val wraps = leanX != 0f
             plane.stars.forEach { star ->
                 val colour = star.color.copy(alpha = star.alpha)
                 val radius = star.radius.toPx()
-                val x = size.width * star.x
                 // The table's y runs −0.08..1.08 so that an un-wrapped plane had bleed at both
                 // edges; folded into 0..1 it tiles seamlessly instead, and the two rows that used
                 // to be the bleed become the two rows either side of the seam.
                 val y = size.height * ((star.y + 1f).mod(1f)) + shift
-                drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y))
-                drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y - size.height))
+                if (wraps) {
+                    val x = leanedAcross(fraction = star.x, lean = leanX, width = size.width)
+                    drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y))
+                    drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y - size.height))
+                    drawCircle(color = colour, radius = radius, center = Offset(x = x - size.width, y = y))
+                    drawCircle(
+                        color = colour,
+                        radius = radius,
+                        center = Offset(x = x - size.width, y = y - size.height),
+                    )
+                } else {
+                    val x = size.width * star.x
+                    drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y))
+                    drawCircle(color = colour, radius = radius, center = Offset(x = x, y = y - size.height))
+                }
             }
         }
     }
 }
+
+// Where a star sits across the box once a lean has moved it, folded back into `0..width` so the
+// plane tiles sideways.
+//
+// **Extracted from the draw scope rather than left inline, and the reason is a scar.** The vertical
+// version of this arithmetic shipped at 0.4.0 with no wrap at all and emptied the bottom of the sky
+// on any scrolled list — a defect an adversarial review found and a green build did not, because
+// nothing rendered it. The horizontal version is the same shape with the same failure mode, and it
+// is worse off: a screenshot baseline for a leaning field cannot be recorded by a session with no
+// Roborazzi, so **nothing in this repository draws this branch at all.** Pulled out here, the part
+// that could actually be wrong is arithmetic, and `StarfieldTest` walks it.
+//
+// The companion copy is drawn at `x - width` rather than `x + width`, and that is not arbitrary: at
+// `- width` the second copy is off the left edge and clipped away when the lean is zero, where at
+// `+ width` a star at fraction 0.0004 would land a pixel *inside* the right edge and move two
+// baselines that are supposed to be untouchable.
+internal fun leanedAcross(fraction: Float, lean: Float, width: Float): Float =
+    (width * fraction + lean).mod(width)
+
+// How far the nearest plane travels per unit of lean, before its parallax factor is applied — so
+// the near plane covers 0.58 of this, the far one 0.12, and the spread between them is the depth.
+//
+// **No longer the whole of what a lean can move**, which is what it was until 0.4.3: one unit is
+// twelve degrees of turn and nothing stops there sideways, so a phone rolled right round reports
+// thirty of them and carries the near plane 418dp — a little over one screen width. Note what that
+// does *not* say: 418 into a 393dp box leaves the near plane 25dp from where it began, and the other
+// two planes travel 216dp and 86dp, so a full roll does not put the field back. Nothing in the
+// wrapping makes it, and nothing needs it to — there is no landmark in a tiling field of stars for a
+// viewer to measure the difference against, which is the same reason the zero point can be anywhere.
+//
+// The vertical is a different shape: `y` runs to fifteen units at face-down and comes back, so the
+// most the tip can move the near plane is 209dp end to end. See `Tilt`.
+//
+// That the number itself did not have to change is the point of leaving it here. Fourteen
+// device-independent pixels on the nearest plane for an ordinary wrist flick is still an accent on
+// a field mostly driven by the list in front of it; what the first device session reported was not
+// that a small movement moved too little, it was that a large one moved no further.
+private val TILT_TRAVEL: Dp = 24.dp
 
 // Fractions of the box rather than offsets, so the field survives every window the app has to live
 // in without a second table. `y` runs −0.08..1.08 rather than 0..1 precisely so that a plane which

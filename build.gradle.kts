@@ -105,6 +105,8 @@ dependencies {
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
     kover(projects.client.save.data)
+    kover(projects.client.tilt.data)
+    kover(projects.client.tilt.domain)
 }
 
 kover {
@@ -170,6 +172,19 @@ kover {
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeDetector*")
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeHost")
                 classes("dev.fardavide.oltre.client.debug.data.DefaultShakeDetector_androidKt")
+                // **`:client:tilt:data`'s Android half is deliberately absent from this list**, and
+                // saying why is the point of this comment. 0.4.2 added it here — three `classes(…)`
+                // lines written in the same commit as the code, before any report existed — and the
+                // next PR took them back out and let the job measure what they had been hiding.
+                // **Twenty-six lines**: the package reads 3.7% rather than the 100.0% the exclusion
+                // was reporting, and the total went 96.9% -> 96.3% against a 95.0% floor. So the gate
+                // passes with one and a third points to spare, and the exclusion had bought nothing
+                // it was not already given. An exclusion that buys nothing still costs the one thing
+                // this filter can never give back, which is the gate's ability to notice.
+                //
+                // The three entries above it are real and predate that. **A fourth needs a failing
+                // report to point at and Davide's explicit say-so** — see the `test-coverage` skill,
+                // which said so already.
             }
         }
         total {

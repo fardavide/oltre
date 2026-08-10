@@ -19,6 +19,7 @@ import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StartAdaptationResult
@@ -63,6 +64,8 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
             OltreTheme {
                 Surface {
                     MainScaffold(
+                        // Desktop has no motion sensor, so this is also what the app itself passes here.
+                        tilt = { Tilt.NONE },
                         resources = game.state.toResourceRailUiState(),
                         // The colony is not what this test is about, and a screen it does not drive
                         // is a screen whose text could collide with an assertion.
