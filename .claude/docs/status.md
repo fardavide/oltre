@@ -328,10 +328,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   at 0.4.3.
   **Still arithmetic rather than measurement**, and unchanged on purpose so the next install measures
   the fix rather than three changes at once: 12° per unit of travel, 24dp on the reference plane,
-  120ms of smoothing, and the 0.26 readability gate. The sign is no longer the likeliest thing to be
-  wrong — a device has now confirmed both axes move the right way. There is still **no screenshot test
-  of a leaning field**, because recording a baseline needs a machine that can run Roborazzi; the
-  tilted draw path reaches `main` verified by compilation and unit tests alone.
+  120ms of smoothing, and the 0.26 readability gate. There is still **no screenshot test of a leaning
+  field**, because recording a baseline needs a machine that can run Roborazzi; the tilted draw path
+  reaches `main` verified by compilation and unit tests alone.
+  ~~The sign is no longer the likeliest thing to be wrong — a device has now confirmed both axes move
+  the right way.~~ **Wrong, and 0.4.4 is the second install** (2026-08-10): *"vertical parallax is
+  perfect, but horizontal is inverted."* The sideways sign had been backwards since 0.4.2 and the
+  sentence above read a report about *magnitude* as clearance for *direction* — "horizontal is very
+  lazy" says only that the axis barely moved, which is exactly the condition under which nobody can
+  tell which way it is moving. **Fixing the magnitude is what made the direction findable**, so a
+  second report was the expected outcome of 0.4.3 rather than a mark against it. One minus sign in
+  `TiltMonitor.tilt`; the sky now goes towards the edge you drop. No baseline moved — desktop reports
+  `Tilt.NONE`. See `decisions.md` at 0.4.4 for why no test could have caught it.
 - **Yaw is invisible and always will be from this sensor.** Turning the phone left and right about the
   vertical is the movement most people reach for first, and gravity cannot see it — spinning a phone
   flat on a table does not move `down`. Answering it needs `TYPE_GAME_ROTATION_VECTOR` /

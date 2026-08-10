@@ -38,13 +38,21 @@ class TiltMonitorTest {
     }
 
     @Test
-    fun `a lean to the right pushes the sky left`() {
-        // The sign convention in one test. Dropping the right edge is a positive turn about the
-        // axis out of the glass and the field moves against it — see the note on `TiltMonitor.tilt`
-        // for why that direction and not the other.
-        val monitor = leaned(to = Pose(50.0, lean = 6.0))
+    fun `a lean to the right pushes the sky right`() {
+        // The sign convention written down in one test, and **written down is all it is** — a
+        // convention is not a property, so this cannot catch a flip; it pins whichever direction it
+        // is given. The direction it is given now came off a device (*"horizontal is inverted"*,
+        // 0.4.4) after the suite was green for two releases of the other one. See the note on
+        // `TiltMonitor.tilt` for why the sideways axis has no derivation to be checked against and
+        // the vertical one does.
+        //
+        // The mirror half is a real property rather than a convention: whatever the direction, the
+        // two edges have to answer it oppositely and by the same amount.
+        val right = leaned(to = Pose(50.0, lean = 6.0))
+        val left = leaned(to = Pose(50.0, lean = -6.0))
 
-        assertTrue(monitor.tilt.x < 0f, "x was ${monitor.tilt.x}")
+        assertTrue(right.tilt.x > 0f, "x was ${right.tilt.x}")
+        assertEquals(-right.tilt.x, left.tilt.x, TiltMonitor.STEP, "the two edges were not mirrored")
     }
 
     @Test
@@ -91,7 +99,7 @@ class TiltMonitorTest {
         }
 
         readings.forEach { (elevation, x) ->
-            assertTrue(x < 0f, "a lean at $elevation degrees pushed the sky the wrong way: $x")
+            assertTrue(x > 0f, "a lean at $elevation degrees pushed the sky the wrong way: $x")
         }
         val spread = readings.maxOf { it.second } - readings.minOf { it.second }
         assertTrue(abs(spread) <= 2 * TiltMonitor.STEP, "the same lean varied by $spread across poses")
@@ -204,7 +212,7 @@ class TiltMonitorTest {
         // sixty degrees is five times twelve and moves the field five times as far.
         val monitor = leaned(to = Pose(REST.elevation, lean = 60.0), settle = 1.seconds)
 
-        assertEquals(-5f, monitor.tilt.x, 0.05f)
+        assertEquals(5f, monitor.tilt.x, 0.05f)
     }
 
     @Test
@@ -214,7 +222,7 @@ class TiltMonitorTest {
         // it takes counts turns rather than clamping inside one.
         val monitor = turned(through = 360.0, over = 2.seconds)
 
-        assertEquals(-30f, monitor.tilt.x, 0.1f)
+        assertEquals(30f, monitor.tilt.x, 0.1f)
     }
 
     @Test
@@ -264,7 +272,7 @@ class TiltMonitorTest {
         // rather than something starting on its own. Twelve time constants later it is over, and
         // then the reading does not change again however long the game is left open.
         val leant = leaned(to = Pose(REST.elevation, lean = 9.0), settle = 1.seconds)
-        assertTrue(leant.tilt.x < -0.7f, "the lean never registered: ${leant.tilt.x}")
+        assertTrue(leant.tilt.x > 0.7f, "the lean never registered: ${leant.tilt.x}")
 
         val settled = held(leant, Pose(REST.elevation, lean = 9.0), from = leant.at(), for_ = 25.seconds)
 
@@ -285,7 +293,7 @@ class TiltMonitorTest {
 
         val moved = held(back, Pose(140.0, lean = 31.0), from = back.at(), for_ = 1.seconds)
 
-        assertTrue(moved.tilt.x < back.tilt.x, "the hand was ignored after the gap: ${moved.tilt.x}")
+        assertTrue(moved.tilt.x > back.tilt.x, "the hand was ignored after the gap: ${moved.tilt.x}")
     }
 
     @Test
@@ -296,7 +304,7 @@ class TiltMonitorTest {
         val leant = leaned(to = Pose(REST.elevation, lean = 9.0))
         val stalled = leant.sampled(Pose(REST.elevation, lean = 12.0), at = leant.at() + 1.seconds)
 
-        assertTrue(stalled.tilt.x < leant.tilt.x, "a one-second stall was treated as an absence")
+        assertTrue(stalled.tilt.x > leant.tilt.x, "a one-second stall was treated as an absence")
     }
 
     @Test
@@ -337,7 +345,7 @@ class TiltMonitorTest {
 
         assertEquals(0f, flat.tilt.x)
         assertEquals(handHeld.tilt.x, shallow.tilt.x, 2 * TiltMonitor.STEP)
-        assertTrue(shallow.tilt.x < 0f, "a lean at 20 degrees moved nothing: ${shallow.tilt.x}")
+        assertTrue(shallow.tilt.x > 0f, "a lean at 20 degrees moved nothing: ${shallow.tilt.x}")
     }
 
     @Test
