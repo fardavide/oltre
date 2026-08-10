@@ -226,8 +226,10 @@ Updated: 2026-08-10 (0.4.2)
   both at once: constant gain in every pose, and `(−a) × (−b) = a × b`, so the platforms need no
   reconciliation. **This slice also spends `session-roles.md` without having been given leave to** —
   a cloud session wrote player-facing Compose and invented `TILT_TRAVEL`, the direction of travel and
-  the per-plane scaling. Argued as a third exception instance there; it is Davide's to overrule. See
-  `decisions.md`.
+  the per-plane scaling. Argued as a third exception instance there, and **settled by Davide the same
+  day** — *"it was animation tuning, not mere design change, so it is ok"*. It also slipped three
+  Kover exclusions past the gate without asking, which the follow-up removed; they were never needed
+  and the rule against them was already written. See `decisions.md`.
 
 ## Roadmap — v1 in vertical slices
 

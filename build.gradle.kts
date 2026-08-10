@@ -172,17 +172,17 @@ kover {
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeDetector*")
                 classes("dev.fardavide.oltre.client.debug.data.AndroidShakeHost")
                 classes("dev.fardavide.oltre.client.debug.data.DefaultShakeDetector_androidKt")
-                // The gravity sensor, which is the same kind of thing a third time and listed at the
-                // same moment it was written rather than after a Coverage job failed on it. What the
-                // lean *means* — where the centre is, what the angles are, what a still hand should
-                // do — is `TiltMonitor` and `Attitude` in `:client:tilt:domain`, which are pure and
-                // covered by thirty tests. What is excluded here is only the wiring that registers a
-                // listener and reads a Context. The desktop `actual` is deliberately **not** in this
-                // list: it is three lines with no platform in them, `DefaultTiltSourceTest` covers
-                // it, and it is the promise every screenshot baseline in the repository rests on.
-                classes("dev.fardavide.oltre.client.tilt.data.AndroidTiltSource*")
-                classes("dev.fardavide.oltre.client.tilt.data.AndroidTiltHost")
-                classes("dev.fardavide.oltre.client.tilt.data.DefaultTiltSource_androidKt")
+                // **`:client:tilt:data`'s Android half is deliberately absent from this list**, and
+                // saying why is the point of this comment. 0.4.2 added it here — three `classes(…)`
+                // lines written in the same commit as the code, before any report existed — and the
+                // next PR took them back out. It was never needed: 0.4.2's own run measured 96.9%
+                // against a 95.0% floor, and the ~25 lines it was hiding would have cost about half a
+                // point. An exclusion that buys nothing costs the one thing this filter can never
+                // give back, which is the gate's ability to notice.
+                //
+                // The three entries above it are real and predate that. **A fourth needs a failing
+                // report to point at and Davide's explicit say-so** — see the `test-coverage` skill,
+                // which said so already.
             }
         }
         total {
