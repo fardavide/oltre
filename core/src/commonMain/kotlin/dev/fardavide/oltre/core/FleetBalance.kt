@@ -127,19 +127,70 @@ object FleetBalance {
     private const val DANGER_PERCENT_PER_POINT: Long = 10
     private const val PERCENT: Long = 100
 
+    // ── The frontier band — DECIDED 2026-08-10, and NOT WIRED IN until slice 2 ───────────────
+    //
+    // Indexed by `distanceBand`. **Nothing reads this yet**, deliberately: it is the answer to the
+    // sheet's §3.5 and it lands with the screen that shows it, so `cargo` below is still flat. It is
+    // written here rather than in the slice that uses it because the constant was decided against a
+    // measurement and the argument is worth keeping next to the arithmetic it corrects.
+    //
+    // **Why a band exists at all.** Metal and crystal richness are plain uniform draws — the
+    // generator sees a system index only as a hash salt — so at equal richness the nearest world wins
+    // at every window and distance is pure cost. Left alone, the player finds the best world in their
+    // own system on day two and never opens the map again, and the galaxy is a backdrop.
+    //
+    // **Why these numbers and not the ones the sheet first proposed.** ×1.35 and ×1.6 do not create a
+    // crossover, and the reason is structural: the flight is *subtracted* from the window while the
+    // band is *multiplied* into the hold, and danger rises with the same distance the band pays for.
+    // Measured at the 24h window against a same-richness world at home, the sheet's own constants
+    // return 1.01 / **0.88** / **0.69** of the near world — a frontier that is a worse buy dressed as
+    // a better one. These are the break-even points instead (1.14 / 1.54 / 2.31, rounded), which is
+    // the right target rather than a timid one: the band cancels the distance penalty exactly and
+    // then **richness decides**, which is the only thing that makes a map worth reading. There is no
+    // unpriced risk left to compensate, because danger is deterministic and already inside this
+    // arithmetic.
+    //
+    // Band 3 sits a hair under its own break-even on purpose — the galaxy sheet §4 prices
+    // different-galaxy travel as a late-game undertaking and this keeps it one.
+    //
+    // A consequence, and it is a feature: because the flight is subtracted, the frontier can only pay
+    // at the **longest** window — at 12h a band-2 world still returns 0.77 of the near one even at
+    // ×1.55. So short windows are for the neighbourhood and long windows are what the frontier is
+    // for, and a ladder narrowing on a distant target teaches that before any copy does.
+    val FRONTIER_PERCENT: List<Long> = listOf(100, 115, 155, 230)
+
     // ── The hold ─────────────────────────────────────────────────────────────────────────────
     //
     // Priced units at the game's own 1 : 2 : 3, which is the convention the adaptation sheet's cost
     // table and `:sim:run`'s `priced()` already use — so a hold of 480 buys 480 metal or 240 crystal
     // and the choice is entirely about what the colony is short of rather than about which is bigger.
     //
-    // **PROPOSED, NOT DECIDED, and the number most likely to be wrong.** Two corrections already
-    // landed on it and both push down: the draft's "16% of a genesis colony" divided by a colony
-    // 0.2.7 deleted, and it measured the *priced basket* rather than the chosen currency — taken as
-    // crystal, 34 priced/hour is 47% of a genesis colony's crystal income, not 16% of everything. The
-    // sim sweep in the sheet's §6 reads metal and crystal separately and is expected to land this
-    // well below 40.
-    const val EXTRACTION_PER_HOUR: Long = 40
+    // **MEASURED, not guessed — 40 was the draft's number and the sweep halved it.** `:sim:run`'s
+    // `printFleetReport` swept {10, 20, 30, 40} against {40, 80, 140} metal of hull, and
+    // `balance-log.md` round 17 has the grid. What decided it was not a guardrail: levels at 48h
+    // never left 32–34 and Robotics 4 never left hour 33–34 at any candidate, so **nothing in the
+    // guardrails constrains this choice at all.** Three readings did.
+    //
+    // 1. **A fleet-first player must not out-produce their own colony.** Buying hulls *before* the
+    //    buildings rather than out of what is left takes the fleet's crystal from 31% of the colony's
+    //    to **98.6%** at 40 — a fleet delivering as much crystal in 48 hours as everything else put
+    //    together. At 20 the same aggressive player reaches 49%. **20 is the highest rate at which no
+    //    purchase order makes the fleet the economy**, and a constant that is only safe if the player
+    //    buys in the order the designer imagined is not safe.
+    // 2. **Per hull it is legible.** At 20 one skiff on a 6h run brings home 1.7 hours of a genesis
+    //    colony's crystal income — about 28% of a Crystal Mine while it is away, so three or four
+    //    skiffs match the mine. At 40 that is 3.4 hours and ~55%, which is the "47%" the draft was
+    //    already warned about by its own reviewer.
+    // 3. **§3.5's frontier band is not built yet and multiplies this by up to ×2.30.** Sizing at 20
+    //    leaves the frontier landing near an effective 46; sizing at 40 would put it at 92 the day
+    //    slice 2 ships, which is a rebalance disguised as a feature.
+    //
+    // 30 is the upper bound this evidence defends and 10 is too small — the hour-zero story becomes
+    // 33 metal, twenty-two minutes of income, and the first thing that ever arrived from outside the
+    // colony should not read as a rounding error. **The cost of 20, stated rather than buried: that
+    // first cargo is 66 metal instead of 132.** If the opening reads thin, 30 is the move and it is
+    // one number.
+    const val EXTRACTION_PER_HOUR: Long = 20
 
     private const val MINUTES_PER_HOUR: Long = 60
 
@@ -189,6 +240,47 @@ object FleetBalance {
             ResourceKind.METAL -> Resources.of(metal = whole)
             ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
             ResourceKind.DEUTERIUM -> error("unreachable — guarded above")
+        }
+    }
+
+    // ── The hull ─────────────────────────────────────────────────────────────────────────────
+    //
+    // **This curve is the fleet's ceiling, and it is why there is no Shipyard building.** It proves
+    // boundedness the way every ceiling in this game is proved — a compounding price against a linear
+    // return — and it needs no seventh facility, no berth concept and no new noun. The mine is the
+    // better rate buy permanently and by construction; the fleet is bought anyway, because
+    // `startUpgrade` refuses a facility that is already building and a check-in that has tapped all
+    // six has nowhere left to put its metal.
+    //
+    // **Metal-led, for `SurveyBalance`'s own reason** — *"metal is the resource with nothing to buy,
+    // and this is the thing to buy with it."* The 1 : 4 crystal component is there so the fleet is not
+    // entirely free of the scarce resource, and it is small enough never to compete with a ladder.
+    // Deuterium is absent for the reason the payout excludes it: it is the Robotics gate's currency.
+    //
+    // PROPOSED, NOT DECIDED, like everything else in this object. The sweep is in the balance log.
+    const val HULL_BASE_METAL: Long = 80
+    const val HULL_BASE_CRYSTAL: Long = 20
+
+    // The game's one cost curve, +50% a step, through `Curves.compound` so the flooring happens at
+    // every step rather than once at the end — the rule the building and adaptation curves already
+    // follow. Each component compounds on its own base, so the crystal column is a quarter of the
+    // metal one only until the flooring separates them at the fifth hull.
+    private const val HULL_COST_NUMERATOR: Long = 3
+    private const val HULL_COST_DENOMINATOR: Long = 2
+
+    // **Only the skiff has a price this slice, and the other three raise rather than guess.** Each of
+    // them waits on exactly one design call — the hauler on slice 4's speed-against-hold axis, the
+    // escort on a combat model, the settler on colonisation — and a plausible number invented here
+    // would be indistinguishable, to every later reader, from one somebody chose.
+    fun shipCost(type: ShipType, alreadyOwned: Int): Resources {
+        require(alreadyOwned >= 0) { "a fleet cannot be negative, was $alreadyOwned" }
+        return when (type) {
+            ShipType.SKIFF -> Resources.of(
+                metal = compound(HULL_BASE_METAL, alreadyOwned, HULL_COST_NUMERATOR, HULL_COST_DENOMINATOR),
+                crystal = compound(HULL_BASE_CRYSTAL, alreadyOwned, HULL_COST_NUMERATOR, HULL_COST_DENOMINATOR),
+            )
+            ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
+                error("$type has no price until the slice that gives it a job")
         }
     }
 }
