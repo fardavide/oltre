@@ -54,7 +54,13 @@ include(":client:notifications:data")
 include(":client:research:presentation")
 include(":client:save:data")
 include(":client:shell")
-// The Android packaging of the module above, and the only thing in the build that depends on it
+// How the device is being held, and the second sensor in the build after the accelerometer. Two
+// layers rather than one for the reason the debug menu has them: what a tilt *means* — where the
+// centre is, how far is far enough, what a still hand should do — is arithmetic, and arithmetic
+// belongs where it can be tested without a phone in somebody's hand.
+include(":client:tilt:data")
+include(":client:tilt:domain")
+// The Android packaging of `:client:shell`, and the only thing in the build that depends on it
 // — AGP 9 will not let a Kotlin Multiplatform module apply `com.android.application`, so the
 // shell cannot be the Android app the way it already is the desktop one. Rule 7 names it by
 // hand as a result; the argument is in `.claude/docs/decisions.md`.

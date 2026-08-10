@@ -1681,6 +1681,10 @@ The parallax is deliberately not counted as an animation and it is not a dodge: 
 no clock and no running state. It is a function of the scroll offset, exactly as the position of the
 list is.
 
+*Superseded in part at 0.4.2: the tilt parallax added running state and two time constants, and a
+lean settles back to level for about ten seconds after the hand stops. The paragraph above is still
+true of the scroll term and of nothing else. See the 0.4.2 entry at the end of this file.*
+
 ### The starfield stayed in `:client:shell`, against the handoff's own path
 
 The handoff asks for `client/design/.../design/sky/Starfield.kt`. There is no `:client:design`
@@ -1822,3 +1826,221 @@ platform. A player who backgrounds Oltre for four hours and brings it back witho
 killed sees the new numbers with no roll and no sweep. The handoff calls for a "foreground epoch";
 what the repo has is a launch. Wiring real lifecycle observation across three platforms is its own
 slice, and this one should not invent a heuristic for it.
+
+## The sky leans with the phone, and the parallax finally admits it has state (2026-08-10, 0.4.2)
+
+Davide asked for "parallax effect on the background stars using gyroscope". The effect is built and
+the field now moves on two inputs instead of one — but almost every decision below is about a word
+in that sentence being the wrong instrument, or about what the second input costs a rule the Sky
+pass had just spent.
+
+### It is not the gyroscope, and that is not pedantry
+
+A gyroscope reports angular **rate**. Holding a phone at a fixed lean reports nothing at all, so the
+only route from a gyroscope to a pose is to integrate — and an integrated rate accumulates its own
+bias until the sky has drifted off the screen on a phone lying still on a table. Minutes, not hours.
+
+What the effect actually wants is *which way is down*, which is a question gravity answers directly
+and absolutely, with no integration and so nothing to drift. Android publishes it as `TYPE_GRAVITY`
+(falling back to `TYPE_ACCELEROMETER`, which is the same vector plus whatever the hand is doing) and
+iOS as `CMDeviceMotion.gravity`. Both are fused from the gyroscope among other things, so the
+gyroscope is in here — as an ingredient of a sensor that has already had its drift corrected, rather
+than as the thing being read.
+
+**Rejected on the way: iOS's `CMAttitude` and Android's rotation vectors**, which hand out Euler
+pitch and roll and look like exactly what is wanted. They are worst precisely where this game is
+held: a phone upright in portrait sits at the gimbal singularity, where roll goes degenerate and can
+snap by half a turn on a millimetre of movement. The sky would flick. `TYPE_ROTATION_VECTOR` also
+drags in the magnetometer to compute a heading nothing here uses, which means a lurch every time the
+player sits near a speaker or a car dashboard.
+
+### Two attempts at reading a pose, and the first one shipped a fold
+
+The first version described a pose as **two elevations of a device axis above the horizon** — `asin`
+of a gravity component — which is defined in every pose, needs no order, has no singularity, and is
+wrong. It was replaced before merge because an adversarial review measured it, and the measurement is
+worth keeping: `asin(y)` cannot distinguish a phone tipped 80° from flat from one tipped 100°, so the
+response **rectifies at exactly upright-in-portrait** (leaning either way moved the sky the same way)
+and **inverts past it** (reading lying down leaned the sky backwards). The crease sat on the most
+common pose there is. Worse, the two axes were not independent — `sin²(pitch) + sin²(roll) ≤ 1` pins
+them to a disc — so a *pure sideways lean* of an upright phone produced six degrees of spurious tip
+and the field went diagonally.
+
+What replaced it keeps no angles at all. Both readings are normalised to the unit vector pointing at
+the ground, and a movement is the **cross product** of the slow direction with the fast one — the
+axis of the turn, scaled by the sine of its angle. Every good property of the module comes from that
+one change:
+
+- **Constant gain in every pose.** A six-degree turn reads as `sin 6°` whether the phone was flat,
+  upright, or tipped past vertical; measured at nine poses across the full half-turn. A rotation
+  between two real directions cannot fold.
+- **Axes that stay independent.** The cross-axis leak drops from 100% of the signal to at most 1.3%
+  of full travel, and it is second order in the lean angle rather than first.
+- **The platform sign difference cancels for free**, which is the section below.
+- Two properties that are physics rather than shortfalls, pinned by tests so nobody "fixes" them: the
+  sideways axis fades as `sin²(elevation)` — spinning a phone flat on a table does not move *down* at
+  all — and the third component of the cross product is yaw, which gravity cannot observe, so it
+  stays at zero and documents the instrument.
+
+### The rule it spends, stated rather than smuggled
+
+0.4.0 wrote, in this file and in `Starfield.kt`, that the parallax "is deliberately not counted as an
+animation and it is not a dodge: it has no duration, no clock and no running state." Of the scroll
+term that is still exactly true. **Of the tilt term it is not**, and the 0.4.0 entry was careful
+enough about not making a dodge that pretending otherwise now would be one. `TiltMonitor` keeps two
+exponential averages between samples; that is running state, and each average has a time constant.
+
+**And the first draft of this entry then overclaimed, which is worth leaving in.** It said "putting
+the phone down stops the sky dead", in five places including the changelog — and that is false by
+this feature's own constants. Because the centre follows the pose, a lean that is over still settles
+back to level across about ten seconds, so there is a stretch after the hand stops in which the sky
+is moving with nobody touching the device. It is the only thing in this app a player can watch
+happen with their hands in their lap, and it is the one part of this that genuinely tests the rule.
+
+What survives is the *reason*, and it survives in a shape 0.4.0 already accepted rather than a new
+one. The rule exists so a game whose premise is that it progresses while closed never draws anything
+a player could read as "it is happening now". The four transitions that passed spend it as one-shot
+settles — each runs once when the thing it describes enters composition, then holds forever. The
+recentring is that shape with a different trigger: it runs once per movement the player makes, decays
+to rest, and cannot start itself. Nothing loops, nothing repeats, and the only thing in the world
+that can begin it is a hand.
+
+**The alternative that would have made the tidy sentence true, and why it loses.** Gate the slow
+average on the fast one actually moving, and the sky does stop dead the instant the phone does. It
+also never comes back to level for anyone holding a lean still — which is the exact failure the
+following centre exists to prevent, and the reason the two rejected centres below were rejected. It
+trades the whole feature for a sentence.
+
+**The flat-background rule is not spent again, and 0.4.0's paired accounting is the reason to say
+so.** No star was added, no texture, no second exception: the same hundred and one circles that
+0.4.0 argued for are moved a little further. The exception is exactly as wide as it was.
+
+### The centre follows the pose, which is the one real design decision here
+
+There is no correct pose to measure a lean from. The phone is flat on a desk, at forty degrees on a
+sofa, or overhead in bed, and **any fixed zero point leaves two of those three pinned against the
+stop for the whole session**. So the tilt is the gap between a fast average of the attitude (120ms,
+which is the noise floor — a gravity sensor at rest still wanders a tenth of a degree, and a sky that
+shimmers in a still hand is worse than no sky) and a slow one (4s, which is the centre). Two averages
+of one signal, subtracted, is a band-pass filter, and naming it that is the clearest way to say what
+it does: movement passes, sensor noise and holding posture do not.
+
+**A centre captured once, at the first sample, was rejected for the case that breaks it** — the app
+is opened flat on a table and then picked up, which is most launches, and the field spends the rest
+of the session at full deflection. **Absolute tilt with no centre at all was rejected harder**, for
+every launch that is not upright. The cost of the choice is that a lean which is simply held fades
+back to level over about ten seconds; that reads as settling, and it is the price of working in every
+posture rather than one.
+
+**Two constants that came out of this and are not obvious.** A gap longer than a second is treated as
+an *absence* and restarts both averages rather than being fed to them — feeding it does the opposite
+of re-centring, because the fast average arrives instantly while the slow one crawls a fifth of the
+way, and the sky slams against the stop on the first frame back from a backgrounded app. And every
+reported value is snapped to a two-hundredth of full travel, which is a performance decision wearing
+a visual one's clothes: without it the last digit of a gravity reading jitters forever, every sample
+is a new value, and a hundred and one stars redraw fifty times a second to show nothing.
+
+### `client/tilt/{domain,data}`, and a `domain` with no `:core` in it
+
+The same split the debug menu has, for the same reason and with the same payoff: what a lean *means*
+is arithmetic, so it lives where it can be tested without a phone in somebody's hand, and the thirty
+tests behind it are the only reason any of this could be written by a session that cannot hold a
+device — they are also what caught the fold above, once they drove real poses instead of hand-written
+numbers. It is also the first `domain` in the build that does not depend on `:core` — how a device is
+being held has nothing to do with a colony — and that absence is worth keeping.
+
+### The trap that would have shipped twice, and what finally stopped it
+
+**Android reports the reaction to gravity and iOS reports gravity, so the two vectors are exact
+negations of each other.** Android's own documentation says a phone lying flat on a table reads
+`z = +9.81`; iOS reads the same phone as `z = -1.0`, and the sign is the same story on the other two
+axes. Read one as though it were the other and the whole effect flips, and the sky leans one way on
+an iPhone and the other way on a Pixel — the class of defect nobody finds without owning both.
+
+The first draft had exactly that bug **and a test claiming to guard it that could not**, built from a
+vector no `SensorManager` on earth produces: it asserted the platforms differed only in `z`, when in
+fact they differ in all three. The first fix was two named entry points, `fromGravity` and
+`fromReactionToGravity`, on the theory that a name matching each platform's documentation survives
+being tidied where a bare `(-x, -y, -z)` at a call site does not.
+
+**The cross product then made the whole question disappear**, and that is the better answer: `(−a) ×
+(−b) = a × b`, so negating both operands is invisible, and normalising discards the ten-times scale
+difference on the way in. Neither platform file holds a correction, because neither needs one — which
+is what the first version *claimed* and this one can prove. The named pair is gone with the angles.
+`GravityTest` walks every pose twice, once as each device would actually report it, and
+`TiltMonitorTest` does the same end to end through the filter.
+
+### Nothing a player sees on desktop changes, and that is structural rather than lucky
+
+Every screenshot baseline in this repository is recorded on desktop, which has no motion sensor, so
+`defaultTiltSource()` there reports `Tilt.NONE` forever and the tilt terms are multiplications by
+zero. The one place that is not automatic is the horizontal wrap: the star table has no margin across
+(`x` runs 0.0004..0.9845, edge to edge, where `y` was given bleed on purpose), so a sideways lean has
+to be taken modulo the width and each star drawn again one width over. Folding an unchanged `x`
+through `mod` comes back a fraction of a pixel different — small enough to pass the verifier, quite
+large enough to be a drift nobody could read off a diff — so the wrap is **guarded on the lean being
+exactly zero**, and on desktop the branch is never taken. `DefaultTiltSourceTest` pins the promise
+from the other end.
+
+The consequence worth stating: **there is no screenshot test of a leaning field**, because recording
+a baseline needs a machine that can run Roborazzi and this was written by a session that cannot. It
+is the one visual check this slice does not carry.
+
+### Reduce Motion is honoured, and the battery question mostly answers itself
+
+A parallax driven by device motion is the textbook thing that setting exists to switch off — Apple's
+own wallpaper stops doing this when it is set — so it is read at both edges (`ANIMATOR_DURATION_SCALE`
+on Android, `UIAccessibilityIsReduceMotionEnabled` on iOS) and the sky simply holds still. Read once,
+when collection starts: watching it properly needs an observer on each platform, and it is a setting
+people change roughly never and always outside the app they are changing it for.
+
+**On battery**, this repository has no foreground observer on any platform — the limitation the Sky
+pass recorded — so a naive reading is that the sensor runs forever. It does not, and for once both
+platforms do the right thing unasked. iOS suspends a backgrounded app, so the queue stops being
+serviced. Android 9 cut off continuous-reporting sensors for apps that are not in the foreground, and
+`targetSdk` is 36. The gap is API 26 and 27, which is the bottom two rungs of `minSdk` and where the
+cost is a fused low-power sensor at 50 Hz feeding a filter that emits nothing while the phone is
+still.
+
+### Two things a device session owns, and they are not tidy-up
+
+1. **Every feel constant is arithmetic rather than a measurement** — 12° to full deflection, 24dp of
+   travel before each plane's factor, 120ms and 4s. They carry the caveat `ShakeMonitor`'s three
+   carry, and for the same reason: nobody has held a phone running this. Expect the first real
+   session to move them, and expect the **sign** to be the thing most likely to be wrong. The sky
+   moves *against* the lean here, so that it reads as something seen past the cards rather than
+   sitting on them; both axes are one subtraction from being the other way round, in one place.
+2. **The tilt is in the device's frame, not the interface's.** Neither platform rotates its motion
+   frame when the UI does, and this app ships both landscape orientations on iPhone and all four on
+   iPad — so in landscape the axes are swapped and one is mirrored, and a lean moves the sky
+   diagonally where it should move it sideways. It degrades rather than breaks. The fix is a rotation
+   by the interface orientation; Android would read it from `DisplayManager` in five lines and iOS has
+   no equivalent that is not a main-thread UIKit call from inside a sensor callback, so writing the
+   easy half alone would be precisely the cross-platform drift `:client:tilt:domain` exists to
+   prevent. It wants both halves at once and a device to check them on.
+
+### And a rule this entry did not notice it was spending: who wrote it
+
+`.claude/rules/session-roles.md` says a cloud session may not work on **"anything a player sees. No
+Compose, no `presentation` module, no screenshot baselines, no design-system components."** This
+slice was written by a cloud session and it edits `Starfield.kt`, `MainScaffold.kt` and `App.kt`.
+The first draft of this entry argued the no-animation rule at length and never mentioned that one,
+which is the more consequential omission of the two — in a repository whose whole culture is the
+accounting.
+
+**Settled by Davide, 2026-08-10, on being shown it:** *"It is true this was a cloud session, but it
+was animation tuning, not mere design change, so it is ok."*
+
+That is a sharper line than the one this entry was reaching for, and it is now the third exception in
+`session-roles.md`. Claude Design returns frames; a frame can be authoritative about what a card
+looks like, and cannot be authoritative about how far a field should travel per degree of wrist or
+how long a lean should take to settle, because nobody knows that without holding a phone. So the
+debug menu's test — *is there a design this code could be wrong about* — answers no here too, for a
+different reason than it did there: not "nobody drew this screen" but "nobody can draw this quantity".
+
+The condition that comes with it is the one this slice already met: **every invented number is marked
+in the code as arithmetic rather than measurement**, and the check that replaces a design review is
+an install. Davide took that himself — *"I will try the app from TestFlight, and open another session
+should it need tuning."* What the exception does not reach is unchanged: a screen, a component, a
+layout, a baseline, or motion that a handoff has already specified, as the Sky pass's four
+transitions were.

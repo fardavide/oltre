@@ -93,7 +93,7 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), one directory per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), `:client:debug:*` (the shake-to-open debug menu), `:client:tilt:*` (which way the device is being held, for the sky behind every screen), one directory per feature as features land. |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
@@ -157,6 +157,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.4.2 — 2026-08-10
+
+- **The sky behind every screen leans with the phone.** Tilt it and the three planes of stars slide
+  against each other and against the cards in front of them, the near ones travelling further than
+  the far ones — which is the whole of what makes a flat black background read as distance rather
+  than as an empty window. It is a small movement on purpose: less than an eighth of what one screen
+  of scrolling already moves the same field, and meant to be noticed on the third session rather
+  than the first.
+- **Nothing up there ever starts on its own.** The sky only moves when you move the phone; after
+  you stop, a lean settles back to level over a few seconds and then holds, however long you leave
+  the game open. Which also means every way of holding it works the same — flat on a desk, at an
+  angle on a sofa, overhead in bed — rather than the sky sitting shoved to one side because of how
+  you happen to be lying.
+- **Off entirely if you have asked your phone for less movement.** The system's own reduce-motion
+  setting switches it off on iOS and on Android, and a device with no motion sensor simply holds
+  still.
+- Saves from 0.4.1 carry forward untouched.
 
 ### 0.4.1 — 2026-08-10
 

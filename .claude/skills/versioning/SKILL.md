@@ -23,6 +23,22 @@ milestones — minor bumps resume when he says so.~~ **Lifted by Davide on 2026-
 to 0.1.0"), which took 0.0.18 to 0.1.0 for the rail-v2 and depth-pass slice. The table above is
 live again: a feature slice takes a minor bump, and the agent initiates it.
 
+**"A feature slice" is narrower than "a feature", and 0.4.2 is the case that drew the line.** The
+tilt parallax was bumped to 0.5.0 by the session that built it — new modules, a new sensor, a
+changelog entry with three bullets in it — and Davide overruled it on sight: *"This doesn't deserve
+a minor bump!!!"* (2026-08-10).
+
+The test the table means is **whether a player can do something they could not do before**, not how
+much code arrived. A slice is a row in `status.md`'s roadmap: the tab bar, research, the galaxy,
+combat. The Sky pass took a minor because it was a whole graphics pass across every screen; the tilt
+parallax is an addition *to* that pass, and a player who never picks the phone up cannot tell it
+shipped. New modules are not evidence — `:client:tilt:{domain,data}` is two of them and the feature
+is still a background moving a few dp.
+
+So: **when in doubt, patch.** A patch that should have been a minor costs nothing; a minor that
+should have been a patch spends a number that is meant to mean something, and only Davide can tell
+you it was wrong after the fact.
+
 - Every bump carries a `## Changelog` entry in `README.md`, same PR, newest first, heading
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
   A bump with a stale changelog is a defect.

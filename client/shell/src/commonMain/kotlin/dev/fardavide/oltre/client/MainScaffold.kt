@@ -16,6 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 
 // The app's frame: the selected destination over the tab bar. Which destination is showing is the
 // scaffold's own state — this is the composition root's navigation, and nothing above it has an
@@ -50,6 +51,16 @@ fun MainScaffold(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
+    // The second thing the field behind the destinations moves on, after the scroll above. A lambda
+    // and not a value — `Starfield` argues both reasons, and the second one (Compose would infer a
+    // `Tilt` parameter unstable and stop skipping this whole scaffold) is the load-bearing one.
+    //
+    // **Required rather than defaulted, deliberately.** The obvious default is `{ Tilt.NONE }`, and
+    // it is also exactly the value that means *the feature is switched off* — so a composition root
+    // that forgot to pass one would compile, ship, and quietly do nothing, with no test able to tell
+    // the difference. `Starfield` keeps the default, where "no lean" is a real thing a screenshot
+    // wants to ask for; here it would only ever be a way of not noticing.
+    tilt: () -> Tilt,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
@@ -70,6 +81,7 @@ fun MainScaffold(
             colonyScroll = colonyScroll,
             researchScroll = researchScroll,
             galaxyScroll = galaxyScroll,
+            tilt = tilt,
             onOpenResearch = { selected = OltreTab.RESEARCH },
         )
         OltreTabBar(selected = selected, onSelect = { selected = it })
@@ -85,6 +97,7 @@ private fun ColumnScope.Destination(
     colonyScroll: ScrollState,
     researchScroll: ScrollState,
     galaxyScroll: ScrollState,
+    tilt: () -> Tilt,
     onOpenResearch: () -> Unit,
 ) {
     // The two tabs with no screen have nothing to scroll, so the field behind them holds still. A
@@ -99,13 +112,19 @@ private fun ColumnScope.Destination(
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         // Inside the destination box and first in it, so it sits under every screen and under none
         // of the chrome: the rail and the tab bar are surfaces, and space does not show through a
-        // surface. Nothing here runs on a clock — the three planes are a function of the scroll
-        // offset and of nothing else, so a frame that has been closed for two days is drawn exactly
-        // as it was left.
+        // surface.
         //
-        // The offset goes in as a lambda so that a drag is a redraw rather than a recomposition of
+        // The three planes are a function of the scroll offset and of how the device is being held,
+        // and of nothing else — **nothing here starts on its own.** A frame that has been closed for
+        // two days opens drawn exactly as it was left. A lean does settle back to level over about
+        // ten seconds after the hand stops, which is real movement with the device still, and
+        // `Starfield` argues at length why that is the same one-shot settle the Sky pass's four
+        // transitions already are rather than a clock. What it is not, on any reading, is the game
+        // telling you that something is happening.
+        //
+        // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.
-        Starfield(scrollOffset = { scroll?.value?.toFloat() ?: 0f })
+        Starfield(scrollOffset = { scroll?.value?.toFloat() ?: 0f }, tilt = tilt)
         // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
         // impossible to reach by accident, and `pendingWork` is the table saying which those are.
         when (selected) {

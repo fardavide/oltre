@@ -26,6 +26,9 @@ import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.client.tilt.data.TiltSource
+import dev.fardavide.oltre.client.tilt.data.defaultTiltSource
+import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartAdaptationResult
@@ -63,6 +66,9 @@ fun App(
     // A parameter rather than a call, so the desktop entry point can hand in its keyboard chord —
     // a laptop cannot be shaken, and desktop is the platform where the menu is most wanted.
     shakeDetector: ShakeDetector = remember { defaultShakeDetector() },
+    // The other device service, and a parameter for the same reason: a test or an entry point can
+    // hand in a different one, and desktop's `actual` reports a sky that never leans.
+    tiltSource: TiltSource = remember { defaultTiltSource() },
     modifier: Modifier = Modifier,
 ) {
     OltreTheme {
@@ -90,6 +96,34 @@ fun App(
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
+            }
+
+            // How the device is being held, for the starfield behind every destination.
+            //
+            // **A `State` handle rather than a `by` delegate, and that is not style.** Compose
+            // invalidates by phase: a snapshot read during composition schedules a recomposition,
+            // one during draw schedules only a redraw. This value must only ever be read in the
+            // second place — it goes down as `{ lean.value }` and is unwrapped inside `Canvas`'s
+            // `DrawScope`, so a sensor sample repaints a hundred and one circles and touches nothing
+            // else. A delegate would make an accidental read in a composable body look like an
+            // ordinary variable, and nothing would fail: the app would simply recompose every
+            // destination fifty times a second. `.value` at every read site says out loud what is
+            // being touched.
+            //
+            // The default `structuralEqualityPolicy` is the other half of the still-phone promise:
+            // `TiltMonitor` snaps its values to a grid, so a hand that is not moving writes a `Tilt`
+            // equal to the last one and Compose does not invalidate at all.
+            //
+            // Collected for as long as the app is composed, which is longer than the sensor actually
+            // runs: iOS suspends a backgrounded app and Android has cut continuous sensors off for
+            // background apps since API 28, so neither platform needs a lifecycle hook this
+            // repository does not have. Gating on `LocalWindowInfo.isWindowFocused` would also stop
+            // it under a pulled-down shade — worth doing the day somebody measures a battery cost,
+            // and not worth the risk before then, since a focus flag that reads `false` on iOS would
+            // silently switch the whole feature off with nothing to notice it.
+            val lean = remember { mutableStateOf(Tilt.NONE) }
+            LaunchedEffect(tiltSource) {
+                tiltSource.tilts().collect { lean.value = it }
             }
 
             LaunchedEffect(Unit) {
@@ -182,6 +216,7 @@ fun App(
                 Box(modifier = Modifier.fillMaxSize()) {
                     MainScaffold(
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
+                        tilt = { lean.value },
                         colony = { scroll ->
                             val finishedFacility = (finishedWhileAway as? AwayCompletion.Facility)?.building
                             // Consumed by the screen that shows it. Effects run after the frame that

@@ -70,6 +70,59 @@ sees, there is. A cloud session that finds itself reasoning about whether a card
 What the session still could not do is **compile it**: see the measured note below. The Compose half
 of that slice reached CI unverified, and CI's Build job is what checked it.
 
+### The one exception, third instance: motion is tuned, not drawn (Davide, 2026-08-10, 0.4.2)
+
+Davide asked a cloud session, in as many words, to *"add parallax effect on the background stars
+using gyroscope"*. The session built it end to end — including `Starfield.kt`, `MainScaffold.kt` and
+`App.kt`, which is Compose in the shell, behind every destination a player looks at — and then
+flagged itself for having done so, because neither exception above covered it and no waiver had been
+asked for.
+
+Davide's ruling: *"It is true this was a cloud session, but it was animation tuning, not mere design
+change, so it is ok."*
+
+**The distinction is the useful part, and it is a different *kind* of thing rather than a smaller
+one.** Claude Design returns frames. A frame can be authoritative about what a card looks like, so a
+cloud session implementing one can be unfaithful to it — which is exactly what the debug-menu
+exception's test asks (*"is there a design this code could be wrong about"*). A frame cannot be
+authoritative about **how far a starfield should travel per degree of wrist, or how long a lean
+should take to settle**, because nobody knows that until they are holding a phone. There is no
+drawing for motion tuning to be wrong about, so the test that permitted the debug menu reaches this
+too.
+
+What that permits, precisely:
+
+- **Motion constants with no design behind them** — `TILT_TRAVEL`, the deflection angle, the two
+  filter time constants, which axis moves which way — chosen as *starting values*, marked as
+  arithmetic rather than measurement in the code, and expected to move on the first device session.
+  That marking is not decoration; it is the condition. A motion number a cloud session presents as
+  settled is outside this.
+- **The thin Compose layer that carries them**, when the logic has already been pushed down into a
+  module the session can test. Here that is `:client:tilt:{domain,data}` — thirty-one tests, all
+  runnable in a cloud session — against a parameter threaded through two files and about twenty
+  lines of arithmetic in a draw scope. The decomposition is what this file already asks for, and it
+  is what makes the Compose half small enough to be reviewable rather than trusted.
+
+What it does **not** permit, unchanged: a screen, a component, a layout, a screenshot baseline, a
+`presentation` module — anything a frame *can* be authoritative about. And where a design **has**
+specified motion, this exception does not apply at all: the Sky pass's four transitions came from a
+handoff with durations in it, and implementing those faithfully is not tuning.
+
+Two things that made this one safe beyond the argument, worth reproducing rather than assuming:
+
+- **No baseline moved and none was added.** Desktop reports no tilt, so the recording machine draws
+  what it drew before. A motion change that cannot move a baseline is a motion change a cloud session
+  can land without a recorder.
+- **CI compiles all of it**, including the part that is easy to miss:
+  `:client:shell:linkDebugFrameworkIosSimulatorArm64` compiles the shell's whole dependency closure,
+  so `iosMain` cinterop written here reaches a compiler even though nothing here can run one. If a
+  new module's Apple half is not in that closure, nothing checks it at all.
+
+**The check that replaces a design review is an install**, and Davide took it himself: *"I will try
+the app from TestFlight, and open another session should it need tuning."* That is the shape to
+repeat — a cloud session lands the starting values and says plainly which ones it invented, and a
+device decides whether they were right.
+
 ### It *can* build and run `:core` and `:sim` — use it
 
 "A cloud session cannot build" was the flat claim here until 0.1.1, and it is too strong. `:sim`

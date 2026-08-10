@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.4.0)
+Updated: 2026-08-10 (0.4.2)
 
 ## Landed
 
@@ -201,6 +201,34 @@ Updated: 2026-08-10 (0.4.0)
   hoisted into `MainScaffold` so the field can move with the list. All 40 baselines re-recorded plus
   one new one; every galaxy frame is 210dp taller. See `decisions.md`.
 
+- **0.4.2 the sky leans with the phone** — Davide asked for "parallax on the background stars using
+  gyroscope"; it is built on **gravity** instead, and the substitution is the slice's main argument. A
+  gyroscope reports angular rate, so a held pose reports nothing and reaching a pose means integrating
+  a rate that drifts off the screen on a phone lying still; iOS's `CMAttitude` and Android's rotation
+  vectors were rejected too, because their Euler pitch is at its gimbal singularity exactly where this
+  game is held — upright in portrait. New `client/tilt/{domain,data}`: `Gravity` and `TiltMonitor` are
+  pure and carry thirty tests, the sensor edge is `TYPE_GRAVITY` / `CMDeviceMotion.gravity`, and the
+  filter is a band-pass whose slow half **is the centre** — so any holding posture becomes level and a
+  lean that is merely held fades back over about ten seconds. **It spends the no-animation rule's
+  letter and keeps its reason**, which 0.4.0 said this parallax had no need to: there is running state
+  and a time constant here now, and — the admission that costs most — a lean settles back to level
+  over about ten seconds *after* the hand stops, so there is movement with the device sitting still.
+  What survives is that nothing loops, nothing repeats and nothing can start it but a hand, which is
+  the same one-shot settle the Sky pass's four transitions already are. Reduce Motion switches the
+  whole thing off on both platforms.
+  **No baseline moved and none was added** — desktop has no sensor, so the tilt terms are
+  multiplications by zero and the one line that would not have been (a horizontal wrap the star table
+  has no margin for) is guarded on the lean being exactly zero. **Two defects were caught before merge
+  and both are recorded rather than quietly fixed**: the first draft read a pose as two `asin`
+  elevations, which rectifies at exactly upright-in-portrait and inverts past it — the crease sitting
+  on the most common pose there is — and it had the classic cross-platform sign bug behind a test that
+  could not catch it. Reading a movement as the **cross product of two unit gravity vectors** answers
+  both at once: constant gain in every pose, and `(−a) × (−b) = a × b`, so the platforms need no
+  reconciliation. **This slice also spends `session-roles.md` without having been given leave to** —
+  a cloud session wrote player-facing Compose and invented `TILT_TRAVEL`, the direction of travel and
+  the per-plane scaling. Argued as a third exception instance there; it is Davide's to overrule. See
+  `decisions.md`.
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -275,6 +303,23 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   to two worlds, both in the home system, and of 266 surveyed worlds **not one was band 1**, because
   `probeTargetFor` only ever surveys distant systems. So the bands above are a decision no report can
   currently check.
+- **The tilt parallax has never been held in a hand — and Davide has taken that check himself**
+  (2026-08-10): *"I will try the app from TestFlight, and open another session should it need
+  tuning."* Merging publishes, so the install is the next step rather than a pending task here. What
+  he is looking at: every feel constant in `TiltMonitor` and `Starfield.TILT_TRAVEL` is arithmetic
+  rather than a measurement, exactly as `ShakeMonitor`'s three were — 12° to full deflection, 24dp of
+  travel, 120ms and 4s. **The sign is the likeliest thing to be wrong**: the sky moves against the
+  lean, and both axes are one subtraction from being the other way round, in one place in
+  `TiltMonitor.tilt`. There is also **no screenshot test of a leaning field**, because recording a
+  baseline needs a machine that can run Roborazzi; the tilted draw path reaches `main` verified by
+  compilation and by unit tests alone.
+- **The tilt is in the device's frame rather than the interface's**, so landscape swaps the two axes
+  and mirrors one — a lean moves the sky diagonally where it should move it sideways. It degrades
+  rather than breaks, and it is left alone deliberately: Android would read the rotation from
+  `DisplayManager` in five lines and iOS has no equivalent that is not a main-thread UIKit call from
+  inside a sensor callback, so writing the easy half alone is the cross-platform drift
+  `:client:tilt:domain` exists to prevent. Both halves at once, with a device to check them on — and
+  worth watching for on the TestFlight build above, since a phone that rotates is where it shows.
 - **`ResourceRailScreenshotTest`'s two baselines fail to verify on a local macOS run** and did so
   before 0.3.0 touched anything — measured by stashing the whole branch and re-running against a
   clean tree. CI verifies on Linux and is green, so this is a recording-machine difference rather
