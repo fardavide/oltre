@@ -48,8 +48,17 @@ class AdaptationBehaviourTest {
             // and the tab that opens is already showing the ladder, with no scrolling to do
             assertReads("ADAPTATION")
             assertReads("the same slot")
-            // The band the empire already holds, two levels wide of the unaided 0.5 … 2.6.
-            assertReads("0.38 … 4.4")
+            // The band the empire already holds used to be the thing asserted here; since the
+            // verdict took that line it is the first sentence of the sheet the row opens, which is
+            // a claim about the Research screen and is made there.
+            //
+            // What this file still has to show is that the tap landed on **this empire's**
+            // Atmospheric row rather than on a Research tab that happens to contain the word — and
+            // the verdict is a better witness than the band ever was, because it is the same claim
+            // the Galaxy row made one tap ago, counted rather than described: the ladder the
+            // blocked world named reaches exactly that world, and that world is worth taking.
+            assertReads("Atmospheric")
+            assertReads("Unlocks 1 world, 1 worth taking")
 
             startTheOnlyProjectOffered()
 

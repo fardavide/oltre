@@ -2556,3 +2556,158 @@ A cached task is a claim about *outputs*. Any job whose real product is a change
 source** is outside that claim, and will be silently skipped the moment its inputs hash the same.
 Recording baselines is the instance the repository has; a code generator writing into `src/` would
 be the next one.
+
+## Every row states what the level is worth, and the sheet says why (2026-08-11, 0.6.0)
+
+The design is Claude Design's *Row Purpose* sheet, direction 1b with 1c's gate ladder folded into
+the sheet. Its own argument is short: rows have always stated a price and a wait and never whether
+the level was worth taking, and the one place the game already answered that — the adaptation
+shortlist, counted against the worlds this player has surveyed — proved the harder version was
+buildable. This slice is that sentence applied to the other twelve rows.
+
+What follows is the calls the build made, not the design's. The design's own reasoning lives in its
+decision sheet, which is the durable half; project `aea4cd09-c111-4e9a-8b7d-c25cea371fd4`,
+`Purpose Decision Sheet.dc.html` and `Row Purpose.dc.html`.
+
+### Payback is priced at the game's 1 : 2 : 3, and the sheet's own reason not to was wrong
+
+The sheet left this open, and chose the optimistic form: *"A mine costs metal and crystal and repays
+in metal; the number shown counts the metal. It is optimistic, and the honest alternative needs a
+trade ratio the game does not have."*
+
+**The game does have one.** `AdaptationBalance` prices its three deliberately-equal ladders at
+"the game's 1 : 2 : 3" in as many words, `BalanceBenchmark` has divided every payback in the golden
+report by exactly that since it was written, and `ResearchSlotBalanceTest` asserts the branch's
+24-hour promise with it. The premise did not survive contact with the code.
+
+And the optimistic form is not implementable as stated. **The Deuterium Synthesizer costs no
+deuterium** — 225 metal and 75 crystal at level 1, nothing else — so "the cost in the resource it
+repays in, over the gain in that resource" is zero over something, and the row would advertise a
+free level. That is not a rounding problem; it is the rule having no answer for one of the six
+facilities.
+
+So payback is `priced(cost) ÷ priced(gain per hour)`, in minutes, with the gain measured over the
+three `effective*ProductionPerHour` functions `advance` actually accrues with. The cost of the
+choice is that the two halves of the sentence no longer divide into each other: a player who divides
+12,458 by 122 will not get the hours the row prints. The benefit is that every row has an answer,
+multi-resource gains are counted rather than dropped, and the number matches the one the balance
+tests have always used. **This is a balance call and it is Davide's to overrule** — the whole of it
+is `paybackOf` and `ResourceKind.weight` in `LevelPurpose.kt`.
+
+### A level that costs you income is its own verdict, and the frames have no frame for it
+
+The design has three ways for a row to read: an income row, an inert one ("nothing while you are in
+surplus"), and a build-saving one. A test of the exhaustiveness — *every facility and every
+technology answers in every state the game can reach* — failed on the first state the game deals.
+
+**At genesis one Solar Plant supplies 50 against 40 drawn, and a second Deuterium Synthesizer level
+draws 20 more.** Taking it tips the colony into deficit, `scaleByEnergy` divides all three mines by
+`produced/consumed`, and the priced delta is **negative**: the level raises its own rate by 3 and
+lowers the other two by more. Under the design's three cases that row falls through to nothing and
+states no verdict at all, which is the one outcome the whole design exists to prevent.
+
+`LevelPurpose.Throttled` is the fourth case, and the row reads *"throttles every mine · Solar Plant
+2 covers it"*. It reuses the sentence the power indicator's fix line already writes, one row earlier
+and before the money is spent. It is reachable on day one, and it is arguably the most useful thing
+any row on the screen says.
+
+The general form is worth keeping: **the frames were drawn against a colony a few days old, and the
+states a design has no frame for are the ones the opening deals.**
+
+And it has a second instance, found by an adversarial pass over the finished diff rather than by a
+test. The Research screen's "worth nothing" copy was written as if only Photovoltaics could reach it
+and only in surplus, on the argument that Extraction and Enrichment always move a rate. They do not:
+`scaleByEnergy` floors `rate × produced / consumed`, so a colony at 40% can buy an Enrichment level
+whose entire gain rounds away before it reaches the stores. The row would then have read *"nothing
+while you are in surplus"* on a colony in deficit, and the sheet would have named Photovoltaics on
+the Enrichment row.
+
+**The discriminator is the colony's power, not the technology** — and the second reading is the
+cheaper one to hold, because it has an answer for a case nobody enumerated. A project that is worth
+nothing now reads *"nothing while your mines are throttled"*, and the sheet names the row it is on.
+
+### The four cases and the one number, together
+
+The four `LevelPurpose` members are what a row can be, and the fourth exists because of the two
+paragraphs above. Stating them once, because the temptation on the next screen will be to add a
+fifth: **Output** — the level raises income, and the priced payback says when you have it back.
+**Inert** — it raises a supply nothing is limited by. **Throttled** — it raises a draw the colony
+cannot power, so taking it lowers every other rate. **Sooner** — it raises no rate at all and
+shortens a build instead. `Unmeasured` is not a fifth case; it is the ceiling, where there is no
+next level to price and no upgrade to offer either.
+
+### The Nanite Factory's relief is quoted at the gate, not at the reader
+
+`upgradeDuration` divides by `1 + robotics` last, so "what does a level-30 mine cost unaided" has no
+single answer — it is 2,982 hours at Robotics 0 and 271 at Robotics 10. Quoting the colony's own
+level is the obvious reading and it is wrong twice over: on day one the row claims a 2,982-hour
+build, which is true and unusable, and the claim then **halves every time an unrelated building goes
+up**, so a headline about the building churns whenever the reader changes.
+
+`deepBuildRelief()` takes no receiver at all and quotes both figures at
+`NANITE_ROBOTICS_REQUIREMENT`, because there is no state in which somebody builds a Nanite Factory
+at Robotics 3. The relief is a fact about the building; what it would take *you* is the pointer
+underneath it. The published figures move from the brief's 186h → 16h to 271h → 23h 49m, which is
+the same eleven-fold cut measured at a level the game actually enforces.
+
+### The verdict replaces the effect line on Research, including the adaptation band
+
+The sheet's call 1 states the exception — *"a research row's effect line, which the verdict replaces
+rather than joins: two lines of numbers about the same level is where a dense row becomes an
+unreadable one"* — and its frames show it applied to the adaptation row too: Thermal reads name,
+verdict, costs, and no band. Its prose says "nothing was done to it", which is true of the
+*shortlist* and not of the band above it.
+
+So `EffectLine` is gone from both branches and `+21% → +33% Solar Plant output` and `−30 … +45 →
+−44 … +59 °C` are the first sentence of the sheet each row opens. The adaptation row goes from four
+lines to three; the tallest row in the app is now a watched Colony row at four, which is exactly the
+height the adaptation row has been since the shortlist shipped. Nothing got taller.
+
+### A locked row states the payoff — on both screens, which the frames only showed on one
+
+The frames' second hard case is the locked Nanite Factory stating what it is worth twelve days
+early, at 42% dim, under the requirement. Research's locked rows were left as they were, on this
+module's older rule that *"a locked row is name, level and requirement"* — and that rule is exactly
+what this design's second hard case argues against. **The only question a gate leaves open is
+whether it is worth pushing for**, and a row that states the requirement and stops has withheld the
+one fact that answers it. Both screens now put the verdict under the requirement.
+
+### The sheet is in the design system, not in either feature
+
+Colony and Research open the identical sheet, and the two row composables next door are the standing
+argument: `FacilityRow` and `ProjectRow` have stayed identical by luck, edited twice, for four
+releases. `RowSheet` / `RowSheetContent` and `RowVerdict` live in `:client:design:component` and
+carry no knowledge of a building or a technology — the features word every string and hand over
+plain data, which is `CostChipUiState`'s precedent down to it also carrying a `:core` enum.
+
+The chrome and the contents are split for `DebugSheet`'s reason, and it is the reason a behaviour
+test can exist at all: every assertion about what the sheet *says* renders `RowSheetContent`
+directly, so nothing depends on a popup being reachable or an enter animation settling.
+
+**The sheet's open state is local to the screen**, a `remember { mutableStateOf<…?>(null) }`, not
+hoisted to `GameSession`. Which row is open is not game state — it does not survive a launch, it is
+never saved, and it changes nothing the notification schedule reads. Hoisting it would have grown
+`App.kt` by two callbacks to model something the composition root has no opinion about.
+
+### A tap on the card body is the first one in the app, and it merges the semantics tree
+
+Cards have never been tappable outside their action, and making one clickable sets
+`mergeDescendants = true` — which folds every string on the card into one node and makes an
+unscoped `onNodeWithText` match several rows and fail on ambiguity rather than on the claim. The fix
+is in the Robots (`useUnmergedTree = true`, and a `card(…)` tag for the target next to the `row(…)`
+tag for the text column), never in the assertions. Both modules did it that way; it is the shape to
+copy the next time something becomes tappable.
+
+### What is deliberately still open
+
+- **The payback ratio**, above — a balance call, flagged rather than settled.
+- **Nothing navigates.** The sheet's pointer names the row to look at instead and does not link to
+  it: accent means "go tap this" and nothing else (settled 0.0.18), and a cross-tab tap would be the
+  first in the app. The pointer is muted, and the player's thumb already knows where rows are.
+- **The 320dp leak the design admits.** A verdict drops its second clause in a Slide Over pane, so
+  `LV 10 → Nanite` is sheet-only there. The alternative is a "more" glyph on thirteen rows, which
+  costs more than the leak.
+- **The level badge is written by hand in three places now** — both row composables and the sheet
+  heading. The two rows' copies also swap the number behind a completion sweep and the sheet's has
+  nothing to announce, so extracting it is not a pure move; it is a small piece of work with a
+  baseline risk, and it is worth doing on its own.

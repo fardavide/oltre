@@ -1,7 +1,15 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.SheetAction
+import dev.fardavide.oltre.client.design.component.SheetFooter
+import dev.fardavide.oltre.client.design.component.SheetLadderStep
+import dev.fardavide.oltre.client.design.component.SheetPointer
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.figure
+import dev.fardavide.oltre.client.design.component.sheetLine
+import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -639,6 +647,622 @@ class ColonyUiStateTest {
         assertEquals(emptyList(), rows.filter { it.watch is WatchUiState.Booked })
         assertTrue(rows.any { it.watch == WatchUiState.Offered })
     }
+
+    // ── What one more level is worth ─────────────────────────────────────────────────────────
+    //
+    // A row has always stated a price and a wait. What it never stated is whether the level is worth
+    // taking, and every row on this screen now answers that in one shape: a clause a narrow window
+    // keeps, and a second one it drops. Every number below is `core`'s — what is asserted here is
+    // which words go round it.
+
+    @Test
+    fun `a mine states the rate it hands you and when it pays for itself`() {
+        // given genesis, where a 19-and-4 upgrade lifts the metal mine from 90/h to 112/h
+        val state = colony()
+
+        // when
+        val verdict = state.rowFor(BuildingType.METAL_MINE).verdict
+
+        // then the clause a Slide Over keeps is the gain; the one it drops is what the gain costs
+        // in time, which is the sheet's to repeat
+        assertEquals(
+            VerdictUiState(label = "+22/h metal · back in 1h 13m", compactLabel = "+22/h metal"),
+            verdict,
+        )
+    }
+
+    @Test
+    fun `a level the plant cannot carry states the throttle rather than a gain`() {
+        // given genesis exactly as the game deals it: one plant supplying 50 against 40 drawn — and
+        // a synthesizer level that would draw 20 more
+        val state = colony()
+
+        // when
+        val verdict = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER).verdict
+
+        // then the level is not a small gain but a loss, and the row says which plant level ends it
+        assertEquals(
+            VerdictUiState(
+                label = "throttles every mine · Solar Plant 2 covers it",
+                compactLabel = "throttles every mine",
+            ),
+            verdict,
+        )
+    }
+
+    @Test
+    fun `the plant states what it supplies while nothing is limited by supply`() {
+        // given a colony with power to spare
+        val state = colony()
+
+        // when
+        val verdict = state.rowFor(BuildingType.SOLAR_PLANT).verdict
+
+        // then the honest reading is that the level buys nothing today — said as what it does add
+        assertEquals(
+            VerdictUiState(label = "+50 supply · draw already covered", compactLabel = "+50 supply"),
+            verdict,
+        )
+    }
+
+    @Test
+    fun `the robotics factory states the time it takes off a build and what it opens next`() {
+        // given a colony deep enough to have a build worth shortening: metal mine 12 is 1h 37m at
+        // robotics 3 and 1h 18m at robotics 4
+        val state = colony(buildings = deep())
+
+        // when
+        val verdict = state.rowFor(BuildingType.ROBOTICS_FACTORY).verdict
+
+        // then the one row on this screen that gates anything says so in its second clause
+        assertEquals(
+            VerdictUiState(label = "−20m per build · LV 10 → Nanite", compactLabel = "−20m per build"),
+            verdict,
+        )
+    }
+
+    @Test
+    fun `the gate clause names the lowest gate the colony has not passed yet`() {
+        // given robotics 0 — the applied branch at 1 and the ladders at 2 are both still ahead
+        val state = colony(buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(12)))
+
+        // when
+        val verdict = checkNotNull(state.rowFor(BuildingType.ROBOTICS_FACTORY).verdict)
+
+        // then a group of technologies is described rather than listed: two names in a clause is
+        // the beginning of a table
+        assertEquals("−3h 14m per build · LV 1 → research", verdict.label)
+    }
+
+    @Test
+    fun `a locked nanite factory states the payoff rather than the next level's saving`() {
+        // given a colony nowhere near the gate — the whole point is that this reads on day one
+        val state = colony()
+
+        // when
+        val verdict = state.rowFor(BuildingType.NANITE_FACTORY).verdict
+
+        // then it is about the shape of the curve rather than about the next level of anything —
+        // and the figures are quoted at the Robotics level the gate demands rather than at this
+        // colony's, so a claim about the building does not move when the reader does
+        assertEquals(
+            VerdictUiState(
+                label = "A 271h build takes 23h 49m at LV 6",
+                compactLabel = "271h builds take 23h 49m at LV 6",
+            ),
+            verdict,
+        )
+    }
+
+    @Test
+    fun `a row in flight carries no verdict at all`() {
+        // given the metal mine already building
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // then the decision was made when the player tapped; the slot belongs to the countdown now
+        assertEquals(null, state.rowFor(BuildingType.METAL_MINE, now = t0).verdict)
+    }
+
+    // There is no test for a row at its ceiling, and that is a statement about this screen rather
+    // than a gap: `toFacilityRow` prices the level after the one you hold, and the cost curve
+    // *throws* past 40 rather than returning anything. So a colony that could produce an unmeasured
+    // verdict has already crashed the row it would appear on. The branch exists because the `when`
+    // over `LevelPurpose` is exhaustive, and for no other reason.
+
+    // ── What the sheet says ──────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the sheet behind a mine row states the two rates and the payback`() {
+        // given
+        val state = colony()
+
+        // when
+        val lines = state.rowFor(BuildingType.METAL_MINE).detail.lines
+
+        // then the numbers the verdict displaced — the rate it came from and the rate it goes to
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("Your colony makes "),
+                    figure("90/h"),
+                    words(" metal. At LV 2 it makes "),
+                    figure("112/h"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Counted against everything the level costs, you are even after "),
+                    figure("1h 13m"),
+                    words("."),
+                ),
+            ),
+            lines,
+        )
+    }
+
+    @Test
+    fun `the sheet behind a throttled row says what to build first`() {
+        // given
+        val state = colony()
+
+        // when
+        val lines = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER).detail.lines
+
+        // then the fix arrives one row earlier than the power indicator's — before the money is
+        // spent rather than after
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words(
+                        "The colony cannot power this level. Taking it would throttle every mine " +
+                            "you have rather than raise anything.",
+                    ),
+                ),
+                sheetLine(
+                    words("A Solar Plant at LV "),
+                    figure("2"),
+                    words(" carries the new draw. Build that first and this level becomes what it looks like."),
+                ),
+            ),
+            lines,
+        )
+    }
+
+    @Test
+    fun `the sheet behind the plant states the two terms and how far the crossing is`() {
+        // given genesis: 50 supplied against 40 drawn, with room for exactly one more mine level
+        val state = colony()
+
+        // when
+        val lines = state.rowFor(BuildingType.SOLAR_PLANT).detail.lines
+
+        // then a count of one is spelled, because "1 more mine levels" is not a sentence
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("Your plants supply "),
+                    figure("50"),
+                    words(" energy. The colony draws "),
+                    figure("40"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Supply is not what is limiting you, so a level that adds "),
+                    figure("+50"),
+                    words(" changes no rate."),
+                ),
+                sheetLine(
+                    words("It starts to pay when draw passes supply — about "),
+                    figure("one"),
+                    words(" more mine level away."),
+                ),
+            ),
+            lines,
+        )
+    }
+
+    @Test
+    fun `a colony with room to spare counts the crossing in whole mine levels`() {
+        // given four plants against three level-1 mines: 200 supplied against 40 drawn
+        val state = colony(buildings = Buildings.initial().withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(4)))
+
+        // when
+        val lines = state.rowFor(BuildingType.SOLAR_PLANT).detail.lines
+
+        // then
+        assertEquals(
+            sheetLine(
+                words("It starts to pay when draw passes supply — about "),
+                figure("16"),
+                words(" more mine levels away."),
+            ),
+            lines.last(),
+        )
+    }
+
+    @Test
+    fun `a colony already at break even is told the next mine level is the crossing`() {
+        // given metal mine 2: 50 produced against 50 drawn, with no headroom left to count
+        val state = colony(buildings = Buildings.initial().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)))
+
+        // when
+        val lines = state.rowFor(BuildingType.SOLAR_PLANT).detail.lines
+
+        // then no figure at all — there is no number left to state
+        assertEquals(sheetLine(words("It starts to pay with the next mine level you take.")), lines.last())
+    }
+
+    @Test
+    fun `the plant reads as income once the colony is throttled`() {
+        // given the report's colony: 50 produced against 90 drawn, every mine at 55%
+        val state = colony(buildings = starved())
+
+        // when
+        val row = state.rowFor(BuildingType.SOLAR_PLANT)
+
+        // then the same row that bought nothing a moment ago is now the best buy on the screen
+        assertEquals(
+            VerdictUiState(label = "+63/h metal · back in 19m", compactLabel = "+63/h metal"),
+            row.verdict,
+        )
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("Your plants supply "),
+                    figure("50"),
+                    words(" energy. The colony draws "),
+                    figure("90"),
+                    words(", so every mine is running at "),
+                    figure("55%"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("This level lifts that, which is why it reads as "),
+                    figure("+63/h"),
+                    words(" metal rather than as energy."),
+                ),
+                sheetLine(
+                    words("Counted against everything the level costs, you are even after "),
+                    figure("19m"),
+                    words("."),
+                ),
+            ),
+            row.detail.lines,
+        )
+    }
+
+    @Test
+    fun `the sheet behind the robotics factory names the build it shortens`() {
+        // given
+        val state = colony(buildings = deep())
+
+        // when
+        val lines = state.rowFor(BuildingType.ROBOTICS_FACTORY).detail.lines
+
+        // then it says out loud that it raises nothing — the row's price line cannot
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words(
+                        "Shortens every build on this colony and every research in the empire. " +
+                            "It raises no output of its own.",
+                    ),
+                ),
+                sheetLine(
+                    words("Your next Metal Mine takes "),
+                    figure("1h 37m"),
+                    words(". At Robotics Factory 4 it takes "),
+                    figure("1h 18m"),
+                    words("."),
+                ),
+            ),
+            lines,
+        )
+    }
+
+    @Test
+    fun `the ladder says what every level of the robotics factory opens`() {
+        // given a colony that has not built one at all
+        val state = colony()
+
+        // when
+        val ladder = state.rowFor(BuildingType.ROBOTICS_FACTORY).detail.ladder
+
+        // then in the order the player reaches them — and the one facility on it carries its price
+        assertEquals(
+            listOf(
+                SheetLadderStep(level = "LV 1", opens = "applied research", held = false),
+                SheetLadderStep(level = "LV 2", opens = "the three adaptation ladders", held = false),
+                SheetLadderStep(level = "LV 10", opens = "Nanite Factory · 2,000 metal", held = false),
+            ),
+            ladder,
+        )
+    }
+
+    @Test
+    fun `the ladder marks the levels the colony already holds`() {
+        // given robotics 3 — past the applied branch and past the ladders
+        val state = colony(buildings = deep())
+
+        // when
+        val ladder = state.rowFor(BuildingType.ROBOTICS_FACTORY).detail.ladder
+
+        // then held is computed rather than written, so "you have this" cannot go stale
+        assertEquals(
+            listOf(
+                SheetLadderStep(level = "LV 1", opens = "applied research · you have this", held = true),
+                SheetLadderStep(
+                    level = "LV 2",
+                    opens = "the three adaptation ladders · you have this",
+                    held = true,
+                ),
+                SheetLadderStep(level = "LV 10", opens = "Nanite Factory · 2,000 metal", held = false),
+            ),
+            ladder,
+        )
+    }
+
+    @Test
+    fun `a row that gates nothing carries no ladder`() {
+        // given
+        val state = colony()
+
+        // then five of the six rows on this screen gate nothing — which is what makes the sixth
+        // worth a ladder
+        assertEquals(
+            listOf(BuildingType.ROBOTICS_FACTORY),
+            state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
+                .facilities
+                .filter { it.detail.ladder.isNotEmpty() }
+                .map { it.building },
+        )
+    }
+
+    @Test
+    fun `the locked nanite sheet counts the levels to the gate`() {
+        // given
+        val state = colony()
+
+        // when
+        val lines = state.rowFor(BuildingType.NANITE_FACTORY).detail.lines
+
+        // then the late-game wait and the answer to it are both stated while the building is still
+        // twelve days out and 42% dim
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words(
+                        "Takes the late game's waits apart. It is the only thing in the game that " +
+                            "shortens a deep build.",
+                    ),
+                ),
+                sheetLine(
+                    words("A level-30 Metal Mine takes "),
+                    figure("271h"),
+                    words(" unaided. At 6 Nanite levels it takes "),
+                    figure("23h 49m"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Your Robotics Factory is at "),
+                    figure("0"),
+                    words(". 10 levels to go, and the first Nanite level costs "),
+                    figure("2,000"),
+                    words(" metal."),
+                ),
+            ),
+            lines,
+        )
+    }
+
+    @Test
+    fun `the last level before the gate is counted in the singular`() {
+        // given robotics 9
+        val state = colony(
+            buildings = Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(9)),
+        )
+
+        // when
+        val lines = state.rowFor(BuildingType.NANITE_FACTORY).detail.lines
+
+        // then "1 levels to go" is not a sentence either
+        assertEquals(
+            sheetLine(
+                words("Your Robotics Factory is at "),
+                figure("9"),
+                words(". One level to go, and the first Nanite level costs "),
+                figure("2,000"),
+                words(" metal."),
+            ),
+            lines.last(),
+        )
+    }
+
+    @Test
+    fun `the locked nanite sheet points at the row that moves the gate`() {
+        // given
+        val state = colony()
+
+        // when
+        val pointer = state.rowFor(BuildingType.NANITE_FACTORY).detail.pointer
+
+        // then a locked row ends on something to do rather than on a number it cannot reach
+        assertEquals(SheetPointer(name = "Robotics Factory", detail = "LV 0 → 1 · 3m"), pointer)
+    }
+
+    @Test
+    fun `the plant's sheet points at the shortest payback on the screen`() {
+        // given genesis, where the plant buys nothing and the metal mine repays in 1h 13m against
+        // the crystal mine's 1h 36m
+        val state = colony()
+
+        // when
+        val pointer = state.rowFor(BuildingType.SOLAR_PLANT).detail.pointer
+
+        // then the only useful thing a verdict of "nothing" can end on is the row to read instead
+        assertEquals(SheetPointer(name = "Metal Mine", detail = "LV 2 · back in 1h 13m"), pointer)
+    }
+
+    @Test
+    fun `a row that is worth something points at nothing`() {
+        // given
+        val state = colony()
+
+        // then the pointer is the answer to "then what" and a mine has already answered it
+        assertEquals(null, state.rowFor(BuildingType.METAL_MINE).detail.pointer)
+    }
+
+    @Test
+    fun `a running row's sheet keeps one sentence and offers nothing`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // when
+        val row = state.rowFor(BuildingType.METAL_MINE, now = t0)
+
+        // then the arithmetic that argued for the level is gone: it has already been paid for
+        assertEquals(1, row.detail.lines.size)
+        assertEquals(null, row.detail.pointer)
+        assertEquals(null, row.toRowSheetUiState().footer)
+    }
+
+    @Test
+    fun `a running row's sheet is headed by the line the row is already showing`() {
+        // given a two-minute build started at midnight
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // then a row that said one thing and a sheet that said another would be the worst failure
+        // this pass has available
+        assertEquals("→ LV 2 · done 00:02", state.rowFor(BuildingType.METAL_MINE, now = t0).toRowSheetUiState().verdict)
+    }
+
+    @Test
+    fun `the sheet repeats the whole verdict when there is no ladder to say the rest`() {
+        // given
+        val state = colony()
+
+        // when
+        val sheet = state.rowFor(BuildingType.METAL_MINE).toRowSheetUiState()
+
+        // then
+        assertEquals("Metal Mine", sheet.name)
+        assertEquals(1, sheet.level)
+        assertEquals("+22/h metal · back in 1h 13m", sheet.verdict)
+    }
+
+    @Test
+    fun `the sheet repeats only the first clause when it carries the ladder`() {
+        // given the one row whose dropped clause *is* the ladder
+        val state = colony(buildings = deep())
+
+        // when
+        val sheet = state.rowFor(BuildingType.ROBOTICS_FACTORY).toRowSheetUiState()
+
+        // then saying "LV 10 → Nanite" above a ladder that says it in full would say it twice
+        assertEquals("−20m per build", sheet.verdict)
+    }
+
+    @Test
+    fun `a locked row's sheet is headed by its requirement`() {
+        // given
+        val state = colony()
+
+        // when
+        val sheet = state.rowFor(BuildingType.NANITE_FACTORY).toRowSheetUiState()
+
+        // then — and no footer, because a locked row has no price yet
+        assertEquals("Requires Robotics 10", sheet.verdict)
+        assertEquals(null, sheet.footer)
+    }
+
+    @Test
+    fun `a row the colony can pay for offers the same upgrade inside the sheet`() {
+        // given
+        val state = colony(resources = Resources.of(metal = 1_000, crystal = 1_000))
+
+        // when
+        val footer = state.rowFor(BuildingType.METAL_MINE).toRowSheetUiState().footer
+
+        // then the sheet is somewhere a decision can be made rather than somewhere you read about
+        // one and then go back
+        assertEquals(
+            SheetFooter(
+                costs = listOf(
+                    CostChipUiState(kind = ResourceKind.METAL, amount = "19", short = false),
+                    CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "4", short = false),
+                ),
+                duration = "2m",
+                action = SheetAction.Live("Upgrade"),
+            ),
+            footer,
+        )
+    }
+
+    @Test
+    fun `a row still filling its stores carries the same wait into the sheet`() {
+        // given an empty stock
+        val state = colony()
+
+        // when
+        val footer = checkNotNull(state.rowFor(BuildingType.METAL_MINE).toRowSheetUiState().footer)
+
+        // then no disabled state here either: a player who cannot afford the level is told when
+        assertEquals(SheetAction.Ghost("in 13m"), footer.action)
+    }
+
+    // The one row on either screen whose verdict changes shape when a gate opens, and the only
+    // `Sooner` in the game with nothing left to gate: `gatesOf(NANITE_FACTORY)` is empty, so this is
+    // the single-clause form. Below Robotics 10 the row is locked and states the curve instead.
+    @Test
+    fun `once the gate opens the nanite factory states a saving like the factory below it`() {
+        // given a colony that has just cleared Robotics 10
+        val state = colony(buildings = pastTheGate())
+
+        // when
+        val row = state.rowFor(BuildingType.NANITE_FACTORY)
+
+        // then it stops being about the shape of the curve and starts being about this colony's
+        // longest build — and it has no gate clause, because it opens nothing
+        val verdict = checkNotNull(row.verdict)
+        assertTrue(verdict.label.endsWith(" per build"), verdict.label)
+        assertEquals(verdict.label, verdict.compactLabel)
+        assertTrue(verdict.label.startsWith("−"), verdict.label)
+    }
+
+    // Every rate and every energy figure on both screens goes through `groupedByThousands`, and
+    // nothing else in either suite puts four digits through one — so without this the comma could be
+    // deleted from a dozen call sites and every test would still pass.
+    @Test
+    fun `a four-figure rate carries its comma`() {
+        // given a colony deep enough for one more mine level to be worth more than a thousand an
+        // hour — and with the plant to carry it, or the deficit would scale the gain back down
+        val state = colony(
+            buildings = Buildings.initial()
+                .withLevel(BuildingType.METAL_MINE, BuildingLevel(20))
+                .withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(6)),
+        )
+
+        // then
+        val verdict = checkNotNull(state.rowFor(BuildingType.METAL_MINE).verdict)
+        assertTrue(verdict.label.startsWith("+1,"), verdict.label)
+    }
+
+    // Deep enough for a build to be worth shortening, and past two of the three gates: the metal
+    // mine's thirteenth level is 1h 37m at robotics 3, which is the wait the factory's row is about.
+    private fun deep(): Buildings = Buildings.initial()
+        .withLevel(BuildingType.METAL_MINE, BuildingLevel(12))
+        .withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(3))
+
+    // Robotics at the level the Nanite Factory demands, with mines deep enough to have a build the
+    // factory is worth shortening.
+    private fun pastTheGate(): Buildings = Buildings.initial()
+        .withLevel(BuildingType.METAL_MINE, BuildingLevel(20))
+        .withLevel(
+            BuildingType.ROBOTICS_FACTORY,
+            BuildingLevel(PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT),
+        )
 
     // Seven levels of mine on one solar plant: 50 produced against 90 consumed.
     private fun starved(): Buildings = Buildings(

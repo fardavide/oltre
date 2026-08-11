@@ -23,6 +23,8 @@ import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
+import dev.fardavide.oltre.client.design.component.RowVerdict
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
@@ -44,6 +46,7 @@ internal fun TechnologyList(
     compact: Boolean,
     onStartResearch: (Technology) -> Unit,
     onToggleWatch: (Technology) -> Unit,
+    onOpenDetail: (Technology) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -51,17 +54,18 @@ internal fun TechnologyList(
             ProjectRow(
                 name = row.name,
                 level = row.level,
-                effect = row.effect,
+                verdict = row.verdict,
                 costs = row.costs,
                 duration = row.duration,
-                shortlist = row.shortlist,
                 action = row.action,
                 watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
+                cardTag = ResearchTestTags.card(row.technology),
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
                 watchTag = ResearchTestTags.watch(row.technology),
                 compact = compact,
+                onOpenDetail = { onOpenDetail(row.technology) },
                 onStart = { onStartResearch(row.technology) },
                 onToggleWatch = { onToggleWatch(row.technology) },
             )
@@ -80,6 +84,7 @@ internal fun AdaptationList(
     compact: Boolean,
     onStartAdaptation: (AdaptationTechnology) -> Unit,
     onToggleWatch: (AdaptationTechnology) -> Unit,
+    onOpenDetail: (AdaptationTechnology) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -87,17 +92,18 @@ internal fun AdaptationList(
             ProjectRow(
                 name = row.name,
                 level = row.level,
-                effect = row.effect,
+                verdict = row.verdict,
                 costs = row.costs,
                 duration = row.duration,
-                shortlist = row.shortlist,
                 action = row.action,
                 watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
+                cardTag = ResearchTestTags.card(row.technology),
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
                 watchTag = ResearchTestTags.watch(row.technology),
                 compact = compact,
+                onOpenDetail = { onOpenDetail(row.technology) },
                 onStart = { onStartAdaptation(row.technology) },
                 onToggleWatch = { onToggleWatch(row.technology) },
             )
@@ -106,30 +112,31 @@ internal fun AdaptationList(
 }
 
 // Takes the row's parts rather than either row type, which is what makes "identical" a fact rather
-// than a promise two composables make separately. The tags and the callback are passed in because
-// they are the only things the two branches genuinely differ about.
+// than a promise two composables make separately. The tags and the callbacks are passed in because
+// they are the only things the two branches genuinely differ about — and since the verdict took the
+// slot the band line and the shortlist line used to share, that is now the whole of the difference.
 @Composable
 private fun ProjectRow(
     name: String,
     level: TechLevel,
-    effect: EffectUiState,
+    // The one line of consequence a row carries, and the same line on both branches: an applied
+    // level is worth so much an hour, a ladder level is worth so many worlds. Null while the row is
+    // in flight, where the accent line below says what the slot is for instead.
+    verdict: VerdictUiState?,
     costs: List<CostChipUiState>,
     duration: String,
-    // Null on the applied branch, which is the one thing the two row types genuinely differ about
-    // in what they *say*. It is passed here rather than branched on outside, because the whole
-    // point of one composable is that a running ladder is drawn by the same code as a running
-    // technology — see `AdaptationList`.
-    shortlist: ShortlistUiState?,
     action: ResearchActionUiState,
     // Null on every row with no instant to book. See `WatchUiState`.
     watch: WatchUiState?,
     // True on at most one row in the whole app, and only just after a launch: this is the project
     // that landed while it was closed. See `CompletionSweep`.
     finishedWhileAway: Boolean,
+    cardTag: String,
     rowTag: String,
     actionTag: String,
     watchTag: String,
     compact: Boolean,
+    onOpenDetail: () -> Unit,
     onStart: () -> Unit,
     onToggleWatch: () -> Unit,
 ) {
@@ -139,10 +146,15 @@ private fun ProjectRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            // Ahead of the fill and the border, as everywhere else — a `graphicsLayer` transforms
+            // what is drawn inside it, and a background declared first is drawn outside. A **locked**
+            // row is tappable too: the sheet is where a row the player cannot buy yet says what it
+            // would be worth when they can.
+            .pressable { onOpenDetail() }
             .oltreCard(action.cardState())
             // Over the fill and over the content, so it reads as light falling on the card.
             .completionSweep(sweep)
-            .testTag(rowTag)
+            .testTag(cardTag)
             // After the card, not before it, and that ordering is the whole point: an alpha placed
             // ahead of the fill dims the card itself, which turns the one opaque thing on the
             // screen translucent again and lets the starfield through it. A locked row would then
@@ -153,7 +165,10 @@ private fun ProjectRow(
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
+            // Tagged separately from the card above it, and the split is the tap: the card merges
+            // its descendants' semantics the moment it becomes clickable, so a Robot reading what
+            // the row *says* wants the column that says it rather than the target it presses.
+            Column(modifier = Modifier.weight(1f).testTag(rowTag)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     // Every technology name is one word, so nothing here truncates at 320dp — but
                     // the guard stays, because a future name is not this slice's promise to keep.
@@ -184,13 +199,22 @@ private fun ProjectRow(
                     )
                 }
                 when (action) {
-                    is ResearchActionUiState.Locked -> Text(
-                        text = action.reason,
-                        color = OltreColors.textSecondary,
-                        fontFamily = mono,
-                        fontSize = 10.5.sp,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    // The requirement, and under it what clearing the requirement would be worth —
+                    // the same pair the Colony's locked Nanite row carries, at the same 42% dim.
+                    // A locked row used to be name, level and requirement, on the argument that a
+                    // consequence you cannot buy is noise; this design's second hard case is
+                    // exactly that argument being wrong. *Whether it is worth pushing Robotics for*
+                    // is the only question a gate leaves open, and the row now answers it.
+                    is ResearchActionUiState.Locked -> {
+                        Text(
+                            text = action.reason,
+                            color = OltreColors.textSecondary,
+                            fontFamily = mono,
+                            fontSize = 10.5.sp,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                    }
                     // In flight the effect line is replaced, exactly as a facility row drops its
                     // costs while it builds: what you want mid-project is when, not what — and
                     // "→ LV 4" already says what.
@@ -204,29 +228,17 @@ private fun ProjectRow(
                     ResearchActionUiState.Start,
                     is ResearchActionUiState.AvailableIn,
                     -> {
-                        // **A row carrying a square drops its trailing noun at any width**, which
-                        // is the design's own remedy for what the square costs: 29dp plus its gap,
-                        // measured, is enough to ellipsise "metal · crystal output" on a phone. The
-                        // figures and the resource names are load-bearing and the word "output" is
-                        // not, so the cut goes there rather than mid-word. Rows with no square keep
-                        // it — they still have the room.
-                        EffectLine(effect = effect, compact = compact || watch != null)
-                        // Under the band line rather than beside it: the band is what the level
-                        // *is* and this is what it *buys*, so it reads as the second half of one
-                        // consequence rather than as a competing fact. It is absent while a
-                        // project runs for the same reason the effect line is — mid-project the
-                        // question is when, not what — and absent when locked, where a
-                        // consequence the player cannot buy is noise.
-                        shortlist?.let { line ->
-                            Text(
-                                text = if (compact) line.compactLabel else line.label,
-                                color = OltreColors.textTertiary,
-                                fontFamily = mono,
-                                fontSize = 10.5.sp,
-                                lineHeight = 15.sp,
-                                modifier = Modifier.padding(top = 4.dp),
-                            )
-                        }
+                        // **One line where there used to be two**, and it is the design's one
+                        // stated exception: two lines of numbers about the same level is where a
+                        // dense row becomes an unreadable one. The percentages and the tolerance
+                        // bands are not lost — they are the first thing the sheet says, where there
+                        // is width to state both halves of each.
+                        //
+                        // The 320dp pane drops the second clause; a square does not. The clause is
+                        // what the player compares across three rows, and `RowVerdict` truncates
+                        // rather than wraps, so the row can carry both beside a square where the
+                        // effect line it replaced could not.
+                        verdict?.let { RowVerdict(verdict = it, compact = compact) }
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(top = 4.dp),
@@ -337,36 +349,4 @@ private fun ResearchActionUiState.cardState(): OltreCardState = when (this) {
     is ResearchActionUiState.Locked,
     -> OltreCardState.WAITING
     is ResearchActionUiState.Running -> OltreCardState.RUNNING
-}
-
-// "+36% → +47% metal · crystal output": current in secondary weight, next in body weight, using
-// the arrow that already means "becomes" in "→ LV 13".
-@Composable
-private fun EffectLine(effect: EffectUiState, compact: Boolean) {
-    val mono = oltreMono()
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.padding(top = 4.dp),
-    ) {
-        effect.current?.let { current ->
-            Text(text = current, color = OltreColors.textSecondary, fontFamily = mono, fontSize = 10.5.sp)
-        }
-        Text(text = "→", color = OltreColors.textTertiary, fontFamily = mono, fontSize = 10.5.sp)
-        Text(
-            text = effect.next,
-            color = OltreColors.text,
-            fontFamily = mono,
-            fontSize = 10.5.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            text = if (compact) effect.compactSubject else effect.subject,
-            color = OltreColors.textSecondary,
-            fontFamily = mono,
-            fontSize = 10.5.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
 }

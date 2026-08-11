@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -137,8 +139,14 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
     // worlds under its map, and six research rows need about 105dp more than a 393x852 window has.
     // A player scrolls to read the sixth row too, so a test that refused to would be asserting
     // something no one experiences.
+    //
+    // **First rather than only**, since a row became tappable at 0.6.0. A clickable card sets
+    // `mergeDescendants`, so a string inside one now satisfies both the card's merged semantics and
+    // the column's own — two nodes, same words, same place on screen. Taking the first is not
+    // loosening the assertion: the alternative reading, that two *different* rows say it, is what
+    // `assertNothingReads` below and the row-scoped assertions on the screens themselves are for.
     fun assertReads(text: String) = apply {
-        test.onNodeWithText(text, substring = true).performScrollTo().assertIsDisplayed()
+        test.onAllNodesWithText(text, substring = true).onFirst().performScrollTo().assertIsDisplayed()
     }
 
     fun assertNothingReads(text: String) = apply {

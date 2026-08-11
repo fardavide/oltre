@@ -158,6 +158,35 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.6.0 — 2026-08-11
+
+- **Every row now says what the level is worth to you.** A mine has always told you what it costs
+  and how long it takes, and never whether it was worth taking. It does now, in one line, in the
+  same shape on all thirteen rows: what the level hands you, and when you have your money back. A
+  level-13 Metal Mine reads "+122/h metal · back in 102h" — four days to repay 12,458 metal is a
+  fact worth having before you tap.
+- **The three technologies are finally comparable.** 1h 42m against 33h against nothing is the
+  choice the Research screen exists to present, and until now the screen showed you three
+  percentages instead. Percentages are not something you can spend.
+- **Two rows now admit they are worth nothing.** Photovoltaics multiplies energy supply, and while
+  your colony has power to spare that multiplies nothing at all — so the row says so, rather than
+  offering you a true number you cannot use. The Solar Plant beside it says the same thing in the
+  same words.
+- **The Robotics Factory and the Nanite Factory stopped being silent.** Neither raises a rate, so
+  neither has ever had a line. Robotics now states what a level takes off your longest build and
+  which gate it opens next; the Nanite Factory states what it is worth from day one, twelve days
+  before you can build it, under the requirement that was previously the only thing it said.
+- **A row that would slow your colony down says so before you buy it.** At genesis a second
+  Deuterium Synthesizer level draws more power than your one plant makes, which throttles every
+  mine you have — the row now reads "throttles every mine · Solar Plant 2 covers it" instead of
+  looking like every other upgrade.
+- **Tap a row to open it.** A new sheet carries the arithmetic behind the verdict, the numbers the
+  verdict displaced — the rate pairs and the percentages — and, where a building gates something,
+  the whole ladder of what opens at which level, including the levels you already hold. It never
+  says do not buy this: the action stays live, because a player who wants it anyway is not wrong.
+- Nothing about the balance moves. Same prices, same durations, same rates — a colony is worth
+  exactly what it was worth yesterday, and saves carry forward untouched.
+
 ### 0.5.2 — 2026-08-11
 
 - **The Nanite Factory does something.** It has been in the build tree since the first economy

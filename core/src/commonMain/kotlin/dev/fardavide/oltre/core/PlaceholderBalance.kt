@@ -42,7 +42,12 @@ object PlaceholderBalance {
 
     // Beyond this the cost curve leaves human territory; the guard also keeps the fine-unit
     // conversion inside Long (nanite metal at level 40 is ~1.5e11 whole units, ~5.3e17 fine).
-    private const val MAX_UPGRADE_LEVEL: Int = 40
+    //
+    // `internal` rather than private since 0.6.0, on the same precedent as `fullPriceCost` below:
+    // a caller that has to *avoid* the throw needs the boundary, and two of them were hand-copying
+    // the 40 rather than asking. `BuildingLevel` cannot carry it — the type has no upper bound, so
+    // a level past the table is constructible and only this says so.
+    internal const val MAX_UPGRADE_LEVEL: Int = 40
 
     // A new colony opens on a decision, not on a wait: enough metal and crystal for the first
     // few mine levels. Deuterium is earned, never granted — it gates the Robotics Factory.

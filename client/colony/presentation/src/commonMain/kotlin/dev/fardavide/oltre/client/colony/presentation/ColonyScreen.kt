@@ -10,10 +10,15 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import dev.fardavide.oltre.client.design.component.RowSheet
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.BuildingType
@@ -29,6 +34,11 @@ fun ColonyScreen(
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
+    // Which row has its arithmetic open, held here rather than in the shell. The sheet is a second
+    // rendering of a row this screen already has, so nothing about it crosses the module boundary
+    // and `App` keeps the parameter list it has. The row is named rather than captured, so a sheet
+    // left open keeps counting down with the card behind it.
+    var open by remember { mutableStateOf<BuildingType?>(null) }
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         // A width decision, not a change of voice, and the same one Research has made since 0.3:
         // below this the square stacks under the ghost time and one facility name shortens.
@@ -68,6 +78,24 @@ fun ColonyScreen(
                     compact = compact,
                     onUpgrade = onUpgrade,
                     onToggleWatch = onToggleWatch,
+                    onOpenDetail = { open = it },
+                )
+            }
+        }
+        open?.let { building ->
+            uiState.facilities.firstOrNull { it.building == building }?.let { row ->
+                RowSheet(
+                    uiState = row.toRowSheetUiState(),
+                    // Acting from the sheet is acting on the row, and by then the sheet has said
+                    // everything it had to say — leaving it up over a row that is now building
+                    // would be leaving up an argument for a decision already taken.
+                    onAct = {
+                        open = null
+                        onUpgrade(building)
+                    },
+                    onDismiss = { open = null },
+                    contentModifier = Modifier.testTag(ColonyTestTags.SHEET),
+                    actionModifier = Modifier.testTag(ColonyTestTags.SHEET_ACTION),
                 )
             }
         }

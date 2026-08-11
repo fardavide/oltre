@@ -13,6 +13,19 @@ internal object ResearchTestTags {
 
     const val CONTENT = "research-content"
 
+    // The one sheet a row can open, and the button inside it. Neither is keyed by anything: one
+    // sheet is open at a time, and a tag that named the row it came from would be a second way of
+    // saying what the sheet's own heading already says.
+    const val SHEET = "research-sheet"
+    const val SHEET_ACTION = "research-sheet-action"
+
+    // The card is what gets pressed and the row is what gets read, and they are two tags because a
+    // clickable card merges its descendants' semantics: the target and the text it holds stop being
+    // one node the moment the body opens a sheet.
+    fun card(technology: Technology): String = "research-card-${technology.name.lowercase()}"
+
+    fun card(technology: AdaptationTechnology): String = "research-card-${technology.name.lowercase()}"
+
     fun row(technology: Technology): String = "research-row-${technology.name.lowercase()}"
 
     fun action(technology: Technology): String = "research-action-${technology.name.lowercase()}"

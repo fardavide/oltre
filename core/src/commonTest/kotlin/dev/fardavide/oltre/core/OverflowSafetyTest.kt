@@ -143,9 +143,10 @@ class OverflowSafetyTest {
         }
     }
 
-    // `PlaceholderBalance.MAX_UPGRADE_LEVEL` is private; this is the same number, stated as the
-    // specification. If the private one moves and this does not, the tests above stop covering the
-    // levels the game will actually answer for — which is why the next test pins them together.
+    // `PlaceholderBalance.MAX_UPGRADE_LEVEL` is `internal`, so this file could read it — and
+    // deliberately does not. This is the same number stated as the *specification*, and the next
+    // test is what pins the two together; reading the constant here would make that test assert
+    // that 40 equals 40.
     private val MAX_BUILDING_LEVEL = 40
 
     @Test

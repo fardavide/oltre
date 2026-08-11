@@ -20,6 +20,19 @@ fun Duration.toChipLabel(): String {
     return if (hours > 0) "${hours}h ${minutes.toString().padStart(2, '0')}m" else "${minutes}m"
 }
 
+// How long until a level has paid for itself, which is a different kind of duration from every
+// other one the app writes and therefore reads differently.
+//
+// **Minutes matter under a day and stop mattering past one.** A technology that repays in 1h 42m is
+// something you decide about now, so the minutes are the decision; a mine that repays in 102h is
+// four days, and "102h 14m" is false precision on a number nobody will hold in their head. There is
+// deliberately no day unit — the brief writes a 186-hour build as 186 hours, and hours stay
+// comparable against each other all the way up where "4d 6h" against "1h 42m" does not.
+fun Duration.toPaybackLabel(): String =
+    if (inWholeHours < HOURS_PER_DAY) toChipLabel() else "${inWholeHours}h"
+
+private const val HOURS_PER_DAY: Int = 24
+
 // Zero-padded and always three fields, so a countdown never changes width as it runs down.
 fun Long.toCountdown(): String {
     val hours = this / 3600

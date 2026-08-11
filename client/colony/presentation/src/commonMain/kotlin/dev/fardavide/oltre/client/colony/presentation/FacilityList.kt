@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
+import dev.fardavide.oltre.client.design.component.RowVerdict
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
@@ -47,11 +48,18 @@ fun FacilityList(
     compact: Boolean,
     onUpgrade: (BuildingType) -> Unit,
     onToggleWatch: (BuildingType) -> Unit,
+    onOpenDetail: (BuildingType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         facilities.forEach { row ->
-            FacilityRow(row = row, compact = compact, onUpgrade = onUpgrade, onToggleWatch = onToggleWatch)
+            FacilityRow(
+                row = row,
+                compact = compact,
+                onUpgrade = onUpgrade,
+                onToggleWatch = onToggleWatch,
+                onOpenDetail = onOpenDetail,
+            )
         }
     }
 }
@@ -62,6 +70,7 @@ private fun FacilityRow(
     compact: Boolean,
     onUpgrade: (BuildingType) -> Unit,
     onToggleWatch: (BuildingType) -> Unit,
+    onOpenDetail: (BuildingType) -> Unit,
 ) {
     val mono = oltreMono()
     val locked = row.action is FacilityActionUiState.Locked
@@ -69,6 +78,14 @@ private fun FacilityRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .testTag(ColonyTestTags.card(row.building))
+            // The card body opens the sheet, and a locked one opens it too — stating the Nanite
+            // Factory's payoff on day one is the whole reason that row is worth a tap while it is
+            // still dim. The button and the square are inner clickables and win their own taps.
+            //
+            // Ahead of the fill, as everywhere else: `pressable` scales what is drawn inside it, and
+            // a background declared first is drawn outside.
+            .pressable { onOpenDetail(row.building) }
             .oltreCard(row.action.cardState())
             // Over the fill and over the content, which is what makes it read as light falling on
             // the card rather than as a shape drawn on it.
@@ -120,20 +137,27 @@ private fun FacilityRow(
                 // "→ becomes" slot is line two, and the price line is the one below it.
                 when (val action = row.action) {
                     // No mark and no fix. A locked facility is not built, so it draws nothing —
-                    // there is nothing to attribute and nothing to fight the 42% dim.
-                    is FacilityActionUiState.Locked -> Text(
-                        text = action.reason,
-                        color = OltreColors.textSecondary,
-                        fontFamily = mono,
-                        fontSize = 10.5.sp,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
+                    // there is nothing to attribute and nothing to fight the 42% dim. The verdict
+                    // goes *under* the requirement here and only here: what the row is waiting for
+                    // has to be read before what it would be worth.
+                    is FacilityActionUiState.Locked -> {
+                        Text(
+                            text = action.reason,
+                            color = OltreColors.textSecondary,
+                            fontFamily = mono,
+                            fontSize = 10.5.sp,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        row.verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                    }
+                    // The one row with no verdict, and the only state where nobody is choosing: the
+                    // decision was made when the player tapped, so the slot belongs to the arrow.
                     is FacilityActionUiState.Upgrading -> {
                         // The accent line keeps the target level and finish time; the draw joins
                         // it after a gap, in amber against the accent. The bar is untouched.
                         TermsLine {
                             Text(
-                                text = "→ LV ${action.toLevel.value} · ${action.doneAt}",
+                                text = action.becomes(),
                                 color = OltreColors.accent,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -145,6 +169,7 @@ private fun FacilityRow(
                     FacilityActionUiState.Upgrade,
                     is FacilityActionUiState.AffordableIn,
                     -> {
+                        row.verdict?.let { RowVerdict(verdict = it, compact = compact) }
                         row.fix?.let { FixLine(fix = it, mono = mono) }
                         TermsLine {
                             row.costs.forEach { chip -> CostChip(chip = chip) }

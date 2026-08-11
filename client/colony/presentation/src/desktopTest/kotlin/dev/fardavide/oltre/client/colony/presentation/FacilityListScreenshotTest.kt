@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
@@ -20,7 +21,7 @@ class FacilityListScreenshotTest {
 
     @Test
     fun `facility list with building, affordable, unaffordable and locked rows`() {
-        runDesktopComposeUiTest(width = 393, height = 500) {
+        runDesktopComposeUiTest(width = 393, height = FOUR_ROWS) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
@@ -46,6 +47,11 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = WatchUiState.Offered,
+                                    // The only row in the frame with no verdict, and the frame is
+                                    // where that reads: three cards carry a second line and the one
+                                    // already building does not.
+                                    verdict = null,
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -63,6 +69,11 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = null,
+                                    verdict = VerdictUiState(
+                                        label = "−12m per build · LV 1 → research",
+                                        compactLabel = "−12m per build",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -79,6 +90,11 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = WatchUiState.Offered,
+                                    verdict = VerdictUiState(
+                                        label = "+41/h deuterium · back in 61h",
+                                        compactLabel = "+41/h deuterium",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -96,12 +112,21 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = null,
+                                    // Under the requirement rather than over it, and at the same
+                                    // 42% as the rest of the card — which is the case the whole
+                                    // "state the payoff on day one" argument has to survive.
+                                    verdict = VerdictUiState(
+                                        label = "A 298h build takes 26h at LV 6",
+                                        compactLabel = "298h builds take 26h at LV 6",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
                             compact = false,
                             onToggleWatch = {},
+                            onOpenDetail = {},
                         )
                     }
                 }
@@ -126,7 +151,7 @@ class FacilityListScreenshotTest {
     // reached it yet. That is the assertion, not a detail — the level changes behind the light.
     @Test
     fun `the row that finished while the app was closed mid-sweep`() {
-        runDesktopComposeUiTest(width = 393, height = 120) {
+        runDesktopComposeUiTest(width = 393, height = ONE_ROW) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
@@ -147,12 +172,18 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = null,
+                                    verdict = VerdictUiState(
+                                        label = "+50 supply · draw already covered",
+                                        compactLabel = "+50 supply",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = true,
                                 ),
                             ),
                             onUpgrade = {},
                             compact = false,
                             onToggleWatch = {},
+                            onOpenDetail = {},
                         )
                     }
                 }
@@ -170,14 +201,15 @@ class FacilityListScreenshotTest {
     // — and the accent line of a row that is building.
     @Test
     fun `facility list while a power shortage throttles it`() {
-        runDesktopComposeUiTest(width = 393, height = 500) {
+        runDesktopComposeUiTest(width = 393, height = FOUR_ROWS) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
                         FacilityList(
                             facilities = listOf(
-                                // Supply, and the one line that says what ends the shortage.
+                                // Supply, and the one line that says what ends the shortage. The
+                                // verdict sits above it: what the level is worth, then what it fixes.
                                 FacilityRowUiState(
                                     building = BuildingType.SOLAR_PLANT,
                                     name = "Solar Plant",
@@ -192,6 +224,11 @@ class FacilityListScreenshotTest {
                                     power = FacilityPowerUiState(label = "+50", supply = true),
                                     fix = "→ LV 2 covers all 90 drawn",
                                     watch = WatchUiState.Offered,
+                                    verdict = VerdictUiState(
+                                        label = "+63/h metal · back in 19m",
+                                        compactLabel = "+63/h metal",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 // A draw on a row that is affordable: taking it deepens the
@@ -210,6 +247,11 @@ class FacilityListScreenshotTest {
                                     power = FacilityPowerUiState(label = "−30", supply = false),
                                     fix = null,
                                     watch = null,
+                                    verdict = VerdictUiState(
+                                        label = "throttles every mine · Solar Plant 2 covers it",
+                                        compactLabel = "throttles every mine",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
@@ -228,6 +270,8 @@ class FacilityListScreenshotTest {
                                     power = FacilityPowerUiState(label = "−20", supply = false),
                                     fix = null,
                                     watch = WatchUiState.Offered,
+                                    verdict = null,
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
@@ -247,12 +291,18 @@ class FacilityListScreenshotTest {
                                     power = null,
                                     fix = null,
                                     watch = null,
+                                    verdict = VerdictUiState(
+                                        label = "A 271h build takes 23h 49m at LV 6",
+                                        compactLabel = "271h builds take 23h 49m at LV 6",
+                                    ),
+                                    detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
                             compact = false,
                             onToggleWatch = {},
+                            onOpenDetail = {},
                         )
                     }
                 }
@@ -269,5 +319,18 @@ class FacilityListScreenshotTest {
         // 420ms of delay plus half of the 750ms crossing: the band is at the middle of the card,
         // and 135ms short of the level swap at 930ms.
         const val MID_SWEEP_MILLIS: Long = 795
+
+        // **Every row grew by a verdict**, which is one 10.5sp line over a 15sp leading plus the
+        // card's own 4dp between lines — 19dp, and the running row is the only one that does not
+        // take it. So four rows are 500 + 3 × 19 = 557 and one row is 120 + 19 = 139, both rounded
+        // up to the next ten: a window a few pixels short clips the last card into the baseline and
+        // says nothing about it.
+        const val FOUR_ROWS: Int = 560
+        const val ONE_ROW: Int = 140
+
+        // A row's `detail` is what the *sheet* draws, and these frames are about the card. Empty
+        // rather than plausible: a fixture nothing renders is a fixture nothing can be wrong about.
+        // `FacilitySheetScreenshotTest` is where it is filled in.
+        val EMPTY_DETAIL = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null)
     }
 }

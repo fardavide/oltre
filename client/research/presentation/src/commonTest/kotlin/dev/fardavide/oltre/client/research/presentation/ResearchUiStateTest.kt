@@ -1,8 +1,19 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.SheetAction
+import dev.fardavide.oltre.client.design.component.SheetFooter
+import dev.fardavide.oltre.client.design.component.SheetLadderStep
+import dev.fardavide.oltre.client.design.component.SheetLinePart
+import dev.fardavide.oltre.client.design.component.SheetPointer
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.figure
+import dev.fardavide.oltre.client.design.component.sheetLine
+import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.pad2
+import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
@@ -12,6 +23,8 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.LevelPurpose
+import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.ResearchJob
@@ -23,10 +36,12 @@ import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.adaptationShortlist
+import dev.fardavide.oltre.core.purposeOfNextLevel
 import dev.fardavide.oltre.core.timeUntilAffordable
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -73,18 +88,19 @@ class ResearchUiStateTest {
         assertEquals("+33%", row.effect.next)
     }
 
+    // The subject is what the sheet's first sentence is *about* — "metal · crystal output: +17% →
+    // +26%." — so it survived the verdict taking the row's line. The short form did not: it existed
+    // because 320dp could not fit the trailing noun beside a watch square, and the sheet is full
+    // width with no square on it.
     @Test
-    fun `each technology names what it multiplies and what it drops at 320dp`() {
+    fun `each technology names what it multiplies`() {
         // given
         val uiState = colony().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
-        // then - the percentages and the resource names are load-bearing; the noun is not
+        // then
         assertEquals("Solar Plant output", uiState.technologies[0].effect.subject)
-        assertEquals("Solar Plant", uiState.technologies[0].effect.compactSubject)
         assertEquals("metal · crystal output", uiState.technologies[1].effect.subject)
-        assertEquals("metal · crystal", uiState.technologies[1].effect.compactSubject)
         assertEquals("deuterium output", uiState.technologies[2].effect.subject)
-        assertEquals("deuterium", uiState.technologies[2].effect.compactSubject)
     }
 
     @Test
@@ -285,20 +301,21 @@ class ResearchUiStateTest {
 
         // then - the unit sits where the applied row's trailing noun sits, so both read
         // [value] -> [value] [what of]
-        assertEquals(EffectUiState("−30 … +45", "−44 … +59", "°C", "°C"), rows[0].effect)
-        assertEquals(EffectUiState("0.65 … 1.40", "0.60 … 1.52", "g", "g"), rows[1].effect)
-        assertEquals(EffectUiState("0.5 … 2.6", "0.44 … 3.5", "atm", "atm"), rows[2].effect)
+        assertEquals(EffectUiState("−30 … +45", "−44 … +59", "°C"), rows[0].effect)
+        assertEquals(EffectUiState("0.65 … 1.40", "0.60 … 1.52", "g"), rows[1].effect)
+        assertEquals(EffectUiState("0.5 … 2.6", "0.44 … 3.5", "atm"), rows[2].effect)
     }
 
-    // The applied line sheds "output" at 320dp because "output" is prose and prose has fat. A band
-    // line is digits, units and relations — there is nothing in it that could be cut.
+    // A ladder's subject is its bare unit rather than a phrase, which is why the sheet's band
+    // sentence reads "°C tolerance: −30 … +45 → −44 … +59." with nothing in it to shorten. The
+    // applied branch's subject is prose and its own assertion is above.
     @Test
-    fun `a band line is the same string at both widths`() {
+    fun `a ladder names the unit its band is measured in`() {
         // given
         val rows = adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).adaptation
 
         // then
-        rows.forEach { row -> assertEquals(row.effect.subject, row.effect.compactSubject) }
+        assertEquals(listOf("°C", "g", "atm"), rows.map { it.effect.subject })
     }
 
     // Every other ladder assertion holds a level-0 empire, which is the one level at which
@@ -468,11 +485,12 @@ class ResearchUiStateTest {
     }
 
     @Test
-    fun `an applied technology has no shortlist because it unlocks no world`() {
+    fun `an applied technology never states a consequence on the map`() {
         // Photovoltaics multiplies a rate. It cannot make a world habitable, so a line about
-        // worlds on that row would be the screen inventing a consequence.
+        // worlds on that row would be the screen inventing a consequence — which is why the applied
+        // branch's verdict is priced in units an hour and never in worlds.
         for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).technologies) {
-            assertNull(row.shortlist, "${row.technology}")
+            assertTrue("world" !in checkNotNull(row.verdict).label, "${row.technology}")
         }
     }
 
@@ -726,6 +744,453 @@ class ResearchUiStateTest {
         assertEquals("watching Metal Mine", uiState.watching)
     }
 
+    // ── The verdict ──────────────────────────────────────────────────────────────────────────
+    //
+    // One line saying what the next level is worth to *this* empire now, in the slot the effect
+    // line used to have. The numbers come from `purposeOfNextLevel` rather than from a literal,
+    // because what this screen owns is the sentence around them and the balance owns the figures.
+
+    @Test
+    fun `a row states what the next level adds and when it has paid for itself`() {
+        // given
+        val state = colony(buildings = gated())
+        val purpose = assertIs<LevelPurpose.Output>(state.purposeOfNextLevel(Technology.EXTRACTION))
+
+        // when
+        val row = state.rowFor(Technology.EXTRACTION)
+
+        // then - two clauses, and the second is the one a narrow window drops rather than truncates
+        assertEquals(
+            VerdictUiState(
+                label = "+${purpose.perHour}/h metal · back in ${purpose.payback.toPaybackLabel()}",
+                compactLabel = "+${purpose.perHour}/h metal",
+            ),
+            row.verdict,
+        )
+    }
+
+    @Test
+    fun `the resource a level is recognisably for is the one it raises most`() {
+        // Extraction moves metal and crystal together; the row has one clause to say it in, so the
+        // larger of the two gains is the one the level is named after.
+        val state = colony(buildings = gated())
+
+        // then
+        val metal = checkNotNull(state.rowFor(Technology.EXTRACTION).verdict).compactLabel
+        val deuterium = checkNotNull(state.rowFor(Technology.ENRICHMENT).verdict).compactLabel
+        assertTrue(metal.endsWith(" metal"), "was '$metal'")
+        assertTrue(deuterium.endsWith(" deuterium"), "was '$deuterium'")
+    }
+
+    @Test
+    fun `Photovoltaics is worth nothing at all while the colony is in surplus`() {
+        // given a colony making 50 energy against 40 drawn - a plant level and a technology that
+        // multiplies plants both raise a supply nothing is limited by
+        val row = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - it says so rather than going quiet, which is the whole point of a verdict
+        assertEquals(
+            VerdictUiState(label = "nothing while you are in surplus", compactLabel = "nothing while in surplus"),
+            row.verdict,
+        )
+    }
+
+    @Test
+    fun `a row in flight carries no verdict because nobody is choosing`() {
+        // given the project the row itself is about
+        val row = colony(
+            buildings = gated(),
+            activeResearch = project(completesAt = EPOCH + 2.hours, technology = Technology.PHOTOVOLTAICS),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - the decision was made when the player tapped the action; the slot belongs to the
+        // finish line and the countdown
+        assertNull(row.verdict)
+    }
+
+    @Test
+    fun `a ladder takes the shortlist it already had as its verdict`() {
+        // The shortlist *was* the verdict, and this design is that sentence repeated elsewhere - so
+        // nothing about the copy changes on the branch that already had it.
+        val row = adaptable().adaptationRowFor(AdaptationTechnology.GRAVITIC)
+
+        // then
+        assertEquals(
+            VerdictUiState(label = row.shortlist.label, compactLabel = row.shortlist.compactLabel),
+            row.verdict,
+        )
+    }
+
+    @Test
+    fun `a ladder in flight carries no verdict either`() {
+        // given - the two branches share one composable, so they share the rule
+        val row = adaptable(activeAdaptation = ladder(completesAt = EPOCH + 2.hours))
+            .adaptationRowFor(AdaptationTechnology.GRAVITIC)
+
+        // then
+        assertNull(row.verdict)
+    }
+
+    // ── The sheet ────────────────────────────────────────────────────────────────────────────
+    //
+    // What the card body opens: the arithmetic behind the verdict, the ladder of what the level
+    // gates, and the numbers the verdict displaced.
+
+    @Test
+    fun `the sheet names the row and repeats the sentence the player just read`() {
+        // given a row past its gate and with no ladder under it - the plain case, where the sheet
+        // repeats the verdict whole
+        val row = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertEquals("Photovoltaics", row.sheet.name)
+        assertEquals(0, row.sheet.level)
+        assertEquals(checkNotNull(row.verdict).label, row.sheet.verdict)
+    }
+
+    @Test
+    fun `a sheet whose ladder already states the second clause does not state it twice`() {
+        // given Extraction - the one applied row that gates something, so the one whose sheet
+        // carries a ladder at all
+        val row = colony(buildings = gated()).rowFor(Technology.EXTRACTION)
+
+        // then
+        assertEquals(checkNotNull(row.verdict).compactLabel, row.sheet.verdict)
+    }
+
+    @Test
+    fun `the sheet spells out the two rates the verdict was a difference between`() {
+        // given
+        val state = colony(
+            buildings = gated(),
+            research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(2)),
+        )
+        val purpose = assertIs<LevelPurpose.Output>(state.purposeOfNextLevel(Technology.EXTRACTION))
+
+        // when
+        val row = state.rowFor(Technology.EXTRACTION)
+
+        // then
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("metal · crystal output: "),
+                    figure("+17%"),
+                    words(" → "),
+                    figure("+26%"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Your colony makes "),
+                    figure("${purpose.from}/h"),
+                    words(" metal and would make "),
+                    figure("${purpose.to}/h"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Counted against everything the level costs, you are even after "),
+                    figure(purpose.payback.toPaybackLabel()),
+                    words("."),
+                ),
+            ),
+            row.sheet.lines,
+        )
+    }
+
+    @Test
+    fun `a technology nobody has researched states what its first level would be worth`() {
+        // given - there is no "now" to compare against, so the sentence names the level instead
+        val row = colony(buildings = gated()).rowFor(Technology.ENRICHMENT)
+
+        // then
+        assertEquals(
+            sheetLine(words("deuterium output: "), figure("+14%"), words(" at LV 1.")),
+            row.sheet.lines.first(),
+        )
+    }
+
+    @Test
+    fun `an inert sheet states supply against draw and what would change it`() {
+        // given a colony one mine level away from needing more power
+        val row = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("Your plants supply "),
+                    figure("50"),
+                    words(" energy. The colony draws "),
+                    figure("40"),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Photovoltaics multiplies supply, and supply is not what is limiting you. At "),
+                    figure("+10%"),
+                    words(" your output does not move."),
+                ),
+                sheetLine(
+                    words("It starts to pay when draw passes supply — about "),
+                    figure("one"),
+                    words(" more mine level away."),
+                ),
+            ),
+            row.sheet.lines,
+        )
+    }
+
+    @Test
+    fun `the crossing sentence counts the mine levels it is away`() {
+        // given a colony with a second plant - 100 supplied against 40 drawn is six mine levels of
+        // headroom, in the unit the power indicator already reports it in
+        val row = colony(buildings = gated().withLevel(BuildingType.SOLAR_PLANT, BuildingLevel(2)))
+            .rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertEquals(
+            sheetLine(
+                words("It starts to pay when draw passes supply — about "),
+                figure("6"),
+                words(" more mine levels away."),
+            ),
+            row.sheet.lines.last(),
+        )
+    }
+
+    @Test
+    fun `a colony with no headroom left is told the next mine level is the crossing`() {
+        // given 50 supplied against 50 drawn - level and draw are equal so nothing is throttled yet
+        val row = colony(buildings = gated().withLevel(BuildingType.METAL_MINE, BuildingLevel(2)))
+            .rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - a count of zero would be arithmetic where the sentence wants a consequence
+        assertEquals(
+            sheetLine(words("It starts to pay with the next mine level you take.")),
+            row.sheet.lines.last(),
+        )
+    }
+
+    @Test
+    fun `an inert row points at the shortest payback on the screen`() {
+        // given
+        val state = colony(buildings = gated())
+        val best = Technology.entries
+            .mapNotNull { technology ->
+                (state.purposeOfNextLevel(technology) as? LevelPurpose.Output)?.let { technology to it }
+            }
+            .minBy { (_, output) -> output.payback }
+
+        // when
+        val row = state.rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - the row to buy instead, at the level the player would buy and the payback it has
+        assertEquals(
+            SheetPointer(
+                name = best.first.displayName(),
+                detail = "LV 1 · back in ${best.second.payback.toPaybackLabel()}",
+            ),
+            row.sheet.pointer,
+        )
+    }
+
+    @Test
+    fun `a row that is worth something points at nothing`() {
+        // The pointer is what an inert row has instead of an argument. A row with a rate to state
+        // has the argument.
+        assertNull(colony(buildings = gated()).rowFor(Technology.EXTRACTION).sheet.pointer)
+    }
+
+    @Test
+    fun `the sheet of a locked row keeps its first sentence and ends on what it requires`() {
+        // given a colony with no Robotics Factory
+        val row = colony().rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - the requirement is a figure, because it is the thing the player has to go and get
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("Your plants supply "),
+                    figure("50"),
+                    words(" energy. The colony draws "),
+                    figure("40"),
+                    words("."),
+                ),
+                sheetLine(words("Requires "), figure("Robotics 1"), words(".")),
+            ),
+            row.sheet.lines,
+        )
+        assertEquals("Requires Robotics 1", row.sheet.verdict)
+        assertNull(row.sheet.footer)
+    }
+
+    @Test
+    fun `a locked row points at the row that moves the gate`() {
+        // given
+        val state = colony()
+
+        // when
+        val row = state.rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - the current level to the next one it would reach, and that upgrade's own wait
+        assertEquals(
+            SheetPointer(
+                name = "Robotics Factory",
+                detail = "LV 0 → 1 · " + PlaceholderBalance.upgradeDuration(
+                    building = BuildingType.ROBOTICS_FACTORY,
+                    toLevel = BuildingLevel(1),
+                    roboticsFactory = BuildingLevel(0),
+                    naniteFactory = BuildingLevel(0),
+                ).toChipLabel(),
+            ),
+            row.sheet.pointer,
+        )
+    }
+
+    @Test
+    fun `a row behind a technology rather than a facility points at nothing`() {
+        // Enrichment waits on Extraction 3 - three rows up the same screen, and an arrow to
+        // somewhere the thumb is already resting is noise.
+        assertNull(colony(buildings = gated()).rowFor(Technology.ENRICHMENT).sheet.pointer)
+    }
+
+    @Test
+    fun `the sheet of a running row says one sentence and offers nothing`() {
+        // given
+        val row = colony(
+            buildings = gated(),
+            activeResearch = project(completesAt = EPOCH + 2.hours, technology = Technology.EXTRACTION),
+        ).rowFor(Technology.EXTRACTION)
+
+        // then - mid-project the question is when rather than what
+        assertEquals(1, row.sheet.lines.size)
+        assertNull(row.sheet.footer)
+        assertNull(row.sheet.pointer)
+        assertEquals("→ LV 1 · done 02:00", row.sheet.verdict)
+    }
+
+    @Test
+    fun `the sheet carries the ladder of what each level opens`() {
+        // given Extraction at level 4 - past the level that opens Enrichment
+        val row = colony(
+            buildings = gated(),
+            research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(4)),
+        ).rowFor(Technology.EXTRACTION)
+
+        // then - the level already held is on the ladder too; it is how you learn that gating is a
+        // thing this technology does at all
+        assertEquals(
+            listOf(SheetLadderStep(level = "LV 3", opens = "Enrichment · you have this", held = true)),
+            row.sheet.ladder,
+        )
+    }
+
+    @Test
+    fun `a level not yet reached is on the ladder without the aside`() {
+        // given
+        val row = colony(buildings = gated()).rowFor(Technology.EXTRACTION)
+
+        // then
+        assertEquals(
+            listOf(SheetLadderStep(level = "LV 3", opens = "Enrichment", held = false)),
+            row.sheet.ladder,
+        )
+    }
+
+    @Test
+    fun `a technology that gates nothing carries no ladder`() {
+        assertEquals(emptyList(), colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS).sheet.ladder)
+    }
+
+    @Test
+    fun `a sheet whose row can start carries the row's price and its action`() {
+        // given
+        val row = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 300, crystal = 150, deuterium = 100),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - the sheet is somewhere a decision can be made rather than somewhere you read
+        // about one and then go back
+        assertEquals(
+            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Live("Research")),
+            row.sheet.footer,
+        )
+    }
+
+    @Test
+    fun `a sheet whose row is waiting carries the wait rather than a button`() {
+        // given 20 metal short
+        val row = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then - no disabled state here either: a player who wants the level they cannot afford is
+        // told when, not told no
+        assertEquals(
+            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Ghost("in 14m")),
+            row.sheet.footer,
+        )
+    }
+
+    @Test
+    fun `an adaptation sheet states the band it widens and what that reaches`() {
+        // given a ladder with something to unlock
+        val state = exploring()
+        val expected = adaptationShortlist(state).first { it.unlocks > 0 }
+        val row = state.toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
+            .adaptation.first { it.technology == expected.technology }
+
+        // then
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words("${row.effect.subject} tolerance: "),
+                    figure(checkNotNull(row.effect.current)),
+                    words(" → "),
+                    figure(row.effect.next),
+                    words("."),
+                ),
+                sheetLine(
+                    words("Of the worlds you have surveyed this level reaches "),
+                    figure("${expected.unlocks}"),
+                    words(", and "),
+                    figure("${expected.worthTaking}"),
+                    words(" of those are worth taking."),
+                ),
+            ),
+            row.sheet.lines,
+        )
+    }
+
+    @Test
+    fun `a ladder that reaches nothing says so rather than counting zero`() {
+        // given a colony that has surveyed only its own home system
+        val row = adaptable().adaptationRowFor(AdaptationTechnology.THERMAL)
+
+        // then
+        assertEquals(
+            sheetLine(
+                words(
+                    "Nothing you have surveyed is blocked by this band alone, " +
+                        "so this level reaches no new world.",
+                ),
+            ),
+            row.sheet.lines.last(),
+        )
+    }
+
+    @Test
+    fun `a locked ladder points at the Robotics Factory that opens all three`() {
+        // given a colony standing on the applied branch's gate but not the adaptation branch's
+        val row = colony(buildings = gated()).adaptationRowFor(AdaptationTechnology.THERMAL)
+
+        // then
+        assertEquals("Requires Robotics 2", row.sheet.verdict)
+        assertEquals("Robotics Factory", checkNotNull(row.sheet.pointer).name)
+        assertNull(row.sheet.footer)
+    }
+
     private fun GameState.rowFor(technology: Technology, now: Instant = EPOCH): TechnologyRowUiState =
         toResearchUiState(now = now, timeZone = TimeZone.UTC).technologies.first { it.technology == technology }
 
@@ -734,6 +1199,50 @@ class ResearchUiStateTest {
         now: Instant = EPOCH,
     ): AdaptationRowUiState =
         toResearchUiState(now = now, timeZone = TimeZone.UTC).adaptation.first { it.technology == technology }
+
+    // The first reading of "a project can be worth nothing" was that only Photovoltaics could be,
+    // and only in surplus. Both halves are false: `scaleByEnergy` floors `rate x produced /
+    // consumed`, so a bad enough ratio swallows a whole multiplier step and *any* of the three
+    // lands there — in a deficit, which is the opposite of what the surplus copy claims.
+    @Test
+    fun `a project whose gain the deficit swallows says so rather than the opposite`() {
+        // given a colony running its mines at a fraction of full output
+        val state = colony(
+            buildings = Buildings(
+                metalMine = BuildingLevel(20),
+                crystalMine = BuildingLevel(27),
+                deuteriumSynthesizer = BuildingLevel(1),
+                solarPlant = BuildingLevel(4),
+                roboticsFactory = BuildingLevel(1),
+                naniteFactory = BuildingLevel(0),
+            ),
+            research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(3)),
+        )
+
+        // when
+        val row = state.rowFor(Technology.ENRICHMENT)
+
+        // then it names the throttle rather than a surplus the colony does not have
+        assertEquals(
+            VerdictUiState(
+                label = "nothing while your mines are throttled",
+                compactLabel = "nothing while throttled",
+            ),
+            row.verdict,
+        )
+
+        // and the sheet names the row itself rather than the one technology this case used to
+        // assume, and states the ratio that is eating the level
+        val prose = row.sheet.lines.flatMap { it.parts }.joinToString("") {
+            when (it) {
+                is SheetLinePart.Words -> it.text
+                is SheetLinePart.Figure -> it.text
+            }
+        }
+        assertTrue(prose.contains("every mine is running at"), prose)
+        assertTrue(prose.contains("Enrichment"), prose)
+        assertFalse(prose.contains("Photovoltaics"), prose)
+    }
 
     // Past the adaptation gate and able to pay for any of the three at level 1 — the frame the
     // whole decision is for, where four rows can be started and starting one stops the other five.

@@ -56,13 +56,15 @@ class ResearchWatchBehaviourTest {
         }
     }
 
-    // What the square costs, paid where the design says to pay it. A phone has room for the noun
-    // until a square takes 36dp of the row; then the choice is a word or an ellipsis mid-word.
+    // **What the square costs is no longer paid in words**, and this is the test that used to say
+    // it was. The effect line abbreviated at any width on a row carrying a square, because 29dp
+    // plus its gap was enough to ellipsise "metal · crystal output" mid-word. The verdict that
+    // replaced it truncates rather than wraps and drops a whole clause when it has to, so the row
+    // keeps its second clause beside a square and the cut goes back to being a width decision.
     @Test
-    fun `a row carrying a square drops the trailing noun even on a phone`() {
+    fun `a row carrying a square keeps its whole verdict on a phone`() {
         researchScreen(nothingRunningUiState) {
-            assertRowReads(Technology.EXTRACTION, "metal · crystal")
-            assertRowReads(Technology.PHOTOVOLTAICS, "Solar Plant output")
+            assertRowReads(Technology.EXTRACTION, "+25/h metal · back in 100h")
         }
     }
 

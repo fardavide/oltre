@@ -188,8 +188,9 @@ class BalanceCurveTest {
             var previous = PlaceholderBalance.upgradeCost(building, BuildingLevel(1))
             assertTrue(previous.metal > 0, "$building level 1 costs ${previous.metal} metal")
             assertTrue(previous.crystal > 0, "$building level 1 costs ${previous.crystal} crystal")
-            // 40 is `MAX_UPGRADE_LEVEL`, private — the top of the table `upgradeCost` will answer
-            // for at all, and therefore the range the overflow has to be absent from.
+            // 40 is `MAX_UPGRADE_LEVEL` — the top of the table `upgradeCost` will answer for at
+            // all, and therefore the range the overflow has to be absent from. Written out for the
+            // same reason `OverflowSafetyTest` writes it out: it is the specification here.
             for (level in 2..40) {
                 val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level))
                 assertTrue(cost.metal > previous.metal, "$building $level: ${cost.metal} after ${previous.metal}")

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -104,6 +105,8 @@ class WatchBehaviourTest {
     )
 
     // Named for the facility it is about, so a test that renames one row can tell which it tapped.
+    // The verdict says nothing about the row's own name, deliberately: the two tests about which
+    // name a window uses read the card's words, and a verdict that repeated one would answer them.
     private fun waiting(
         building: BuildingType,
         watch: WatchUiState? = WatchUiState.Offered,
@@ -118,6 +121,8 @@ class WatchBehaviourTest {
         power = null,
         fix = null,
         watch = watch,
+        verdict = VerdictUiState(label = "+281/h metal · back in 6h 40m", compactLabel = "+281/h metal"),
+        detail = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null),
         finishedWhileAway = false,
     )
 }

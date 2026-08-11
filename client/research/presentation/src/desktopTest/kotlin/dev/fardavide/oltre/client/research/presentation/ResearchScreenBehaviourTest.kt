@@ -51,6 +51,19 @@ class ResearchScreenBehaviourTest {
         }
     }
 
+    // A locked row used to be name, level and requirement, on the argument that a consequence you
+    // cannot buy yet is noise. That argument is what this design's second hard case is about: the
+    // only question a gate leaves open is whether it is worth pushing for, and a row that states
+    // the requirement and stops has withheld the one fact that answers it. The verdict sits under
+    // the requirement, at the same 42% dim as everything else on the card.
+    @Test
+    fun `a locked row still says what clearing the gate would be worth`() {
+        researchScreen(uiState = beforeTheGateUiState) {
+            assertRowReads(Technology.EXTRACTION, "Requires Robotics 1")
+            assertRowReads(Technology.EXTRACTION, "+7/h metal")
+        }
+    }
+
     @Test
     fun `the whole branch is on screen before a single level exists`() {
         // The flat list is the tech tree: all three are legible on day 1, with what they want.
@@ -92,9 +105,162 @@ class ResearchScreenBehaviourTest {
     @Test
     fun `a running row shows when it finishes instead of what the next level buys`() {
         researchScreen(uiState = oneProjectInFlightUiState) {
-            // What you want mid-project is when, not what — and "→ LV 4" already says what.
+            // What you want mid-project is when, not what — and "→ LV 4" already says what. The
+            // claim used to be about the effect line; it is the verdict that occupies that slot
+            // now, and the row in flight is the one state that carries neither.
             assertRowReads(Technology.PHOTOVOLTAICS, "done 11:23")
-            assertNothingReads("Solar Plant output")
+            assertRowDoesNotRead(Technology.PHOTOVOLTAICS, "back in")
+        }
+    }
+
+    @Test
+    fun `a row states what the level is worth where the effect line used to be`() {
+        researchScreen(uiState = oneProjectInFlightUiState) {
+            // One line of consequence rather than two, which is the design's single exception: two
+            // lines of numbers about the same level is where a dense row becomes unreadable.
+            assertRowReads(Technology.ENRICHMENT, "+6/h deuterium · back in 138h")
+            assertRowDoesNotRead(Technology.ENRICHMENT, "deuterium output")
+        }
+    }
+
+    @Test
+    fun `a verdict drops its second clause in a Slide Over pane`() {
+        // given the same state at both widths — abbreviation is a width decision and not a change
+        // of voice, so what changes between these two is one clause and nothing else
+        researchScreen(uiState = oneProjectInFlightUiState, width = PHONE_WIDTH) {
+            assertRowReads(Technology.ENRICHMENT, "+6/h deuterium · back in 138h")
+            assertReads("one project at a time")
+        }
+
+        // then — dropped rather than ellipsised mid-word, and recoverable from the sheet
+        researchScreen(uiState = oneProjectInFlightUiState, width = SLIDE_OVER_WIDTH) {
+            assertRowReads(Technology.ENRICHMENT, "+6/h deuterium")
+            assertRowDoesNotRead(Technology.ENRICHMENT, "back in")
+            assertReads("one at a time")
+            assertNothingReads("one project at a time")
+        }
+    }
+
+    // ── The sheet a row opens ────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `tapping the body of a row opens the sheet for that row`() {
+        researchScreen(uiState = gateOpenUiState) {
+            assertNoSheetIsOpen()
+            openDetailOn(Technology.ENRICHMENT)
+            assertSheetIsOpen()
+            // The heading names the row it came from, so the sheet cannot be mistaken for the one
+            // three rows down that says many of the same things.
+            assertSheetReads("Enrichment")
+        }
+    }
+
+    @Test
+    fun `the sheet repeats the sentence the row was carrying`() {
+        researchScreen(uiState = gateOpenUiState) {
+            openDetailOn(Technology.ENRICHMENT)
+            assertSheetReads("+6/h deuterium · back in 138h")
+        }
+    }
+
+    @Test
+    fun `a locked row opens its sheet too`() {
+        // The whole argument for making a dimmed row tappable: it is the row with the least on it
+        // and the most to explain.
+        researchScreen(uiState = beforeTheGateUiState) {
+            openDetailOn(AdaptationTechnology.THERMAL)
+            assertSheetIsOpen()
+            assertSheetReads("Requires Robotics 2")
+        }
+    }
+
+    @Test
+    fun `tapping the action does not open the sheet`() {
+        // The action and the body are two targets on one card. The inner one wins — otherwise
+        // every purchase would end on a panel nobody asked for.
+        researchScreen(uiState = gateOpenUiState) {
+            startResearching(Technology.ENRICHMENT)
+            assertNoSheetIsOpen()
+        }
+    }
+
+    @Test
+    fun `the sheet says the arithmetic the verdict was a summary of`() {
+        // Driven through the contents rather than the popup, exactly as `DebugRobot` does: an
+        // assertion about a sentence has no business depending on an enter animation settling.
+        researchSheet(uiState = inertSheetUiState) {
+            assertSheetReads("Your plants supply 550 energy. The colony draws 380.")
+            assertSheetReads("your output does not move")
+            assertSheetReads("about 17 more mine levels away")
+        }
+    }
+
+    @Test
+    fun `a sheet whose verdict is nothing names the row to buy instead`() {
+        researchSheet(uiState = inertSheetUiState) {
+            assertSheetReads("Enrichment")
+            assertSheetReads("LV 1 · back in 138h")
+        }
+    }
+
+    @Test
+    fun `the sheet carries the ladder of what the level opens`() {
+        researchSheet(uiState = gatedSheetUiState) {
+            assertSheetReads("LV 3")
+            assertSheetReads("Enrichment · you have this")
+        }
+    }
+
+    @Test
+    fun `a locked sheet ends on what it requires and offers no action`() {
+        researchSheet(uiState = lockedSheetUiState) {
+            assertSheetReads("°C tolerance: −30 … +45 → −44 … +59.")
+            assertSheetReads("Requires Robotics 2.")
+            assertSheetDoesNotRead("Research")
+        }
+    }
+
+    @Test
+    fun `the action inside the sheet starts the row the sheet is about`() {
+        // given
+        val started = mutableListOf<Technology>()
+
+        // when the card body is opened and the sheet's own button is pressed
+        researchScreen(uiState = gateOpenUiState, onStartResearch = { started += it }) {
+            openDetailOn(Technology.ENRICHMENT)
+            actOnTheSheet()
+        }
+
+        // then — the sheet is somewhere a decision can be made rather than somewhere you read
+        // about one and then go back
+        assertEquals(listOf(Technology.ENRICHMENT), started.toList())
+    }
+
+    @Test
+    fun `a ladder's sheet starts the ladder rather than a technology`() {
+        // given — one slot, two callbacks, and the sheet has to know which of them it is holding
+        val projects = mutableListOf<Technology>()
+        val ladders = mutableListOf<AdaptationTechnology>()
+
+        // when
+        researchScreen(
+            uiState = gateOpenUiState,
+            onStartResearch = { projects += it },
+            onStartAdaptation = { ladders += it },
+        ) {
+            openDetailOn(AdaptationTechnology.THERMAL)
+            actOnTheSheet()
+        }
+
+        // then
+        assertEquals(emptyList<Technology>(), projects.toList())
+        assertEquals(listOf(AdaptationTechnology.THERMAL), ladders.toList())
+    }
+
+    @Test
+    fun `a waiting row's sheet carries the wait rather than a button`() {
+        researchSheet(uiState = gatedSheetUiState) {
+            assertSheetOffers("in 1h 16m")
         }
     }
 
@@ -162,44 +328,29 @@ class ResearchScreenBehaviourTest {
 
     @Test
     fun `a ladder states the band it has and the band the next level buys`() {
+        // The band moved into the sheet with every other second line of numbers — the row keeps the
+        // one sentence that says what the level is *worth*, and both halves of the band are stated
+        // where there is width for them.
         researchScreen(uiState = gateOpenUiState) {
-            assertRowReads(AdaptationTechnology.THERMAL, "−30 … +45")
-            assertRowReads(AdaptationTechnology.THERMAL, "−44 … +59")
-            assertRowReads(AdaptationTechnology.THERMAL, "°C")
+            assertRowReads(AdaptationTechnology.THERMAL, "Unlocks nothing you have surveyed")
+        }
+        researchSheet(uiState = lockedSheetUiState) {
+            assertSheetReads("−30 … +45")
+            assertSheetReads("−44 … +59")
+            assertSheetReads("°C")
         }
     }
 
-    // The applied line sheds "output" at 320dp; a band line has nothing to shed, so it is the same
-    // string at both widths — as is the second section's rule, where "slot" is already the shortest
-    // true noun.
+    // What a ladder's verdict drops at 320dp is the verb and nothing else: both counts survive,
+    // which is the point — they are what the row is compared on. The applied branch drops a whole
+    // clause at this width, so asserting the counts alone would pass on either string and say
+    // nothing; the absence of "Unlocks" is what makes this a claim about the compact form.
     @Test
-    fun `a band line and the second rule are unchanged in a Slide Over pane`() {
+    fun `a ladder's verdict drops its verb and keeps both counts in a Slide Over pane`() {
         researchScreen(uiState = gateOpenUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(AdaptationTechnology.GRAVITIC, "0.65 … 1.40")
-            assertRowReads(AdaptationTechnology.GRAVITIC, "0.60 … 1.52")
-            assertRowReads(AdaptationTechnology.ATMOSPHERIC, "atm")
+            assertRowReads(AdaptationTechnology.GRAVITIC, "5 worlds, 1 worth taking")
+            assertNothingReads("Unlocks 5 worlds")
             assertReads("the same slot")
-        }
-    }
-
-    @Test
-    fun `the effect line keeps its percentages and drops only a noun in a Slide Over pane`() {
-        // given the same state at both widths, on a row with **no square** — that is the whole of
-        // what this test is about now. A row carrying one drops the noun at every width, because
-        // the square took the space the noun was in; see `ResearchWatchBehaviourTest`. Here the
-        // width is the only thing that changes, which is what makes the cut a width decision.
-        researchScreen(uiState = oneProjectInFlightUiState, width = PHONE_WIDTH) {
-            assertRowReads(Technology.ENRICHMENT, "deuterium output")
-            assertReads("one project at a time")
-        }
-
-        // then — abbreviation is a width decision, not a change of voice
-        researchScreen(uiState = oneProjectInFlightUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(Technology.ENRICHMENT, "+14%")
-            assertRowReads(Technology.ENRICHMENT, "deuterium")
-            assertNothingReads("deuterium output")
-            assertReads("one at a time")
-            assertNothingReads("one project at a time")
         }
     }
 }
