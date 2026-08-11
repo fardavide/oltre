@@ -343,6 +343,26 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   how many rows there are, and when the adaptation branch opens — because 0.5.1 changed all of that
   and passed every test in the repository. Bands rather than values, verified by breaking it, 1.3
   seconds over 200 seeds. See `balance-log.md` round 18's addendum.
+- **The balance surface has a benchmark now, not only bands.** `BalanceBenchmark` renders 138 lines
+  of *derived* player-visible readings — the landmark clock, the first sitting, progression day by
+  day, which resource is blocking, payback per level, the two branches' ratio, the map, the opening
+  screen, the hull curve — and `BalanceBenchmarkTest` asserts it equals the committed
+  `BalanceBenchmarkGolden`. So **a balance change arrives in the PR as a diff on what a player
+  experiences**, whether or not any band was crossed. That is the half round 18's bands could not
+  cover: a band is written wide on purpose, and the readings it lets through are exactly the ones a
+  designer wants to see before agreeing to them. Verified by mutation — a pure tuning change (metal
+  income 90 → 95) fails the benchmark and **no band**, which is the division of labour working.
+  `ResearchSlotBalanceTest` and `ProgressionBalanceTest` add eight more bands for what round 18 did
+  not reach: the two research branches staying weighable (the 1.9× that once shipped at 5.8×), and
+  week two still having slope. `balance-log.md` round 19.
+- **Open, and Davide's: the colony banks metal it cannot spend, past the opening.** The benchmark's
+  first run showed day 7 at **56,298 metal against 2,959 crystal** and day 14 at 208,970 against
+  14,381 — round 7's symptom reappearing, but *not* from the production ratio this time. Past the
+  first week the colony is rate-limited by **six build slots each taking hours**, not by income, so
+  metal is the resource with nothing to buy. No band was written for it on purpose: round 7's
+  decision was about the ratio and `BalanceCurveTest` pins that, so a band on the bank would be a new
+  design rule. The levers are a storage building, more build slots, or the Nanite Factory arriving
+  earlier than its current hour 289 — all his call, including shrugging at it.
 - **Open, and Davide's: whether a colony founded before 0.5.1 should be re-homed.** The doorstep
   clause only runs at genesis, so it cannot reach anyone already playing — his own colony still opens
   on a five-level neighbour where the same seed would now give a one-level one. Nothing is built
