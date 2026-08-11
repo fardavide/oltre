@@ -2540,3 +2540,99 @@ progression ▸ day 14: 78  15490  208970  14381  7035 -> 76  13665  254315  327
 horizon ▸ day 60: 124  28  286694  8311953  83.00% -> 124  27  267078  8372997  83.00%
 horizon ▸ first reached: hour 1113 (day 46) -> hour 1116 (day 46)
 ```
+
+---
+
+## Round 20 — 0.5.2, the Nanite Factory gets a job and the late game gets a wait (2026-08-11)
+
+Davide, reading round 19's page: *"What's the Nanite for?"* — and then, once the answer came back
+*nothing*: *"I'd expect late game upgrade to be extremely slow, and expensive Nanite upgrades to make
+them reasonable. I still think a late game upgrade could take various hours, even with Nanite.
+Implement it as such, considering that Nanite gets unlocked a bit late, so let's not impact build
+times before then. It's reasonable for build times to be long only when the user has many things to
+do: manage ships, travels, and co, not when it has only a few things."*
+
+Three sentences and each one is a constraint rather than a preference:
+
+| The sentence | What it fixes |
+|---|---|
+| *"long only when the user has many things to do"* | nothing below the ramp may move |
+| *"Nanite gets unlocked a bit late, so let's not impact build times before then"* | the ramp starts where the Nanite does |
+| *"could take various hours, even with Nanite"* | the answer is partial, on purpose |
+
+### The shape
+
+**The ramp.** Above `LATE_GAME_FIRST_LEVEL` the wait compounds at **+25% a level**. That is a
+deliberate break of round 11's identity — a build takes about as long as earning it does — which was
+right for the mid-game and is precisely what is being overruled. `BalanceCurveTest`'s assertion of
+that identity is now *scoped* to end at the ramp rather than deleted, and a new test owns the other
+side, so neither half can drift without one of them failing.
+
+**The threshold is measured, not picked**, the same way `FULL_PRICE_LEVEL = 9` was: a colony's mines
+stand at **level 17** when Robotics reaches 10 and the Nanite Factory becomes buildable. So the ramp
+opens at 18 — one level *after* the answer to it exists. `[opening]` prints that measurement, so if
+the opening ever speeds up or slows down, the page says the constant is wrong rather than hiding it.
+
+**The Nanite takes two thirds off per level** — `openingSpeedUp`'s own rational, deliberately. The
+game now has two places where a building buys back time and they are the two ends of it; one shape
+for both means a reader who has understood one has understood the other. Multiplicative rather than
+another term in the Robotics divisor, because the divisor is linear and the thing it fights is not:
+an additive Nanite worth three Robotics levels each buys a fifth off its first level and a twentieth
+off its fifth, which is a building that stops mattering exactly as the player finishes paying for it.
+
+### What it does, from `[late game]`
+
+Metal Mine, at Robotics 15:
+
+| level | nanite 0 | nanite 2 | nanite 4 | nanite 6 | 0 → 6 | vs income |
+|---|---|---|---|---|---|---|
+| 16 | 44m | 19m | 8m | 3m | 14.66× | 1.03× |
+| 18 | 1h 07m | 29m | 13m | 5m | 13.40× | 1.08× |
+| 20 | 2h 37m | 1h 10m | 31m | 13m | 12.07× | 1.76× |
+| 25 | 22h 08m | 9h 50m | 4h 22m | 1h 56m | 11.44× | 5.96× |
+| 30 | **186h 25m** | 82h 51m | 36h 49m | **16h 21m** | 11.40× | 20.17× |
+
+Read the last column against the first two rows: at 16 and 18 a build still takes about as long as
+earning it does, which is round 11 untouched. At 30 it takes twenty times as long, which is the
+change.
+
+### And nothing before it moved, which is the part that was checked hardest
+
+Every band in `OpeningBalanceTest` and `CheckInBalanceTest` passed **unedited**, and the benchmark's
+`[opening]` and `[session]` sections came out byte-identical — no row in either appears in the diff.
+The first build still lands at minute 2, the research tab still opens at hour 5, the ladders at hour
+9, and days 1, 2, 3 and 7 of `[progression]` are unchanged to the unit.
+
+Day 14 moves, and only because the Nanite is worth buying now: the colony spends 4 levels on it and
+carries 80 building levels instead of 78.
+
+### Mutation
+
+| Mutation | Caught by |
+|---|---|
+| Nanite back to nothing (2/3 → 3/3) | `BalanceCurveTest`, benchmark |
+| Nanite made overwhelming (2/3 → 1/6) | `BalanceCurveTest`, benchmark |
+| Late ramp flattened (5/4 → 4/4) | `BalanceCurveTest`, benchmark |
+| **Ramp starts at level 4, inside the opening** | `BalanceCurveTest`, benchmark |
+| Ramp starts at level 32 | `BalanceCurveTest`, benchmark |
+
+The fourth is the one worth reading twice. It is caught by
+`the opening builds faster than it earns and closes the gap by the landmark` — a test written in
+round 16 for a different reason — because a ramp reaching down into levels 5–8 stops the opening
+outrunning its own economy. *"Do not impact build times before then"* turns out to already have a
+guard, written a round before anybody asked for it.
+
+### What this round is not
+
+**It does not touch the arc.** `[horizon]` still puts a colony at mine 30 and 10,000,000 metal by day
+90, and Davide's *"56k in one week seems extreme"* is still open and still his. The Nanite question
+was downstream of it and answerable on its own; the arc is not, because it runs straight into rounds
+13 and 16.
+
+### One process note, cheap to reproduce and expensive to learn twice
+
+The mutation harness ends each case with `git checkout -- <file>`, and the implementation under test
+was **uncommitted**. So the first two mutations ran correctly and the third reverted the entire
+change — silently, reported only as *"PATTERN MISSING"* on the cases after it. Nothing was lost that
+was not re-typed, but the rule is now: **commit, then mutate.** A harness that restores from git is
+a harness that assumes git holds the thing you are testing.
