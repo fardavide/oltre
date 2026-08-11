@@ -4,7 +4,12 @@ import dev.fardavide.oltre.core.BuildingType
 
 // Layout rules are asserted on bounds, which needs a stable handle on the node that carries them
 // — see ColonyScreenLayoutBehaviourTest.
-internal object ColonyTestTags {
+//
+// **Public rather than internal since 0.6.0**, and only just: the composition root has one behaviour
+// test that has to tap a square — what a tap costs is a save and a whole re-derived alert schedule,
+// and neither is visible from inside this module. Every other control the shell's robots reach, they
+// reach by the words on it; the square has none, so the tag is the only handle there is.
+object ColonyTestTags {
 
     const val CONTENT = "colony-content"
 

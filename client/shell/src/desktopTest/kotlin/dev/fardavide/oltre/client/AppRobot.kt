@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
@@ -18,6 +19,8 @@ import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.SaveFile
+import dev.fardavide.oltre.client.colony.presentation.ColonyTestTags
+import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameSnapshot
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -37,7 +40,7 @@ import kotlinx.coroutines.runBlocking
 private const val SWEEP_TOTAL_MILLIS: Long = 1_200
 
 @OptIn(ExperimentalTestApi::class)
-internal class AppRobot(private val test: ComposeUiTest) {
+internal class AppRobot(private val test: ComposeUiTest, private val booked: RecordingNotifications) {
 
     // The launch runs on the auto-advancing clock, because it is a chain of real suspending work —
     // reading the save, advancing the colony, booking alerts — with no fixed length. A test that
@@ -67,6 +70,19 @@ internal class AppRobot(private val test: ComposeUiTest) {
 
     fun letTheSweepFinish() = apply { test.mainClock.advanceTimeBy(SWEEP_TOTAL_MILLIS) }
 
+    // The one control in the app with no words on it, so the one the shell reaches by tag. See
+    // `ColonyTestTags`, which is public for this.
+    fun tapTheWatchOn(building: BuildingType) = apply {
+        test.onNodeWithTag(ColonyTestTags.watch(building)).performClick()
+        test.waitForIdle()
+    }
+
+    // What a tap is *for*: the alert is booked by the `notifications.sync` inside the commit, and
+    // that commit is unconditional precisely because asking for an alert writes no event.
+    fun assertAlertsBooked(count: Int) = apply {
+        assertEquals(count, booked.scheduled.size, "booked: ${booked.scheduled.map { it.id }}")
+    }
+
     // Scoped to the cell, because all three rates end in the same two characters and an unscoped
     // query for one of them matches three nodes and fails on the ambiguity rather than on the
     // assertion.
@@ -86,10 +102,16 @@ internal class InMemorySaveFile : SaveFile {
     override suspend fun clear() { text = null }
 }
 
-// The platform edge, refused. `App` books alerts on every commit and there is nothing to book them
-// with here; what they would have said is `GameNotificationsTest`'s business.
-internal class NoNotifications : NotificationScheduler {
-    override suspend fun replaceAll(notifications: List<LocalNotification>) = Unit
+// The platform edge, recorded rather than refused. What each alert *says* is
+// `GameNotificationsTest`'s business; what this one is for is the seam above it — whether a tap
+// reaches the scheduler at all, which no test below the composition root can see.
+internal class RecordingNotifications : NotificationScheduler {
+    var scheduled: List<LocalNotification> = emptyList()
+        private set
+
+    override suspend fun replaceAll(notifications: List<LocalNotification>) {
+        scheduled = notifications
+    }
 }
 
 @OptIn(ExperimentalTestApi::class)
@@ -102,17 +124,18 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
     if (saved != null) {
         runBlocking { GameStore(file).save(saved) }
     }
+    val booked = RecordingNotifications()
     runDesktopComposeUiTest(width = 393, height = 852) {
         setContent {
             App(
                 store = GameStore(file),
-                notifications = GameNotifications(NoNotifications()),
+                notifications = GameNotifications(booked),
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.
                 shakeDetector = ShakeDetector { emptyFlow<Unit>() as Flow<Unit> },
             )
         }
         waitForIdle()
-        AppRobot(this).block()
+        AppRobot(this, booked).block()
     }
 }

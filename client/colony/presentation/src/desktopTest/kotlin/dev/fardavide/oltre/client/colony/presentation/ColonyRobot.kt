@@ -55,17 +55,29 @@ internal class ColonyRobot(
     fun assertHasNoWatch(building: BuildingType) = apply {
         test.onNodeWithTag(ColonyTestTags.watch(building)).assertDoesNotExist()
     }
+
+    fun assertNothingReads(text: String) = apply {
+        test.onNodeWithText(text, substring = true).assertDoesNotExist()
+    }
 }
 
 @OptIn(ExperimentalTestApi::class)
-internal fun facilityRow(row: FacilityRowUiState, block: ColonyRobot.() -> Unit) {
-    facilityList(listOf(row), block)
+internal fun facilityRow(row: FacilityRowUiState, compact: Boolean = false, block: ColonyRobot.() -> Unit) {
+    facilityList(listOf(row), compact = compact, block = block)
 }
 
 // Several rows, for the one thing a single row cannot show: the watch is one slot, so what a tap on
 // the second row means is only legible next to the first.
+//
+// `compact` is the window's width as far as the list is concerned. The screen derives it from
+// `BoxWithConstraints`; here it is stated, because what a narrow render changes about a row — the
+// stacked square, the short name — is worth asking about without building a 320dp window round it.
 @OptIn(ExperimentalTestApi::class)
-internal fun facilityList(rows: List<FacilityRowUiState>, block: ColonyRobot.() -> Unit) {
+internal fun facilityList(
+    rows: List<FacilityRowUiState>,
+    compact: Boolean = false,
+    block: ColonyRobot.() -> Unit,
+) {
     runDesktopComposeUiTest(width = 393, height = 120 * rows.size) {
         val announced = mutableStateOf(rows.any { it.finishedWhileAway })
         val watchTaps = mutableListOf<BuildingType>()
@@ -76,7 +88,7 @@ internal fun facilityList(rows: List<FacilityRowUiState>, block: ColonyRobot.() 
                     FacilityList(
                         facilities = rows.map { it.copy(finishedWhileAway = it.finishedWhileAway && announced.value) },
                         onUpgrade = {},
-                        compact = false,
+                        compact = compact,
                         onToggleWatch = { watchTaps += it },
                     )
                 }

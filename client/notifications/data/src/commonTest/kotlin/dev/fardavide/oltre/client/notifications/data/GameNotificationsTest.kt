@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.notifications.data
 
 import dev.fardavide.oltre.core.AdaptationBalance
+import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
@@ -41,6 +42,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GameNotificationsTest {
@@ -240,6 +242,68 @@ class GameNotificationsTest {
 
         // then
         assertEquals("Four upgrades are done", scheduler.scheduled.single().title)
+    }
+
+    // The two ends of the window, which decide what the constant *is* rather than that there is one.
+    // Without them 4.minutes and 6.minutes both pass, and so does flipping the comparison.
+    @Test
+    fun `two landing exactly five minutes apart are one alert`() = runTest {
+        // given the boundary itself — "inside five minutes" includes it
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 35.minutes,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("Two upgrades are done", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `two landing a second past five minutes are two alerts`() = runTest {
+        // given one second the other side of it
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 35.minutes + 1.seconds,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(2, scheduler.scheduled.size)
+    }
+
+    @Test
+    fun `a finished ladder joins the group under its full name`() = runTest {
+        // given a ladder holding the shared slot and landing beside a facility. The group's naming is
+        // its own branch, so without this the ladder arm is held up by the compiler alone — which is
+        // exactly the state the singleton alerts were in before their own test.
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(BuildingType.METAL_MINE to EPOCH + 30.minutes).let { colony ->
+            colony.copy(
+                activeAdaptation = AdaptationJob(
+                    technology = AdaptationTechnology.GRAVITIC,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 31.minutes,
+                ),
+                subscribed = colony.subscribed + WatchTarget.Ladder(AdaptationTechnology.GRAVITIC),
+            )
+        }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — spelled out with the word the row drops, exactly as the singleton alert spells it
+        assertEquals(
+            "Metal Mine and Gravitic Adaptation — pick what your colony builds next.",
+            scheduler.scheduled.single().body,
+        )
     }
 
     @Test

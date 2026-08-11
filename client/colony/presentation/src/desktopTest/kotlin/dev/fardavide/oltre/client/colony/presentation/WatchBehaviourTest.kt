@@ -53,13 +53,64 @@ class WatchBehaviourTest {
         }
     }
 
+    // The other half of the square, and a second wiring of the same callback: a running row asks
+    // about its completion. Two rows, so a tap that reported the wrong one would be visible.
+    @Test
+    fun `tapping the square on a running row asks about that row`() {
+        facilityList(listOf(waiting(BuildingType.METAL_MINE), running(BuildingType.CRYSTAL_MINE))) {
+            tapTheWatchOn(BuildingType.CRYSTAL_MINE)
+
+            assertAskedToWatch(BuildingType.CRYSTAL_MINE)
+        }
+    }
+
+    // A subscribed running row adds no line, because the row already prints when it lands.
+    @Test
+    fun `a subscribed running row says nothing it was not already saying`() {
+        facilityRow(running(BuildingType.CRYSTAL_MINE, watch = WatchUiState.Subscribed)) {
+            assertReads("→ LV 11 · done 11:23")
+            assertNothingReads("→ affordable")
+        }
+    }
+
+    // The one name the app authors twice. At a Slide Over's width the row calls the Robotics Factory
+    // "Robotics", which is what "Requires Robotics 10" already calls it.
+    @Test
+    fun `a narrow window uses the row's short name`() {
+        facilityRow(waiting(BuildingType.ROBOTICS_FACTORY), compact = true) {
+            assertReads("Robotics")
+            assertNothingReads("Robotics Factory")
+        }
+    }
+
+    @Test
+    fun `a phone-wide window uses the row's full name`() {
+        facilityRow(waiting(BuildingType.ROBOTICS_FACTORY)) {
+            assertReads("Robotics Factory")
+        }
+    }
+
+    private fun running(
+        building: BuildingType,
+        watch: WatchUiState? = WatchUiState.Offered,
+    ) = waiting(building, watch).copy(
+        action = FacilityActionUiState.Upgrading(
+            toLevel = BuildingLevel(11),
+            countdown = "00:27:14",
+            progressPercent = 78,
+            doneAt = "done 11:23",
+        ),
+        level = BuildingLevel(10),
+    )
+
+    // Named for the facility it is about, so a test that renames one row can tell which it tapped.
     private fun waiting(
         building: BuildingType,
         watch: WatchUiState? = WatchUiState.Offered,
     ) = FacilityRowUiState(
         building = building,
-        name = "Metal Mine",
-        compactName = "Metal Mine",
+        name = if (building == BuildingType.ROBOTICS_FACTORY) "Robotics Factory" else "Metal Mine",
+        compactName = if (building == BuildingType.ROBOTICS_FACTORY) "Robotics" else "Metal Mine",
         level = BuildingLevel(12),
         costs = listOf(CostChipUiState(kind = ResourceKind.METAL, amount = "12,458", short = true)),
         duration = "6h 12m",

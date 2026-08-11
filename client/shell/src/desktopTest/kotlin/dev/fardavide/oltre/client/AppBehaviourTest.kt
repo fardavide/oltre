@@ -14,6 +14,7 @@ import kotlin.test.assertIs
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 // What opening the app does, as opposed to what any one screen draws. Everything here starts from a
 // save on disk and a wall clock that has moved on since it was written — which is the only state
@@ -80,6 +81,25 @@ class AppBehaviourTest {
             assertReads("Shipyard")
             open(OltreTab.COLONY)
             assertReads("Metal Mine")
+        }
+    }
+
+    // **The seam nothing below the composition root can see.** Asking for an alert writes no event,
+    // so `hasNewEventsSince` is false and the ordinary action path would decline to save — and the
+    // alert is only booked by the `notifications.sync` inside the commit. A square that lights up and
+    // tells nobody is the whole feature failing, and it would fail silently.
+    @Test
+    fun `tapping a square books the alert it promised`() {
+        // A minute rather than hours, and an empty store: the first row has to be one the colony
+        // cannot pay for, because an affordable row carries an Upgrade button and no square at all.
+        app(saved = snapshot(state = colony(), agedBy = 1.minutes)) {
+            // Nothing in flight and nothing watched, so a launch books nothing.
+            assertAlertsBooked(0)
+
+            tapTheWatchOn(BuildingType.METAL_MINE)
+
+            assertAlertsBooked(1)
+            assertReads("watching Metal Mine")
         }
     }
 
