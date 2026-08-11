@@ -2251,3 +2251,253 @@ on attributing the adaptation ladders to a level reached at hour 33 when they ha
 Round 18's own *"hour 33"* framing came from one of them. Both read `AdaptationBalance.GATE` now.
 Every round in this file is argued from these readings, so a report that quietly disagrees with the
 game is worse than no report at all.
+
+---
+
+## Round 19 — the suite gets a second instrument, and the second one is a photograph (2026-08-11)
+
+Davide, three times, on the 0.5.1 regression: *"We need benchmarks/tests against balancing. Such
+regression is NOT acceptable."*
+
+Round 18's addendum answered the *tests* half — `OpeningBalanceTest` and `CheckInBalanceTest`, twelve
+bands on the opening and the session. This round is the **benchmarks** half, and the distinction
+turns out to be real rather than a wording preference: a band and a benchmark fail on different
+things, and 0.5.1 needed both.
+
+### Why the bands alone were not enough
+
+A band is a guardrail. It is written wide on purpose — narrow enough to fail on a change of shape,
+wide enough that a deliberate round of tuning passes — and that width is exactly the problem when
+what you want is a **review**. The readings a band lets through are the ones a designer most wants
+to see before agreeing to them, and a band's whole job is to say nothing about them.
+
+So 0.5.1 could have shipped with round 18's bands in place and still arrived at a review with prose
+in front of it rather than numbers. The bands would have gone green — the opening *did* get better
+by every one of them — and nothing would have shown that the doorstep rule made the second and third
+neighbours worse at the same time.
+
+### The benchmark
+
+`BalanceBenchmark` renders the whole balance surface as one deterministic page of **derived**
+readings — never a constant copied out — and `BalanceBenchmarkTest` asserts that page equals
+`BalanceBenchmarkGolden`, a committed string in the file next door. One equality, not a band.
+
+The consequence is the entire point:
+
+> **A change to any balance number arrives in the pull request as a diff on a page of player-visible
+> readings, whether or not any band was crossed.**
+
+138 lines across nine sections — the landmark clock, the first sitting, progression day by day,
+which resource is doing the blocking, cost/wait/payback per building level, the two research
+branches, the map, the opening screen, the hull curve. A row that merely restated
+`AdaptationBalance.GATE` would tell a reviewer nothing the diff had not already shown them; a row
+that says *what hour the branch opens* moves when the gate moves **and** when the build curve, the
+discount, the Robotics divisor or the opening stock move.
+
+**When it fails, it is not a bug.** It means a balance number moved, which is what balance work is.
+Read the diff, decide whether it is what was wanted, then paste the new page and write up the round.
+What must not happen is the paste without the reading — which is why the bands stay: they are the
+backstop for a golden approved without being looked at.
+
+### Two more band files, for what round 18 did not reach
+
+`ResearchSlotBalanceTest` — the six ladders competing for one empire-wide slot. Both published
+tables were already pinned value by value, which records what a level costs and asserts nothing
+about whether anyone would buy it. Two ways a branch stops being live: it stops paying back, or it
+stops being *comparable*. The second has already broken in the wild — the opening discount shipped
+reaching the applied branch and not the ladders, taking the step between them from the sheet's
+**1.9×** to **5.8×** — and every table test passed, because both tables were still exactly what they
+were designed to be. It was the relationship between them nobody was looking at.
+
+`ProgressionBalanceTest` — week two. Every round in this file looks at day one and day two, because
+that is where complaints come from, and a cost curve compounding at +50% against production
+compounding at +25% *will* stall eventually. The only question is whether it stalls inside the
+fortnight a player is still around for.
+
+| Reading | Band | Now |
+|---|---|---|
+| Adaptation level ÷ priciest applied technology, levels 1–5 | 1.3 – 3.0 | 1.92 |
+| Spread between the three ladders once priced | ≤ 1% | 0% |
+| Best first applied level pays for itself | ≤ 24h | 1.69h |
+| Some applied level still worth taking at fortnight depth | ≤ 168h | yes |
+| Levels added in week two | ≥ +8 | +19 |
+| Day-14 income against day-7 | ≥ 2× | 3.19× |
+| Fortnight hours with nothing running | ≤ 45% | 14% |
+| Levels added between day 3 and day 7 | ≥ +8 | +15 |
+
+### The mutation battery, and the row that matters most
+
+| Mutation | Bands that objected | Benchmark |
+|---|---|---|
+| Adaptation discount removed — **the real 5.8× regression** | `ResearchSlot` | ✓ |
+| One ladder priced differently | `ResearchSlot` | ✓ |
+| Production stops compounding | `Opening`, `ResearchSlot`, `Progression` | ✓ |
+| Cost curve steepened ×1.5 → ×2 | `Opening`, `ResearchSlot`, `Progression` | ✓ |
+| Research priced out of reach (×20) | `ResearchSlot`, `Progression` | ✓ |
+| Adaptation gate back to Robotics 4 | `Opening` | ✓ |
+| Minimum build 2m → 25m | `CheckIn` | ✓ |
+| **Metal income 90 → 95 — pure tuning** | **none, and that is correct** | ✓ |
+
+The last row is the design of the whole suite in one line. **A balance suite that catches everything
+forbids balancing.** The bands stayed quiet through a deliberate tuning change and the benchmark
+recorded it — which is precisely the division of labour, and neither instrument could have done both.
+
+### One finding, unbanded on purpose — and it is Davide's call
+
+The benchmark's `[progression]` section splits the bank three ways rather than pricing it into one
+figure, because the lopsided bank is a failure a priced total hides perfectly. It immediately showed
+this:
+
+| | metal | crystal | deuterium |
+|---|---|---|---|
+| day 7 | **56,298** | 2,959 | 704 |
+| day 14 | **208,970** | 14,381 | 7,035 |
+
+That is round 7's symptom exactly — *"closed the week holding 49,544 metal it had nothing to spend
+on"* — reappearing past the opening rather than inside it, and 19:1 at day 7. The cause is not the
+production ratio this time. It is that the colony has **six build slots and each build takes hours**,
+so past the first week spending is rate-limited by slots rather than by income, and metal is the
+resource with nothing to buy. `[pressure]` agrees from the other side: deuterium is in the shortage
+set on 80.59% of blocked hours, crystal on 33.22%, metal on 7.23%.
+
+**No band was written for it**, deliberately. Round 7's decision was about the production *ratio*
+and `BalanceCurveTest` already pins that; a band on the bank would be a new design rule, and design
+rules are Davide's. The reading is on the benchmark page where it cannot be lost, and the options —
+a storage building, more build slots, the Nanite Factory arriving earlier than Robotics 10 at hour
+289 — are all his to pick between, or to shrug at.
+
+### Addendum — the metal pile, measured properly (2026-08-11)
+
+Davide, on the round above: *"56k on Metal in one week seems extreme, I would expect that number in
+3/4 months."*
+
+The first thing that reading needed was a correction to the **instrument**, not to the game. The
+benchmark's player bought the five opening facilities and stopped, on the note that the Nanite
+Factory sits behind Robotics 10 and is out of reach — true for a day and false for the rest of the
+fortnight, since the colony reaches Robotics 10 on day 12. A player holding two hundred thousand
+metal buys the thing that costs twenty thousand of it. With the sixth facility in the plan the tree
+at day 14 reads 18 / 17 / 14 / 17 / 10 / **4**, and day 7 is untouched — so the 56,298 stands.
+
+Then the reading that decides between the two possible diagnoses. Over the fortnight, per resource:
+
+| | earned | spent | placed |
+|---|---|---|---|
+| metal | 1,022,626 | 779,089 | **76%** |
+| crystal | 345,755 | 334,598 | 96% |
+| deuterium | 81,337 | 74,452 | 91% |
+
+**Only metal strands.** The 243,537 it never places is, to within five hundred units, the entire
+day-14 bank of 244,037 — so the pile is not an economy running fast, it is one resource the game
+does not ask for in the proportion it makes it. An economy that were simply too quick would pile up
+all three together, and crystal and deuterium are consumed to 96% and 91%.
+
+Nor is it the production ratio, which is the lever round 7 reached for. The colony *spends* metal
+against crystal at **2.33 : 1** and the mines produce **2.5 : 1** — a 7% oversupply, against a 24%
+strand. The rest is structural: there are six facilities, each takes hours, and `startUpgrade`
+refuses a facility that is already building, so past the first week the colony is rate-limited by
+**slots** rather than by income. Metal is what is left over when the thing you want to buy is
+waiting on a crystal cost or a busy row.
+
+And it **diverges** rather than sitting at a constant offset — 571, 1,074, 6,486, 56,298, 244,037 at
+days 1, 2, 3, 7 and 14. Any sink that fixes it has to compound too.
+
+`FleetBalance` already names the sink, in `SurveyBalance`'s words: *"metal is the resource with
+nothing to buy, and this is the thing to buy with it."* The hull curve compounds at +50% from 80
+metal, so the twentieth skiff is ~175,000 metal — a sink the right size and the right shape. **It is
+not purchasable from `core` yet**: `shipCost` exists, and nothing spends against it.
+
+So the open question this addendum hands back is which of two things the 56k means, because the two
+have opposite costs:
+
+- **the sink is missing** — no balance change at all, and the fleet slice closes it;
+- **the whole arc is too fast** — a real re-scaling, which would run straight into rounds 13 and 16,
+  where the opening was deliberately made quick and Davide asked for *"adrenaline"* in the first
+  session.
+
+Davide's call. Nothing here has been changed on the strength of it.
+
+#### And then the horizon was measured, which changed the answer
+
+The addendum above stopped at a fortnight and concluded *"the sink is missing"*. That was the right
+reading of the data it had and the wrong answer to Davide's question, and the correction is worth
+recording rather than quietly overwriting, because the mistake is a general one: **a diagnosis drawn
+from the window you happen to have measured is a diagnosis about the window.**
+
+`[horizon]` runs the same fixed player out to ninety days — the unit the question was actually asked
+in.
+
+| day | levels | mine | income/h | metal | placed |
+|---|---|---|---|---|---|
+| 7 | 59 | 14 | 4,856 | 56,298 | 74% |
+| 14 | 80 | 18 | 12,785 | 244,037 | 76% |
+| 30 | 106 | 23 | 54,615 | 2,090,612 | 72% |
+| 60 | 131 | 27 | 224,908 | 9,081,491 | 79% |
+| 90 | 149 | 30 | 574,224 | 7,210,828 | **94%** |
+
+Two things fall out, and the second overrules the first.
+
+**The sink problem does largely fix itself.** Placement climbs from 74% to 94% as the Nanite Factory
+and the deeper levels arrive — so the fortnight's 76% was a reading of an early game with too few
+rows to buy, not a permanent defect. A fleet a player could actually purchase would close most of
+what is left.
+
+**And it does not matter, because the scale is the finding.** At ninety days the colony places 94% of
+its metal and still banks **7.2 million** of it, on an income of 574,224 priced units an hour.
+Davide's expectation for three to four months was 56,000 — which this game reaches on **day 7**. That
+is not a factor of two or three that a sink absorbs; the three-month figure is roughly **130x** what
+he expected to see, and the day-7 figure is already the whole of it.
+
+So the earlier framing — *"either the sink is missing or the arc is too fast"* — was a false choice
+presented as an open one. Both are true, they are not comparable in size, and only the second is
+worth a round. The arithmetic underneath it is the one relationship this file has never moved: cost
+compounds at **+50%** a level and production at **+25%**, so income per level outruns nothing and the
+*number of levels* is what the clock buys — 16 further mine levels between day 7 and day 90 multiply
+income 118x. Stretching the arc means widening that gap, and round 11 tied build duration to the
+**root of cost** precisely because of it, so nothing here can be moved without re-deriving that.
+
+**Still Davide's call, and now with the real number attached rather than a fortnight's.** Nothing has
+been changed.
+
+#### Two things the horizon walked into: an inert building and a ceiling
+
+Davide, reading the section above: *"What's the Nanite for?"*
+
+**Nothing, yet — and the benchmark had just started buying it.** Every reference to
+`buildings.naniteFactory` in `core` is storage (`Buildings`, `levelOf`, `withLevel`, `initial`), the
+Robotics 10 gate in `startUpgrade`, the cost table, and an explicit **zero** in both energy
+functions. No curve reads its level: `PlaceholderBalance.upgradeDuration` and
+`ResearchBalance.researchDuration` each divide by the Robotics Factory alone. It costs 20,000 metal /
+10,000 crystal / 4,000 deuterium at level 1, compounds at +50%, and buys nothing.
+
+The addendum above had *added* it to the fixed player's plan, on the argument that a player holding
+two hundred thousand metal buys the thing costing twenty thousand of it. That was wrong in both
+directions at once, and the measurement says by how much:
+
+| day 14 | levels | income/h | metal |
+|---|---|---|---|
+| buying the Nanite Factory | 80 | 12,785 | 244,037 |
+| not buying it | 78 | **15,490** | 208,970 |
+
+Four levels of a no-op cost the colony **2,705 priced units an hour** of income it would otherwise
+have had, *and* left 35,067 more metal in the bank — so it flattered the very pile the page exists to
+show, by spending metal on a row that buys nothing. At ninety days the distortion stops being
+marginal: a tenth Nanite level is 1,999,032 priced units. The fixed player now buys what the game
+actually sells, and the comment in `OPENING_PLAN` says to put it back when the building does
+something.
+
+**In OGame the Nanite Factory halves build time, multiplicatively with the Robotics Factory.** That
+is presumably the intent — `NANITE_ROBOTICS_REQUIREMENT` lives in `PlaceholderBalance` next to the
+other undecided numbers — but it is not written anywhere as a decision, so it is not implemented here
+and will not be invented. Two ways out, both Davide's: give it an effect, or take it out of the tree
+until the slice that needs it.
+
+**And the quarter ends against a wall.** With the no-op purchase removed, the day-90 metal reads
+exactly 10,000,000 — which is `PlaceholderBalance.STORAGE_CAPACITY`. The colony first touches the cap
+at **hour 1,113, day 46**, and spends **386 of the quarter's 2,161 hours** resting on it.
+
+That matters for reading every other row: once a stock is against the cap, `advance` stops accruing,
+so income past it is not banked, not spent and not earned. Every "placed" percentage in the horizon
+therefore *understates* the surplus, and the day-90 figure understates it most. `STORAGE_CAPACITY`'s
+own comment already calls itself a placeholder and names the open question — *"the rule that raises
+it (storage building? mine-level-scaled?)"*. The horizon says that question now has a date on it: day
+46 of a colony's life, under the curves as they stand.
