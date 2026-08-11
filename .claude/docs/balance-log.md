@@ -2365,3 +2365,53 @@ and `BalanceCurveTest` already pins that; a band on the bank would be a new desi
 rules are Davide's. The reading is on the benchmark page where it cannot be lost, and the options —
 a storage building, more build slots, the Nanite Factory arriving earlier than Robotics 10 at hour
 289 — are all his to pick between, or to shrug at.
+
+### Addendum — the metal pile, measured properly (2026-08-11)
+
+Davide, on the round above: *"56k on Metal in one week seems extreme, I would expect that number in
+3/4 months."*
+
+The first thing that reading needed was a correction to the **instrument**, not to the game. The
+benchmark's player bought the five opening facilities and stopped, on the note that the Nanite
+Factory sits behind Robotics 10 and is out of reach — true for a day and false for the rest of the
+fortnight, since the colony reaches Robotics 10 on day 12. A player holding two hundred thousand
+metal buys the thing that costs twenty thousand of it. With the sixth facility in the plan the tree
+at day 14 reads 18 / 17 / 14 / 17 / 10 / **4**, and day 7 is untouched — so the 56,298 stands.
+
+Then the reading that decides between the two possible diagnoses. Over the fortnight, per resource:
+
+| | earned | spent | placed |
+|---|---|---|---|
+| metal | 1,022,626 | 779,089 | **76%** |
+| crystal | 345,755 | 334,598 | 96% |
+| deuterium | 81,337 | 74,452 | 91% |
+
+**Only metal strands.** The 243,537 it never places is, to within five hundred units, the entire
+day-14 bank of 244,037 — so the pile is not an economy running fast, it is one resource the game
+does not ask for in the proportion it makes it. An economy that were simply too quick would pile up
+all three together, and crystal and deuterium are consumed to 96% and 91%.
+
+Nor is it the production ratio, which is the lever round 7 reached for. The colony *spends* metal
+against crystal at **2.33 : 1** and the mines produce **2.5 : 1** — a 7% oversupply, against a 24%
+strand. The rest is structural: there are six facilities, each takes hours, and `startUpgrade`
+refuses a facility that is already building, so past the first week the colony is rate-limited by
+**slots** rather than by income. Metal is what is left over when the thing you want to buy is
+waiting on a crystal cost or a busy row.
+
+And it **diverges** rather than sitting at a constant offset — 571, 1,074, 6,486, 56,298, 244,037 at
+days 1, 2, 3, 7 and 14. Any sink that fixes it has to compound too.
+
+`FleetBalance` already names the sink, in `SurveyBalance`'s words: *"metal is the resource with
+nothing to buy, and this is the thing to buy with it."* The hull curve compounds at +50% from 80
+metal, so the twentieth skiff is ~175,000 metal — a sink the right size and the right shape. **It is
+not purchasable from `core` yet**: `shipCost` exists, and nothing spends against it.
+
+So the open question this addendum hands back is which of two things the 56k means, because the two
+have opposite costs:
+
+- **the sink is missing** — no balance change at all, and the fleet slice closes it;
+- **the whole arc is too fast** — a real re-scaling, which would run straight into rounds 13 and 16,
+  where the opening was deliberately made quick and Davide asked for *"adrenaline"* in the first
+  session.
+
+Davide's call. Nothing here has been changed on the strength of it.

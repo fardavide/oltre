@@ -122,6 +122,13 @@ internal object BalanceBenchmark {
                 ),
             )
         }
+        // Which rows the levels are actually in. A total can hide a colony that has poured
+        // everything into one facility because the others were busy.
+        val end = checkNotNull(run.at(LONG_HORIZON_DAYS * 24))
+        add("the tree at day $LONG_HORIZON_DAYS")
+        for (building in OPENING_PLAN) {
+            add(row("  ${label(building)}", "${end.buildings.levelOf(building).value}"))
+        }
     }
 
     // ── [pressure] which resource is the one saying no ───────────────────────────────────────
@@ -157,6 +164,41 @@ internal object BalanceBenchmark {
             add(row("  of which short of $kind", percent(short[kind] ?: 0, maxOf(blocked, 1))))
         }
         add(row("hours with nothing building and no research", percent(idle, run.states.size)))
+        // **The pile, explained in one number.** Earned is what arrived between two check-ins;
+        // spent is what the colony managed to place before the next one. A colony that cannot place
+        // what it earns is not a colony with a rich economy — it is a colony with nowhere to put it,
+        // and the gap between these two is the pile in `[progression]`.
+    //
+    // **Split per resource, because that is what separates the two diagnoses.** A colony that
+    // cannot place what it earns has either an economy running too fast — every resource piling up
+    // together — or one resource the game does not ask for in the proportion it makes it. Those need
+    // opposite fixes, and a single priced figure cannot tell them apart.
+        val earned = mutableMapOf<ResourceKind, Long>()
+        val spent = mutableMapOf<ResourceKind, Long>()
+        fun of(resources: Resources, kind: ResourceKind): Long = when (kind) {
+            ResourceKind.METAL -> resources.metal
+            ResourceKind.CRYSTAL -> resources.crystal
+            ResourceKind.DEUTERIUM -> resources.deuterium
+        }
+        for (hour in run.arrivals.indices) {
+            for (kind in ResourceKind.entries) {
+                val opened = of(run.arrivals[hour].resources, kind)
+                spent[kind] = (spent[kind] ?: 0) + opened - of(run.states[hour].resources, kind)
+                if (hour > 0) earned[kind] = (earned[kind] ?: 0) + opened - of(run.states[hour - 1].resources, kind)
+            }
+        }
+        add(row("over the fortnight, per resource", "earned       spent     placed"))
+        for (kind in ResourceKind.entries) {
+            val made = earned[kind] ?: 0
+            val used = spent[kind] ?: 0
+            add(
+                row(
+                    "  ${kind.name.lowercase()}",
+                    made.toString().padStart(9) + used.toString().padStart(12) +
+                        percent((used * 100 / maxOf(made, 1)).toInt(), 100).padStart(11),
+                ),
+            )
+        }
     }
 
     // ── [economy] what a level costs and what it gives back ──────────────────────────────────
@@ -513,7 +555,14 @@ internal object BalanceBenchmark {
         lines.forEach { appendLine(it) }
     }
 
-    private fun row(label: String, value: String): String = label.padEnd(ROW_WIDTH) + value
+    // `require` rather than a silent trim: a row padded to a value that is not there leaves
+    // invisible trailing spaces, an editor strips them on the next save, and the golden then
+    // fails for a reason that is not visible anywhere in the diff. A section header with no
+    // value is a plain line, not a row.
+    private fun row(label: String, value: String): String {
+        require(value.isNotEmpty()) { "a row needs a value; '$label' should be a plain line" }
+        return label.padEnd(ROW_WIDTH) + value
+    }
 
     private fun hourText(hour: Int?): String = if (hour == null) "beyond day $LONG_HORIZON_DAYS" else "hour $hour"
 
@@ -557,12 +606,19 @@ internal object BalanceBenchmark {
     // this is the most expensive figure on the page.
     private const val BENCHMARK_SEEDS: Int = 100
 
-    // The five a player actually buys in the opening; the Nanite Factory is behind Robotics 10.
+    // **Every facility, including the Nanite Factory.** The first cut of this page listed the five
+    // of the opening and left the sixth out as "behind Robotics 10 and out of reach" — which is true
+    // for a day and false for the rest of the fortnight, since the colony reaches Robotics 10 on day
+    // 12. A player sitting on two hundred thousand metal buys the thing that costs twenty thousand
+    // of it; a benchmark whose player does not is measuring its own policy.
+    //
+    // `startUpgrade` enforces the gate, so listing it here costs nothing before it opens.
     private val OPENING_PLAN = listOf(
         BuildingType.METAL_MINE,
         BuildingType.CRYSTAL_MINE,
         BuildingType.DEUTERIUM_SYNTHESIZER,
         BuildingType.SOLAR_PLANT,
         BuildingType.ROBOTICS_FACTORY,
+        BuildingType.NANITE_FACTORY,
     )
 }

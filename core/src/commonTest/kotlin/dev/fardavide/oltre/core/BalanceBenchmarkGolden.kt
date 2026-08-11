@@ -47,14 +47,25 @@ internal object BalanceBenchmarkGolden {
           day 2                                              38       1260         1074        350       164
           day 3                                              44       2063         6486        390       452
           day 7                                              59       4856        56298       2959       704
-          day 14                                             78      15490       208970      14381      7035
+          day 14                                             80      12785       244037      11457      6885
+        the tree at day 14
+          metal mine                                      18
+          crystal mine                                    17
+          deuterium synthesizer                           14
+          solar plant                                     17
+          robotics factory                                10
+          nanite factory                                  4
 
         [pressure] over 14 days, which resource blocks the cheapest unbuilt row
-        hours opening with the cheapest row unaffordable  90.20%
-          of which short of metal                         7.23%
-          of which short of crystal                       33.22%
-          of which short of deuterium                     80.59%
-        hours with nothing building and no research       14.24%
+        hours opening with the cheapest row unaffordable  39.46%
+          of which short of metal                         15.78%
+          of which short of crystal                       41.35%
+          of which short of deuterium                     72.18%
+        hours with nothing building and no research       14.83%
+        over the fortnight, per resource                  earned       spent     placed
+          metal                                             1022626      779089     76.00%
+          crystal                                            345755      334598     96.00%
+          deuterium                                           81337       74452     91.00%
 
         [economy] cost, wait and payback per level, at robotics factory 4
         building / level                                  priced    build     +income/h   payback
@@ -78,6 +89,10 @@ internal object BalanceBenchmarkGolden {
           robotics factory 5                                   3447       8m           -         -
           robotics factory 10                                 47631   1h 52m           -         -
           robotics factory 20                               2746460  14h 18m           -         -
+          nanite factory 1                                     5200       5m           -         -
+          nanite factory 5                                   144784   1h 01m           -         -
+          nanite factory 10                                 1999032  14h 18m           -         -
+          nanite factory 20                               115274107 108h 44m           -         -
         day-2 colony energy                               598 produced / 320 consumed
         day-2 colony energy headroom                      27 levels
 
