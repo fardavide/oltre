@@ -2251,3 +2251,117 @@ on attributing the adaptation ladders to a level reached at hour 33 when they ha
 Round 18's own *"hour 33"* framing came from one of them. Both read `AdaptationBalance.GATE` now.
 Every round in this file is argued from these readings, so a report that quietly disagrees with the
 game is worse than no report at all.
+
+---
+
+## Round 19 — the suite gets a second instrument, and the second one is a photograph (2026-08-11)
+
+Davide, three times, on the 0.5.1 regression: *"We need benchmarks/tests against balancing. Such
+regression is NOT acceptable."*
+
+Round 18's addendum answered the *tests* half — `OpeningBalanceTest` and `CheckInBalanceTest`, twelve
+bands on the opening and the session. This round is the **benchmarks** half, and the distinction
+turns out to be real rather than a wording preference: a band and a benchmark fail on different
+things, and 0.5.1 needed both.
+
+### Why the bands alone were not enough
+
+A band is a guardrail. It is written wide on purpose — narrow enough to fail on a change of shape,
+wide enough that a deliberate round of tuning passes — and that width is exactly the problem when
+what you want is a **review**. The readings a band lets through are the ones a designer most wants
+to see before agreeing to them, and a band's whole job is to say nothing about them.
+
+So 0.5.1 could have shipped with round 18's bands in place and still arrived at a review with prose
+in front of it rather than numbers. The bands would have gone green — the opening *did* get better
+by every one of them — and nothing would have shown that the doorstep rule made the second and third
+neighbours worse at the same time.
+
+### The benchmark
+
+`BalanceBenchmark` renders the whole balance surface as one deterministic page of **derived**
+readings — never a constant copied out — and `BalanceBenchmarkTest` asserts that page equals
+`BalanceBenchmarkGolden`, a committed string in the file next door. One equality, not a band.
+
+The consequence is the entire point:
+
+> **A change to any balance number arrives in the pull request as a diff on a page of player-visible
+> readings, whether or not any band was crossed.**
+
+138 lines across nine sections — the landmark clock, the first sitting, progression day by day,
+which resource is doing the blocking, cost/wait/payback per building level, the two research
+branches, the map, the opening screen, the hull curve. A row that merely restated
+`AdaptationBalance.GATE` would tell a reviewer nothing the diff had not already shown them; a row
+that says *what hour the branch opens* moves when the gate moves **and** when the build curve, the
+discount, the Robotics divisor or the opening stock move.
+
+**When it fails, it is not a bug.** It means a balance number moved, which is what balance work is.
+Read the diff, decide whether it is what was wanted, then paste the new page and write up the round.
+What must not happen is the paste without the reading — which is why the bands stay: they are the
+backstop for a golden approved without being looked at.
+
+### Two more band files, for what round 18 did not reach
+
+`ResearchSlotBalanceTest` — the six ladders competing for one empire-wide slot. Both published
+tables were already pinned value by value, which records what a level costs and asserts nothing
+about whether anyone would buy it. Two ways a branch stops being live: it stops paying back, or it
+stops being *comparable*. The second has already broken in the wild — the opening discount shipped
+reaching the applied branch and not the ladders, taking the step between them from the sheet's
+**1.9×** to **5.8×** — and every table test passed, because both tables were still exactly what they
+were designed to be. It was the relationship between them nobody was looking at.
+
+`ProgressionBalanceTest` — week two. Every round in this file looks at day one and day two, because
+that is where complaints come from, and a cost curve compounding at +50% against production
+compounding at +25% *will* stall eventually. The only question is whether it stalls inside the
+fortnight a player is still around for.
+
+| Reading | Band | Now |
+|---|---|---|
+| Adaptation level ÷ priciest applied technology, levels 1–5 | 1.3 – 3.0 | 1.92 |
+| Spread between the three ladders once priced | ≤ 1% | 0% |
+| Best first applied level pays for itself | ≤ 24h | 1.69h |
+| Some applied level still worth taking at fortnight depth | ≤ 168h | yes |
+| Levels added in week two | ≥ +8 | +19 |
+| Day-14 income against day-7 | ≥ 2× | 3.19× |
+| Fortnight hours with nothing running | ≤ 45% | 14% |
+| Levels added between day 3 and day 7 | ≥ +8 | +15 |
+
+### The mutation battery, and the row that matters most
+
+| Mutation | Bands that objected | Benchmark |
+|---|---|---|
+| Adaptation discount removed — **the real 5.8× regression** | `ResearchSlot` | ✓ |
+| One ladder priced differently | `ResearchSlot` | ✓ |
+| Production stops compounding | `Opening`, `ResearchSlot`, `Progression` | ✓ |
+| Cost curve steepened ×1.5 → ×2 | `Opening`, `ResearchSlot`, `Progression` | ✓ |
+| Research priced out of reach (×20) | `ResearchSlot`, `Progression` | ✓ |
+| Adaptation gate back to Robotics 4 | `Opening` | ✓ |
+| Minimum build 2m → 25m | `CheckIn` | ✓ |
+| **Metal income 90 → 95 — pure tuning** | **none, and that is correct** | ✓ |
+
+The last row is the design of the whole suite in one line. **A balance suite that catches everything
+forbids balancing.** The bands stayed quiet through a deliberate tuning change and the benchmark
+recorded it — which is precisely the division of labour, and neither instrument could have done both.
+
+### One finding, unbanded on purpose — and it is Davide's call
+
+The benchmark's `[progression]` section splits the bank three ways rather than pricing it into one
+figure, because the lopsided bank is a failure a priced total hides perfectly. It immediately showed
+this:
+
+| | metal | crystal | deuterium |
+|---|---|---|---|
+| day 7 | **56,298** | 2,959 | 704 |
+| day 14 | **208,970** | 14,381 | 7,035 |
+
+That is round 7's symptom exactly — *"closed the week holding 49,544 metal it had nothing to spend
+on"* — reappearing past the opening rather than inside it, and 19:1 at day 7. The cause is not the
+production ratio this time. It is that the colony has **six build slots and each build takes hours**,
+so past the first week spending is rate-limited by slots rather than by income, and metal is the
+resource with nothing to buy. `[pressure]` agrees from the other side: deuterium is in the shortage
+set on 80.59% of blocked hours, crystal on 33.22%, metal on 7.23%.
+
+**No band was written for it**, deliberately. Round 7's decision was about the production *ratio*
+and `BalanceCurveTest` already pins that; a band on the bank would be a new design rule, and design
+rules are Davide's. The reading is on the benchmark page where it cannot be lost, and the options —
+a storage building, more build slots, the Nanite Factory arriving earlier than Robotics 10 at hour
+289 — are all his to pick between, or to shrug at.
