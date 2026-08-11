@@ -1267,9 +1267,14 @@ private fun openingReport(withProbes: Boolean) {
     println("| Gate | Opens | Cleared |")
     println("|---|---|---|")
     val robotics = state.buildings.roboticsFactory.value
+    // Read off `AdaptationBalance.GATE` rather than written out. It was written out until 0.5.1
+    // moved the gate from 4 to 2, at which point this table went on labelling the wrong row — a
+    // report that quietly disagrees with the game is worse than no report, because every balance
+    // round in `balance-log.md` is argued from these readings.
+    val gate = AdaptationBalance.GATE.value
     println("| Robotics Factory 1 | the Research tab | ${if (robotics >= 1) "yes" else "**no — still level $robotics at 48h**"} |")
-    println("| Robotics Factory 4 | the adaptation ladders, so every Blocked world | " +
-        "${if (robotics >= 4) "yes" else "**no — still level $robotics at 48h**"} |")
+    println("| Robotics Factory $gate | the adaptation ladders, so every Blocked world | " +
+        "${if (robotics >= gate) "yes" else "**no — still level $robotics at 48h**"} |")
     println()
 }
 
@@ -2735,10 +2740,13 @@ private fun printGateClock() {
     println()
     println("| Robotics Factory level | Reached | Opens |")
     println("|---|---|---|")
-    for (level in listOf(1, 2, 3, 4, 5, 10)) {
+    // The gate's own level is in the list and labelled from `AdaptationBalance.GATE`, so this
+    // table cannot drift from the game the way it did between 0.5.1 and the round that caught it.
+    val gate = AdaptationBalance.GATE.value
+    for (level in (listOf(1, gate, 4, 5, PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT)).distinct().sorted()) {
         val opens = when (level) {
             1 -> "Photovoltaics, Extraction — the Research tab"
-            4 -> "all three adaptation ladders — every Blocked world"
+            gate -> "all three adaptation ladders — every Blocked world"
             PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT -> "the Nanite Factory"
             else -> "—"
         }
