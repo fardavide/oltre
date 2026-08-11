@@ -2142,3 +2142,62 @@ signal at all.
   The fleet screens, which are designed and sitting finished in `core`, are the nearer half of that.
 - **Nothing here was played.** The measurement is 1,000 seeds of arithmetic against a complaint from
   one device, and the thing that closed the last two rounds was an install.
+
+### Round 18, addendum — the instrument that was missing, and who the round could not reach (2026-08-11)
+
+Davide, an hour after 0.5.1 shipped: *"We need benchmarks/tests against balancing. Such regression is
+NOT acceptable."* Two things came out of chasing that, and only one of them is a regression.
+
+**His colony was never touched, and could not have been.** The seed in the debug menu is the instant
+a colony was founded — `1786319875349` is **2026-08-09 23:57 UTC**, a day and a half before 0.5.1
+merged. `homeFor` has exactly two callers, genesis and the schema 3 → 4 migration, and a schema 9
+save runs neither. Regenerated from that seed, his home is `[2:173:6]` and his cheapest neighbour is
+**Thermal 5** — five levels, exactly what it was on the build he complained about.
+
+**So the real defect is the opposite of a regression: the fix cannot reach anybody who is already
+playing.** Under the new rule the *same seed* opens at `[2:169:6]` with a **one-level** neighbour
+(Thermal 1) and a three-level one behind it. The changelog line *"Existing colonies keep the home
+they were founded on"* was written as a reassurance about save compatibility, and for the one player
+who has an existing colony it means the round did nothing at all. **Whether a colony founded before
+0.5.1 should be re-homed is Davide's call** and it is a real one: nothing is built off-world yet, so
+moving `home` costs a player their surveyed set and their bearings and nothing else.
+
+#### What no test could see, which is the part that generalises
+
+0.5.1 passed every test in the repository. That was not luck and it was not a missing assertion on an
+existing number — **it was a quantity nobody was measuring**. `GalaxyDistributionTest` pins the map
+and could not move, by construction, because no world's traits changed. `BalanceCurveTest` pins the
+curves. Neither knows what the *first screen* says, and the first screen is the only part of the map
+a new colony can see.
+
+`OpeningBalanceTest` is that quantity, in `core` beside the other balance pins, seven readings over
+200 seeds in 1.3 seconds:
+
+| Reading | Band | Now |
+|---|---|---|
+| Colonies that can open a neighbour for one level | ≥ 90% | 99% |
+| Second cheapest neighbour | ≤ 10 levels | 8 |
+| Third cheapest | ≤ 14 | 13 |
+| Median across every neighbour | ≤ 13 | 12 |
+| Non-home worlds on screen | ≥ 3 | 5 |
+| Colonies opening with every neighbour blocked | 40 – 90% | 66% |
+| The adaptation branch opens | ≤ hour 24 | hour 12 |
+
+Three properties of it are the point, and a later round should keep them:
+
+- **Every reading is a band, not a value.** A balance test that pins an exact number forbids tuning,
+  which is the opposite of what these are for. Where a band has two sides it is because both sides
+  are real: *"most colonies still open on a screen where every neighbour is blocked"* fails at 95%
+  because that is the wall this round existed to leave, **and** at 20% because an easy world is a
+  poor world and `Barren` must stay the common answer.
+- **The ceilings sit between the old readings and the new**, never on either. On the old ones the
+  test would pass a full regression; on the new ones it would forbid tuning.
+- **It was verified by breaking it.** Neutralising `DOORSTEP_LEVELS` reproduces the pre-0.5.1
+  opening, and three of the seven fail with the readings that describe it — 9% can act for one
+  level, 95% open on a wall, the second neighbour is twelve levels out. A balance test nobody has
+  watched fail is a balance test nobody should trust.
+
+**And the reading that would have caught the fear this round could not answer**: `printWholeHomeSystem`
+in `:sim`, measuring the whole screen rather than its cheapest row. Round 18 was argued entirely on
+the cheapest neighbour, so *"the doorstep clause put me in a system whose other worlds are extreme"*
+was unfalsifiable at the time it shipped. It is not: every rank improved, 12 → 8, 15 → 13, 14 → 12.
