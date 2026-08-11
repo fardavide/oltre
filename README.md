@@ -191,6 +191,16 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - **The instant stays true.** Spend the resources on something else and the alert slides later on
   the same tap that spent them; finish a Solar Plant that lifts a shortage and it slides earlier.
   While the app is closed nothing spends, so an alert can only ever fire early.
+### 0.4.4 — 2026-08-10
+
+- **Tilting the phone sideways moves the sky the right way round.** It went the wrong way: drop the
+  right edge and the stars slid left, away from the edge you dropped, which is the opposite of what
+  your hand expects. They now go the way you tip it. Tipping forward and back was always right and
+  is untouched.
+- Nothing else about the effect changes — same distance for the same movement, same wrist, same
+  everything. Only the direction of one of the two axes.
+- Saves from 0.4.3 carry forward untouched.
+
 ### 0.4.3 — 2026-08-10
 
 - **The sky answers a sideways lean as readily as a forward one.** Rolling the phone used to move

@@ -2304,3 +2304,65 @@ dragging the magnetometer into a heading nothing here uses. Both objections stil
 now avoidable — a quaternion has no singularity, and the game rotation vector omits the magnetometer
 — so this is a scope call rather than a settled refusal. It is Davide's, and it is not implied by
 either sentence he sent.
+
+## The sideways lean was pointing the wrong way, and a sentence was hiding it (2026-08-10, 0.4.4)
+
+Davide, off a TestFlight install: *"Vertical parallax is perfect, but horizontal is inverted."* Both
+halves are correct and the fix is one minus sign in `TiltMonitor.tilt` — `travel(-reading.lean)`
+becomes `travel(reading.lean)`, so dropping the right edge now carries the sky *towards* the edge you
+dropped rather than away from it. Nothing else moved: not a constant, not a formulation, not the
+vertical axis, and no screenshot baseline, since desktop reports `Tilt.NONE` and `Starfield`'s
+`wraps = leanX != 0f` guard means a level field draws exactly what it always drew.
+
+The one-line fix is not the entry. Three things around it are.
+
+### The two axes never had one rule, and writing them as though they did is the defect
+
+The comment those two lines carried, unchanged since 0.4.2, was:
+
+> drop the right edge and your eye moves right of the screen, so what was hidden behind the right
+> margin comes into view and the field slides left. Tip the top away and your eye moves above it, so
+> the field slides up.
+
+The second sentence is a derivation. The glass is a window on a sky far behind it, so tipping the
+phone **aims that window somewhere else**: tip the top away and the line of sight through it swings
+downwards, which is a camera panning down, and a camera panning down carries what it is looking at up
+the frame. That is forced, and it is the axis a hand came back calling perfect.
+
+The first sentence is the second one wearing its clothes. **An in-plane roll turns the phone about
+the very line of sight the tip swings**, so it aims the window nowhere new — which is why the same
+comment block already conceded, two paragraphs later, that mapping a roll to a horizontal slide is
+"an artistic choice rather than a literal parallax". Taken literally a roll would *rotate* the field,
+not translate it. So there was nothing for "your eye moves right" to be true of, the sentence
+asserted a consequence anyway, and the consequence was backwards.
+
+**The transferable form: a derivation that covers one case and a convention that covers the other,
+written in one voice, is a convention nobody will audit.** It reads as settled. What replaces it in
+the file is the two halves marked as what they are — the vertical one with its argument, the sideways
+one with the date and the words of the person who chose it.
+
+### Fixing the magnitude is what made the direction findable
+
+The sign has been this one since 0.4.2, and 0.4.2 shipped the sideways axis at a quarter strength in
+the hand because of the `sin²(elevation)` penalty. *"Horizontal tilt is very lazy"* was the report,
+and **an axis that barely moves is an axis whose direction nobody can judge.** 0.4.3 removed the
+penalty and the clamp; the very next install named the direction.
+
+That ordering is worth expecting rather than being surprised by. A defect can *mask* a defect behind
+it, so the first session after a fix lands is more informative than the fix's own reasoning, and the
+right posture is to expect a second report rather than to treat one as a sign the first fix missed.
+0.4.3's entry already recorded the version of this that bites in the other direction — lifting a
+clamp exposed two errors the clamp had been hiding. This is the same fact from the useful side.
+
+### Why no test catches it, and why that is not an omission
+
+There is no test that could have caught this, and adding one is not the follow-up. **A convention is
+not a property**: `a lean to the right pushes the sky left` was a true statement about the code for
+two releases, and it was green for two releases. Renaming it to `…pushes the sky right` and flipping
+its assertion changes what the suite records, not what it verifies.
+
+So the test is explicitly labelled as *where the convention is written down, not where it is checked*
+— and it now carries beside it the one part of the same test that **is** a property: the two edges
+must answer oppositely and by the same amount, whichever way round the pair is. That half would catch
+a broken formulation. Nothing will ever catch a wrong choice except a hand, which is the argument for
+the loop in `session-roles.md` rather than an argument for more tests.
