@@ -2480,3 +2480,48 @@ action offered in the opening goes 3 → **4**, which rounds 8 and 12 each concl
 - **A cloud session cannot record any of that**, and per the entry above — *"the agent dispatches the
   job itself"* — the answer is `record-screenshots.yml` against the slice's own PR, not a hand-off.
   It is named here because that job needs a PR number, so the recording cannot precede the PR.
+
+
+## A record job that can be served from cache records nothing (2026-08-11, 0.5.1)
+
+`record-screenshots.yml` ran `./gradlew recordRoborazziDesktop` with the build cache live, and at
+0.5.1 that quietly produced a **wrong success**: sixteen galaxy baselines were re-recorded and
+pushed, the job reported success, and three research baselines were left showing
+`Requires Robotics 4` — a requirement string the app had stopped producing two commits earlier.
+
+### Why it happens, which is not a Gradle bug
+
+**Recording writes into `src/*/screenshots`, a source directory, not a task output.** So nothing
+Gradle models about the task describes the thing the job exists to do. A `desktopTest` replayed
+FROM-CACHE reports success and writes no PNG, `recordRoborazziDesktop` then reports UP-TO-DATE, and
+the commit step finds a clean tree.
+
+The sequence that exposed it is worth writing down because it is the *normal* one, not an exotic
+one:
+
+1. A dispatch fails in one module. Every other module's `desktopTest` has already run and **stored
+   a cache entry**; their PNGs are written into a workspace that is then thrown away.
+2. The failure is fixed and the job is dispatched again.
+3. The failing module now runs and records. Every other module is served from step 1's cache and
+   records nothing.
+
+So the job is least reliable exactly when it is being used most — after a failure, which is when
+anybody dispatches it twice.
+
+### The fix, and why not a smaller one
+
+`--rerun-tasks`. It ignores up-to-date checks and cache hits and re-executes everything, which is
+the only setting under which "the job succeeded" means "every baseline on disk is what the code
+draws". `--no-build-cache` alone was rejected: it stops the *read* but leaves the up-to-date check,
+which is the other half of the same hole.
+
+The cost is a few minutes on a job that is manual, rare, and already the slowest thing in the
+repository. The alternative cost is a committed baseline asserting a screen the app cannot draw —
+and since recording **replaces the assertion**, nothing downstream would ever catch it.
+
+### The part that generalises
+
+A cached task is a claim about *outputs*. Any job whose real product is a change to **tracked
+source** is outside that claim, and will be silently skipped the moment its inputs hash the same.
+Recording baselines is the instance the repository has; a code generator writing into `src/` would
+be the next one.

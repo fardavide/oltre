@@ -45,7 +45,20 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
 
-      - run: ./gradlew recordRoborazziDesktop
+      # `--rerun-tasks`, and it is load-bearing rather than belt-and-braces.
+      #
+      # **Recording writes into `src/*/screenshots`, which is a source directory and not a task
+      # output**, so Gradle's up-to-date and cache checks do not model what this job exists to do.
+      # A `desktopTest` served FROM-CACHE reports success and writes no PNG at all, and the commit
+      # step then finds a clean tree and says "screenshots already match" — the one sentence this
+      # job must never say wrongly.
+      #
+      # Measured at 0.5.1, which is why this line exists: a first dispatch failed in one module,
+      # a second dispatch after the fix replayed the *other* modules from the first run's cache,
+      # and the research baselines were left showing a requirement string the app no longer
+      # produces while the job reported success. Re-running everything costs this manual job a few
+      # minutes; getting it wrong costs a baseline that asserts a screen nobody can reach.
+      - run: ./gradlew recordRoborazziDesktop --rerun-tasks
 
       - name: Commit the re-recorded baselines
         id: record
