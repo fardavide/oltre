@@ -217,6 +217,19 @@ asymmetry that makes it easy to miss: the same comma is fine in a `desktopTest` 
 there are two such names in `client/colony/presentation` today. So it is `commonTest` in a module
 with an iOS target that has the stricter rule, and `:core:jvmTest` going green says nothing about it.
 
+**It caught a second session at 0.5.1**, which is the reason this paragraph is now worth more than
+its length. That session had read this file, wrote `a colony opens in the galaxy its seed names,
+unless that galaxy has nothing`, ran the full local suite green, and took down Build, Unit tests,
+Screenshot tests, Coverage *and* the Record job with one comma. Knowing about a trap is not the same
+as checking for it: the check costs one grep before pushing anything that adds a test to a
+`commonTest` source set —
+
+```
+grep -rn 'fun `[^`]*,[^`]*`(' core/src/commonTest/
+```
+
+and it is cheaper than the round trip it saves.
+
 The practical consequence is worth stating plainly: **a cloud session should push the logic of a
 feature down into a module it can test**, and leave the Compose layer as thin as it will go. That is
 why the debug menu's clock, its skip target, its report and its shake judgement are all in

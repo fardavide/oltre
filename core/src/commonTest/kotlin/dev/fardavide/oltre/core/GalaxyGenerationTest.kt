@@ -250,6 +250,12 @@ class GalaxyGenerationTest {
     // system 200 saw fifty of its own systems and then a whole other galaxy — and half of all
     // colonies opened somewhere their seed had not named.
     //
+    // The name has no comma in it, and that is not a style choice: Kotlin/Native rejects a comma in
+    // a backticked name outright — *"Name contains illegal characters"* — where JVM accepts it, so
+    // `:core:jvmTest` goes green and `:core:compileTestKotlinIosArm64` takes down four CI jobs from
+    // one line. `session-roles.md` has recorded that trap since 0.2.7 and this test walked into it
+    // anyway, which is the second time; the note there now says so.
+    //
     // Nothing caught it. Every other test here asks about the home *world* — is it tolerable, does
     // it have a neighbour, do two seeds differ — and a home in the wrong galaxy passes all three.
     // Measured: **50%** of colonies strayed under the flat walk and **22%** under the nested one.
@@ -260,7 +266,7 @@ class GalaxyGenerationTest {
     // `session-roles.md` records for the tilt axes: a convention nothing checks is a convention
     // that drifts. This is the check.
     @Test
-    fun `a colony opens in the galaxy its seed names, unless that galaxy has nothing`() {
+    fun `a colony opens in the galaxy its seed names unless that galaxy has nothing`() {
         val strayed = (0 until DOORSTEP_SEEDS).count { offset ->
             val seed = GalaxySeed(TEST_GALAXY_SEED.value + offset)
             GalaxyState.initial(seed).home.galaxy != seededGalaxyOf(seed)
