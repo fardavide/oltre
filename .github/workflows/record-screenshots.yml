@@ -45,7 +45,31 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
 
-      - run: ./gradlew recordRoborazziDesktop
+      # `--rerun-tasks`, and it is load-bearing rather than belt-and-braces.
+      #
+      # **Recording writes into `src/*/screenshots`, which is a source directory and not a task
+      # output**, so Gradle's up-to-date and cache checks do not model what this job exists to do.
+      # A `desktopTest` served FROM-CACHE reports success and writes no PNG at all, and the commit
+      # step then finds a clean tree and says "screenshots already match" — the one sentence this
+      # job must never say wrongly.
+      #
+      # Measured at 0.5.1, which is why this line exists: a first dispatch failed in one module,
+      # a second dispatch after the fix replayed the *other* modules from the first run's cache,
+      # and the research baselines were left showing a requirement string the app no longer
+      # produces while the job reported success. Re-running everything costs this manual job a few
+      # minutes; getting it wrong costs a baseline that asserts a screen nobody can reach.
+      #
+      # **Know what this widens.** The committed baselines are macOS-recorded — `oltreRoborazziOptions`
+      # says so and exists to absorb the difference — so every module this job *executes* comes back
+      # re-rendered on Linux, whether its content changed or not. The cache was accidentally limiting
+      # that blast radius; without it, one dispatch converts every frame it touches. 0.5.1 saw 32
+      # baselines rewritten where 26 had a reason to move, and the 22 belonging to modules the change
+      # did not touch were reverted by hand before merge.
+      #
+      # So: **read the job's comment and revert the frames whose content did not change.** The right
+      # long-term fix is a commit step that drops any PNG whose diff sits inside the verifier's own
+      # tolerance, which would make this job self-limiting; it is not built, and it is Davide's call.
+      - run: ./gradlew recordRoborazziDesktop --rerun-tasks
 
       - name: Commit the re-recorded baselines
         id: record

@@ -45,11 +45,17 @@ class StartAdaptationTest {
 
     @Test
     fun `the project ends at the duration the balance prices`() {
-        // given a colony whose Robotics Factory is level 4 — the gate, and the divisor
+        // given a colony standing exactly on the gate, which is also the divisor `readyToAdapt`
+        // hands it — read off `GATE` rather than written out, because the gate moved at 0.5.1 and a
+        // literal here was a second place the same number lived.
         val started = GameState.initial().adapting(AdaptationTechnology.THERMAL, at = EPOCH)
 
         assertEquals(
-            EPOCH + AdaptationBalance.adaptationDuration(AdaptationTechnology.THERMAL, TechLevel(1), BuildingLevel(4)),
+            EPOCH + AdaptationBalance.adaptationDuration(
+                AdaptationTechnology.THERMAL,
+                TechLevel(1),
+                AdaptationBalance.GATE,
+            ),
             started.ladder().completesAt,
         )
     }

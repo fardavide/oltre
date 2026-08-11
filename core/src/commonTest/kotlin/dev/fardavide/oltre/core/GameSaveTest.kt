@@ -78,10 +78,22 @@ class GameSaveTest {
                 // The whole galaxy, in one line: a seed, where home is, the handful of worlds the
                 // home system holds, and who owns what. Four thousand seven hundred worlds of
                 // traits are absent on purpose — they are regenerated from that seed.
-                """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":165,"slot":7},""" +
-                """"surveyed":[{"galaxy":3,"system":165,"slot":7},{"galaxy":3,"system":165,"slot":8},""" +
-                """{"galaxy":3,"system":165,"slot":10},{"galaxy":3,"system":165,"slot":13}],""" +
-                """"ownership":[{"at":{"galaxy":3,"system":165,"slot":7},"holder":"player"}]},""" +
+                //
+                // **The home coordinate moved at 0.5.1 and the schema did not**, which is the one
+                // case this pin has to be able to tell apart from a format break. `home` and
+                // `surveyed` are *content* genesis computes, not keys: a rule that starts a colony
+                // in a different system rewrites these two lines and changes nothing any installed
+                // build can or cannot read. Nobody's map moved either — home has been stored since
+                // schema 4 and no migration recomputes it, so an already-founded colony keeps the
+                // system it was founded in. The frozen `VERSION_*` fixtures below still carry
+                // [3:165:7] for exactly that reason, and must never be rewritten to agree with
+                // this one.
+                """"galaxy":{"seed":20260807,"home":{"galaxy":3,"system":171,"slot":7},""" +
+                """"surveyed":[{"galaxy":3,"system":171,"slot":1},{"galaxy":3,"system":171,"slot":2},""" +
+                """{"galaxy":3,"system":171,"slot":4},{"galaxy":3,"system":171,"slot":7},""" +
+                """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
+                """{"galaxy":3,"system":171,"slot":11}],""" +
+                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +

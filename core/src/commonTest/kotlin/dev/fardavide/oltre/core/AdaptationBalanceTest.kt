@@ -13,13 +13,16 @@ import kotlin.test.assertTrue
 class AdaptationBalanceTest {
 
     @Test
-    fun `all three ladders open on Robotics Factory 4`() {
+    fun `all three ladders open on Robotics Factory 2`() {
         // One shared gate, not three that differ: three ladders are worth having because *which one
         // you push first* is a real choice, and a gate that opens one before another makes that
         // choice for the player.
+        //
+        // Two rather than four since 0.5.1, which `printGateClock` times at hour 12 rather than
+        // hour 33 — Davide, having played it: *"I needed 2 day to get robotics to level 4."*
         for (technology in AdaptationTechnology.entries) {
             assertEquals(
-                ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, BuildingLevel(4)),
+                ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, BuildingLevel(2)),
                 AdaptationBalance.requirementFor(technology),
                 "$technology",
             )
@@ -27,7 +30,7 @@ class AdaptationBalanceTest {
     }
 
     @Test
-    fun `the gate is later than the applied branch's so the galaxy is met first`() {
+    fun `the gate is later than the applied branch's so a locked row survives`() {
         val applied = ResearchBalance.requirementFor(Technology.PHOTOVOLTAICS)
         assertEquals(ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)), applied)
         assertTrue(

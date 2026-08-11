@@ -158,6 +158,25 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.5.1 — 2026-08-11
+
+- **Your neighbours are worth looking at now.** A new colony starts in a system that has somewhere
+  to go: one of the worlds beside you is either already somewhere you could stand, or a single
+  adaptation level away from it. It used to be the luck of the draw, and the draw was bad — the
+  middling home system asked for seven levels across two different ladders before anything on the
+  Galaxy screen would say something new, and four in five colonies were asked for four or more.
+  Virtually every colony now opens a neighbour with its first purchase.
+- **What that neighbour is worth has not changed, and that is deliberate.** It is usually a world
+  that passes every band and is still not worth settling — the good ground is still further out,
+  behind technology nobody has bought yet. What you are given is somewhere to point at, not
+  somewhere good.
+- **The three adaptation ladders open at Robotics Factory 2 instead of 4.** That is about half a
+  day in rather than most of two days. Nothing else about them moves: same prices, same durations,
+  same one research slot shared with the production technologies.
+- **Existing colonies keep the home they were founded on.** Your map, your system and your
+  neighbours are all exactly where you left them; the new rule only applies to a colony that has
+  not started yet. Saves from 0.5.0 carry forward untouched.
+
 ### 0.5.0 — 2026-08-10
 
 - **Every row now carries a bell, and every alert is one you asked for.** Tap the bell on a row you

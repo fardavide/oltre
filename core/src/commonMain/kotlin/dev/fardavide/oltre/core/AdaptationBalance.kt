@@ -40,11 +40,36 @@ object AdaptationBalance {
     // differ: three ladders are worth having because *which one you push first* is a real choice,
     // and a gate that opens one before another makes that choice for the player.
     //
-    // Level 4 rather than the applied branch's level 1 so the branch opens *after* the player has
-    // met the Galaxy screen and read a BLOCKED row — which is the order the sentence on that row
-    // assumes. It adds no concept, and Robotics is a purchase they want anyway, because it shortens
-    // every project including these.
-    val GATE: BuildingLevel = BuildingLevel(4)
+    // Level 2 rather than the applied branch's level 1 so the branch is still its own decision and
+    // a locked row still appears in normal play, but the wait is a day rather than two.
+    //
+    // ── Why it came down from 4 (0.5.1) ────────────────────────────────────────────────────
+    //
+    // Round 6 chose 4 "so the branch opens after the player has met the Galaxy screen and read a
+    // BLOCKED row", and pre-authorised this exact review in `balance-log.md` round 12: *"If the
+    // gate turns out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper
+    // than re-pricing anything."* Davide then played it — *"I needed 2 day to get robotics to level
+    // 4"* — and `printGateClock` agrees to the hour: Robotics 4 lands at **hour 33**, Robotics 2 at
+    // **hour 12**.
+    //
+    // The ordering argument survives the move intact, and that is what makes 2 legal rather than
+    // merely cheaper. Nothing gates the Galaxy tab: the home system is surveyed at genesis, so a
+    // player has read a `BLOCKED` row before the first Robotics Factory exists. Round 6's clause
+    // was about the *order* of two screens, and the order is the same at 2, at 4 and at 1.
+    //
+    // What 2 rather than 1 buys is the thing round 6's second sentence was really protecting —
+    // Robotics 1 is already the applied branch's gate, so sharing it would open five rows at once
+    // and delete the locked row from normal play entirely.
+    //
+    // Measured cost, over the census's first two days: refusals for an unmet **requirement** fall
+    // 35.25% → 25.64% and refusals for the **price** rise 5.12% → 14.10%, which is the trade being
+    // bought rather than a side effect — round 12's own reading is that *"a price is a curve, a
+    // slot is a rule, a requirement is a gate — and only the first of those is fixed by tuning a
+    // number."* Median *kinds* of action offered in the opening goes 3 → **4**, which rounds 8 and
+    // 12 both concluded no number in `PlaceholderBalance` could reach. Crystal, which round 12
+    // warned this lever leans on, is short at 331 hours of a fortnight's 336 against 320 before —
+    // an 11-hour move, well inside the ~50-hour band round 12 says not to read as a signal.
+    val GATE: BuildingLevel = BuildingLevel(2)
 
     fun requirementFor(technology: AdaptationTechnology): ResearchRequirement =
         ResearchRequirement.Facility(BuildingType.ROBOTICS_FACTORY, GATE)

@@ -2373,3 +2373,186 @@ So the test is explicitly labelled as *where the convention is written down, not
 must answer oppositely and by the same amount, whichever way round the pair is. That half would catch
 a broken formulation. Nothing will ever catch a wrong choice except a hand, which is the argument for
 the loop in `session-roles.md` rather than an argument for more tests.
+
+## The wall in the opening was the sample, not the map (2026-08-11, 0.5.1)
+
+Davide, having played 0.4.4: *"Galaxy interactions are too tough in the early game! I would expect
+the user to be able to interact with neighbouring planets without too many challenges, with I needed
+2 day to get robotics to level 4, and now I need to upgrade at least 4 adaptations for the easier
+planet."*
+
+Both halves reproduced without anything having to be discovered — `printGateClock` already put
+Robotics 4 at hour 33, and the harness's own home system asked five adaptation levels across two
+ladders for its cheapest neighbour. The round is written up in `balance-log.md` **round 18**; what
+belongs here is the two decisions and the one rule they bend.
+
+### The diagnosis, which is the whole of the entry
+
+Every galaxy report in the harness measured the **map**. A player does not see the map. Genesis
+surveys the home system and nothing else, so ~4.75 worlds are the entire content of the Galaxy
+screen on day one — and `galaxy-sheet.md` §9's payoff, *each adaptation level roughly doubles the
+settleable count*, is a galaxy-wide statistic that a sample of five cannot show. 1.81% of worlds pass
+every band, so **92% of colonies open on a wall and stay there**.
+
+`printDoorstepReport` is the instrument that was missing, and it is the first report in the file that
+sweeps seeds rather than hours. Over 1,000 seeds: the median home system asked for **seven** levels,
+**54,242** resources priced at 1 : 2 : 3, and **39 hours** of the one shared research slot. Davide's
+five-level system was in the better third. **9.36%** of colonies could change a verdict for one
+adaptation level.
+
+That reframes the request. The complaint sounds like a price complaint and is not one: the first
+level of any ladder is 480 priced and 18 minutes, which a day-two colony pays without noticing. What
+was expensive was the *distance to the nearest world worth pointing at*, and no cost curve, duration
+or discount addresses a distance.
+
+### Decision 1 — `homeFor` gains a clause, and the alternatives were all worse
+
+**Genesis takes the first tolerable world in a system that also holds a neighbour one adaptation
+level away**, keeping the best system it has seen and stopping at the first that qualifies. After:
+**99.8%** of a thousand swept seeds open a neighbour within one level, median bill **480** and
+median wait **18 minutes**.
+
+Rejected, each for a reason the docs had already written down:
+
+- **Widening the tolerance bands** — `galaxy-sheet.md` §9 names this in advance as the one thing not
+  to do: *"the lever is not this row — it is widening all three bands together, which raises row 1
+  with it."* It makes 4,746 worlds easier to fix a defect in 4.75.
+- **Making a level widen further** — same objection with a different multiplier, plus it flattens the
+  three ladders' differentiation.
+- **Cheapening the ladder** — answers a question nobody asked. Four levels at a third of the price
+  is still four projects through one slot.
+- **`fleet-sheet.md` (b), a guaranteed *good* neighbourhood** — genuinely rejected, and the reckoning
+  is recorded in that file beside the option rather than only here. The short of it: (b) guaranteed
+  *worth*, this guarantees *reach*, and the measurement separates them — the doorstep world reads
+  `Settleable` **28.1%** of the time against **51.2%** for the neighbour a player used to get. The
+  guarantee makes your nearest world easier **and poorer at once**, which is *"an easy world is a poor
+  world"* holding rather than bending.
+
+**One level rather than two, and the walk crosses galaxies.** Two levels is two projects and possibly
+two ladders, which stops the promise being *your first adaptation level opens a world you can see*. A
+qualifying system is 0.50% of all systems, so a walk bounded to one galaxy finds one 77% of the time
+and a walk over the whole space finds one for 99.8% of a thousand seeds.
+
+**The walk order was wrong in the first draft and the suite could not see it.** A flat index over the
+1,000 systems leaves the seeded galaxy when its *tail* runs out rather than when it has nothing to
+offer, so **50%** of colonies opened outside the galaxy their seed named against **22%** for a walk
+that reads the seeded galaxy whole first. The promise lived in a comment and nowhere else — every
+other test asks about the home *world*, and a home in the wrong galaxy passes all of them. It is
+`session-roles.md`'s tilt lesson in another file, and the fix is the same shape: `seededGalaxyOf` is
+a named function now so the promise is assertable, and it is asserted.
+
+### Decision 2 — `AdaptationBalance.GATE` 4 → 2, which round 12 pre-authorised
+
+*"If the gate turns out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper
+than re-pricing anything."* It had: hour 33 against hour 12 at Robotics 2.
+
+**Round 6's argument for 4 is not overruled, it is re-read.** It asked that the branch open *after*
+the player has met the Galaxy screen and read a `BLOCKED` row — and nothing gates the Galaxy tab, so
+that is true from the first frame at every gate level. What the clause actually rules out is **1**,
+the applied branch's own gate, where five rows would open at once and the locked row would leave
+normal play. Three was rejected on the measurement: Robotics 3 and 4 are six hours apart where 2 and
+3 are fifteen.
+
+The trade is nine points of gate refusal becoming nine points of price refusal (35.25% → 25.64% and
+5.12% → 14.10% over the census's first two days), which is the point rather than a side effect —
+round 12: *"a price is a curve, a slot is a rule, a requirement is a gate."* Median **kinds** of
+action offered in the opening goes 3 → **4**, which rounds 8 and 12 each concluded no number in
+`PlaceholderBalance` could reach.
+
+### What it cost, including the part a cloud session cannot finish
+
+- **The golden save moved and the schema did not.** `home` and `surveyed` are content genesis
+  computes, not keys, so the pinned string in `GameSaveTest` is rewritten and nothing an installed
+  build can read changes. **No player's map moves**: home has been stored since schema 4 and no
+  migration recomputes it. The frozen `VERSION_*` fixtures still carry 3:165 and must never be
+  rewritten to agree with the new pin — that divergence is now the thing they exist to prove.
+- **Eleven assertions in `GalaxyUiStateTest` and the shell's `AdaptationBehaviourTest`** were pinned
+  to 3:165's slots. `AdaptationBehaviourTest`'s fixture is now **derived** from the world it names
+  rather than written out — four hand-typed numbers that all had to agree with each other and with a
+  world none of them named is the shape that made this expensive, and it will not be expensive twice.
+- **The galaxy screenshot baselines move**, and `TestGalaxyUiState` says in its own header that this
+  is correct: *"a change that moves these numbers is a design decision that should redraw the
+  images."* The hand-written every-verdict frame had one derived half and one typed half, and the
+  typed half was quoting a world it no longer drew its axes from; both halves are derived now.
+- **The research baselines move by one character** — "Requires Robotics 4" → "Requires Robotics 2" —
+  and the frozen fixture's narrative moved from a colony at Robotics 2 to one at Robotics 1, which
+  is the same frame (four of six rows dimmed) told about a legal colony.
+- **A cloud session cannot record any of that**, and per the entry above — *"the agent dispatches the
+  job itself"* — the answer is `record-screenshots.yml` against the slice's own PR, not a hand-off.
+  It is named here because that job needs a PR number, so the recording cannot precede the PR.
+
+
+## A record job that can be served from cache records nothing (2026-08-11, 0.5.1)
+
+`record-screenshots.yml` ran `./gradlew recordRoborazziDesktop` with the build cache live, and at
+0.5.1 that quietly produced a **wrong success**: sixteen galaxy baselines were re-recorded and
+pushed, the job reported success, and three research baselines were left showing
+`Requires Robotics 4` — a requirement string the app had stopped producing two commits earlier.
+
+### Why it happens, which is not a Gradle bug
+
+**Recording writes into `src/*/screenshots`, a source directory, not a task output.** So nothing
+Gradle models about the task describes the thing the job exists to do. A `desktopTest` replayed
+FROM-CACHE reports success and writes no PNG, `recordRoborazziDesktop` then reports UP-TO-DATE, and
+the commit step finds a clean tree.
+
+The sequence that exposed it is worth writing down because it is the *normal* one, not an exotic
+one:
+
+1. A dispatch fails in one module. Every other module's `desktopTest` has already run and **stored
+   a cache entry**; their PNGs are written into a workspace that is then thrown away.
+2. The failure is fixed and the job is dispatched again.
+3. The failing module now runs and records. Every other module is served from step 1's cache and
+   records nothing.
+
+So the job is least reliable exactly when it is being used most — after a failure, which is when
+anybody dispatches it twice.
+
+### The fix, and why not a smaller one
+
+`--rerun-tasks`. It ignores up-to-date checks and cache hits and re-executes everything, which is
+the only setting under which "the job succeeded" means "every baseline on disk is what the code
+draws". `--no-build-cache` alone was rejected: it stops the *read* but leaves the up-to-date check,
+which is the other half of the same hole.
+
+The cost is a few minutes on a job that is manual, rare, and already the slowest thing in the
+repository. The alternative cost is a committed baseline asserting a screen the app cannot draw —
+and since recording **replaces the assertion**, nothing downstream would ever catch it.
+
+### What the fix widened, found immediately after
+
+`--rerun-tasks` closed the hole and opened a smaller one in the other direction, and the pair is
+the actual lesson. **The committed baselines are macOS-recorded** — `oltreRoborazziOptions` says so
+in as many words, and the whole reason it carries a `maxDistance` and an 8% pixel budget is to
+absorb what Linux does to them: *"±1/255 across gradient fills (dithering) and ≥10/255 on 2.4–5.6%
+of pixels (glyph anti-aliasing)"*.
+
+This job records on Linux. So every module it **executes** comes back re-rendered, whether its
+content changed or not, and the cache was accidentally limiting the blast radius. The first
+dispatch with `--rerun-tasks` rewrote **32** baselines where 26 had a reason to move; the other 22
+belonged to `:client:colony:presentation` and `:client:shell`, which 0.5.1 does not touch at all.
+Measured before reverting them: content identical frame for frame, differences confined to glyph
+edges and gradient dither, exactly the profile the options file describes.
+
+They were reverted by hand and the line drawn was *"which modules does this change render
+differently"* rather than a pixel count — galaxy and research keep their new frames, colony and
+shell keep the ones they had.
+
+**The right fix is a commit step that drops any PNG whose diff sits inside the verifier's own
+tolerance.** That would make the job self-limiting: it would record everything, and commit only
+what a human would have to look at. It is not built — it is a change to how the repository decides
+what a baseline *is*, and that is Davide's call rather than a session's.
+
+**And one thing it turned up that is worth its own look:** a one-character text change is a few
+hundred pixels on a 393dp frame, which is far inside the 8% budget. So the stale
+`Requires Robotics 4` baselines would very likely have **passed** verification against the corrected
+screen. The tolerance is calibrated for renderer drift and cannot tell a small genuine change from
+it — which is the argument for reading the images rather than trusting the check, and is the reason
+the job posts them.
+
+### The part that generalises
+
+A cached task is a claim about *outputs*. Any job whose real product is a change to **tracked
+source** is outside that claim, and will be silently skipped the moment its inputs hash the same.
+Recording baselines is the instance the repository has; a code generator writing into `src/` would
+be the next one.

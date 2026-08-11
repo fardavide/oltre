@@ -58,9 +58,9 @@ internal val beforeTheGateUiState = ResearchUiState(
     ),
 )
 
-// Day 4, Robotics 2. Photovoltaics is affordable, Extraction is short deuterium, Enrichment is
+// Day 4, Robotics 1. Photovoltaics is affordable, Extraction is short deuterium, Enrichment is
 // still dimmed behind its requirement. Nothing is running, so no row carries a countdown — and the
-// three ladders are still behind Robotics 4, which is four of six rows dimmed. That is the state a
+// three ladders are still behind Robotics 2, which is four of six rows dimmed. That is the state a
 // new player meets, and it is the strongest argument for putting both branches on one screen: under
 // a segmented control these three would be behind a tap, so the player would learn nothing until
 // they went looking for something they do not know exists.
@@ -318,7 +318,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "900", crystal = "600", deuterium = "900", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 0, worthTaking = 0),
-        action = ResearchActionUiState.Locked("Requires Robotics 4"),
+        action = ResearchActionUiState.Locked("Requires Robotics 2"),
         watch = null,
         finishedWhileAway = false,
     ),
@@ -330,7 +330,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 5, worthTaking = 1),
-        action = ResearchActionUiState.Locked("Requires Robotics 4"),
+        action = ResearchActionUiState.Locked("Requires Robotics 2"),
         watch = null,
         finishedWhileAway = false,
     ),
@@ -342,7 +342,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "850", crystal = "1,600", deuterium = "250", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 3, worthTaking = 0),
-        action = ResearchActionUiState.Locked("Requires Robotics 4"),
+        action = ResearchActionUiState.Locked("Requires Robotics 2"),
         watch = null,
         finishedWhileAway = false,
     ),

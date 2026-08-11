@@ -294,6 +294,154 @@ private fun printGalaxyReport() {
     println()
 
     printHomeSystem(seed)
+    printDoorstepReport()
+}
+
+// ── The doorstep — the only worlds a player can act on before a probe lands ──────────────────
+//
+// Every other galaxy report in this file measures the *map*. This one measures the **opening**,
+// which is a different quantity: the home system is the only system surveyed at genesis, so its
+// non-home worlds are the entire content of the Galaxy screen on day one, and an adaptation level
+// is the only verb that can change what any of them says.
+//
+// It sweeps seeds rather than reading the harness's one, and that is the whole reason it exists.
+// Which home system you are dealt is the roll nobody re-rolls, so a single seed says what one
+// player saw — and the feedback that prompted this report ("I need to upgrade at least 4
+// adaptations for the easier planet") is a claim about the *distribution*, which one seed cannot
+// confirm or refute.
+private const val DOORSTEP_SEEDS: Int = 1_000
+
+// What it would take to make one world stop reading `Blocked`: the level of each ladder that
+// closes its own axis, and the whole bill for climbing to those levels from zero. Priced at
+// 1 : 2 : 3 and clocked at Robotics 4, because that is the divisor the published tables use — the
+// gate itself is Robotics 2 since 0.5.1, where the same first level is 21 minutes rather than 18.
+private data class Doorstep(
+    val at: GalaxyCoordinate,
+    val levels: AdaptationLevels,
+    val priced: Long,
+    val minutes: Long,
+    val settleable: Boolean,
+) {
+    val totalLevels: Int get() = levels.thermal + levels.gravitic + levels.atmospheric
+
+    // How many ladders the bill spans. Load-bearing rather than decorative: the shared research
+    // slot means two ladders is two projects run one after the other, and a world that needs two
+    // ladders cannot be unblocked by any single purchase however cheap.
+    val ladders: Int get() = AdaptationTechnology.entries.count { levels.levelOf(it) > 0 }
+}
+
+private fun doorstepFor(world: World): Doorstep {
+    val levels = AdaptationLevels(
+        thermal = GalaxyBalance.levelThatTolerates(HostilityAxis.TEMPERATURE, world.traits.temperature.celsius),
+        gravitic = GalaxyBalance.levelThatTolerates(HostilityAxis.GRAVITY, world.traits.gravity.milliG),
+        atmospheric = GalaxyBalance.levelThatTolerates(HostilityAxis.PRESSURE, world.traits.pressure.milliAtm),
+    )
+    var priced = 0L
+    var minutes = 0L
+    for (ladder in AdaptationTechnology.entries) {
+        for (level in 1..levels.levelOf(ladder)) {
+            val cost = AdaptationBalance.adaptationCost(ladder, TechLevel(level))
+            priced += cost.metal + 2 * cost.crystal + 3 * cost.deuterium
+            minutes += AdaptationBalance.adaptationDuration(ladder, TechLevel(level), BuildingLevel(4)).inWholeMinutes
+        }
+    }
+    return Doorstep(
+        at = world.at,
+        levels = levels,
+        priced = priced,
+        minutes = minutes,
+        settleable = GalaxyBalance.yieldScore(world.traits).perMillion >= GalaxyBalance.WORTH_IT_THRESHOLD.perMillion,
+    )
+}
+
+// The cheapest neighbour in one seed's home system — cheapest by the bill rather than by the level
+// count, since a single Gravitic 4 and four levels spread over three ladders are the same number
+// and nothing like the same purchase.
+private fun doorstepOf(seed: GalaxySeed): Doorstep? {
+    val galaxy = GalaxyState.initial(seed)
+    return galaxy.surveyed
+        .filter { it != galaxy.home }
+        .mapNotNull { at -> worldAt(seed, at) }
+        .map(::doorstepFor)
+        .minByOrNull { it.priced }
+}
+
+private fun printDoorstepReport() {
+    val doorsteps = (0 until DOORSTEP_SEEDS).mapNotNull { index -> doorstepOf(GalaxySeed(SIM_GALAXY_SEED + index)) }
+
+    println("## The doorstep — what the home system offers on day one")
+    println()
+    println("$DOORSTEP_SEEDS seeds. For each, the **cheapest** non-home world of the home system:")
+    println("the adaptation levels that would take it out of `Blocked`, and what buying them from")
+    println("zero costs at 1 : 2 : 3 and takes at Robotics 4. This is the first galaxy interaction")
+    println("the game offers, so it is the one the opening is judged on.")
+    println()
+
+    println("| Levels to the cheapest neighbour | Seeds | Share |")
+    println("|---|---|---|")
+    for (levels in 0..5) {
+        val of = doorsteps.count { it.totalLevels == levels }
+        val label = if (levels == 0) "0 — already tolerable" else "$levels"
+        println("| $label | ${of.grouped()} | ${percent(of, doorsteps.size)} |")
+    }
+    val deep = doorsteps.count { it.totalLevels > 5 }
+    println("| 6 or more | ${deep.grouped()} | ${percent(deep, doorsteps.size)} |")
+    println()
+
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Median levels to the cheapest neighbour | **${doorsteps.map { it.totalLevels }.median()}** |")
+    println("| Median bill, priced 1:2:3 | **${doorsteps.map { it.priced }.median().grouped()}** |")
+    println("| Median research time at Robotics 4 | **${doorsteps.map { it.minutes }.median().asWait()}** |")
+    val oneLadder = doorsteps.count { it.ladders <= 1 }
+    println("| Cheapest neighbour needs one ladder only | ${percent(oneLadder, doorsteps.size)} |")
+    println("| ... needs two or three ladders | ${percent(doorsteps.size - oneLadder, doorsteps.size)} |")
+    val worthIt = doorsteps.count { it.settleable }
+    println("| ... and is Settleable rather than Barren once landed | ${percent(worthIt, doorsteps.size)} |")
+    println()
+
+    val withinOne = doorsteps.count { it.totalLevels <= 1 }
+    val withinTwo = doorsteps.count { it.totalLevels <= 2 }
+    val withinThree = doorsteps.count { it.totalLevels <= 3 }
+    println("Cumulative: **${percent(withinOne, doorsteps.size)}** of players can change a verdict in " +
+        "their own system for one adaptation level, ${percent(withinTwo, doorsteps.size)} for two, " +
+        "${percent(withinThree, doorsteps.size)} for three. The rest are asked for four or more " +
+        "before the Galaxy screen says anything different.")
+    println()
+
+    // How much room the rule has to work with — whether a system that qualifies is common enough
+    // that genesis can simply be told to start in one, and how far it has to walk to find it.
+    val seed = GalaxySeed(SIM_GALAXY_SEED)
+    var systems = 0
+    var habitable = 0
+    val withinLevels = IntArray(4)
+    for (galaxy in 1..GalaxyBalance.GALAXIES) {
+        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                .mapNotNull { slot -> worldAt(seed, GalaxyCoordinate(galaxy, system, slot)) }
+            if (worlds.isEmpty()) continue
+            systems++
+            val steps = worlds.map { doorstepFor(it).totalLevels }.sorted()
+            if (steps.first() != 0) continue
+            habitable++
+            // The second-cheapest world, because the cheapest is the one genesis would take as
+            // home — a habitable world cannot also be the neighbour it is measured against.
+            val neighbour = steps.drop(1).minOrNull() ?: continue
+            for (n in 1..3) if (neighbour <= n) withinLevels[n]++
+        }
+    }
+    println("Across seed ${seed.value}'s whole coordinate space, $systems of " +
+        "${(GalaxyBalance.GALAXIES * GalaxyBalance.SYSTEMS_PER_GALAXY).grouped()} systems hold a world at all, " +
+        "and ${percent(habitable, systems)} of those hold one the unaided species already tolerates — which is " +
+        "what genesis walks for. Of *those*:")
+    println()
+    println("| A system genesis would accept | Also holds a neighbour within | Systems | Share of habitable |")
+    println("|---|---|---|---|")
+    for (n in 1..3) {
+        println("| — | $n level${if (n == 1) "" else "s"} | ${withinLevels[n].grouped()} | " +
+            "${percent(withinLevels[n], habitable)} |")
+    }
+    println()
 }
 
 // The four worlds the player can actually see on day one. Every other world on the Galaxy screen

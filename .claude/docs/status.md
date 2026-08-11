@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.5.0)
+Updated: 2026-08-11 (0.5.1)
 
 ## Landed
 
@@ -255,6 +255,39 @@ Updated: 2026-08-10 (0.5.0)
   currently un-settleable. Also open: whether the section label should follow the row's width-aware
   name (implemented) or always use the short one, which is the one place frame E disagrees with
   frames A–D.
+- **0.5.1 the doorstep** — Davide, on the shipped build: *"Galaxy interactions are too tough in the
+  early game ... I needed 2 day to get robotics to level 4, and now I need to upgrade at least 4
+  adaptations for the easier planet."* Both halves reproduced without anything having to be found;
+  what had to be found was whether his home system was bad luck. **It was better than average.** The
+  new `printDoorstepReport` sweeps 1,000 seeds instead of hours — the first report in the harness
+  that measures the *opening* rather than the map — and the median home system asked for **seven**
+  adaptation levels across two ladders, 54,242 resources and 39 hours of the one shared research
+  slot before any row on the Galaxy screen would say something different. 78% were asked for four or
+  more; **9.36%** could act for one level.
+  **The wall was the sample, not the map.** §9's payoff — each level roughly doubles the settleable
+  count — is galaxy-wide, and genesis surveys ~4.75 worlds. So the fix is the one lever aimed at the
+  opening that cannot disturb a distribution: **`homeFor` now takes the first tolerable world in a
+  system that also holds a neighbour one adaptation level away**, keeping the best it has seen and
+  crossing into other galaxies only once the seeded one is read whole (0.50% of systems qualify, so
+  one galaxy finds one 77% of the time). No world's traits change, no `GalaxyBalance` number moves,
+  and the sim's whole-space distribution table is identical before and after. After: **99.8%** of a
+  thousand swept seeds open a neighbour for one adaptation level, at 480 priced and 18 minutes.
+  The first draft walked a flat index and therefore left the seeded galaxy 50% of the time against
+  22% — a promise that lived in a comment and nowhere else, caught by an adversarial read of the diff
+  rather than by the suite, and now pinned by `a colony opens in the galaxy its seed names`.
+  **And `AdaptationBalance.GATE` 4 → 2**, which round 12 pre-authorised in as many words: hour 33
+  becomes hour 12, and median *kinds* of action offered in the opening goes 3 → 4, which rounds 8 and
+  12 each concluded no number in `PlaceholderBalance` could reach.
+  **It is not a guarantee of a *good* neighbour** and the measurement is the proof: the doorstep world
+  reads `Settleable` 28.1% of the time against 51.2% for the neighbour a player used to get, because
+  a world one level outside one band sits near the middle of the other two. `fleet-sheet.md`'s
+  rejected option (b) is reckoned with beside itself rather than only in the log. Seed 20260807's home
+  moved 3:165 → 3:171, which took the golden save, eleven `GalaxyUiStateTest` assertions, the shell's
+  `AdaptationBehaviourTest` and the galaxy baselines with it — **no installed colony moved**, because
+  home has been stored since schema 4 and no migration recomputes it. See `decisions.md` and
+  `balance-log.md` round 18.
+
+
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
@@ -305,6 +338,21 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
+- **0.5.1's screenshot baselines have not been recorded**, and the branch is red until they are.
+  Moving where genesis starts a colony redraws every galaxy frame derived from the real generator —
+  `galaxy_home_system`, `galaxy_unsurveyed` and the six probe frames built on them — and the gate
+  coming down changes one string on three research frames. `TestGalaxyUiState`'s own header says this
+  is the correct outcome (*"a change that moves these numbers is a design decision that should redraw
+  the images"*), and `decisions.md` settled in 2026-08-06 that **the agent dispatches the Record job
+  itself** rather than leaving a red check. The one thing that cannot be done ahead of time is the
+  dispatch: `record-screenshots.yml` takes a **pull request number**, so the recording cannot precede
+  the PR. Whoever opens it runs `gh workflow run record-screenshots.yml -f pr=<number>` and reads the
+  before/after images the job posts — that comment is where "this visual change is intended" actually
+  gets decided, and here it is a re-photograph of a system nobody redesigned.
+- **`iosApp/project.yml` is bumped to 0.5.1 and the generated project is not regenerated** — no
+  macOS in a cloud session. `ci_pre_xcodebuild.sh` rewrites `MARKETING_VERSION` from the catalogue on
+  every Xcode Cloud build, so nothing ships mislabelled; a local session runs `xcodegen generate` in
+  passing. Per `session-roles.md` this is a tidy-up rather than a hand-off.
 - **THE NEXT THING TO BUILD: the screens the fleet already has a design for.** `core` landed at
   0.3.0 and nothing a player can reach changed. Claude Design has ruled on all three surfaces and the
   frames are archived at [`design/fleet-screens.dc.html`](design/fleet-screens.dc.html) — the world

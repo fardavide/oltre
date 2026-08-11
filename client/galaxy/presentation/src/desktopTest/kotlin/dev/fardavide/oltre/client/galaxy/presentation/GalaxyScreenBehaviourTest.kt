@@ -84,11 +84,11 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `the home system shows its four worlds and nothing for the eleven empty slots`() {
+    fun `the home system shows its seven worlds and nothing for the eight empty slots`() {
         galaxyScreen(uiState = homeSystemUiState) {
             assertTheMapIsDrawn()
-            listOf(7, 8, 10, 13).forEach { assertShowsWorld(it) }
-            listOf(1, 2, 3, 4, 5, 6, 9, 11, 12, 14, 15).forEach { assertShowsNoWorld(it) }
+            listOf(1, 2, 4, 7, 8, 10, 11).forEach { assertShowsWorld(it) }
+            listOf(3, 5, 6, 9, 12, 13, 14, 15).forEach { assertShowsNoWorld(it) }
         }
     }
 
@@ -99,10 +99,10 @@ class GalaxyScreenBehaviourTest {
         // The unit is cut off each expectation because the mapper joins it with a non-breaking
         // space, which is invisible in a diff and would make these read as flaky.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(8, "gravity 1.78, you tolerate 1.40")
-            assertRowReads(8, "Gravitic 4")
-            assertRowReads(8, "temperature −40, you tolerate −30")
-            assertRowReads(8, "Thermal 1")
+            assertRowReads(11, "gravity 1.48, you tolerate 1.40")
+            assertRowReads(11, "Gravitic 1")
+            assertRowReads(11, "temperature −141, you tolerate −30")
+            assertRowReads(11, "Thermal 8")
         }
     }
 
@@ -111,10 +111,10 @@ class GalaxyScreenBehaviourTest {
         // Temperature, gravity, pressure — the order section 1 lists them in, not the size of the
         // gap, so the third line is in the same place on every three-axis world.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(13, "temperature −196")
-            assertRowReads(13, "gravity 1.61")
-            assertRowReads(13, "pressure 3.17")
-            assertRowReads(13, "Atmospheric 1")
+            assertRowReads(1, "temperature +135")
+            assertRowReads(1, "gravity 1.53")
+            assertRowReads(1, "pressure 5.23")
+            assertRowReads(1, "Atmospheric 3")
         }
     }
 
@@ -122,11 +122,11 @@ class GalaxyScreenBehaviourTest {
     fun `the technology drops the word Adaptation that Research spells out`() {
         // Same object, two strings, and the reason is width: all three technologies end in the
         // same word, so it carries nothing and costs eleven characters this row does not have.
-        // Scoped to the row, because "Gravitic" appears on all three of the home system's blocked
-        // worlds — at three different levels, which is itself the shopping list working.
+        // Scoped to the row, because "Gravitic" appears on all five of the home system's blocked
+        // worlds — at four different levels, which is itself the shopping list working.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(8, "Gravitic 4")
-            assertRowReads(10, "Gravitic 3")
+            assertRowReads(1, "Gravitic 2")
+            assertRowReads(2, "Gravitic 7")
             assertNothingReads("Gravitic Adaptation")
         }
     }
@@ -138,9 +138,9 @@ class GalaxyScreenBehaviourTest {
         // luck. The yield beside it is what makes the count mean something — this world clears the
         // bar, and only the technology stands between.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(8, "yield 1.05")
-            assertRowReads(8, "Fails 2 of 3 bands, worth it at 0.92")
-            assertRowReads(13, "Fails 3 of 3 bands, worth it at 0.92")
+            assertRowReads(11, "yield 1.06")
+            assertRowReads(11, "Fails 2 of 3 bands, worth it at 0.92")
+            assertRowReads(1, "Fails 3 of 3 bands, worth it at 0.92")
         }
     }
 
@@ -163,7 +163,7 @@ class GalaxyScreenBehaviourTest {
         var opened = 0
 
         galaxyScreen(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
-            tapTheRemedy(slot = 8, technology = AdaptationTechnology.GRAVITIC)
+            tapTheRemedy(slot = 11, technology = AdaptationTechnology.GRAVITIC)
         }
 
         assertEquals(1, opened)
@@ -176,7 +176,7 @@ class GalaxyScreenBehaviourTest {
         var opened = 0
 
         galaxyScreen(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
-            tapTheWorld(slot = 8)
+            tapTheWorld(slot = 11)
         }
 
         assertEquals(0, opened)
@@ -253,16 +253,16 @@ class GalaxyScreenBehaviourTest {
         // 320dp is narrower than any phone and reachable since the app became a real iPad app. The
         // blocked card grows by a line rather than dropping one, and no string changes.
         galaxyScreen(uiState = homeSystemUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(13, "temperature −196, you tolerate −30")
-            assertRowReads(13, "Atmospheric 1")
+            assertRowReads(1, "temperature +135, you tolerate +45")
+            assertRowReads(1, "Atmospheric 3")
             // The header drops the trailing noun rather than letting an ellipsis eat it: at 320dp
-            // "DIM · 4 WORLDS" does not fit, and "DIM · 4 WO…" is the layout admitting defeat.
-            assertReads("DIM · 4")
-            assertNothingReads("DIM · 4 WORLDS")
+            // "DIM · 7 WORLDS" does not fit, and "DIM · 7 WO…" is the layout admitting defeat.
+            assertReads("DIM · 7")
+            assertNothingReads("DIM · 7 WORLDS")
         }
         // and it keeps the noun wherever there is room for it
         galaxyScreen(uiState = homeSystemUiState, width = PHONE_WIDTH) {
-            assertReads("DIM · 4 WORLDS")
+            assertReads("DIM · 7 WORLDS")
         }
     }
 

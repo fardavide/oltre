@@ -1,16 +1,21 @@
 package dev.fardavide.oltre.client
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -27,7 +32,7 @@ class AdaptationBehaviourTest {
 
     @Test
     fun `buying the ladder a blocked world names opens that world up`() {
-        // given a colony one pressure band short of the best world in its home system
+        // given a colony one pressure band short of the richest world in its home system
         val game = TestGame(initial = onePressureBandShort(), start = EPOCH)
 
         game(game) {
@@ -43,26 +48,27 @@ class AdaptationBehaviourTest {
             // and the tab that opens is already showing the ladder, with no scrolling to do
             assertReads("ADAPTATION")
             assertReads("the same slot")
-            assertReads("0.5 … 2.6")
+            // The band the empire already holds, two levels wide of the unaided 0.5 … 2.6.
+            assertReads("0.38 … 4.4")
 
             startTheOnlyProjectOffered()
 
-            // the ladder still takes real time, so nothing lands early. Atmospheric 1 is 18
-            // minutes at this colony's Robotics 4 — the sheet's 240 carrying an opening discount
+            // the ladder still takes real time, so nothing lands early. Atmospheric 3 is 6h 22m at
+            // this colony's Robotics 4 — the sheet's 240 a level, carrying the opening discount
             // that went to a tenth at 0.2.7 — so ten minutes in it is still running and the world
-            // still reads as blocked. Half an hour would now be past the end of it.
+            // still reads as blocked.
             letTimePass(by = 10.minutes)
             open(OltreTab.GALAXY)
             assertReads(REMEDY)
 
             // then, once it completes, the same world reads differently without a survey or a fleet
-            letTimePass(by = 1.hours)
+            letTimePass(by = 7.hours)
             assertReads(HOME_SYSTEM_BEST)
-            // The yield rather than the verdict word: two worlds read SETTLEABLE once the empire
-            // has climbed this far, and 1.23 is this one's. Slot 10 is still blocked on pressure
-            // and still wants Atmospheric 9, so the remedy string leaving the screen is this
-            // world's verdict changing rather than the whole system's.
-            assertReads("yield 1.23")
+            // The yield rather than the verdict word, because it names *which* world moved. Slot 10
+            // is still blocked on pressure and still wants Atmospheric 4 — one level further out —
+            // so the remedy string leaving the screen is this world's verdict changing rather than
+            // the whole system's.
+            assertReads("yield 1.17")
             assertNothingReads(REMEDY)
         }
     }
@@ -78,31 +84,45 @@ class AdaptationBehaviourTest {
             startTheOnlyProjectOffered()
 
             // the countdown is the row's, and no row on either side of the seam offers to start
-            assertReads("→ LV 1")
+            assertReads("→ LV 3")
             assertNothingOffersResearch()
         }
     }
 
-    // Seed 20,260,807's home system, which the galaxy suite already reads: slot 13 fails all three
-    // bands at genesis and wants Thermal 12, Gravitic 2 and Atmospheric 1. An empire that has
-    // climbed the first two is blocked on pressure alone, so exactly one purchase lands it — and
-    // the applied levels are deep enough that their next steps are unaffordable, which leaves the
-    // colony able to pay for precisely one project. That is the sting the sheet asks for, arranged
-    // so the test can name it.
+    // Seed 20,260,807's home system, which the galaxy suite already reads. **The levels and the
+    // funding are derived from the target world rather than written out**, because 0.5.1 moved
+    // where genesis starts a colony and this fixture had four hand-typed numbers that all had to
+    // agree with each other and with a world none of them named. Derived, the arrangement states
+    // itself: climb every axis of `TARGET` except pressure, stop one level short of that, and hold
+    // exactly the price of the level that would close it.
+    //
+    // What the arrangement buys is that **precisely one project is affordable**. The last
+    // adaptation level of a ×1.5 ladder is dear enough that the two ladders not being climbed and
+    // all three applied technologies are out of reach at the same stock — Gravitic's next step is
+    // metal-heavy where Atmospheric's is crystal-heavy, which is the cost table's own design doing
+    // the work. That is the sting the sheet asks for, arranged so the test can name it.
     private fun onePressureBandShort(): GameState {
         val fresh = GameState.initial(GalaxySeed(20_260_807))
+        val traits = checkNotNull(worldAt(fresh.galaxy.seed, TARGET)) { "the target world must exist" }.traits
+        val pressureLevel = GalaxyBalance.levelThatTolerates(HostilityAxis.PRESSURE, traits.pressure.milliAtm)
+        val price = AdaptationBalance.adaptationCost(AdaptationTechnology.ATMOSPHERIC, TechLevel(pressureLevel))
         return fresh.copy(
-            // Exactly Atmospheric 1's price, and under every other row's. A third of the
-            // sheet's 850 / 1,600 / 250 since the opening discount reached this branch — the
-            // fixture is deliberately exact, so it follows the price rather than over-funding.
-            resources = Resources.of(metal = 283, crystal = 533, deuterium = 83),
+            resources = Resources.of(metal = price.metal, crystal = price.crystal, deuterium = price.deuterium),
             buildings = Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(4)),
             research = Research.initial()
                 .withLevel(Technology.PHOTOVOLTAICS, TechLevel(5))
                 .withLevel(Technology.EXTRACTION, TechLevel(5))
                 .withLevel(Technology.ENRICHMENT, TechLevel(4))
-                .withLevel(AdaptationTechnology.THERMAL, TechLevel(12))
-                .withLevel(AdaptationTechnology.GRAVITIC, TechLevel(4)),
+                .withLevel(
+                    AdaptationTechnology.THERMAL,
+                    TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.TEMPERATURE, traits.temperature.celsius)),
+                )
+                .withLevel(
+                    AdaptationTechnology.GRAVITIC,
+                    TechLevel(GalaxyBalance.levelThatTolerates(HostilityAxis.GRAVITY, traits.gravity.milliG)),
+                )
+                // One short, which is the whole fixture.
+                .withLevel(AdaptationTechnology.ATMOSPHERIC, TechLevel(pressureLevel - 1)),
         )
     }
 
@@ -110,10 +130,13 @@ class AdaptationBehaviourTest {
 
         val EPOCH = Instant.fromEpochMilliseconds(0)
 
-        // The coldest world in the home system, and the richest thing the seed puts within reach.
-        const val HOME_SYSTEM_BEST = "[3:165:13]"
+        // The hottest world in the home system, and the richest thing the seed puts within reach:
+        // it fails all three bands at genesis and wants Thermal 7, Gravitic 2 and Atmospheric 3.
+        val TARGET = GalaxyCoordinate(galaxy = 3, system = 171, slot = 1)
 
-        // Unique on the screen: slot 10 is blocked on pressure too, but wants Atmospheric 9.
-        const val REMEDY = "Atmospheric 1"
+        const val HOME_SYSTEM_BEST = "[3:171:1]"
+
+        // Unique on the screen: slot 10 is blocked on pressure too, but wants Atmospheric 4.
+        const val REMEDY = "Atmospheric 3"
     }
 }
