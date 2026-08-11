@@ -2415,3 +2415,45 @@ have opposite costs:
   session.
 
 Davide's call. Nothing here has been changed on the strength of it.
+
+#### And then the horizon was measured, which changed the answer
+
+The addendum above stopped at a fortnight and concluded *"the sink is missing"*. That was the right
+reading of the data it had and the wrong answer to Davide's question, and the correction is worth
+recording rather than quietly overwriting, because the mistake is a general one: **a diagnosis drawn
+from the window you happen to have measured is a diagnosis about the window.**
+
+`[horizon]` runs the same fixed player out to ninety days — the unit the question was actually asked
+in.
+
+| day | levels | mine | income/h | metal | placed |
+|---|---|---|---|---|---|
+| 7 | 59 | 14 | 4,856 | 56,298 | 74% |
+| 14 | 80 | 18 | 12,785 | 244,037 | 76% |
+| 30 | 106 | 23 | 54,615 | 2,090,612 | 72% |
+| 60 | 131 | 27 | 224,908 | 9,081,491 | 79% |
+| 90 | 149 | 30 | 574,224 | 7,210,828 | **94%** |
+
+Two things fall out, and the second overrules the first.
+
+**The sink problem does largely fix itself.** Placement climbs from 74% to 94% as the Nanite Factory
+and the deeper levels arrive — so the fortnight's 76% was a reading of an early game with too few
+rows to buy, not a permanent defect. A fleet a player could actually purchase would close most of
+what is left.
+
+**And it does not matter, because the scale is the finding.** At ninety days the colony places 94% of
+its metal and still banks **7.2 million** of it, on an income of 574,224 priced units an hour.
+Davide's expectation for three to four months was 56,000 — which this game reaches on **day 7**. That
+is not a factor of two or three that a sink absorbs; the three-month figure is roughly **130x** what
+he expected to see, and the day-7 figure is already the whole of it.
+
+So the earlier framing — *"either the sink is missing or the arc is too fast"* — was a false choice
+presented as an open one. Both are true, they are not comparable in size, and only the second is
+worth a round. The arithmetic underneath it is the one relationship this file has never moved: cost
+compounds at **+50%** a level and production at **+25%**, so income per level outruns nothing and the
+*number of levels* is what the clock buys — 16 further mine levels between day 7 and day 90 multiply
+income 118x. Stretching the arc means widening that gap, and round 11 tied build duration to the
+**root of cost** precisely because of it, so nothing here can be moved without re-deriving that.
+
+**Still Davide's call, and now with the real number attached rather than a fortnight's.** Nothing has
+been changed.

@@ -163,5 +163,13 @@ internal object BalanceBenchmarkGolden {
           station time                                    5h 34m
           one skiff brings home                           115 metal
           as hours of a genesis colony's metal            1.27h
+
+        [horizon] the same fixed player, out to 90 days
+        day                                               levels     mine   income/h         metal     placed
+          day 7                                              59       14       4856         56298     74.00%
+          day 14                                             80       18      12785        244037     76.00%
+          day 30                                            106       23      54615       2090612     72.00%
+          day 60                                            131       27     224908       9081491     79.00%
+          day 90                                            149       30     574224       7210828     94.00%
     """.trimIndent()
 }

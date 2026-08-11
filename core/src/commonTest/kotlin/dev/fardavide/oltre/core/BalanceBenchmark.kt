@@ -60,6 +60,7 @@ internal object BalanceBenchmark {
         section(adaptation())
         section(galaxy())
         section(fleet())
+        section(horizon())
     }.trimEnd()
 
     // ── [opening] the landmarks, as a clock ──────────────────────────────────────────────────
@@ -354,6 +355,44 @@ internal object BalanceBenchmark {
         add(row("  as hours of a genesis colony's metal", ratio(cargo.metal, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))) + "h"))
     }
 
+    // ── [horizon] where the curves actually put a colony at three months ────────────────────
+    //
+    // Davide, on the fortnight's numbers: *"56k on Metal in one week seems extreme, I would expect
+    // that number in 3/4 months."* This section is that sentence turned into a measurement rather
+    // than an argument — it says where the curves as they stand put a colony at one, two and three
+    // months, so the question *how far off is this from what I wanted* has an answer with digits.
+    //
+    // It exists because a fortnight cannot answer it. A cost curve compounding at +50% against
+    // production compounding at +25% flattens on its own, and how much it flattens is exactly what
+    // decides whether the game needs re-scaling or a sink. Read `mine` against `metal`: the levels
+    // slow down and the bank does not, which is the shape of a missing sink rather than a fast game.
+    private fun horizon(): List<String> = buildList {
+        val run = colony(days = HORIZON_DAYS)
+        add("[horizon] the same fixed player, out to $HORIZON_DAYS days")
+        add(row("day", "levels     mine   income/h         metal     placed"))
+        for (day in listOf(7, 14, 30, 60, HORIZON_DAYS)) {
+            val state = run.at(day * 24) ?: continue
+            val levels = BuildingType.entries.sumOf { state.buildings.levelOf(it).value }
+            var made = 0L
+            var used = 0L
+            for (hour in 0..(day * 24)) {
+                val opened = run.arrivals[hour].resources.metal
+                used += opened - run.states[hour].resources.metal
+                if (hour > 0) made += opened - run.states[hour - 1].resources.metal
+            }
+            add(
+                row(
+                    "  day $day",
+                    levels.toString().padStart(5) +
+                        state.buildings.metalMine.value.toString().padStart(9) +
+                        priced(income(state)).toString().padStart(11) +
+                        state.resources.metal.toString().padStart(14) +
+                        percent((used * 100 / maxOf(made, 1)).toInt(), 100).padStart(11),
+                ),
+            )
+        }
+    }
+
     // ── the instruments ─────────────────────────────────────────────────────────────────────
 
     // One fixed player: every hour, buy the cheapest facility you can afford, then fill the research
@@ -387,9 +426,17 @@ internal object BalanceBenchmark {
         return Run(arrivals, states)
     }
 
+    // The two caps are guarded rather than assumed: `upgradeCost` is only defined to level 40 and
+    // `TechLevel` refuses anything past its own maximum, and a ninety-day run reaches neither in the
+    // fortnight the rest of this page measures but would walk straight into both without this.
+    private fun buyable(state: GameState, building: BuildingType): Boolean =
+        next(state, building).value <= MAX_BUILDING_LEVEL
+
     private fun spend(from: GameState, now: Instant): GameState {
         var state = from
-        for (building in OPENING_PLAN.sortedBy { priced(PlaceholderBalance.upgradeCost(it, next(from, it))) }) {
+        for (building in OPENING_PLAN.filter { buyable(from, it) }
+            .sortedBy { priced(PlaceholderBalance.upgradeCost(it, next(from, it))) }) {
+            if (!buyable(state, building)) continue
             val cost = PlaceholderBalance.upgradeCost(building, next(state, building))
             if (!state.resources.covers(cost)) continue
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
@@ -398,8 +445,10 @@ internal object BalanceBenchmark {
         // Both branches, cheapest first, so the ladder is bought when it is the better buy rather
         // than because a policy preferred it. A benchmark that always pushed the applied branch
         // would never notice the adaptation branch drifting out of reach.
-        val applied = Technology.entries.map { it to priced(ResearchBalance.researchCost(it, nextTech(state, it))) }
-        val ladders = AdaptationTechnology.entries.map { it to priced(AdaptationBalance.adaptationCost(it, nextTech(state, it))) }
+        val applied = Technology.entries.filter { nextTech(state, it).value <= TechLevel.MAX }
+            .map { it to priced(ResearchBalance.researchCost(it, nextTech(state, it))) }
+        val ladders = AdaptationTechnology.entries.filter { nextTech(state, it).value <= TechLevel.MAX }
+            .map { it to priced(AdaptationBalance.adaptationCost(it, nextTech(state, it))) }
         for ((project, _) in (applied + ladders).sortedBy { it.second }) {
             val started = when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)?.state
@@ -601,6 +650,13 @@ internal object BalanceBenchmark {
     // Two weeks, because one is not long enough to show progression flattening and a month makes
     // this page slower than every other test in the module put together.
     private const val LONG_HORIZON_DAYS: Int = 14
+
+    // A quarter, because that is the unit the question was asked in. It is the most expensive figure
+    // on the page — 2,161 hourly steps — and still cheap next to the galaxy sweep above it.
+    private const val HORIZON_DAYS: Int = 90
+
+    // `PlaceholderBalance.upgradeCost` is only defined this deep; past it the curve leaves Long.
+    private const val MAX_BUILDING_LEVEL: Int = 40
 
     // Enough for a share to be stable to about a point; genesis walks its galaxy once per seed, so
     // this is the most expensive figure on the page.
