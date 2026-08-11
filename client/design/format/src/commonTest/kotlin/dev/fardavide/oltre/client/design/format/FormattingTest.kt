@@ -153,4 +153,33 @@ class FormattingTest {
     fun `a trimmed milli quantity carries its sign`() {
         assertEquals("−0.5", (-500).milliTrimmed())
     }
+
+    // ── Payback ──────────────────────────────────────────────────────────────────────────────
+
+    // The shortest payback in the game is the one the research branch is sold on. An hours-only
+    // format would print it as "1h" and delete the difference between it and the mine beside it.
+    @Test
+    fun `a payback under a day keeps its minutes`() {
+        assertEquals("1h 42m", (1.hours + 42.minutes).toPaybackLabel())
+        assertEquals("42m", 42.minutes.toPaybackLabel())
+    }
+
+    @Test
+    fun `a payback of a day or more is whole hours`() {
+        assertEquals("102h", 102.hours.toPaybackLabel())
+        assertEquals("24h", (24.hours + 30.minutes).toPaybackLabel())
+    }
+
+    // The boundary itself, stated: the last minute of the first day still carries its minutes.
+    @Test
+    fun `the day boundary is where the minutes stop mattering`() {
+        assertEquals("23h 59m", (23.hours + 59.minutes).toPaybackLabel())
+    }
+
+    // There is no day unit anywhere in the app and this is the format most tempted by one. Hours
+    // stay comparable against each other; "4d 6h" against "1h 42m" does not.
+    @Test
+    fun `a payback of several days is still written in hours`() {
+        assertEquals("186h", 186.hours.toPaybackLabel())
+    }
 }

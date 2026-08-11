@@ -1,24 +1,42 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.RowSheetUiState
+import dev.fardavide.oltre.client.design.component.SheetAction
+import dev.fardavide.oltre.client.design.component.SheetFooter
+import dev.fardavide.oltre.client.design.component.SheetLadderStep
+import dev.fardavide.oltre.client.design.component.SheetLine
+import dev.fardavide.oltre.client.design.component.SheetPointer
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.figure
+import dev.fardavide.oltre.client.design.component.sheetLine
+import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.DeepBuildRelief
 import dev.fardavide.oltre.core.EnergyBalance
+import dev.fardavide.oltre.core.Gate
+import dev.fardavide.oltre.core.GateSubject
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.LevelPurpose
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.WatchTarget
+import dev.fardavide.oltre.core.deepBuildRelief
+import dev.fardavide.oltre.core.gatesOf
+import dev.fardavide.oltre.core.purposeOfNextLevel
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.math.abs
@@ -98,6 +116,15 @@ data class FacilityRowUiState(
     // locked one has no price yet, and a row whose binding resource has no net income never reaches
     // its price at all. See `WatchUiState`.
     val watch: WatchUiState?,
+    // What one more level is worth to *this* colony now, in the slot the adaptation ladder has spent
+    // on its shortlist since that line shipped. Null in the two states where nobody is choosing: a
+    // row in flight, where the decision was made when the player tapped the action and the slot
+    // belongs to the countdown, and a row at its ceiling, where there is no level left to price.
+    val verdict: VerdictUiState?,
+    // Everything the sheet says that the row does not already say. The rest of `RowSheetUiState` is
+    // assembled from this row — see `toRowSheetUiState` — which is what keeps the sheet a second
+    // rendering of a state the screen already holds rather than a second state.
+    val detail: FacilityDetailUiState,
     // True on at most one row, and only for the first couple of seconds after a launch: this is the
     // upgrade that landed while the app was closed. The row answers it with a band of light crossing
     // the card once and a level badge that changes behind the band.
@@ -106,6 +133,18 @@ data class FacilityRowUiState(
     // row rather than on the action: the same colony rendered a minute later has the same levels and
     // nothing to announce.
     val finishedWhileAway: Boolean,
+)
+
+// The three things a row cannot say in one clause: the arithmetic behind a verdict that reads
+// "nothing", the ladder of what the level gates, and the row worth reading instead.
+//
+// Held as design-system types rather than as prose, for the reason `SheetLine` states next door — a
+// mapper's test can assert the figures without parsing anything, and what "picked out" looks like
+// stays the component's business.
+data class FacilityDetailUiState(
+    val lines: List<SheetLine>,
+    val ladder: List<SheetLadderStep>,
+    val pointer: SheetPointer?,
 )
 
 sealed interface FacilityActionUiState {
@@ -228,6 +267,7 @@ private fun GameState.toFacilityRow(
     // because there is no instant to book. Computed once so the two cannot disagree.
     val untilAffordable = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() }
     val waiting = job == null && !locked && short.isNotEmpty()
+    val purpose = purposeOfNextLevel(building)
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
@@ -246,6 +286,34 @@ private fun GameState.toFacilityRow(
         ).toChipLabel(),
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
+        // The locked row is the one that does not price its next level: the Nanite Factory's whole
+        // argument has to read while the building is still twelve days out, so it is about the shape
+        // of the curve rather than about the level after this one.
+        verdict = when {
+            job != null -> null
+            locked -> deepBuildRelief().toVerdict()
+            else -> purpose.toVerdict(building = building, level = level)
+        },
+        detail = FacilityDetailUiState(
+            lines = sheetLines(
+                building = building,
+                purpose = purpose,
+                energy = energy,
+                level = level,
+                locked = locked,
+                running = job != null,
+            ),
+            ladder = gatesOf(building).toLadder(level),
+            // The answer to "then what", and only the two rows that have not answered it themselves
+            // need one: a locked row points at what moves its gate, and a row worth nothing points
+            // at the row worth the most.
+            pointer = when {
+                job != null -> null
+                locked -> gatePointer()
+                purpose is LevelPurpose.Inert -> bestBuyPointer(excluding = building)
+                else -> null
+            },
+        ),
         finishedWhileAway = finishedWhileAway,
         // Three cases, and the row's own state picks between them. A job in flight can be asked
         // about its completion, a row waiting on its stores about its price, and everything else —
@@ -277,6 +345,375 @@ private fun GameState.toFacilityRow(
         },
     )
 }
+
+// ── What a level is worth, and the sheet that shows the working ──────────────────────────────
+//
+// `core` computes the verdict and this file writes the sentence, exactly as the power indicator
+// already works: every member of `LevelPurpose` is a number or a duration, and which words go round
+// it is the screen's business — the same fact reads differently on a plant and on a mine.
+//
+// Colony and Research speak one dialect here on purpose. Where a string below looks like it could be
+// worded better, the answer is that the other screen says it too, and one sentence read twice is
+// what makes three rows comparable at a glance.
+
+// The full label is two clauses and the compact one is the first alone — dropped rather than
+// ellipsised, which is the same call the app already makes when it writes "Deuterium Synth.".
+// Nothing a dropped clause said is lost: the sheet repeats it.
+private fun LevelPurpose.toVerdict(
+    building: BuildingType,
+    level: BuildingLevel,
+): VerdictUiState? = when (this) {
+    is LevelPurpose.Output -> VerdictUiState(
+        label = "${gain()} · back in ${payback.toPaybackLabel()}",
+        compactLabel = gain(),
+    )
+    // Only ever the plant on this screen: every mine level raises the draw, so a mine that buys
+    // nothing is throttled rather than inert.
+    is LevelPurpose.Inert -> VerdictUiState(
+        label = "+${suppliesMore.groupedByThousands()} supply · draw already covered",
+        compactLabel = "+${suppliesMore.groupedByThousands()} supply",
+    )
+    // The delta is not small, it is negative — so the first clause is what the level costs the rest
+    // of the colony and the second is the plant level that would carry it.
+    is LevelPurpose.Throttled -> VerdictUiState(
+        label = "throttles every mine · Solar Plant $coveredAtPlantLevel covers it",
+        compactLabel = "throttles every mine",
+    )
+    is LevelPurpose.Sooner -> {
+        val saved = "−${(before - after).toChipLabel()} per build"
+        VerdictUiState(
+            label = gateClause(building, level)?.let { "$saved · $it" } ?: saved,
+            compactLabel = saved,
+        )
+    }
+    // Reached only at a ceiling, where the row has no upgrade to offer either.
+    LevelPurpose.Unmeasured -> null
+}
+
+private fun LevelPurpose.Output.gain(): String = "+${perHour.groupedByThousands()}/h ${kind.word()}"
+
+// Deliberately *not* about the next level of anything: this has to read while the building is
+// twelve days out and 42% dim, so it states the payoff instead of the saving.
+private fun DeepBuildRelief.toVerdict(): VerdictUiState = VerdictUiState(
+    label = "A ${unaided.toPaybackLabel()} build takes ${helped.toPaybackLabel()} at LV $naniteLevel",
+    compactLabel = "${unaided.toPaybackLabel()} builds take ${helped.toPaybackLabel()} at LV $naniteLevel",
+)
+
+// Lower case, because it is a word inside a sentence rather than a label on a chip.
+private fun ResourceKind.word(): String = when (this) {
+    ResourceKind.METAL -> "metal"
+    ResourceKind.CRYSTAL -> "crystal"
+    ResourceKind.DEUTERIUM -> "deuterium"
+}
+
+private fun GameState.sheetLines(
+    building: BuildingType,
+    purpose: LevelPurpose,
+    energy: EnergyBalance,
+    level: BuildingLevel,
+    locked: Boolean,
+    running: Boolean,
+): List<SheetLine> {
+    val lines = if (locked) lockedNaniteLines() else purpose.toLines(building, energy, level)
+    // A row in flight has already been decided about, so the sheet keeps the sentence that says what
+    // the level *is* and drops the arithmetic that was there to argue for it.
+    return if (running) lines.take(1) else lines
+}
+
+private fun LevelPurpose.toLines(
+    building: BuildingType,
+    energy: EnergyBalance,
+    level: BuildingLevel,
+): List<SheetLine> = when (this) {
+    // The plant is the one row where a gain is not what it looks like: what it raises is energy, and
+    // the rate it reads as is the deficit lifting off every mine.
+    is LevelPurpose.Output ->
+        if (building == BuildingType.SOLAR_PLANT) plantOutputLines(energy) else mineLines(level)
+    is LevelPurpose.Inert -> plantInertLines(energy)
+    is LevelPurpose.Throttled -> throttledLines()
+    is LevelPurpose.Sooner -> factoryLines(building, level)
+    LevelPurpose.Unmeasured -> emptyList()
+}
+
+private fun LevelPurpose.Output.mineLines(level: BuildingLevel): List<SheetLine> = listOf(
+    sheetLine(
+        words("Your colony makes "),
+        figure("${from.groupedByThousands()}/h"),
+        words(" ${kind.word()}. At LV ${level.value + 1} it makes "),
+        figure("${to.groupedByThousands()}/h"),
+        words("."),
+    ),
+    paybackLine(),
+)
+
+private fun LevelPurpose.Output.plantOutputLines(energy: EnergyBalance): List<SheetLine> = listOf(
+    sheetLine(
+        words("Your plants supply "),
+        figure(energy.produced.groupedByThousands()),
+        words(" energy. The colony draws "),
+        figure(energy.consumed.groupedByThousands()),
+        words(", so every mine is running at "),
+        figure("${energy.outputPercent}%"),
+        words("."),
+    ),
+    sheetLine(
+        words("This level lifts that, which is why it reads as "),
+        figure("+${perHour.groupedByThousands()}/h"),
+        words(" ${kind.word()} rather than as energy."),
+    ),
+    paybackLine(),
+)
+
+// Against everything the level costs rather than against the resource it hands back, because a mine
+// level is paid for in a basket of three and repaid in one.
+private fun LevelPurpose.Output.paybackLine(): SheetLine = sheetLine(
+    words("Counted against everything the level costs, you are even after "),
+    figure(payback.toPaybackLabel()),
+    words("."),
+)
+
+private fun LevelPurpose.Inert.plantInertLines(energy: EnergyBalance): List<SheetLine> = listOf(
+    sheetLine(
+        words("Your plants supply "),
+        figure(energy.produced.groupedByThousands()),
+        words(" energy. The colony draws "),
+        figure(energy.consumed.groupedByThousands()),
+        words("."),
+    ),
+    sheetLine(
+        words("Supply is not what is limiting you, so a level that adds "),
+        figure("+${suppliesMore.groupedByThousands()}"),
+        words(" changes no rate."),
+    ),
+    crossingLine(),
+)
+
+// When the level stops buying nothing, counted in the unit the power indicator already reports
+// headroom in. Spelled at one and dropped at none, because "1 more mine levels away" is not a
+// sentence and "0 more mine levels away" is a worse one.
+private fun LevelPurpose.Inert.crossingLine(): SheetLine = when (mineLevelsSpare) {
+    0L -> sheetLine(words("It starts to pay with the next mine level you take."))
+    1L -> sheetLine(
+        words("It starts to pay when draw passes supply — about "),
+        figure("one"),
+        words(" more mine level away."),
+    )
+    else -> sheetLine(
+        words("It starts to pay when draw passes supply — about "),
+        figure(mineLevelsSpare.groupedByThousands()),
+        words(" more mine levels away."),
+    )
+}
+
+private fun LevelPurpose.Throttled.throttledLines(): List<SheetLine> = listOf(
+    sheetLine(
+        words(
+            "The colony cannot power this level. Taking it would throttle every mine you have " +
+                "rather than raise anything.",
+        ),
+    ),
+    sheetLine(
+        words("A Solar Plant at LV "),
+        figure("$coveredAtPlantLevel"),
+        words(" carries the new draw. Build that first and this level becomes what it looks like."),
+    ),
+)
+
+private fun LevelPurpose.Sooner.factoryLines(
+    building: BuildingType,
+    level: BuildingLevel,
+): List<SheetLine> = listOf(
+    sheetLine(words(building.shortensWhat())),
+    sheetLine(
+        words("Your next ${on.displayName()} takes "),
+        figure(before.toChipLabel()),
+        words(". At ${building.displayName()} ${level.value + 1} it takes "),
+        figure(after.toChipLabel()),
+        words("."),
+    ),
+)
+
+// The two rows that raise no rate at all, and they are worth different kinds of thing: one shortens
+// everything a little, and the other is the only answer the game has to a wait measured in days.
+private fun BuildingType.shortensWhat(): String = when (this) {
+    BuildingType.NANITE_FACTORY ->
+        "Takes the late game's waits apart. It is the only thing in the game that shortens a deep build."
+    BuildingType.METAL_MINE,
+    BuildingType.CRYSTAL_MINE,
+    BuildingType.DEUTERIUM_SYNTHESIZER,
+    BuildingType.SOLAR_PLANT,
+    BuildingType.ROBOTICS_FACTORY,
+    ->
+        "Shortens every build on this colony and every research in the empire. " +
+            "It raises no output of its own."
+}
+
+// The one sheet in the game that is about a building the player cannot start, and the reason the row
+// is tappable while it is still dim: the third sentence is what turns the promise into a distance.
+private fun GameState.lockedNaniteLines(): List<SheetLine> {
+    val relief = deepBuildRelief()
+    val robotics = buildings.roboticsFactory.value
+    val toGo = PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT - robotics
+    return listOf(
+        sheetLine(words(BuildingType.NANITE_FACTORY.shortensWhat())),
+        sheetLine(
+            words("A level-${relief.level} Metal Mine takes "),
+            figure(relief.unaided.toPaybackLabel()),
+            words(" unaided. At ${relief.naniteLevel} Nanite levels it takes "),
+            figure(relief.helped.toPaybackLabel()),
+            words("."),
+        ),
+        sheetLine(
+            words("Your Robotics Factory is at "),
+            figure("$robotics"),
+            words(
+                ". ${if (toGo == 1) "One level" else "$toGo levels"} to go, " +
+                    "and the first Nanite level costs ",
+            ),
+            figure(
+                PlaceholderBalance.upgradeCost(BuildingType.NANITE_FACTORY, BuildingLevel(1))
+                    .metal.groupedByThousands(),
+            ),
+            words(" metal."),
+        ),
+    )
+}
+
+// ── What a level opens ───────────────────────────────────────────────────────────────────────
+//
+// The Robotics Factory is the only row on this screen that gates anything, and what it opens at one
+// level is never one thing: two technologies at 1, three ladders at 2, the Nanite Factory at 10. So
+// a group is described by what it holds rather than by naming its members — "LV 2 → adaptation" is a
+// clause a player can act on where three names in a row is a table.
+//
+// That is also why **no technology is named here**. What a technology is called belongs to the
+// screen that draws technologies, exactly as `watching` does, and no gate on this screen is a lone
+// project or ladder for it to have to name.
+private data class GateSummary(val short: String, val long: String)
+
+private fun List<GateSubject>.summarised(): GateSummary {
+    val facility = singleOrNull() as? GateSubject.Facility
+    return when {
+        facility != null -> GateSummary(
+            // "Nanite" rather than the row's own name, on the same measurement that shortens
+            // "Robotics Factory": a clause has room for one word here and the row has already
+            // spent the rest of its width.
+            short = if (facility.building == BuildingType.NANITE_FACTORY) {
+                "Nanite"
+            } else {
+                facility.building.displayName()
+            },
+            // The price is what makes a facility on a ladder different from a technology on one: a
+            // level that opens a 2,000-metal building has opened something you still have to buy.
+            long = "${facility.building.displayName()} · " + PlaceholderBalance
+                .upgradeCost(facility.building, BuildingLevel(1))
+                .metal.groupedByThousands() + " metal",
+        )
+        all { it is GateSubject.Ladder } ->
+            GateSummary(short = "adaptation", long = "the three adaptation ladders")
+        else -> GateSummary(short = "research", long = "applied research")
+    }
+}
+
+// The lowest gate the colony has not passed yet, which is the only one a verdict has room for.
+private fun gateClause(building: BuildingType, level: BuildingLevel): String? {
+    val ahead = gatesOf(building).filter { it.level > level.value }
+    val next = ahead.minOfOrNull { it.level } ?: return null
+    return "LV $next → ${ahead.filter { it.level == next }.map { it.opens }.summarised().short}"
+}
+
+// Every gate the row has, including the ones already passed — greyed, and said out loud, because it
+// is how you learn that gating is a thing this row does at all.
+private fun List<Gate>.toLadder(level: BuildingLevel): List<SheetLadderStep> = groupBy { it.level }
+    .map { (gateLevel, gates) ->
+        val held = gateLevel <= level.value
+        val opens = gates.map { it.opens }.summarised().long
+        SheetLadderStep(
+            level = "LV $gateLevel",
+            opens = if (held) "$opens · you have this" else opens,
+            held = held,
+        )
+    }
+
+// ── The row to look at instead ───────────────────────────────────────────────────────────────
+
+// What moves the gate under a locked row. One gate is locked on this screen and one row moves it,
+// which is the same pair the row's own "Requires Robotics 10" already names.
+private fun GameState.gatePointer(): SheetPointer {
+    val level = buildings.roboticsFactory
+    val toLevel = BuildingLevel(level.value + 1)
+    val wait = PlaceholderBalance.upgradeDuration(
+        BuildingType.ROBOTICS_FACTORY,
+        toLevel,
+        buildings.roboticsFactory,
+        buildings.naniteFactory,
+    )
+    return SheetPointer(
+        name = BuildingType.ROBOTICS_FACTORY.displayName(),
+        detail = "LV ${level.value} → ${toLevel.value} · ${wait.toChipLabel()}",
+    )
+}
+
+// The shortest payback on this screen, the row's own excluded — the comparison a player would make
+// by reading down the list, made for them on the one row that has nothing of its own to offer.
+private fun GameState.bestBuyPointer(excluding: BuildingType): SheetPointer? = BuildingType.entries
+    .filter { it != excluding }
+    .mapNotNull { building -> (purposeOfNextLevel(building) as? LevelPurpose.Output)?.let { building to it } }
+    .minByOrNull { (_, purpose) -> purpose.payback }
+    ?.let { (building, purpose) ->
+        SheetPointer(
+            name = building.displayName(),
+            detail = "LV ${buildings.levelOf(building).value + 1} · " +
+                "back in ${purpose.payback.toPaybackLabel()}",
+        )
+    }
+
+// ── The sheet, assembled from the row it came from ───────────────────────────────────────────
+//
+// Nothing new crosses the module boundary for this: the screen holds the row already, so the sheet
+// is derived where it is opened and `App` keeps the parameter list it has.
+fun FacilityRowUiState.toRowSheetUiState(): RowSheetUiState = RowSheetUiState(
+    // The full name, never the compact one — the sheet is the full width of the window.
+    name = name,
+    level = level.value,
+    verdict = sheetHeading(),
+    lines = detail.lines,
+    ladder = detail.ladder,
+    pointer = detail.pointer,
+    footer = when (val current = action) {
+        FacilityActionUiState.Upgrade -> SheetFooter(
+            costs = costs,
+            duration = duration,
+            action = SheetAction.Live("Upgrade"),
+        )
+        is FacilityActionUiState.AffordableIn -> SheetFooter(
+            costs = costs,
+            duration = duration,
+            action = SheetAction.Ghost(current.label),
+        )
+        // A locked row has no price yet and a running one has already been paid for. Both end on
+        // what to do about it instead.
+        is FacilityActionUiState.Locked,
+        is FacilityActionUiState.Upgrading,
+        -> null
+    },
+)
+
+// The sentence the player has just read on the row, repeated where the sheet answers a question they
+// still have in mind. It is the **compact** verdict when the sheet carries a ladder, because the
+// clause a narrow row drops is the ladder and the sheet is about to say it in full.
+private fun FacilityRowUiState.sheetHeading(): String = when (val current = action) {
+    is FacilityActionUiState.Locked -> current.reason
+    is FacilityActionUiState.Upgrading -> current.becomes()
+    FacilityActionUiState.Upgrade,
+    is FacilityActionUiState.AffordableIn,
+    -> verdict?.let { if (detail.ladder.isEmpty()) it.label else it.compactLabel }.orEmpty()
+}
+
+// The accent line a running row already carries, authored once and read twice: the card draws it in
+// the "→ becomes" slot and the sheet repeats it where the verdict would have been. A row that said
+// one thing and a sheet that said another would be the worst failure this pass has available.
+internal fun FacilityActionUiState.Upgrading.becomes(): String = "→ LV ${toLevel.value} · $doneAt"
 
 // The one line the watch adds to a card, and it is built like the line a running row already
 // carries — an arrow, a fact, in accent. **Relative on the right, absolute here**: the ghost says

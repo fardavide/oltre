@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.ResourceKind
@@ -72,6 +73,8 @@ class CompletionSweepBehaviourTest {
         power = null,
         fix = null,
         watch = null,
+        verdict = VerdictUiState(label = "+50 supply · draw already covered", compactLabel = "+50 supply"),
+        detail = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null),
         finishedWhileAway = true,
     )
 }

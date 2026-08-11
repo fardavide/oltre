@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-11 (0.5.1)
+Updated: 2026-08-11 (0.6.0)
 
 ## Landed
 
@@ -286,6 +286,17 @@ Updated: 2026-08-11 (0.5.1)
   `AdaptationBehaviourTest` and the galaxy baselines with it — **no installed colony moved**, because
   home has been stored since schema 4 and no migration recomputes it. See `decisions.md` and
   `balance-log.md` round 18.
+- **0.6.0 every row says what the level is worth, and the row opens.** Claude Design's *Row Purpose*
+  sheet (direction 1b, with 1c's gate ladder in the sheet), implemented across both screens. `core`
+  gained `LevelPurpose` — what one more level does to this colony's income, in four cases — and
+  `Gates`, which inverts the game's four requirement facts rather than restating them, so a gate that
+  moves in the balance moves on the screen with it. `:client:design:component` gained `RowVerdict` and
+  `RowSheet`, the app's first player-facing overlay. **No balance number moved**; the whole slice is a
+  reading of numbers that were already there. Three things in `decisions.md` are worth knowing before
+  touching it: payback is priced at the game's 1 : 2 : 3 and the design's reason not to did not
+  survive the code, `LevelPurpose.Throttled` is a fourth case the frames have no frame for and the
+  opening deals it on day one, and the Nanite Factory's relief is quoted at the gate rather than at
+  the reader.
 
 
 ## Roadmap — v1 in vertical slices
@@ -375,7 +386,16 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   clause only runs at genesis, so it cannot reach anyone already playing — his own colony still opens
   on a five-level neighbour where the same seed would now give a one-level one. Nothing is built
   off-world yet, so moving `home` costs a surveyed set and a player's bearings and nothing else.
-- **0.5.1's screenshot baselines have not been recorded**, and the branch is red until they are.
+- ~~**0.5.1's screenshot baselines have not been recorded**~~ — cleared when 0.5.1 merged. The
+  paragraph below is kept because the *procedure* in it is the standing one, and 0.6.0 followed a
+  different branch of it: a local session on macOS records with `./gradlew recordRoborazziDesktop`
+  and never needs the dispatch. What that session does owe is the check the dispatch route gets for
+  free — 0.6.0 re-recorded sixteen **galaxy** baselines it had no business touching, because those
+  were Linux-recorded at 0.5.1 and a macOS recorder rewrites every frame it executes whether the
+  content moved or not. They were reverted by hand and `verifyRoborazziDesktop` passes against them,
+  which is the tolerance doing exactly what it is calibrated for. **Revert any baseline in a module
+  your change does not render differently**, whichever way round the platforms are.
+- ~~**0.5.1's screenshot baselines have not been recorded**~~, and the branch is red until they are.
   Moving where genesis starts a colony redraws every galaxy frame derived from the real generator —
   `galaxy_home_system`, `galaxy_unsurveyed` and the six probe frames built on them — and the gate
   coming down changes one string on three research frames. `TestGalaxyUiState`'s own header says this
@@ -386,10 +406,9 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   the PR. Whoever opens it runs `gh workflow run record-screenshots.yml -f pr=<number>` and reads the
   before/after images the job posts — that comment is where "this visual change is intended" actually
   gets decided, and here it is a re-photograph of a system nobody redesigned.
-- **`iosApp/project.yml` is bumped to 0.5.1 and the generated project is not regenerated** — no
-  macOS in a cloud session. `ci_pre_xcodebuild.sh` rewrites `MARKETING_VERSION` from the catalogue on
-  every Xcode Cloud build, so nothing ships mislabelled; a local session runs `xcodegen generate` in
-  passing. Per `session-roles.md` this is a tidy-up rather than a hand-off.
+- ~~**`iosApp/project.yml` is bumped to 0.5.1 and the generated project is not regenerated**~~ —
+  cleared at 0.6.0, which was a local session: `project.yml` is at 0.6.0 and `xcodegen generate` has
+  been run and the project committed with it.
 - **THE NEXT THING TO BUILD: the screens the fleet already has a design for.** `core` landed at
   0.3.0 and nothing a player can reach changed. Claude Design has ruled on all three surfaces and the
   frames are archived at [`design/fleet-screens.dc.html`](design/fleet-screens.dc.html) — the world
