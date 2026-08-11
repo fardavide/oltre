@@ -2201,3 +2201,53 @@ Three properties of it are the point, and a later round should keep them:
 in `:sim`, measuring the whole screen rather than its cheapest row. Round 18 was argued entirely on
 the cheapest neighbour, so *"the doorstep clause put me in a system whose other worlds are extreme"*
 was unfalsifiable at the time it shipped. It is not: every rank improved, 12 → 8, 15 → 13, 14 → 12.
+
+
+### Round 18, second addendum — the check-in gets bands too, and all of them were watched to fail
+
+`OpeningBalanceTest` pinned the map side of the opening. This adds `CheckInBalanceTest`, which pins
+the side almost every round in this file was actually called by: **not a curve, a session**. Round 8
+found check-ins with nothing on them, round 11 found the wait outgrowing the earning, round 12 swept
+every lever at *"nothing to do"* and moved none of them, and round 16 was Davide asking for
+*"adrenaline"* in the first sitting. Each was argued from a `:sim` reading that nothing asserted.
+
+| Reading | Band | Now | The round it comes from |
+|---|---|---|---|
+| Dead check-ins in the first two days | 0 | 0 | 8 |
+| Completions inside the first ten minutes | ≥ 3 | 7 | 16 |
+| First thing to land | ≤ minute 5 | minute 2 | 16 |
+| Longest silence in the first quarter hour | ≤ 8m | 6m | 16 |
+| A second *kind* of decision arrives | ≤ hour 24 | hour 11 | 12 |
+| Check-ins that leave work booked | ≥ 60% | 100% | 11 |
+
+Two decisions inside it are worth keeping when this is next touched. **A completion is what a player
+watches; a start is what they did** — the event log holds both, and counting the pair doubles every
+reading and makes a change that only moved starts look like a change to the session. And **the
+silence band is scoped to the first quarter hour on purpose**: completions thin out later in the
+hour by design, because the curve is exponential, so a bound over the whole hour would pin the shape
+of the curve rather than the density of the sitting.
+
+#### Every band was verified by watching it fail
+
+A balance test nobody has seen fail is a balance test nobody should trust, so each was checked
+against a mutation that reproduces a state this file has already been through:
+
+| Mutation | Reproduces | Caught by |
+|---|---|---|
+| `MINIMUM_UPGRADE_DURATION` 2m → 25m | the 0.2.6 first sitting | *completions inside ten minutes* (**0**, floor 3) and *first thing to land* (**minute 16**, ceiling 5) |
+| `AdaptationBalance.GATE` 2 → 4 | Davide's own 0.5.1 complaint | *the adaptation branch opens on the first day* (**hour 30**, ceiling 24) |
+| `DOORSTEP_LEVELS` neutralised | the pre-0.5.1 opening | three of `OpeningBalanceTest` — 9% can act for one level, 95% open on a wall, second neighbour twelve levels out |
+| `OPENING_DISCOUNT_DIVISOR` 10 → 3 | round 16's cost half, undone | **nothing, and that is correct** — round 16 measured it as worth ~8% of day-4 progression, which is tuning rather than shape, and a band that fired on it would forbid tuning |
+
+That last row is the one to read twice. **A balance suite that catches everything is a suite that
+forbids balancing.** The bands exist to fail on a change of *shape* — a session that goes dead, a
+gate that leaves day one, an opening screen that becomes a wall — and to stay quiet through a round
+that moves a number on purpose.
+
+#### And one report was lying
+
+Two tables in `:sim` wrote `Robotics Factory 4` as a literal, so when the gate moved to 2 they went
+on attributing the adaptation ladders to a level reached at hour 33 when they had opened at hour 12.
+Round 18's own *"hour 33"* framing came from one of them. Both read `AdaptationBalance.GATE` now.
+Every round in this file is argued from these readings, so a report that quietly disagrees with the
+game is worse than no report at all.
