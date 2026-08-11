@@ -366,6 +366,40 @@ private fun doorstepOf(seed: GalaxySeed): Doorstep? {
         .minByOrNull { it.priced }
 }
 
+// ── The rest of the screen, which the doorstep report above does not measure ─────────────────
+//
+// `printDoorstepReport` asks how far the **cheapest** neighbour is, and 0.5.1 was shipped on that
+// number alone. A player does not read the cheapest row; they read the whole list. This measures
+// what the Galaxy screen actually says on day one: how many rows, how many of them are blocked,
+// and how far away the ones that are not the doorstep sit.
+private fun printWholeHomeSystem() {
+    val rows = (0 until DOORSTEP_SEEDS).map { index ->
+        val seed = GalaxySeed(SIM_GALAXY_SEED + index)
+        val galaxy = GalaxyState.initial(seed)
+        val others = galaxy.surveyed
+            .filter { it != galaxy.home }
+            .mapNotNull { at -> worldAt(seed, at) }
+            .map { GalaxyBalance.levelsToTolerate(it.traits) }
+            .sorted()
+        others
+    }
+
+    println("### What the whole screen says, not just its cheapest row")
+    println()
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Median non-home worlds on the screen | **${rows.map { it.size }.median()}** |")
+    println("| Median of them still blocked | **${rows.map { o -> o.count { it > 0 } }.median()}** |")
+    println("| Median levels, cheapest neighbour | **${rows.mapNotNull { it.firstOrNull() }.median()}** |")
+    println("| Median levels, second cheapest | **${rows.mapNotNull { it.getOrNull(1) }.median()}** |")
+    println("| Median levels, third cheapest | **${rows.mapNotNull { it.getOrNull(2) }.median()}** |")
+    println("| Median levels across every non-home world | " +
+        "**${rows.flatten().map { it.toLong() }.median()}** |")
+    val allBlocked = rows.count { o -> o.isNotEmpty() && o.all { it > 0 } }
+    println("| Screens where every non-home world is still blocked | ${percent(allBlocked, rows.size)} |")
+    println()
+}
+
 private fun printDoorstepReport() {
     val doorsteps = (0 until DOORSTEP_SEEDS).mapNotNull { index -> doorstepOf(GalaxySeed(SIM_GALAXY_SEED + index)) }
 
@@ -435,6 +469,8 @@ private fun printDoorstepReport() {
         "and ${percent(habitable, systems)} of those hold one the unaided species already tolerates — which is " +
         "what genesis walks for. Of *those*:")
     println()
+    printWholeHomeSystem()
+
     println("| A system genesis would accept | Also holds a neighbour within | Systems | Share of habitable |")
     println("|---|---|---|---|")
     for (n in 1..3) {
