@@ -2501,3 +2501,42 @@ therefore *understates* the surplus, and the day-90 figure understates it most. 
 own comment already calls itself a placeholder and names the open question — *"the rule that raises
 it (storage building? mine-level-scaled?)"*. The horizon says that question now has a date on it: day
 46 of a colony's life, under the curves as they stand.
+
+#### And the instrument's own diff was broken three ways, found by using it
+
+Merged, then read back. The cap rows added above landed in **both** `pressure()` and `horizon()` —
+a Python `str.replace` with no count, against an anchor that existed identically at the end of two
+functions — so `[pressure]` carried *"hours resting on the metal storage cap: 0 of 337, first
+reached: not within the run"*. Trivially true over a fortnight when the cap is first touched on day
+46, and misleading in the one direction that matters: a reader of that section would conclude the cap
+is a non-issue.
+
+Worth stating plainly, because it is the point of the whole round: **the golden diff did show it.**
+138 lines became 160 and those two rows were in the diff, reviewed and pushed. The instrument worked
+and its reader did not.
+
+Fixing it exposed that the failure message itself could not be reviewed, in three compounding ways —
+each found only by breaking a balance number and reading what a reviewer would see:
+
+1. **Positional.** It walked both pages by index, so removing two rows shifted everything below and
+   it reported *105 of 160 lines differ*. Correct for a value moving inside a row that stayed put,
+   useless for anything structural. Now keyed by row.
+2. **Keyed by label alone, and the label was empty for every indented row** — the split took the
+   first run of two spaces anywhere, which is the row's own indent. `associateBy` collapsed them all
+   into one entry and the diff showed **11 of 48** changed rows.
+3. **Keyed without the section**, so `day 7` and `day 14` — rows in both `[progression]` and
+   `[horizon]`, with different columns — overwrote each other and one was thrown away.
+
+Two and three are the same failure and it is the worst one a diff has: **it drops rows silently, and
+a short diff reads as a small change rather than as a broken instrument.** The key is now
+`section ▸ label`, and the report cap went 40 → 120 because the page is ordered by horizon, so the
+truncated tail was exactly `[horizon]` — the late-game rows a re-scaling round exists to move.
+
+What it reads like now, against the gate moved back to Robotics 4:
+
+```
+opening ▸ first adaptation level finished: hour 9 (day 0) -> hour 33 (day 1)
+progression ▸ day 14: 78  15490  208970  14381  7035 -> 76  13665  254315  327  10507
+horizon ▸ day 60: 124  28  286694  8311953  83.00% -> 124  27  267078  8372997  83.00%
+horizon ▸ first reached: hour 1113 (day 46) -> hour 1116 (day 46)
+```

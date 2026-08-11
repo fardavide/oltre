@@ -200,15 +200,6 @@ internal object BalanceBenchmark {
                 ),
             )
         }
-        // **The cap is not decoration by day 90, it is the ceiling the colony is resting on.**
-        // `STORAGE_CAPACITY` is a flat placeholder — its own comment calls the rule that raises it
-        // (a storage building? mine-level-scaled?) an open question — and once a stock is against it
-        // `advance` stops accruing, so every reading above understates: income past the cap is not
-        // banked, not spent, and not earned. A page that printed 10,000,000 without saying it was
-        // the ceiling would read as a big number rather than as a wall.
-        val capped = run.states.count { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY }
-        add(row("hours resting on the metal storage cap", "${capped} of ${run.states.size}"))
-        add(row("  first reached", hourText(run.firstHourWhere { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY })))
     }
 
     // ── [economy] what a level costs and what it gives back ──────────────────────────────────

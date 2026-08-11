@@ -65,8 +65,6 @@ internal object BalanceBenchmarkGolden {
           metal                                             1046344      837874     80.00%
           crystal                                            350401      336320     95.00%
           deuterium                                           82505       75470     91.00%
-        hours resting on the metal storage cap            0 of 337
-          first reached                                   not within the run
 
         [economy] cost, wait and payback per level, at robotics factory 4
         building / level                                  priced    build     +income/h   payback
