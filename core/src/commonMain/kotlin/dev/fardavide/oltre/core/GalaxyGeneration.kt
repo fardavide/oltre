@@ -154,30 +154,106 @@ fun relayAt(seed: GalaxySeed, galaxy: Int, system: Int): GalaxyCoordinate? {
 // once and nothing may re-derive it later.
 //
 // The rule: the first world, walking systems forward from a seeded start, that the unaided species
-// actually tolerates. A species evolved on a world inside its own tolerance bands is close enough
-// to a tautology to not count as an invented number; what it is not is a *decided* one — see the
-// open calls in `balance-log.md`.
+// actually tolerates — **in a system that also holds somewhere to go.** A species evolved on a
+// world inside its own tolerance bands is close enough to a tautology to not count as an invented
+// number; what it is not is a *decided* one — see the open calls in `balance-log.md`.
+//
+// ── Why the second clause exists (0.5.1) ────────────────────────────────────────────────────
+//
+// The first clause was the whole rule until Davide played it: *"Galaxy interactions are too tough
+// in the early game ... I need to upgrade at least 4 adaptations for the easier planet."*
+//
+// Genesis surveys the home system and nothing else, so its non-home worlds are the entire content
+// of the Galaxy screen on day one — and they were drawn from the same distribution as the rest of
+// the map, where 98.2% of worlds are blocked and the median blocked world fails two axes. What
+// that costs a player rather than a map is what `:sim:run`'s doorstep report measures: over 1,000
+// seeds the **median home system asked for seven adaptation levels** across two ladders, at 54,242
+// resources priced 1 : 2 : 3 and 39 hours of the one shared research slot, before anything on that
+// screen would say something different. 78% were asked for four or more. Davide's own colony, at
+// five, was in the better third.
+//
+// So the map was never the thing that was too hard — **the sample was**. Adaptation doubles the
+// settleable count of the galaxy with every level, exactly as `galaxy-sheet.md` §9 designed, and a
+// player looking at 4.75 worlds cannot see a galaxy-wide statistic. Widening the bands to fix it
+// would raise `passes every band` with them, which §9 names as the one thing not to do; making a
+// level widen further would make adaptation stronger everywhere to fix a sampling problem in one
+// system. **Choosing which system you start in changes no world's traits at all** — every
+// distribution in `GalaxyDistributionTest` is untouched by construction, because the galaxy is the
+// same galaxy and only the origin moved.
+//
+// The walk therefore keeps the best system it has seen and stops at the first that is good enough.
+// It does not fall back to "any tolerable world" until the whole space has been read, so a seed
+// that genuinely has nothing within `DOORSTEP_LEVELS` still gets the nearest thing there is rather
+// than the first thing walked past.
+//
+// **One level, and the walk crosses galaxies to find it.** Both halves were measured rather than
+// chosen. A system that holds a tolerable world *and* a neighbour one level away is 0.50% of all
+// systems, so a walk bounded to the seeded galaxy's 250 finds one 77% of the time — measured, and
+// close to the 71% the arithmetic predicts. Over the whole 1,000-system space it is 99.8%. The
+// seeded galaxy is the *start* of the walk rather than its bound, and is walked whole before any
+// other is looked at — see the loop — so a colony still opens in the galaxy its seed names unless
+// that galaxy has nothing to offer. The cost is a genesis that reads at most 15,000 slots once.
+// Two levels inside one galaxy was the other way to reach the same reliability and it buys a worse
+// promise: two levels is two projects through the one shared research slot, and may be two
+// different ladders, so it is no longer true that *your first adaptation level opens a world you
+// can see*.
+private const val DOORSTEP_LEVELS: Int = 1
+
+private fun homeStream(seed: GalaxySeed): Long = streamOf(mix(seed.value), GenerationAxis.HOME)
+
+// The galaxy a seed names. Extracted rather than inlined below because the walk's promise — *you
+// open where your seed says unless that galaxy has nothing* — was stated only in a comment, and a
+// draft that broke it for half of all colonies passed every test in the suite. A promise about a
+// draw needs the draw to be nameable from a test.
+internal fun seededGalaxyOf(seed: GalaxySeed): Int =
+    homeStream(seed).boundedBy(GalaxyBalance.GALAXIES) + 1
+
 internal fun homeFor(seed: GalaxySeed): GalaxyCoordinate {
-    val stream = streamOf(mix(seed.value), GenerationAxis.HOME)
-    val galaxy = stream.boundedBy(GalaxyBalance.GALAXIES) + 1
+    val stream = homeStream(seed)
+    val firstGalaxy = seededGalaxyOf(seed) - 1
     val firstSystem = draw(stream, 1).boundedBy(GalaxyBalance.SYSTEMS_PER_GALAXY)
-    val unaided = GalaxyBalance.tolerance(AdaptationLevels.NONE)
 
     var firstOccupied: GalaxyCoordinate? = null
-    for (offset in 0 until GalaxyBalance.SYSTEMS_PER_GALAXY) {
-        val system = (firstSystem + offset).mod(GalaxyBalance.SYSTEMS_PER_GALAXY) + 1
-        for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
-            val at = GalaxyCoordinate(galaxy = galaxy, system = system, slot = slot)
-            val world = worldAt(seed, at) ?: continue
-            if (firstOccupied == null) firstOccupied = at
-            val habitable = HostilityAxis.entries.all { axis ->
-                world.traits.axisValue(axis) in unaided.bandOf(axis)
+    var best: GalaxyCoordinate? = null
+    var bestDoorstep = Int.MAX_VALUE
+
+    // **Nested rather than one flat index over the 1,000 systems, and the difference is not
+    // cosmetic.** A flat walk leaves the seeded galaxy the moment its *tail* runs out — a colony
+    // starting at system 200 sees fifty systems of its own galaxy and then a whole other one — which
+    // measured at **50%** of colonies opening outside the galaxy their seed names. Walking the
+    // seeded galaxy whole first, wrapping inside it, takes that to **22%** at the same success rate
+    // and the same scan cost. The seeded galaxy is meant to be where you start; a walk that
+    // abandons it half the time makes the draw at the top of this function decorative.
+    outer@ for (step in 0 until GalaxyBalance.GALAXIES) {
+        val galaxy = (firstGalaxy + step).mod(GalaxyBalance.GALAXIES) + 1
+        for (offset in 0 until GalaxyBalance.SYSTEMS_PER_GALAXY) {
+            val system = (firstSystem + offset).mod(GalaxyBalance.SYSTEMS_PER_GALAXY) + 1
+            val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
+                worldAt(seed, GalaxyCoordinate(galaxy = galaxy, system = system, slot = slot))
             }
-            if (habitable) return at
+            if (worlds.isEmpty()) continue
+            if (firstOccupied == null) firstOccupied = worlds.first().at
+
+            // Still the first tolerable world of the system, in slot order — the clause that has
+            // not changed, and the one the fiction rests on.
+            val candidate = worlds.firstOrNull { GalaxyBalance.levelsToTolerate(it.traits) == 0 } ?: continue
+            // How far the nearest *other* world is. `MAX_VALUE` when the system holds only the home
+            // world, which is a real case and the worst one there is: a Galaxy screen whose opening
+            // system has a single row on it.
+            val doorstep = worlds
+                .filter { it.at != candidate.at }
+                .minOfOrNull { GalaxyBalance.levelsToTolerate(it.traits) }
+                ?: Int.MAX_VALUE
+
+            if (doorstep < bestDoorstep) {
+                best = candidate.at
+                bestDoorstep = doorstep
+                if (doorstep <= DOORSTEP_LEVELS) break@outer
+            }
         }
     }
-    // No world in the whole galaxy passes every band — possible only if the constants are retuned
-    // far past anything the distribution targets allow. Falling back keeps genesis total rather
-    // than throwing on a map the player could still play.
-    return checkNotNull(firstOccupied) { "galaxy $galaxy generated no worlds at all under seed $seed" }
+    // No world anywhere passes every band — possible only if the constants are retuned far past
+    // anything the distribution targets allow. Falling back keeps genesis total rather than
+    // throwing on a map the player could still play.
+    return best ?: checkNotNull(firstOccupied) { "no galaxy generated any world at all under seed $seed" }
 }

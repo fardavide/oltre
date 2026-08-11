@@ -143,6 +143,31 @@ holds a world, and who holds it. It is astronomy; you can see stars from home.
 **Surveyed** — per world, earned: the three axes, richness, hazards, fields, and therefore the
 verdict.
 
+### The doorstep — added 2026-08-11 (0.5.1), and it is a change to *this* section
+
+**Genesis no longer takes the first tolerable world it walks past. It takes the first one in a
+system that also holds a neighbour one adaptation level away.** Written up in `balance-log.md`
+round 18; the short version is that §9's targets are galaxy-wide and this section hands the player
+a sample of **4.75 worlds**, which is far too small for a 1.8%-and-doubling statistic to be visible
+in. Measured over 1,000 seeds, the median home system asked for **seven** adaptation levels across
+two ladders before any row on it would say something different, and 78% asked for four or more.
+
+Three things about it belong here rather than only in the log:
+
+- **It moves no number in §8 and no target in §9.** No world's traits change; the galaxy is the same
+  galaxy and only the origin moved. This is the one lever aimed at the opening that cannot disturb
+  the distribution, which is exactly why it was the one taken.
+- **It is not a *good* neighbour, and the measurement is the proof.** The doorstep world reads
+  `Settleable` **28.1%** of the time against **51.2%** for the pre-change cheapest neighbour: a world
+  one level outside one band sits near the middle of the other two, and richness is derived from the
+  axes. *"An easy world is a poor world"* is not bent by this — it is what makes the guarantee safe.
+  What a player is given is somewhere to point at, not somewhere worth taking.
+- **`fleet-sheet.md` §(b) rejected a guaranteed starter neighbourhood** and this is deliberately
+  adjacent to it. See the reckoning recorded there: what (b) was rejected for was guaranteeing
+  *richness or worth*, which would delete "the first settleable world should be underwhelming"; this
+  guarantees *reachability* and makes that sentence true for the first time, because before it there
+  was usually no nearby world at all — and "absent" is not "underwhelming".
+
 At game start **your home system is surveyed and nothing else is.** Surveying is a fleet action,
 so it genuinely arrives with slice #7 — until then the galaxy screen is a browsable map where
 almost everything reads `Unsurveyed`, and that is the honest state rather than a placeholder.

@@ -1984,3 +1984,161 @@ worlds, both in the home system.** Of 266 surveyed worlds the bands available we
 
 So the bands ratified above are, at this moment, a decision no report can check. **Slice 2 owes a
 once-a-day runner and a probe strategy that surveys near systems**, or §3.5 ships on arithmetic alone.
+
+## Round 18 — 0.5.1, the wall was never the map, it was the sample (2026-08-11)
+
+**The first round driven by someone playing the shipped build since round 16**, and the second time
+a device has corrected paper this week. Two numbers moved, one of them in a place no previous round
+had looked.
+
+### The feedback, verbatim
+
+> "Galaxy interactions are too tough in the early game! I would expect the user to be able to
+> interact with neighbouring planets without too many challenges, with I needed 2 day to get
+> robotics to level 4, and now I need to upgrade at least 4 adaptations for the easier planet"
+
+Both halves reproduce exactly, and that is worth saying first because it is unusual: `printGateClock`
+already put Robotics 4 at **hour 33** — two days — and the harness's own home system asked for
+**Thermal 1 and Gravitic 4**, five levels across two ladders, for its cheapest neighbour. Nothing had
+to be discovered to confirm the complaint. What had to be discovered was whether that home system was
+bad luck.
+
+### The reading that decided the round
+
+`printDoorstepReport` is new, and it is the first report in this file that sweeps **seeds** rather
+than hours. The reason it had to exist: every other galaxy report measures the map, and the map is
+not what a player sees. Genesis surveys the home system and nothing else, so ~4.75 worlds are the
+entire content of the Galaxy screen on day one — and *which* 4.75 is the one roll nobody re-rolls.
+One seed can only ever say what one player saw.
+
+1,000 seeds, the cheapest non-home world of each home system, counted in adaptation levels and in
+what buying them from zero costs:
+
+| Levels to the cheapest neighbour | Before | After |
+|---|---|---|
+| 0 — already tolerable | 3.22% | **34.00%** |
+| 1 | 6.14% | **65.80%** |
+| 2 | 6.14% | 0.20% |
+| 3 | 6.44% | 0% |
+| 4 | 7.65% | 0% |
+| 5 | 9.06% | 0% |
+| **6 or more** | **61.32%** | **0%** |
+
+| Reading | Before | After |
+|---|---|---|
+| Median levels to the cheapest neighbour | **7** | **1** |
+| Median bill, priced 1 : 2 : 3 | **54,242** | **480** |
+| Median research time at Robotics 4 | **39h 03m** | **0h 18m** |
+| Cheapest neighbour needs one ladder only | 31.31% | 99.90% |
+| Can change a verdict for one level | **9.36%** | **99.80%** |
+
+**Davide's five-level home system was in the better third.** The median colony was asked for seven
+levels, 54,242 resources and thirty-nine hours of the one shared research slot — during which the
+production branch researches nothing — to make one row on one screen say something different. 78%
+were asked for four or more, which is his sentence arrived at from the other side.
+
+### Why it is a sampling defect and not a balance one
+
+The adaptation branch does what `galaxy-sheet.md` §9 designed: each level roughly doubles the
+settleable count of the galaxy, 17 → 40 → 105 → 218. That statistic is **galaxy-wide**, and a player
+looking at 4.75 worlds cannot see it. 1.81% of worlds pass every band, so a home system contains one
+about 8% of the time; the other 92% of colonies open on a wall and stay there for a week.
+
+So the levers aimed at the curve are all aimed at the wrong thing, and §9 says so about the biggest
+of them in advance: *"If the 'come back later' pile ever needs to be bigger, the lever is **not**
+this row — it is widening all three bands together, which raises row 1 with it."* Widening the bands
+or the per-level widening makes adaptation stronger **everywhere** to fix a sampling problem in
+**one system**, and moves every distribution target with it.
+
+**Choosing which system you start in changes no world's traits at all.** The galaxy is the same
+galaxy; only the origin moved. Every number in `GalaxyDistributionTest` and `GalaxyBalanceTest` is
+untouched by construction, and the sim's whole-space distribution table is byte-identical before and
+after.
+
+### What shipped
+
+**1. `homeFor` gains a clause: the system must have somewhere to go.** It was *"the first world,
+walking systems forward from a seeded start, that the unaided species tolerates"*; it is now the
+first such world in a system that also holds a neighbour **one adaptation level** away. The walk
+keeps the best system it has seen and stops at the first that is good enough, so a seed with nothing
+qualifying still gets the nearest thing there is rather than the first thing walked past.
+
+Two constants, both measured rather than chosen:
+
+- **One level, not two.** Two levels is two projects through the one shared slot and may be two
+  different ladders, so it stops being true that *your first adaptation level opens a world you can
+  see*.
+- **The walk crosses galaxies, but walks the seeded one whole first.** A qualifying system is
+  **0.50% of all systems**, so a walk bounded to the seeded galaxy's 250 finds one **77%** of the
+  time — measured, against 71% predicted. Over the whole 1,000-system space it is **99.80%** of
+  the thousand seeds swept, with the last two of a thousand needing a second level.
+
+  **The first draft got the walk order wrong and no test could see it.** A flat index over the
+  1,000 systems abandons the seeded galaxy the moment its *tail* runs out — a colony drawn at system
+  200 sees fifty of its own systems and then a whole other galaxy — so **50%** of colonies opened
+  somewhere their seed had not named, against **22%** when the seeded galaxy is walked whole first.
+  Both measured. The promise *"you open where your seed says unless that galaxy has nothing"* was
+  written in a comment and checked nowhere, which is `session-roles.md`'s tilt lesson in a different
+  file: every existing test asks about the home *world*, and a home in the wrong galaxy passes all
+  of them. `seededGalaxyOf` is now a named function precisely so the promise can be asserted, and
+  `a colony opens in the galaxy its seed names` is the assertion. Caught by an adversarial read of
+  the diff before merge rather than by the suite — the same way 0.4.3's two defects were.
+
+**2. `AdaptationBalance.GATE` 4 → 2.** Round 12 pre-authorised exactly this — *"If the gate turns
+out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper than re-pricing
+anything"* — and it had: hour 33. Robotics 2 is **hour 12**, the same day.
+
+| Gate | Ladders open | Median kinds offered, 2d | Refused: requirement | Refused: price |
+|---|---|---|---|---|
+| **4 — was** | hour 33 (d2) | 3 | 35.25% | 5.12% |
+| 3 | hour 27 (d2) | 3 | 31.41% | 9.61% |
+| **2 — shipped** | **hour 12 (d1)** | **4** | **25.64%** | **14.10%** |
+
+**Read the last two columns as one trade rather than as a gain and a loss.** Round 12's own reading
+is that *"a price is a curve, a slot is a rule, a requirement is a gate — and only the first of those
+is fixed by tuning a number"*, so converting nine points of gate refusal into nine points of price
+refusal is the point of the change. And **median kinds offered in the opening goes 3 → 4**, which is
+the reading rounds 8 and 12 each concluded no number in `PlaceholderBalance` could move.
+
+Three rather than two was rejected on the table above: it costs half the price pressure for a fifth
+of the clock, because Robotics 3 and 4 are six hours apart and 2 and 3 are fifteen.
+
+**Robotics 1 was not on the table**, and that is the one thing round 6's §3 argument still decides:
+Robotics 1 is the applied branch's gate, so sharing it opens five rows at once and deletes the locked
+row from normal play. What round 6's clause does *not* decide any more is 4 over 2 — it asked that
+the branch open after the player has met the Galaxy screen and read a `BLOCKED` row, and nothing
+gates the Galaxy tab, so that has been true since the first frame at every gate level.
+
+**Crystal, which round 12 warned this lever leans on**, is short at 331 hours of a fortnight's 336
+against 320 before. An 11-hour move, well inside the ~50-hour band round 12 says not to read as a
+signal at all.
+
+### What it should feel like, to check next round
+
+- **The first session should end with a world you are aiming at**, rather than with six rows that
+  all say no. That is the whole round in one sentence and it is the one to check first.
+- **The world you unlock should disappoint**, and by more than it used to. This is the reading that
+  would say the guarantee had gone too far: the doorstep world is `Settleable` only **28.10%** of the
+  time against **51.15%** for the pre-change cheapest neighbour, because a world one level outside a
+  band sits near the middle of the other two and richness is derived from the axes. The guarantee
+  makes your nearest world *easier and poorer at once*, which is `galaxy-sheet.md`'s *"an easy world
+  is a poor world"* holding rather than bending.
+- **The gate may now be too cheap rather than too far.** Hour 12 is inside day one, and the ladders
+  are the crystal-heaviest thing in the game. If crystal starts reading as the only shortage in the
+  opening, this is the first place to look — and the lever is the gate, not the crystal curve, which
+  round 7 set against the repeating basket rather than against this.
+
+### Watch next round
+
+- **This round did not touch a single cost, duration or band**, which is worth recording because
+  four of the last six did. The complaint was about a wall and the wall was in the generator's
+  *sample*, not in any curve.
+- **The doorstep report is the instrument the opening was missing**, and it should be read beside
+  the gate clock from now on: the gate clock says when a player may act and the doorstep says
+  whether acting changes anything.
+- **The colonisation gap is now the loudest thing in the file.** `SETTLEABLE` is a label and not a
+  button — the galaxy offers a probe, a remedy that changes tab, and nothing else. This round makes
+  the reading worth having; it cannot make it worth *acting on*, because slice #10 does not exist.
+  The fleet screens, which are designed and sitting finished in `core`, are the nearer half of that.
+- **Nothing here was played.** The measurement is 1,000 seeds of arithmetic against a complaint from
+  one device, and the thing that closed the last two rounds was an install.

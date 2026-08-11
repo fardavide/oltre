@@ -208,6 +208,107 @@ class GalaxyGenerationTest {
         assertNotEquals(GalaxyState.initial(TEST_GALAXY_SEED).home, GalaxyState.initial(OTHER_GALAXY_SEED).home)
     }
 
+    // ── The doorstep ────────────────────────────────────────────────────────────────────────
+    //
+    // A distribution pinned in a unit test, for the same reason `GalaxyDistributionTest` pins one:
+    // the distribution **is** the mechanic. Genesis surveys the home system and nothing else, so
+    // its non-home worlds are the entire content of the Galaxy screen on day one — and until
+    // 0.5.1 they were drawn from the same distribution as the rest of the map, where 98.2% of
+    // worlds are blocked and the median one fails two axes. `:sim:run` measured what that meant
+    // for a player rather than for the map: **the median home system asked for seven adaptation
+    // levels** across two ladders before anything on that screen would say something different.
+    //
+    // The rule now prefers a system that has somewhere to go. What is asserted is the outcome
+    // rather than the walk: re-implementing the preference order here would be a test that agrees
+    // with the code by construction.
+    @Test
+    fun `genesis starts you beside a world one adaptation level would open`() {
+        val doorsteps = (0 until DOORSTEP_SEEDS).map { offset -> doorstepOf(GalaxySeed(TEST_GALAXY_SEED.value + offset)) }
+        val withinOne = doorsteps.count { it <= 1 }
+
+        assertTrue(
+            withinOne * 100 / doorsteps.size >= 90,
+            "expected at least 90% of colonies to open a neighbour for one adaptation level, " +
+                "got ${withinOne * 100 / doorsteps.size}% of ${doorsteps.size}",
+        )
+    }
+
+    // The fallback has to be total, and "total" here means *no seed is left facing a wall*. A
+    // galaxy that holds no qualifying system at all is possible rather than impossible, so the
+    // preference degrades through two more tiers before it gives up — and this is the assertion
+    // that says the degradation is bounded rather than unbounded.
+    @Test
+    fun `no colony starts more than three adaptation levels from its nearest neighbour`() {
+        val worst = (0 until DOORSTEP_SEEDS).maxOf { offset -> doorstepOf(GalaxySeed(TEST_GALAXY_SEED.value + offset)) }
+
+        assertTrue(worst <= 3, "the worst home system of $DOORSTEP_SEEDS asked for $worst adaptation levels")
+    }
+
+    // **The seeded galaxy has to still mean something.** The doorstep clause made the walk long
+    // enough to leave it, and the first draft left it far too readily: a flat index over all 1,000
+    // systems abandons the seeded galaxy the moment its *tail* runs out, so a colony drawn at
+    // system 200 saw fifty of its own systems and then a whole other galaxy — and half of all
+    // colonies opened somewhere their seed had not named.
+    //
+    // Nothing caught it. Every other test here asks about the home *world* — is it tolerable, does
+    // it have a neighbour, do two seeds differ — and a home in the wrong galaxy passes all three.
+    // Measured: **50%** of colonies strayed under the flat walk and **22%** under the nested one.
+    // The bound is 35 rather than 25 because the honest reading is "most colonies stay", not a
+    // number: a walk that has to be able to leave will leave whenever the seeded galaxy's 250
+    // systems happen to hold nothing, which is 23% of the time by construction.
+    // The property was only ever stated in a comment, which is exactly the failure mode
+    // `session-roles.md` records for the tilt axes: a convention nothing checks is a convention
+    // that drifts. This is the check.
+    @Test
+    fun `a colony opens in the galaxy its seed names, unless that galaxy has nothing`() {
+        val strayed = (0 until DOORSTEP_SEEDS).count { offset ->
+            val seed = GalaxySeed(TEST_GALAXY_SEED.value + offset)
+            GalaxyState.initial(seed).home.galaxy != seededGalaxyOf(seed)
+        }
+
+        assertTrue(
+            strayed * 100 / DOORSTEP_SEEDS <= 35,
+            "expected most colonies to open in the galaxy their seed draws, " +
+                "${strayed * 100 / DOORSTEP_SEEDS}% of $DOORSTEP_SEEDS left it",
+        )
+    }
+
+    // Genesis picking a *system* must not have quietly become genesis picking a *world* — the home
+    // world itself is still the one the unaided species tolerates, which is what the fiction rests
+    // on and what `home is a world the unaided species actually tolerates` pins for one seed.
+    @Test
+    fun `every home the doorstep rule picks is still a world the species tolerates`() {
+        val unaided = GalaxyBalance.tolerance(AdaptationLevels.NONE)
+
+        for (offset in 0 until DOORSTEP_SEEDS) {
+            val galaxy = GalaxyState.initial(GalaxySeed(TEST_GALAXY_SEED.value + offset))
+            val home = checkNotNull(worldAt(galaxy.seed, galaxy.home)) { "home must hold a world" }
+            for (axis in HostilityAxis.entries) {
+                assertTrue(
+                    home.traits.axisValue(axis) in unaided.bandOf(axis),
+                    "home of seed ${galaxy.seed.value} fails $axis at ${home.traits.axisValue(axis)}",
+                )
+            }
+        }
+    }
+
+    // The cheapest non-home world of one seed's home system, counted in adaptation levels across
+    // all three ladders. Zero would mean a neighbour needs nothing at all.
+    private fun doorstepOf(seed: GalaxySeed): Int {
+        val galaxy = GalaxyState.initial(seed)
+        return galaxy.surveyed
+            .filter { it != galaxy.home }
+            .mapNotNull { at -> worldAt(seed, at) }
+            .minOfOrNull { GalaxyBalance.levelsToTolerate(it.traits) }
+            ?: Int.MAX_VALUE
+    }
+
+    // Enough seeds for a 90% share to be stable to about a point, and few enough that the three
+    // tests above stay a unit test on every target including Kotlin/Native — genesis walks its
+    // galaxy once per seed, so this is the most expensive thing in the file by an order of
+    // magnitude.
+    private val DOORSTEP_SEEDS: Int = 200
+
     // One galaxy's worth of coordinates is 3,750 slots — enough for the shares below to be stable
     // and small enough to stay a unit test.
     private fun homeGalaxySample(): List<GalaxyCoordinate> = buildList {

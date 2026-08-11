@@ -153,7 +153,7 @@ class ResearchScreenBehaviourTest {
                 assertOffersNothing(it)
                 // The locked row does not explain what a tolerance band is. The place that teaches
                 // the concept is a blocked world on Galaxy, against a real reading.
-                assertRowReads(it, "Requires Robotics 4")
+                assertRowReads(it, "Requires Robotics 2")
             }
             assertReads("ADAPTATION")
             assertReads("the same slot")

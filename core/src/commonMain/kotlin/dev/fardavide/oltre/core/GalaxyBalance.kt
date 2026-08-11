@@ -241,6 +241,17 @@ object GalaxyBalance {
         }
     }
 
+    // The whole bill for one world, in levels: what `levelThatTolerates` says on each axis, added
+    // up. Not a cost and not a duration — those are `AdaptationBalance`'s, and they depend on which
+    // ladders the levels land on. This is the coarser question *how far away is this world*, which
+    // is what genesis asks when it picks a home system and what `:sim:run` measures the opening by.
+    //
+    // Zero for a world the unaided species already tolerates, so it reads as a distance rather than
+    // as a verdict — a `Barren` world and a `Settleable` one are both at zero, because both are
+    // worlds the player can already stand on.
+    fun levelsToTolerate(traits: WorldTraits): Int =
+        HostilityAxis.entries.sumOf { axis -> levelThatTolerates(axis, traits.axisValue(axis)) }
+
     private fun lowerWideningPerLevel(axis: HostilityAxis): Int = when (axis) {
         HostilityAxis.TEMPERATURE -> THERMAL_WIDENING_PER_LEVEL
         HostilityAxis.GRAVITY -> GRAVITIC_LOWER_WIDENING_PER_LEVEL

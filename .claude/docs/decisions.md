@@ -2373,3 +2373,110 @@ So the test is explicitly labelled as *where the convention is written down, not
 must answer oppositely and by the same amount, whichever way round the pair is. That half would catch
 a broken formulation. Nothing will ever catch a wrong choice except a hand, which is the argument for
 the loop in `session-roles.md` rather than an argument for more tests.
+
+## The wall in the opening was the sample, not the map (2026-08-11, 0.5.1)
+
+Davide, having played 0.4.4: *"Galaxy interactions are too tough in the early game! I would expect
+the user to be able to interact with neighbouring planets without too many challenges, with I needed
+2 day to get robotics to level 4, and now I need to upgrade at least 4 adaptations for the easier
+planet."*
+
+Both halves reproduced without anything having to be discovered — `printGateClock` already put
+Robotics 4 at hour 33, and the harness's own home system asked five adaptation levels across two
+ladders for its cheapest neighbour. The round is written up in `balance-log.md` **round 18**; what
+belongs here is the two decisions and the one rule they bend.
+
+### The diagnosis, which is the whole of the entry
+
+Every galaxy report in the harness measured the **map**. A player does not see the map. Genesis
+surveys the home system and nothing else, so ~4.75 worlds are the entire content of the Galaxy
+screen on day one — and `galaxy-sheet.md` §9's payoff, *each adaptation level roughly doubles the
+settleable count*, is a galaxy-wide statistic that a sample of five cannot show. 1.81% of worlds pass
+every band, so **92% of colonies open on a wall and stay there**.
+
+`printDoorstepReport` is the instrument that was missing, and it is the first report in the file that
+sweeps seeds rather than hours. Over 1,000 seeds: the median home system asked for **seven** levels,
+**54,242** resources priced at 1 : 2 : 3, and **39 hours** of the one shared research slot. Davide's
+five-level system was in the better third. **9.36%** of colonies could change a verdict for one
+adaptation level.
+
+That reframes the request. The complaint sounds like a price complaint and is not one: the first
+level of any ladder is 480 priced and 18 minutes, which a day-two colony pays without noticing. What
+was expensive was the *distance to the nearest world worth pointing at*, and no cost curve, duration
+or discount addresses a distance.
+
+### Decision 1 — `homeFor` gains a clause, and the alternatives were all worse
+
+**Genesis takes the first tolerable world in a system that also holds a neighbour one adaptation
+level away**, keeping the best system it has seen and stopping at the first that qualifies. After:
+**99.8%** of a thousand swept seeds open a neighbour within one level, median bill **480** and
+median wait **18 minutes**.
+
+Rejected, each for a reason the docs had already written down:
+
+- **Widening the tolerance bands** — `galaxy-sheet.md` §9 names this in advance as the one thing not
+  to do: *"the lever is not this row — it is widening all three bands together, which raises row 1
+  with it."* It makes 4,746 worlds easier to fix a defect in 4.75.
+- **Making a level widen further** — same objection with a different multiplier, plus it flattens the
+  three ladders' differentiation.
+- **Cheapening the ladder** — answers a question nobody asked. Four levels at a third of the price
+  is still four projects through one slot.
+- **`fleet-sheet.md` (b), a guaranteed *good* neighbourhood** — genuinely rejected, and the reckoning
+  is recorded in that file beside the option rather than only here. The short of it: (b) guaranteed
+  *worth*, this guarantees *reach*, and the measurement separates them — the doorstep world reads
+  `Settleable` **28.1%** of the time against **51.2%** for the neighbour a player used to get. The
+  guarantee makes your nearest world easier **and poorer at once**, which is *"an easy world is a poor
+  world"* holding rather than bending.
+
+**One level rather than two, and the walk crosses galaxies.** Two levels is two projects and possibly
+two ladders, which stops the promise being *your first adaptation level opens a world you can see*. A
+qualifying system is 0.50% of all systems, so a walk bounded to one galaxy finds one 77% of the time
+and a walk over the whole space finds one for 99.8% of a thousand seeds.
+
+**The walk order was wrong in the first draft and the suite could not see it.** A flat index over the
+1,000 systems leaves the seeded galaxy when its *tail* runs out rather than when it has nothing to
+offer, so **50%** of colonies opened outside the galaxy their seed named against **22%** for a walk
+that reads the seeded galaxy whole first. The promise lived in a comment and nowhere else — every
+other test asks about the home *world*, and a home in the wrong galaxy passes all of them. It is
+`session-roles.md`'s tilt lesson in another file, and the fix is the same shape: `seededGalaxyOf` is
+a named function now so the promise is assertable, and it is asserted.
+
+### Decision 2 — `AdaptationBalance.GATE` 4 → 2, which round 12 pre-authorised
+
+*"If the gate turns out to sit far past the first BLOCKED screen, lowering it to 2 or 3 is cheaper
+than re-pricing anything."* It had: hour 33 against hour 12 at Robotics 2.
+
+**Round 6's argument for 4 is not overruled, it is re-read.** It asked that the branch open *after*
+the player has met the Galaxy screen and read a `BLOCKED` row — and nothing gates the Galaxy tab, so
+that is true from the first frame at every gate level. What the clause actually rules out is **1**,
+the applied branch's own gate, where five rows would open at once and the locked row would leave
+normal play. Three was rejected on the measurement: Robotics 3 and 4 are six hours apart where 2 and
+3 are fifteen.
+
+The trade is nine points of gate refusal becoming nine points of price refusal (35.25% → 25.64% and
+5.12% → 14.10% over the census's first two days), which is the point rather than a side effect —
+round 12: *"a price is a curve, a slot is a rule, a requirement is a gate."* Median **kinds** of
+action offered in the opening goes 3 → **4**, which rounds 8 and 12 each concluded no number in
+`PlaceholderBalance` could reach.
+
+### What it cost, including the part a cloud session cannot finish
+
+- **The golden save moved and the schema did not.** `home` and `surveyed` are content genesis
+  computes, not keys, so the pinned string in `GameSaveTest` is rewritten and nothing an installed
+  build can read changes. **No player's map moves**: home has been stored since schema 4 and no
+  migration recomputes it. The frozen `VERSION_*` fixtures still carry 3:165 and must never be
+  rewritten to agree with the new pin — that divergence is now the thing they exist to prove.
+- **Eleven assertions in `GalaxyUiStateTest` and the shell's `AdaptationBehaviourTest`** were pinned
+  to 3:165's slots. `AdaptationBehaviourTest`'s fixture is now **derived** from the world it names
+  rather than written out — four hand-typed numbers that all had to agree with each other and with a
+  world none of them named is the shape that made this expensive, and it will not be expensive twice.
+- **The galaxy screenshot baselines move**, and `TestGalaxyUiState` says in its own header that this
+  is correct: *"a change that moves these numbers is a design decision that should redraw the
+  images."* The hand-written every-verdict frame had one derived half and one typed half, and the
+  typed half was quoting a world it no longer drew its axes from; both halves are derived now.
+- **The research baselines move by one character** — "Requires Robotics 4" → "Requires Robotics 2" —
+  and the frozen fixture's narrative moved from a colony at Robotics 2 to one at Robotics 1, which
+  is the same frame (four of six rows dimmed) told about a legal colony.
+- **A cloud session cannot record any of that**, and per the entry above — *"the agent dispatches the
+  job itself"* — the answer is `record-screenshots.yml` against the slice's own PR, not a hand-off.
+  It is named here because that job needs a PR number, so the recording cannot precede the PR.

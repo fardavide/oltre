@@ -335,6 +335,22 @@ bands.
 
 ### (b) A guaranteed starter neighbourhood
 
+> **Reckoned with at 0.5.1, and the rejection stands as written.** What shipped guarantees a
+> neighbour **one adaptation level away**, which is a hostility guarantee and therefore lands in the
+> territory this option was refused in. The distinction that makes it legal is the one this section
+> itself draws: (b) was rejected for guaranteeing *worth* — *"the first good world arrives free"*,
+> *"the ladders' payoff is dented"* — and the thing that shipped guarantees *reach* and measurably
+> lowers worth. The doorstep world is `Settleable` **28.1%** of the time against **51.2%** for the
+> neighbour a player used to get. The quoted sentence it was accused of deleting is *"the first
+> settleable world should be underwhelming — nearby, mediocre yield"*, and before 0.5.1 there was
+> usually **no nearby world at all**, which is not that sentence being honoured — it is the sentence
+> having nothing to describe. It also has no edge to game (there is nothing to push past: the
+> guarantee is one system, once, at genesis) and it does not expire in the way this section warns
+> about, because it was never a head start — it is the tutorial having a target.
+>
+> Recorded here rather than only in `balance-log.md` because a later session reading this option
+> should find the ruling attached to it. **Davide's to overrule**, like everything in these sheets.
+
 Carve out *n* good worlds near home rather than changing the generator.
 
 - **Costs** — a rule with an edge, and the edge is the thing players learn to game. It also expires:
@@ -919,6 +935,23 @@ flight and redraw the reach band's hour marks, which is a change to shipped work
 The cost is real, it is named in the file, and it is an open call in §9.
 
 ### `homeFor` — one clause
+
+> **Built at 0.5.1, and stronger than this.** The clause that landed is not *"at least two other
+> worlds"* but **"a neighbour within one adaptation level"**, which implies it — a system with a
+> qualifying neighbour has at least one other world, and 99.8% of a thousand seeds swept now open
+> beside something one level buys. It was driven by Davide playing the shipped build rather than by this slice; the
+> measurement is `balance-log.md` round 18 and the design note is in `galaxy-sheet.md` §5. The three
+> claims below all survive it, one of them narrowly:
+>
+> - *"`worldAt` is untouched"* — true, unchanged.
+> - *"no distribution moves"* — true, and now measured: the sim's whole-space table is identical
+>   before and after.
+> - *"the test seed's home does not move"* — **false of the clause that shipped, and unavoidably so.**
+>   3:165's cheapest neighbour is five levels out, so any rule worth having had to move it. Home went
+>   to 3:171, which took the golden save in `GameSaveTest`, eleven assertions in `GalaxyUiStateTest`,
+>   the shell's `AdaptationBehaviourTest` and the galaxy screenshot baselines with it. That cost was
+>   paid rather than designed around; a rule chosen to leave one seed still would have been a rule
+>   chosen to fit a fixture.
 
 `GalaxyGeneration.kt:160-183` walks systems forward from a seeded start and returns the first world the
 unaided species tolerates. Add one clause to the acceptance test: **the system must hold at least two

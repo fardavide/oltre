@@ -31,23 +31,23 @@ class GalaxyUiStateTest {
     fun `the home system reads as home and names its star and its worlds`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        assertEquals("3:165", uiState.coordinate)
-        assertEquals("DIM · 4 worlds", uiState.detail)
+        assertEquals("3:171", uiState.coordinate)
+        assertEquals("DIM · 7 worlds", uiState.detail)
         // A Slide Over pane drops the noun rather than truncating it — a width decision, not a
         // change of voice: the star class and the count both survive.
-        assertEquals("DIM · 4", uiState.compactDetail)
+        assertEquals("DIM · 7", uiState.compactDetail)
         assertTrue(uiState.isHome)
         assertEquals("250 systems", uiState.scope)
     }
 
     @Test
     fun `only the slots that hold something become rows`() {
-        // Eleven of fifteen slots are empty, and the map is where that shows — the list carries
-        // only what is there, or it would be eleven rows saying nothing.
+        // Eight of fifteen slots are empty, and the map is where that shows — the list carries
+        // only what is there, or it would be eight rows saying nothing.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val slots = uiState.bands.flatMap { it.rows }.map { it.slot }
 
-        assertEquals(listOf(7, 8, 10, 13), slots)
+        assertEquals(listOf(1, 2, 4, 7, 8, 10, 11), slots)
     }
 
     // The orbit view draws one ellipse per occupied slot and nothing at all for the empty ones —
@@ -57,7 +57,7 @@ class GalaxyUiStateTest {
     fun `the map draws one orbit for each thing the system holds and none for a gap`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        assertEquals(listOf(7, 8, 10, 13), uiState.map.bodies.map { it.slot })
+        assertEquals(listOf(1, 2, 4, 7, 8, 10, 11), uiState.map.bodies.map { it.slot })
         assertEquals(uiState.bands.flatMap { it.rows }.map { it.slot }, uiState.map.bodies.map { it.slot })
         assertEquals(0, uiState.map.bodies.count { it.mark == MapMark.EMPTY })
         assertEquals(1, uiState.map.bodies.count { it.mark == MapMark.HOME })
@@ -83,7 +83,7 @@ class GalaxyUiStateTest {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val orbits = uiState.map.bodies.map { it.orbit }
 
-        assertEquals(listOf(0f, 1f / 3f, 2f / 3f, 1f), orbits)
+        assertEquals(listOf(0f, 1f / 6f, 2f / 6f, 3f / 6f, 4f / 6f, 5f / 6f, 1f), orbits)
     }
 
     @Test
@@ -118,22 +118,45 @@ class GalaxyUiStateTest {
     fun `rows are grouped into the band their orbit falls in`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        assertEquals(listOf(OrbitBand.TEMPERATE, OrbitBand.COLD), uiState.bands.map { it.band })
-        assertEquals(listOf(7, 8, 10), uiState.bands.first().rows.map { it.slot })
+        assertEquals(listOf(OrbitBand.HOT, OrbitBand.TEMPERATE, OrbitBand.COLD), uiState.bands.map { it.band })
+        assertEquals(listOf(1, 2), uiState.bands.first().rows.map { it.slot })
         assertEquals("Temperate · slots 4–10", OrbitBand.TEMPERATE.heading)
     }
 
     @Test
     fun `a band with nothing in it is dropped rather than shown empty`() {
-        val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+        // The home system used to be the example — it held nothing in the hot band — and since
+        // 0.5.1 genesis picks a system with somewhere to go rather than the first tolerable world
+        // it walks past, so this seed's home fills all three. The claim is about the mapper rather
+        // than about one system, so the system is now *found* instead of assumed: the first in
+        // galaxy 1 whose occupied slots miss a band, scanned in coordinate order so it is the same
+        // one every run.
+        val galaxy = galaxy()
+        val (system, missing) = (1..GalaxyBalance.SYSTEMS_PER_GALAXY).firstNotNullOf { system ->
+            // A relay is a row too, so a system carrying one could fill the band this is looking
+            // for. Skipping those keeps the scan asking about worlds alone.
+            if (dev.fardavide.oltre.core.relayAt(galaxy.seed, galaxy = 1, system = system) != null) return@firstNotNullOf null
+            val bands = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                .filter { slot -> worldAt(galaxy.seed, GalaxyCoordinate(1, system, slot)) != null }
+                .map { slot -> OrbitBand.of(slot) }
+                .toSet()
+            if (bands.isEmpty()) return@firstNotNullOf null
+            OrbitBand.entries.firstOrNull { it !in bands }?.let { system to it }
+        }
+
+        val uiState = state(galaxy).toGalaxyUiState(
+            at = SystemSelection(galaxy = 1, system = system),
+            now = EPOCH,
+            timeZone = TimeZone.UTC,
+        )
 
         assertTrue(uiState.bands.none { it.rows.isEmpty() })
-        assertTrue(uiState.bands.none { it.band == OrbitBand.HOT })
+        assertTrue(uiState.bands.none { it.band == missing }, "band $missing has nothing in system 1:$system")
     }
 
     @Test
     fun `the home world shows its three axes and its yield`() {
-        // It is the reference: every other yield on the screen is read against 0.87, so the player
+        // It is the reference: every other yield on the screen is read against 0.91, so the player
         // meets it on the first launch rather than inferring it.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val home = uiState.bands.flatMap { it.rows }.first { it.slot == 7 }
@@ -141,37 +164,37 @@ class GalaxyUiStateTest {
         // The space before each unit is U+00A0, written as an escape here so the expectation is
         // legible in a diff — a value and its unit must never be split across a wrap.
         val verdict = assertIs<VerdictUiState.Home>(home.verdict)
-        assertEquals("−21 °C · 0.96 g · 0.77 atm", verdict.axes)
-        assertEquals("142 fields · yield 0.87 · no hazards", verdict.detail)
-        assertEquals("[3:165:7]", home.coordinate)
+        assertEquals("−5 °C · 1.21 g · 1.95 atm", verdict.axes)
+        assertEquals("159 fields · yield 0.91 · radiation belt", verdict.detail)
+        assertEquals("[3:171:7]", home.coordinate)
     }
 
     @Test
     fun `a blocked world names each failing axis with the level that closes it`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
-            uiState.bands.flatMap { it.rows }.first { it.slot == 8 }.verdict,
+            uiState.bands.flatMap { it.rows }.first { it.slot == 11 }.verdict,
         )
 
         assertEquals(listOf("temperature", "gravity"), blocked.failures.map { it.axis })
-        assertEquals("1.78", blocked.failures[1].reading)
+        assertEquals("1.48", blocked.failures[1].reading)
         assertEquals("1.40 g", blocked.failures[1].tolerated.breakable())
-        assertEquals("Gravitic 4", blocked.failures[1].label)
+        assertEquals("Gravitic 1", blocked.failures[1].label)
         assertEquals(AdaptationTechnology.GRAVITIC, blocked.failures[1].technology)
     }
 
     @Test
     fun `a blocked world states what it is worth and not only what it costs`() {
-        // The pillar on one row: all three of the home system's blocked worlds out-yield the
-        // worth-it threshold, so what stands between the player and them is a technology rather
+        // The pillar on one row: the nearest blocked world of the home system out-yields the
+        // worth-it threshold, so what stands between the player and it is a technology rather
         // than the world. A row that named the cost and never the worth left that unsaid.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
-            uiState.bands.flatMap { it.rows }.first { it.slot == 8 }.verdict,
+            uiState.bands.flatMap { it.rows }.first { it.slot == 11 }.verdict,
         )
 
         // Over the 0.92 its own calibration line names, which is the pillar in one row.
-        assertEquals("yield 1.05", blocked.yieldLabel)
+        assertEquals("yield 1.06", blocked.yieldLabel)
     }
 
     @Test
@@ -182,8 +205,8 @@ class GalaxyUiStateTest {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val rows = uiState.bands.flatMap { it.rows }
 
-        val twoAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 8 }.verdict)
-        val threeAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 13 }.verdict)
+        val twoAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 11 }.verdict)
+        val threeAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 1 }.verdict)
 
         assertEquals("Fails 2 of 3 bands, worth it at 0.92", twoAxes.calibration)
         assertEquals("Fails 3 of 3 bands, worth it at 0.92", threeAxes.calibration)
@@ -198,22 +221,23 @@ class GalaxyUiStateTest {
         val atGenesis = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val climbed = climbed(AdaptationTechnology.THERMAL, to = 12).toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        // Slot 13 fails all three axes at level 0, and the coldest of them wants Thermal 12.
-        val before = assertIs<VerdictUiState.Blocked>(atGenesis.rowAt(slot = 13).verdict)
-        val after = assertIs<VerdictUiState.Blocked>(climbed.rowAt(slot = 13).verdict)
+        // Slot 1 fails all three axes at level 0, and the hottest of them wants Thermal 7 — so an
+        // empire at Thermal 12 is past it and the row is down to two failures.
+        val before = assertIs<VerdictUiState.Blocked>(atGenesis.rowAt(slot = 1).verdict)
+        val after = assertIs<VerdictUiState.Blocked>(climbed.rowAt(slot = 1).verdict)
 
         assertEquals(listOf("temperature", "gravity", "pressure"), before.failures.map { it.axis })
         assertEquals(listOf("gravity", "pressure"), after.failures.map { it.axis })
     }
 
     // The row still names the level to *buy* rather than the one already held, which is what keeps
-    // it a shopping list: an empire at Thermal 3 facing a world that wants 12 reads "Thermal 12".
+    // it a shopping list: an empire at Thermal 3 facing a world that wants 7 reads "Thermal 7".
     @Test
     fun `a partly climbed ladder still names the level that would land the world`() {
         val uiState = climbed(AdaptationTechnology.THERMAL, to = 3).toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
-        val blocked = assertIs<VerdictUiState.Blocked>(uiState.rowAt(slot = 13).verdict)
+        val blocked = assertIs<VerdictUiState.Blocked>(uiState.rowAt(slot = 1).verdict)
 
-        assertEquals("Thermal 12", blocked.failures.first { it.axis == "temperature" }.label)
+        assertEquals("Thermal 7", blocked.failures.first { it.axis == "temperature" }.label)
     }
 
     @Test
@@ -222,7 +246,7 @@ class GalaxyUiStateTest {
         // saves are what keep the technology on the line at 393dp.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
-            uiState.bands.flatMap { it.rows }.first { it.slot == 13 }.verdict,
+            uiState.bands.flatMap { it.rows }.first { it.slot == 1 }.verdict,
         )
 
         blocked.failures.forEach { failure ->
@@ -236,7 +260,7 @@ class GalaxyUiStateTest {
         // A fixed order means the third line is in the same place on every three-axis world.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
-            uiState.bands.flatMap { it.rows }.first { it.slot == 13 }.verdict,
+            uiState.bands.flatMap { it.rows }.first { it.slot == 1 }.verdict,
         )
 
         assertEquals(listOf("temperature", "gravity", "pressure"), blocked.failures.map { it.axis })
@@ -246,11 +270,11 @@ class GalaxyUiStateTest {
     fun `the technology drops the word Adaptation`() {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
-            uiState.bands.flatMap { it.rows }.first { it.slot == 13 }.verdict,
+            uiState.bands.flatMap { it.rows }.first { it.slot == 1 }.verdict,
         )
 
         assertTrue(blocked.failures.none { it.label.contains("Adaptation") })
-        assertEquals(listOf("Thermal 12", "Gravitic 2", "Atmospheric 1"), blocked.failures.map { it.label })
+        assertEquals(listOf("Thermal 7", "Gravitic 2", "Atmospheric 3"), blocked.failures.map { it.label })
         // The ladder itself travels beside its label, so the tap target is keyed by the enum rather
         // than by a string that moves every time the empire climbs a level.
         assertEquals(

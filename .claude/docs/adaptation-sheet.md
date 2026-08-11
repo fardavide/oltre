@@ -70,7 +70,22 @@ Research screen learns to render both — see *Left open*.
 Rejected: a second slot (no decision left); running in parallel at a duration penalty (a multiplier
 nobody can hold in their head — the galaxy sheet's §2 argument, and the energy round's lesson).
 
-## 3. The gate: Robotics Factory 4, the same for all three
+## 3. The gate: Robotics Factory ~~4~~ **2**, the same for all three
+
+> **Lowered to 2 at 0.5.1** (`balance-log.md` round 18), on Davide having played it — *"I needed 2
+> day to get robotics to level 4"* — and on round 12's own pre-authorisation, quoted below. The
+> measured clock is hour 33 at gate 4 against **hour 12** at gate 2.
+>
+> **Everything in this section except the number survives, and the "why 4" paragraph survives with
+> its argument intact rather than overruled.** It asked that the branch open *after* the player has
+> met the Galaxy screen and read a `BLOCKED` row. Nothing gates the Galaxy tab — the home system is
+> surveyed at genesis — so that has been true from the first frame at every gate level, at 4 and at
+> 2 alike. What the clause really rules out is **1**, which is the applied branch's own gate: share
+> it and five rows open at once and the locked row leaves normal play entirely. That is still the
+> reason the gate is not 1, and it is the whole of what the paragraph below decides now.
+>
+> 3 was on the table and rejected on the measurement: Robotics 3 and 4 are six hours apart where 2
+> and 3 are fifteen, so it costs half the price pressure for a fifth of the clock.
 
 One shared gate, not three different ones.
 
@@ -124,6 +139,11 @@ game has *one cost curve rather than two*. The adaptation branch is the expensiv
 base is nearly twice Enrichment's (4,800 priced against 2,500), not because its curve is different.
 
 ### Duration — 240 minutes × level, all three, on the research Robotics divisor
+
+> **The tables below are still at Robotics 4 and 8 and are still correct**; what changed at 0.5.1 is
+> that a player reaches the branch at Robotics 2, where the divisor is `25 / 29` rather than
+> `25 / 33`. Level 1 is 21 minutes there against 18 at Robotics 4 — the gate coming down buys the
+> clock, not the project.
 
 The longest project in the game: 1.6× Enrichment's 150, and equal across the three ladders for the
 same reason the priced costs are equal. It rides `25 / (25 + 2 × Robotics)`, the gentle divisor

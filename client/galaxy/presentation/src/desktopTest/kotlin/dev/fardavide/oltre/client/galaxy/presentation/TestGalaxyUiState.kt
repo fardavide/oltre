@@ -17,10 +17,10 @@ import kotlinx.datetime.TimeZone
 // an hour, and the screenshots quietly rendered numbers the app would never produce.
 //
 // `everyVerdictUiState` stays hand-written because it has to: under *this* seed the home system is
-// Home plus three Blocked, so Barren, Settleable, Occupied and a relay have no example to draw from
-// here. **There is no such thing as the shipped seed** — the shell mints one per colony from the
-// instant it was founded, so every player's galaxy is different, and a suite that only covered what
-// one seed happens to generate would be covering an accident. The mapper's own Barren and
+// Home plus one Barren plus five Blocked, so Settleable, Occupied and a relay have no example to
+// draw from here. **There is no such thing as the shipped seed** — the shell mints one per colony
+// from the instant it was founded, so every player's galaxy is different, and a suite that only
+// covered what one seed happens to generate would be covering an accident. The mapper's own Barren and
 // Settleable branches are exercised against real generated worlds in `GalaxyUiStateTest`, which is
 // where that belongs; this fixture exists so the *screen* has all seven states in one frame.
 
@@ -36,9 +36,11 @@ private val state: GameState = GameState.initial(galaxy.seed)
 // rather than a fact about the machine that recorded it.
 internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 
-// The home system exactly as generated: Home in slot 7, then three Blocked worlds, all three of
-// which out-yield the worth-it threshold. That is the pillar landing — the good ground is behind
-// the technology nobody has bought yet.
+// The home system exactly as generated. At 0.5.1 that became seven worlds rather than four, and
+// one of them is `Barren` rather than `Blocked` — genesis now starts a colony in a system that has
+// somewhere to go, so the opening screen is a shopping list from the first frame instead of a wall.
+// The five that are still blocked all out-yield the world the player is standing on, which is the
+// pillar landing: the good ground is behind the technology nobody has bought yet.
 internal val homeSystemUiState: GalaxyUiState = state.toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
     now = FIXTURE_NOW,
@@ -113,7 +115,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Home(
                         axes = homeAxes(),
-                        detail = "142 fields · yield 0.87 · no hazards",
+                        detail = homeDetail(),
                     ),
                 ),
                 WorldRowUiState(
@@ -245,9 +247,18 @@ private fun shortOffer(): ProbeOfferUiState {
 
 // Borrowed from the real home world rather than retyped, so the one hand-written frame still shows
 // the same axis line the app produces — non-breaking spaces included.
-private fun homeAxes(): String {
+//
+// The detail line is borrowed for the same reason and was not, until 0.5.1 moved where genesis
+// starts a colony and left this frame quoting the fields and yield of a world it no longer draws
+// its axes from. A hand-written half beside a derived half is a frame that can disagree with
+// itself, which is the exact failure the header warns about.
+private fun homeAxes(): String = homeVerdict().axes
+
+private fun homeDetail(): String = homeVerdict().detail
+
+private fun homeVerdict(): VerdictUiState.Home {
     val home = homeSystemUiState.bands.flatMap { it.rows }.first { it.verdict is VerdictUiState.Home }
-    return (home.verdict as VerdictUiState.Home).axes
+    return home.verdict as VerdictUiState.Home
 }
 
 // The unit is joined to its value by U+00A0 in the mapper, and a fixture that used an ordinary

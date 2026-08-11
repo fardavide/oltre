@@ -332,15 +332,17 @@ class ResearchUiStateTest {
 
     @Test
     fun `all three ladders sit behind the one gate`() {
-        // given a colony past the applied branch's Robotics 1 but not the adaptation branch's 4
+        // given a colony standing on the applied branch's Robotics 1 but not the adaptation
+        // branch's 2 — the gate came down from 4 at 0.5.1, and the window this test describes is
+        // one Robotics level wide now rather than three
         val uiState = colony(buildings = gated()).toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         // then - three gates that differ would decide the first ladder for the player
         assertEquals(
             listOf(
-                ResearchActionUiState.Locked("Requires Robotics 4"),
-                ResearchActionUiState.Locked("Requires Robotics 4"),
-                ResearchActionUiState.Locked("Requires Robotics 4"),
+                ResearchActionUiState.Locked("Requires Robotics 2"),
+                ResearchActionUiState.Locked("Requires Robotics 2"),
+                ResearchActionUiState.Locked("Requires Robotics 2"),
             ),
             uiState.adaptation.map { it.action },
         )
