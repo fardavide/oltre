@@ -2457,3 +2457,47 @@ income 118x. Stretching the arc means widening that gap, and round 11 tied build
 
 **Still Davide's call, and now with the real number attached rather than a fortnight's.** Nothing has
 been changed.
+
+#### Two things the horizon walked into: an inert building and a ceiling
+
+Davide, reading the section above: *"What's the Nanite for?"*
+
+**Nothing, yet — and the benchmark had just started buying it.** Every reference to
+`buildings.naniteFactory` in `core` is storage (`Buildings`, `levelOf`, `withLevel`, `initial`), the
+Robotics 10 gate in `startUpgrade`, the cost table, and an explicit **zero** in both energy
+functions. No curve reads its level: `PlaceholderBalance.upgradeDuration` and
+`ResearchBalance.researchDuration` each divide by the Robotics Factory alone. It costs 20,000 metal /
+10,000 crystal / 4,000 deuterium at level 1, compounds at +50%, and buys nothing.
+
+The addendum above had *added* it to the fixed player's plan, on the argument that a player holding
+two hundred thousand metal buys the thing costing twenty thousand of it. That was wrong in both
+directions at once, and the measurement says by how much:
+
+| day 14 | levels | income/h | metal |
+|---|---|---|---|
+| buying the Nanite Factory | 80 | 12,785 | 244,037 |
+| not buying it | 78 | **15,490** | 208,970 |
+
+Four levels of a no-op cost the colony **2,705 priced units an hour** of income it would otherwise
+have had, *and* left 35,067 more metal in the bank — so it flattered the very pile the page exists to
+show, by spending metal on a row that buys nothing. At ninety days the distortion stops being
+marginal: a tenth Nanite level is 1,999,032 priced units. The fixed player now buys what the game
+actually sells, and the comment in `OPENING_PLAN` says to put it back when the building does
+something.
+
+**In OGame the Nanite Factory halves build time, multiplicatively with the Robotics Factory.** That
+is presumably the intent — `NANITE_ROBOTICS_REQUIREMENT` lives in `PlaceholderBalance` next to the
+other undecided numbers — but it is not written anywhere as a decision, so it is not implemented here
+and will not be invented. Two ways out, both Davide's: give it an effect, or take it out of the tree
+until the slice that needs it.
+
+**And the quarter ends against a wall.** With the no-op purchase removed, the day-90 metal reads
+exactly 10,000,000 — which is `PlaceholderBalance.STORAGE_CAPACITY`. The colony first touches the cap
+at **hour 1,113, day 46**, and spends **386 of the quarter's 2,161 hours** resting on it.
+
+That matters for reading every other row: once a stock is against the cap, `advance` stops accruing,
+so income past it is not banked, not spent and not earned. Every "placed" percentage in the horizon
+therefore *understates* the surplus, and the day-90 figure understates it most. `STORAGE_CAPACITY`'s
+own comment already calls itself a placeholder and names the open question — *"the rule that raises
+it (storage building? mine-level-scaled?)"*. The horizon says that question now has a date on it: day
+46 of a colony's life, under the curves as they stand.

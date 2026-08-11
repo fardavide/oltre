@@ -200,6 +200,15 @@ internal object BalanceBenchmark {
                 ),
             )
         }
+        // **The cap is not decoration by day 90, it is the ceiling the colony is resting on.**
+        // `STORAGE_CAPACITY` is a flat placeholder — its own comment calls the rule that raises it
+        // (a storage building? mine-level-scaled?) an open question — and once a stock is against it
+        // `advance` stops accruing, so every reading above understates: income past the cap is not
+        // banked, not spent, and not earned. A page that printed 10,000,000 without saying it was
+        // the ceiling would read as a big number rather than as a wall.
+        val capped = run.states.count { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY }
+        add(row("hours resting on the metal storage cap", "${capped} of ${run.states.size}"))
+        add(row("  first reached", hourText(run.firstHourWhere { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY })))
     }
 
     // ── [economy] what a level costs and what it gives back ──────────────────────────────────
@@ -391,6 +400,15 @@ internal object BalanceBenchmark {
                 ),
             )
         }
+        // **The cap is not decoration by day 90, it is the ceiling the colony is resting on.**
+        // `STORAGE_CAPACITY` is a flat placeholder — its own comment calls the rule that raises it
+        // (a storage building? mine-level-scaled?) an open question — and once a stock is against it
+        // `advance` stops accruing, so every reading above understates: income past the cap is not
+        // banked, not spent, and not earned. A page that printed 10,000,000 without saying it was
+        // the ceiling would read as a big number rather than as a wall.
+        val capped = run.states.count { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY }
+        add(row("hours resting on the metal storage cap", "${capped} of ${run.states.size}"))
+        add(row("  first reached", hourText(run.firstHourWhere { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY })))
     }
 
     // ── the instruments ─────────────────────────────────────────────────────────────────────
@@ -613,7 +631,7 @@ internal object BalanceBenchmark {
         return label.padEnd(ROW_WIDTH) + value
     }
 
-    private fun hourText(hour: Int?): String = if (hour == null) "beyond day $LONG_HORIZON_DAYS" else "hour $hour"
+    private fun hourText(hour: Int?): String = if (hour == null) "not within the run" else "hour $hour (day ${hour / 24})"
 
     private fun clock(duration: Duration): String {
         val minutes = duration.inWholeMinutes
@@ -662,19 +680,29 @@ internal object BalanceBenchmark {
     // this is the most expensive figure on the page.
     private const val BENCHMARK_SEEDS: Int = 100
 
-    // **Every facility, including the Nanite Factory.** The first cut of this page listed the five
-    // of the opening and left the sixth out as "behind Robotics 10 and out of reach" — which is true
-    // for a day and false for the rest of the fortnight, since the colony reaches Robotics 10 on day
-    // 12. A player sitting on two hundred thousand metal buys the thing that costs twenty thousand
-    // of it; a benchmark whose player does not is measuring its own policy.
+    // **Five facilities, and the Nanite Factory is left out for a reason worth stating.**
     //
-    // `startUpgrade` enforces the gate, so listing it here costs nothing before it opens.
+    // The first cut of this page omitted it as "behind Robotics 10 and out of reach", which is true
+    // for a day and false for the rest of a fortnight — the colony reaches Robotics 10 on day 12. So
+    // it was added, on the argument that a player holding two hundred thousand metal buys the thing
+    // costing twenty thousand of it. Then Davide asked what the Nanite Factory is *for*, and the
+    // answer is **nothing, yet**: no curve in `core` reads `buildings.naniteFactory`. It appears in
+    // `Buildings`, in the Robotics 10 gate, in the cost table, and as an explicit zero in both energy
+    // functions. `upgradeDuration` and `researchDuration` each divide by the Robotics Factory alone.
+    //
+    // A benchmark whose player buys it is therefore worse than one that does not, in both directions
+    // at once. It models a strictly bad purchase — measured: four Nanite levels by day 14 cost the
+    // colony 2,705 priced units an hour of income it would otherwise have had — and it **flatters the
+    // very pile this page exists to show**, by spending metal on a row that buys nothing. At ninety
+    // days the distortion is not marginal: a tenth Nanite level is 1,999,032 priced units.
+    //
+    // So the fixed player buys what the game actually sells. When the Nanite Factory is given an
+    // effect, it belongs back in this list and the golden will move to say so.
     private val OPENING_PLAN = listOf(
         BuildingType.METAL_MINE,
         BuildingType.CRYSTAL_MINE,
         BuildingType.DEUTERIUM_SYNTHESIZER,
         BuildingType.SOLAR_PLANT,
         BuildingType.ROBOTICS_FACTORY,
-        BuildingType.NANITE_FACTORY,
     )
 }
