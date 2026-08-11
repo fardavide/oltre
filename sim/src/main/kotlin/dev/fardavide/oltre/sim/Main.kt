@@ -366,6 +366,40 @@ private fun doorstepOf(seed: GalaxySeed): Doorstep? {
         .minByOrNull { it.priced }
 }
 
+// ── The rest of the screen, which the doorstep report above does not measure ─────────────────
+//
+// `printDoorstepReport` asks how far the **cheapest** neighbour is, and 0.5.1 was shipped on that
+// number alone. A player does not read the cheapest row; they read the whole list. This measures
+// what the Galaxy screen actually says on day one: how many rows, how many of them are blocked,
+// and how far away the ones that are not the doorstep sit.
+private fun printWholeHomeSystem() {
+    val rows = (0 until DOORSTEP_SEEDS).map { index ->
+        val seed = GalaxySeed(SIM_GALAXY_SEED + index)
+        val galaxy = GalaxyState.initial(seed)
+        val others = galaxy.surveyed
+            .filter { it != galaxy.home }
+            .mapNotNull { at -> worldAt(seed, at) }
+            .map { GalaxyBalance.levelsToTolerate(it.traits) }
+            .sorted()
+        others
+    }
+
+    println("### What the whole screen says, not just its cheapest row")
+    println()
+    println("| Reading | Value |")
+    println("|---|---|")
+    println("| Median non-home worlds on the screen | **${rows.map { it.size }.median()}** |")
+    println("| Median of them still blocked | **${rows.map { o -> o.count { it > 0 } }.median()}** |")
+    println("| Median levels, cheapest neighbour | **${rows.mapNotNull { it.firstOrNull() }.median()}** |")
+    println("| Median levels, second cheapest | **${rows.mapNotNull { it.getOrNull(1) }.median()}** |")
+    println("| Median levels, third cheapest | **${rows.mapNotNull { it.getOrNull(2) }.median()}** |")
+    println("| Median levels across every non-home world | " +
+        "**${rows.flatten().map { it.toLong() }.median()}** |")
+    val allBlocked = rows.count { o -> o.isNotEmpty() && o.all { it > 0 } }
+    println("| Screens where every non-home world is still blocked | ${percent(allBlocked, rows.size)} |")
+    println()
+}
+
 private fun printDoorstepReport() {
     val doorsteps = (0 until DOORSTEP_SEEDS).mapNotNull { index -> doorstepOf(GalaxySeed(SIM_GALAXY_SEED + index)) }
 
@@ -435,6 +469,8 @@ private fun printDoorstepReport() {
         "and ${percent(habitable, systems)} of those hold one the unaided species already tolerates — which is " +
         "what genesis walks for. Of *those*:")
     println()
+    printWholeHomeSystem()
+
     println("| A system genesis would accept | Also holds a neighbour within | Systems | Share of habitable |")
     println("|---|---|---|---|")
     for (n in 1..3) {
@@ -1231,9 +1267,14 @@ private fun openingReport(withProbes: Boolean) {
     println("| Gate | Opens | Cleared |")
     println("|---|---|---|")
     val robotics = state.buildings.roboticsFactory.value
+    // Read off `AdaptationBalance.GATE` rather than written out. It was written out until 0.5.1
+    // moved the gate from 4 to 2, at which point this table went on labelling the wrong row — a
+    // report that quietly disagrees with the game is worse than no report, because every balance
+    // round in `balance-log.md` is argued from these readings.
+    val gate = AdaptationBalance.GATE.value
     println("| Robotics Factory 1 | the Research tab | ${if (robotics >= 1) "yes" else "**no — still level $robotics at 48h**"} |")
-    println("| Robotics Factory 4 | the adaptation ladders, so every Blocked world | " +
-        "${if (robotics >= 4) "yes" else "**no — still level $robotics at 48h**"} |")
+    println("| Robotics Factory $gate | the adaptation ladders, so every Blocked world | " +
+        "${if (robotics >= gate) "yes" else "**no — still level $robotics at 48h**"} |")
     println()
 }
 
@@ -2699,10 +2740,13 @@ private fun printGateClock() {
     println()
     println("| Robotics Factory level | Reached | Opens |")
     println("|---|---|---|")
-    for (level in listOf(1, 2, 3, 4, 5, 10)) {
+    // The gate's own level is in the list and labelled from `AdaptationBalance.GATE`, so this
+    // table cannot drift from the game the way it did between 0.5.1 and the round that caught it.
+    val gate = AdaptationBalance.GATE.value
+    for (level in (listOf(1, gate, 4, 5, PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT)).distinct().sorted()) {
         val opens = when (level) {
             1 -> "Photovoltaics, Extraction — the Research tab"
-            4 -> "all three adaptation ladders — every Blocked world"
+            gate -> "all three adaptation ladders — every Blocked world"
             PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT -> "the Nanite Factory"
             else -> "—"
         }

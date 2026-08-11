@@ -338,6 +338,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
+- **The opening is pinned now, and 0.5.1 is why.** `OpeningBalanceTest` in `core` measures what the
+  *first screen* costs a player — how far the cheapest neighbour is, how far the ones behind it are,
+  how many rows there are, and when the adaptation branch opens — because 0.5.1 changed all of that
+  and passed every test in the repository. Bands rather than values, verified by breaking it, 1.3
+  seconds over 200 seeds. See `balance-log.md` round 18's addendum.
+- **Open, and Davide's: whether a colony founded before 0.5.1 should be re-homed.** The doorstep
+  clause only runs at genesis, so it cannot reach anyone already playing — his own colony still opens
+  on a five-level neighbour where the same seed would now give a one-level one. Nothing is built
+  off-world yet, so moving `home` costs a surveyed set and a player's bearings and nothing else.
 - **0.5.1's screenshot baselines have not been recorded**, and the branch is red until they are.
   Moving where genesis starts a colony redraws every galaxy frame derived from the real generator —
   `galaxy_home_system`, `galaxy_unsurveyed` and the six probe frames built on them — and the gate

@@ -2142,3 +2142,112 @@ signal at all.
   The fleet screens, which are designed and sitting finished in `core`, are the nearer half of that.
 - **Nothing here was played.** The measurement is 1,000 seeds of arithmetic against a complaint from
   one device, and the thing that closed the last two rounds was an install.
+
+### Round 18, addendum — the instrument that was missing, and who the round could not reach (2026-08-11)
+
+Davide, an hour after 0.5.1 shipped: *"We need benchmarks/tests against balancing. Such regression is
+NOT acceptable."* Two things came out of chasing that, and only one of them is a regression.
+
+**His colony was never touched, and could not have been.** The seed in the debug menu is the instant
+a colony was founded — `1786319875349` is **2026-08-09 23:57 UTC**, a day and a half before 0.5.1
+merged. `homeFor` has exactly two callers, genesis and the schema 3 → 4 migration, and a schema 9
+save runs neither. Regenerated from that seed, his home is `[2:173:6]` and his cheapest neighbour is
+**Thermal 5** — five levels, exactly what it was on the build he complained about.
+
+**So the real defect is the opposite of a regression: the fix cannot reach anybody who is already
+playing.** Under the new rule the *same seed* opens at `[2:169:6]` with a **one-level** neighbour
+(Thermal 1) and a three-level one behind it. The changelog line *"Existing colonies keep the home
+they were founded on"* was written as a reassurance about save compatibility, and for the one player
+who has an existing colony it means the round did nothing at all. **Whether a colony founded before
+0.5.1 should be re-homed is Davide's call** and it is a real one: nothing is built off-world yet, so
+moving `home` costs a player their surveyed set and their bearings and nothing else.
+
+#### What no test could see, which is the part that generalises
+
+0.5.1 passed every test in the repository. That was not luck and it was not a missing assertion on an
+existing number — **it was a quantity nobody was measuring**. `GalaxyDistributionTest` pins the map
+and could not move, by construction, because no world's traits changed. `BalanceCurveTest` pins the
+curves. Neither knows what the *first screen* says, and the first screen is the only part of the map
+a new colony can see.
+
+`OpeningBalanceTest` is that quantity, in `core` beside the other balance pins, seven readings over
+200 seeds in 1.3 seconds:
+
+| Reading | Band | Now |
+|---|---|---|
+| Colonies that can open a neighbour for one level | ≥ 90% | 99% |
+| Second cheapest neighbour | ≤ 10 levels | 8 |
+| Third cheapest | ≤ 14 | 13 |
+| Median across every neighbour | ≤ 13 | 12 |
+| Non-home worlds on screen | ≥ 3 | 5 |
+| Colonies opening with every neighbour blocked | 40 – 90% | 66% |
+| The adaptation branch opens | ≤ hour 24 | hour 12 |
+
+Three properties of it are the point, and a later round should keep them:
+
+- **Every reading is a band, not a value.** A balance test that pins an exact number forbids tuning,
+  which is the opposite of what these are for. Where a band has two sides it is because both sides
+  are real: *"most colonies still open on a screen where every neighbour is blocked"* fails at 95%
+  because that is the wall this round existed to leave, **and** at 20% because an easy world is a
+  poor world and `Barren` must stay the common answer.
+- **The ceilings sit between the old readings and the new**, never on either. On the old ones the
+  test would pass a full regression; on the new ones it would forbid tuning.
+- **It was verified by breaking it.** Neutralising `DOORSTEP_LEVELS` reproduces the pre-0.5.1
+  opening, and three of the seven fail with the readings that describe it — 9% can act for one
+  level, 95% open on a wall, the second neighbour is twelve levels out. A balance test nobody has
+  watched fail is a balance test nobody should trust.
+
+**And the reading that would have caught the fear this round could not answer**: `printWholeHomeSystem`
+in `:sim`, measuring the whole screen rather than its cheapest row. Round 18 was argued entirely on
+the cheapest neighbour, so *"the doorstep clause put me in a system whose other worlds are extreme"*
+was unfalsifiable at the time it shipped. It is not: every rank improved, 12 → 8, 15 → 13, 14 → 12.
+
+
+### Round 18, second addendum — the check-in gets bands too, and all of them were watched to fail
+
+`OpeningBalanceTest` pinned the map side of the opening. This adds `CheckInBalanceTest`, which pins
+the side almost every round in this file was actually called by: **not a curve, a session**. Round 8
+found check-ins with nothing on them, round 11 found the wait outgrowing the earning, round 12 swept
+every lever at *"nothing to do"* and moved none of them, and round 16 was Davide asking for
+*"adrenaline"* in the first sitting. Each was argued from a `:sim` reading that nothing asserted.
+
+| Reading | Band | Now | The round it comes from |
+|---|---|---|---|
+| Dead check-ins in the first two days | 0 | 0 | 8 |
+| Completions inside the first ten minutes | ≥ 3 | 7 | 16 |
+| First thing to land | ≤ minute 5 | minute 2 | 16 |
+| Longest silence in the first quarter hour | ≤ 8m | 6m | 16 |
+| A second *kind* of decision arrives | ≤ hour 24 | hour 11 | 12 |
+| Check-ins that leave work booked | ≥ 60% | 100% | 11 |
+
+Two decisions inside it are worth keeping when this is next touched. **A completion is what a player
+watches; a start is what they did** — the event log holds both, and counting the pair doubles every
+reading and makes a change that only moved starts look like a change to the session. And **the
+silence band is scoped to the first quarter hour on purpose**: completions thin out later in the
+hour by design, because the curve is exponential, so a bound over the whole hour would pin the shape
+of the curve rather than the density of the sitting.
+
+#### Every band was verified by watching it fail
+
+A balance test nobody has seen fail is a balance test nobody should trust, so each was checked
+against a mutation that reproduces a state this file has already been through:
+
+| Mutation | Reproduces | Caught by |
+|---|---|---|
+| `MINIMUM_UPGRADE_DURATION` 2m → 25m | the 0.2.6 first sitting | *completions inside ten minutes* (**0**, floor 3) and *first thing to land* (**minute 16**, ceiling 5) |
+| `AdaptationBalance.GATE` 2 → 4 | Davide's own 0.5.1 complaint | *the adaptation branch opens on the first day* (**hour 30**, ceiling 24) |
+| `DOORSTEP_LEVELS` neutralised | the pre-0.5.1 opening | three of `OpeningBalanceTest` — 9% can act for one level, 95% open on a wall, second neighbour twelve levels out |
+| `OPENING_DISCOUNT_DIVISOR` 10 → 3 | round 16's cost half, undone | **nothing, and that is correct** — round 16 measured it as worth ~8% of day-4 progression, which is tuning rather than shape, and a band that fired on it would forbid tuning |
+
+That last row is the one to read twice. **A balance suite that catches everything is a suite that
+forbids balancing.** The bands exist to fail on a change of *shape* — a session that goes dead, a
+gate that leaves day one, an opening screen that becomes a wall — and to stay quiet through a round
+that moves a number on purpose.
+
+#### And one report was lying
+
+Two tables in `:sim` wrote `Robotics Factory 4` as a literal, so when the gate moved to 2 they went
+on attributing the adaptation ladders to a level reached at hour 33 when they had opened at hour 12.
+Round 18's own *"hour 33"* framing came from one of them. Both read `AdaptationBalance.GATE` now.
+Every round in this file is argued from these readings, so a report that quietly disagrees with the
+game is worse than no report at all.
