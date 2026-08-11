@@ -5,6 +5,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
@@ -29,6 +30,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.METAL_MINE,
                                     name = "Metal Mine",
+                                    compactName = "Metal Mine",
                                     level = BuildingLevel(12),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
@@ -43,11 +45,13 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = null,
                                     fix = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.ROBOTICS_FACTORY,
                                     name = "Robotics Factory",
+                                    compactName = "Robotics Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "400", short = false),
@@ -58,11 +62,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.DEUTERIUM_SYNTHESIZER,
                                     name = "Deuterium Synth.",
+                                    compactName = "Deuterium Synth.",
                                     level = BuildingLevel(16),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
@@ -72,11 +78,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 3h 12m"),
                                     power = null,
                                     fix = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
                                     name = "Nanite Factory",
+                                    compactName = "Nanite Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -87,10 +95,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
+                            onToggleWatch = {},
                         )
                     }
                 }
@@ -125,6 +136,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.SOLAR_PLANT,
                                     name = "Solar Plant",
+                                    compactName = "Solar Plant",
                                     level = BuildingLevel(9),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "2,868", short = false),
@@ -134,10 +146,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = true,
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
+                            onToggleWatch = {},
                         )
                     }
                 }
@@ -166,6 +181,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.SOLAR_PLANT,
                                     name = "Solar Plant",
+                                    compactName = "Solar Plant",
                                     level = BuildingLevel(1),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "112", short = true),
@@ -175,6 +191,7 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.AffordableIn("in 15m"),
                                     power = FacilityPowerUiState(label = "+50", supply = true),
                                     fix = "→ LV 2 covers all 90 drawn",
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 // A draw on a row that is affordable: taking it deepens the
@@ -182,6 +199,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.METAL_MINE,
                                     name = "Metal Mine",
+                                    compactName = "Metal Mine",
                                     level = BuildingLevel(3),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "202", short = false),
@@ -191,11 +209,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Upgrade,
                                     power = FacilityPowerUiState(label = "−30", supply = false),
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.CRYSTAL_MINE,
                                     name = "Crystal Mine",
+                                    compactName = "Crystal Mine",
                                     level = BuildingLevel(2),
                                     costs = emptyList(),
                                     duration = "36m",
@@ -207,6 +227,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     power = FacilityPowerUiState(label = "−20", supply = false),
                                     fix = null,
+                                    watch = WatchUiState.Offered,
                                     finishedWhileAway = false,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
@@ -214,6 +235,7 @@ class FacilityListScreenshotTest {
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
                                     name = "Nanite Factory",
+                                    compactName = "Nanite Factory",
                                     level = BuildingLevel(0),
                                     costs = listOf(
                                         CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -224,10 +246,13 @@ class FacilityListScreenshotTest {
                                     action = FacilityActionUiState.Locked("Requires Robotics 10"),
                                     power = null,
                                     fix = null,
+                                    watch = null,
                                     finishedWhileAway = false,
                                 ),
                             ),
                             onUpgrade = {},
+                            compact = false,
+                            onToggleWatch = {},
                         )
                     }
                 }

@@ -6,9 +6,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.core.BuildingType
+import kotlin.test.assertEquals
 
 // The colony's first Robot. `MainScaffoldBehaviourTest` and the layout assertions still query nodes
 // directly — they predate the rule — but nothing new should, and the completion sweep is new.
@@ -17,7 +21,11 @@ import dev.fardavide.oltre.client.design.core.OltreTheme
 // row: the energy card and the fleet strip above it have no part in it and only add strings an
 // assertion could collide with.
 @OptIn(ExperimentalTestApi::class)
-internal class ColonyRobot(private val test: ComposeUiTest, private val announced: MutableState<Boolean>) {
+internal class ColonyRobot(
+    private val test: ComposeUiTest,
+    private val announced: MutableState<Boolean>,
+    private val watchTaps: MutableList<BuildingType>,
+) {
 
     // The clock is stopped in this harness, so time only moves when a test says so. Every assertion
     // below is therefore about a named instant rather than about whatever frame the runner reached.
@@ -33,23 +41,59 @@ internal class ColonyRobot(private val test: ComposeUiTest, private val announce
     fun assertReads(text: String) = apply {
         test.onNodeWithText(text, substring = true).assertIsDisplayed()
     }
+
+    // The square carries no text, so this is the one control the Robot reaches by tag.
+    fun tapTheWatchOn(building: BuildingType) = apply {
+        test.onNodeWithTag(ColonyTestTags.watch(building)).performClick()
+        test.mainClock.advanceTimeByFrame()
+    }
+
+    fun assertAskedToWatch(vararg buildings: BuildingType) = apply {
+        assertEquals(buildings.toList(), watchTaps)
+    }
+
+    fun assertHasNoWatch(building: BuildingType) = apply {
+        test.onNodeWithTag(ColonyTestTags.watch(building)).assertDoesNotExist()
+    }
+
+    fun assertNothingReads(text: String) = apply {
+        test.onNodeWithText(text, substring = true).assertDoesNotExist()
+    }
 }
 
 @OptIn(ExperimentalTestApi::class)
-internal fun facilityRow(row: FacilityRowUiState, block: ColonyRobot.() -> Unit) {
-    runDesktopComposeUiTest(width = 393, height = 120) {
-        val announced = mutableStateOf(row.finishedWhileAway)
+internal fun facilityRow(row: FacilityRowUiState, compact: Boolean = false, block: ColonyRobot.() -> Unit) {
+    facilityList(listOf(row), compact = compact, block = block)
+}
+
+// Several rows, for the one thing a single row cannot show: the watch is one slot, so what a tap on
+// the second row means is only legible next to the first.
+//
+// `compact` is the window's width as far as the list is concerned. The screen derives it from
+// `BoxWithConstraints`; here it is stated, because what a narrow render changes about a row — the
+// stacked square, the short name — is worth asking about without building a 320dp window round it.
+@OptIn(ExperimentalTestApi::class)
+internal fun facilityList(
+    rows: List<FacilityRowUiState>,
+    compact: Boolean = false,
+    block: ColonyRobot.() -> Unit,
+) {
+    runDesktopComposeUiTest(width = 393, height = 120 * rows.size) {
+        val announced = mutableStateOf(rows.any { it.finishedWhileAway })
+        val watchTaps = mutableListOf<BuildingType>()
         mainClock.autoAdvance = false
         setContent {
             OltreTheme {
                 Surface {
                     FacilityList(
-                        facilities = listOf(row.copy(finishedWhileAway = announced.value)),
+                        facilities = rows.map { it.copy(finishedWhileAway = it.finishedWhileAway && announced.value) },
                         onUpgrade = {},
+                        compact = compact,
+                        onToggleWatch = { watchTaps += it },
                     )
                 }
             }
         }
-        ColonyRobot(this, announced).block()
+        ColonyRobot(this, announced, watchTaps).block()
     }
 }

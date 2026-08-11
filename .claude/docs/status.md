@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-10 (0.4.3)
+Updated: 2026-08-10 (0.5.0)
 
 ## Landed
 
@@ -231,6 +231,30 @@ Updated: 2026-08-10 (0.4.3)
   Kover exclusions past the gate without asking, which the follow-up removed; they were never needed
   and the rule against them was already written. See `decisions.md`.
 
+- **0.5.0 the square** (`Upgrade Watch.dc.html`, and its revision) — **the check-in loop became
+  opt-in.** A bell on every row that has an instant to name: on a row the colony cannot pay for it
+  books the price, on a row in flight it books the landing, and a completion nobody tapped books
+  nothing at all. One verb, `toggleAlert`, picks which from `isRunning(target)` — in core rather than
+  at two call sites, because the screen renders a snapshot and the tap lands on a state advanced
+  since. **One affordability watch, any number of subscriptions** (`watching` + `subscribed:
+  Set<WatchTarget>`, schema 9 in one hop): a completion is a job the player started and the model
+  caps those at seven. Anything subscribed landing within **five minutes of the one before it**
+  collapses into one alert, chained rather than windowed, fired at the *last* member's instant under
+  the one id in the file not derived from its subject. `futureEvents` takes `now` for the first time,
+  because the watch's instant is stored nowhere; `advance` spends both halves of the square, which is
+  the only state change in the game that writes no event — so the shell's `alerting` commits
+  unconditionally, and is also the one action that transitions *before* it advances (advance-first, a
+  tap on a bell whose build landed 400ms ago moved the empire's single watch onto it).
+  The design's first pass drew a bespoke beacon and its revision threw it out for **a bell**, on the
+  argument that three bespoke marks had all needed explaining. At the compact width the bell stacks
+  under the ghost and drops its hit height to 29dp — measured: at 44 the row grows to 101dp where the
+  design drew 88 — the rail stacks every rate under its stock, and the Robotics Factory goes by
+  "Robotics".
+  **Open, from the design's own sheet:** *"if subscription rate on started builds is high, the tap
+  was a tax and the default should flip"* — and the app records neither number, so the bet is
+  currently un-settleable. Also open: whether the section label should follow the row's width-aware
+  name (implemented) or always use the short one, which is the one place frame E disagrees with
+  frames A–D.
 ## Roadmap — v1 in vertical slices
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,

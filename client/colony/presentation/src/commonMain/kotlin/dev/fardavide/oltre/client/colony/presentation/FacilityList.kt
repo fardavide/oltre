@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -24,6 +25,9 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
+import dev.fardavide.oltre.client.design.component.WatchSquare
+import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
@@ -40,18 +44,25 @@ import dev.fardavide.oltre.core.BuildingType
 @Composable
 fun FacilityList(
     facilities: List<FacilityRowUiState>,
+    compact: Boolean,
     onUpgrade: (BuildingType) -> Unit,
+    onToggleWatch: (BuildingType) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         facilities.forEach { row ->
-            FacilityRow(row = row, onUpgrade = onUpgrade)
+            FacilityRow(row = row, compact = compact, onUpgrade = onUpgrade, onToggleWatch = onToggleWatch)
         }
     }
 }
 
 @Composable
-private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Unit) {
+private fun FacilityRow(
+    row: FacilityRowUiState,
+    compact: Boolean,
+    onUpgrade: (BuildingType) -> Unit,
+    onToggleWatch: (BuildingType) -> Unit,
+) {
     val mono = oltreMono()
     val locked = row.action is FacilityActionUiState.Locked
     val sweep = rememberCompletionSweep(play = row.finishedWhileAway)
@@ -75,7 +86,7 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                 // level badge keeps its one line rather than wrapping "LV" above its number.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = row.name,
+                        text = if (compact) row.compactName else row.name,
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 13.5.sp,
@@ -150,6 +161,21 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         }
                     }
                 }
+                // Last on the card, under the price it is about. Accent text and not an accent
+                // border: the border means something is in flight, and a watched row is not doing
+                // anything — it is booked.
+                (row.watch as? WatchUiState.Booked)?.let { booked ->
+                    Text(
+                        text = booked.affordableAt,
+                        color = OltreColors.accent,
+                        fontFamily = mono,
+                        fontSize = 10.5.sp,
+                        // 6dp where the card's other lines take 4dp: this one answers the square to
+                        // its right rather than the line above it, and the extra 2dp is what stops
+                        // it reading as a fourth term of the price.
+                        modifier = Modifier.padding(top = 6.dp),
+                    )
+                }
             }
             when (val action = row.action) {
                 FacilityActionUiState.Upgrade -> Text(
@@ -166,20 +192,35 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         .background(OltreColors.accent, RoundedCornerShape(9.dp))
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
-                is FacilityActionUiState.AffordableIn -> Text(
-                    text = action.label,
-                    color = OltreColors.textTertiary,
-                    fontFamily = mono,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
-                        .padding(horizontal = 11.dp, vertical = 7.dp),
-                )
+                // The ghost time, and beside it the square that books an alert for the instant it
+                // names. The square sits *outside* the ghost rather than inside it, because the two
+                // are different things: one is how long you have to wait, the other is whether you
+                // want to be told when the wait is over.
+                is FacilityActionUiState.AffordableIn -> WatchableAction(
+                    watch = row.watch,
+                    stacked = compact,
+                    onToggleWatch = { onToggleWatch(row.building) },
+                    watchModifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
+                ) {
+                    Text(
+                        text = action.label,
+                        color = OltreColors.textTertiary,
+                        fontFamily = mono,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .padding(horizontal = 11.dp, vertical = 7.dp),
+                    )
+                }
                 // How long is left, and how far round it has got. The two used to sit at opposite
                 // ends of the card — a countdown here and a 3dp bar under everything — and the bar
                 // was the widest thing on a running row while saying the least. The dial says the
                 // same fraction in a tenth of the ink and takes the level with it.
+                // The square joins the pair the running row already draws, and joins it **last**:
+                // it is the rightmost thing on every row that has one, which is what lets the eye
+                // run down the column and see what it has asked about. Nothing else on a running
+                // row changes — the design's own words are "the square is the only difference".
                 is FacilityActionUiState.Upgrading -> Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -193,6 +234,16 @@ private fun FacilityRow(row: FacilityRowUiState, onUpgrade: (BuildingType) -> Un
                         fontWeight = FontWeight.SemiBold,
                     )
                     LevelDial(level = row.level.value, percent = action.progressPercent)
+                    row.watch?.let { watch ->
+                        WatchSquare(
+                            watched = watch != WatchUiState.Offered,
+                            onClick = { onToggleWatch(row.building) },
+                            // Never stacked: a running row's action is a line of three things, and
+                            // its card is taller than 44dp already.
+                            stacked = false,
+                            modifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
+                        )
+                    }
                 }
                 is FacilityActionUiState.Locked -> Unit
             }

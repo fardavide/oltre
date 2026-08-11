@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
@@ -11,6 +13,7 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Research
+import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.ResearchJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
@@ -18,7 +21,9 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.adaptationShortlist
+import dev.fardavide.oltre.core.timeUntilAffordable
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,6 +34,7 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 class ResearchUiStateTest {
 
@@ -596,6 +602,128 @@ class ResearchUiStateTest {
         assertEquals(emptyList(), uiState.adaptation.filter { it.finishedWhileAway })
     }
 
+    @Test
+    fun `a row the empire cannot pay for offers a square`() {
+        // given past the gate and 20 metal short of Photovoltaics 1
+        val row = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertEquals(WatchUiState.Offered, row.watch)
+    }
+
+    @Test
+    fun `a row held up only by the slot offers none`() {
+        // given everything paid for and a project two hours from done. **The ghost still reads a
+        // wait**, and that is the point: the square answers a narrower question than the ghost does,
+        // because the resources are already in the stores and there is nothing to be told about.
+        val row = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 300, crystal = 150, deuterium = 100),
+            activeResearch = project(completesAt = EPOCH + 2.hours),
+        ).rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertIs<ResearchActionUiState.AvailableIn>(row.action)
+        assertEquals(null, row.watch)
+    }
+
+    @Test
+    fun `a row behind its requirement has no price yet and so no square`() {
+        // given a colony with no Robotics Factory
+        val row = colony().rowFor(Technology.PHOTOVOLTAICS)
+
+        // then
+        assertEquals(null, row.watch)
+    }
+
+    // **This reverses what 0.5 asserted here.** A running row used to offer nothing, because the
+    // square was only ever about a price. Since completions went opt-in it is the one row where the
+    // square is the whole of how the player hears about anything.
+    @Test
+    fun `a running row offers its square for the completion instead`() {
+        // given the project the row itself is about — `project`'s default is deliberately another
+        // technology, so it has to be named here
+        val running = colony(
+            buildings = gated(),
+            activeResearch = project(completesAt = EPOCH + 2.hours, technology = Technology.PHOTOVOLTAICS),
+        )
+
+        // then
+        assertEquals(WatchUiState.Offered, running.rowFor(Technology.PHOTOVOLTAICS).watch)
+        assertEquals(
+            WatchUiState.Subscribed,
+            running.copy(subscribed = setOf(WatchTarget.Project(Technology.PHOTOVOLTAICS)))
+                .rowFor(Technology.PHOTOVOLTAICS).watch,
+        )
+    }
+
+    @Test
+    fun `a running ladder offers its square the same way a running technology does`() {
+        // given — the two branches share one composable, so they have to share the rule too
+        val running = colony(
+            buildings = gated(robotics = 4),
+            activeAdaptation = ladder(completesAt = EPOCH + 2.hours),
+        )
+
+        // then — `ladder` runs Gravitic
+        assertEquals(WatchUiState.Offered, running.adaptationRowFor(AdaptationTechnology.GRAVITIC).watch)
+    }
+
+    @Test
+    fun `the watched technology names the instant it becomes affordable`() {
+        // given the watch on a row the empire is short for
+        val state = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
+            watching = WatchTarget.Project(Technology.PHOTOVOLTAICS),
+        )
+
+        // when
+        val row = state.rowFor(Technology.PHOTOVOLTAICS)
+
+        // then — the same clock time the alert will be stamped with
+        val wait = timeUntilAffordable(
+            state.resources,
+            ResearchBalance.researchCost(Technology.PHOTOVOLTAICS, TechLevel(1)),
+            state.buildings,
+            state.research,
+        )
+        val expected = (EPOCH + wait).toLocalDateTime(TimeZone.UTC)
+        assertEquals(
+            "→ affordable ${expected.hour.pad2()}:${expected.minute.pad2()}",
+            assertIs<WatchUiState.Booked>(row.watch).affordableAt,
+        )
+    }
+
+    @Test
+    fun `a ladder is watched by the same rule as a technology`() {
+        // given past the adaptation gate with nothing in the stores
+        val state = colony(
+            buildings = gated(robotics = 4),
+            watching = WatchTarget.Ladder(AdaptationTechnology.THERMAL),
+        )
+
+        // then — one slot, so the other two ladders offer and only this one is booked
+        assertIs<WatchUiState.Booked>(state.adaptationRowFor(AdaptationTechnology.THERMAL).watch)
+        assertEquals(WatchUiState.Offered, state.adaptationRowFor(AdaptationTechnology.GRAVITIC).watch)
+    }
+
+    @Test
+    fun `the heading names what the empire is watching whatever screen it is on`() {
+        // given — handed in, because research cannot name a facility
+        val uiState = colony().toResearchUiState(
+            now = EPOCH,
+            timeZone = TimeZone.UTC,
+            watching = "watching Metal Mine",
+        )
+
+        // then
+        assertEquals("watching Metal Mine", uiState.watching)
+    }
+
     private fun GameState.rowFor(technology: Technology, now: Instant = EPOCH): TechnologyRowUiState =
         toResearchUiState(now = now, timeZone = TimeZone.UTC).technologies.first { it.technology == technology }
 
@@ -626,6 +754,8 @@ class ResearchUiStateTest {
         resources: Resources = Resources.of(),
         activeResearch: ResearchJob? = null,
         activeAdaptation: AdaptationJob? = null,
+        watching: WatchTarget? = null,
+        subscribed: Set<WatchTarget> = emptySet(),
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
@@ -643,6 +773,10 @@ class ResearchUiStateTest {
         // compete for metal, and neither can hold the slot this screen is entirely about.
         ships = Ships.NONE,
         runs = emptyList(),
+        // The one slot the watch holds, which this screen shares with the colony's — a parameter,
+        // because `watch` on a row is derived from it.
+        watching = watching,
+        subscribed = subscribed,
         eventLog = emptyList(),
     )
 

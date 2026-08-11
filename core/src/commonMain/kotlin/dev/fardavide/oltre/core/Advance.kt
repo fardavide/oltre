@@ -5,13 +5,22 @@ import kotlin.time.Instant
 // The single entry point for time. Accrues continuously between discrete events and applies
 // each event exactly at its instant, so any span produces the same state as any chain of
 // sub-spans (the composability property).
+//
+// The one thing settled *after* the span rather than inside it is the watch, and it is not an event:
+// see `withoutSpentWatch`. It reads the stores the span left behind, so it can only be answered once
+// they have stopped moving — which is also why the argument check moved up here, out of a recursion
+// that would re-check it at every boundary for nothing.
+fun advance(state: GameState, from: Instant, to: Instant): GameState {
+    require(to >= from) { "advance must not go backwards: from=$from to=$to" }
+    return advanced(state, from = from, to = to).withoutSpentWatch()
+}
+
 // `tailrec` because the recursive call below is already in tail position and the recursion depth is
 // the number of events in the span. That used to be bounded at ~6 builds + 1 project + N probes + 1
 // arrival; parallel runs across a week's absence — or a debug skip — make it unbounded, and a
 // StackOverflowError inside the one function the whole simulation rests on is not a failure mode
 // worth keeping for the sake of a word.
-tailrec fun advance(state: GameState, from: Instant, to: Instant): GameState {
-    require(to >= from) { "advance must not go backwards: from=$from to=$to" }
+private tailrec fun advanced(state: GameState, from: Instant, to: Instant): GameState {
     // Builds run in parallel, so several of them — plus a research project and a fleet arrival —
     // are in flight at once and each one changes what the following span accrues. Take the
     // earliest due event, apply it, and recurse.
@@ -28,7 +37,7 @@ tailrec fun advance(state: GameState, from: Instant, to: Instant): GameState {
     // apply it defensively instead of wedging it forever.
     val boundary = maxOf(nextEventAt, from)
     val atBoundary = accrue(state, from = from, to = boundary).applyEventsDueAt(nextEventAt)
-    return advance(atBoundary, from = boundary, to = to)
+    return advanced(atBoundary, from = boundary, to = to)
 }
 
 private fun GameState.applyEventsDueAt(instant: Instant): GameState {

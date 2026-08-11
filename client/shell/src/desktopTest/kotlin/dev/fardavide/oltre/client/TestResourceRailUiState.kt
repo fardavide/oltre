@@ -28,6 +28,18 @@ internal val sixFigureResourceRailUiState = ResourceRailUiState(
     throttled = false,
 )
 
+// **The case the compact rule exists for, and the one the six-figure fixture above cannot make.**
+// There every cell overflows, so the bar stacks whether or not anything told it to. Here the
+// deuterium cell fits a Slide Over's ~85dp on one line — "740 +90/h" is about 65dp at these sizes —
+// while the other two do not, which is the ordinary shape of a colony that has been mining for a
+// day. Left to the measurement the bar comes out one line taller in two cells than in the third.
+internal val lopsidedResourceRailUiState = ResourceRailUiState(
+    metal = settled(stock = 482_910, ratePerHour = "+12,400/h"),
+    crystal = settled(stock = 198_340, ratePerHour = "+6,180/h"),
+    deuterium = settled(stock = 740, ratePerHour = "+90/h"),
+    throttled = false,
+)
+
 // A cell with nothing to announce: what the player last saw is what the colony holds.
 private fun settled(stock: Long, ratePerHour: String) =
     ResourceStockUiState(stock = stock, lastSeenStock = stock, ratePerHour = ratePerHour)

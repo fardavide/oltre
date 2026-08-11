@@ -41,6 +41,8 @@ fun ResearchScreen(
     uiState: ResearchUiState,
     onStartResearch: (Technology) -> Unit,
     onStartAdaptation: (AdaptationTechnology) -> Unit,
+    onToggleTechnologyWatch: (Technology) -> Unit,
+    onToggleAdaptationWatch: (AdaptationTechnology) -> Unit,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -65,14 +67,19 @@ fun ResearchScreen(
             ) {
                 SectionLabel(
                     text = "TECHNOLOGIES",
-                    // The single-slot rule has to be legible without a tap, and the label's
-                    // trailing slot is the one place it costs nothing.
-                    rule = if (compact) "one at a time" else "one project at a time",
+                    // Two slot rules want this one slot, and while a watch exists it wins. **The
+                    // watch is the one that can change without the player looking** — it is shared
+                    // with the Colony screen, so tapping a square there silently takes it off a row
+                    // here, and the only defence against that is naming it where it can be read.
+                    // "One project at a time" is learned in the first minute and is still legible
+                    // from the five rows reading the same wait; the watch is legible from nothing.
+                    rule = uiState.watching ?: if (compact) "one at a time" else "one project at a time",
                 )
                 TechnologyList(
                     technologies = uiState.technologies,
                     compact = compact,
                     onStartResearch = onStartResearch,
+                    onToggleWatch = onToggleTechnologyWatch,
                 )
                 // 22dp — the value that clears the fleet strip on Colony, which is what the system
                 // already spends to mean "different subject". Not a divider and not a hairline:
@@ -92,6 +99,7 @@ fun ResearchScreen(
                     ladders = uiState.adaptation,
                     compact = compact,
                     onStartAdaptation = onStartAdaptation,
+                    onToggleWatch = onToggleAdaptationWatch,
                 )
             }
         }

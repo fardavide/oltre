@@ -1827,6 +1827,53 @@ killed sees the new numbers with no roll and no sweep. The handoff calls for a "
 what the repo has is a launch. Wiring real lifecycle observation across three platforms is its own
 slice, and this one should not invent a heuristic for it.
 
+## The check-in loop becomes opt-in (2026-08-10, 0.5.0)
+
+Claude Design's revision of the Upgrade Watch sheet, and it reverses the loop the game has run on
+since 0.0.10: **an upgrade completing no longer books an alert unless the player tapped the bell on
+its row while it was running.** Probes and fleet returns are untouched and still fire on their own.
+
+**Both passes of the sheet ship as one version, Davide's call** — *"there's no reason for 2 bumps"*.
+The first drew a square that books a price and left completions firing on their own; the revision
+gave the same control a second question and took the automatic ones away. Neither reached `main`
+separately, so the player meets one change rather than two, and the save format is one hop rather
+than two: **schema 9 adds `watching` and `subscribed` together**, because no save has ever held one
+without the other and a second version would be a migration nobody could ever run.
+
+The sheet argues against itself out loud, which is why it is worth recording rather than merely
+implementing: *"the completion alert is the check-in loop, and on iPhone it is the only way the game
+can say a decision is ready; a player who never taps the square now hears nothing at all."* The case
+for it is that every alert becomes one that was asked for — the stronger form of the rule the probe
+copy already follows. **Its own stated exit condition is a measurement the app cannot currently
+take**: *"if subscription rate on started builds is high, the tap was a tax and the default should
+flip."* Nothing records started builds or subscriptions, so the bet is un-settleable as shipped, and
+that is in `status.md` as an open item rather than quietly missing.
+
+Four decisions inside it are ours rather than the sheet's, each because the sheet did not say:
+
+1. **One verb, `toggleAlert`, deciding from `isRunning(target)`** rather than two verbs the screens
+   pick between. The row knows whether it is building, so two verbs look equally correct — and they
+   are not: the screen renders a snapshot and the tap is applied to a state that has been advanced
+   since, so a build that finished in between would be "subscribed" after it had already landed.
+   Deciding in core is the only place the question is asked of the state the action will act on.
+2. **`Set<WatchTarget>` rather than a second sealed `CompletionTarget`.** One pointer type for one
+   control. The argument for two — that `watching in subscribed` would then compile and mean nothing
+   — is answered by a test rather than by a type: `advance never leaves a row both watched and
+   subscribed`, which holds because starting a job requires covering the very cost the watch waits
+   for and `advance` clears the watch the moment the stores do.
+3. **The grouping lives in `notificationsFor`, not in `futureEvents`.** That list is the mirror of
+   what `advance` will write to the log; a group mirrors nothing, and the debug menu's "skip to the
+   next event" reads the same list. The sheet agrees — *"arithmetic done at schedule time"*.
+4. **The stacked square is 29dp tall where the side-by-side one is 44dp.** Measured, not conceded:
+   at 44 the compact action column is 28 + 7 + 44 = 79dp against a 56dp content column, which grows
+   the row to 101dp where the design drew 88. Height is free beside the ghost and is not free under
+   it, so the platform's minimum is bought only in the axis that costs nothing.
+
+**The beacon is gone after one version.** The sheet's own reason is the best argument in it: three
+bespoke marks were drawn for this control — a beacon, a body above a limb, a trajectory past a world
+— and every one had to be explained before it could be read. *"A control nobody can read is worse
+than a borrowed shape"*, and a bell is barely borrowed: it is the one mark a player already knows
+means *tell me later*.
 ## The sky leans with the phone, and the parallax finally admits it has state (2026-08-10, 0.4.2)
 
 Davide asked for "parallax effect on the background stars using gyroscope". The effect is built and

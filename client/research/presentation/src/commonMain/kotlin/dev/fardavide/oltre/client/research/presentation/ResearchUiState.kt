@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.milliTrimmed
@@ -8,6 +9,7 @@ import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.format.watchedAtLabel
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
 import dev.fardavide.oltre.core.AdaptationTechnology
@@ -22,6 +24,7 @@ import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.adaptationShortlist
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
@@ -48,6 +51,11 @@ import kotlinx.datetime.toLocalDateTime
 data class ResearchUiState(
     val technologies: List<TechnologyRowUiState>,
     val adaptation: List<AdaptationRowUiState>,
+    // "watching Metal Mine" beside the TECHNOLOGIES heading, and null when nothing is watched. The
+    // watch is one slot shared with the colony, so this names a facility as readily as a technology
+    // — and it is handed in for the same reason the Colony screen's copy is: what a facility is
+    // called belongs to the screen that draws facilities.
+    val watching: String?,
 )
 
 // Which project landed between the instant the save was written and the instant the app came back.
@@ -66,6 +74,10 @@ data class TechnologyRowUiState(
     val costs: List<CostChipUiState>,
     val duration: String,
     val action: ResearchActionUiState,
+    // The square beside the ghost time. Null unless this row is one the empire cannot *pay* for —
+    // a row held up only by a busy slot has nothing to be told about, because the resources are
+    // already there. See `WatchUiState`.
+    val watch: WatchUiState?,
     // True on at most one row in the whole app, and only for the first couple of seconds after a
     // launch. See the same field on the colony's facility rows — it is a fact about this launch
     // rather than about the empire.
@@ -95,6 +107,9 @@ data class AdaptationRowUiState(
     // rather than going quiet, because "Thermal 1 unlocks nothing" is the sentence that makes the
     // other two mean something.
     val shortlist: ShortlistUiState,
+    // The applied branch's field, unchanged: the two rows share one composable, so a watched ladder
+    // has to be drawn by the same parts as a watched technology.
+    val watch: WatchUiState?,
     val finishedWhileAway: Boolean,
 )
 
@@ -160,6 +175,7 @@ fun GameState.toResearchUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: FinishedWhileAway? = null,
+    watching: String? = null,
 ): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
@@ -180,6 +196,7 @@ fun GameState.toResearchUiState(
                 finishedWhileAway = it == finishedLadder,
             )
         },
+        watching = watching,
     )
 }
 
@@ -223,6 +240,14 @@ private fun GameState.toTechnologyRow(
             !requirement.isMetBy(this) -> ResearchActionUiState.Locked(requirement.label())
             else -> startOrWait(cost = cost, now = now)
         },
+        watch = watchOn(
+            target = WatchTarget.Project(technology),
+            cost = cost,
+            running = running != null,
+            requirementMet = requirement.isMetBy(this),
+            now = now,
+            timeZone = timeZone,
+        ),
         finishedWhileAway = finishedWhileAway,
     )
 }
@@ -262,6 +287,14 @@ private fun GameState.toAdaptationRow(
         ),
         duration = AdaptationBalance.adaptationDuration(technology, toLevel, buildings.roboticsFactory).toChipLabel(),
         shortlist = shortlist.toUiState(),
+        watch = watchOn(
+            target = WatchTarget.Ladder(technology),
+            cost = cost,
+            running = running != null,
+            requirementMet = requirement.isMetBy(this),
+            now = now,
+            timeZone = timeZone,
+        ),
         finishedWhileAway = finishedWhileAway,
         action = when {
             running != null -> runningAction(
@@ -275,6 +308,32 @@ private fun GameState.toAdaptationRow(
             else -> startOrWait(cost = cost, now = now)
         },
     )
+}
+
+// **The square answers a narrower question than the ghost beside it.** The ghost's time is the later
+// of two waits — the price and the slot — but a watch is only ever about the price, so a row the
+// empire can already pay for offers none: there is nothing to be told, the resources are in the
+// stores and the lab is simply busy. That is not a special case for this screen, it is core's own
+// rule: `futureEvents` projects no instant for a purchase the stocks already cover.
+//
+// Absent too when the row cannot be bought at all — a requirement it has not met has no price yet,
+// and a binding resource with no net income never reaches the price it does have.
+private fun GameState.watchOn(
+    target: WatchTarget,
+    cost: Resources,
+    running: Boolean,
+    requirementMet: Boolean,
+    now: Instant,
+    timeZone: TimeZone,
+): WatchUiState? {
+    // A project in flight is asked about its completion, not its price — the price is paid. This is
+    // the same square and a different question, and which one it is is a fact about the row.
+    if (running) return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    if (!requirementMet || resources.covers(cost)) return null
+    val wait = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() } ?: return null
+    if (watching != target) return WatchUiState.Offered
+    val local = (now + wait).toLocalDateTime(timeZone)
+    return WatchUiState.Booked(watchedAtLabel(hour = local.hour, minute = local.minute))
 }
 
 // The ghost carries a time, never a dead button. The wait is the later of the two reasons a
@@ -387,7 +446,8 @@ private fun BuildingType.shortName(): String = when (this) {
 
 // One word each, so no row ever needs a 320dp abbreviation, and the set reads as a set next to the
 // two-word facility names: facilities are physical things, technologies are disciplines.
-internal fun Technology.displayName(): String = when (this) {
+// Public rather than internal since the watch — see the note on the colony's own `displayName`.
+fun Technology.displayName(): String = when (this) {
     Technology.PHOTOVOLTAICS -> "Photovoltaics"
     Technology.EXTRACTION -> "Extraction"
     Technology.ENRICHMENT -> "Enrichment"
@@ -397,7 +457,7 @@ internal fun Technology.displayName(): String = when (this) {
 // same word, which carries nothing and costs eleven characters the row does not have. The Galaxy
 // screen's blocked rows already say "Gravitic 9" for the same reason, so the two screens name the
 // same object the same way.
-private fun AdaptationTechnology.displayName(): String = when (this) {
+fun AdaptationTechnology.displayName(): String = when (this) {
     AdaptationTechnology.THERMAL -> "Thermal"
     AdaptationTechnology.GRAVITIC -> "Gravitic"
     AdaptationTechnology.ATMOSPHERIC -> "Atmospheric"

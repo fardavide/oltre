@@ -81,6 +81,6 @@ fun skipAhead(state: GameState, now: Instant): SkipAhead {
     //
     // The minimum is taken rather than the first, so this does not quietly depend on `futureEvents`
     // staying sorted — it is sorted today, and nothing here needs it to be.
-    val next = futureEvents(state).filter { it.at > now }.minByOrNull { it.at }
+    val next = futureEvents(state, now = now).filter { it.at > now }.minByOrNull { it.at }
     return if (next != null) SkipAhead.ToEvent(next) else SkipAhead.ByFallback(now + SKIP_FALLBACK)
 }

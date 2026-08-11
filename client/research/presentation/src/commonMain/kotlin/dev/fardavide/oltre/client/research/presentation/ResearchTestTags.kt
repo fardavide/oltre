@@ -20,4 +20,10 @@ internal object ResearchTestTags {
     fun row(technology: AdaptationTechnology): String = "research-row-${technology.name.lowercase()}"
 
     fun action(technology: AdaptationTechnology): String = "research-action-${technology.name.lowercase()}"
+
+    // The watch square carries no text, so it is the one control on this screen a Robot cannot find
+    // by what it says.
+    fun watch(technology: Technology): String = "research-watch-${technology.name.lowercase()}"
+
+    fun watch(technology: AdaptationTechnology): String = "research-watch-${technology.name.lowercase()}"
 }

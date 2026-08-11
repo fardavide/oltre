@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.research.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.LadderShortlist
 import dev.fardavide.oltre.core.ResourceKind
@@ -17,6 +18,8 @@ import dev.fardavide.oltre.core.Technology
 // same job one branch further out — before the map has shown a single hostile world, the screen has
 // said that hostile worlds are a thing you buy your way past, and roughly what that will cost.
 internal val beforeTheGateUiState = ResearchUiState(
+    // Nothing watched: the watch has its own frames, so these four stay the screens they were.
+    watching = null,
     adaptation = lockedLadders(),
     technologies = listOf(
         TechnologyRowUiState(
@@ -27,7 +30,8 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "300", crystal = "150", deuterium = "100", short = null),
             duration = "1h 00m",
             action = ResearchActionUiState.Locked("Requires Robotics 1"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -37,7 +41,8 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "600", crystal = "400", deuterium = "200", short = null),
             duration = "1h 30m",
             action = ResearchActionUiState.Locked("Requires Robotics 1"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -47,7 +52,8 @@ internal val beforeTheGateUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 30m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
 )
@@ -59,6 +65,8 @@ internal val beforeTheGateUiState = ResearchUiState(
 // a segmented control these three would be behind a tap, so the player would learn nothing until
 // they went looking for something they do not know exists.
 internal val nothingRunningUiState = ResearchUiState(
+    // Nothing watched: the watch has its own frames, so these four stay the screens they were.
+    watching = null,
     adaptation = lockedLadders(),
     technologies = listOf(
         TechnologyRowUiState(
@@ -69,7 +77,8 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "675", crystal = "338", deuterium = "225", short = null),
             duration = "2h 36m",
             action = ResearchActionUiState.Start,
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -79,7 +88,8 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "1,350", crystal = "900", deuterium = "450", short = ResourceKind.DEUTERIUM),
             duration = "3h 53m",
             action = ResearchActionUiState.AvailableIn("in 1h 45m"),
-        finishedWhileAway = false,
+            watch = WatchUiState.Offered,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -89,7 +99,8 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 10m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
 )
@@ -100,6 +111,8 @@ internal val nothingRunningUiState = ResearchUiState(
 // metal it does not have, which is the sheet's design showing through — the ladder you can afford
 // first is the one your colony is already good at.
 internal val gateOpenUiState = ResearchUiState(
+    // Nothing watched: the watch has its own frames, so these four stay the screens they were.
+    watching = null,
     technologies = listOf(
         TechnologyRowUiState(
             technology = Technology.PHOTOVOLTAICS,
@@ -113,7 +126,8 @@ internal val gateOpenUiState = ResearchUiState(
             // reading 3h 02m, which is exactly the comparison the shared slot asks a player to make.
             duration = "2h 17m",
             action = ResearchActionUiState.Start,
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -123,7 +137,8 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.METAL),
             duration = "5h 41m",
             action = ResearchActionUiState.AvailableIn("in 1h 16m"),
-        finishedWhileAway = false,
+            watch = WatchUiState.Offered,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -133,7 +148,8 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
             action = ResearchActionUiState.Start,
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
     adaptation = listOf(
@@ -146,7 +162,8 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.Start,
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.GRAVITIC,
@@ -157,7 +174,8 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 36m"),
-        finishedWhileAway = false,
+            watch = WatchUiState.Offered,
+            finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.ATMOSPHERIC,
@@ -168,7 +186,8 @@ internal val gateOpenUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.Start,
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
 )
@@ -181,6 +200,8 @@ internal val gateOpenUiState = ResearchUiState(
 // rows up is counting. That is the point of one screen rather than two: the number verifies itself,
 // with nothing added to carry it.
 internal val oneProjectInFlightUiState = ResearchUiState(
+    // Nothing watched: the watch has its own frames, so these four stay the screens they were.
+    watching = null,
     adaptation = listOf(
         AdaptationRowUiState(
             technology = AdaptationTechnology.THERMAL,
@@ -191,7 +212,8 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 0, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.GRAVITIC,
@@ -202,7 +224,8 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 5, worthTaking = 1),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
         AdaptationRowUiState(
             technology = AdaptationTechnology.ATMOSPHERIC,
@@ -213,7 +236,8 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 3, worthTaking = 0),
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
     technologies = listOf(
@@ -230,7 +254,8 @@ internal val oneProjectInFlightUiState = ResearchUiState(
                 progressPercent = 60,
                 doneAt = "done 11:23",
             ),
-        finishedWhileAway = false,
+            watch = WatchUiState.Offered,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.EXTRACTION,
@@ -240,7 +265,8 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.DEUTERIUM),
             duration = "5h 41m",
             action = ResearchActionUiState.AvailableIn("in 3h 55m"),
-        finishedWhileAway = false,
+            watch = WatchUiState.Offered,
+            finishedWhileAway = false,
         ),
         TechnologyRowUiState(
             technology = Technology.ENRICHMENT,
@@ -250,9 +276,33 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
-        finishedWhileAway = false,
+            watch = null,
+            finishedWhileAway = false,
         ),
     ),
+)
+
+// The gate-open frame with the watch on the one ladder the colony is short of metal for. Three
+// things are different from the frame above and they are the whole slice: the heading has given its
+// trailing slot up to name the watched row, the square is lit, and the card says the instant.
+//
+// Derived from `gateOpenUiState` rather than written out, unlike every other fixture here, because
+// what it asserts is a *difference* — spelled out in full it would be a second copy of eleven rows
+// that could drift from the frame it is supposed to be compared against.
+internal val watchedUiState = gateOpenUiState.copy(
+    watching = "watching Gravitic",
+    adaptation = gateOpenUiState.adaptation.map { row ->
+        if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 12:55"))
+    },
+)
+
+// A project in flight with the player asked to be told when it lands, beside two ladders that have
+// not been asked about. **The square is the only difference between them**, which is the whole of
+// what a subscribed running row shows — its accent line already says when it is due.
+internal val subscribedUiState = oneProjectInFlightUiState.copy(
+    technologies = oneProjectInFlightUiState.technologies.map { row ->
+        if (row.action is ResearchActionUiState.Running) row.copy(watch = WatchUiState.Subscribed) else row
+    },
 )
 
 // All three behind the one gate, which is what stops any of them deciding the first ladder for the
@@ -269,7 +319,8 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 0, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
-    finishedWhileAway = false,
+        watch = null,
+        finishedWhileAway = false,
     ),
     AdaptationRowUiState(
         technology = AdaptationTechnology.GRAVITIC,
@@ -280,7 +331,8 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 5, worthTaking = 1),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
-    finishedWhileAway = false,
+        watch = null,
+        finishedWhileAway = false,
     ),
     AdaptationRowUiState(
         technology = AdaptationTechnology.ATMOSPHERIC,
@@ -291,7 +343,8 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 3, worthTaking = 0),
         action = ResearchActionUiState.Locked("Requires Robotics 4"),
-    finishedWhileAway = false,
+        watch = null,
+        finishedWhileAway = false,
     ),
 )
 

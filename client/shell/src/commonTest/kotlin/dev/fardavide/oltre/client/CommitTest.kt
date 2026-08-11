@@ -12,8 +12,10 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -82,9 +84,13 @@ class CommitTest {
         val funded = GameState.initial(GalaxySeed(20_260_807)).copy(
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal),
         )
-        return assertIs<StartUpgradeResult.Started>(
+        val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = EPOCH),
         ).state
+        // **Subscribed, because since 0.5.0 a build nobody asked about books nothing** — and what
+        // these tests are about is the commit booking *something*, not the gate. The gate has its
+        // own tests in `GameNotificationsTest`.
+        return toggleAlert(started, WatchTarget.Facility(BuildingType.METAL_MINE))
     }
 
     private companion object {

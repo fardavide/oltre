@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -15,16 +17,22 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
+import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 class ColonyUiStateTest {
 
@@ -480,6 +488,158 @@ class ColonyUiStateTest {
         assertEquals(emptyList(), rows.filter { it.finishedWhileAway })
     }
 
+    @Test
+    fun `every row with an instant to name offers a square and nothing else does`() {
+        // given a colony that can pay for nothing, with one facility already building and one
+        // behind its requirement — every kind of row on the screen at once
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.CRYSTAL_MINE, at = t0).copy(resources = Resources.of())
+
+        // when
+        val offering = state
+            .toColonyUiState(now = t0, timeZone = TimeZone.UTC)
+            .facilities
+            .filter { it.watch != null }
+            .map { it.building }
+
+        // then — the crystal mine is building, which since this version is something to ask about
+        // rather than something already told; the nanite factory is locked and has no price yet;
+        // the other four are waiting on stocks they have none of
+        assertEquals(
+            listOf(
+                BuildingType.METAL_MINE,
+                BuildingType.CRYSTAL_MINE,
+                BuildingType.DEUTERIUM_SYNTHESIZER,
+                BuildingType.SOLAR_PLANT,
+                BuildingType.ROBOTICS_FACTORY,
+            ),
+            offering,
+        )
+    }
+
+    @Test
+    fun `a subscribed build lights its square and adds no line`() {
+        // given — the row already prints "→ LV 13 · done 11:23", so there is nothing for the
+        // subscription to say that the card is not saying
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+            .let { toggleAlert(it, WatchTarget.Facility(BuildingType.METAL_MINE)) }
+
+        // then
+        assertEquals(WatchUiState.Subscribed, state.rowFor(BuildingType.METAL_MINE, now = t0).watch)
+    }
+
+    @Test
+    fun `a build nobody has asked about offers its square unlit`() {
+        // given
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // then
+        assertEquals(WatchUiState.Offered, state.rowFor(BuildingType.METAL_MINE, now = t0).watch)
+    }
+
+    @Test
+    fun `one name shortens at a Slide Over's width and the rest do not`() {
+        // given — the square costs the name column nothing once it stacks under the ghost, so only
+        // the one name that never fit is authored short. "Robotics" is what the game already calls
+        // it in "Requires Robotics 10".
+        val rows = colony().toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC)
+            .facilities
+
+        // then
+        assertEquals(
+            listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics", "Nanite Factory"),
+            rows.map { it.compactName },
+        )
+        assertEquals(
+            listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics Factory", "Nanite Factory"),
+            rows.map { it.name },
+        )
+    }
+
+    @Test
+    fun `a row the colony can already pay for has nothing to watch`() {
+        // given
+        val state = colony(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000))
+
+        // then — an affordable row is not waiting for anything, so there is no instant to book
+        assertEquals(null, state.rowFor(BuildingType.METAL_MINE).watch)
+    }
+
+    @Test
+    fun `a row whose binding resource never arrives has no instant to book`() {
+        // given no synthesizer, so the robotics deuterium cost never accrues — the same colony the
+        // stalled ghost is asserted on, and the square has to be absent for the same reason the
+        // ghost reads "—": there is no time to name
+        val state = colony(
+            resources = Resources.of(metal = 400, crystal = 120),
+            buildings = Buildings.initial().withLevel(BuildingType.DEUTERIUM_SYNTHESIZER, BuildingLevel(0)),
+        )
+
+        // then
+        assertEquals(null, state.rowFor(BuildingType.ROBOTICS_FACTORY).watch)
+    }
+
+    @Test
+    fun `the watched row names the instant and the others only offer`() {
+        // given a colony 90 metal short of a second mine at 90 an hour — one hour out
+        val state = colony(
+            resources = Resources.of(),
+            watching = WatchTarget.Facility(BuildingType.METAL_MINE),
+        )
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then — an absolute time, because that is what the alert will be stamped with
+        assertIs<WatchUiState.Booked>(rows.first { it.building == BuildingType.METAL_MINE }.watch)
+        assertEquals(
+            WatchUiState.Offered,
+            rows.first { it.building == BuildingType.SOLAR_PLANT }.watch,
+        )
+    }
+
+    @Test
+    fun `the watched instant is the one the ghost beside it is counting down to`() {
+        // given — the two readings are the same arithmetic seen twice, so a row that disagreed with
+        // itself would be the worst failure this control has available
+        val now = Instant.parse("2026-08-10T11:38:00Z")
+        val state = colony(
+            resources = Resources.of(),
+            watching = WatchTarget.Facility(BuildingType.METAL_MINE),
+        )
+
+        // when
+        val row = state.rowFor(BuildingType.METAL_MINE, now = now)
+        val wait = timeUntilAffordable(
+            state.resources,
+            PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2)),
+            state.buildings,
+            state.research,
+        )
+
+        // then
+        val expected = (now + wait).toLocalDateTime(TimeZone.UTC)
+        assertEquals(
+            "→ affordable ${expected.hour.pad2()}:${expected.minute.pad2()}",
+            assertIs<WatchUiState.Booked>(row.watch).affordableAt,
+        )
+    }
+
+    @Test
+    fun `a watch on another screen still leaves this one offering squares`() {
+        // given the watch held by a technology, which the colony cannot see and must not claim
+        val state = colony(resources = Resources.of(), watching = WatchTarget.Project(Technology.EXTRACTION))
+
+        // when
+        val rows = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).facilities
+
+        // then — no facility is lit, and every waiting one still offers
+        assertEquals(emptyList(), rows.filter { it.watch is WatchUiState.Booked })
+        assertTrue(rows.any { it.watch == WatchUiState.Offered })
+    }
+
     // Seven levels of mine on one solar plant: 50 produced against 90 consumed.
     private fun starved(): Buildings = Buildings(
         metalMine = BuildingLevel(3),
@@ -493,6 +653,8 @@ class ColonyUiStateTest {
     private fun colony(
         resources: Resources = Resources.of(),
         buildings: Buildings = Buildings.initial(),
+        watching: WatchTarget? = null,
+        subscribed: Set<WatchTarget> = emptySet(),
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
@@ -510,6 +672,10 @@ class ColonyUiStateTest {
         // colony with no hull at home still renders every row asserted above.
         ships = Ships.NONE,
         runs = emptyList(),
+        // Which row the empire is watching, when it is watching one. A parameter rather than a
+        // constant because it is the input half of the square: `watch` on a row is derived from it.
+        watching = watching,
+        subscribed = subscribed,
         eventLog = emptyList(),
     )
 
@@ -540,4 +706,20 @@ class ColonyUiStateTest {
         timeZone: TimeZone = TimeZone.UTC,
     ): FacilityRowUiState =
         toColonyUiState(now = now, timeZone = timeZone).facilities.first { it.building == building }
+
+    @Test
+    fun `the heading names what the empire is watching whatever screen it is on`() {
+        // given — handed in, because the colony cannot name a technology
+        val state = colony()
+
+        // when
+        val uiState = state.toColonyUiState(
+            now = Instant.fromEpochMilliseconds(0),
+            timeZone = TimeZone.UTC,
+            watching = "watching Extraction",
+        )
+
+        // then
+        assertEquals("watching Extraction", uiState.watching)
+    }
 }

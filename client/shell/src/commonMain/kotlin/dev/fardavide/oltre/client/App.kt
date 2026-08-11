@@ -1,6 +1,6 @@
 package dev.fardavide.oltre.client
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -18,6 +18,7 @@ import dev.fardavide.oltre.client.debug.data.defaultShakeDetector
 import dev.fardavide.oltre.client.debug.domain.DebugClock
 import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.presentation.DebugSheet
+import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
@@ -35,10 +36,12 @@ import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
@@ -189,6 +192,23 @@ fun App(
                     }
                 }
 
+                // The square, and it is `act`'s shape with one difference that matters: **it commits
+                // unconditionally.** Asking for an alert writes no event — nothing happened, a row
+                // was pointed at — so `hasNewEventsSince` is false and `act` would decline to save.
+                // The save is not the point either: booking the alert is, and the alert is only
+                // booked by the `notifications.sync` inside `commit`. A square that lit up and told
+                // nobody is the whole feature failing. Same shape as `skip()`, for the same reason.
+                //
+                // Which of the two things a tap means — watch this price, or tell me when this
+                // lands — is core's to decide from the row's state, not the screen's to declare.
+                // See `toggleAlert`, and `alerting` for why this one verb transitions before it
+                // advances where every other one does the opposite.
+                fun alert(target: WatchTarget) {
+                    val next = current.alerting(debugClock, wallClock = Clock.System.now(), target = target)
+                    session = next
+                    scope.launch { next.commit(store, notifications, debugClock) }
+                }
+
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
                 // both are the point: the instant is chosen by the simulation rather than by the
                 // clock, and it commits unconditionally — a skip that changed no event still moved
@@ -213,7 +233,17 @@ fun App(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
+                // `BoxWithConstraints` rather than `Box`, and for one string: the heading over both
+                // lists names the watched row, and at a Slide Over's width the row calls itself
+                // something shorter. The two destinations measure the same window for themselves —
+                // this is the shell's own copy of that decision, and it exists because the label is
+                // composed here rather than inside either screen.
+                BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                    // One string for both destinations, because there is one watch: see
+                    // `watchingLabel`.
+                    val watching = current.state.watching
+                        ?.watchingLabel(compact = maxWidth < OltreLayout.compactWidth)
+
                     MainScaffold(
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
                         tilt = { lean.value },
@@ -232,6 +262,7 @@ fun App(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedFacility,
+                                    watching = watching,
                                 ),
                                 onUpgrade = { building ->
                                     act { state, at ->
@@ -244,6 +275,7 @@ fun App(
                                         }
                                     }
                                 },
+                                onToggleWatch = { building -> alert(WatchTarget.Facility(building)) },
                             )
                         },
                         research = { scroll ->
@@ -260,6 +292,7 @@ fun App(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedProject,
+                                    watching = watching,
                                 ),
                                 onStartResearch = { technology ->
                                     act { state, at ->
@@ -285,6 +318,16 @@ fun App(
                                             -> state
                                         }
                                     }
+                                },
+                                // Two callbacks rather than one taking a `WatchTarget`, so the
+                                // screen keeps speaking in its own two vocabularies exactly as its
+                                // two start verbs do. Assembling the target is the shell's job,
+                                // which is also the only place both branches are in scope.
+                                onToggleTechnologyWatch = { technology ->
+                                    alert(WatchTarget.Project(technology))
+                                },
+                                onToggleAdaptationWatch = { technology ->
+                                    alert(WatchTarget.Ladder(technology))
                                 },
                             )
                         },

@@ -60,6 +60,22 @@ class ResearchScreenScreenshotTest {
         capture(width = 320, uiState = oneProjectInFlightUiState, name = "research_in_flight_slide_over")
     }
 
+    // The watch, on the screen that shares its one slot with the colony. Two things are in the frame
+    // that are not on any other: a heading that has given its trailing slot up to name the watched
+    // row, and a lit square on a row whose ghost time is about the price rather than about the slot.
+    @Test
+    fun `a watched row on a phone`() {
+        capture(width = PHONE_WIDTH, uiState = watchedUiState, name = "research_watching_phone")
+    }
+
+    // The other half of the square, on the screen that shares its slot: a project in flight that the
+    // player has asked to be told about, beside five rows that were not asked about. Nothing is added
+    // to the running row but the lit square — its accent line already says when it lands.
+    @Test
+    fun `a subscribed project in flight on a phone`() {
+        capture(width = PHONE_WIDTH, uiState = subscribedUiState, name = "research_subscribed_phone")
+    }
+
     // Comfortably taller than six rows plus two section labels and the seam between them, with
     // headroom. The screen scrolls, so a capture window that is too short does not overflow
     // visibly — it silently clips the last row out of the baseline and asserts the truncation
@@ -81,7 +97,13 @@ class ResearchScreenScreenshotTest {
             setContent {
                 OltreTheme {
                     Surface {
-                        ResearchScreen(uiState = uiState, onStartResearch = {}, onStartAdaptation = {})
+                        ResearchScreen(
+                            uiState = uiState,
+                            onStartResearch = {},
+                            onStartAdaptation = {},
+                            onToggleTechnologyWatch = {},
+                            onToggleAdaptationWatch = {},
+                        )
                     }
                 }
             }

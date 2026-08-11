@@ -141,7 +141,7 @@ class AdvanceSurveyTest {
         val dispatched = state.dispatch(to)
 
         // when
-        val pending = futureEvents(dispatched)
+        val pending = futureEvents(dispatched, now = t0)
 
         // then
         val landing = pending.filterIsInstance<FutureEvent.SurveyLands>().single()
@@ -160,7 +160,7 @@ class AdvanceSurveyTest {
         val dispatched = state.dispatch(to)
 
         // when
-        val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().single()
+        val predicted = futureEvents(dispatched, now = t0).filterIsInstance<FutureEvent.SurveyLands>().single()
         val logged = advance(dispatched, from = t0, to = t0 + 3.hours)
             .eventLog.filterIsInstance<Event.SurveyCompleted>().single()
 
@@ -183,7 +183,7 @@ class AdvanceSurveyTest {
         val dispatched = state.dispatch(to)
 
         // when
-        val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().single()
+        val predicted = futureEvents(dispatched, now = t0).filterIsInstance<FutureEvent.SurveyLands>().single()
         // and then the probe actually lands, so the same worlds can be asked the real question
         val landed = advance(dispatched, from = t0, to = t0 + 3.hours)
         val actual = GalaxyState.occupiedWorldsIn(state.galaxy.seed, to)
@@ -249,7 +249,7 @@ class AdvanceSurveyTest {
             .dispatch(SystemAddress(galaxy = state.galaxy.home.galaxy, system = home - 9))
 
         // when
-        val predicted = futureEvents(dispatched).filterIsInstance<FutureEvent.SurveyLands>().map { it.target }
+        val predicted = futureEvents(dispatched, now = t0).filterIsInstance<FutureEvent.SurveyLands>().map { it.target }
         val applied = advance(dispatched, from = t0, to = t0 + 3.hours)
             .eventLog.filterIsInstance<Event.SurveyCompleted>().map { it.target }
 

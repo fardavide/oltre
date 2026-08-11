@@ -102,6 +102,36 @@ class MainScaffoldLayoutBehaviourTest {
         }
     }
 
+    // **The compact rule is about the cells that do *not* need to wrap.** Left to the measurement,
+    // whether a cell stacks depends on the figures it happens to hold — and a colony with six digits
+    // of metal and two of deuterium is ordinary, so two cells would fall to two lines and the third
+    // would stay on one. A bar with one short cell reads as broken rather than as narrow.
+    //
+    // The figures are chosen to make that the case: at 320dp a cell has about 85dp of content, and
+    // "740 +90/h" fits it where "482,910 +12,400/h" does not. Measured as equal heights rather than
+    // as a baseline, because a screenshot of the *right* answer and a screenshot of the ragged one
+    // both look like a rail until somebody reads them side by side.
+    @Test
+    fun `every rail cell is the same height in a Slide Over window`() {
+        runDesktopComposeUiTest(width = SLIDE_OVER_WIDTH.value.toInt(), height = 200) {
+            setContent {
+                OltreTheme {
+                    ResourceRail(uiState = lopsidedResourceRailUiState)
+                }
+            }
+
+            val heights = RAIL_CELLS.map { name ->
+                onNodeWithTag(ShellTestTags.resourceCell(name), useUnmergedTree = true)
+                    .getBoundsInRoot()
+                    .let { it.bottom - it.top }
+            }
+            assertTrue(
+                heights.all { abs((it - heights.first()).value) <= TOLERANCE.value },
+                "the cells are $heights: one stacked its rate and another did not, so the bar is ragged",
+            )
+        }
+    }
+
     private fun assertRailColumn(windowWidth: Int, windowHeight: Int) {
         runDesktopComposeUiTest(width = windowWidth, height = windowHeight) {
             setContent {

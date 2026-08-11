@@ -16,8 +16,10 @@ import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.startUpgrade
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -59,13 +61,20 @@ class NotificationIdentityTest {
     fun `a crowded colony is actually crowded`() {
         // The guard on the test above rather than a test of the app. A distinctness assertion over a
         // set of one passes forever and proves nothing, so the fixture has to be held to being a
-        // real mix — every kind of alert the game can raise, several of the two unbounded ones. If a
-        // balance change or a requirement ever makes `crowdedColony` degrade to a handful, this
-        // fails here instead of quietly hollowing out everything below.
+        // real mix — several of each unbounded kind. If a balance change or a requirement ever makes
+        // `crowdedColony` degrade to a handful, this fails here instead of quietly hollowing out
+        // everything below.
+        //
+        // **The completions arrive as one `group-` and that is the fixture working, not failing.**
+        // Since 0.5.0 anything subscribed landing inside five minutes of the one before it is one
+        // alert, and a colony that started every facility it could afford at one instant is exactly
+        // the case that collapses — so a crowded colony has *fewer* ids than it used to, which is the
+        // property the collapse exists for. The singleton `build-`, `research-` and `adaptation-`
+        // spaces are exercised by `GameNotificationsTest`, where the completions are far apart.
         val notifications = notificationsFor(crowdedColony(), now = EPOCH)
         val kinds = notifications.map { it.id.substringBefore('-') }.toSet()
 
-        assertEquals(setOf("build", "research", "survey", "run"), kinds, "not every kind is represented")
+        assertEquals(setOf("group", "survey", "run"), kinds, "not every kind is represented: $kinds")
         assertTrue(notifications.size >= 20, "only ${notifications.size} alerts — too few to prove anything")
     }
 
@@ -219,13 +228,19 @@ private fun crowdedColony(): GameState {
     var state = wealthy()
 
     // Facilities run one job each and in parallel, so every building the colony can afford adds one.
+    // **Subscribed as they start**, since 0.5.0: a completion nobody asked about books nothing, and a
+    // fixture that started six builds and booked none of them would be crowded with nothing.
     for (building in BuildingType.entries) {
-        (startUpgrade(state, building, at = EPOCH) as? StartUpgradeResult.Started)?.let { state = it.state }
+        (startUpgrade(state, building, at = EPOCH) as? StartUpgradeResult.Started)?.let {
+            state = toggleAlert(it.state, WatchTarget.Facility(building))
+        }
     }
 
     // One empire-wide slot, so at most one of these lands however many are attempted.
     for (technology in Technology.entries) {
-        (startResearch(state, technology, at = EPOCH) as? StartResearchResult.Started)?.let { state = it.state }
+        (startResearch(state, technology, at = EPOCH) as? StartResearchResult.Started)?.let {
+            state = toggleAlert(it.state, WatchTarget.Project(technology))
+        }
     }
 
     // Probes are uncapped and parallel — the first of the two kinds that can crowd the set.

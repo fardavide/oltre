@@ -32,6 +32,16 @@ fun Long.toCountdown(): String {
 // from a `LocalDateTime` and are therefore Int.
 fun Int.pad2(): String = toString().padStart(2, '0')
 
+// "→ affordable 19:51" — the one line a watched row adds, and the same line whether the row is a
+// facility, a technology or an adaptation ladder. Here rather than in either mapper for the reason
+// the duration formats are here: one watch exists in the whole game, so a player who moves it
+// between two screens is looking at what has to be one sentence, and two private copies of it are
+// two sentences waiting to drift.
+//
+// Takes the clock fields rather than an instant, so this module still needs no date library — the
+// caller has a `LocalDateTime` already, which is where `pad2` above came from too.
+fun watchedAtLabel(hour: Int, minute: Int): String = "→ affordable ${hour.pad2()}:${minute.pad2()}"
+
 private fun Long.pad2(): String = toString().padStart(2, '0')
 
 fun Long.groupedByThousands(): String =

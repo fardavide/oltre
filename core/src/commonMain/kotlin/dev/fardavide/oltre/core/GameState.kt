@@ -41,6 +41,20 @@ data class GameState(
     // `surveys`. See `startRun`: a one-per-target rule would turn each probe into ~4.75 guaranteed
     // dispatch slots and make surveying strictly efficient, which the galaxy sheet forbids.
     val runs: List<FleetRun>,
+    // The one row the player has asked to be told the *price* of, across the facilities, the
+    // technologies and the ladders alike — null when there is none. Not a job and not a booking: it
+    // schedules nothing and `advance` never applies it, it only points at a row whose price the
+    // stores have not reached yet. See `WatchTarget`.
+    val watching: WatchTarget?,
+    // The jobs the player has asked to be told the *completion* of. **A set rather than a second
+    // single slot, and that asymmetry is the design's** — an affordability watch is a guess about
+    // what to do next and there is one thing you are waiting for, where a completion is something
+    // you already started and the model caps those at seven: six facilities and the one research
+    // slot. So any number is safe and none of them can overflow the platform's ceiling.
+    //
+    // Emptied entry by entry as the jobs land — see `withoutSpentWatch`. A subscription is about the
+    // job the player started, not a standing preference about the row.
+    val subscribed: Set<WatchTarget>,
     val eventLog: List<Event>,
 ) {
     init {
@@ -83,6 +97,8 @@ data class GameState(
             // player learns the shop exists by wanting something from it.
             ships = Ships.of(ShipType.SKIFF, 1),
             runs = emptyList(),
+            watching = null,
+            subscribed = emptySet(),
             eventLog = emptyList(),
         )
     }

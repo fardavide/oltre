@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.colony.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.ResourceKind
@@ -25,6 +26,7 @@ internal val testColonyUiState = ColonyUiState(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,
             name = "Metal Mine",
+            compactName = "Metal Mine",
             level = BuildingLevel(12),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
@@ -39,11 +41,13 @@ internal val testColonyUiState = ColonyUiState(
             ),
             power = FacilityPowerUiState(label = "−120", supply = false),
             fix = null,
+            watch = WatchUiState.Offered,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
             name = "Solar Plant",
+            compactName = "Solar Plant",
             level = BuildingLevel(8),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "1,912", short = false),
@@ -53,11 +57,13 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Upgrade,
             power = FacilityPowerUiState(label = "+400", supply = true),
             fix = "→ LV 9 covers all 440 drawn",
+            watch = null,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.DEUTERIUM_SYNTHESIZER,
             name = "Deuterium Synth.",
+            compactName = "Deuterium Synth.",
             level = BuildingLevel(16),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
@@ -67,11 +73,13 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.AffordableIn("in 3h 12m"),
             power = FacilityPowerUiState(label = "−320", supply = false),
             fix = null,
+            watch = WatchUiState.Offered,
             finishedWhileAway = false,
         ),
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,
             name = "Nanite Factory",
+            compactName = "Nanite Factory",
             level = BuildingLevel(0),
             costs = listOf(
                 CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
@@ -82,6 +90,7 @@ internal val testColonyUiState = ColonyUiState(
             action = FacilityActionUiState.Locked("Requires Robotics 10"),
             power = null,
             fix = null,
+            watch = null,
             finishedWhileAway = false,
         ),
     ),
@@ -90,4 +99,22 @@ internal val testColonyUiState = ColonyUiState(
         subtitle = "from [1:42:7] · 12 cargo",
         countdown = "02:11:40",
     ),
+    // The square is offered on the one row that is waiting on its stocks, and nothing holds the
+    // watch. The watched reading is its own frame — see `watchedColonyUiState`.
+    watching = null,
+)
+
+// The same colony with both halves of the square lit, which is what makes this the frame the whole
+// slice is about: **the two states look identical and say different things.** The row waiting on its
+// stores gains a line naming the instant, because nothing else on the card says it. The row that is
+// building gains nothing at all, because its own accent line already does.
+internal val watchedColonyUiState = testColonyUiState.copy(
+    watching = "watching Deuterium Synth.",
+    facilities = testColonyUiState.facilities.map { row ->
+        when (row.action) {
+            is FacilityActionUiState.Upgrading -> row.copy(watch = WatchUiState.Subscribed)
+            is FacilityActionUiState.AffordableIn -> row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+            FacilityActionUiState.Upgrade, is FacilityActionUiState.Locked -> row
+        }
+    },
 )

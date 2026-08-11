@@ -58,6 +58,8 @@ class ResearchScreenLayoutBehaviourTest {
                         uiState = oneProjectInFlightUiState,
                         onStartResearch = {},
                         onStartAdaptation = {},
+                        onToggleTechnologyWatch = {},
+                        onToggleAdaptationWatch = {},
                     )
                 }
             }

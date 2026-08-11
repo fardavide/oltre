@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.core
 
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 // The mirror of `Event`: that log says what happened, this says what is still going to happen.
@@ -10,23 +11,33 @@ import kotlin.time.Instant
 sealed interface FutureEvent {
     val at: Instant
 
+    // The three kinds a player now has to ask about, named as a set so that asking is one
+    // `filterIsInstance` rather than three branches that could drift apart. A marker and nothing
+    // else: what the three share is that each is a job the player started, that the model caps them
+    // at seven, and that several landing together are one piece of news.
+    //
+    // It lives in `core` although only the notification layer reads it, for the reason the rest of
+    // this file does: what "an upgrade completing" *is* belongs with the simulation, and a client
+    // that enumerated the three by hand would silently stop covering a fourth.
+    sealed interface Completion : FutureEvent
+
     data class BuildCompletes(
         val building: BuildingType,
         val toLevel: BuildingLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class ResearchCompletes(
         val technology: Technology,
         val toLevel: TechLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class AdaptationCompletes(
         val technology: AdaptationTechnology,
         val toLevel: TechLevel,
         override val at: Instant,
-    ) : FutureEvent
+    ) : Completion
 
     data class SurveyLands(
         val target: SystemAddress,
@@ -64,12 +75,24 @@ sealed interface FutureEvent {
         val dispatchedAt: Instant,
         override val at: Instant,
     ) : FutureEvent
+
+    // **The one member that is not the mirror of an `Event`.** Nothing is in flight, `advance` will
+    // write nothing to the log when this arrives, and the only trace of it afterwards is a watch
+    // that has cleared itself. What it predicts is the instant a store crosses a price — projected
+    // from the stocks and rates the colony has *now*, which is why it is also the one kind whose
+    // instant moves the moment anything else about the colony does.
+    data class AffordableAt(
+        val purchase: WatchedPurchase,
+        override val at: Instant,
+    ) : FutureEvent
 }
 
-// Everything still in flight, earliest first. Pure and clock-free like the rest of core: the
-// caller knows what "now" is and drops whatever has already passed — passing a stale state is
-// then a caller's problem to see rather than a silently empty list.
-fun futureEvents(state: GameState): List<FutureEvent> {
+// Everything still to come, earliest first. Pure like the rest of core, and time is a parameter
+// rather than a clock read: every job carries the instant it completes at, so `now` is used by
+// exactly one member — the watch, whose instant is not stored anywhere and has to be projected
+// forward from the moment the stocks are accurate as of. Callers still drop whatever has already
+// passed, so a stale state is a caller's problem to see rather than a silently empty list.
+fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
     val builds = state.builds.values.map { job ->
         FutureEvent.BuildCompletes(building = job.building, toLevel = job.toLevel, at = job.completesAt)
     }
@@ -105,10 +128,21 @@ fun futureEvents(state: GameState): List<FutureEvent> {
             at = run.returnsAt,
         )
     }
+    // Projected rather than looked up, and only while there is still something to project: a row the
+    // stores already cover has no future instant to name, and one whose binding resource has no net
+    // income never reaches its price at all. Both cases are simply absent — an alert booked at
+    // infinity, or in the past, is worse than no alert.
+    val affordable = state.watchedPurchase()?.let { purchase ->
+        timeUntilAffordable(state.resources, purchase.cost, state.buildings, state.research)
+            .takeIf { it.isFinite() && it > Duration.ZERO }
+            ?.let { wait -> FutureEvent.AffordableAt(purchase = purchase, at = now + wait) }
+    }
     // Ties are broken exactly the way `advance` applies them — build completions in building
     // order, then the research completion, then the adaptation completion, then survey landings,
-    // then fleet returns — so this list and the event log it predicts never disagree on order.
-    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + returns)
+    // then fleet returns — so this list and the event log it predicts never disagree on order. The
+    // watch sorts after all of them, and its place in the order is arbitrary in a way theirs is not:
+    // it mirrors nothing `advance` does, so there is no log for it to agree with.
+    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + returns + listOfNotNull(affordable))
         .sortedWith(
             compareBy({ it.at }, { it.tieBreak() }, { it.secondaryTieBreak() }, { it.tertiaryTieBreak() }),
         )
@@ -142,6 +176,7 @@ private fun FutureEvent.tieBreak(): Int = when (this) {
     is FutureEvent.AdaptationCompletes -> 200
     is FutureEvent.SurveyLands -> 300
     is FutureEvent.FleetReturns -> 400
+    is FutureEvent.AffordableAt -> 500
 }
 
 // Probes were the first kind of job that can have *several* instances due at one instant, and runs
@@ -155,7 +190,12 @@ private fun FutureEvent.tieBreak(): Int = when (this) {
 private fun FutureEvent.secondaryTieBreak(): Long = when (this) {
     is FutureEvent.SurveyLands -> target.galaxy.toLong() * GalaxyBalance.SYSTEMS_PER_GALAXY + target.system
     is FutureEvent.FleetReturns -> dispatchedAt.toEpochMilliseconds()
-    is FutureEvent.BuildCompletes, is FutureEvent.ResearchCompletes, is FutureEvent.AdaptationCompletes -> 0
+    // The watch needs none: there is one of it in the whole game, so it cannot tie with itself.
+    is FutureEvent.BuildCompletes,
+    is FutureEvent.ResearchCompletes,
+    is FutureEvent.AdaptationCompletes,
+    is FutureEvent.AffordableAt,
+    -> 0
 }
 
 // The runs' third key, needed because two runs dispatched at the same millisecond to different worlds

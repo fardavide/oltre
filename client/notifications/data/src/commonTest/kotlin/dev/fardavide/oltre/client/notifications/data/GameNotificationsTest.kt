@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.notifications.data
 
 import dev.fardavide.oltre.core.AdaptationBalance
+import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
@@ -13,6 +14,7 @@ import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
+import dev.fardavide.oltre.core.ResearchJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -24,7 +26,11 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.futureEvents
+import dev.fardavide.oltre.core.timeUntilAffordable
+import dev.fardavide.oltre.core.toggleAlert
+import dev.fardavide.oltre.core.watchedPurchase
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startSurvey
@@ -35,6 +41,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class GameNotificationsTest {
@@ -111,6 +119,374 @@ class GameNotificationsTest {
         )
     }
 
+    // **The change this version is.** Every fixture above subscribes what it starts, because that is
+    // what those tests are about; these four are about the gate itself.
+    @Test
+    fun `a build nobody asked about is not announced at all`() = runTest {
+        // given a colony building with no subscription — the state every colony is in until a
+        // square is tapped
+        val scheduler = FakeNotificationScheduler()
+        val state = building(BuildingType.METAL_MINE).copy(subscribed = emptySet())
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — absent rather than trimmed: the player never asked, so there is nothing to weigh
+        // against the platform's ceiling
+        assertEquals(emptyList(), scheduler.scheduled)
+    }
+
+    @Test
+    fun `asking about one build of two leaves the other silent`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+        val state = building(BuildingType.METAL_MINE, BuildingType.SOLAR_PLANT)
+            .copy(subscribed = setOf(WatchTarget.Facility(BuildingType.SOLAR_PLANT)))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("Solar Plant reached level 2", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `a probe still lands without being asked about`() = runTest {
+        // given — only *completions* went opt-in. A probe is not something the player started and
+        // then waited on a row for; it is out there, and the design says so by not mentioning it.
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler).sync(surveying(systemsAway = 20), now = EPOCH)
+
+        // then
+        assertTrue("probe" in scheduler.scheduled.single().title, "was '${scheduler.scheduled.single().title}'")
+    }
+
+    @Test
+    fun `several landing together arrive as one alert`() = runTest {
+        // given three subscribed builds finishing inside five minutes of each other — the case
+        // opt-in is for, and the reason the collapse exists: three buzzes for one check-in.
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 32.minutes,
+            BuildingType.DEUTERIUM_SYNTHESIZER to EPOCH + 34.minutes,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — one alert, at the instant the *last* of them lands, because "three upgrades are
+        // done" is not true until the third one is
+        val notification = scheduler.scheduled.single()
+        assertEquals(EPOCH + 34.minutes, notification.at)
+        assertEquals("Three upgrades are done", notification.title)
+        assertEquals(
+            "Crystal Mine, Solar Plant and Deuterium Synthesizer — pick what your colony builds next.",
+            notification.body,
+        )
+    }
+
+    @Test
+    fun `a group's id comes from the instant it fires`() = runTest {
+        // given — the one id in the file not derived from its subject, because a group's subject is
+        // a set that changes the moment one more row is subscribed, and the instant does not
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 32.minutes,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("group-${(EPOCH + 32.minutes).toEpochMilliseconds()}", scheduler.scheduled.single().id)
+    }
+
+    @Test
+    fun `a build landing well after the others keeps its own alert`() = runTest {
+        // given two together and one two hours behind — the frame the design drew: the player asked
+        // about three and only the near pair is one piece of news
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 32.minutes,
+            BuildingType.METAL_MINE to EPOCH + 3.hours,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(2, scheduler.scheduled.size)
+        assertEquals(setOf("Two upgrades are done", "Metal Mine reached level 2"), scheduler.scheduled.map { it.title }.toSet())
+    }
+
+    @Test
+    fun `the window chains rather than measuring from the first`() = runTest {
+        // given four builds four minutes apart each — a quarter of an hour end to end, and still
+        // one alert, because by the time the last lands the player has been told nothing about any
+        // of the others either
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 20.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 24.minutes,
+            BuildingType.DEUTERIUM_SYNTHESIZER to EPOCH + 28.minutes,
+            BuildingType.METAL_MINE to EPOCH + 32.minutes,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("Four upgrades are done", scheduler.scheduled.single().title)
+    }
+
+    // The two ends of the window, which decide what the constant *is* rather than that there is one.
+    // Without them 4.minutes and 6.minutes both pass, and so does flipping the comparison.
+    @Test
+    fun `two landing exactly five minutes apart are one alert`() = runTest {
+        // given the boundary itself — "inside five minutes" includes it
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 35.minutes,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("Two upgrades are done", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `two landing a second past five minutes are two alerts`() = runTest {
+        // given one second the other side of it
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            BuildingType.CRYSTAL_MINE to EPOCH + 30.minutes,
+            BuildingType.SOLAR_PLANT to EPOCH + 35.minutes + 1.seconds,
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(2, scheduler.scheduled.size)
+    }
+
+    // The ceiling, and the worst sentence the game can send: six facilities and the one research
+    // slot is every completion a colony can hold, so seven is the largest group there is and this is
+    // the longest body a lock screen will ever be handed.
+    @Test
+    fun `the whole colony landing together is one alert of seven`() = runTest {
+        // given every facility building and a project in the slot, all inside one window
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            *BuildingType.entries.mapIndexed { index, building ->
+                building to EPOCH + 30.minutes + (index * 30).seconds
+            }.toTypedArray(),
+        ).let { colony ->
+            colony.copy(
+                activeResearch = ResearchJob(
+                    technology = Technology.EXTRACTION,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 33.minutes,
+                ),
+                subscribed = colony.subscribed + WatchTarget.Project(Technology.EXTRACTION),
+            )
+        }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — spelled to the end of the count the model allows, and every name listed: a group
+        // that said "and 4 more" would be an alert you have to open the app to understand
+        // The names are in the order the things actually land, which is core's ordering and not this
+        // file's: the research slot frees after the last facility here, so it reads last.
+        val notification = scheduler.scheduled.single()
+        assertEquals("Seven upgrades are done", notification.title)
+        assertEquals(
+            "Metal Mine, Crystal Mine, Deuterium Synthesizer, Solar Plant, Robotics Factory, " +
+                "Nanite Factory and Extraction — pick what your colony builds next.",
+            notification.body,
+        )
+    }
+
+    // The counts between the pair and the ceiling, so the whole spelled table is exercised rather
+    // than its two ends. Six facilities is as far as builds alone reach; the seventh needs the
+    // research slot, and has the test above to itself.
+    @Test
+    fun `the count is spelled out at every size builds alone can reach`() = runTest {
+        val titles = (2..6).map { size ->
+            val scheduler = FakeNotificationScheduler()
+            val state = subscribedBuilds(
+                *BuildingType.entries.take(size).mapIndexed { index, building ->
+                    building to EPOCH + 30.minutes + (index * 30).seconds
+                }.toTypedArray(),
+            )
+            GameNotifications(scheduler).sync(state, now = EPOCH)
+            scheduler.scheduled.single().title
+        }
+
+        assertEquals(
+            listOf("Two", "Three", "Four", "Five", "Six").map { "$it upgrades are done" },
+            titles,
+        )
+    }
+
+    @Test
+    fun `a finished ladder joins the group under its full name`() = runTest {
+        // given a ladder holding the shared slot and landing beside a facility. The group's naming is
+        // its own branch, so without this the ladder arm is held up by the compiler alone — which is
+        // exactly the state the singleton alerts were in before their own test.
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(BuildingType.METAL_MINE to EPOCH + 30.minutes).let { colony ->
+            colony.copy(
+                activeAdaptation = AdaptationJob(
+                    technology = AdaptationTechnology.GRAVITIC,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 31.minutes,
+                ),
+                subscribed = colony.subscribed + WatchTarget.Ladder(AdaptationTechnology.GRAVITIC),
+            )
+        }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — spelled out with the word the row drops, exactly as the singleton alert spells it
+        assertEquals(
+            "Metal Mine and Gravitic Adaptation — pick what your colony builds next.",
+            scheduler.scheduled.single().body,
+        )
+    }
+
+    @Test
+    fun `a research completion joins the group beside the facilities`() = runTest {
+        // given — the design's own card names Extraction among two facilities, so the group is not
+        // a facility-only idea: what the three share is a slot they free
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(BuildingType.METAL_MINE to EPOCH + 30.minutes)
+            .let { colony ->
+                colony.copy(
+                    activeResearch = ResearchJob(
+                        technology = Technology.EXTRACTION,
+                        toLevel = TechLevel(1),
+                        startedAt = EPOCH,
+                        completesAt = EPOCH + 31.minutes,
+                    ),
+                    subscribed = colony.subscribed + WatchTarget.Project(Technology.EXTRACTION),
+                )
+            }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals("Two upgrades are done", scheduler.scheduled.single().title)
+        assertEquals(
+            "Metal Mine and Extraction — pick what your colony builds next.",
+            scheduler.scheduled.single().body,
+        )
+    }
+
+    @Test
+    fun `a watched row is announced at the instant the colony can pay for it`() = runTest {
+        // given — the only alert in the game about something that has not happened
+        val scheduler = FakeNotificationScheduler()
+        val state = watching(WatchTarget.Facility(BuildingType.METAL_MINE))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — the instant is the one the row itself prints, so the lock screen and the card
+        // cannot disagree about when
+        val notification = scheduler.scheduled.single()
+        val purchase = checkNotNull(state.watchedPurchase())
+        assertEquals(
+            EPOCH + timeUntilAffordable(state.resources, purchase.cost, state.buildings, state.research),
+            notification.at,
+        )
+        assertEquals("You can afford Metal Mine", notification.title)
+        assertEquals("The colony has the resources for level 2.", notification.body)
+    }
+
+    @Test
+    fun `a watched row the colony can already pay for books nothing`() = runTest {
+        // given — the opening stocks cover the first mine level outright, so there is no instant
+        val scheduler = FakeNotificationScheduler()
+        val state = toggleAlert(freshState(), WatchTarget.Facility(BuildingType.METAL_MINE))
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then
+        assertEquals(emptyList(), scheduler.scheduled)
+    }
+
+    @Test
+    fun `a watched technology names the discipline and the level it would buy`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler).sync(watching(WatchTarget.Project(Technology.EXTRACTION)), now = EPOCH)
+
+        // then
+        val notification = scheduler.scheduled.single()
+        assertEquals("You can afford Extraction", notification.title)
+        assertEquals("The colony has the resources for level 1.", notification.body)
+    }
+
+    @Test
+    fun `a watched ladder is named the way the lock screen names one`() = runTest {
+        // given — spelled out with the word the row drops, like every other adaptation alert
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler).sync(watching(WatchTarget.Ladder(AdaptationTechnology.GRAVITIC)), now = EPOCH)
+
+        // then
+        assertEquals("You can afford Gravitic Adaptation", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `a watched facility is spelled out in full`() = runTest {
+        // given — the row abbreviates to fit its width and a lock screen has the room
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler)
+            .sync(watching(WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER)), now = EPOCH)
+
+        // then
+        assertEquals("You can afford Deuterium Synthesizer", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `the watch never competes with probe landings for the platform's ceiling`() = runTest {
+        // given a swarm of probes big enough to overflow iOS's 64, plus a watch
+        val scheduler = FakeNotificationScheduler()
+        val state = toggleAlert(
+            swarming(probes = IOS_PENDING_REQUEST_LIMIT + 10).copy(resources = Resources.of()),
+            WatchTarget.Facility(BuildingType.METAL_MINE),
+        )
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — one watch is bounded by the model exactly as the six facilities and the one
+        // research slot are, so it is protected rather than trimmed
+        assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
+        assertEquals(1, scheduler.scheduled.count { it.id.startsWith("affordable-") })
+    }
+
     @Test
     fun `a running research is announced at the instant it completes`() = runTest {
         // given
@@ -143,10 +519,14 @@ class GameNotificationsTest {
     }
 
     @Test
-    fun `every facility building in parallel gets its own alert`() = runTest {
-        // given two facilities building at once
+    fun `facilities finishing far apart each get their own alert`() = runTest {
+        // given two facilities building at once and landing hours apart, so neither collapses into
+        // the other — the Nanite Factory is written out rather than started, because what this test
+        // needs is a gap wider than the grouping window and the curves decide the real one.
         val scheduler = FakeNotificationScheduler()
-        val state = building(BuildingType.METAL_MINE, BuildingType.SOLAR_PLANT)
+        val state = building(BuildingType.METAL_MINE, on = withNaniteGate())
+            .let { it.copy(builds = it.builds + aBuildLandingAfterEveryProbe()) }
+            .let { toggleAlert(it, WatchTarget.Facility(BuildingType.NANITE_FACTORY)) }
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
@@ -280,7 +660,7 @@ class GameNotificationsTest {
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
-            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             val scheduler = FakeNotificationScheduler()
             GameNotifications(scheduler).sync(started.state, now = EPOCH)
             val body = scheduler.scheduled.single().body
@@ -301,7 +681,9 @@ class GameNotificationsTest {
         // completions live. Left uncapped, thirty dispatches would cost the player the alert they
         // actually planned their evening around.
         val scheduler = FakeNotificationScheduler()
-        val state = swarming(probes = 90).copy(builds = aBuildLandingAfterEveryProbe())
+        val state = swarming(probes = 90)
+            .copy(builds = aBuildLandingAfterEveryProbe())
+            .let { toggleAlert(it, WatchTarget.Facility(BuildingType.NANITE_FACTORY)) }
 
         // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
@@ -327,7 +709,7 @@ class GameNotificationsTest {
         // set on the transition it causes, so a dropped far landing is re-booked long before it
         // was due. Dropping the near ones instead would lose alerts nothing would ever re-book.
         val kept = scheduler.scheduled.map { it.at }
-        val dropped = futureEvents(state).map { it.at } - kept.toSet()
+        val dropped = futureEvents(state, now = EPOCH).map { it.at } - kept.toSet()
         assertEquals(IOS_PENDING_REQUEST_LIMIT, kept.size)
         assertTrue(dropped.isNotEmpty() && kept.max() <= dropped.min())
     }
@@ -508,7 +890,8 @@ class GameNotificationsTest {
             buildings = on.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, AdaptationBalance.GATE),
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
         )
-        return assertIs<StartAdaptationResult.Started>(startAdaptation(ready, technology, at = EPOCH)).state
+        val started = assertIs<StartAdaptationResult.Started>(startAdaptation(ready, technology, at = EPOCH)).state
+        return toggleAlert(started, WatchTarget.Ladder(technology))
     }
 
     // `at` is the instant the upgrades are started, which for a skipped colony is not EPOCH — the
@@ -530,8 +913,12 @@ class GameNotificationsTest {
                 deuterium = stock.deuterium + cost.deuterium,
             )
         }
+        // **Subscribed as it starts**, because that is what these fixtures are for: they say "a
+        // colony that is building", and since 0.6 a build nobody asked about is one nobody hears.
+        // The gate itself has its own tests below rather than being asserted by accident here.
         return buildings.fold(on.copy(resources = total)) { state, building ->
-            assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = at)).state
+            val started = assertIs<StartUpgradeResult.Started>(startUpgrade(state, building, at = at)).state
+            toggleAlert(started, WatchTarget.Facility(building))
         }
     }
 
@@ -547,7 +934,8 @@ class GameNotificationsTest {
             buildings = on.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)),
             resources = Resources.of(metal = cost.metal, crystal = cost.crystal, deuterium = cost.deuterium),
         )
-        return assertIs<StartResearchResult.Started>(startResearch(ready, technology, at = EPOCH)).state
+        val started = assertIs<StartResearchResult.Started>(startResearch(ready, technology, at = EPOCH)).state
+        return toggleAlert(started, WatchTarget.Project(technology))
     }
 
     // A colony with one probe in flight, aimed `systemsAway` from home in whichever direction the
@@ -569,7 +957,7 @@ class GameNotificationsTest {
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
-            val landing = futureEvents(started.state).filterIsInstance<FutureEvent.SurveyLands>().single()
+            val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             if ((landing.settleable > 0) == settleable) return started.state
         }
         error("no target within a galaxy of home charts ${if (settleable) "somewhere" else "nowhere"} settleable")
@@ -613,6 +1001,28 @@ class GameNotificationsTest {
 
     private fun wealthy(): GameState =
         freshState().copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000, deuterium = 1_000))
+
+    // A colony with empty stores and one row watched, which is the only shape a watch is ever set
+    // in: the square exists on a row the colony cannot pay for, and nowhere else.
+    private fun watching(target: WatchTarget): GameState =
+        toggleAlert(freshState().copy(resources = Resources.of()), target)
+
+    // Builds landing at instants the test names, all of them subscribed. Written out rather than
+    // started through `startUpgrade` for the reason `aBuildLandingAfterEveryProbe` is: what these
+    // tests are about is the *gaps* between completions, and a fixture that inherited them from the
+    // duration curve would be asserting a different thing every time the balance moved.
+    private fun subscribedBuilds(vararg landing: Pair<BuildingType, Instant>): GameState =
+        freshState().copy(
+            builds = landing.associate { (building, at) ->
+                building to BuildJob(
+                    building = building,
+                    toLevel = BuildingLevel(freshState().buildings.levelOf(building).value + 1),
+                    startedAt = EPOCH,
+                    completesAt = at,
+                )
+            },
+            subscribed = landing.map { (building, _) -> WatchTarget.Facility(building) }.toSet(),
+        )
 
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
     // every colony in the same galaxy. Alerts do not care which map they are scheduled over.

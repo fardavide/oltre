@@ -158,6 +158,28 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.5.0 — 2026-08-10
+
+- **Every row now carries a bell, and every alert is one you asked for.** Tap the bell on a row you
+  cannot afford and the game tells you the moment you can. Tap it on a row that is building and it
+  tells you the moment that lands. Tap nothing and the game says nothing — completions no longer
+  announce themselves.
+- **The same bell, two questions, and the row decides which.** Any number of things in flight can be
+  asked about at once, but only one "when can I afford it" in the whole empire: pointing that one at
+  another row moves it, and both screens name what it is pointed at beside their heading, so a watch
+  set on Research is never a thing that vanished quietly from the Colony tab.
+- **Several finishing together arrive as one alert.** Anything you asked about that lands within five
+  minutes of the one before it collapses into a single line — *"Three upgrades are done"* — instead
+  of three buzzes for one check-in.
+- **The instant stays true.** Spend the resources on something else and the alert slides later on the
+  same tap that spent them; finish a Solar Plant that lifts a shortage and it slides earlier. While
+  the app is closed nothing spends, so an alert can only ever fire early.
+- **A narrower window loses no words.** In a Slide Over pane the bell drops under the time instead of
+  beside it, the resource rail puts each rate under its stock, and the Robotics Factory goes by
+  Robotics — which is what the game already calls it.
+- Saves from 0.4.4 carry forward untouched. Anything already building when you update lands quietly,
+  because nobody has tapped its bell yet.
+
 ### 0.4.4 — 2026-08-10
 
 - **Tilting the phone sideways moves the sky the right way round.** It went the wrong way: drop the

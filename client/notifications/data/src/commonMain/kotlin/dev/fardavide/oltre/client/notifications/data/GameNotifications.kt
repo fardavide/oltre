@@ -7,7 +7,11 @@ import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchedPurchase
 import dev.fardavide.oltre.core.futureEvents
+import dev.fardavide.oltre.core.target
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
 // The check-in loop, and on iPhone the only one there can be: iOS runs nothing in the
@@ -50,25 +54,58 @@ class GameNotifications(private val scheduler: NotificationScheduler) {
 // nearest.
 internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
 
+// **Anything subscribed that lands inside five minutes of the one before it is one piece of news.**
+// The design's number, and it chains rather than windowing from the first of a run: three builds at
+// 12:05, 12:09 and 12:13 collapse into one alert, because by the time the third lands the player has
+// heard nothing about the first two either.
+//
+// It costs no runtime work. Every instant is known when the set is derived, so this is arithmetic
+// done once at schedule time — and it hands the platform *fewer* pending requests than booking each
+// one separately would.
+private val GROUPING_WINDOW: Duration = 5.minutes
+
 internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotification> {
-    val pending = futureEvents(state)
+    // `now` reaches core as well as filtering its answer, and the two uses are not the same. One
+    // member of that list is not a job with a stored instant — the watch is projected forward from
+    // the moment these stocks are accurate as of, which is this one.
+    val upcoming = futureEvents(state, now = now)
         // core hands back everything still in flight; an event at or before `now` is either
         // about to be applied by `advance` or already has been, and either way an alert for it
         // would fire in the past. The platforms reject that anyway — dropping it here means one
         // rule instead of one per platform.
         .filter { it.at > now }
 
-    // **Two kinds are now unbounded, not one.** Six facilities and one research slot are bounded by
-    // the model — seven at the ceiling, and none of them can ever be the thing that overflows. Probes
-    // were the only kind that ran in parallel with no cap; fleet runs are the second, so the
-    // partition has to name both or `bounded.size` stops describing the protected set and the trim
-    // arithmetic quietly under-counts.
+    // **The gate, and the whole of what this version changes about the check-in loop: a completion
+    // nobody asked about is not booked at all.** Not trimmed — absent, so there is nothing for it to
+    // weigh against the platform's 64.
+    //
+    // Here rather than inside `futureEvents`, on the design's own instruction and for a reason of
+    // its own: that list is the mirror of what `advance` will write to the log, and a build completes
+    // whether or not anybody asked to hear it. A core that dropped it would make the mirror lie, and
+    // the debug menu's "skip to the next event" reads the very same list.
+    val pending = upcoming.filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
+
+    // Everything the player asked about that lands close enough together to be one sentence. Only
+    // completions group: a probe landing and a fleet coming home are different kinds of news, and the
+    // group's sentence is about upgrades.
+    val groups = pending.filterIsInstance<FutureEvent.Completion>().chainedWithin(GROUPING_WINDOW)
+    // A group fires at its **last** member's instant — "Three upgrades are done" is not true until
+    // the third one is — so it takes that member's place in the list and the surrounding order is
+    // untouched by construction. The earlier members are absorbed.
+    val groupBy = groups.associateBy { it.last() as FutureEvent }
+    val absorbed = groups.flatMap { it.dropLast(1) }.toSet()
+
+    // **Two kinds are now unbounded, not one.** Six facilities, one research slot and one watch are
+    // bounded by the model — eight at the ceiling, and none of them can ever be the thing that
+    // overflows. Probes were the only kind that ran in parallel with no cap; fleet runs are the
+    // second, so the partition has to name both or `bounded.size` stops describing the protected set
+    // and the trim arithmetic quietly under-counts.
     //
     // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
     // one: protect the model-bounded seven, then returns, then probe landings — because a return
     // carries resources that a full store can void, and a probe carries information that does not
     // spoil. Davide's to overrule.
-    val (unbounded, bounded) = pending.partition {
+    val (unbounded, bounded) = pending.filterNot { it in absorbed }.partition {
         it is FutureEvent.SurveyLands || it is FutureEvent.FleetReturns
     }
     val (returns, landings) = unbounded.partition { it is FutureEvent.FleetReturns }
@@ -93,7 +130,63 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
         // makes to the platform is enforced on the way out rather than inferred from the arithmetic
         // above.
         .take(IOS_PENDING_REQUEST_LIMIT)
-        .map { it.toNotification() }
+        .map { event -> groupBy[event]?.takeIf { it.size > 1 }?.toNotification() ?: event.toNotification() }
+}
+
+// Runs of completions, each one within `window` of the one before it, earliest first and in the
+// order `futureEvents` produced them. A run of one is still a run — the caller decides that a group
+// of one is simply the thing itself.
+//
+// Chained rather than windowed from the head of each run, because what the rule is about is whether
+// the player has been told anything yet: a fourth build landing four minutes after the third is not
+// worth a second buzz even if it is a quarter of an hour after the first.
+private fun List<FutureEvent.Completion>.chainedWithin(window: Duration): List<List<FutureEvent.Completion>> =
+    fold(mutableListOf<MutableList<FutureEvent.Completion>>()) { runs, event ->
+        val open = runs.lastOrNull()
+        if (open != null && event.at - open.last().at <= window) open += event else runs += mutableListOf(event)
+        runs
+    }
+
+// Several upgrades landing together, as one sentence. **The only alert in the game whose id is not
+// derived from its subject** — and deliberately: a group's subject is a *set*, and subscribing to one
+// more row a minute later would change it, where the instant it fires at never moves. A completion's
+// instant is fixed the moment its job starts, so the same colony books the same group id every time,
+// which is the property `replaceAll` rests on.
+//
+// No levels, unlike the singleton alerts. Seven "reached level N" clauses do not fit a lock screen,
+// and what this one has to say is which things are done rather than what they became.
+private fun List<FutureEvent.Completion>.toNotification(): LocalNotification = LocalNotification(
+    id = "group-${last().at.toEpochMilliseconds()}",
+    title = "${size.spelled()} upgrades are done",
+    // The second clause is the shipped `BuildCompletes` body's, word for word — the design's
+    // instruction, and it is the right one even when a technology is in the list: the sentence is
+    // about a decision waiting, and every one of these frees a slot to decide with.
+    body = "${map { it.displayName() }.listed()} — pick what your colony builds next.",
+    at = last().at,
+)
+
+// Two through seven, which is every group this game can produce: six facilities build in parallel
+// and the research slot holds one project, so eight is unreachable. Spelled rather than printed as
+// a digit — the game prints digits for levels, because a level is a number read off a row, and this
+// is a count in a sentence.
+private fun Int.spelled(): String = when (this) {
+    2 -> "Two"
+    3 -> "Three"
+    4 -> "Four"
+    5 -> "Five"
+    6 -> "Six"
+    else -> "Seven"
+}
+
+// "Metal Mine, Solar Plant and Extraction" — commas between, "and" before the last, and no Oxford
+// comma, which is the prose style of everything else the game says. No branch for a list of one:
+// a group is two or more by construction, and the general form already reads "A and B" at two.
+private fun List<String>.listed(): String = "${dropLast(1).joinToString(", ")} and ${last()}"
+
+private fun FutureEvent.Completion.displayName(): String = when (this) {
+    is FutureEvent.BuildCompletes -> building.displayName()
+    is FutureEvent.ResearchCompletes -> technology.displayName()
+    is FutureEvent.AdaptationCompletes -> technology.displayName()
 }
 
 private fun FutureEvent.toNotification(): LocalNotification = when (this) {
@@ -167,6 +260,44 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         body = "The cargo from ${target.label()} is in your stores.",
         at = at,
     )
+    // **The only alert in the game that is not about something that happened** — it is about
+    // something that became possible. It still obeys the rule the others do: it is a sentence a
+    // player is happy to miss, and it asks for nothing.
+    //
+    // One id space across the three branches, unlike the research/adaptation pair above, and for a
+    // reason that pair does not have: there is one watch in the whole game, so this set can never
+    // hold two of these to collide.
+    is FutureEvent.AffordableAt -> LocalNotification(
+        id = "affordable-${purchase.subject()}",
+        title = "You can afford ${purchase.displayName()}",
+        body = "The colony has the resources for level ${purchase.level()}.",
+        at = at,
+    )
+}
+
+// The enum constant, which is what every other id here is derived from and for the same reason: the
+// same colony always produces the same alerts, which is what makes replacing the set idempotent.
+private fun WatchedPurchase.subject(): String = when (this) {
+    is WatchedPurchase.Facility -> building.name
+    is WatchedPurchase.Project -> technology.name
+    is WatchedPurchase.Ladder -> technology.name
+}
+
+// The same names the completion alerts use, so a player who is told they can afford a Deuterium
+// Synthesizer and then told it reached level 8 is being told about one thing.
+private fun WatchedPurchase.displayName(): String = when (this) {
+    is WatchedPurchase.Facility -> building.displayName()
+    is WatchedPurchase.Project -> technology.displayName()
+    is WatchedPurchase.Ladder -> technology.displayName()
+}
+
+// The two level types the branches carry, read for the one sentence that states a number. Written
+// as a `when` rather than hidden behind a shared interface, because `BuildingLevel` and `TechLevel`
+// staying different types is what stops one being passed where the other was meant.
+private fun WatchedPurchase.level(): Int = when (this) {
+    is WatchedPurchase.Facility -> toLevel.value
+    is WatchedPurchase.Project -> toLevel.value
+    is WatchedPurchase.Ladder -> toLevel.value
 }
 
 // PLACEHOLDER copy, and the two strings are the design rather than a formatting convenience.

@@ -38,6 +38,10 @@ kotlin {
             // in none of their signatures, so a caller gets the component without inheriting the
             // palette. Every consumer already declares `:client:design:core` for itself.
             implementation(projects.client.design.core)
+            // The same edge, for the same reason: `WatchSquare` draws the beacon inside itself and
+            // hands no glyph back, so a caller gets the control without inheriting the icon set.
+            // The set stays the leaf it was designed as — this points at it, never the other way.
+            implementation(projects.client.design.icon)
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

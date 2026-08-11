@@ -134,7 +134,7 @@ class AdvanceAdaptationTest {
         val started = GameState.initial().adapting(AdaptationTechnology.THERMAL, at = EPOCH)
         val completesAt = started.ladder().completesAt
 
-        val predicted = futureEvents(started)
+        val predicted = futureEvents(started, now = EPOCH)
 
         assertEquals(
             listOf(

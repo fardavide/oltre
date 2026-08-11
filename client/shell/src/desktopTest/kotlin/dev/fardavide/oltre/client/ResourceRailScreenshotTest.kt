@@ -28,8 +28,22 @@ class ResourceRailScreenshotTest {
         capture(name = "resource_rail_throttled", throttled = true)
     }
 
-    private fun capture(name: String, throttled: Boolean) {
-        runDesktopComposeUiTest(width = RAIL_WIDTH, height = RAIL_HEIGHT) {
+    // A Slide Over pane, where the stock and its rate stop fitting one line. Left to the measurement
+    // only two of the three cells would wrap and the bar would go ragged; below the compact width
+    // every cell stacks, so the three stay a set. Taller than the wide capture by exactly the line
+    // it gains.
+    @Test
+    fun `resource rail in a Slide Over window`() {
+        capture(name = "resource_rail_slide_over", throttled = false, width = SLIDE_OVER_WIDTH, height = SLIDE_OVER_HEIGHT)
+    }
+
+    private fun capture(
+        name: String,
+        throttled: Boolean,
+        width: Int = RAIL_WIDTH,
+        height: Int = RAIL_HEIGHT,
+    ) {
+        runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
@@ -87,5 +101,13 @@ class ResourceRailScreenshotTest {
         // clips and the pixel or two below the bar is window background.
         const val RAIL_WIDTH = 1024
         const val RAIL_HEIGHT = 68
+
+        // The narrowest window the app has to survive.
+        const val SLIDE_OVER_WIDTH = 320
+
+        // Taller than the stacked bar by a clear band of background. Erring tall costs a strip of
+        // window; erring short silently clips the rate out of the baseline and asserts the
+        // truncation forever — the failure the wide capture's own note was written about.
+        const val SLIDE_OVER_HEIGHT = 100
     }
 }
