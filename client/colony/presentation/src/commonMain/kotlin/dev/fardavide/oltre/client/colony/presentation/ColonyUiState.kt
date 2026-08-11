@@ -238,7 +238,12 @@ private fun GameState.toFacilityRow(
             cost.crystal.toCostChip(ResourceKind.CRYSTAL, short),
             cost.deuterium.toCostChip(ResourceKind.DEUTERIUM, short),
         ),
-        duration = PlaceholderBalance.upgradeDuration(building, toLevel, buildings.roboticsFactory).toChipLabel(),
+        duration = PlaceholderBalance.upgradeDuration(
+            building,
+            toLevel,
+            buildings.roboticsFactory,
+            buildings.naniteFactory,
+        ).toChipLabel(),
         power = if (energy.isDeficit) building.powerAt(level, research) else null,
         fix = energy.fixOn(building, solarPlant = buildings.solarPlant, research = research),
         finishedWhileAway = finishedWhileAway,

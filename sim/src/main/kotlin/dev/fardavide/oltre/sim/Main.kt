@@ -787,7 +787,7 @@ private fun printEarlyBuildTable() {
         val cells = repeating.joinToString(" | ") { building ->
             (0..2).joinToString(" / ") { robotics ->
                 PlaceholderBalance
-                    .upgradeDuration(building, BuildingLevel(level), BuildingLevel(robotics))
+                    .upgradeDuration(building, BuildingLevel(level), BuildingLevel(robotics), BuildingLevel(0))
                     .label()
             }
         }
@@ -809,7 +809,7 @@ private fun printEarlyBuildTable() {
         val afford = (cost.metal * 60 / perHour).minutes
         println(
             "| $level | ${(cost.metal + cost.crystal).grouped()} " +
-                "| ${PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0)).label()} " +
+                "| ${PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0)).label()} " +
                 "| ${afford.label()} |",
         )
     }

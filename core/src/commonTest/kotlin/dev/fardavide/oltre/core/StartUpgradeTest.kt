@@ -25,7 +25,7 @@ class StartUpgradeTest {
         val started = assertIs<StartUpgradeResult.Started>(result)
         assertEquals(7, started.state.resources.metal)
         assertEquals(5, started.state.resources.crystal)
-        val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel, BuildingLevel(0))
+        val expectedCompletion = now + PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, toLevel, BuildingLevel(0), BuildingLevel(0))
         assertEquals(
             mapOf(
                 BuildingType.METAL_MINE to BuildJob(
@@ -135,7 +135,7 @@ class StartUpgradeTest {
             .state.jobOf(BuildingType.METAL_MINE)
 
         // then
-        val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(6), BuildingLevel(0))
+        val base = PlaceholderBalance.upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(6), BuildingLevel(0), BuildingLevel(0))
         assertEquals(now + base, slowJob.completesAt)
         assertEquals(now + base / 3, fastJob.completesAt)
     }

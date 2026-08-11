@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.core
 
 import kotlin.test.Test
+import kotlin.test.assertTrue
 import kotlin.test.fail
 
 // **The gate that makes a balance change visible.**
@@ -77,6 +78,32 @@ class BalanceBenchmarkTest {
                 appendLine(actual)
             },
         )
+    }
+
+    // A page whose rows do not all have distinct keys cannot be reviewed, because the diff keys by
+    // `section + label` and a repeat silently replaces its twin. It has happened twice — `day 7` in
+    // both `[progression]` and `[horizon]`, then two tables inside `[late game]` sharing every row
+    // label — and both times the symptom was a diff that looked complete and was not. So the page
+    // asserts it about itself, and a section that grows a second table fails here rather than going
+    // quiet in a review six months from now.
+    @Test
+    fun `no two rows share a key`() {
+        val seen = mutableSetOf<String>()
+        val repeated = mutableListOf<String>()
+        var section = ""
+        for (line in BalanceBenchmark.render().lines()) {
+            if (line.isBlank() || line.startsWith("#")) continue
+            if (line.startsWith("[")) {
+                section = line.substringBefore(']').removePrefix("[")
+                continue
+            }
+            val start = line.indexOfFirst { !it.isWhitespace() }
+            val gap = line.indexOf("  ", start)
+            val key = "$section ▸ " + (if (gap < 0) line.trim() else line.substring(0, gap).trim())
+            if (!seen.add(key)) repeated += key
+        }
+
+        assertTrue(repeated.isEmpty(), "these rows would hide each other in a diff: $repeated")
     }
 
     // The page as `section ▸ label` to value. **Both halves of that key are load-bearing, and each

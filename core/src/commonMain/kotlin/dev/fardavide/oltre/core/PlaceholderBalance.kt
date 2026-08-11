@@ -320,20 +320,83 @@ object PlaceholderBalance {
     // the one number it can be measured in. Round 11's identity is untouched where it was aimed,
     // from `FULL_PRICE_LEVEL` up, and `BalanceCurveTest` now asserts the two halves separately
     // rather than averaging a deliberate divergence into a bound that admits it by accident.
+    // ── The late game is where the wait belongs, and the Nanite Factory is what answers it ──────
+    //
+    // Davide, 2026-08-11: *"I'd expect late game upgrade to be extremely slow, and expensive Nanite
+    // upgrades to make them reasonable. I still think a late game upgrade could take various hours,
+    // even with Nanite. Implement it as such, considering that Nanite gets unlocked a bit late, so
+    // let's not impact build times before then. It's reasonable for build times to be long only when
+    // the user has many things to do: manage ships, travels, and co, not when it has only a few
+    // things."*
+    //
+    // Three sentences, three constraints, and they pin the shape between them:
+    //
+    // - **long waits are earned by breadth**, not charged in advance — so nothing below the ramp
+    //   moves, and the opening keeps every number round 16 gave it;
+    // - **the ramp starts where the Nanite Factory does**, because a wait the player has no answer
+    //   to is just a slower game;
+    // - **and the answer is partial**. Hours, still. A Nanite that made deep levels quick would put
+    //   the late game back where it is today with an extra 20,000-metal toll on the way.
+    //
+    // `LATE_GAME_FIRST_LEVEL` is measured rather than picked, the same way `FULL_PRICE_LEVEL` is —
+    // it is the level a colony's mines stand at when Robotics reaches 10 and the Nanite Factory
+    // becomes buildable, measured at 17, so the ramp opens one level after the answer to it does.
+    // `BalanceBenchmark`'s `[opening]` section prints that measurement, so if the opening ever
+    // speeds up or slows down this constant is wrong in a way the page says out loud.
+    //
+    // `internal` rather than private for the reason `fullPriceCost` is: so `BalanceCurveTest` can
+    // state the rule against it rather than hard-coding the boundary and drifting from it silently.
+    internal const val LATE_GAME_FIRST_LEVEL: Int = 18
+
+    // Compounding, because the thing it is correcting compounds: without it the wait grows at the
+    // root of a x1.5 curve, which is x1.2247 a level, and round 11 chose that precisely so a build
+    // would track the time it takes to *earn* it. That identity is right for the mid-game and is
+    // exactly what Davide is overruling above the ramp — so this is the amount by which the late
+    // game is allowed to pull away from its own income, per level, and nothing else.
+    private const val LATE_GROWTH_NUMERATOR: Long = 5
+    private const val LATE_GROWTH_DENOMINATOR: Long = 4
+
+    private fun lateGameWait(minutes: Long, level: Int): Long =
+        if (level <= LATE_GAME_FIRST_LEVEL) {
+            minutes
+        } else {
+            compound(minutes, level - LATE_GAME_FIRST_LEVEL, LATE_GROWTH_NUMERATOR, LATE_GROWTH_DENOMINATOR)
+        }
+
+    // **Two thirds a level, which is `openingSpeedUp`'s own rational and deliberately so.** The game
+    // now has two places where a building buys back time, and they are the two ends of it — the
+    // opening speed-up hands back time the ramp took, and the Nanite hands back time the late game
+    // took. One shape for both means a reader who has understood one has understood the other.
+    //
+    // Multiplicative rather than another term in the Robotics divisor, because the divisor is linear
+    // and the thing it would be fighting is not: at Robotics 15 an additive Nanite worth three
+    // Robotics levels each buys a fifth off the first level and a twentieth off the fifth, which is
+    // a building that stops mattering exactly as the player finishes paying for it.
+    private const val NANITE_SPEEDUP_NUMERATOR: Long = 2
+    private const val NANITE_SPEEDUP_DENOMINATOR: Long = 3
+
     fun upgradeDuration(
         building: BuildingType,
         toLevel: BuildingLevel,
         roboticsFactory: BuildingLevel,
+        naniteFactory: BuildingLevel,
     ): Duration {
         val fullPrice = fullPriceCost(building, toLevel)
         val fullMinutes = MINUTES_PER_ROOT_COST * rootOf(fullPrice.metal + fullPrice.crystal)
-        val base = openingSpeedUp(fullMinutes, toLevel.value, FULL_PRICE_LEVEL).minutes
+        val ramped = openingSpeedUp(fullMinutes, toLevel.value, FULL_PRICE_LEVEL)
+        // Order is the rule, not an implementation detail. The late-game ramp reads the *unhelped*
+        // wait, so how slow the late game is does not depend on which buildings the player happens
+        // to own; then the Nanite takes its share of that; then the Robotics divisor takes its share
+        // of what is left. Reversing the last two would change nothing, and reversing the first two
+        // would make the ramp a function of the answer to it.
+        val late = lateGameWait(ramped, toLevel.value)
+        val helped = compound(late, naniteFactory.value, NANITE_SPEEDUP_NUMERATOR, NANITE_SPEEDUP_DENOMINATOR)
         // The floor is applied last, to what the player actually waits — not to the base before the
         // divisor. A Robotics Factory that shortens a build below the floor has bought all the
         // shortening there is; a floor placed ahead of it would let the divisor cut *through* the
         // minimum and put instant builds back at depth. The speed-up is inside it for the same
         // reason — at two thirds a level the first Metal Mine works out at a minute and a quarter.
-        return maxOf(MINIMUM_UPGRADE_DURATION, base / (1 + roboticsFactory.value))
+        return maxOf(MINIMUM_UPGRADE_DURATION, helped.minutes / (1 + roboticsFactory.value))
     }
 
     private fun productionPerHour(baseAtLevelOne: Long, level: BuildingLevel): Long =

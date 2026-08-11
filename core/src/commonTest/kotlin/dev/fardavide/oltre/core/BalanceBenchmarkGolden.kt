@@ -29,6 +29,7 @@ internal object BalanceBenchmarkGolden {
         first applied technology finished                 hour 5 (day 0)
         first adaptation level finished                   hour 9 (day 0)
         second skiff affordable                           hour 0 (day 0)
+        metal mine when the nanite unlocks                level 17 (ramp starts at 18)
 
         [session] completions a player is present for, minute by minute
         first completion                                  minute 2
@@ -47,47 +48,52 @@ internal object BalanceBenchmarkGolden {
           day 2                                              38       1260         1074        350       164
           day 3                                              44       2063         6486        390       452
           day 7                                              59       4856        56298       2959       704
-          day 14                                             78      15490       208970      14381      7035
+          day 14                                             80      12785       245263      11457      6885
         the tree at day 14
-          metal mine                                      19
+          metal mine                                      18
           crystal mine                                    17
           deuterium synthesizer                           14
           solar plant                                     17
-          robotics factory                                11
+          robotics factory                                10
+          nanite factory                                  4
 
         [pressure] over 14 days, which resource blocks the cheapest unbuilt row
-        hours opening with the cheapest row unaffordable  90.20%
-          of which short of metal                         7.23%
-          of which short of crystal                       33.22%
-          of which short of deuterium                     80.59%
-        hours with nothing building and no research       14.24%
+        hours opening with the cheapest row unaffordable  39.46%
+          of which short of metal                         15.78%
+          of which short of crystal                       41.35%
+          of which short of deuterium                     72.18%
+        hours with nothing building and no research       14.83%
         over the fortnight, per resource                  earned       spent     placed
-          metal                                             1046344      837874     80.00%
-          crystal                                            350401      336320     95.00%
-          deuterium                                           82505       75470     91.00%
+          metal                                             1023852      779089     76.00%
+          crystal                                            345755      334598     96.00%
+          deuterium                                           81337       74452     91.00%
 
         [economy] cost, wait and payback per level, at robotics factory 4
         building / level                                  priced    build     +income/h   payback
           metal mine 1                                            8       2m          90     0.08h
           metal mine 5                                          246       3m          43     5.72h
           metal mine 10                                        3394      42m         132    25.71h
-          metal mine 20                                      195623   5h 23m        1232   158.78h
+          metal mine 20                                      195623   8h 25m        1232   158.78h
           crystal mine 1                                          8       2m          72     0.11h
           crystal mine 5                                        265       3m          34     7.79h
           crystal mine 10                                      3668      41m         104    35.26h
-          crystal mine 20                                    211398   5h 18m         970   217.93h
+          crystal mine 20                                    211398   8h 17m         970   217.93h
           deuterium synthesizer 1                                36       2m          45     0.80h
           deuterium synthesizer 5                              1038       6m          18    57.66h
           deuterium synthesizer 10                            14350   1h 25m          57   251.75h
-          deuterium synthesizer 20                           827419  10h 50m         534  1549.47h
+          deuterium synthesizer 20                           827419  16h 56m         534  1549.47h
           solar plant 1                                          13       2m           -         -
           solar plant 5                                         371       3m           -         -
           solar plant 10                                       5138      50m           -         -
-          solar plant 20                                     296181   6h 24m           -         -
+          solar plant 20                                     296181  10h 00m           -         -
           robotics factory 1                                    124       2m           -         -
           robotics factory 5                                   3447       8m           -         -
           robotics factory 10                                 47631   1h 52m           -         -
-          robotics factory 20                               2746460  14h 18m           -         -
+          robotics factory 20                               2746460  22h 21m           -         -
+          nanite factory 1                                     5200       5m           -         -
+          nanite factory 5                                   144784   1h 01m           -         -
+          nanite factory 10                                 1999032  14h 18m           -         -
+          nanite factory 20                               115274107 169h 53m           -         -
         day-2 colony energy                               598 produced / 320 consumed
         day-2 colony energy headroom                      27 levels
 
@@ -162,11 +168,19 @@ internal object BalanceBenchmarkGolden {
         [horizon] the same fixed player, out to 90 days
         day                                               levels     mine   income/h         metal     placed
           day 7                                              59       14       4856         56298     74.00%
-          day 14                                             78       19      15490        208970     80.00%
-          day 30                                            102       23      59697       2360357     70.00%
-          day 60                                            124       28     286694       8311953     83.00%
-          day 90                                            139       30     648256      10000000     93.00%
-        hours resting on the metal storage cap            386 of 2161
-          first reached                                   hour 1113 (day 46)
+          day 14                                             80       18      12785        245263     76.00%
+          day 30                                            105       23      53829       2499946     66.00%
+          day 60                                            131       27     224908       9119817     79.00%
+          day 90                                            148       30     546270      10000000     91.00%
+        hours resting on the metal storage cap            399 of 2161
+          first reached                                   hour 1123 (day 46)
+
+        [late game] metal mine wait at robotics 15, by nanite level
+        level                                             nanite 0   nanite 2   nanite 4   nanite 6     0 -> 6  vs income
+          metal mine 16                                           44m        19m         8m         3m     14.66x      1.03x
+          metal mine 18                                        1h 07m        29m        13m         5m     13.40x      1.08x
+          metal mine 20                                        2h 37m     1h 10m        31m        13m     12.07x      1.76x
+          metal mine 25                                       22h 08m     9h 50m     4h 22m     1h 56m     11.44x      5.96x
+          metal mine 30                                      186h 25m    82h 51m    36h 49m    16h 21m     11.40x     20.17x
     """.trimIndent()
 }
