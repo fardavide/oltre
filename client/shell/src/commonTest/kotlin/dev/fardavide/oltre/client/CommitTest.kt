@@ -87,7 +87,7 @@ class CommitTest {
         val started = assertIs<StartUpgradeResult.Started>(
             startUpgrade(funded, BuildingType.METAL_MINE, at = EPOCH),
         ).state
-        // **Subscribed, because since 0.6 a build nobody asked about books nothing** — and what
+        // **Subscribed, because since 0.5.0 a build nobody asked about books nothing** — and what
         // these tests are about is the commit booking *something*, not the gate. The gate has its
         // own tests in `GameNotificationsTest`.
         return toggleAlert(started, WatchTarget.Facility(BuildingType.METAL_MINE))

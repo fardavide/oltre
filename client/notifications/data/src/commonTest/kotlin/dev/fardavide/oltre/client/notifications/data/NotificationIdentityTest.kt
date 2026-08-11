@@ -66,7 +66,7 @@ class NotificationIdentityTest {
         // everything below.
         //
         // **The completions arrive as one `group-` and that is the fixture working, not failing.**
-        // Since 0.6.0 anything subscribed landing inside five minutes of the one before it is one
+        // Since 0.5.0 anything subscribed landing inside five minutes of the one before it is one
         // alert, and a colony that started every facility it could afford at one instant is exactly
         // the case that collapses — so a crowded colony has *fewer* ids than it used to, which is the
         // property the collapse exists for. The singleton `build-`, `research-` and `adaptation-`
@@ -228,7 +228,7 @@ private fun crowdedColony(): GameState {
     var state = wealthy()
 
     // Facilities run one job each and in parallel, so every building the colony can afford adds one.
-    // **Subscribed as they start**, since 0.6.0: a completion nobody asked about books nothing, and a
+    // **Subscribed as they start**, since 0.5.0: a completion nobody asked about books nothing, and a
     // fixture that started six builds and booked none of them would be crowded with nothing.
     for (building in BuildingType.entries) {
         (startUpgrade(state, building, at = EPOCH) as? StartUpgradeResult.Started)?.let {

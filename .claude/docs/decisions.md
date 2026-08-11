@@ -1827,11 +1827,18 @@ killed sees the new numbers with no roll and no sweep. The handoff calls for a "
 what the repo has is a launch. Wiring real lifecycle observation across three platforms is its own
 slice, and this one should not invent a heuristic for it.
 
-## The check-in loop becomes opt-in (2026-08-10, 0.6.0)
+## The check-in loop becomes opt-in (2026-08-10, 0.5.0)
 
 Claude Design's revision of the Upgrade Watch sheet, and it reverses the loop the game has run on
 since 0.0.10: **an upgrade completing no longer books an alert unless the player tapped the bell on
 its row while it was running.** Probes and fleet returns are untouched and still fire on their own.
+
+**Both passes of the sheet ship as one version, Davide's call** — *"there's no reason for 2 bumps"*.
+The first drew a square that books a price and left completions firing on their own; the revision
+gave the same control a second question and took the automatic ones away. Neither reached `main`
+separately, so the player meets one change rather than two, and the save format is one hop rather
+than two: **schema 9 adds `watching` and `subscribed` together**, because no save has ever held one
+without the other and a second version would be a migration nobody could ever run.
 
 The sheet argues against itself out loud, which is why it is worth recording rather than merely
 implementing: *"the completion alert is the check-in loop, and on iPhone it is the only way the game

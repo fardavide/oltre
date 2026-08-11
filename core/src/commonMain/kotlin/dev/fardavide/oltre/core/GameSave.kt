@@ -55,13 +55,12 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
-    // 10 — the completion subscriptions: the set of jobs whose landing the player asked to be told
-    //      about. Additive like 9, and it changes what an *existing* colony hears — completions no
-    //      longer fire unless asked for — but not what it holds, so there is nothing to migrate
-    //      beyond the empty set that is the truth about it.
-    // 9 — the watch: one nullable row the player has asked to be told about, shared by the
-    //     facilities, the technologies and the ladders. Additive, and the shallowest hop in the
-    //     table — a colony saved before the square existed is watching nothing.
+    // 9 — the square: one nullable `watching` row and the `subscribed` set of jobs whose landing the
+    //     player asked to be told about. **One hop for two fields** — they shipped together, so no
+    //     save has ever held one without the other and a second version would be a migration nobody
+    //     could ever run. Additive, and the shallowest hop in the table: a colony saved before the
+    //     square existed is watching nothing and has asked about nothing. What it *changes* is not
+    //     what the colony holds but what it hears — completions no longer fire unless asked for.
     // 8 — the fleet: an idle `ships` pool and the `runs` in flight, replacing `returningFleet`. The
     //     first hop that *removes* a key as well as adding two, and the first that has to rewrite
     //     entries already in the event log.
@@ -77,7 +76,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 10
+    const val SCHEMA_VERSION: Int = 9
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -184,13 +183,17 @@ object GameSave {
         // than a placeholder. The key is written explicitly rather than left to a default, because
         // `watching` deliberately has none: a nullable field with a default is a field a future
         // migration can forget about and still decode.
-        8 to { root -> root.withState("watching" to JsonNull) },
-        // 9 -> 10: the completion subscriptions. Empty, which is the truthful answer for a colony
-        // saved before the square could be tapped on a running row — and it is the answer that makes
-        // the hop *behavioural* as well as structural: an existing colony stops hearing about builds
-        // it never asked about, which is the change this version is. Nothing about the colony itself
+        // 8 -> 9: the square, both halves at once. Null and empty, which is the truthful answer for a
+        // colony saved before there was a square to tap — and the second of them is the answer that
+        // makes this hop *behavioural* as well as structural: an existing colony stops hearing about
+        // builds it never asked about, which is the change this version is. Nothing the colony holds
         // moves.
-        9 to { root -> root.withState("subscribed" to JsonArray(emptyList())) },
+        8 to { root ->
+            root.withState(
+                "watching" to JsonNull,
+                "subscribed" to JsonArray(emptyList()),
+            )
+        },
     )
 
     // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a
