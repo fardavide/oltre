@@ -45,7 +45,12 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
         building = building,
         toLevel = toLevel,
         startedAt = at,
-        completesAt = at + PlaceholderBalance.upgradeDuration(building, toLevel, state.buildings.roboticsFactory),
+        completesAt = at + PlaceholderBalance.upgradeDuration(
+            building,
+            toLevel,
+            state.buildings.roboticsFactory,
+            state.buildings.naniteFactory,
+        ),
     )
     return StartUpgradeResult.Started(
         state.copy(

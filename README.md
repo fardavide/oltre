@@ -158,6 +158,27 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.5.2 — 2026-08-11
+
+- **The Nanite Factory does something.** It has been in the build tree since the first economy
+  slice, priced at 20,000 metal and 10,000 crystal and 4,000 deuterium, gated behind Robotics
+  Factory 10 — and until now nothing in the game read it. Buying it made your colony strictly
+  poorer. It is now the only thing that shortens a deep build, and each level takes a third off
+  the wait.
+- **Deep upgrades are much slower, and only deep ones.** Past level 18 — which is roughly where
+  your mines stand when the Nanite Factory unlocks — every further level costs progressively more
+  waiting than the income that pays for it. A level 25 Metal Mine used to take a few hours and now
+  takes the better part of a day unaided; a level 30 takes over a week.
+- **Nothing before that moves at all.** The first fortnight is untouched to the minute: the first
+  build still lands at two minutes, the research tab still opens around hour 6, the adaptation
+  ladders still open at hour 9, and a colony still stands where it stood on day 1, 2, 3, 7 and 14.
+  The long waits arrive with the Nanite Factory that answers them, and not before.
+- **The Nanite Factory is an answer, not an exemption.** Six levels of it take a deep build from
+  186 hours to 16 — an eleven-fold cut — and what is left is still hours. The late game is meant to
+  be something you check in on while there is a fleet to move, not something you buy your way out
+  of.
+- Saves carry forward untouched: no stored value changes, and a colony keeps every level it has.
+
 ### 0.5.1 — 2026-08-11
 
 - **Your neighbours are worth looking at now.** A new colony starts in a system that has somewhere

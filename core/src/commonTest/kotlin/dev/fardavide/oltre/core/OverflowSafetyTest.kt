@@ -60,7 +60,7 @@ class OverflowSafetyTest {
             for (level in 1..MAX_BUILDING_LEVEL) {
                 for (robotics in listOf(0, 1, 10, 40)) {
                     val duration = PlaceholderBalance
-                        .upgradeDuration(building, BuildingLevel(level), BuildingLevel(robotics))
+                        .upgradeDuration(building, BuildingLevel(level), BuildingLevel(robotics), BuildingLevel(0))
                     assertTrue(duration.isPositive(), "$building $level at robotics $robotics took $duration")
                 }
             }

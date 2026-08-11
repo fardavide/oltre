@@ -118,14 +118,14 @@ class ParallelBuildTest {
         // one start *before* t0 and `advance` refuse to run backwards.
         val t0 = Instant.fromEpochMilliseconds(0)
         val pair = listOf(BuildingType.CRYSTAL_MINE, BuildingType.METAL_MINE)
-            .sortedBy { PlaceholderBalance.upgradeDuration(it, BuildingLevel(2), BuildingLevel(0)) }
+            .sortedBy { PlaceholderBalance.upgradeDuration(it, BuildingLevel(2), BuildingLevel(0), BuildingLevel(0)) }
         val shorter = pair.first()
         val longer = pair.last()
 
         val started = assertIs<StartUpgradeResult.Started>(startUpgrade(GameState.initial().fundedFor(*pair.toTypedArray()), longer, at = t0)).state
         val together = started.completionOf(longer)
         val shorterStart = together -
-            PlaceholderBalance.upgradeDuration(shorter, BuildingLevel(2), BuildingLevel(0))
+            PlaceholderBalance.upgradeDuration(shorter, BuildingLevel(2), BuildingLevel(0), BuildingLevel(0))
         val both = assertIs<StartUpgradeResult.Started>(
             startUpgrade(advance(started, from = t0, to = shorterStart), shorter, at = shorterStart),
         ).state

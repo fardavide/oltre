@@ -61,6 +61,7 @@ internal object BalanceBenchmark {
         section(galaxy())
         section(fleet())
         section(horizon())
+        section(lateGame())
     }.trimEnd()
 
     // ── [opening] the landmarks, as a clock ──────────────────────────────────────────────────
@@ -78,6 +79,17 @@ internal object BalanceBenchmark {
         add(row("first applied technology finished", hourText(run.firstHourWhere { state -> Technology.entries.any { state.research.levelOf(it).value >= 1 } })))
         add(row("first adaptation level finished", hourText(run.firstHourWhere { state -> AdaptationTechnology.entries.any { state.research.levelOf(it).value >= 1 } })))
         add(row("second skiff affordable", hourText(run.firstHourWhere { it.resources.covers(FleetBalance.shipCost(ShipType.SKIFF, 1)) })))
+        // What `LATE_GAME_FIRST_LEVEL` is measured against: the ramp is supposed to begin where the
+        // Nanite Factory becomes buildable, so if this row and that constant ever disagree, the
+        // constant is wrong and this page is where it shows.
+        val naniteOpens = run.firstHourWhere { it.buildings.roboticsFactory.value >= PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT }
+        add(
+            row(
+                "metal mine when the nanite unlocks",
+                "level ${naniteOpens?.let { run.at(it)?.buildings?.metalMine?.value } ?: 0}" +
+                    " (ramp starts at ${PlaceholderBalance.LATE_GAME_FIRST_LEVEL})",
+            ),
+        )
     }
 
     // ── [session] what five minutes of the game holds ────────────────────────────────────────
@@ -200,15 +212,6 @@ internal object BalanceBenchmark {
                 ),
             )
         }
-        // **The cap is not decoration by day 90, it is the ceiling the colony is resting on.**
-        // `STORAGE_CAPACITY` is a flat placeholder — its own comment calls the rule that raises it
-        // (a storage building? mine-level-scaled?) an open question — and once a stock is against it
-        // `advance` stops accruing, so every reading above understates: income past the cap is not
-        // banked, not spent, and not earned. A page that printed 10,000,000 without saying it was
-        // the ceiling would read as a big number rather than as a wall.
-        val capped = run.states.count { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY }
-        add(row("hours resting on the metal storage cap", "${capped} of ${run.states.size}"))
-        add(row("  first reached", hourText(run.firstHourWhere { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY })))
     }
 
     // ── [economy] what a level costs and what it gives back ──────────────────────────────────
@@ -223,7 +226,7 @@ internal object BalanceBenchmark {
         for (building in OPENING_PLAN) {
             for (level in listOf(1, 5, 10, 20)) {
                 val cost = PlaceholderBalance.upgradeCost(building, BuildingLevel(level))
-                val wait = PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(4))
+                val wait = PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(4), BuildingLevel(0))
                 val gain = incomeGain(building, level)
                 add(
                     row(
@@ -409,6 +412,52 @@ internal object BalanceBenchmark {
         val capped = run.states.count { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY }
         add(row("hours resting on the metal storage cap", "${capped} of ${run.states.size}"))
         add(row("  first reached", hourText(run.firstHourWhere { it.resources.metal >= PlaceholderBalance.STORAGE_CAPACITY })))
+    }
+
+    // ── [late game] the wait a deep level asks for, and what the Nanite buys back ────────────
+    //
+    // Davide, 2026-08-11: *"I'd expect late game upgrade to be extremely slow, and expensive Nanite
+    // upgrades to make them reasonable. I still think a late game upgrade could take various hours,
+    // even with Nanite."* Three readings decide whether that is what the curves do — how slow it is
+    // unaided, how much the Nanite gives back, and whether what is left is still hours.
+    //
+    // Read at Robotics 15, which is roughly where a colony stands once it is deep enough for any of
+    // this to apply; the Robotics divisor is linear so the shape does not depend on the choice.
+    private fun lateGame(): List<String> = buildList {
+        add("[late game] metal mine wait at robotics 15, by nanite level")
+        add(row("level", "nanite 0   nanite 2   nanite 4   nanite 6     0 -> 6  vs income"))
+        for (level in listOf(16, 18, 20, 25, 30)) {
+            val waits = listOf(0, 2, 4, 6).map {
+                PlaceholderBalance.upgradeDuration(
+                    BuildingType.METAL_MINE,
+                    BuildingLevel(level),
+                    BuildingLevel(15),
+                    BuildingLevel(it),
+                )
+            }
+            // The last column is the other half of the design: a deep level must outrun the income
+            // that pays for it, which is the identity round 11 established for the mid-game and
+            // 0.5.2 deliberately breaks above `LATE_GAME_FIRST_LEVEL`. Below the ramp it reads ~1.
+            // **It is a column of this table rather than a second table** — two tables in one
+            // section share their row labels, and the diff keys rows by `section + label`, so the
+            // second would silently replace the first and half the section would never appear in a
+            // review. `no two rows share a key` next door is the guard that found it.
+            val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+            val perHour = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level - 1)) +
+                PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
+            val earning = (cost.metal + cost.crystal) * 60 / perHour
+            val unaided = PlaceholderBalance
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0))
+                .inWholeMinutes
+            add(
+                row(
+                    "  metal mine $level",
+                    waits.joinToString("") { clock(it).padStart(11) } +
+                        (ratio(waits.first().inWholeMinutes, waits.last().inWholeMinutes) + "x").padStart(11) +
+                        (ratio(unaided, earning) + "x").padStart(11),
+                ),
+            )
+        }
     }
 
     // ── the instruments ─────────────────────────────────────────────────────────────────────
@@ -680,29 +729,25 @@ internal object BalanceBenchmark {
     // this is the most expensive figure on the page.
     private const val BENCHMARK_SEEDS: Int = 100
 
-    // **Five facilities, and the Nanite Factory is left out for a reason worth stating.**
+    // **Every facility, and the Nanite Factory belongs here again as of 0.5.2.**
     //
-    // The first cut of this page omitted it as "behind Robotics 10 and out of reach", which is true
-    // for a day and false for the rest of a fortnight — the colony reaches Robotics 10 on day 12. So
-    // it was added, on the argument that a player holding two hundred thousand metal buys the thing
-    // costing twenty thousand of it. Then Davide asked what the Nanite Factory is *for*, and the
-    // answer is **nothing, yet**: no curve in `core` reads `buildings.naniteFactory`. It appears in
-    // `Buildings`, in the Robotics 10 gate, in the cost table, and as an explicit zero in both energy
-    // functions. `upgradeDuration` and `researchDuration` each divide by the Robotics Factory alone.
+    // It was taken out one round ago because it did nothing — no curve read `buildings.naniteFactory`,
+    // so a player who bought it was strictly worse off and a benchmark that bought it flattered the
+    // metal pile by spending on a row that bought nothing. Davide asked what it was for, and the
+    // answer was the change: it is now the only thing that shortens a late-game build, so the fixed
+    // player buys it for the same reason a real one would.
     //
-    // A benchmark whose player buys it is therefore worse than one that does not, in both directions
-    // at once. It models a strictly bad purchase — measured: four Nanite levels by day 14 cost the
-    // colony 2,705 priced units an hour of income it would otherwise have had — and it **flatters the
-    // very pile this page exists to show**, by spending metal on a row that buys nothing. At ninety
-    // days the distortion is not marginal: a tenth Nanite level is 1,999,032 priced units.
-    //
-    // So the fixed player buys what the game actually sells. When the Nanite Factory is given an
-    // effect, it belongs back in this list and the golden will move to say so.
+    // This is the note the previous round asked for, honoured: *"when the Nanite Factory is given an
+    // effect, it belongs back in this list and the golden will move to say so."* Leaving it out now
+    // would understate the late game exactly as including it once overstated the mid-game — the
+    // colony would meet the `LATE_GAME_FIRST_LEVEL` ramp with no answer to it, and `[horizon]` would
+    // photograph a wall no real player would stand in front of.
     private val OPENING_PLAN = listOf(
         BuildingType.METAL_MINE,
         BuildingType.CRYSTAL_MINE,
         BuildingType.DEUTERIUM_SYNTHESIZER,
         BuildingType.SOLAR_PLANT,
         BuildingType.ROBOTICS_FACTORY,
+        BuildingType.NANITE_FACTORY,
     )
 }

@@ -234,7 +234,16 @@ class BalanceCurveTest {
         // breaks this identity on purpose and the test below is the one that holds it to account;
         // running both bands through one loop would have let a deliberate divergence and an
         // accidental one wear the same bound.
-        for (level in 9..20) {
+        //
+        // **And only as far as `LATE_GAME_FIRST_LEVEL`**, which is 0.5.2 narrowing round 11 rather
+        // than repealing it. Davide, 2026-08-11: *"I'd expect late game upgrade to be extremely
+        // slow, and expensive Nanite upgrades to make them reasonable."* Above the ramp the wait is
+        // *supposed* to outgrow the income — that is the whole change — so the test that says it
+        // must not is scoped to the stretch where it is still the rule, and
+        // `the late game pulls away from its own income on purpose` below owns the other side.
+        // Read the two together: the identity holds through the mid-game and is deliberately broken
+        // after it, and neither half can drift without one of them failing.
+        for (level in 9..PlaceholderBalance.LATE_GAME_FIRST_LEVEL) {
             val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
             // The colony that buys this level is producing at the one below it, on both mines,
             // because the duration sum is metal and crystal and so the income compared with it
@@ -243,7 +252,7 @@ class BalanceCurveTest {
                 PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
             val earning = (cost.metal + cost.crystal) * 60 / perHour
             val building = PlaceholderBalance
-                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0))
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0))
                 .inWholeMinutes
 
             assertTrue(
@@ -253,6 +262,71 @@ class BalanceCurveTest {
             assertTrue(
                 4 * building <= 5 * earning,
                 "level $level builds in $building min against $earning min of income — the wait outgrew the earning",
+            )
+        }
+    }
+
+    @Test
+    fun `the late game pulls away from its own income on purpose`() {
+        // The other side of round 11, and the half 0.5.2 added. Davide, 2026-08-11: *"I'd expect
+        // late game upgrade to be extremely slow, and expensive Nanite upgrades to make them
+        // reasonable ... It's reasonable for build times to be long only when the user has many
+        // things to do: manage ships, travels, and co, not when it has only a few things."*
+        //
+        // So above `LATE_GAME_FIRST_LEVEL` the wait is *supposed* to outgrow the income, and the
+        // test that forbids exactly that is scoped to stop there. This is the same reading, with the
+        // inequality the other way up — asserted as a band on the ratio rather than on minutes,
+        // because the decision is the divergence and a table of minutes would let it drift.
+        val ratio = { level: Int ->
+            val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(level))
+            val perHour = PlaceholderBalance.metalProductionPerHour(BuildingLevel(level - 1)) +
+                PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
+            val earning = (cost.metal + cost.crystal) * 60 / perHour
+            val building = PlaceholderBalance
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0))
+                .inWholeMinutes
+            building * 100 / earning
+        }
+
+        // The last level before the ramp is still round 11's game, and that is what "do not impact
+        // build times before then" means in one assertion.
+        assertTrue(
+            ratio(PlaceholderBalance.LATE_GAME_FIRST_LEVEL) <= 125,
+            "the level below the ramp builds at ${ratio(PlaceholderBalance.LATE_GAME_FIRST_LEVEL) / 100.0}x " +
+                "its own income — the late game is not supposed to start before the Nanite Factory does",
+        )
+        // And past it the gap opens and keeps opening. Measured 1.76x at 20, 5.96x at 25, 20.17x at
+        // 30; the floors sit well under those so a round may re-tune the growth rate without this
+        // failing, and well over 1 so a round that quietly flattened it could not.
+        assertTrue(ratio(20) >= 130, "level 20 builds at ${ratio(20) / 100.0}x its income, was 1.76x")
+        assertTrue(ratio(25) >= 300, "level 25 builds at ${ratio(25) / 100.0}x its income, was 5.96x")
+        assertTrue(ratio(30) >= 800, "level 30 builds at ${ratio(30) / 100.0}x its income, was 20.17x")
+    }
+
+    @Test
+    fun `the nanite factory answers the late game without deleting it`() {
+        // Both halves of *"expensive Nanite upgrades to make them reasonable. I still think a late
+        // game upgrade could take various hours, even with Nanite."* A Nanite that did not visibly
+        // help would be the 20,000-metal ornament it was until 0.5.2; one that made deep levels
+        // quick would put the late game back where it was and charge for the privilege.
+        val wait = { level: Int, nanite: Int ->
+            PlaceholderBalance
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(15), BuildingLevel(nanite))
+                .inWholeMinutes
+        }
+
+        for (level in listOf(25, 30)) {
+            val unaided = wait(level, 0)
+            val helped = wait(level, 6)
+
+            assertTrue(
+                unaided >= helped * 5,
+                "six Nanite levels only take level $level from $unaided to $helped minutes — that is not an answer",
+            )
+            assertTrue(
+                helped >= 60,
+                "level $level with six Nanite levels builds in $helped minutes — the late game is " +
+                    "supposed to still cost hours, not be bought out of",
             )
         }
     }
@@ -277,7 +351,7 @@ class BalanceCurveTest {
                 PlaceholderBalance.crystalProductionPerHour(BuildingLevel(level - 1))
             val earning = (cost.metal + cost.crystal) * 60 / perHour
             val building = PlaceholderBalance
-                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0))
+                .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0))
                 .inWholeMinutes
             building to earning
         }
@@ -328,8 +402,8 @@ class BalanceCurveTest {
             for (building in BuildingType.entries) {
                 val full = PlaceholderBalance.fullPriceCost(building, BuildingLevel(level))
                 assertEquals(
-                    sped(4 * isqrt(full.metal + full.crystal), level),
-                    PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(0)).inWholeMinutes,
+                    slowed(sped(4 * isqrt(full.metal + full.crystal), level), level),
+                    PlaceholderBalance.upgradeDuration(building, BuildingLevel(level), BuildingLevel(0), BuildingLevel(0)).inWholeMinutes,
                     "$building $level",
                 )
             }
@@ -356,6 +430,16 @@ class BalanceCurveTest {
         return (top + bottom / 2) / bottom
     }
 
+    // The late-game ramp, written out for the same reason `sped` is — and flooring at every step
+    // rather than carrying the fraction, because `compound` does and the two have to agree to the
+    // minute at level 30 or this test is checking nothing.
+    private fun slowed(minutes: Long, level: Int): Long {
+        if (level <= PlaceholderBalance.LATE_GAME_FIRST_LEVEL) return minutes
+        var value = minutes
+        repeat(level - PlaceholderBalance.LATE_GAME_FIRST_LEVEL) { value = value * 5 / 4 }
+        return value
+    }
+
     @Test
     fun `deuterium buys the research branch and never the clock`() {
         // The Robotics Factory and the Nanite Factory are the only two rows that cost deuterium —
@@ -367,8 +451,8 @@ class BalanceCurveTest {
             val full = PlaceholderBalance.fullPriceCost(building, BuildingLevel(4))
             assertTrue(full.deuterium > 0, "the fixture needs a row that costs deuterium")
             assertEquals(
-                sped(4 * isqrt(full.metal + full.crystal), 4),
-                PlaceholderBalance.upgradeDuration(building, BuildingLevel(4), BuildingLevel(0)).inWholeMinutes,
+                slowed(sped(4 * isqrt(full.metal + full.crystal), 4), 4),
+                PlaceholderBalance.upgradeDuration(building, BuildingLevel(4), BuildingLevel(0), BuildingLevel(0)).inWholeMinutes,
                 "$building must not be slowed by the resource that gates research",
             )
         }
@@ -390,14 +474,14 @@ class BalanceCurveTest {
         // cost-proportional curve exists to fill. The floor is applied to what the player waits,
         // *after* the divisor, so the divisor cannot cut through it.
         val instant = PlaceholderBalance
-            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(10))
+            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(10), BuildingLevel(0))
         assertEquals(2, instant.inWholeMinutes)
 
         for (robotics in 0..20) {
             for (building in BuildingType.entries) {
                 assertTrue(
                     PlaceholderBalance
-                        .upgradeDuration(building, BuildingLevel(2), BuildingLevel(robotics))
+                        .upgradeDuration(building, BuildingLevel(2), BuildingLevel(robotics), BuildingLevel(0))
                         .inWholeMinutes >= 2,
                     "$building at robotics $robotics",
                 )
@@ -412,7 +496,7 @@ class BalanceCurveTest {
         // identical 25 building levels after 48 hours, so the price of covering the gaps is paid at
         // depth rather than at the door.
         val first = PlaceholderBalance
-            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0))
+            .upgradeDuration(BuildingType.METAL_MINE, BuildingLevel(2), BuildingLevel(0), BuildingLevel(0))
         assertTrue(first.inWholeMinutes in 2..60, "the first upgrade was ${first.inWholeMinutes} minutes")
     }
 

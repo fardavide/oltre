@@ -355,6 +355,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   `ResearchSlotBalanceTest` and `ProgressionBalanceTest` add eight more bands for what round 18 did
   not reach: the two research branches staying weighable (the 1.9× that once shipped at 5.8×), and
   week two still having slope. `balance-log.md` round 19.
+- **The Nanite Factory does something as of 0.5.2, and the late game has a wait worth answering.**
+  It had been in the tree since the first economy slice — 20,000 metal, gated at Robotics 10 — and no
+  curve read its level, so buying it made a colony strictly poorer. Above level 18 (measured: where a
+  colony's mines stand when the Nanite unlocks) build time now compounds at +25% a level, and each
+  Nanite level takes two thirds off. A level-30 Metal Mine goes 186h unaided to 16h at Nanite 6.
+  **Nothing below the ramp moved** — every opening and check-in band passed unedited and the
+  benchmark's `[opening]` and `[session]` sections are byte-identical. `balance-log.md` round 20.
+- ~~**Open: what is the Nanite Factory for**~~ — answered and implemented at 0.5.2, above.
 - **Open, and Davide's: the colony banks metal it cannot spend, past the opening.** The benchmark's
   first run showed day 7 at **56,298 metal against 2,959 crystal** and day 14 at 208,970 against
   14,381 — round 7's symptom reappearing, but *not* from the production ratio this time. Past the
