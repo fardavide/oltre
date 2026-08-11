@@ -95,6 +95,47 @@ class WatchTest {
         )
     }
 
+    // The watch sorts after everything else at a shared instant, which is the only thing its place
+    // in the order has to be — it mirrors nothing `advance` writes to the log, so unlike every other
+    // kind there is no second list for it to agree with. Asserted over a mixed set, because a
+    // comparator is only exercised at all once there is more than one thing to compare.
+    @Test
+    fun `the watch sorts last among things due at the same instant`() {
+        // given a colony building, adapting and watching, contrived so all three land together
+        val together = EPOCH + 2.hours
+        val state = toggleAlert(broke(), WatchTarget.Facility(BuildingType.NANITE_FACTORY)).copy(
+            builds = mapOf(
+                BuildingType.METAL_MINE to BuildJob(
+                    building = BuildingType.METAL_MINE,
+                    toLevel = BuildingLevel(2),
+                    startedAt = EPOCH,
+                    completesAt = together,
+                ),
+            ),
+            activeAdaptation = AdaptationJob(
+                technology = AdaptationTechnology.THERMAL,
+                toLevel = TechLevel(1),
+                startedAt = EPOCH,
+                completesAt = together,
+            ),
+        )
+
+        // when — `now` is chosen so the projected instant is the shared one too
+        val wait = timeUntilAffordable(
+            state.resources,
+            checkNotNull(state.watchedPurchase()).cost,
+            state.buildings,
+            state.research,
+        )
+        val upcoming = futureEvents(state, now = together - wait)
+
+        // then
+        assertEquals(
+            listOf("BuildCompletes", "AdaptationCompletes", "AffordableAt"),
+            upcoming.map { it::class.simpleName },
+        )
+    }
+
     @Test
     fun `a watched row the colony can already pay for has no instant to book`() {
         // given — the opening stocks cover the first mine level outright

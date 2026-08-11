@@ -179,11 +179,9 @@ private fun Int.spelled(): String = when (this) {
 }
 
 // "Metal Mine, Solar Plant and Extraction" — commas between, "and" before the last, and no Oxford
-// comma, which is the prose style of everything else the game says.
-private fun List<String>.listed(): String = when (size) {
-    1 -> single()
-    else -> "${dropLast(1).joinToString(", ")} and ${last()}"
-}
+// comma, which is the prose style of everything else the game says. No branch for a list of one:
+// a group is two or more by construction, and the general form already reads "A and B" at two.
+private fun List<String>.listed(): String = "${dropLast(1).joinToString(", ")} and ${last()}"
 
 private fun FutureEvent.Completion.displayName(): String = when (this) {
     is FutureEvent.BuildCompletes -> building.displayName()

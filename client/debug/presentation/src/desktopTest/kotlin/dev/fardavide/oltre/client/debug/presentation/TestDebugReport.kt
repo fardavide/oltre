@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchedPurchase
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -54,9 +55,9 @@ internal val skippedReport = idleReport.copy(
 )
 
 // One report per kind of thing that can happen next. The sheet writes each with a `when` over the
-// sealed `FutureEvent`, so without all five the compiler is the only thing that has ever looked at
-// four of those branches — and the day core adds a sixth, a test that only ever saw a build would
-// still pass while the panel said the wrong thing about a probe.
+// sealed `FutureEvent`, so without all six the compiler is the only thing that has ever looked at
+// five of those branches — and when core added a sixth, a table that only ever saw a build would
+// still have passed while the panel said the wrong thing about a probe.
 internal val nextEventReports: List<Pair<FutureEvent, String>> = listOf(
     FutureEvent.BuildCompletes(
         building = BuildingType.NANITE_FACTORY,
@@ -89,4 +90,32 @@ internal val nextEventReports: List<Pair<FutureEvent, String>> = listOf(
         dispatchedAt = EPOCH,
         at = EPOCH + 1.hours,
     ) to "FLEET RETURNS",
+    // The sixth kind, and the one the comment above predicted: it is not a job, so it says what it
+    // is before it says what it is about — otherwise a developer reading the panel cannot tell it
+    // from the completion of the same row. Three of them, because the purchase it carries is a
+    // sealed three and the panel names all three by their enum constant.
+    FutureEvent.AffordableAt(
+        purchase = WatchedPurchase.Facility(
+            building = BuildingType.METAL_MINE,
+            toLevel = BuildingLevel(13),
+            cost = Resources.of(metal = 12_458, crystal = 3_114),
+        ),
+        at = EPOCH + 1.hours,
+    ) to "AFFORDABLE METAL_MINE → 13",
+    FutureEvent.AffordableAt(
+        purchase = WatchedPurchase.Project(
+            technology = Technology.EXTRACTION,
+            toLevel = TechLevel(5),
+            cost = Resources.of(metal = 3_038, crystal = 2_025),
+        ),
+        at = EPOCH + 1.hours,
+    ) to "AFFORDABLE EXTRACTION → 5",
+    FutureEvent.AffordableAt(
+        purchase = WatchedPurchase.Ladder(
+            technology = AdaptationTechnology.THERMAL,
+            toLevel = TechLevel(1),
+            cost = Resources.of(metal = 900, crystal = 600, deuterium = 900),
+        ),
+        at = EPOCH + 1.hours,
+    ) to "AFFORDABLE THERMAL → 1",
 )

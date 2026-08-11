@@ -278,6 +278,67 @@ class GameNotificationsTest {
         assertEquals(2, scheduler.scheduled.size)
     }
 
+    // The ceiling, and the worst sentence the game can send: six facilities and the one research
+    // slot is every completion a colony can hold, so seven is the largest group there is and this is
+    // the longest body a lock screen will ever be handed.
+    @Test
+    fun `the whole colony landing together is one alert of seven`() = runTest {
+        // given every facility building and a project in the slot, all inside one window
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            *BuildingType.entries.mapIndexed { index, building ->
+                building to EPOCH + 30.minutes + (index * 30).seconds
+            }.toTypedArray(),
+        ).let { colony ->
+            colony.copy(
+                activeResearch = ResearchJob(
+                    technology = Technology.EXTRACTION,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 33.minutes,
+                ),
+                subscribed = colony.subscribed + WatchTarget.Project(Technology.EXTRACTION),
+            )
+        }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — spelled to the end of the count the model allows, and every name listed: a group
+        // that said "and 4 more" would be an alert you have to open the app to understand
+        // The names are in the order the things actually land, which is core's ordering and not this
+        // file's: the research slot frees after the last facility here, so it reads last.
+        val notification = scheduler.scheduled.single()
+        assertEquals("Seven upgrades are done", notification.title)
+        assertEquals(
+            "Metal Mine, Crystal Mine, Deuterium Synthesizer, Solar Plant, Robotics Factory, " +
+                "Nanite Factory and Extraction — pick what your colony builds next.",
+            notification.body,
+        )
+    }
+
+    // The counts between the pair and the ceiling, so the whole spelled table is exercised rather
+    // than its two ends. Six facilities is as far as builds alone reach; the seventh needs the
+    // research slot, and has the test above to itself.
+    @Test
+    fun `the count is spelled out at every size builds alone can reach`() = runTest {
+        val titles = (2..6).map { size ->
+            val scheduler = FakeNotificationScheduler()
+            val state = subscribedBuilds(
+                *BuildingType.entries.take(size).mapIndexed { index, building ->
+                    building to EPOCH + 30.minutes + (index * 30).seconds
+                }.toTypedArray(),
+            )
+            GameNotifications(scheduler).sync(state, now = EPOCH)
+            scheduler.scheduled.single().title
+        }
+
+        assertEquals(
+            listOf("Two", "Three", "Four", "Five", "Six").map { "$it upgrades are done" },
+            titles,
+        )
+    }
+
     @Test
     fun `a finished ladder joins the group under its full name`() = runTest {
         // given a ladder holding the shared slot and landing beside a facility. The group's naming is
