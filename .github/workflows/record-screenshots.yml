@@ -58,6 +58,17 @@ jobs:
       # and the research baselines were left showing a requirement string the app no longer
       # produces while the job reported success. Re-running everything costs this manual job a few
       # minutes; getting it wrong costs a baseline that asserts a screen nobody can reach.
+      #
+      # **Know what this widens.** The committed baselines are macOS-recorded — `oltreRoborazziOptions`
+      # says so and exists to absorb the difference — so every module this job *executes* comes back
+      # re-rendered on Linux, whether its content changed or not. The cache was accidentally limiting
+      # that blast radius; without it, one dispatch converts every frame it touches. 0.5.1 saw 32
+      # baselines rewritten where 26 had a reason to move, and the 22 belonging to modules the change
+      # did not touch were reverted by hand before merge.
+      #
+      # So: **read the job's comment and revert the frames whose content did not change.** The right
+      # long-term fix is a commit step that drops any PNG whose diff sits inside the verifier's own
+      # tolerance, which would make this job self-limiting; it is not built, and it is Davide's call.
       - run: ./gradlew recordRoborazziDesktop --rerun-tasks
 
       - name: Commit the re-recorded baselines

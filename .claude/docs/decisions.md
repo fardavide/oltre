@@ -2519,6 +2519,37 @@ The cost is a few minutes on a job that is manual, rare, and already the slowest
 repository. The alternative cost is a committed baseline asserting a screen the app cannot draw —
 and since recording **replaces the assertion**, nothing downstream would ever catch it.
 
+### What the fix widened, found immediately after
+
+`--rerun-tasks` closed the hole and opened a smaller one in the other direction, and the pair is
+the actual lesson. **The committed baselines are macOS-recorded** — `oltreRoborazziOptions` says so
+in as many words, and the whole reason it carries a `maxDistance` and an 8% pixel budget is to
+absorb what Linux does to them: *"±1/255 across gradient fills (dithering) and ≥10/255 on 2.4–5.6%
+of pixels (glyph anti-aliasing)"*.
+
+This job records on Linux. So every module it **executes** comes back re-rendered, whether its
+content changed or not, and the cache was accidentally limiting the blast radius. The first
+dispatch with `--rerun-tasks` rewrote **32** baselines where 26 had a reason to move; the other 22
+belonged to `:client:colony:presentation` and `:client:shell`, which 0.5.1 does not touch at all.
+Measured before reverting them: content identical frame for frame, differences confined to glyph
+edges and gradient dither, exactly the profile the options file describes.
+
+They were reverted by hand and the line drawn was *"which modules does this change render
+differently"* rather than a pixel count — galaxy and research keep their new frames, colony and
+shell keep the ones they had.
+
+**The right fix is a commit step that drops any PNG whose diff sits inside the verifier's own
+tolerance.** That would make the job self-limiting: it would record everything, and commit only
+what a human would have to look at. It is not built — it is a change to how the repository decides
+what a baseline *is*, and that is Davide's call rather than a session's.
+
+**And one thing it turned up that is worth its own look:** a one-character text change is a few
+hundred pixels on a 393dp frame, which is far inside the 8% budget. So the stale
+`Requires Robotics 4` baselines would very likely have **passed** verification against the corrected
+screen. The tolerance is calibrated for renderer drift and cannot tell a small genuine change from
+it — which is the argument for reading the images rather than trusting the check, and is the reason
+the job posts them.
+
 ### The part that generalises
 
 A cached task is a claim about *outputs*. Any job whose real product is a change to **tracked
