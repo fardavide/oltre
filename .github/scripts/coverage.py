@@ -44,11 +44,10 @@ COUNTERS = ["LINE", "BRANCH", "INSTRUCTION", "METHOD", "CLASS"]
 
 COMMENT_MARKER = "<!-- oltre-coverage-report -->"
 
-# The level above which line coverage is allowed to fall. Below it the gate is a plain ratchet —
-# a PR may not leave the project worse than it found it; above it there is slack, because holding
-# a high-nineties number to the decimal buys nothing and turns every merge into a negotiation.
-# Both halves are one comparison: a PR must clear `min(baseline, FLOOR)`. Davide's number.
-COVERAGE_FLOOR = 95.0
+# The columns the gate judges. Both of the table's coverage columns — a test count is not a
+# coverage value, and the per-package table is a diagnostic rather than a bar (a package that is
+# new, deleted or renamed moves cells with no regression behind it; the totals catch what matters).
+GATED_COUNTERS = ["line", "branch"]
 
 # The gate judges to the precision the table prints. Without this a 0.01-point drop would fail a
 # PR whose own report shows the delta as "±0" — the same tolerance `format_delta` uses to decide
@@ -228,60 +227,91 @@ def uncovered_lines(summary: dict) -> int | None:
 
 # --- gate ------------------------------------------------------------------------------------
 #
-# One number gates the merge: line coverage of the whole suite. Branch coverage moves for reasons
-# that are not regressions, and a per-kind row moves when a test is renamed from one kind to
-# another — neither is something a PR should be blocked on.
+# Every number in the per-kind table gates the merge — line and branch, for each of the five
+# rows. There is no floor and no slack: a value may rise or hold, never fall. So a PR that lifts
+# the total by covering new code while a behaviour test quietly stops reaching a screen is still
+# blocked, which the old single-number gate could not see.
+#
+# The cost is real and accepted: renaming a test from one kind to another moves two rows, and the
+# PR that does it has to leave both at least where it found them.
 
 
-def total_line_coverage(summary: dict) -> float | None:
-    return percent(summary.get("categories", {}).get("all", {}).get("line"))
+def gate_checks(current: dict, baseline: dict) -> list[dict]:
+    """One entry per table value that both runs put a number on.
 
-
-def required_coverage(baseline: float | None, floor: float) -> float | None:
-    """What this run has to clear — `None` when there is no baseline to ratchet against.
-
-    Below the floor the baseline is the bar, so coverage can only go up. Above it the floor is
-    the bar, so coverage can come back down but never through it.
+    A value only one side has is not a regression and not a pass — it is unjudgeable, and left
+    out entirely rather than compared against a zero it never measured. A kind measured for the
+    first time joins the ratchet on the next `main` run.
     """
-    if baseline is None:
-        return None
-    return min(baseline, floor)
+    checks = []
+    for category in CATEGORIES:
+        entry = current.get("categories", {}).get(category, {})
+        base = baseline.get("categories", {}).get(category, {})
+        for counter in GATED_COUNTERS:
+            now, before = percent(entry.get(counter)), percent(base.get(counter))
+            if now is None or before is None:
+                continue
+            checks.append(
+                {
+                    "category": category,
+                    "counter": counter,
+                    "label": f"{LABELS.get(category, category)} {counter}",
+                    "current": now,
+                    "baseline": before,
+                    "status": "pass" if now >= before - GATE_EPSILON else "fail",
+                }
+            )
+    return checks
 
 
-def gate_verdict(current: float | None, baseline: float | None, floor: float) -> dict:
-    required = required_coverage(baseline, floor)
-    if current is None or required is None:
+def gate_verdict(current: dict, baseline: dict | None) -> dict:
+    checks = gate_checks(current, baseline) if baseline is not None else []
+    regressions = [check for check in checks if check["status"] == "fail"]
+    if not checks:
         status = "skipped"
-    elif current >= required - GATE_EPSILON:
-        status = "pass"
-    else:
+    elif regressions:
         status = "fail"
-    return {
-        "status": status,
-        "current": current,
-        "baseline": baseline,
-        "required": required,
-        "floor": floor,
-    }
+    else:
+        status = "pass"
+    return {"status": status, "checks": checks, "regressions": regressions}
+
+
+def values(count: int) -> str:
+    return "1 value" if count == 1 else f"{count} values"
+
+
+def regression_lines(verdict: dict) -> list[str]:
+    return [
+        f"- **{check['label']}**: {check['current']:.1f}%, below the "
+        f"{check['baseline']:.1f}% it held on `main`."
+        for check in verdict["regressions"]
+    ]
 
 
 def verdict_sentence(verdict: dict) -> str:
-    """The line the PR comment leads with — the only part of the report anyone has to act on."""
+    """What the PR comment leads with — the only part of the report anyone has to act on."""
     if verdict["status"] == "skipped":
+        # Almost always a cache miss. It also covers the case where a baseline exists but shares
+        # no value with this run, which is why the sentence does not promise which one it was.
         return (
-            "⚠️ **The coverage gate did not run** — there is no `main` baseline to compare "
-            "against, so nothing was enforced."
+            "⚠️ **The coverage gate did not run** — nothing in this run has a `main` baseline "
+            "to compare against, so nothing was enforced."
         )
-    current, required = verdict["current"], verdict["required"]
     if verdict["status"] == "pass":
         return (
-            f"✅ **Coverage gate passed** — {current:.1f}% line coverage, against the "
-            f"{required:.1f}% this PR had to hold."
+            f"✅ **Coverage gate passed** — all {values(len(verdict['checks']))} in the table "
+            f"hold at or above the last `main` run."
         )
-    return (
-        f"❌ **Coverage gate failed** — line coverage is {current:.1f}%, below the "
-        f"{required:.1f}% this PR has to hold. Cover what this branch added, or raise the "
-        f"project above {verdict['floor']:.1f}%, where coverage is allowed to fall again."
+    return "\n".join(
+        [
+            f"❌ **Coverage gate failed** — {values(len(verdict['regressions']))} fell below the "
+            f"last `main` run:",
+            "",
+            *regression_lines(verdict),
+            "",
+            "Cover what this branch added. No number in the table may go down, whatever the "
+            "others do.",
+        ]
     )
 
 
@@ -302,11 +332,7 @@ def render(args: argparse.Namespace) -> int:
     lines.append("")
 
     # Directly under the table, because it is the one line that can cost someone a merge.
-    verdict = gate_verdict(
-        current=total_line_coverage(current),
-        baseline=total_line_coverage(baseline) if has_baseline else None,
-        floor=args.floor,
-    )
+    verdict = gate_verdict(current=current, baseline=baseline if has_baseline else None)
     lines.append(verdict_sentence(verdict))
     lines.append("")
 
@@ -347,9 +373,9 @@ def render(args: argparse.Namespace) -> int:
         )
     lines.append("")
     lines.append(
-        f"<sub>The **All tests** line number may not fall below the last `main` run, and may "
-        f"never fall below {args.floor:.0f}%. Categories are class-name suffixes; see the "
-        f"`test-coverage` skill.</sub>"
+        "<sub>No line or branch number in the table at the top may fall below the last `main` "
+        "run — every row, not just the total. The per-package breakdown is a diagnostic and is "
+        "not gated. Categories are class-name suffixes; see the `test-coverage` skill.</sub>"
     )
 
     text = "\n".join(lines) + "\n"
@@ -380,16 +406,21 @@ def enforce(args: argparse.Namespace) -> int:
     verdict = json.loads(path.read_text())
     status = verdict.get("status")
     if status == "fail":
+        fallen = verdict["regressions"]
         print(
-            f"Coverage gate failed: {verdict['current']:.1f}% line coverage is below the "
-            f"{verdict['required']:.1f}% this branch has to hold.",
+            f"Coverage gate failed: {len(fallen)} value(s) below the last `main` run.",
             file=sys.stderr,
         )
+        for check in fallen:
+            print(
+                f"  {check['label']}: {check['current']:.1f}%, was {check['baseline']:.1f}%",
+                file=sys.stderr,
+            )
         return 1
     if status == "skipped":
-        print("Coverage gate skipped: no baseline to compare against.")
+        print("Coverage gate skipped: nothing in this run has a baseline to compare against.")
         return 0
-    print(f"Coverage gate passed: {verdict['current']:.1f}% line coverage.")
+    print(f"Coverage gate passed: all {len(verdict['checks'])} values hold.")
     return 0
 
 
@@ -414,7 +445,6 @@ def main(argv: list[str]) -> int:
     render_parser.add_argument("--baseline")
     render_parser.add_argument("--out", required=True)
     render_parser.add_argument("--verdict-out")
-    render_parser.add_argument("--floor", type=float, default=COVERAGE_FLOOR)
     render_parser.set_defaults(func=render)
 
     enforce_parser = sub.add_parser("enforce", help="exit non-zero if the gate failed")

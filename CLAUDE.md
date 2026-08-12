@@ -68,7 +68,8 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 Tests come in four kinds and say which by class-name suffix — `…Test` (unit),
 `…IntegrationTest`, `…ScreenshotTest`, `…BehaviourTest`. Behaviour tests drive Compose through
 **Robots**, never raw node queries in the test body. CI reports coverage per kind on every PR and
-**blocks the merge if line coverage falls** — a PR must clear `min(last main run, 95%)`.
+**blocks the merge if any number in that table falls** — line and branch, for each kind and for
+the total, must hold at or above the last `main` run. No floor, no slack.
 See the `test-coverage` skill.
 
 All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,

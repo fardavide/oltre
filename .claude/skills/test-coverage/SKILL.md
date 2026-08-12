@@ -97,7 +97,10 @@ The tilt parallax broke both. Three `classes(…)` lines went in during the same
 they hid, reasoning by analogy from the shake detector three lines above them, before any report
 existed — the comment even said so out loud and shipped anyway. **The exclusion turned out to buy
 nothing, measured rather than argued**: taking it back out moved the total from 96.9% to 96.3%
-against a 95.0% floor, because it had been hiding twenty-six lines. The gate passes either way. So a
+against the 95.0% floor of the day, because it had been hiding twenty-six lines. The gate passed
+either way, then. **It would not today**: with the floor gone the bar is the baseline itself, and a
+96.3% run against a 96.9% baseline is a red gate. Taking an exclusion back out now costs the tests
+that were owed when it went in — which is the rule working, and one more reason not to add one. So a
 rule was broken to purchase a margin that was already there, which is the worst version of this
 mistake and the easy one to make.
 
@@ -137,30 +140,42 @@ by every branch. **No baseline, no delta** — the report says so rather than sh
 
 ## The gate
 
-The Coverage job is a **required check**, and it fails when line coverage falls. One comparison
-says the whole rule:
+The Coverage job is a **required check**, and it fails when *any* number in the per-kind table
+falls. One comparison, applied ten times:
 
 ```
-pass  ⟺  current ≥ min(last main run, 95%)
+pass  ⟺  every gated value ≥ the same value on the last main run
 ```
 
-Below 95% that is a plain ratchet — a PR may not leave the project worse than it found it. At or
-above 95% there is slack down to 95%, because holding a high-nineties number to the decimal buys
-nothing and turns every merge into a negotiation. The floor is `COVERAGE_FLOOR` in
-`.github/scripts/coverage.py`; it is Davide's number, and changing it needs him.
+That is a plain ratchet with **no floor and no slack** — nothing may go down, wherever the project
+happens to sit. Davide's call, 2026-08-12, replacing `min(last main run, 95%)`: the floor bought
+slack above 95% that the project no longer wants, and the single number it gated could rise while
+a kind underneath it fell.
 
-What this means when you write code, and it is stricter than it sounds: with the project in the
-mid-nineties, **new code has to be covered about as well as the project average** or it drags the
-total down. A 200-line feature at 90% covered fails the gate even though 90% is a decent number.
-Budget for the tests in the same slice, not the next one.
+**Ten values are gated**: line and branch, for each of unit / integration / screenshot / behaviour
+/ all. Not the test counts — a count is not a coverage value — and **not the per-package
+breakdown**, which is a diagnostic: a package that is new, deleted or renamed moves cells with no
+regression behind it, and the totals catch what those cells are for.
+
+What this means when you write code, and it is stricter than it sounds: **new code has to be
+covered about as well as the project average** or it drags the total down. A 200-line feature at
+90% covered fails the gate even though 90% is a decent number. Budget for the tests in the same
+slice, not the next one.
 
 Details that matter when it fires:
 
-- **It gates the `All tests` line number only.** Branch coverage moves for reasons that are not
-  regressions, and a per-kind row moves when a test is renamed from one kind to another; neither
-  should block a merge.
+- **A rename between kinds is now a gate event.** Moving `FooTest` to `FooBehaviourTest` lowers
+  the unit row, and the PR that does it has to leave that row where it found it. This was the
+  stated reason the old gate judged the total alone; it is accepted rather than overlooked.
+- **A value only one side has is not judged at all** — the first behaviour test the project ever
+  had has nothing to be measured against, so it is left out rather than compared to a zero nobody
+  measured. It joins the ratchet on the next `main` run.
+- **A `—` is not a zero.** A counter with nothing to cover (`:client:design:core` has no branches)
+  is unjudgeable on either side, the same as a missing one.
 - **It judges to one decimal** (`GATE_EPSILON`), the precision the table prints, so the verdict
   can never contradict the `±0` in the row above it.
+- **The comment names every value that fell**, with what it is and what it was, so the failing
+  rows are readable without opening the job log. `enforce` prints the same list to stderr.
 - **Pull requests only.** On a `main` push the merge has already happened, so a red `main` there
   would be a false alarm rather than a signal — and the baseline is stored *before* the gate runs,
   so `main` keeps tracking reality even on a run that would have failed.
