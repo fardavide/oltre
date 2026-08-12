@@ -55,11 +55,11 @@ jobs:
           name: roborazzi-diffs
           path: '**/build/outputs/roborazzi/'
 
-  # Reports *and* gates. The rule is one comparison — line coverage of the whole suite must clear
-  # `min(last main run, 95%)` — so below 95% a PR may not leave the project worse than it found
-  # it, and above 95% it has slack. Required check: five Gradle passes make this the slowest job
-  # here, but it runs alongside `iOS framework`, which is just as slow, so gating on it costs
-  # nothing on the critical path. The threshold lives in `coverage.py` (`COVERAGE_FLOOR`).
+  # Reports *and* gates. The rule is a plain ratchet with no floor and no slack: every line and
+  # branch number in the per-kind table must hold at or above the last `main` run. Required
+  # check: five Gradle passes make this the slowest job here, but it runs alongside
+  # `iOS framework`, which is just as slow, so gating on it costs nothing on the critical path.
+  # The comparison lives in `coverage.py` (`gate_checks`).
   coverage:
     name: Coverage
     runs-on: ubuntu-latest

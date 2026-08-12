@@ -63,7 +63,9 @@ Updated: 2026-08-11 (0.6.0)
   `-Poltre.testCategory` filters the build to one kind, and the new **Coverage** CI job reports
   line/branch coverage *per kind* with a delta against the last `main` run, as one rewritten-in-
   place PR comment. Reporting only at first; it became a **required check** that fails when line
-  coverage falls below `min(last main run, 95%)`. See `decisions.md` and the `test-coverage` skill.
+  coverage falls below `min(last main run, 95%)` — and at 2026-08-12 that ceiling came off and the
+  gate widened to *every* line and branch number in the table, so no value may go down. See
+  `decisions.md` and the `test-coverage` skill.
 
 - **0.0.14 the design system becomes a family of modules** — `:client:design` stops being one
   module and becomes a *directory* of layer modules, split the way Compose splits itself:

@@ -992,6 +992,11 @@ who holds an `Occupied` world before multiplayer exists to hold one.
 
 ## Coverage ratchets to 95%, then stops ratcheting
 
+**Superseded 2026-08-12 — see "Nothing in the coverage table may go down", at the foot of this
+file. The ceiling is gone, and the gate now judges every value in the per-kind table rather than
+the total alone. Kept because everything below except the ceiling is still why the gate is shaped
+the way it is.**
+
 The Coverage job reported and gated nothing: a PR could drop line coverage and merge green, which
 made the report a thing to admire rather than a thing to obey. It is now a required check, and the
 whole rule is one comparison:
@@ -2711,3 +2716,53 @@ copy the next time something becomes tappable.
   heading. The two rows' copies also swap the number behind a completion sweep and the sheet's has
   nothing to announce, so extracting it is not a pure move; it is a small piece of work with a
   baseline risk, and it is worth doing on its own.
+
+## Nothing in the coverage table may go down (2026-08-12)
+
+Davide, replacing `min(last main run, 95%)`: *"remove 95% limit, but make it so no value can go
+lower, for every single PR, any coverage value in the table must either be equal or higher, never
+lower."* Two changes in one, and they pull in the same direction.
+
+**The ceiling is gone.** Above 95% the old rule let coverage fall back to 95% — slack bought so
+that a project in the high nineties would not spend every PR arguing about a tenth of a point.
+The project has been in the mid-to-high nineties for a while without that argument happening, so
+the slack was buying nothing and permitting a real regression: a PR could shed a point and a half
+of coverage and merge green.
+
+**And the gate now judges ten values, not one.** Line and branch, for each of unit / integration /
+screenshot / behaviour / all. The single-number gate could pass a PR whose total rose on
+well-tested new code while a behaviour test quietly stopped reaching a screen it used to drive —
+the totals hide exactly the movement the per-kind split exists to show, and gating the split is
+the only thing that makes the split load-bearing.
+
+```
+pass  ⟺  every gated value ≥ the same value on the last main run
+```
+
+**The cost is a rename between kinds, and it is accepted rather than overlooked.** The old
+decision gated the total precisely *because* moving `FooTest` to `FooBehaviourTest` drops the unit
+row through no fault of the tests. That is still true; it is now the PR's problem. The trade is
+worth it because the failure it prevents is silent and the failure it causes is loud — a rename
+that lowers a row shows up as a red gate naming the row, and the fix is a test, which is what the
+gate is for.
+
+**Three things are deliberately not gated.** *Test counts*, because a count is not a coverage
+value and deleting a redundant test is not a regression. *The per-package breakdown*, because a
+package that is new, deleted or renamed moves cells with no regression behind it — Davide, on
+being asked: *"We don't need to check each package separately, so a new package without tests
+would decrease the coverage"*, which is the totals doing the package table's job. And *any value
+only one side of the comparison has a number for*: the first behaviour test the project ever runs
+has nothing to be measured against, so it is left out rather than compared to a zero nobody
+measured, and it joins the ratchet on the next `main` run. A `—` — a counter with nothing to
+cover, like `:client:design:core`'s branches — is unjudgeable the same way.
+
+**The comment names every value that fell**, with what it is and what it was, instead of one
+sentence about one number. Ten gated values need a list or the report cannot be acted on without
+opening the job log; `enforce` prints the same list to stderr.
+
+Everything the previous decision settled still holds: the baseline is still the last `main` run
+restored from an Actions cache, the drift objection still dissolves against
+`strict_required_status_checks_policy`, `render` and `enforce` are still separate steps with the
+comment between them, the gate still does not run on a `main` push, and a cache miss still skips
+it silently. `test_coverage.py` grew from 22 cases to 43 and still runs before the measurement in
+the job it gates.

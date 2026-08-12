@@ -37,93 +37,186 @@ def _summary(covered: int, missed: int, commit: str = "abc1234") -> dict:
     }
 
 
-class TestRequiredCoverage:
-    def test_when_the_baseline_is_below_the_floor_then_the_baseline_is_required(self):
-        # when
-        required = coverage.required_coverage(baseline=90.0, floor=95.0)
-        # then
-        assert required == 90.0
+def _table(**categories: dict) -> dict:
+    """A summary carrying whatever per-kind counters a test names, as (covered, missed) pairs:
 
-    def test_when_the_baseline_is_above_the_floor_then_the_floor_is_required(self):
-        # when
-        required = coverage.required_coverage(baseline=98.0, floor=95.0)
-        # then
-        assert required == 95.0
+        _table(all={"line": (95, 5), "branch": (80, 20)}, unit={"line": (90, 10)})
+    """
+    return {
+        "categories": {
+            name: {counter: _counter(*pair) for counter, pair in counters.items()}
+            for name, counters in categories.items()
+        },
+        "packages": {},
+        "commit": "abc1234",
+        "ref": "main",
+    }
 
-    def test_given_no_baseline_when_asking_what_is_required_then_nothing_is(self):
-        # when
-        required = coverage.required_coverage(baseline=None, floor=95.0)
-        # then
-        assert required is None
+
+def _fallen(verdict: dict) -> list[tuple[str, str]]:
+    return [(check["category"], check["counter"]) for check in verdict["regressions"]]
 
 
 class TestGateVerdict:
-    def test_when_coverage_rises_then_it_passes(self):
+    def test_when_every_value_rises_then_it_passes(self):
         # when
-        verdict = coverage.gate_verdict(current=95.4, baseline=94.9, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (96, 4), "branch": (81, 19)}),
+            baseline=_table(all={"line": (95, 5), "branch": (80, 20)}),
+        )
         # then
         assert verdict["status"] == "pass"
 
-    def test_when_coverage_holds_exactly_at_the_baseline_then_it_passes(self):
+    def test_when_every_value_holds_exactly_at_the_baseline_then_it_passes(self):
         # when
-        verdict = coverage.gate_verdict(current=94.9, baseline=94.9, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5)}, unit={"line": (90, 10)}),
+            baseline=_table(all={"line": (95, 5)}, unit={"line": (90, 10)}),
+        )
         # then
         assert verdict["status"] == "pass"
 
-    def test_when_coverage_falls_below_a_baseline_under_the_floor_then_it_fails(self):
+    def test_when_the_total_line_number_falls_then_it_fails(self):
         # when
-        verdict = coverage.gate_verdict(current=94.5, baseline=94.9, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (94, 6)}),
+            baseline=_table(all={"line": (95, 5)}),
+        )
         # then
         assert verdict["status"] == "fail"
-        assert verdict["required"] == 94.9
+        assert _fallen(verdict) == [("all", "line")]
 
-    def test_given_a_baseline_above_the_floor_when_coverage_falls_toward_it_then_it_passes(self):
+    def test_when_branch_coverage_falls_while_line_coverage_holds_then_it_fails(self):
+        # given — the old gate judged the line number alone and would have let this through
         # when
-        verdict = coverage.gate_verdict(current=96.0, baseline=98.0, floor=95.0)
-        # then
-        assert verdict["status"] == "pass"
-        assert verdict["required"] == 95.0
-
-    def test_given_a_baseline_above_the_floor_when_coverage_falls_through_it_then_it_fails(self):
-        # when
-        verdict = coverage.gate_verdict(current=94.0, baseline=98.0, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5), "branch": (78, 22)}),
+            baseline=_table(all={"line": (95, 5), "branch": (80, 20)}),
+        )
         # then
         assert verdict["status"] == "fail"
-        assert verdict["required"] == 95.0
+        assert _fallen(verdict) == [("all", "branch")]
 
-    def test_when_coverage_lands_exactly_on_the_floor_then_it_passes(self):
+    def test_when_one_kind_falls_while_the_total_holds_then_it_fails(self):
+        # given — behaviour tests stop reaching code that unit tests picked up
         # when
-        verdict = coverage.gate_verdict(current=95.0, baseline=98.0, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5)}, behaviour={"line": (40, 60)}),
+            baseline=_table(all={"line": (95, 5)}, behaviour={"line": (50, 50)}),
+        )
         # then
-        assert verdict["status"] == "pass"
+        assert verdict["status"] == "fail"
+        assert _fallen(verdict) == [("behaviour", "line")]
+
+    def test_when_several_values_fall_then_the_verdict_names_every_one(self):
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (94, 6), "branch": (78, 22)}, unit={"line": (88, 12)}),
+            baseline=_table(all={"line": (95, 5), "branch": (80, 20)}, unit={"line": (90, 10)}),
+        )
+        # then
+        assert sorted(_fallen(verdict)) == [
+            ("all", "branch"),
+            ("all", "line"),
+            ("unit", "line"),
+        ]
+
+    def test_when_a_value_falls_then_the_verdict_carries_both_of_its_numbers(self):
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(unit={"line": (88, 12)}),
+            baseline=_table(unit={"line": (90, 10)}),
+        )
+        # then
+        fallen = verdict["regressions"][0]
+        assert fallen["current"] == 88.0
+        assert fallen["baseline"] == 90.0
 
     def test_when_the_drop_is_finer_than_the_report_prints_then_it_passes(self):
         # given — the table would render both of these as 94.9% and the delta as "±0"
         # when
-        verdict = coverage.gate_verdict(current=94.88, baseline=94.90, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (9488, 512)}),
+            baseline=_table(all={"line": (9490, 510)}),
+        )
+        # then
+        assert verdict["status"] == "pass"
+
+    def test_given_a_project_below_ninety_five_when_every_value_holds_then_it_passes(self):
+        # given — there is no floor any more; holding is enough, wherever the project sits
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (60, 40)}),
+            baseline=_table(all={"line": (60, 40)}),
+        )
+        # then
+        assert verdict["status"] == "pass"
+
+    def test_given_a_project_above_ninety_five_when_a_value_falls_then_it_fails(self):
+        # given — there is no slack down to a floor any more either
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (96, 4)}),
+            baseline=_table(all={"line": (98, 2)}),
+        )
+        # then
+        assert verdict["status"] == "fail"
+
+    def test_given_a_kind_absent_from_the_baseline_when_judging_then_it_is_not_judged(self):
+        # given — the first behaviour test the project ever had has nothing to be measured against
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5)}, behaviour={"line": (40, 60)}),
+            baseline=_table(all={"line": (95, 5)}),
+        )
+        # then
+        assert verdict["status"] == "pass"
+        assert ("behaviour", "line") not in [(c["category"], c["counter"]) for c in verdict["checks"]]
+
+    def test_given_a_kind_gone_from_this_run_when_judging_then_it_is_not_judged(self):
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5)}),
+            baseline=_table(all={"line": (95, 5)}, behaviour={"line": (50, 50)}),
+        )
+        # then
+        assert verdict["status"] == "pass"
+
+    def test_given_nothing_to_cover_when_judging_then_that_value_is_not_judged(self):
+        # given — a module with no branches at all is a dash in the table, not a failing grade
+        # when
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5), "branch": (0, 0)}),
+            baseline=_table(all={"line": (95, 5), "branch": (80, 20)}),
+        )
         # then
         assert verdict["status"] == "pass"
 
     def test_given_no_baseline_when_judging_then_it_is_skipped(self):
         # when
-        verdict = coverage.gate_verdict(current=94.9, baseline=None, floor=95.0)
+        verdict = coverage.gate_verdict(current=_table(all={"line": (95, 5)}), baseline=None)
         # then
         assert verdict["status"] == "skipped"
-        assert verdict["required"] is None
+        assert verdict["checks"] == []
 
-    def test_given_nothing_to_cover_when_judging_then_it_is_skipped(self):
+    def test_given_nothing_comparable_when_judging_then_it_is_skipped(self):
         # when
-        verdict = coverage.gate_verdict(current=None, baseline=94.9, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (95, 5)}), baseline=_table(unit={"line": (90, 10)})
+        )
         # then
         assert verdict["status"] == "skipped"
 
-    def test_when_judging_then_the_verdict_carries_both_numbers(self):
+    def test_when_judging_then_a_held_value_is_still_reported_as_a_check(self):
         # when
-        verdict = coverage.gate_verdict(current=94.5, baseline=94.9, floor=95.0)
+        verdict = coverage.gate_verdict(
+            current=_table(all={"line": (96, 4)}),
+            baseline=_table(all={"line": (95, 5)}),
+        )
         # then
-        assert verdict["current"] == 94.5
-        assert verdict["baseline"] == 94.9
-        assert verdict["floor"] == 95.0
+        assert [(c["category"], c["counter"], c["status"]) for c in verdict["checks"]] == [
+            ("all", "line", "pass")
+        ]
 
 
 class TestRender:
@@ -156,13 +249,34 @@ class TestRender:
         assert verdict["status"] == "fail"
         assert "gate failed" in text.lower()
 
-    def test_when_coverage_regresses_then_the_comment_names_the_number_to_clear(self, tmp_path):
+    def test_when_coverage_regresses_then_the_comment_names_the_value_that_fell(self, tmp_path):
         # when
         text, _ = self._render(
             tmp_path, current=_summary(covered=940, missed=60), baseline=_summary(950, 50)
         )
         # then
+        assert "All tests line" in text
+        assert "94.0%" in text
         assert "95.0%" in text
+
+    def test_when_a_single_kind_regresses_then_the_comment_names_that_kind(self, tmp_path):
+        # when
+        text, verdict = self._render(
+            tmp_path,
+            current=_table(all={"line": (95, 5)}, unit={"line": (88, 12)}),
+            baseline=_table(all={"line": (95, 5)}, unit={"line": (90, 10)}),
+        )
+        # then
+        assert verdict["status"] == "fail"
+        assert "Unit line" in text
+
+    def test_when_rendering_then_the_footer_names_no_floor(self, tmp_path):
+        # when
+        text, _ = self._render(
+            tmp_path, current=_summary(covered=960, missed=40), baseline=_summary(950, 50)
+        )
+        # then
+        assert "95%" not in text
 
     def test_when_coverage_improves_then_the_comment_says_the_gate_passed(self, tmp_path):
         # when
@@ -202,24 +316,56 @@ class TestEnforce:
     def test_when_the_verdict_is_a_failure_then_it_exits_non_zero(self, tmp_path):
         # when
         code = self._enforce(
-            tmp_path, {"status": "fail", "current": 94.5, "baseline": 94.9, "required": 94.9}
+            tmp_path,
+            {
+                "status": "fail",
+                "checks": [],
+                "regressions": [
+                    {
+                        "category": "unit",
+                        "counter": "line",
+                        "label": "Unit line",
+                        "current": 88.0,
+                        "baseline": 90.0,
+                        "status": "fail",
+                    }
+                ],
+            },
         )
         # then
         assert code == 1
 
+    def test_when_the_verdict_is_a_failure_then_it_prints_what_fell(self, tmp_path, capsys):
+        # when
+        self._enforce(
+            tmp_path,
+            {
+                "status": "fail",
+                "checks": [],
+                "regressions": [
+                    {
+                        "category": "behaviour",
+                        "counter": "branch",
+                        "label": "Behaviour branch",
+                        "current": 60.0,
+                        "baseline": 66.0,
+                        "status": "fail",
+                    }
+                ],
+            },
+        )
+        # then
+        assert "Behaviour branch" in capsys.readouterr().err
+
     def test_when_the_verdict_is_a_pass_then_it_exits_zero(self, tmp_path):
         # when
-        code = self._enforce(
-            tmp_path, {"status": "pass", "current": 95.4, "baseline": 94.9, "required": 94.9}
-        )
+        code = self._enforce(tmp_path, {"status": "pass", "checks": [], "regressions": []})
         # then
         assert code == 0
 
     def test_when_the_verdict_is_skipped_then_it_exits_zero(self, tmp_path):
         # when
-        code = self._enforce(
-            tmp_path, {"status": "skipped", "current": 94.9, "baseline": None, "required": None}
-        )
+        code = self._enforce(tmp_path, {"status": "skipped", "checks": [], "regressions": []})
         # then
         assert code == 0
 
