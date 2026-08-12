@@ -370,7 +370,9 @@ internal val dispatchNoShipsUiState: GalaxyUiState = state
                 ),
                 ships = Ships.of(ShipType.SKIFF, 1),
                 gathering = ResourceKind.METAL,
-                cargo = Resources.of(metal = 66),
+                // The worked example's own figure, so the inbound line and the offer agree: 198 at
+                // round 21's `EXTRACTION_PER_HOUR` of 60, where it read 66 at 20.
+                cargo = Resources.of(metal = 198),
                 dispatchedAt = FIXTURE_NOW,
                 returnsAt = FIXTURE_NOW + 3.hours,
             ),

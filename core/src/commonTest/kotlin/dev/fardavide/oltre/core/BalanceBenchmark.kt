@@ -365,6 +365,52 @@ internal object BalanceBenchmark {
         )
         add(row("  one skiff brings home", "${cargo.metal} metal"))
         add(row("  as hours of a genesis colony's metal", ratio(cargo.metal, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))) + "h"))
+
+        // **Is the frontier worth crossing the map for** — round 21's whole question, in four rows.
+        // One richness throughout (the home world's), the 24h rung throughout, so the only things
+        // moving are the flight the window loses and the danger it gains. Before round 21 every row
+        // below 1.00 was a world nobody would ever send a ship to, and the sim measured exactly that:
+        // 56 of 56 dispatches to band 0. **A row under 1.00 is distance still winning.**
+        add("[frontier] the 24h rung at one richness — what distance and danger are worth")
+        val nearHold = frontierHold(home, neighbour, average)
+        for ((name, target) in frontierTargets(home)) {
+            val hold = frontierHold(home, target, average)
+            val band = FleetBalance.distanceBand(home, target)
+            val trip = clock(FleetBalance.roundTrip(home, target))
+            add(row("  $name", "band $band · round trip $trip · ${hold} metal · ${ratio(hold, nearHold)}x"))
+        }
+    }
+
+    // Held at one richness on purpose — the generator has no positional gradient, so a far world is
+    // *not* richer and reading these rows against a richer one would be reading a coincidence.
+    private fun frontierHold(home: GalaxyCoordinate, target: GalaxyCoordinate, sample: World): Long {
+        val station = FleetBalance.stationFor(home, target, 24.hours)
+        val world = sample.copy(at = target)
+        return FleetBalance.cargo(
+            world = world,
+            gathering = ResourceKind.METAL,
+            ships = Ships.of(ShipType.SKIFF, 1),
+            station = station,
+            danger = FleetBalance.danger(home, world),
+        ).metal
+    }
+
+    // Clamped into the real map rather than offset blindly, so this reads the same whichever system
+    // the doorstep clause put home in.
+    private fun frontierTargets(home: GalaxyCoordinate): List<Pair<String, GalaxyCoordinate>> {
+        val near = home.copy(system = (home.system + 60).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY), slot = 1)
+        val far = home.copy(system = if (home.system > GalaxyBalance.SYSTEMS_PER_GALAXY / 2) 1 else GalaxyBalance.SYSTEMS_PER_GALAXY, slot = 1)
+        // **Adjacent**, not "any other galaxy" — the hop is priced per galaxy crossed, so a target two
+        // galaxies out is 18h 20m of round trip and reads 0.42x at the 24h rung. That is a true number
+        // about a different question, and printing it here would look like the frontier failing when
+        // it is the second hop being a late-game undertaking exactly as the galaxy sheet intends.
+        val other = home.copy(galaxy = if (home.galaxy == 1) 2 else home.galaxy - 1, slot = 1)
+        return listOf(
+            "the next slot" to home.copy(slot = if (home.slot == 1) 2 else 1),
+            "60 systems out" to near,
+            "across your own galaxy" to far,
+            "the next galaxy" to other,
+        )
     }
 
     // ── [horizon] where the curves actually put a colony at three months ────────────────────

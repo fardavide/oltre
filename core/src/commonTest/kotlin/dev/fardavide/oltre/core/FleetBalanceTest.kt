@@ -221,7 +221,7 @@ class FleetBalanceTest {
     // ── The hold ────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the sheet's worked example reads one hundred and thirty two metal`() {
+    fun `the sheet's worked example reads one hundred and ninety eight metal`() {
         // given the design's own row: metal richness 1.24 next door, one skiff, a 3h window
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
@@ -237,11 +237,12 @@ class FleetBalanceTest {
             danger = FleetBalance.danger(home, rich),
         )
 
-        // then — 66 at the measured `EXTRACTION_PER_HOUR` of 20. The sheet's §4 first published this
-        // row as 132 against a draft constant of 40; round 17 halved the constant and the row with
-        // it. Pinned as a literal on purpose, the way `GalaxyBalanceTest` pins its published tables:
-        // a balance change should have to edit a test.
-        assertEquals(66L, cargo.metal)
+        // then — 198 at the `EXTRACTION_PER_HOUR` of 60. This row has now been published three times:
+        // 132 against the draft's 40, 66 after round 17 halved it to 20, and 198 after round 21
+        // tripled it to 60 on Davide's *"I don't think a 20% is enough"*. Pinned as a literal on
+        // purpose, the way `GalaxyBalanceTest` pins its published tables: a balance change should have
+        // to edit a test.
+        assertEquals(198L, cargo.metal)
         assertEquals(0L, cargo.crystal)
         assertEquals(0L, cargo.deuterium)
     }
@@ -252,38 +253,41 @@ class FleetBalanceTest {
         // is arithmetic rather than prose: flooring the priced hold *before* applying richness lands
         // a unit low, because it throws away the fraction of an hour twice.
         //
-        // **A 170-minute station rather than the worked example's 160.** At the measured constant of
-        // 20 the worked example divides evenly enough that all three orderings agree on 66 — so the
-        // row that documents the design can no longer be the row that proves it, and a test asserting
-        // a coincidence is worse than no test. 170 minutes separates them by construction, and the
-        // property is the point rather than the number.
+        // **Round 21 moved where the fraction lives, and the test had to move with it.** At
+        // `EXTRACTION_PER_HOUR = 60` the priced hold is exactly the station in minutes — 60 per hour
+        // is one per minute — so `hulls x RATE x minutes / 60` no longer has a fraction to lose and
+        // the old flooring hazard is gone from that term entirely. It did not disappear; it moved
+        // into the two terms that still divide, **richness and the danger bonus**, and that is what
+        // this now measures. A test asserting a coincidence is worse than no test.
         val station = 170.minutes
-        val holdMinutes = 1L * FleetBalance.EXTRACTION_PER_HOUR * station.inWholeMinutes
-        val flooredEarly = holdMinutes / 60 * 1_240_000 / 1_000_000
-        assertEquals(69L, flooredEarly)
-
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+
+        // Flooring richness before the bonus lands a unit low: floor(170 x 1.24) = 210, then +35%
+        // is 283. The single division keeps the .8 and reaches 284.
+        val flooredEarly = station.inWholeMinutes * 1_240_000 / 1_000_000 * 135 / 100
+        assertEquals(283L, flooredEarly)
+
         val cargo = FleetBalance.cargo(
             world = rich,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 1),
             station = station,
-            danger = 0,
+            danger = 1,
         )
-        assertEquals(70L, cargo.metal)
+        assertEquals(284L, cargo.metal)
         assertTrue(cargo.metal > flooredEarly)
 
-        // Four hulls carry more than four times one hull's answer — 281 against 280 — which is the
+        // Four hulls carry more than four times one hull's answer — 1138 against 1136 — which is the
         // same property stated where it is impossible to fudge.
         val four = FleetBalance.cargo(
             world = rich,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 4),
             station = station,
-            danger = 0,
+            danger = 1,
         )
-        assertEquals(281L, four.metal)
+        assertEquals(1_138L, four.metal)
         assertTrue(four.metal > 4 * cargo.metal)
     }
 
@@ -297,39 +301,42 @@ class FleetBalanceTest {
         val metal = FleetBalance.cargo(even, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
         val crystal = FleetBalance.cargo(even, ResourceKind.CRYSTAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
 
-        assertEquals(66L, metal.metal)
-        assertEquals(33L, crystal.crystal)
+        assertEquals(198L, metal.metal)
+        assertEquals(99L, crystal.crystal)
         assertEquals(0L, crystal.metal)
     }
 
     @Test
-    fun `each point of danger takes a tenth of the hold`() {
+    fun `each point of danger adds a third to the hold rather than taking a tenth`() {
+        // **Round 21 inverted the sign** — Davide: *"I would expect that more challenging planets are
+        // even more rewarding."* Danger is unchanged as a number (hazards + the distance band) and
+        // only what it does to the hold moved, so a frontier world with two hazards now pays 2.75x
+        // where it used to keep half.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
         fun holdAt(danger: Int): Long =
             FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger).metal
 
-        assertEquals(66L, holdAt(0))
-        assertEquals(59L, holdAt(1))
-        // A fully exposed run keeps half of it, which is the ceiling the tenth was sized against.
-        assertEquals(33L, holdAt(5))
+        assertEquals(198L, holdAt(0))
+        assertEquals(267L, holdAt(1))
+        // A fully exposed run is worth 2.75 holds, which is what makes the map worth reading.
+        assertEquals(545L, holdAt(5))
     }
 
     @Test
-    fun `danger past ten points empties the hold rather than inverting it`() {
+    fun `the danger bonus rises without bound rather than saturating`() {
+        // `danger` is 0…5 by construction — two hazards plus a band of three — so nothing in the game
+        // reaches these. The property is that the arithmetic stays monotone and stays inside a Long
+        // anyway: `checkedTimes` throws rather than saturating, because a hold of `Long.MAX` is *"a
+        // wrong answer wearing a plausible face"*. The old test asserted the opposite end of the same
+        // guard, where a tenth per point drove the kept share negative past ten.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        fun holdAt(danger: Int): Long =
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger).metal
 
-        assertEquals(
-            Resources.of(),
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 10),
-        )
-        // Past ten the kept share is coerced rather than allowed to go negative — a negative hold is
-        // the shape of bug `checkedTimes` exists for, arriving by a different door.
-        assertEquals(
-            Resources.of(),
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 14),
-        )
+        assertTrue(holdAt(10) > holdAt(5))
+        assertTrue(holdAt(14) > holdAt(10))
     }
 
     @Test

@@ -381,7 +381,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
-- **THE NEXT THING TO BUILD, and it is waiting on Davide's calls:
+- **0.7.2 shipped the sheet's Slice B and the other two slices are still owed.** `EXTRACTION_PER_HOUR`
+  20 → 60, danger inverted from −10% a point to **+35%**, `FRONTIER_PERCENT` deleted rather than
+  wired. `balance-log.md` round 21. **What is still not built: the Shipyard (so one skiff is still
+  all there is, and the rate is tuned for a fleet of one) and the drive technology (so Davide's
+  *"travel towards far planes to be way more time consuming"* is entirely untouched).** The
+  benchmark's new `[frontier]` section is the reading that says whether this worked — four rows that
+  were all below 1.00 by construction and now read 1.00 / 1.19 / 1.32 / 1.10.
+
+- **THE SHEET IS STILL THE PLAN, and it is waiting on Davide's calls:
   [`exploration-rewards-sheet.md`](exploration-rewards-sheet.md).** Davide played 0.7.1 and reported
   the loop dead — *"exploring other planets is way too little rewarding… I grinded to upgrade
   Thermal, to travel 3h, and 14 cristals lol"*, and *"now it not rewarding AT ALL, like 1 to 10 →

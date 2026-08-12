@@ -115,49 +115,46 @@ object FleetBalance {
     fun danger(from: GalaxyCoordinate, world: World): Int =
         world.traits.hazards.size + distanceBand(from, world.at)
 
-    // Each point of danger costs a tenth of the hold, so a fully exposed run keeps half of it. Sized
-    // for legibility rather than for a curve: at 8% a two-hazard far world is a rounding error, and at
-    // 15% the frontier is unreachable at every window.
+    // ── Danger pays ──────────────────────────────────────────────────────────────────────────
+    //
+    // **Each point of danger ADDS a third to the hold, and until 0.7.1 each point took a tenth away.**
+    // Davide, 2026-08-12, having played it: *"I would expect that more challenging planets are even
+    // more rewarding. We need to push users towards planets explorations, otherwise it is pointless,
+    // now it not rewarding AT ALL."* `exploration-rewards-sheet.md` §2.1 argues it; the short version
+    // is that the game charged you for going far and paid you for staying home, and the measured
+    // consequence was the sim's bot sending **56 of 56 dispatches to band 0** while 276 of 283
+    // surveyed worlds sat further out.
+    //
+    // `danger` itself is untouched — still `hazards.size + distanceBand`, still 0…5. Only the sign
+    // moved, so a fully exposed frontier run is worth 2.75 holds where it used to keep half.
+    //
+    // **This is also why `FRONTIER_PERCENT` is gone rather than wired in.** It was ratified at 0.3.0
+    // as `[100, 115, 155, 230]` and read by nothing; those are *break-even* constants derived against
+    // the penalty this replaces, so they were arithmetic about a formula that no longer exists.
+    // `danger` already contains `distanceBand`, so paying for danger pays for distance once — and two
+    // multipliers for one thing is two places to keep consistent.
     //
     // **Deterministic, and stated before the tap.** Nothing is rolled anywhere in this mechanic. The
-    // permanent-loss pillar is deferred to the combat slice rather than delivered as a hidden
-    // sub-1% catastrophe: at three dispatches a day that is either invisible, so it is not a pillar,
-    // or it fires once, costs a week of fleet to something the player was never shown, and ends the
-    // session. When `resolve(a, b, seed)` exists, danger stops taking cargo and starts taking hulls.
-    private const val DANGER_PERCENT_PER_POINT: Long = 10
+    // permanent-loss pillar is still deferred to the combat slice, so for now the word "danger" names
+    // something that is purely good — a promise the game does not yet keep. When `resolve(a, b, seed)`
+    // exists, danger stops paying cargo and starts taking hulls, and that is when it earns the name
+    // back.
+    private const val DANGER_BONUS_PERCENT: Long = 35
     private const val PERCENT: Long = 100
 
-    // ── The frontier band — DECIDED 2026-08-10, and NOT WIRED IN until slice 2 ───────────────
+    // ── The frontier band — DECIDED 2026-08-10, DELETED UNBUILT 2026-08-12 ───────────────────
     //
-    // Indexed by `distanceBand`. **Nothing reads this yet**, deliberately: it is the answer to the
-    // sheet's §3.5 and it lands with the screen that shows it, so `cargo` below is still flat. It is
-    // written here rather than in the slice that uses it because the constant was decided against a
-    // measurement and the argument is worth keeping next to the arithmetic it corrects.
+    // `FRONTIER_PERCENT = [100, 115, 155, 230]` lived here from 0.3.0 to 0.7.1 and **was read by
+    // nothing for the whole of its life**. It is gone rather than finally wired because round 21
+    // inverted the danger term it was arithmetic about: those four numbers are the *break-even*
+    // points that cancel a −10%-per-point penalty, and with danger paying +35% instead there is no
+    // penalty left for them to cancel. Keeping them would have paid for distance twice, since
+    // `danger` already contains `distanceBand`.
     //
-    // **Why a band exists at all.** Metal and crystal richness are plain uniform draws — the
-    // generator sees a system index only as a hash salt — so at equal richness the nearest world wins
-    // at every window and distance is pure cost. Left alone, the player finds the best world in their
-    // own system on day two and never opens the map again, and the galaxy is a backdrop.
-    //
-    // **Why these numbers and not the ones the sheet first proposed.** ×1.35 and ×1.6 do not create a
-    // crossover, and the reason is structural: the flight is *subtracted* from the window while the
-    // band is *multiplied* into the hold, and danger rises with the same distance the band pays for.
-    // Measured at the 24h window against a same-richness world at home, the sheet's own constants
-    // return 1.01 / **0.88** / **0.69** of the near world — a frontier that is a worse buy dressed as
-    // a better one. These are the break-even points instead (1.14 / 1.54 / 2.31, rounded), which is
-    // the right target rather than a timid one: the band cancels the distance penalty exactly and
-    // then **richness decides**, which is the only thing that makes a map worth reading. There is no
-    // unpriced risk left to compensate, because danger is deterministic and already inside this
-    // arithmetic.
-    //
-    // Band 3 sits a hair under its own break-even on purpose — the galaxy sheet §4 prices
-    // different-galaxy travel as a late-game undertaking and this keeps it one.
-    //
-    // A consequence, and it is a feature: because the flight is subtracted, the frontier can only pay
-    // at the **longest** window — at 12h a band-2 world still returns 0.77 of the near one even at
-    // ×1.55. So short windows are for the neighbourhood and long windows are what the frontier is
-    // for, and a ladder narrowing on a distant target teaches that before any copy does.
-    val FRONTIER_PERCENT: List<Long> = listOf(100, 115, 155, 230)
+    // Recorded rather than silently dropped, because it was a ratified decision and the argument that
+    // produced it is still the right argument: metal and crystal richness are plain uniform draws, so
+    // at equal richness the nearest world wins at every window and distance is pure cost unless
+    // something pays for it. **Something now does** — see the danger bonus above.
 
     // ── The hold ─────────────────────────────────────────────────────────────────────────────
     //
@@ -185,12 +182,27 @@ object FleetBalance {
     //    leaves the frontier landing near an effective 46; sizing at 40 would put it at 92 the day
     //    slice 2 ships, which is a rebalance disguised as a feature.
     //
-    // 30 is the upper bound this evidence defends and 10 is too small — the hour-zero story becomes
-    // 33 metal, twenty-two minutes of income, and the first thing that ever arrived from outside the
-    // colony should not read as a rounding error. **The cost of 20, stated rather than buried: that
-    // first cargo is 66 metal instead of 132.** If the opening reads thin, 30 is the move and it is
-    // one number.
-    const val EXTRACTION_PER_HOUR: Long = 20
+    // **TRIPLED TO 60 AT ROUND 21, and the reasoning above is left standing because it is what the
+    // new number had to answer.** Davide, 2026-08-12: *"Just adjust the rate, but I don't think a 20%
+    // is enough!"*
+    //
+    // What unlocked it is that **round 17's binding constraint cannot be tripped by any shipped
+    // player.** "A fleet-first player must not out-produce their own colony" was measured against a
+    // bot owning six to nine hulls — and `buildShips` does not exist, so `shipCost` has no production
+    // caller and a player owns the one skiff genesis granted and can never own two (`GameSave.kt`
+    // says so in as many words). The 98.6% and the 49% above are readings of a game that is not
+    // built. Until the Shipyard ships, the fleet is one hull, and one hull at 20 was the *"14
+    // cristals"* Davide reported.
+    //
+    // 60 is also the legible number rather than merely a bigger one: **one priced unit per hull per
+    // station-minute.** A consequence worth knowing, because it moved a test — at 60 the priced hold
+    // is exactly the station in minutes, so `hulls x RATE x minutes / 60` has no fraction left to
+    // lose and the flooring hazard `FleetBalanceTest` pins now lives entirely in the richness and
+    // danger terms.
+    //
+    // **This must be re-swept the day `buildShips` lands**, against the fleet-first purchase order
+    // that sized its predecessor. See `exploration-rewards-sheet.md` §6.4 and §9's Slice A.
+    const val EXTRACTION_PER_HOUR: Long = 60
 
     private const val MINUTES_PER_HOUR: Long = 60
 
@@ -226,11 +238,11 @@ object FleetBalance {
         require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
         if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
-        val kept = (PERCENT - DANGER_PERCENT_PER_POINT * danger).coerceAtLeast(0)
+        val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
         var numerator = checkedTimes(ships.total.toLong(), EXTRACTION_PER_HOUR) { "cargo hulls" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
         numerator = checkedTimes(numerator, richnessOf(world, gathering).perMillion.toLong()) { "cargo richness" }
-        numerator = checkedTimes(numerator, kept) { "cargo danger" }
+        numerator = checkedTimes(numerator, paid) { "cargo danger" }
         val denominator = MINUTES_PER_HOUR *
             GalaxyBalance.RICHNESS_BASIS *
             PERCENT *

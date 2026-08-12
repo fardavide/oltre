@@ -17,6 +17,25 @@ This sheet **revises `fleet-sheet.md` §3.5 and §4** and closes fleet-arc **sli
 supposed to deliver the frontier and has been outstanding since 0.3.0. It changes no `GalaxyBalance`
 number, no `GalaxyDistributionTest` band, no `verdictFor` case and no generation constant.
 
+> ## Status — §9's Slice B shipped at 0.7.2 (2026-08-12)
+>
+> Davide, on being handed the sheet rather than the change: *"Where's the rewarding balance we talked
+> about?"* So the half that needed no new noun went in immediately, on the sheet's own numbers:
+> **`EXTRACTION_PER_HOUR` 20 → 60, danger −10%/point → +35%/point, and `FRONTIER_PERCENT` deleted.**
+> `balance-log.md` round 21 has the measurement and the benchmark's new `[frontier]` section.
+>
+> | | | |
+> |---|---|---|
+> | §2.1 danger multiplies | **SHIPPED** 0.7.2 | |
+> | §4 the rate | **SHIPPED** 0.7.2 at 60 | re-sweep when the Shipyard lands |
+> | §9 Slice A — the Shipyard | **NOT BUILT** | still one skiff and no way to buy a second |
+> | §9 Slice C — the drive | **NOT BUILT** | travel time is untouched |
+> | §2.5 the screen says a `Blocked` world is gatherable | **NOT BUILT** | the cheapest item here |
+> | §2.4 a fleet payoff for the ladders | open, recommended *no* | |
+>
+> **The two open calls that matter are unchanged by this**: whether the Shipyard goes first, and
+> whether the rate survives its sweep once a fleet can have more than one hull.
+
 ---
 
 ## Davide's calls, 2026-08-12 — binding on this sheet
