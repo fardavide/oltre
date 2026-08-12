@@ -237,18 +237,22 @@ private fun World.richerOf(): ResourceKind =
         ResourceKind.CRYSTAL
     }
 
-// "danger 2 · one hazard, 195 units out · 20% of the hold". The sum, and both the things it came
+// "danger 2 · one hazard, 195 units out · +70% of the hold". The sum, and both the things it came
 // from — this is the only place either is stated, because it is the only place the number is spent.
 // A row cannot say it: the distance band is astronomy and belongs to the system, and on an
 // unsurveyed world a hazard count would be claiming knowledge the player has not paid for.
+//
+// **The third clause changed direction at round 21 and the sentence had to change with it.** It used
+// to read "20% of the hold" and mean *taken*; danger now pays, so it reads "+70%" and means *added*.
+// The sign is carried by the `+` and by the word the zero case uses, because a bare percentage next
+// to the word "danger" would be read as a cost by anyone who has played anything.
 //
 // **Deterministic, and stated before the tap.** Nothing in this mechanic is rolled, so the sentence
 // is a specification rather than a warning.
 private fun GameState.dangerLine(world: World, danger: Int, compact: Boolean): String {
     val take = when (danger) {
-        0 -> "nothing taken"
-        5 -> "half the hold"
-        else -> "${danger * DANGER_PERCENT_PER_POINT}% of the hold"
+        0 -> "nothing added"
+        else -> "+${danger * DANGER_BONUS_PERCENT}% of the hold"
     }
     if (compact) return "danger $danger · $take"
     val band = FleetBalance.distanceBand(from = galaxy.home, to = world.at)
@@ -323,7 +327,7 @@ private fun Resources.of(kind: ResourceKind): Long = when (kind) {
 
 private val PREFERRED_WINDOW: Duration = FleetBalance.WINDOWS[1]
 
-private const val DANGER_PERCENT_PER_POINT: Int = 10
+private const val DANGER_BONUS_PERCENT: Int = 35
 
 private const val MILLIS_PER_SECOND: Long = 1_000
 

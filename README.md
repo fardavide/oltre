@@ -158,6 +158,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.7.2 — 2026-08-12
+
+- **A gathering run brings home three times what it used to.** The first run a new colony can order
+  went from 66 metal to 198, and the sheet states the new figure before you commit exactly as it
+  did the old one.
+- **Dangerous worlds now pay more instead of less.** Every point of danger used to take a tenth of
+  the hold; it now adds a third to it. A world with two hazards on the far side of your galaxy is
+  worth two and a half times a safe rock in your own system, where before it was worth half —
+  so the reason to read the map is that the interesting places are the ones that pay.
+- **The dispatch sheet says `+70% of the hold` where it used to say `20% of the hold`**, and reads
+  `nothing added` on a completely safe run.
+
 ### 0.7.1 — 2026-08-12
 
 - **The dispatch sheet is a real bottom sheet.** It shipped as a panel drawn inside the Galaxy tab,

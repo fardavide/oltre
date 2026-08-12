@@ -245,13 +245,16 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
-    fun `the sheet says where the time goes and what the danger takes`() {
+    fun `the sheet says where the time goes and what the danger pays`() {
         // Both are deterministic and both are stated before the tap, which is the pillar being
         // signposted rather than being a tax wearing a story. Nothing in this mechanic is rolled.
+        //
+        // **"pays" rather than "takes" since round 21** — danger adds to the hold instead of taking
+        // from it, and this fixture is the safe home-system world, so its clause is the zero case.
         galaxyScreen(uiState = dispatchOfferUiState) {
             assertTheSheetReads("on station")
             assertTheSheetReads("danger 0")
-            assertTheSheetReads("nothing taken")
+            assertTheSheetReads("nothing added")
         }
     }
 

@@ -8,6 +8,9 @@
 | [status.md](status.md) | Where the project is: slices landed, what's next, pending setup |
 | [balance-log.md](balance-log.md) | Every tuning round: the feedback in Davide's words, what moved, what to watch |
 | [galaxy-sheet.md](galaxy-sheet.md) | The settled design for slices 4 and 5 — trait axes, coordinates, generation, the target distribution |
+| [adaptation-sheet.md](adaptation-sheet.md) | The three adaptation ladders — why they are a second branch, what they cost, why they share one research slot |
+| [fleet-sheet.md](fleet-sheet.md) | The 0.4 fleet design — the run, the ship set, danger, the hull curve, the four-slice plan |
+| [exploration-rewards-sheet.md](exploration-rewards-sheet.md) | **Proposed, awaiting Davide's calls.** Why exploration pays nothing, and the inversion that fixes it — danger as payout, a drive technology, fleet-arc slice 2 |
 
 Work that a remote agent session cannot do — UI of any kind, screenshot baselines, or a repo only
 the desktop machine has — is written up as a ready-to-paste prompt. See

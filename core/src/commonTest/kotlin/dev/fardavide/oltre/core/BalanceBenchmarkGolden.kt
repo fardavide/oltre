@@ -162,8 +162,13 @@ internal object BalanceBenchmarkGolden {
           skiff 5                                         405 metal / 100 crystal, priced 605
         6h run to the next slot, round trip               26m
           station time                                    5h 34m
-          one skiff brings home                           115 metal
-          as hours of a genesis colony's metal            1.27h
+          one skiff brings home                           345 metal
+          as hours of a genesis colony's metal            3.83h
+        [frontier] the 24h rung at one richness — what distance and danger are worth
+          the next slot                                   band 0 · round trip 26m · 1972 metal · 1.00x
+          60 systems out                                  band 1 · round trip 1h 38m · 2357 metal · 1.19x
+          across your own galaxy                          band 2 · round trip 3h 28m · 2610 metal · 1.32x
+          the next galaxy                                 band 3 · round trip 9h 20m · 2182 metal · 1.10x
 
         [horizon] the same fixed player, out to 90 days
         day                                               levels     mine   income/h         metal     placed

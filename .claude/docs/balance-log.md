@@ -2636,3 +2636,100 @@ was **uncommitted**. So the first two mutations ran correctly and the third reve
 change — silently, reported only as *"PATTERN MISSING"* on the cases after it. Nothing was lost that
 was not re-typed, but the rule is now: **commit, then mutate.** A harness that restores from git is
 a harness that assumes git holds the thing you are testing.
+
+---
+
+## Round 21 — 0.7.2, exploring pays instead of costing (2026-08-12)
+
+Davide, having played 0.7.1: *"I feel like exploring other planets is way too little rewarding. I
+grinded to upgrade Thermal, to travel 3h, and 14 cristals lol… Also I would expect that travel
+towards far planes to be way more time consuming, and require upgraded fleets to get there faster."*
+
+And, asked how far the ceiling should move: *"Just adjust the rate, but I don't think a 20% is
+enough! Also I would expect that more challenging planets are even more rewarding. We need to push
+users towards planets explorations, otherwise it is pointless, now it not rewarding AT ALL, like 1
+to 10 → minus 50."*
+
+The design is [`exploration-rewards-sheet.md`](exploration-rewards-sheet.md); this round is the half
+of it that shipped. **The drive technology and the Shipyard did not** — see the end.
+
+### The finding that reframed the complaint
+
+**`buildShips` does not exist, so a player owns one skiff and can never own two.**
+`FleetBalance.shipCost` has no production caller anywhere — only `FleetBalanceTest`,
+`BalanceBenchmark`, and the sim, which buys with a raw `state.copy` and says why at `Main.kt:1537`.
+`GameSave.kt:155` states it outright.
+
+That matters here because **round 17 sized `EXTRACTION_PER_HOUR = 20` against a guardrail no shipped
+player can trip.** Its binding row was *"a fleet-first player must not out-produce their own
+colony"* — 71% of colony crystal at rate 20, measured with a bot owning six to nine hulls. There is
+no purchase, so there is no fleet-first player, and the real figure for a real player is that column
+divided by six to nine. The number was measured honestly and it was guarding a door nobody can
+reach. That is what unlocked tripling it rather than nudging it.
+
+### What moved
+
+| | 0.7.1 | 0.7.2 |
+|---|---|---|
+| `EXTRACTION_PER_HOUR` | 20 | **60** |
+| danger, per point | **−10%** of the hold | **+35%** of the hold |
+| `FRONTIER_PERCENT` | ratified 0.3.0, read by nothing | **deleted** |
+
+**Danger's sign is the load-bearing change and the rate is not.** The rate is a constant, and the
+benchmark's own decay table is why a constant cannot fix this: a 6h run brought 127 metal at hour 0
+and *exactly* 127 at hour 168. Tripling it moves that curve up and does not bend it. What bends it
+is that distance and hostility now multiply.
+
+**`FRONTIER_PERCENT` is deleted rather than finally wired in.** Its four numbers are the break-even
+points that cancel a −10%-per-point penalty, and there is no penalty left to cancel; keeping them
+would pay for distance twice, since `danger` already contains `distanceBand`. One mechanism, already
+computed, already on screen.
+
+**`GalaxyBalance.HAZARD_PENALTY` is deliberately untouched.** A hazard is still −0.05 on
+`yieldScore`, so it can still drop a band-passing world from `Settleable` to `Barren`. **A hazardous
+world is now worse to live on and better to raid**, which is the fleet/settlement split restated in
+numbers rather than contradicted.
+
+### What it does — the benchmark's new `[frontier]` section
+
+The 24h rung, one richness throughout, so the only things moving are the flight the window loses and
+the danger it gains. **A row under 1.00 is distance still winning.**
+
+| target | band | round trip | metal | vs the next slot |
+|---|---|---|---|---|
+| the next slot | 0 | 26m | 1,972 | 1.00x |
+| 60 systems out | 1 | 1h 38m | 2,357 | **1.19x** |
+| across your own galaxy | 2 | 3h 28m | 2,610 | **1.32x** |
+| the next galaxy | 3 | 9h 20m | 2,182 | **1.10x** |
+
+Before this round every one of those rows was below 1.00 by construction, and the sim measured the
+consequence exactly: **56 of 56 dispatches to band 0**, to two worlds, both in the home system,
+while 276 of 283 surveyed worlds sat further out.
+
+The section is new and it is the point: this is the one reading that says whether the map is worth
+opening, and nothing printed it before.
+
+### What did not move, and it is most of the game
+
+**Six rows of the benchmark differ and two of them are the fleet's.** The other four are the new
+`[frontier]` block. `[opening]`, `[session]`, `[progression]`, `[research]`, `[galaxy]`, `[horizon]`
+and `[late game]` are byte-identical — no landmark hour moved, no check-in changed, no build time
+changed. A fleet change that touched the colony's curves would be a bug, and the golden is what says
+it did not.
+
+### The two things this round did not fix
+
+1. **The Shipyard.** One skiff is still all there is, so the rate is tuned for a fleet of one and
+   **must be re-swept the day `buildShips` lands.** Sheet §9 Slice A.
+2. **Travel time and the drive technology.** Davide's *"way more time consuming… upgraded fleets to
+   get there faster"* is Slice C and is untouched — a galaxy hop is still 9h 20m round trip at a
+   speed nothing can improve. The frontier's 1.10x above is what it is worth *without* the
+   technology that is supposed to make it worth crossing; the sheet's §4 puts it near 1.8x at drive
+   5, and that is the round that has to follow this one.
+
+### What to watch
+
+**Whether the target actually changes.** The reading that decides this round is not the size of the
+haul, it is the **band spread** — the sim's `band 0 x56`. If a post-change bot still sends every
+dispatch to the home system, the multipliers are too small and the rate did the work, which is the
+outcome this round was specifically trying not to buy.
