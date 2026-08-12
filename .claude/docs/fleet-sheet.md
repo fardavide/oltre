@@ -1362,7 +1362,15 @@ Four slices, ascending in nouns — **window, then danger, then fleet size, then
 to learn per slice, which is the check-in budget spent over time rather than all at once. Each ends
 playable; each ends measured.
 
-### Slice 1 — the run, on screens that already exist
+### Slice 1 — the run, on screens that already exist — **LANDED 0.7.0**
+
+The `core` half went in at 0.3.0 and the client half at 0.7.0. What "done means" below is met with
+two exceptions worth naming: the sim's `printFleetReport` pair was already printed for round 17, and
+no new balance-log round was opened, because **this slice moved no number** — it is the screen that
+spends numbers already swept. The one thing the checklist did not anticipate is that the row
+treatment came with it: 1b is a change to how every world reads, not only to the ones a fleet can
+reach, so the diff is larger than "a sheet" suggests.
+
 
 The whole loop end to end with **one granted skiff and no way to buy a second**, so it introduces
 exactly one noun: the window.

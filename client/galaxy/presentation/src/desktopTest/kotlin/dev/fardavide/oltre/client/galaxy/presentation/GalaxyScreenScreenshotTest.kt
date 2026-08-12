@@ -124,6 +124,45 @@ class GalaxyScreenScreenshotTest {
         capture(width = 320, height = 1230, uiState = probeUnaffordableUiState, name = "galaxy_probe_short_slide_over")
     }
 
+    // ── The dispatch sheet, its two shapes and both widths ───────────────────────────────────
+    //
+    // **Captured at the real window height rather than at the tall scroll heights above, and that is
+    // the point of them.** Every frame above is a picture of a list that scrolls; the sheet is
+    // anchored to the bottom edge of a *window* and is the one thing in this app drawn over another
+    // screen, so a 1530dp-tall capture would put it somewhere no phone ever shows it. 852 is the
+    // delivery target's own height.
+
+    @Test
+    fun `the dispatch sheet on a world a colonist cannot have`() {
+        capture(width = 393, height = 852, uiState = dispatchOfferUiState, name = "galaxy_dispatch")
+    }
+
+    // The ladder narrowed to what a nine-hour flight leaves room for, with the sentence that says
+    // why. A rung is absent rather than disabled, so this frame is what "too far" looks like.
+    @Test
+    fun `the dispatch sheet on a world in another galaxy`() {
+        capture(width = 393, height = 852, uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
+    }
+
+    // The one refusal in the app that hands back a verb.
+    @Test
+    fun `the dispatch sheet on a world nobody has surveyed`() {
+        capture(width = 393, height = 852, uiState = dispatchUnsurveyedUiState, name = "galaxy_dispatch_unsurveyed")
+    }
+
+    @Test
+    fun `the dispatch sheet with every hull already away`() {
+        capture(width = 393, height = 852, uiState = dispatchNoShipsUiState, name = "galaxy_dispatch_no_ships")
+    }
+
+    // At 320dp the head drops the lesser richness and the two long lines under the figure drop a
+    // noun each — "on station" becomes "station", and the danger line keeps its number and its
+    // consequence and loses the middle clause naming where the danger came from.
+    @Test
+    fun `the dispatch sheet in a Slide Over window`() {
+        capture(width = 320, height = 852, uiState = dispatchOfferUiState, name = "galaxy_dispatch_slide_over")
+    }
+
     // Erring tall costs a band of empty background; erring short silently clips the last row out of
     // the baseline and asserts the truncation forever, which is how the first tab-bar baseline went
     // wrong. The screen scrolls, so a short window does not overflow visibly.
@@ -143,6 +182,12 @@ class GalaxyScreenScreenshotTest {
                             onGoHome = {},
                             onOpenResearch = {},
                             onDispatchProbe = {},
+                            onOpenWorld = {},
+                            onCloseDispatch = {},
+                            onSelectGathering = {},
+                            onSelectShips = {},
+                            onSelectWindow = {},
+                            onDispatchRun = {},
                         )
                     }
                 }

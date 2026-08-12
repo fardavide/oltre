@@ -77,7 +77,11 @@ class AdaptationBehaviourTest {
             // is still blocked on pressure and still wants Atmospheric 4 — one level further out —
             // so the remedy string leaving the screen is this world's verdict changing rather than
             // the whole system's.
-            assertReads("yield 1.17")
+            //
+            // Capitalised since treatment 1b: a settleable world states everything it has on one
+            // note line, and that line opens a sentence. The lower-case "yield" now belongs to the
+            // two verdicts that lead with richness, where it is a clause inside one.
+            assertReads("Yield 1.17")
             assertNothingReads(REMEDY)
         }
     }

@@ -1,10 +1,12 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.signed
+import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
@@ -57,6 +59,16 @@ data class GalaxyUiState(
     // layout admitting defeat where "DIM · 4" is the screen still saying something true.
     val compactDetail: String,
     val isHome: Boolean,
+    // "195 units out · danger 1 from here · 58m out and back". **Stated once, under the system
+    // header, because it is astronomy** — free, known from the first launch, and identical for all
+    // fifteen slots of a system. Claude Design's call, 2026-08-10, and the argument is epistemic
+    // rather than visual: a *row* printing a danger total could not say which half it came from, and
+    // on an unsurveyed world — 98% of the map — it would be claiming knowledge nobody has paid for.
+    // So the band lives here, the hazards live on the rows carrying their own arithmetic, and only
+    // the dispatch sheet, where the number is actually spent, states the sum.
+    //
+    // It also hands the unsurveyed row its first honest fleet fact for free.
+    val astronomy: String,
     // What replaced the ±1 stepper. `atFirstSystem` / `atLastSystem` went with it: a lens slides
     // rather than clipping, so there is no edge to disable a control at any more.
     val reach: ReachBandUiState,
@@ -65,6 +77,10 @@ data class GalaxyUiState(
     // star-scoped object on the screen.
     val probe: ProbeActionUiState,
     val bands: List<OrbitBandUiState>,
+    // Null until a world row is tapped. The sheet is the feature's own navigation exactly as `at` is
+    // — nothing outside this module has an opinion about which world is open — so it arrives here
+    // rather than being a second screen the shell would have to know about.
+    val dispatch: DispatchUiState?,
 )
 
 data class GalaxyTabUiState(val label: String, val galaxy: Int, val selected: Boolean)
@@ -127,48 +143,79 @@ data class WorldRowUiState(
     val verdict: VerdictUiState,
 )
 
-// One row, six verdicts and a relay that is not one. Each carries exactly what its verdict earns
-// and nothing more, which is what keeps `Unsurveyed` the shortest card in the app — the normal case
-// on a screen where 4,746 of 4,750 worlds are unsurveyed.
+// One row, six verdicts and a relay that is not one.
+//
+// **Treatment 1b, accepted 2026-08-10, and one rule generates all six: a row leads with what you can
+// do about it today.** `Blocked` and `Barren` lead with *richness*, because their verdict is not an
+// offer — you cannot live there and nothing about the technology you lack changes this week. What
+// you *can* do is send a hold, so the two numbers that price a hold take the headline. The other
+// four lead with the verdict, because for them the verdict is the offer.
+//
+// The blockage is not deleted. It drops to the line below and becomes the opening clause of a
+// sentence — "Blocked · gravity 1.79, you tolerate 1.40 g" — keeping its axis, its band, its accent
+// technology and its tap into Research. What it stops being is a *badge*, so that a row never
+// carries two label-shaped states at once. The diagnosis is the part worth keeping: the contradiction
+// was never BLOCKED-against-a-fleet-offer, it was two claims set as verdicts in the same weight in
+// the same slot.
+//
+// **What this subtracted, stated plainly because it was content that shipped:** `Blocked` lost its
+// yield and its "Fails 2 of 3 bands, worth it at 0.92" calibration line, and `Home` lost its yield
+// and its hazards. Both are Design's call and both are Davide's to overrule — the argument is that a
+// settler's yield is not what you can act on today, and the row now has a fleet reading in that slot
+// that you can.
 sealed interface VerdictUiState {
 
-    // The reference row. It shows its three axes and its yield because every other yield on the
-    // screen is read against it, and the player should meet it on the first launch.
-    data class Home(val axes: String, val detail: String) : VerdictUiState
+    // The reference row, and the one card in the app that is lit rather than plain. Its three axes
+    // are what every blocked row's "you tolerate" is measured against.
+    data class Home(val note: String) : VerdictUiState
 
-    data class Occupied(val holder: String) : VerdictUiState
+    data class Occupied(val note: String) : VerdictUiState
 
+    // 98% of the map, and it says nothing about hazards **because it knows nothing about them** — a
+    // row that leaked a trait would have performed the survey the player has not paid for. The
+    // astronomy line above the list already gave it the half that is free.
     data object Unsurveyed : VerdictUiState
 
     // Never empty, and in `HostilityAxis` order rather than by the size of the gap, so the third
     // line is in the same place on every three-axis world.
-    //
-    // It carries a yield and a calibration line for the same reason `Barren` does, and it needs
-    // them more: 98% of surveyed worlds read `Blocked`, so this is the verdict a player meets over
-    // and over. Without the yield the row stated a cost and never a worth; without the count and
-    // the bar, a screen of them reads as bad luck rather than as the design — which is the exact
-    // job `Barren`'s threshold sentence already does.
     data class Blocked(
+        val reading: FleetReadingUiState,
         val failures: List<BlockedAxisUiState>,
-        val yieldLabel: String,
-        val calibration: String,
-        val detail: String,
     ) : VerdictUiState {
         init {
             require(failures.isNotEmpty()) { "a blocked row must name at least one axis" }
         }
     }
 
-    // States the ratio and then the threshold, the way the power card states a ratio before its
-    // consequence. Naming the threshold is what makes a run of Barren answers read as calibration
-    // rather than as bad luck — and Barren is designed to be the common answer.
-    data class Barren(val yieldLabel: String, val threshold: String, val detail: String) : VerdictUiState
+    // The same shape as `Blocked` with one clause instead of a list: Barren fails no band at all, it
+    // fails the *bar*, so its one line is the yield against the threshold. Naming the threshold is
+    // what makes a run of Barren answers read as calibration rather than as bad luck — and Barren is
+    // designed to be a common answer.
+    data class Barren(val reading: FleetReadingUiState, val threshold: String) : VerdictUiState
 
-    data class Settleable(val yieldLabel: String, val richness: String, val detail: String) : VerdictUiState
+    // The rarest verdict in the game and the only one that is still an offer to a settler, so it
+    // keeps its badge and leads with the verdict like the other three.
+    data class Settleable(val note: String) : VerdictUiState
 
-    // Not a world, and not tappable. It states its effect and stops.
+    // Not a world, and not tappable. It states its effect and stops. No holding mechanic exists
+    // until multiplayer, and a relay has no hold for a fleet to fill either.
     data class Relay(val effect: String) : VerdictUiState
 }
+
+// What a hold can be priced from: the two resources a run may carry, the hazards that will be taken
+// out of it, and how long the trip is. Together they are the row's answer to "what can I do about
+// this today", which is why they take the headline on the two verdicts that have no other answer.
+//
+// **The hazards carry their own arithmetic and never a total** — "seismic instability · +1 danger",
+// never "danger 2". The other half of that sum is the distance band, which is astronomy and is
+// stated once under the system header; only the dispatch sheet, where the number is spent, adds them
+// up. See `GalaxyUiState.astronomy`.
+data class FleetReadingUiState(
+    val metal: String,
+    val crystal: String,
+    val hazards: String,
+    val reach: String,
+)
 
 // "gravity 1.78, you tolerate 1.45 g — Gravitic 3". The unit is written once, on the tolerance:
 // both numbers are the same axis and therefore the same unit, and the four characters that saves
@@ -216,7 +263,16 @@ private val WORTH_IT_AT = "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMil
 // `now` and `timeZone` arrive with 0.2.0, because the footer runs a countdown and prints a landing
 // clock. This was the one screen in the app that needed neither, and it stopped being so the moment
 // it grew a job of its own.
-internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZone: TimeZone): GalaxyUiState {
+internal fun GameState.toGalaxyUiState(
+    at: SystemSelection,
+    now: Instant,
+    timeZone: TimeZone,
+    // Which world the player has raised the dispatch sheet on, and what they have chosen inside it.
+    // Null is the honest default — a screen with no sheet up — and it is what every render before
+    // the first tap passes, which is why it defaults rather than being threaded through the twenty
+    // existing callers.
+    dispatch: DispatchSelection? = null,
+): GalaxyUiState {
     val seed = galaxy.seed
     val starClass = starClassAt(seed, at.galaxy, at.system)
     val relay = relayAt(seed, at.galaxy, at.system)
@@ -231,7 +287,7 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZo
                 coordinate = coordinate.label(),
                 slot = slot,
                 band = OrbitBand.of(slot),
-                verdict = verdictFor(world, this).toUiState(world.traits),
+                verdict = verdictFor(world, this).toUiState(world = world, from = galaxy.home),
             )
             coordinate == relay -> WorldRowUiState(
                 coordinate = coordinate.label(),
@@ -243,6 +299,19 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZo
         }
     }
 
+    // Hoisted out of the constructor because the dispatch sheet's unsurveyed refusal quotes it: the
+    // card's footer already decides whether a probe can be sent — in flight, unaffordable, landed —
+    // and a second copy of that decision inside the sheet is a second place for the two to disagree
+    // about one flight.
+    val probe = toProbeActionUiState(
+        at = at,
+        // The worlds this system actually holds, passed rather than regenerated: the mapper has just
+        // paid for all fifteen slots, and the footer's "nothing to survey" branch turns on exactly
+        // the same set.
+        worlds = worlds.values.filterNotNull(),
+        now = now,
+        timeZone = timeZone,
+    )
     return GalaxyUiState(
         galaxies = (1..GalaxyBalance.GALAXIES).map { index ->
             GalaxyTabUiState(label = "G$index", galaxy = index, selected = index == at.galaxy)
@@ -252,6 +321,7 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZo
         detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
         compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
+        astronomy = astronomyFor(at = at, worlds = worlds.values.filterNotNull()),
         reach = toReachBandUiState(at = at),
         map = SystemMapUiState(
             // Only the slots that hold something. `rows` is already exactly that set — a world or
@@ -280,19 +350,72 @@ internal fun GameState.toGalaxyUiState(at: SystemSelection, now: Instant, timeZo
                 null
             },
         ),
-        probe = toProbeActionUiState(
-            at = at,
-            // The worlds this system actually holds, passed rather than regenerated: the mapper has
-            // just paid for all fifteen slots, and the footer's "nothing to survey" branch turns on
-            // exactly the same set.
-            worlds = worlds.values.filterNotNull(),
-            now = now,
-            timeZone = timeZone,
-        ),
+        probe = probe,
         bands = OrbitBand.entries
             .map { band -> OrbitBandUiState(band = band, rows = rows.filter { it.band == band }) }
             .filter { it.rows.isNotEmpty() },
+        dispatch = dispatch?.let { toDispatchUiState(at = at, selection = it, probe = probe, now = now) },
     )
+}
+
+// "195 units out · danger 1 from here · 58m out and back", and on your own doorstep "Your own system
+// · danger 0 from here · 20–26m out and back". Three facts, all of them free: none needs a survey,
+// and all three are the same for every slot of the system — which is exactly why this is one line
+// under the header rather than a column on fifteen rows.
+//
+// **The range is only ever your own system's**, and it is not a rounding of anything: a run's
+// distance metric is world-to-world, so within one system it is the *slot* gap that varies, where a
+// hop to any other system is priced identically for all fifteen. So one number everywhere else, and
+// a spread at home — where the player is choosing between neighbours and the spread is the choice.
+private fun GameState.astronomyFor(at: SystemSelection, worlds: List<World>): String {
+    val home = galaxy.home
+    // Any slot of the system will do and slot 1 is the one that always exists: the band and the unit
+    // count both ignore the slot the moment the system differs, which is the whole reason this line
+    // can be stated once. Asking it of a *world* would make an empty system unanswerable.
+    val anywhereInIt = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = 1)
+    val band = FleetBalance.distanceBand(from = home, to = anywhereInIt)
+    val where = if (band == 0) {
+        "Your own system"
+    } else {
+        "${FleetBalance.distanceUnits(from = home, to = anywhereInIt).toLong().groupedByThousands()} units out"
+    }
+    val trips = worlds.map { it.at }
+        .filter { it != home }
+        .map { FleetBalance.roundTrip(from = home, to = it) }
+        .sorted()
+    val reach = trips.reachLabel()
+    // **"from here" goes when the line will not fit, and the budget is a measurement rather than a
+    // taste.** Two cases overflow and both are ordinary: the home system, which states a *range* of
+    // round trips rather than one, and any target in another galaxy, whose distance is four digits
+    // and whose flight is hours. The home system is the screen every player opens on.
+    //
+    // What goes is a noun and never a figure — the rule the header and the world row already follow
+    // — and it is the least load-bearing clause here, because the first clause has already said what
+    // the band is measured from.
+    val full = listOfNotNull(where, "danger $band from here", reach).joinToString(SEPARATOR)
+    if (full.length <= ASTRONOMY_BUDGET_CHARS) return full
+    return listOfNotNull(where, "danger $band", reach).joinToString(SEPARATOR)
+}
+
+// What one line of this column holds. The content column is capped at `maxContentWidth` and padded
+// 16dp a side, so at a phone's 393dp it is 361dp wide; JetBrains Mono advances 0.6em, which at the
+// 10.5sp this line is set in makes 57 characters exactly 359dp. That is inside 361 on paper and
+// wrapped in practice, so the budget is the measured figure with the rounding taken off rather than
+// the arithmetic one.
+private const val ASTRONOMY_BUDGET_CHARS = 54
+
+// Null on a system with nothing in it: there is no round trip to nowhere, and the probe footer above
+// is already saying the system is empty.
+private fun List<Duration>.reachLabel(): String? {
+    val shortest = firstOrNull() ?: return null
+    val longest = last()
+    if (shortest == longest) return "${shortest.toChipLabel()} out and back"
+    val from = shortest.toChipLabel()
+    val to = longest.toChipLabel()
+    // "20–26m" rather than "20m–26m", but only when both ends are minutes: at the hour scale the
+    // label already carries an "h" and dropping the "m" off the near end would leave "1h 04–2h 12m".
+    val collapsed = if ('h' in from || 'h' in to) "$from–$to" else "${from.removeSuffix("m")}–$to"
+    return "$collapsed out and back"
 }
 
 // The star class sits in the header rather than on every row, because a class is a property of the
@@ -321,42 +444,59 @@ private fun markFor(row: WorldRowUiState?): MapMark = when (row?.verdict) {
     is VerdictUiState.Relay -> MapMark.RELAY
 }
 
-private fun WorldVerdict.toUiState(traits: WorldTraits): VerdictUiState = when (this) {
-    WorldVerdict.Home -> VerdictUiState.Home(
-        axes = listOf(
-            "${traits.temperature.celsius.signed()}$NBSP°C",
-            "${traits.gravity.milliG.milli()}${NBSP}g",
-            "${traits.pressure.milliAtm.milli()}${NBSP}atm",
-        ).joinToString(SEPARATOR),
-        detail = listOfNotNull(traits.fieldsLabel(), "yield ${traits.yieldLabel()}", traits.hazardLabel("no hazards"))
-            .joinToString(SEPARATOR),
-    )
-    is WorldVerdict.Occupied -> VerdictUiState.Occupied(holder = "Held by ${holder.value}")
-    WorldVerdict.Unsurveyed -> VerdictUiState.Unsurveyed
-    is WorldVerdict.Blocked -> VerdictUiState.Blocked(
-        failures = failures.map { it.toUiState() },
-        yieldLabel = "yield ${traits.yieldLabel()}",
-        // The count comes from the row rather than from a table, and the bar is the one `Barren`
-        // quotes — a blocked world reading its yield against the same 0.92 is what turns the row
-        // into the shopping list the sheet asked for: the world is worth taking, the band is not
-        // wide enough yet, and the line above says what widens it.
-        calibration = "Fails ${failures.size} of ${HostilityAxis.entries.size} bands, $WORTH_IT_AT",
-        detail = listOfNotNull(traits.fieldsLabel(), traits.hazardLabel(null)).joinToString(SEPARATOR),
-    )
-    WorldVerdict.Barren -> VerdictUiState.Barren(
-        yieldLabel = "yield ${traits.yieldLabel()}",
-        threshold = "Passes every band, $WORTH_IT_AT",
-        detail = listOfNotNull(traits.fieldsLabel(), traits.hazardLabel(null)).joinToString(SEPARATOR),
-    )
-    is WorldVerdict.Settleable -> VerdictUiState.Settleable(
-        yieldLabel = "yield ${traits.yieldLabel()}",
-        richness = listOf(
-            "metal ${traits.metalRichness.perMillion.perMillion()}",
-            "crystal ${traits.crystalRichness.perMillion.perMillion()}",
-            "deut ${traits.deuteriumRichness.perMillion.perMillion()}",
-        ).joinToString(SEPARATOR),
-        detail = listOfNotNull(traits.fieldsLabel(), traits.hazardLabel(null)).joinToString(SEPARATOR),
-    )
+private fun WorldVerdict.toUiState(world: World, from: GalaxyCoordinate): VerdictUiState {
+    val traits = world.traits
+    return when (this) {
+        WorldVerdict.Home -> VerdictUiState.Home(
+            note = listOf(
+                "${traits.temperature.celsius.signed()}$NBSP°C",
+                "${traits.gravity.milliG.milli()}${NBSP}g",
+                "${traits.pressure.milliAtm.milli()}${NBSP}atm",
+                traits.fieldsLabel(),
+            ).joinToString(SEPARATOR),
+        )
+        is WorldVerdict.Occupied -> VerdictUiState.Occupied(note = "Held by ${holder.value}")
+        WorldVerdict.Unsurveyed -> VerdictUiState.Unsurveyed
+        is WorldVerdict.Blocked -> VerdictUiState.Blocked(
+            reading = world.toFleetReading(from = from),
+            failures = failures.map { it.toUiState() },
+        )
+        WorldVerdict.Barren -> VerdictUiState.Barren(
+            reading = world.toFleetReading(from = from),
+            threshold = "yield ${traits.yieldLabel()}, $WORTH_IT_AT",
+        )
+        is WorldVerdict.Settleable -> VerdictUiState.Settleable(
+            note = listOf(
+                "Yield ${traits.yieldLabel()}",
+                "metal ${traits.metalRichness.perMillion.perMillion()}",
+                "crystal ${traits.crystalRichness.perMillion.perMillion()}",
+                traits.fieldsLabel(),
+            ).joinToString(SEPARATOR),
+        )
+    }
+}
+
+// The two numbers that price a hold, the hazards that will be taken out of it, and the round trip.
+// Read from `FleetBalance` rather than restated, so a row and the sheet it raises cannot disagree
+// about how far away a world is.
+private fun World.toFleetReading(from: GalaxyCoordinate): FleetReadingUiState = FleetReadingUiState(
+    metal = "metal ${traits.metalRichness.perMillion.perMillion()}",
+    crystal = "crystal ${traits.crystalRichness.perMillion.perMillion()}",
+    hazards = traits.fleetHazardLabel(),
+    reach = "${FleetBalance.roundTrip(from = from, to = at).toChipLabel()} out and back",
+)
+
+// "seismic instability · +1 danger", and "no hazards" when there are none — which is a fact worth
+// printing rather than an absence worth hiding, because a clean world is the one you want to find.
+//
+// **It states its own contribution and never the total.** The other half is the distance band, which
+// is astronomy and belongs to the system rather than to a world; a row printing `danger 2` could not
+// say which half it came from. The comma between two hazards and the interpunct before the
+// arithmetic is what keeps those two readable as different kinds of thing on one line.
+private fun WorldTraits.fleetHazardLabel(): String {
+    if (hazards.isEmpty()) return "no hazards"
+    val named = hazards.sortedBy { it.ordinal }.joinToString(", ") { it.label() }
+    return "$named$SEPARATOR+${hazards.size} danger"
 }
 
 private fun ToleranceFailure.toUiState(): BlockedAxisUiState = BlockedAxisUiState(
@@ -398,9 +538,14 @@ private fun WorldTraits.hazardLabel(ifNone: String?): String? = when {
 
 private fun Hazard.label(): String = name.lowercase().replace('_', ' ')
 
-private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
+// Internal since the dispatch sheet: the sheet heads itself with the coordinate the row it was
+// raised from prints, and two copies of this would be two ways of writing one address.
+internal fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
 
-private const val SEPARATOR = " · "
+// Internal because three files in this module now join a list of facts with it — the row, the sheet
+// and the astronomy line — and one screen writing "·" three different ways is the screen reading as
+// three screens.
+internal const val SEPARATOR = " · "
 
 // Between a value and its unit, so a line that has to wrap never leaves "atm" alone on one.
 private const val NBSP = ' '

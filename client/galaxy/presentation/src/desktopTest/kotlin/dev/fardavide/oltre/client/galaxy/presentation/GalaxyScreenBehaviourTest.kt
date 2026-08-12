@@ -132,15 +132,46 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `Blocked states its worth and the bar it would be measured against`() {
-        // 98% of surveyed worlds read Blocked, so this is the row that most needs what Barren's
-        // threshold sentence does: a scale, so the answer reads as the design rather than as bad
-        // luck. The yield beside it is what makes the count mean something — this world clears the
-        // bar, and only the technology stands between.
+    fun `Blocked leads with what a hold is worth and demotes the verdict to a clause`() {
+        // **Treatment 1b, and the row a player meets over and over: 98% of surveyed worlds read
+        // Blocked.** Its verdict is not an offer — you cannot live there, and no ladder you can
+        // afford this week changes that — so the headline goes to what you *can* act on today, which
+        // is the pair of numbers that price a hold. The blockage is not deleted; it becomes the
+        // opening clause of the sentence underneath, keeping its axis, its band and its technology.
+        //
+        // What went with it: a "yield 1.06" and a "Fails 2 of 3 bands, worth it at 0.92" that both
+        // shipped at 0.0.18. Pinned as absences here, because a header that quietly grew them back
+        // would be two verdicts in the same weight in the same row again — which is the exact
+        // contradiction 1b exists to resolve.
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(11, "yield 1.06")
-            assertRowReads(11, "Fails 2 of 3 bands, worth it at 0.92")
-            assertRowReads(1, "Fails 3 of 3 bands, worth it at 0.92")
+            assertRowReads(11, "metal 1.13")
+            assertRowReads(11, "crystal 0.71")
+            assertRowReads(11, "Blocked · temperature")
+            assertNothingReads("yield 1.06")
+            assertNothingReads("Fails 2 of 3 bands")
+        }
+    }
+
+    @Test
+    fun `a row states the round trip and its own hazards and never the danger total`() {
+        // The row's half of the split. The distance band is astronomy — identical for all fifteen
+        // slots — so it is stated once under the header; the hazards need a survey, so they sit on
+        // the row carrying their own arithmetic. Neither ever prints the sum, because a row that did
+        // could not say which half it came from.
+        galaxyScreen(uiState = homeSystemUiState) {
+            assertRowReads(11, "24m out and back")
+            assertRowReads(11, "no hazards")
+            assertTheAstronomyReads("Your own system")
+            // "from here" is dropped exactly where a *range* of round trips appears, which is the
+            // home system and nowhere else: with it the line is 359dp against the 361dp the column
+            // has, and the one screen every player opens on wrapped to two lines by two dp.
+            assertTheAstronomyReads("danger 0 · 20")
+            assertTheAstronomyReads("out and back")
+        }
+        // and away from home the same line prices the trip in the unit distance is measured in
+        galaxyScreen(uiState = unsurveyedSystemUiState) {
+            assertTheAstronomyReads("units out")
+            assertTheAstronomyReads("danger 1 from here")
         }
     }
 
@@ -202,23 +233,32 @@ class GalaxyScreenBehaviourTest {
     @Test
     fun `Barren states the ratio and then the threshold it missed`() {
         // Barren is designed to be the common answer, so naming the threshold on the row is what
-        // makes a run of them read as calibration rather than as bad luck.
+        // makes a run of them read as calibration rather than as bad luck. Under 1b it says it in
+        // the slot the blocked axes take, with the verdict as its opening clause: Barren fails no
+        // band at all, it fails the bar, so it has one line where Blocked has a list.
         galaxyScreen(uiState = everyVerdictUiState) {
-            assertRowReads(9, "yield 0.81")
-            assertRowReads(9, "Passes every band, worth it at 0.92")
+            assertRowReads(9, "Barren · yield 0.81, worth it at 0.92")
         }
     }
 
     @Test
-    fun `every verdict has a word on the row`() {
+    fun `the four verdicts that are still an offer keep their badge and the two that are not lose it`() {
+        // **The whole of treatment 1b in one assertion.** A row never carries two label-shaped
+        // states at once, so the two verdicts that lead with a fleet reading give up the badge and
+        // say the word one line down instead. The other four keep it, because for them the verdict
+        // *is* what you can do about the world today — even Unsurveyed, whose offer is a probe.
         galaxyScreen(uiState = everyVerdictUiState) {
             assertRowReads(4, "HOME")
             assertRowReads(5, "OCCUPIED")
             assertRowReads(6, "UNSURVEYED")
-            assertRowReads(8, "BLOCKED")
-            assertRowReads(9, "BARREN")
             assertRowReads(11, "SETTLEABLE")
             assertRowReads(3, "RELAY")
+            // Demoted rather than deleted: the word is still on both rows, in the sentence rather
+            // than in the badge slot the richness now holds.
+            assertRowReads(8, "metal 1.24")
+            assertRowReads(8, "Blocked · gravity")
+            assertRowReads(9, "metal 0.81")
+            assertRowReads(9, "Barren · yield")
         }
     }
 
@@ -360,24 +400,23 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `a yield leaves the header at 320dp rather than being cut in half by it`() {
-        // A coordinate, a verdict word, a yield and an orbit tag do not fit on one line at 320dp,
-        // and the header's ellipsis landed on the *number* — "BARREN yield 0…". Abbreviation may
-        // drop a noun; it may never truncate a figure, which is the one thing on the row a player
-        // is comparing against another world.
+    fun `the lesser of the two richnesses leaves the header at 320dp rather than being cut by it`() {
+        // A coordinate, two richnesses and an orbit tag do not fit on one line at 320dp, and an
+        // ellipsis would land on a *figure* — which is the one thing on this row a player is
+        // comparing against another world. Abbreviation may drop a noun; it may never truncate a
+        // number, so what goes is the whole of the lesser half. Both are still on the sheet the row
+        // raises, which is where the choice between them is actually made.
         //
-        // A node query cannot see an ellipsis — Compose semantics carry the whole string whatever
-        // is painted — so this asserts the *structural* fix instead: at 320dp the yield is a line
-        // of its own, and at 393dp it is not. The baselines are what watch the pixels.
+        // A node query cannot see an ellipsis — Compose semantics carry the whole string whatever is
+        // painted — so this asserts the *structural* fix instead. The baselines watch the pixels.
         galaxyScreen(uiState = everyVerdictUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(9, "yield 0.81")
-            assertRowReads(9, "Passes every band, worth it at 0.92")
-            assertRowReads(11, "yield 1.12")
-            assertRowReads(11, "metal 1.21")
+            assertRowReads(9, "metal 0.81")
+            assertNothingReads("crystal 0.68")
+            assertRowReads(9, "Barren · yield 0.81, worth it at 0.92")
         }
         galaxyScreen(uiState = everyVerdictUiState, width = PHONE_WIDTH) {
-            assertRowReads(9, "yield 0.81")
-            assertRowReads(11, "yield 1.12")
+            assertRowReads(9, "metal 0.81")
+            assertRowReads(9, "crystal 0.68")
         }
     }
 }
