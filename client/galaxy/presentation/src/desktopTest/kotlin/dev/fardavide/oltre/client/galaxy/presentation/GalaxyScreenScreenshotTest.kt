@@ -2,6 +2,9 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
@@ -126,33 +129,41 @@ class GalaxyScreenScreenshotTest {
 
     // ── The dispatch sheet, its two shapes and both widths ───────────────────────────────────
     //
-    // **Captured at the real window height rather than at the tall scroll heights above, and that is
-    // the point of them.** Every frame above is a picture of a list that scrolls; the sheet is
-    // anchored to the bottom edge of a *window* and is the one thing in this app drawn over another
-    // screen, so a 1530dp-tall capture would put it somewhere no phone ever shows it. 852 is the
-    // delivery target's own height.
+    // **Raised on the real screen and captured through the real sheet**, which is a shape no other
+    // baseline in this project has and is worth the four lines it costs. `captureSheet` composes the
+    // whole `GalaxyPage` — so what these five frames are pictures of is the sheet a tap actually
+    // produces, drag handle and container included, rather than its contents rendered on their own.
+    //
+    // It cannot be one frame of both halves, and that is the fix stating itself: a sheet is a popup,
+    // a popup is a second root, and `onRoot` fails on the ambiguity. At 0.7.0 these were pictures of
+    // the whole page with a panel sitting on it, because the panel was part of the page — which is
+    // exactly what made it stop above the tab bar and let a drag through.
+    //
+    // 852 is the delivery target's own height. Every frame above is a picture of a list that scrolls
+    // and is captured tall enough not to clip it; a sheet is anchored to the bottom edge of a
+    // *window*, so a 1530dp-tall capture would put it somewhere no phone ever shows it.
 
     @Test
     fun `the dispatch sheet on a world a colonist cannot have`() {
-        capture(width = 393, height = 852, uiState = dispatchOfferUiState, name = "galaxy_dispatch")
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchOfferUiState, name = "galaxy_dispatch")
     }
 
     // The ladder narrowed to what a nine-hour flight leaves room for, with the sentence that says
     // why. A rung is absent rather than disabled, so this frame is what "too far" looks like.
     @Test
     fun `the dispatch sheet on a world in another galaxy`() {
-        capture(width = 393, height = 852, uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
     }
 
     // The one refusal in the app that hands back a verb.
     @Test
     fun `the dispatch sheet on a world nobody has surveyed`() {
-        capture(width = 393, height = 852, uiState = dispatchUnsurveyedUiState, name = "galaxy_dispatch_unsurveyed")
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchUnsurveyedUiState, name = "galaxy_dispatch_unsurveyed")
     }
 
     @Test
     fun `the dispatch sheet with every hull already away`() {
-        capture(width = 393, height = 852, uiState = dispatchNoShipsUiState, name = "galaxy_dispatch_no_ships")
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchNoShipsUiState, name = "galaxy_dispatch_no_ships")
     }
 
     // At 320dp the head drops the lesser richness and the two long lines under the figure drop a
@@ -160,7 +171,7 @@ class GalaxyScreenScreenshotTest {
     // consequence and loses the middle clause naming where the danger came from.
     @Test
     fun `the dispatch sheet in a Slide Over window`() {
-        capture(width = 320, height = 852, uiState = dispatchOfferUiState, name = "galaxy_dispatch_slide_over")
+        captureSheet(width = SLIDE_OVER_WIDTH, uiState = dispatchOfferUiState, name = "galaxy_dispatch_slide_over")
     }
 
     // Erring tall costs a band of empty background; erring short silently clips the last row out of
@@ -194,6 +205,40 @@ class GalaxyScreenScreenshotTest {
             }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/$name.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
+    // The same page, and then the *other* root. A sheet is a popup and a popup is a root of its own,
+    // so `onRoot` finds two and refuses to choose; the one to photograph is named by what is inside
+    // it rather than by the order the two arrive in, which is not this test's business to know.
+    private fun captureSheet(width: Int, uiState: GalaxyUiState, name: String) {
+        runDesktopComposeUiTest(width = width, height = 852) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        GalaxyPage(
+                            uiState = uiState,
+                            onSelectGalaxy = {},
+                            onSelectSystem = {},
+                            onGoHome = {},
+                            onOpenResearch = {},
+                            onDispatchProbe = {},
+                            onOpenWorld = {},
+                            onCloseDispatch = {},
+                            onSelectGathering = {},
+                            onSelectShips = {},
+                            onSelectWindow = {},
+                            onDispatchRun = {},
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onNode(isRoot() and hasAnyDescendant(hasTestTag(GalaxyTestTags.SHEET))).captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )

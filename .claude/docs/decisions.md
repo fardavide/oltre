@@ -2766,3 +2766,65 @@ restored from an Actions cache, the drift objection still dissolves against
 comment between them, the gate still does not run on a `main` push, and a cache miss still skips
 it silently. `test_coverage.py` grew from 22 cases to 43 and still runs before the measurement in
 the job it gates.
+
+## Every sheet in the app is one component, because two of them were not (2026-08-12, 0.7.1)
+
+The dispatch sheet shipped at 0.7.0 as a `Column` at the bottom of `GalaxyPage`'s own `Box`, with a
+scrim it drew, a shape it drew and a grabber it drew. Davide's report off TestFlight, in one
+sentence: it opens *above* the tab bar, it cannot be swiped, and a scroll on it scrolls the screen
+underneath — *"Why does it differ from the BS we have in Colony and Research?"*
+
+**Because nothing made it the same.** `RowSheet` and `DebugSheet` were both real
+`ModalBottomSheet`s, and the four lines of configuration that make one — dismiss callback, skip
+the partially-expanded state, the surface colour, the drag handle — were copied between them. A
+feature writing its third sheet had a pattern to imitate and nothing to reuse, and imitation gets
+the drawing right and the behaviour wrong. All three faults are the same fault:
+
+- a panel inside the destination's slot stops where the destination stops, which is above the tab
+  bar rather than over it;
+- a panel with no pointer input of its own does not consume a drag, so the list behind it scrolls;
+- a grabber is a rectangle unless something is listening, and nothing was.
+
+The tap-outside worked, which is what made it look like a sheet with three bugs rather than a
+thing that was never a sheet.
+
+So `OltreBottomSheet` is now the only chrome in the app, in `:client:design:component`, and
+`RowSheet`, `DebugSheet` and `DispatchSheet` are its three callers. It is a small file on purpose:
+what it holds is the four lines, and its value is that there is nowhere else to put them. Note this
+is the *second* time this exact panel was written — `DebugSheet` was one until 0.2.6 — which is the
+argument for a component rather than for a better comment.
+
+**One thing changed for the other two sheets**: `sheetMaxWidth` is `OltreLayout.maxContentWidth`
+(560dp) rather than Material's 640dp default, so a sheet on an iPad is the width of the column it
+was raised from. The dispatch sheet already capped itself there; the row sheet never had.
+
+### What the tests now say, and where they say it
+
+- `DispatchSheetContent` is split out on the shape `RowSheetContent` and `DebugSheetContent` have,
+  so a test *can* render the contents alone — but nothing here does, and that is deliberate. The
+  fifteen behaviour assertions and the five baselines drive the real screen, because the coverage
+  table gates each kind separately now and a test that stops composing `GalaxyPage` stops covering
+  it. The split earns its keep the moment an assertion needs to be about wording rather than about
+  the screen.
+- **A baseline of a sheet is a baseline of the second root.** A popup is a root of its own, so
+  `onRoot` finds two and refuses to choose — which is the fix stating itself, since 0.7.0's panel
+  was part of the page and that is exactly what broke it. `captureSheet` composes the whole page and
+  photographs the root holding the sheet tag, so the five frames now carry the scrim, the page dimmed
+  behind it and the real drag handle. They are better pictures than the ones they replace.
+- **The regression test is a drag, not a screenshot.** `a drag on the sheet leaves the screen behind
+  it where it was` hoists the page's `ScrollState` into the harness, swipes up on the sheet and
+  asserts the page did not move. It fails against 0.7.0's panel. The other two faults — the tab bar
+  and the handle — are a scaffold and a gesture that desktop cannot see, so this is the one of the
+  three a test can hold.
+- The five `galaxy_dispatch*` baselines were pictures of the whole page with a panel on it; they are
+  now pictures of the contents, and the scrim and shape they recorded are gone with the panel.
+- **The gate found a real gap, which is the argument for it.** `DispatchUiState` — three resolved
+  defaults, a hull count clamped to the idle pool, a ladder that narrows with distance — had *no*
+  unit coverage at all: every one of those claims was asserted through a popup and nowhere else.
+  `DispatchUiStateTest` is twelve tests against the real generated galaxy, and it is 0.7.0's debt
+  rather than 0.7.1's. Two behaviour tests join it on the stateful `GalaxyScreen`, which nothing
+  drove: a tap raises the sheet, and what leaves is the *rendered* offer rather than the selection.
+- **`SHEET_SCRIM` is gone.** The scrim is Material's now, and the dismissal test that tapped it went
+  with it: what dismissal does in this app is `onDismiss` from one component, and the platform's
+  scrim is not ours to assert. What that test also claimed — that touching a control commits
+  nothing — is `sending commits the run and nothing else does`, which is unchanged.

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-12 (0.7.0)
+Updated: 2026-08-12 (0.7.1)
 
 ## Landed
 
@@ -319,6 +319,16 @@ Updated: 2026-08-12 (0.7.0)
   return, so an outbound skiff reads `On station at [3:185:4]`.
   Sixteen behaviour tests, five new baselines, and every existing galaxy baseline moved. What it did
   *not* touch: `core`, which needed nothing, and the frontier band, which belongs to slice 2.
+
+- **0.7.1 the sheet is a sheet** — the one thing 0.7.0 got wrong, found on the first install: the
+  dispatch sheet was a panel drawn inside the Galaxy tab, so it stopped above the tab bar, swallowed
+  no drag and could not be swiped away. Every sheet in the app now shares one chrome,
+  `OltreBottomSheet` in `:client:design:component`, and `RowSheet` and `DebugSheet` are its other two
+  callers — the four lines of `ModalBottomSheet` configuration had been copied rather than shared,
+  which is why a third sheet could imitate the drawing and miss the behaviour. `DispatchSheetContent`
+  is split out on the shape `RowSheetContent` has, so the behaviour tests and the five baselines
+  render the contents rather than the popup. See `decisions.md`; the regression test is a swipe that
+  asserts the page underneath did not move.
 
 
 ## Roadmap — v1 in vertical slices

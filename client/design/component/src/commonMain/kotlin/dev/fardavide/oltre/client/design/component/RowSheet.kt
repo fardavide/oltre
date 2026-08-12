@@ -14,11 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,7 +30,8 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
-// What a row opens on a tap, and the only overlay a player ever sees.
+// What a row opens on a tap. The chrome round it is `OltreBottomSheet`, which every sheet in the app
+// shares — the dispatch sheet on the Galaxy tab is the second one a player meets.
 //
 // It earns its place because three things have nowhere else to live: the arithmetic behind a
 // verdict that reads "nothing", the ladder of what a level gates, and the numbers the verdict
@@ -48,7 +45,6 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 // The chrome and the contents are separate for the reason `DebugSheet` states: every assertion
 // about what the sheet *says* is written against `RowSheetContent`, so a behaviour test never
 // depends on a popup being reachable or an enter animation settling.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RowSheet(
     uiState: RowSheetUiState,
@@ -58,18 +54,7 @@ fun RowSheet(
     contentModifier: Modifier = Modifier,
     actionModifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(
-        // One callback for every way out — the drag, the scrim, the system back gesture.
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-        // Straight to full height: a half-open state would cut off the arithmetic, which is the
-        // one thing the sheet exists to carry.
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        // The theme populates Material's palette roles but not its container roles, so the sheet
-        // would otherwise take stock `darkColorScheme()` grey. This is the rail's own surface.
-        containerColor = OltreColors.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = OltreColors.textTertiary) },
-    ) {
+    OltreBottomSheet(onDismiss = onDismiss, modifier = modifier) {
         RowSheetContent(
             uiState = uiState,
             onAct = onAct,

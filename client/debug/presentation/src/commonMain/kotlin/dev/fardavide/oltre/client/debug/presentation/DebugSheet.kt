@@ -18,11 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.debug.domain.DebugReport
 import dev.fardavide.oltre.client.debug.domain.SKIP_FALLBACK
+import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
@@ -57,18 +54,18 @@ import kotlin.time.Duration
 // mono, the section label — and invents nothing. That is the standard it is held to instead of a
 // baseline: it should look like it belongs to Oltre without ever having been drawn.
 //
-// It is a **real `ModalBottomSheet`** rather than a Box parked at the bottom of the screen, which is
-// what it was until 0.2.6. Davide asked for it to behave like a bottom sheet, and the honest way to
+// It is a **real bottom sheet** rather than a Box parked at the bottom of the screen, which is what
+// it was until 0.2.6. Davide asked for it to behave like a bottom sheet, and the honest way to
 // behave like one is to be one: the drag to dismiss, the scrim that dismisses on tap, the handle,
 // the slide in and out, the insets and the back gesture are all things the platform's component
 // already gets right and a hand-rolled panel gets subtly wrong. Nothing here re-implements any of
-// them, which is the whole argument.
+// them, which is the whole argument — and since 0.7.1 the argument is enforced rather than restated,
+// because `OltreBottomSheet` is the only chrome any sheet in this app has.
 //
 // The chrome and the contents are separate on purpose. Every assertion about what this panel *says*
 // and *does* is written against `DebugSheetContent`, so the behaviour tests never depend on the
 // sheet's animation settling or on its popup being reachable from a test tree — leaving this
 // function as the thin wiring it should be.
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DebugSheet(
     report: DebugReport,
@@ -77,17 +74,7 @@ fun DebugSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(
-        // One callback for every way out — the drag, the scrim, the system back gesture — so the
-        // panel cannot be dismissed by a route the shell does not hear about.
-        onDismissRequest = onDismiss,
-        modifier = modifier,
-        // Straight to full height. A half-open state would be a size the panel has no design for,
-        // and the inspector is the half that would be cut off.
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = OltreColors.surface,
-        dragHandle = { BottomSheetDefaults.DragHandle(color = OltreColors.textTertiary) },
-    ) {
+    OltreBottomSheet(onDismiss = onDismiss, modifier = modifier) {
         DebugSheetContent(
             report = report,
             onSkipAhead = onSkipAhead,

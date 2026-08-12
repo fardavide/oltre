@@ -158,6 +158,14 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.7.1 — 2026-08-12
+
+- **The dispatch sheet is a real bottom sheet.** It shipped as a panel drawn inside the Galaxy tab,
+  which meant it stopped above the row of tabs instead of covering them, it could not be dragged
+  away, and a swipe over it scrolled the map behind it. It now behaves exactly like the sheet a
+  facility or a technology opens: it covers the window, the handle drags, and a scroll on it is a
+  scroll of it.
+
 ### 0.7.0 — 2026-08-12
 
 - **You can send a ship somewhere.** Tap any world on the Galaxy tab and a sheet comes up that will
