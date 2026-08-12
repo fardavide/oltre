@@ -1,8 +1,12 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.core.FleetBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -164,7 +168,6 @@ class DispatchSheetBehaviourTest {
         var probed = 0
 
         galaxyScreen(uiState = dispatchUnsurveyedUiState, onDispatchProbe = { probed++ }) {
-            assertTheSheetIsUp()
             assertOffersNoRun()
             assertTheSheetReads("cannot be priced")
             takeTheRefusalsOffer()
@@ -181,7 +184,6 @@ class DispatchSheetBehaviourTest {
         var sent = 0
 
         galaxyScreen(uiState = dispatchNoShipsUiState, onDispatchRun = { sent++ }) {
-            assertTheSheetIsUp()
             assertOffersNoRun()
             assertTheSheetReads("away")
             takeTheRefusalsOffer()
@@ -222,24 +224,24 @@ class DispatchSheetBehaviourTest {
         assertTrue(opened.isEmpty())
     }
 
+    // **The regression this sheet shipped with at 0.7.0, and the reason it is a `ModalBottomSheet`
+    // now.** It was a Column parked at the bottom of the page's own `Box`: drawn last, so it looked
+    // like an overlay, but with no pointer input of its own — so a drag that started on it fell
+    // straight through to the world list behind and scrolled the screen under the player's thumb.
+    // It was also confined to the destination's slot in the scaffold, which put it *above* the tab
+    // bar rather than over it, and its handle was a drawn rectangle that did not drag.
+    //
+    // A sheet that is a popup cannot have any of those faults, so this asserts the one of the three
+    // a desktop test can see: the page underneath does not move.
     @Test
-    fun `dismissing the sheet spends nothing`() {
-        // There is no cancel button because there is nothing to cancel: the sheet is a reading until
-        // the verb is tapped. Tapping away is the way out, and it commits exactly as much as never
-        // having opened it.
-        var closed = 0
-        var sent = 0
+    fun `a drag on the sheet leaves the screen behind it where it was`() {
+        val scroll = ScrollState(initial = 0)
 
-        galaxyScreen(
-            uiState = dispatchOfferUiState,
-            onCloseDispatch = { closed++ },
-            onDispatchRun = { sent++ },
-        ) {
-            dismissTheSheet()
+        galaxyScreen(uiState = dispatchOfferUiState, scrollState = scroll) {
+            dragTheSheet()
         }
 
-        assertEquals(1, closed)
-        assertEquals(0, sent)
+        assertEquals(0, scroll.value, "the sheet is over the screen, not part of it")
     }
 
     @Test
@@ -253,8 +255,63 @@ class DispatchSheetBehaviourTest {
         }
     }
 
+    // ── The screen that owns the sheet ───────────────────────────────────────────────────────
+    //
+    // Which world has its sheet up is `GalaxyScreen`'s own state, so these two are the only
+    // assertions in the file that cannot be made against a mapped frame: everything above is handed
+    // a sheet that is already up.
+
+    @Test
+    fun `tapping a world raises the sheet on the screen itself`() {
+        galaxyScreen(state = testGameState) {
+            assertNoSheet()
+
+            tapTheWorld(RUNNABLE_SLOT)
+
+            assertTheSheetIsUp()
+        }
+    }
+
+    @Test
+    fun `the run that leaves is the one the sheet described and the sheet then has nothing left to say`() {
+        // Read off the *rendered* offer rather than off the selection: the mapper is what resolved
+        // the three defaults and what clamped the hull count to the idle pool, so dispatching the
+        // raw selection would send a run the sheet never described.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = testGameState,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(RUNNABLE_SLOT)
+            bringBack(ResourceKind.CRYSTAL)
+            send()
+
+            // The state after the tap is its own receipt — the row's reach line and the Colony strip
+            // both change — so leaving the sheet up would be leaving up an argument for a decision
+            // already taken.
+            assertNoSheet()
+        }
+
+        val run = sent.single()
+        assertEquals(RUNNABLE_SLOT, run.at.slot)
+        assertEquals(ResourceKind.CRYSTAL, run.gathering)
+        // The whole idle pool by default, which at genesis is the one granted skiff.
+        assertEquals(Ships.of(ShipType.SKIFF, 1), run.ships)
+        assertEquals(3.hours, run.window)
+    }
+
     @Test
     fun `the sheet is not on the screen until a world is tapped`() {
         galaxyScreen(uiState = homeSystemUiState) { assertNoSheet() }
     }
 }
+
+// The four subjects of a run, kept together so one assertion can name all four rather than four
+// mutable lists agreeing by luck about which tap they came from.
+private data class Quadruple(
+    val at: GalaxyCoordinate,
+    val gathering: ResourceKind,
+    val ships: Ships,
+    val window: kotlin.time.Duration,
+)

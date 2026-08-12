@@ -35,11 +35,11 @@ internal object GalaxyTestTags {
     // Distinct from `DISPATCH` above, which is the *probe* button in the map card's footer. Two
     // verbs now leave this screen and they are aimed at different things — a probe at a star, a run
     // at a world — so nothing here reuses that tag.
+    // On the *contents* rather than on the chrome, so it names the same thing whether a test is
+    // driving the real sheet or the contents on their own — `ColonyTestTags.SHEET` is the precedent.
+    // There is no tag for the scrim any more: the sheet stopped drawing one when it became an
+    // `OltreBottomSheet`, and Material's scrim is the platform's to test, not ours.
     const val SHEET = "galaxy-dispatch-sheet"
-
-    // The scrim behind it. A tap here closes the sheet, which is the one way out that does not
-    // commit: there is no cancel button, because the sheet costs nothing to open.
-    const val SHEET_SCRIM = "galaxy-dispatch-scrim"
 
     // The verb, present only in the offer state. Absent in every refusal, which is the same
     // assertion `DISPATCH` carries for the probe: a screen that never offers a run the model would

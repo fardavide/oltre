@@ -215,10 +215,11 @@ internal fun GalaxyPage(
                 )
             }
         }
-        // Outside the scrolling column and last in the box, so it covers the whole destination
-        // rather than a scrolled slice of it. It is the one thing in this app that sits over another
-        // screen: everything else is a list you scroll, and a sheet is here because a run is the one
-        // action with three inputs.
+        // A popup rather than a layer of this box, which is what it was at 0.7.0: a panel drawn
+        // inside the destination stops where the destination stops — above the tab bar — and lets a
+        // drag through to the list behind it. `OltreBottomSheet` covers the window instead. It stays
+        // outside the scrolling column for the reason it always did, which now follows rather than
+        // being arranged for.
         uiState.dispatch?.let { dispatch ->
             DispatchSheet(
                 uiState = dispatch,

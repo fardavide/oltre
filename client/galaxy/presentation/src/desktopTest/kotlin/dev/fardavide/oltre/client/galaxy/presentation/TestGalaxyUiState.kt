@@ -332,6 +332,11 @@ internal val RUNNABLE_SLOT: Int = homeSystemUiState.bands
     .first { it.verdict is VerdictUiState.Blocked || it.verdict is VerdictUiState.Barren }
     .slot
 
+// The colony the three generated frames describe, for the tests that drive the stateful screen
+// rather than a mapped frame: which world has its sheet up is `GalaxyScreen`'s own state, so a tap
+// that raises one is only a tap that raises one from there.
+internal val testGameState: GameState = state
+
 // The world a settler cannot have and a fleet can — which is the whole mechanic in one frame.
 // Hostility gates settling, never gathering, so the commonest verdict on the map is also a perfectly
 // ordinary target.

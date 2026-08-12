@@ -6,14 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,20 +22,27 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
-import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
-// **Raised from a world row, and the only screen in the app that covers another one.** Everything
-// else in Oltre is a list you scroll: a sheet exists here because a run is the one action with three
-// inputs, and three controls inside a 106dp row would be the row becoming a screen anyway.
+// **Raised from a world row, and the second of the two sheets a player meets.** Everything else in
+// Oltre is a list you scroll: a sheet exists here because a run is the one action with three inputs,
+// and three controls inside a 106dp row would be the row becoming a screen anyway.
 //
 // Bring back, send, home in — in that order, because it is the order of decreasing permanence. What
 // your colony is short of changes over days, how many hulls you have changes over hours, and how
 // long you will be away changes every check-in. The figure sits under a rule and above the verb, and
 // is the only thing on the sheet that moves when a control is touched.
+//
+// **It was a hand-rolled panel at 0.7.0 and that is what shipped broken** — a Column at the bottom
+// of the page's own layout, with a scrim of its own, a shape of its own and a drawn grabber. On a
+// device it stopped above the tab bar instead of covering it, a drag on it scrolled the world list
+// behind it, and the handle did not drag. `OltreBottomSheet` is the chrome now, exactly as Colony
+// and Research have had since the row sheet landed; the sheet in `DebugSheet` made and fixed the
+// same mistake at 0.2.6, which is why the shared component exists rather than a fourth copy.
 @Composable
 internal fun DispatchSheet(
     uiState: DispatchUiState,
@@ -51,35 +55,26 @@ internal fun DispatchSheet(
     onDispatchProbe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // A column rather than a stack, and that is not a detail: the scrim is **the part of the screen
-    // the sheet is not covering**, so a tap on it is unambiguous — there is no overlap for a hit
-    // test to resolve and no way to aim at the scrim and reach a control. The sheet is opaque, so
-    // nothing is lost by not tinting behind it.
-    Column(modifier = modifier.fillMaxSize()) {
-        // The way out, and the only one: there is no cancel button because there is nothing to
-        // cancel. The sheet costs nothing to open and commits nothing until the verb is tapped, so
-        // an explicit dismiss would be a control whose whole job is to undo an action that has not
-        // happened.
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .background(SCRIM)
-                .testTag(GalaxyTestTags.SHEET_SCRIM)
-                .clickable(onClick = onDismiss),
-        )
+    // There is no cancel button because there is nothing to cancel: the sheet costs nothing to open
+    // and commits nothing until the verb is tapped, so an explicit dismiss would be a control whose
+    // whole job is to undo an action that has not happened. Every way out — the drag, the scrim, the
+    // back gesture — arrives here.
+    //
+    // **One composable, chrome and contents together**, where `RowSheet` and `DebugSheet` split the
+    // two. Their split pays for itself — both are driven contents-first by a test, so the assertions
+    // never wait on a popup — and this one's would not: every assertion here drives the real screen,
+    // because the coverage table gates each test kind separately and a behaviour test that stops
+    // composing `GalaxyPage` stops covering it. Eight parameters restated for no caller is eight
+    // parameters to keep in step. Split it the day something needs to render the contents alone.
+    OltreBottomSheet(onDismiss = onDismiss, modifier = modifier) {
         Column(
             modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .widthIn(max = OltreLayout.maxContentWidth)
                 .fillMaxWidth()
-                .background(OltreColors.surface, SHEET_SHAPE)
-                .border(1.dp, Color.White.copy(alpha = 0.09f), SHEET_SHAPE)
                 .testTag(GalaxyTestTags.SHEET)
-                .padding(start = 16.dp, end = 16.dp, top = 9.dp, bottom = 16.dp),
+                // No top padding: the sheet's own drag handle is the space above the coordinate.
+                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
         ) {
-            Grabber()
             Head(uiState = uiState, compact = compact)
             when (uiState) {
                 is DispatchUiState.Offer -> Offer(
@@ -94,20 +89,6 @@ internal fun DispatchSheet(
             }
         }
     }
-}
-
-// The one affordance that says "this drags away", drawn rather than implemented: nothing in this app
-// gestures yet, and a handle that looked draggable and was not would be a worse promise than the
-// scrim it sits above. It is there because a sheet with no handle at all reads as a screen that
-// arrived by mistake.
-@Composable
-private fun ColumnScope.Grabber() {
-    Box(
-        modifier = Modifier
-            .align(Alignment.CenterHorizontally)
-            .size(width = 36.dp, height = 4.dp)
-            .background(Color.White.copy(alpha = 0.17f), RoundedCornerShape(2.dp)),
-    )
 }
 
 // The coordinate on the left at the size the resource rail spends on a stock, the world on the
@@ -431,18 +412,9 @@ private fun Detail(text: String) {
     )
 }
 
-// Dark enough that the sheet reads as foreground and light enough that the world list stays legible
-// behind it — the row you raised this from is the context, so hiding it entirely would be hiding
-// what the sheet is about.
-private val SCRIM = Color(0xFF05070D).copy(alpha = 0.72f)
-
 // Accent at 45% and accent at 10%, which is the pair `OltreCardState.RUNNING` already spends on the
 // one lit thing on a screen. A selected control is the same claim: this is the one that is on.
 private val SELECTED_EDGE = OltreColors.accent.copy(alpha = 0.45f)
 private val SELECTED_FILL = OltreColors.accent.copy(alpha = 0.10f)
 
 private val CONTROL_SHAPE = RoundedCornerShape(10.dp)
-
-// Rounded at the top only: the sheet is anchored to the bottom edge and a radius on a corner that is
-// off-screen is a radius nobody sees.
-private val SHEET_SHAPE = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)

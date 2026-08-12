@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -12,11 +14,18 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import androidx.compose.ui.test.swipeUp
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.SystemAddress
 import kotlin.time.Duration
+import kotlinx.datetime.TimeZone
 
 internal const val PHONE_WIDTH = 393
 internal const val SLIDE_OVER_WIDTH = 320
@@ -27,6 +36,9 @@ internal const val SLIDE_OVER_WIDTH = 320
 internal fun galaxyScreen(
     uiState: GalaxyUiState,
     width: Int = PHONE_WIDTH,
+    // Hoisted into the harness for one assertion: what the page's scroll position does while a sheet
+    // is up over it. Nothing else in these tests looks at it.
+    scrollState: ScrollState? = null,
     onSelectGalaxy: (Int) -> Unit = {},
     onSelectSystem: (Int) -> Unit = {},
     onGoHome: () -> Unit = {},
@@ -46,6 +58,7 @@ internal fun galaxyScreen(
                 Surface {
                     GalaxyPage(
                         uiState = uiState,
+                        scrollState = scrollState ?: rememberScrollState(),
                         onSelectGalaxy = onSelectGalaxy,
                         onSelectSystem = onSelectSystem,
                         onGoHome = onGoHome,
@@ -56,6 +69,37 @@ internal fun galaxyScreen(
                         onSelectGathering = onSelectGathering,
                         onSelectShips = onSelectShips,
                         onSelectWindow = onSelectWindow,
+                        onDispatchRun = onDispatchRun,
+                    )
+                }
+            }
+        }
+        GalaxyRobot(this).block()
+    }
+}
+
+// The stateful screen, which is a different subject from the page above rather than a fuller
+// version of it: *which* world has its sheet up is this feature's own state — a `remember` keyed on
+// the seed and the system — so a tap that raises a sheet, and a dispatch that puts it away again,
+// can only be asserted from here. Everything else hands `GalaxyPage` a frame that already has one.
+@OptIn(ExperimentalTestApi::class)
+internal fun galaxyScreen(
+    state: GameState,
+    onOpenResearch: () -> Unit = {},
+    onDispatchProbe: (SystemAddress) -> Unit = {},
+    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit = { _, _, _, _ -> },
+    block: GalaxyRobot.() -> Unit,
+) {
+    runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
+        setContent {
+            OltreTheme {
+                Surface {
+                    GalaxyScreen(
+                        state = state,
+                        now = FIXTURE_NOW,
+                        timeZone = TimeZone.UTC,
+                        onOpenResearch = onOpenResearch,
+                        onDispatchProbe = onDispatchProbe,
                         onDispatchRun = onDispatchRun,
                     )
                 }
@@ -161,8 +205,12 @@ internal class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.SHEET).assert(containing(text).not())
     }
 
-    fun dismissTheSheet() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET_SCRIM).performClick()
+    // A drag that starts on the sheet, which is the gesture that told us the sheet was not one: a
+    // panel parked in the page's own layout has no pointer input of its own, so the drag fell
+    // through to the list behind it and the screen scrolled under the player's thumb.
+    fun dragTheSheet() = apply {
+        test.onNodeWithTag(GalaxyTestTags.SHEET).performTouchInput { swipeUp() }
+        test.waitForIdle()
     }
 
     fun bringBack(kind: ResourceKind) = apply {
