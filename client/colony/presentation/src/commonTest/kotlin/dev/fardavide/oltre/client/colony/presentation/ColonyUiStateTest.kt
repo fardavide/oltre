@@ -34,6 +34,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -406,12 +407,13 @@ class ColonyUiStateTest {
 
     @Test
     fun `a returning fleet appears as the strip with its target composition and countdown`() {
-        // given one run of 14 skiffs and 1 hauler home from [2:117:9], 4h 11m 52s out. The
-        // coordinate is where it *went* rather than where it is: a run names its target, and the
-        // strip says which world the hold was filled at
+        // given one run of 14 skiffs and 1 hauler home from [2:117:9], 4h 11m 52s out, and long
+        // enough since it left that the outbound leg is behind it. The coordinate is where it *went*
+        // rather than where it is: a run names its target, and the strip says which world the hold
+        // was filled at
         val now = Instant.fromEpochMilliseconds(0)
         val state = colony().copy(
-            runs = listOf(fleetRun(returnsAt = now + 4.hours + 11.minutes + 52.seconds)),
+            runs = listOf(fleetRun(returnsAt = now + 4.hours + 11.minutes + 52.seconds, leftDaysAgo = 1)),
         )
 
         // when
@@ -428,18 +430,51 @@ class ColonyUiStateTest {
         )
     }
 
+    // Claude Design's fifth call, 2026-08-10: the strip names the next **event**, not the next
+    // return. A run has two moments a player waits on and for the first half of every run the nearer
+    // one is the arrival — so a skiff still on its way out says so, and only turns into "Fleet
+    // returning" once it has turned for home. The strip has always been amber for in transit and a
+    // run is in transit in both directions, so nothing about its colour changes.
+    @Test
+    fun `a run still on its way out names the arrival rather than the return`() {
+        // given a run dispatched at this instant and home in nine hours: the next thing to happen to
+        // it is not the return
+        val now = Instant.fromEpochMilliseconds(0)
+        val state = colony().copy(
+            runs = listOf(fleetRun(returnsAt = now + 9.hours, leftDaysAgo = 0)),
+        )
+
+        // when
+        val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
+
+        // then the target is in the title, where the verb needs it, and not repeated below it
+        assertEquals("On station at [2:117:9]", strip.title)
+        assertEquals("14 skiff · 1 hauler", strip.subtitle)
+        // ...and the countdown is to the arrival, so it is strictly shorter than the nine hours the
+        // run is out for
+        assertTrue(strip.countdown < "09:00:00", strip.countdown)
+    }
+
     // Runs are parallel where the old model held exactly one fleet, so the strip has a case it never
     // had before — and it is one 48dp row, so the ones that are not next are a count rather than a
     // row each. The list is deliberately not in return order: nothing orders `runs`.
     @Test
     fun `several runs out name the soonest and count the rest`() {
-        // given three runs home at two five and nine hours
+        // given three runs home at two five and nine hours, all of them already on station
         val now = Instant.fromEpochMilliseconds(0)
         val state = colony().copy(
             runs = listOf(
-                fleetRun(returnsAt = now + 9.hours, target = GalaxyCoordinate(galaxy = 1, system = 42, slot = 7)),
-                fleetRun(returnsAt = now + 2.hours, ships = Ships.of(ShipType.SKIFF, 3)),
-                fleetRun(returnsAt = now + 5.hours, target = GalaxyCoordinate(galaxy = 3, system = 8, slot = 1)),
+                fleetRun(
+                    returnsAt = now + 9.hours,
+                    target = GalaxyCoordinate(galaxy = 1, system = 42, slot = 7),
+                    leftDaysAgo = 1,
+                ),
+                fleetRun(returnsAt = now + 2.hours, ships = Ships.of(ShipType.SKIFF, 3), leftDaysAgo = 1),
+                fleetRun(
+                    returnsAt = now + 5.hours,
+                    target = GalaxyCoordinate(galaxy = 3, system = 8, slot = 1),
+                    leftDaysAgo = 1,
+                ),
             ),
         )
 
@@ -449,6 +484,32 @@ class ColonyUiStateTest {
         // then the soonest is the one named in full and the other two are the door to Fleets
         assertEquals("from [2:117:9] · 3 skiff · 2 more away", strip.subtitle)
         assertEquals("02:00:00", strip.countdown)
+    }
+
+    // **Sorted by event rather than by return, and the two orderings genuinely differ**: a run
+    // dispatched at a far world can still be outbound when a nearer one has already turned for home.
+    // Picking the soonest *return* and then labelling it would name a moment that is not the next
+    // thing to happen.
+    @Test
+    fun `the strip names whichever event lands first even when it belongs to the later run`() {
+        // given a near run home in twenty hours and already on station, and a far one dispatched just
+        // now — the longest flight anywhere on the map is 9h 20m, so its arrival is inside those
+        // twenty hours whatever galaxy this colony's seed put it in
+        val now = Instant.fromEpochMilliseconds(0)
+        val far = GalaxyCoordinate(galaxy = 1, system = 42, slot = 7)
+        val state = colony().copy(
+            runs = listOf(
+                fleetRun(returnsAt = now + 20.hours, leftDaysAgo = 1),
+                fleetRun(returnsAt = now + 24.hours, target = far, leftDaysAgo = 0),
+            ),
+        )
+
+        // when
+        val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
+
+        // then it is the far run's arrival that is named, not the near run's return
+        assertEquals("On station at [1:42:7]", strip.title)
+        assertTrue(strip.countdown < "20:00:00", strip.countdown)
     }
 
     @Test
@@ -1305,8 +1366,16 @@ class ColonyUiStateTest {
 
     // A run in the shape `FleetRun` insists on — it left before it comes back, and it never gathers
     // deuterium. The 14 skiffs and 1 hauler are the manifest the strip was drawn with at 0.0.6.
+    //
+    // **`leftDaysAgo` is the phase, and it has to be said rather than defaulted.** The strip names
+    // the next *event*, so which of a run's two moments it is counting down to depends on how long
+    // ago it was dispatched: a day covers the longest flight on the map twice over, so 1 means "on
+    // station, coming home" and 0 means "still on its way out". Until the strip cared, this helper
+    // put `dispatchedAt` an hour before the return — which for a run four hours out is a dispatch in
+    // the *future*, harmless then and meaningless now.
     private fun fleetRun(
         returnsAt: Instant,
+        leftDaysAgo: Int,
         target: GalaxyCoordinate = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
         ships: Ships = Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)),
     ): FleetRun = FleetRun(
@@ -1314,7 +1383,7 @@ class ColonyUiStateTest {
         ships = ships,
         gathering = ResourceKind.METAL,
         cargo = Resources.of(metal = 500),
-        dispatchedAt = returnsAt - 1.hours,
+        dispatchedAt = Instant.fromEpochMilliseconds(0) - leftDaysAgo.days,
         returnsAt = returnsAt,
     )
 

@@ -34,11 +34,13 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
@@ -351,6 +353,38 @@ fun App(
                                             StartSurveyResult.AlreadySurveying,
                                             StartSurveyResult.AlreadySurveyed,
                                             StartSurveyResult.InsufficientResources,
+                                            -> state
+                                        }
+                                    }
+                                },
+                                // **The fifth verb, reaching a finger for the first time.** `core`
+                                // has carried `startRun` since 0.3.0 and nothing called it: the
+                                // balance existed, the save format carried it, `advance` landed the
+                                // cargo, and a player tapping a world got nothing at all.
+                                //
+                                // Three subjects rather than one, because they are three facets of
+                                // one commitment — see `startRun`, which takes them the same way for
+                                // the same reason. The five refusals are exhaustive and every one of
+                                // them returns the state untouched: the sheet is built so that none
+                                // is reachable from a finger, and this `when` is what says so out
+                                // loud rather than trusting it.
+                                onDispatchRun = { target, gathering, ships, window ->
+                                    act { state, at ->
+                                        when (
+                                            val result = startRun(
+                                                state = state,
+                                                target = target,
+                                                gathering = gathering,
+                                                ships = ships,
+                                                window = window,
+                                                at = at,
+                                            )
+                                        ) {
+                                            is StartRunResult.Started -> result.state
+                                            StartRunResult.Unsurveyed,
+                                            StartRunResult.NotAValidTarget,
+                                            StartRunResult.NoSuchShips,
+                                            StartRunResult.WindowTooShort,
                                             -> state
                                         }
                                     }

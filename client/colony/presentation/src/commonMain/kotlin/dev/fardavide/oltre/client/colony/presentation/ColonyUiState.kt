@@ -24,6 +24,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.DeepBuildRelief
 import dev.fardavide.oltre.core.EnergyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.Gate
 import dev.fardavide.oltre.core.GateSubject
 import dev.fardavide.oltre.core.GameState
@@ -187,7 +188,7 @@ fun GameState.toColonyUiState(
             finishedWhileAway = it == finishedWhileAway,
         )
     },
-    returningFleet = runs.toStrip(now),
+    returningFleet = runs.toStrip(home = galaxy.home, now = now),
     watching = watching,
 )
 
@@ -217,28 +218,47 @@ private fun EnergyBalance.verdict(headroomLevels: Long): String = when {
     else -> "room for $headroomLevels mine levels"
 }
 
-// The strip stays exactly what it was drawn as at 0.0.6 — coordinate, manifest, cargo, countdown, in
-// one 48dp row — and it finally has something real to say. Claude Design's call, 2026-08-10: it names
-// the **next return only**, and with several runs out it gains one trailing clause and nothing else.
-// A strip that grew a row per run would push a facility row off a 393×852 phone at the measured
-// 106dp, and the full list already has a tab; the count is a door to Fleets, not a summary of it.
+// The strip stays exactly what it was drawn as at 0.0.6 — coordinate, manifest, countdown, in one
+// 48dp row — and it finally has something real to say. Claude Design's call, 2026-08-10: **it names
+// the next *event*, not the next return**, and with several runs out it gains one trailing clause and
+// nothing else. A strip that grew a row per run would push a facility row off a 393×852 phone at the
+// measured 106dp, and the full list already has a tab; the count is a door to Fleets, not a summary
+// of it.
+//
+// The change of scope is the part worth stating: a run has two moments a player is waiting on, and
+// for the first half of every run the nearer one is the *arrival*. So an outbound skiff reads "On
+// station at [3:185:4]" and only becomes "Fleet returning" once it has turned for home. The strip has
+// always been amber for in transit and a run is in transit in both directions, so nothing about its
+// colour changes.
 //
 // Runs are unordered on `GameState`, so the soonest is picked here rather than assumed — the same
-// reason `advance` sorts its arrivals on an intrinsic key instead of on list order.
-private fun List<FleetRun>.toStrip(now: Instant): ReturningFleetUiState? {
-    val next = minByOrNull { it.returnsAt } ?: return null
-    val remainingMs = (next.returnsAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
+// reason `advance` sorts its arrivals on an intrinsic key instead of on list order. And it is sorted
+// by *event* rather than by return, which is not the same ordering: a run dispatched far away can
+// land on station after a nearer one has already started home.
+private fun List<FleetRun>.toStrip(home: GalaxyCoordinate, now: Instant): ReturningFleetUiState? {
+    val next = minByOrNull { it.nextEventAt(home, now) } ?: return null
+    val at = next.nextEventAt(home, now)
+    val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val composition = ShipType.entries
         .mapNotNull { type -> next.ships.counts[type]?.let { count -> "$count ${type.displayName()}" } }
         .joinToString(" · ")
     val others = size - 1
     val trailing = if (others > 0) " · $others more away" else ""
+    val target = "[${next.target.galaxy}:${next.target.system}:${next.target.slot}]"
+    val outbound = at < next.returnsAt
     return ReturningFleetUiState(
-        title = "Fleet returning",
-        subtitle = "from [${next.target.galaxy}:${next.target.system}:${next.target.slot}] · " +
-            "$composition$trailing",
+        title = if (outbound) "On station at $target" else "Fleet returning",
+        subtitle = if (outbound) "$composition$trailing" else "from $target · $composition$trailing",
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
     )
+}
+
+// Whichever of a run's two moments has not happened yet. Derived from the one instant `core` stores
+// per end rather than from a third field — see `FleetRun.flightEndsAt`, which exists for exactly this
+// and is read by nothing in `advance`, because a run has one transition and it is the return.
+private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant {
+    val onStation = flightEndsAt(home)
+    return if (now < onStation) onStation else returnsAt
 }
 
 private fun ShipType.displayName(): String = when (this) {

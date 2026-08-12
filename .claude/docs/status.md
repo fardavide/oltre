@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-11 (0.6.0)
+Updated: 2026-08-12 (0.7.0)
 
 ## Landed
 
@@ -300,6 +300,26 @@ Updated: 2026-08-11 (0.6.0)
   opening deals it on day one, and the Nanite Factory's relief is quoted at the gate rather than at
   the reader.
 
+- **0.7.0 the fleet reaches a finger (fleet arc, slice 1)** — the three client surfaces
+  `fleet-sheet.md` §12 ruled on, built to the archived frames. **`startRun` had been in `core` since
+  0.3.0 and nothing called it**: the balance existed, the save carried it, `advance` landed the
+  cargo, and a player tapping a world got nothing at all. What was missing was the tap.
+  `:client:galaxy:presentation` gains `DispatchUiState` and `DispatchSheet` — three controls in
+  order of decreasing permanence (bring back, send, home in), one figure that is the only thing that
+  moves when a control is touched, and the three lines that explain it. Two refusals, both reachable
+  on a first check-in and neither an error: an unsurveyed world hands back a probe, and a fleet
+  entirely away hands back a countdown. **No cost line and no affordability state** — a run is free,
+  the hull was the price, and "cannot afford" is a Shipyard state.
+  The world row moves to treatment **1b**: `Blocked` and `Barren` lead with metal and crystal
+  richness because their verdict is not an offer, and the badge steps down into the sentence below as
+  a `Blocked · ` clause keeping its axis, its band, its accent technology and its tap into Research.
+  The distance band is stated **once** under the system header because it is astronomy — identical
+  for all fifteen slots — while hazards stay on the rows carrying their own arithmetic, and nothing
+  but the sheet ever prints the sum. The Colony strip names the next **event** rather than the next
+  return, so an outbound skiff reads `On station at [3:185:4]`.
+  Sixteen behaviour tests, five new baselines, and every existing galaxy baseline moved. What it did
+  *not* touch: `core`, which needed nothing, and the frontier band, which belongs to slice 2.
+
 
 ## Roadmap — v1 in vertical slices
 
@@ -411,13 +431,32 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - ~~**`iosApp/project.yml` is bumped to 0.5.1 and the generated project is not regenerated**~~ —
   cleared at 0.6.0, which was a local session: `project.yml` is at 0.6.0 and `xcodegen generate` has
   been run and the project committed with it.
-- **THE NEXT THING TO BUILD: the screens the fleet already has a design for.** `core` landed at
-  0.3.0 and nothing a player can reach changed. Claude Design has ruled on all three surfaces and the
-  frames are archived at [`design/fleet-screens.dc.html`](design/fleet-screens.dc.html) — the world
-  row in treatment **1b** (*a row leads with what you can do about it today*), the dispatch sheet
-  (three controls, one figure, **no cost line and no affordability state** — a run is free), and the
-  Colony strip naming the next event with a `2 more away` clause. The Shipyard and Fleets tabs are
-  slices 3 and 4 of the same arc. See `fleet-sheet.md` §12 for all seven calls.
+- ~~**THE NEXT THING TO BUILD: the screens the fleet already has a design for.**~~ — **done at
+  0.7.0**, all three surfaces, to the archived frames. `startRun` had been in `core` since 0.3.0 with
+  nothing calling it from a finger; the tap that was missing was the world row's. The Shipyard and
+  Fleets tabs are slices 3 and 4 of the same arc and are still unbuilt.
+
+  **Three things that treatment 1b subtracted, listed because they are content that shipped and
+  they are Davide's to put back:** `Blocked` lost its `yield 1.06` and its `Fails 2 of 3 bands,
+  worth it at 0.92` calibration line (both added at 0.0.18); `Home` lost its yield and its hazards;
+  `Settleable` lost its deuterium richness. The design's argument in each case is that the slot went
+  to something the player can act on *today* — and for the third, that a run may never carry
+  deuterium, so on a screen whose other rows are now priced for a fleet it was the one richness with
+  nothing to compare against. All three are pinned as absences in the tests, so a row that quietly
+  grew one back would fail rather than drift.
+
+  **The frontier band is still not wired in**, deliberately: `FleetBalance.FRONTIER_PERCENT` was
+  decided at 0.3.0 and belongs to slice 2, so `cargo` is still flat and the dispatch sheet omits the
+  `frontier ×1.15` line the design draws. A sheet that printed a multiplier nothing applies would be
+  the screen lying about the arithmetic it is there to explain.
+
+  **Two abbreviations were authored that the design did not specify**, both measured rather than
+  guessed and both flagged here as overrulable. The astronomy line drops `from here` when the whole
+  line would exceed 54 monospace characters — which is the home system, where a *range* of round
+  trips is stated, and any target in another galaxy, where the distance is four digits and the flight
+  is hours; without it the screen every player opens on wrapped to two lines by two dp. And at 320dp
+  the world row's header drops the *lesser* of the two richnesses rather than ellipsising a figure,
+  which is the rule 0.5.0 already applied to the yield.
 - ~~**Two balance numbers are Davide's**~~ and ~~**`EXTRACTION_PER_HOUR` has not been swept**~~ —
   **all three settled 2026-08-10**, Davide delegating (*"You decide for me based on your research and
   logs"*). `printFleetReport` is built and balance-log **round 17** has the grid.

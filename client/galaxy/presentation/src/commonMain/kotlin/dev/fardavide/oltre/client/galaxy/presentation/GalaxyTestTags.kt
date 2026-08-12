@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.ResourceKind
 
 // Keyed by the slot number rather than by a label, for the reason `ResearchTestTags` is keyed by the
 // technology: renaming what a world reads cannot then silently retarget an assertion.
@@ -25,7 +26,44 @@ internal object GalaxyTestTags {
     // model would say no.
     const val DISPATCH = "galaxy-dispatch"
 
+    // The astronomy line under the system header. Stated once because the distance band is
+    // identical for all fifteen slots of a system — see `FleetBalance.danger`.
+    const val ASTRONOMY = "galaxy-astronomy"
+
+    // ── The dispatch sheet ───────────────────────────────────────────────────────────────────
+    //
+    // Distinct from `DISPATCH` above, which is the *probe* button in the map card's footer. Two
+    // verbs now leave this screen and they are aimed at different things — a probe at a star, a run
+    // at a world — so nothing here reuses that tag.
+    const val SHEET = "galaxy-dispatch-sheet"
+
+    // The scrim behind it. A tap here closes the sheet, which is the one way out that does not
+    // commit: there is no cancel button, because the sheet costs nothing to open.
+    const val SHEET_SCRIM = "galaxy-dispatch-scrim"
+
+    // The verb, present only in the offer state. Absent in every refusal, which is the same
+    // assertion `DISPATCH` carries for the probe: a screen that never offers a run the model would
+    // refuse is one where this tag is missing exactly when `startRun` would say no.
+    const val SEND = "galaxy-dispatch-send"
+
+    // The refusal's own action, which is a different verb in each of the two refusals — a probe
+    // where the world is unsurveyed, a countdown where every hull is away. One tag, because what a
+    // test wants to know is *what the refusal offers*, not which refusal produced it.
+    const val SHEET_ACTION = "galaxy-dispatch-sheet-action"
+
+    const val SHIPS_MORE = "galaxy-dispatch-ships-more"
+    const val SHIPS_FEWER = "galaxy-dispatch-ships-fewer"
+
     fun reachCell(system: Int): String = "galaxy-reach-cell-$system"
+
+    // Keyed by the resource rather than by the label for `adaptation`'s reason: "Metal" is a string
+    // the copy owns and `ResourceKind.METAL` is the thing the run actually carries.
+    fun gather(kind: ResourceKind): String = "galaxy-dispatch-gather-${kind.name.lowercase()}"
+
+    // Keyed by the rung's own duration in whole minutes, not by the label it prints: a ladder
+    // *narrows* on a distant target rather than disabling rungs, so the rung at index 0 is a
+    // different window depending on how far away the world is.
+    fun window(minutes: Long): String = "galaxy-dispatch-window-$minutes"
 
     fun row(slot: Int): String = "galaxy-row-$slot"
 
