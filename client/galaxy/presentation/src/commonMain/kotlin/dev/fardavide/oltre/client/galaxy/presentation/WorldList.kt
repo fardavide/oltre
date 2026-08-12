@@ -15,8 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.SectionLabel
@@ -24,13 +27,16 @@ import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
-// Every world is the same card: the coordinate, the verdict word, the orbit band on the right, and
-// whatever the verdict earns beneath it. The verdict word takes the only colour on the row.
+// **Treatment 1b: a row leads with what you can do about it today.** One rule generates all six
+// verdicts — Blocked and Barren lead with richness because their verdict is not an offer, and the
+// other four lead with the verdict because it is. See `VerdictUiState` for the argument and for what
+// the treatment subtracted.
 @Composable
 internal fun WorldList(
     bands: List<OrbitBandUiState>,
     compact: Boolean,
     onOpenResearch: () -> Unit,
+    onOpenWorld: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -41,7 +47,12 @@ internal fun WorldList(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 13.dp),
             ) {
                 band.rows.forEach { row ->
-                    WorldRow(row = row, compact = compact, onOpenResearch = onOpenResearch)
+                    WorldRow(
+                        row = row,
+                        compact = compact,
+                        onOpenResearch = onOpenResearch,
+                        onOpenWorld = onOpenWorld,
+                    )
                 }
             }
         }
@@ -49,7 +60,12 @@ internal fun WorldList(
 }
 
 @Composable
-private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () -> Unit) {
+private fun WorldRow(
+    row: WorldRowUiState,
+    compact: Boolean,
+    onOpenResearch: () -> Unit,
+    onOpenWorld: (Int) -> Unit,
+) {
     // The one row that is not a card. It is not tappable, so it does not get the surface every
     // tappable thing in the app has — a hairline and no fill instead.
     if (row.verdict is VerdictUiState.Relay) {
@@ -58,6 +74,12 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () 
     }
 
     val home = row.verdict is VerdictUiState.Home
+    // **Whether this row raises a sheet is `startRun`'s rule, restated once.** Your own world, a
+    // world somebody holds and a relay all refuse outright, so a row that offered a sheet for one of
+    // them would be the screen promising something the verb would throw away the moment it was used.
+    // Everything else is a target — including `Blocked`, which is the whole mechanic: hostility gates
+    // settling and never gathering, so the commonest verdict on the map is an ordinary destination.
+    val target = row.verdict.isRunnable()
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -68,43 +90,49 @@ private fun WorldRow(row: WorldRowUiState, compact: Boolean, onOpenResearch: () 
             )
             .background(oltreCardSurface, RoundedCornerShape(14.dp))
             .testTag(GalaxyTestTags.row(row.slot))
+            .clickable(enabled = target) { onOpenWorld(row.slot) }
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
         Header(row = row, compact = compact)
-        // At 320dp the yield leaves the header rather than being cut by it: a coordinate, a verdict
-        // word, a yield and an orbit tag do not fit on one line at that width, and the header's
-        // ellipsis would land on the *number* — "BARREN yield 0…". Abbreviation may drop a noun; it
-        // may never truncate a figure, which is the one thing on the row a player is comparing.
-        val movedYield = if (compact) row.verdict.yieldLabel() else null
-        movedYield?.let { Detail(text = it, color = OltreColors.textSecondary) }
         when (val verdict = row.verdict) {
-            is VerdictUiState.Home -> {
-                Detail(text = verdict.axes, color = OltreColors.textSecondary)
-                Detail(text = verdict.detail, color = OltreColors.textTertiary)
-            }
-            is VerdictUiState.Occupied -> Detail(text = verdict.holder, color = OltreColors.textSecondary)
+            is VerdictUiState.Home -> Note(text = verdict.note)
+            is VerdictUiState.Occupied -> Note(text = verdict.note)
+            is VerdictUiState.Settleable -> Note(text = verdict.note)
             // Two facts, both free: the coordinate and the orbit, both already in the header. The
-            // shortest card in the app, because a screen of them is the normal case.
+            // shortest card in the app, because a screen of them is the normal case — and it says
+            // nothing about hazards because it knows nothing about them.
             VerdictUiState.Unsurveyed -> Unit
             is VerdictUiState.Blocked -> {
-                BlockedAxes(slot = row.slot, failures = verdict.failures, onOpenResearch = onOpenResearch)
-                Detail(text = verdict.calibration, color = OltreColors.textSecondary)
-                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+                FleetReading(reading = verdict.reading, compact = compact)
+                BlockedAxes(
+                    slot = row.slot,
+                    failures = verdict.failures,
+                    onOpenResearch = onOpenResearch,
+                )
             }
             is VerdictUiState.Barren -> {
-                Detail(text = verdict.threshold, color = OltreColors.textSecondary)
-                Detail(text = verdict.detail, color = OltreColors.textTertiary)
-            }
-            is VerdictUiState.Settleable -> {
-                Detail(text = verdict.richness, color = OltreColors.textSecondary)
-                Detail(text = verdict.detail, color = OltreColors.textTertiary)
+                FleetReading(reading = verdict.reading, compact = compact)
+                // The same slot the blocked axes take, with one clause instead of a list: Barren
+                // fails no band at all, it fails the bar. No technology, because no ladder widens a
+                // yield — which is why this line has nothing flush right and Blocked's does.
+                BlockedLine(
+                    lead = "Barren$SEPARATOR",
+                    body = verdict.threshold,
+                    failure = null,
+                    slot = row.slot,
+                    onOpenResearch = onOpenResearch,
+                )
             }
             is VerdictUiState.Relay -> Unit // answered above, before the card
         }
     }
 }
 
+// The coordinate, then either the two numbers that price a hold or the verdict word, then the orbit.
+// **A row never carries two label-shaped states at once** — which is the whole of 1b: on the two
+// verdicts that are not an offer the badge steps down into the sentence below, and the slot it
+// vacates says what the world is worth to a fleet.
 @Composable
 private fun Header(row: WorldRowUiState, compact: Boolean) {
     val mono = oltreMono()
@@ -117,11 +145,8 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
             maxLines = 1,
             softWrap = false,
         )
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalAlignment = Alignment.Bottom,
-            modifier = Modifier.weight(1f).padding(start = 8.dp),
-        ) {
+        val reading = row.verdict.fleetReading()
+        if (reading == null) {
             Text(
                 text = row.verdict.word(),
                 color = row.verdict.hue(),
@@ -131,18 +156,36 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
                 letterSpacing = 1.4.sp,
                 maxLines = 1,
                 softWrap = false,
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
             )
-            row.verdict.yieldLabel().takeIf { !compact }?.let { label ->
+        } else {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(9.dp),
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
+            ) {
                 Text(
-                    text = label,
-                    color = OltreColors.textTertiary,
+                    text = reading.metal,
+                    color = OltreColors.metal,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
                     maxLines = 1,
-                    // Never reached at either width the app ships against — the compact branch
-                    // above moves this line out of the header rather than letting it be cut.
-                    overflow = TextOverflow.Ellipsis,
+                    softWrap = false,
                 )
+                // At 320dp the pair does not fit beside a coordinate and an orbit tag, and what goes
+                // is the *lesser* half rather than an ellipsis through a figure — the same rule that
+                // moved the yield out of this header at 0.5.0. Both numbers are still on the sheet
+                // the row raises, which is where the choice between them is actually made.
+                if (!compact) {
+                    Text(
+                        text = reading.crystal,
+                        color = OltreColors.crystal,
+                        fontFamily = mono,
+                        fontSize = 10.5.sp,
+                        maxLines = 1,
+                        softWrap = false,
+                    )
+                }
             }
         }
         Text(
@@ -157,64 +200,121 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
     }
 }
 
+// The hazards on the left carrying their own arithmetic, the round trip flush right and fainter.
+// Neither needs a survey to be *asked* for and both need one to be answered, which is why they are
+// on the row rather than under the header where the astronomy lives.
+@Composable
+private fun FleetReading(reading: FleetReadingUiState, compact: Boolean) {
+    val mono = oltreMono()
+    Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = reading.hazards,
+            color = OltreColors.textSecondary,
+            fontFamily = mono,
+            fontSize = 10.5.sp,
+            lineHeight = 15.sp,
+            modifier = Modifier.weight(1f),
+        )
+        // At 320dp the crystal richness moved out of the header and onto this line's left-hand end
+        // would be a second reflow; the round trip is what goes instead, because it is the only
+        // figure here that the sheet restates in full three lines later.
+        if (!compact) {
+            Text(
+                text = reading.reach,
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                lineHeight = 15.sp,
+                maxLines = 1,
+                softWrap = false,
+                modifier = Modifier.padding(start = 10.dp),
+            )
+        }
+    }
+}
+
 // One line per failing axis: the axis and its two readings on the left, the technology flush right
 // in its own column. The brief's sentence — "gravity 2.4 g, you tolerate 1.45 g, Gravitic
 // Adaptation 8 would land it" — wraps to three lines at 393dp, and three of those is the wall this
 // row must not be. It keeps the clause order and loses the verb.
+//
+// **The first line carries the verdict as its opening clause**, which is where the badge went.
 @Composable
 private fun BlockedAxes(slot: Int, failures: List<BlockedAxisUiState>, onOpenResearch: () -> Unit) {
-    val mono = oltreMono()
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
-        failures.forEach { failure ->
-            Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "${failure.axis} ${failure.reading}, you tolerate ${failure.tolerated}",
-                    color = OltreColors.textSecondary,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    lineHeight = 15.sp,
-                    modifier = Modifier.weight(1f),
-                )
-                // Accent again, and tappable — one decision rather than two. 0.0.16 demoted this to
-                // textSecondary for exactly one reason, that Research could not sell what the string
-                // named, and this slice ends that reason. But restoring the colour alone would break
-                // the rule harder than the demotion did: accent is the screen's only "go tap this"
-                // signal, so an accent string that is not a target is worse than a tertiary string
-                // that is not a target. Ship both or ship neither.
-                //
-                // The target is the string, not the row: the row belongs to the world — survey now,
-                // claim later — and a whole-row deep link would take that away from the thing the
-                // player usually wants. It selects the Research tab and stops there. Under a second
-                // section on one screen the ADAPTATION rows are already on screen when they arrive,
-                // so there is no scroll target, no highlighted row and no arrival state to design.
-                Text(
-                    text = failure.label,
-                    color = OltreColors.accent,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    lineHeight = 15.sp,
-                    maxLines = 1,
-                    softWrap = false,
-                    // **The padding is inside the clickable, and that ordering is the whole point.**
-                    // A 10.5sp line box is 15dp tall; every other target in the app is 30–32dp —
-                    // the Research button is 11sp plus 7dp of vertical padding, the steppers are
-                    // 32dp square. Put the padding before `clickable` and the hit rectangle is the
-                    // glyphs alone, which on the delivery target is a third of the 44pt iOS
-                    // minimum. Accent means "go tap this"; a target this small is the promise
-                    // breaking on contact, and a near miss lands on a card that is deliberately
-                    // not clickable, so nothing at all happens.
-                    //
-                    // The vertical padding is 6dp rather than the 7dp the Research button uses, so
-                    // that a three-axis card's lines still clear each other by the 5dp this Column
-                    // spaces them with rather than visibly loosening.
-                    modifier = Modifier
-                        .clickable(onClick = onOpenResearch)
-                        .testTag(GalaxyTestTags.adaptation(slot, failure.technology))
-                        .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
-                )
-            }
+        failures.forEachIndexed { index, failure ->
+            BlockedLine(
+                lead = if (index == 0) "Blocked$SEPARATOR" else null,
+                body = "${failure.axis} ${failure.reading}, you tolerate ${failure.tolerated}",
+                failure = failure,
+                slot = slot,
+                onOpenResearch = onOpenResearch,
+            )
         }
     }
+}
+
+@Composable
+private fun BlockedLine(
+    lead: String?,
+    body: String,
+    failure: BlockedAxisUiState?,
+    slot: Int,
+    onOpenResearch: () -> Unit,
+) {
+    val mono = oltreMono()
+    Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = leadIn(lead = lead, body = body),
+            fontFamily = mono,
+            fontSize = 10.5.sp,
+            lineHeight = 15.sp,
+            modifier = Modifier.weight(1f),
+        )
+        // Accent again, and tappable — one decision rather than two. 0.0.16 demoted this to
+        // textSecondary for exactly one reason, that Research could not sell what the string named,
+        // and 0.0.18 ended that reason. Restoring the colour alone would break the rule harder than
+        // the demotion did: accent is the screen's only "go tap this" signal, so an accent string
+        // that is not a target is worse than a tertiary string that is not a target.
+        //
+        // **The target is the string, and since this slice the rest of the row is a target too** —
+        // for a different destination. The two do not compete: the technology goes to the tab that
+        // sells the ladder, and the card goes to the sheet that sends a ship *without* it. That is
+        // the row stating both of its answers, which is exactly what treatment 1b is for.
+        failure?.let {
+            Text(
+                text = failure.label,
+                color = OltreColors.accent,
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                lineHeight = 15.sp,
+                maxLines = 1,
+                softWrap = false,
+                // **The padding is inside the clickable, and that ordering is the whole point.** A
+                // 10.5sp line box is 15dp tall; every other target in the app is 30–32dp. Put the
+                // padding before `clickable` and the hit rectangle is the glyphs alone, which on the
+                // delivery target is a third of the 44pt iOS minimum. Accent means "go tap this"; a
+                // target this small is the promise breaking on contact — and a near miss now lands
+                // on the card, which opens a sheet about a completely different decision.
+                //
+                // The vertical padding is 6dp rather than the 7dp the Research button uses, so that
+                // a three-axis card's lines still clear each other by the 5dp this Column spaces
+                // them with rather than visibly loosening.
+                modifier = Modifier
+                    .clickable(onClick = onOpenResearch)
+                    .testTag(GalaxyTestTags.adaptation(slot, failure.technology))
+                    .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
+            )
+        }
+    }
+}
+
+// The verdict in the muted ink and the reading a step fainter behind it. The demotion is the point:
+// in 1b the blockage is the *second* half of a sentence whose first half is what you can act on, so
+// it must not read as loudly as the badge it replaced.
+private fun leadIn(lead: String?, body: String): AnnotatedString = buildAnnotatedString {
+    lead?.let { withStyle(SpanStyle(color = OltreColors.textSecondary)) { append(it) } }
+    withStyle(SpanStyle(color = OltreColors.textTertiary)) { append(body) }
 }
 
 @Composable
@@ -256,13 +356,36 @@ private fun RelayRow(row: WorldRowUiState, relay: VerdictUiState.Relay) {
                 softWrap = false,
             )
         }
-        Detail(text = relay.effect, color = OltreColors.textTertiary)
+        Note(text = relay.effect, color = OltreColors.textTertiary)
     }
 }
 
 @Composable
-private fun Detail(text: String, color: Color) {
-    Text(text = text, color = color, fontFamily = oltreMono(), fontSize = 10.5.sp, lineHeight = 15.sp)
+private fun Note(text: String, color: Color = OltreColors.textSecondary) {
+    Text(text = text, color = color, fontFamily = oltreMono(), fontSize = 10.5.sp, lineHeight = 16.sp)
+}
+
+// Non-null exactly on the two verdicts that lead with richness, which is the one place the treatment
+// is decided — the header, the presence of the hazards line and the "Blocked · " clause all follow
+// from this and cannot drift apart from each other.
+private fun VerdictUiState.fleetReading(): FleetReadingUiState? = when (this) {
+    is VerdictUiState.Blocked -> reading
+    is VerdictUiState.Barren -> reading
+    else -> null
+}
+
+// `startRun`'s three outright refusals, restated as the rule for whether the card is a target. Home
+// and Occupied are refused by the verb; the relay never reaches here.
+private fun VerdictUiState.isRunnable(): Boolean = when (this) {
+    is VerdictUiState.Blocked,
+    is VerdictUiState.Barren,
+    is VerdictUiState.Settleable,
+    VerdictUiState.Unsurveyed,
+    -> true
+    is VerdictUiState.Home,
+    is VerdictUiState.Occupied,
+    is VerdictUiState.Relay,
+    -> false
 }
 
 private fun VerdictUiState.word(): String = when (this) {
@@ -275,8 +398,10 @@ private fun VerdictUiState.word(): String = when (this) {
     is VerdictUiState.Relay -> "RELAY"
 }
 
-// No colour for Occupied or Barren: another empire holding a world is not a warning, and a thin
-// world is a fact rather than a state. Unsurveyed is faint but not dimmed — it keeps the full card.
+// No colour for Occupied: another empire holding a world is not a warning. Unsurveyed is faint but
+// not dimmed — it keeps the full card. Blocked and Barren never reach this in 1b, because their slot
+// in the header is the richness pair; the two entries are kept so the `when` stays exhaustive over a
+// sealed hierarchy rather than swallowing a future verdict in an `else`.
 private fun VerdictUiState.hue(): Color = when (this) {
     is VerdictUiState.Home -> OltreColors.accent
     is VerdictUiState.Occupied -> OltreColors.textSecondary
@@ -285,13 +410,4 @@ private fun VerdictUiState.hue(): Color = when (this) {
     is VerdictUiState.Barren -> OltreColors.textSecondary
     is VerdictUiState.Settleable -> OltreColors.ok
     is VerdictUiState.Relay -> OltreColors.accent
-}
-
-// Every surveyed verdict that has one, which now includes `Blocked`: a row that named the cost and
-// never the worth was half a verdict, and on this screen it was the half the player sees most.
-private fun VerdictUiState.yieldLabel(): String? = when (this) {
-    is VerdictUiState.Blocked -> yieldLabel
-    is VerdictUiState.Barren -> yieldLabel
-    is VerdictUiState.Settleable -> yieldLabel
-    else -> null
 }

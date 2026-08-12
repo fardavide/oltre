@@ -158,6 +158,28 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.7.0 — 2026-08-12
+
+- **You can send a ship somewhere.** Tap any world on the Galaxy tab and a sheet comes up that will
+  fly your skiff there, sit on it, and bring back metal or crystal. Pick which of the two, how many
+  hulls to send, and how long until you want them home — one hour, three, six, twelve or a day. The
+  figure under the rule is what lands, and it moves as you touch the controls.
+- **A world you cannot live on is still worth going to.** Hostility gates settling and never
+  gathering, so the 98% of the galaxy that reads as blocked stops being a wall and starts being a
+  shopping list. A blocked world now leads with what it is rich in rather than with what is wrong
+  with it, and says how long the round trip takes.
+- **The map says how far away you are, once.** Under the system header: how many units out, what the
+  distance costs you in danger, and the round trip. Hazards stay on the worlds that carry them, with
+  their own arithmetic — nothing prints the total except the sheet that spends it.
+- **A run is free.** The hull was the price. There is no cost line on the sheet and nothing to be
+  short of.
+- **Send it too far and the short windows disappear** rather than greying out. A trip to the next
+  galaxy is nine hours and twenty minutes out and back, so only the twelve- and twenty-four-hour
+  windows are offered, and the sheet says why.
+- **The Colony strip names the next thing that happens**, not the next thing that comes home — so a
+  skiff still on its way out reads "On station at [3:185:4]".
+- Your first skiff was granted at the founding of the colony and has had nothing to do since. It has
+  something to do now.
 ### 0.6.0 — 2026-08-11
 
 - **Every row now says what the level is worth to you.** A mine has always told you what it costs

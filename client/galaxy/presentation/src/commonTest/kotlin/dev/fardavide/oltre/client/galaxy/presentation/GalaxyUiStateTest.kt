@@ -155,17 +155,20 @@ class GalaxyUiStateTest {
     }
 
     @Test
-    fun `the home world shows its three axes and its yield`() {
-        // It is the reference: every other yield on the screen is read against 0.91, so the player
-        // meets it on the first launch rather than inferring it.
+    fun `the home world shows the three axes every blocked row is measured against`() {
+        // It is the reference row: "you tolerate 1.40 g" on five other rows means nothing except
+        // against the world the player is standing on, so they meet it on the first launch.
+        //
+        // **Its yield and its hazards left this line at treatment 1b**, which is a subtraction
+        // rather than a slip: the note is one line, and the only yields left on the screen are
+        // Barren's threshold and Settleable's, both of which quote the bar directly.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val home = uiState.bands.flatMap { it.rows }.first { it.slot == 7 }
 
         // The space before each unit is U+00A0, written as an escape here so the expectation is
         // legible in a diff — a value and its unit must never be split across a wrap.
         val verdict = assertIs<VerdictUiState.Home>(home.verdict)
-        assertEquals("−5 °C · 1.21 g · 1.95 atm", verdict.axes)
-        assertEquals("159 fields · yield 0.91 · radiation belt", verdict.detail)
+        assertEquals("−5 °C · 1.21 g · 1.95 atm · 159 fields", verdict.note)
         assertEquals("[3:171:7]", home.coordinate)
     }
 
@@ -184,32 +187,63 @@ class GalaxyUiStateTest {
     }
 
     @Test
-    fun `a blocked world states what it is worth and not only what it costs`() {
-        // The pillar on one row: the nearest blocked world of the home system out-yields the
-        // worth-it threshold, so what stands between the player and it is a technology rather
-        // than the world. A row that named the cost and never the worth left that unsaid.
+    fun `a blocked world leads with what a hold is worth rather than with the verdict`() {
+        // **Treatment 1b in one assertion.** A blocked world's verdict is not an offer — you cannot
+        // live there and no ladder you can afford this week changes that — so the headline goes to
+        // the thing you *can* act on today, which is the two numbers that price a hold. That is what
+        // stops 98% of the galaxy reading as a wall.
+        //
+        // What this replaced: a yield and a "Fails 2 of 3 bands, worth it at 0.92" calibration line.
+        // Both were added at 0.0.18 for a real reason and both are Design's to move, because the
+        // reason — make a run of bad answers read as a scale rather than as bad luck — is now
+        // carried by a row that says what the world *is* good for.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(
             uiState.bands.flatMap { it.rows }.first { it.slot == 11 }.verdict,
         )
 
-        // Over the 0.92 its own calibration line names, which is the pillar in one row.
-        assertEquals("yield 1.06", blocked.yieldLabel)
+        assertEquals("metal 1.13", blocked.reading.metal)
+        assertEquals("crystal 0.71", blocked.reading.crystal)
     }
 
     @Test
-    fun `a blocked world counts the bands it fails against the same bar Barren names`() {
-        // Barren's threshold sentence is what makes a bad answer read as a scale rather than as
-        // bad luck, and 98% of surveyed worlds are Blocked — so it is the verdict that needs the
-        // calibration most. The bar is the one core actually applies, quoted identically on both.
+    fun `a row states its own hazards and never the danger total`() {
+        // The split is epistemic rather than visual. Hazards are per-world and need a survey, so
+        // they sit on the row carrying their own arithmetic; the distance band is astronomy and is
+        // identical for all fifteen slots, so it is stated once under the system header. A row
+        // printing `danger 2` could not say which half it came from — and on the 98% of rows that
+        // are unsurveyed it would be claiming knowledge nobody has paid for.
+        // Asserted over every reading the home system produces rather than over one chosen slot: the
+        // seed decides which worlds carry a hazard, so naming a slot here would be asserting the
+        // seed and would go quietly vacuous the day genesis moves — which it did at 0.5.1.
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
-        val rows = uiState.bands.flatMap { it.rows }
+        val readings = uiState.bands.flatMap { it.rows }.mapNotNull { row ->
+            when (val verdict = row.verdict) {
+                is VerdictUiState.Blocked -> verdict.reading
+                is VerdictUiState.Barren -> verdict.reading
+                else -> null
+            }
+        }
 
-        val twoAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 11 }.verdict)
-        val threeAxes = assertIs<VerdictUiState.Blocked>(rows.first { it.slot == 1 }.verdict)
+        assertTrue(readings.isNotEmpty(), "the home system is surveyed at genesis")
+        readings.forEach { reading ->
+            // Either it names none, or it names them and adds up only its own.
+            val ownArithmeticOnly = reading.hazards == "no hazards" || reading.hazards.endsWith(" danger")
+            assertTrue(ownArithmeticOnly, reading.hazards)
+            assertTrue(!reading.hazards.startsWith("danger "), "a row never prints the sum: $reading")
+        }
+    }
 
-        assertEquals("Fails 2 of 3 bands, worth it at 0.92", twoAxes.calibration)
-        assertEquals("Fails 3 of 3 bands, worth it at 0.92", threeAxes.calibration)
+    @Test
+    fun `a row states the round trip a hold would take`() {
+        // Read from `FleetBalance` rather than restated, so the row and the sheet it raises cannot
+        // disagree about how far away a world is.
+        val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+        val blocked = assertIs<VerdictUiState.Blocked>(
+            uiState.bands.flatMap { it.rows }.first { it.slot == 11 }.verdict,
+        )
+
+        assertEquals("24m out and back", blocked.reading.reach)
     }
 
     // The fix 0.0.17 left behind, and the one thing on this screen that could have shipped silently
@@ -304,7 +338,7 @@ class GalaxyUiStateTest {
         val uiState = state(held).toGalaxyUiState(at = SystemSelection(galaxy = 3, system = 164), now = EPOCH, timeZone = TimeZone.UTC)
         val row = uiState.bands.flatMap { it.rows }.first { it.slot == 5 }
 
-        assertEquals(VerdictUiState.Occupied(holder = "Held by kepler"), row.verdict)
+        assertEquals(VerdictUiState.Occupied(note = "Held by kepler"), row.verdict)
         assertEquals(MapMark.OCCUPIED, uiState.map.bodies.first { it.slot == 5 }.mark)
     }
 
@@ -376,9 +410,16 @@ class GalaxyUiStateTest {
             .bands.flatMap { it.rows }.first { it.slot == at.slot }
 
         val verdict = assertIs<VerdictUiState.Barren>(row.verdict)
-        assertTrue(verdict.yieldLabel.startsWith("yield 0."), verdict.yieldLabel)
-        assertEquals("Passes every band, worth it at 0.92", verdict.threshold)
-        assertTrue(verdict.detail.contains("fields"), verdict.detail)
+        // The yield against the bar, in the slot the blocked axes take on a blocked row — Barren
+        // fails no band at all, it fails the threshold, so it has one clause where Blocked has a
+        // list. Naming the bar is what makes a run of these read as calibration rather than as bad
+        // luck, and Barren is designed to be a common answer.
+        assertTrue(verdict.threshold.startsWith("yield 0."), verdict.threshold)
+        assertTrue(verdict.threshold.endsWith("worth it at 0.92"), verdict.threshold)
+        // ...and it leads with richness like Blocked does, because a world too thin to settle is
+        // still perfectly good ground to send a hold to.
+        assertTrue(verdict.reading.metal.startsWith("metal "), verdict.reading.metal)
+        assertTrue(verdict.reading.reach.endsWith("out and back"), verdict.reading.reach)
     }
 
     @Test
@@ -388,13 +429,15 @@ class GalaxyUiStateTest {
         val row = state(surveyed).toGalaxyUiState(at = SystemSelection(at.galaxy, at.system), now = EPOCH, timeZone = TimeZone.UTC)
             .bands.flatMap { it.rows }.first { it.slot == at.slot }
 
+        // The rarest verdict in the game and the only one still an offer to a settler, so it keeps
+        // its badge and puts everything else on one note line. Deuterium left that line with
+        // treatment 1b: a run may never carry it, so on a screen whose other rows are now priced for
+        // a fleet it was the one richness with nothing to compare against.
         val verdict = assertIs<VerdictUiState.Settleable>(row.verdict)
-        assertTrue(verdict.yieldLabel.startsWith("yield "), verdict.yieldLabel)
-        // The three resources in the order section 1 lists their axes, so a player reading two
-        // settleable worlds compares like with like.
-        assertTrue(verdict.richness.startsWith("metal "), verdict.richness)
-        assertTrue(verdict.richness.contains("· crystal "), verdict.richness)
-        assertTrue(verdict.richness.contains("· deut "), verdict.richness)
+        assertTrue(verdict.note.startsWith("Yield "), verdict.note)
+        assertTrue(verdict.note.contains("· metal "), verdict.note)
+        assertTrue(verdict.note.contains("· crystal "), verdict.note)
+        assertTrue(verdict.note.endsWith(" fields"), verdict.note)
     }
 
     @Test

@@ -1,9 +1,19 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.FleetRun
+import dev.fardavide.oltre.core.GalaxyBalance
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.worldAt
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -79,10 +89,11 @@ internal val everyVerdictUiState = GalaxyUiState(
     compactDetail = "BRIGHT · 6",
     isHome = false,
     // Mapped for *this* coordinate rather than borrowed from another frame, and that matters even
-    // though only the verdicts are under test here: the band and the footer are both functions of
-    // where you are standing, so a frame headed 2:118 carrying galaxy 3's ruler and the flight time
-    // to somewhere else would be a baseline asserting a screen that cannot exist. Neither of them
-    // reads a verdict, so taking them from the real mapper costs this fixture nothing.
+    // though only the verdicts are under test here: the band, the footer and the astronomy line are
+    // all functions of where you are standing, so a frame headed 2:118 carrying galaxy 3's ruler and
+    // the flight time to somewhere else would be a baseline asserting a screen that cannot exist.
+    // None of them reads a verdict, so taking them from the real mapper costs this fixture nothing.
+    astronomy = elsewhereUiState.astronomy,
     reach = elsewhereUiState.reach,
     probe = elsewhereUiState.probe,
     map = bodies(
@@ -113,16 +124,13 @@ internal val everyVerdictUiState = GalaxyUiState(
                     coordinate = "[2:118:4]",
                     slot = 4,
                     band = OrbitBand.TEMPERATE,
-                    verdict = VerdictUiState.Home(
-                        axes = homeAxes(),
-                        detail = homeDetail(),
-                    ),
+                    verdict = VerdictUiState.Home(note = homeNote()),
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:5]",
                     slot = 5,
                     band = OrbitBand.TEMPERATE,
-                    verdict = VerdictUiState.Occupied(holder = "Held by kepler"),
+                    verdict = VerdictUiState.Occupied(note = "Held by kepler"),
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:6]",
@@ -134,13 +142,18 @@ internal val everyVerdictUiState = GalaxyUiState(
                     coordinate = "[2:118:8]",
                     slot = 8,
                     band = OrbitBand.TEMPERATE,
+                    // Rich in both, and locked behind a ladder nobody has bought — which is treatment
+                    // 1b's whole argument in one row: what you can do about this world today is send
+                    // a hold to it, so the two numbers that price a hold take the headline and the
+                    // blockage becomes the sentence underneath.
                     verdict = VerdictUiState.Blocked(
+                        reading = FleetReadingUiState(
+                            metal = "metal 1.24",
+                            crystal = "crystal 0.74",
+                            hazards = "ion storms · +1 danger",
+                            reach = "1h 12m out and back",
+                        ),
                         failures = listOf(blocked("gravity", "2.40", "1.40", "g", AdaptationTechnology.GRAVITIC, 9)),
-                        // Over the bar its own calibration line names, which is the pillar in one
-                        // row: the good ground is behind the technology nobody has bought.
-                        yieldLabel = "yield 1.04",
-                        calibration = "Fails 1 of 3 bands, worth it at 0.92",
-                        detail = "118 fields · ion storms",
                     ),
                 ),
                 WorldRowUiState(
@@ -148,9 +161,13 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 9,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Barren(
-                        yieldLabel = "yield 0.81",
-                        threshold = "Passes every band, worth it at 0.92",
-                        detail = "96 fields · tidally locked",
+                        reading = FleetReadingUiState(
+                            metal = "metal 0.81",
+                            crystal = "crystal 0.68",
+                            hazards = "tidally locked · +1 danger",
+                            reach = "1h 14m out and back",
+                        ),
+                        threshold = "yield 0.81, worth it at 0.92",
                     ),
                 ),
             ),
@@ -163,14 +180,13 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 11,
                     band = OrbitBand.COLD,
                     verdict = VerdictUiState.Settleable(
-                        yieldLabel = "yield 1.12",
-                        richness = "metal 1.21 · crystal 0.88 · deut 0.64",
-                        detail = "163 fields · seismic instability",
+                        note = "Yield 1.12 · metal 1.21 · crystal 0.88 · 163 fields",
                     ),
                 ),
             ),
         ),
     ),
+    dispatch = null,
 )
 
 // ── The six states of the card footer ────────────────────────────────────────────────────────
@@ -248,17 +264,13 @@ private fun shortOffer(): ProbeOfferUiState {
 // Borrowed from the real home world rather than retyped, so the one hand-written frame still shows
 // the same axis line the app produces — non-breaking spaces included.
 //
-// The detail line is borrowed for the same reason and was not, until 0.5.1 moved where genesis
-// starts a colony and left this frame quoting the fields and yield of a world it no longer draws
-// its axes from. A hand-written half beside a derived half is a frame that can disagree with
-// itself, which is the exact failure the header warns about.
-private fun homeAxes(): String = homeVerdict().axes
-
-private fun homeDetail(): String = homeVerdict().detail
-
-private fun homeVerdict(): VerdictUiState.Home {
+// It is borrowed rather than typed for a reason 0.5.1 proved: that release moved where genesis
+// starts a colony and left this frame quoting the fields and yield of a world it no longer drew its
+// axes from. A hand-written half beside a derived half is a frame that can disagree with itself,
+// which is the exact failure the header warns about.
+private fun homeNote(): String {
     val home = homeSystemUiState.bands.flatMap { it.rows }.first { it.verdict is VerdictUiState.Home }
-    return home.verdict as VerdictUiState.Home
+    return (home.verdict as VerdictUiState.Home).note
 }
 
 // The unit is joined to its value by U+00A0 in the mapper, and a fixture that used an ordinary
@@ -302,6 +314,101 @@ private fun bodies(vararg occupied: Pair<Int, MapMark>): SystemMapUiState {
 // this is the only place the arc can be — see `SystemMapUiState.trajectory`.
 internal val homeWithProbeOutUiState: GalaxyUiState = homeSystemUiState.copy(
     map = homeSystemUiState.map.copy(trajectory = MapTrajectoryUiState(label = "[3:152] · 4h 12m")),
+)
+
+// ── The dispatch sheet ───────────────────────────────────────────────────────────────────────
+//
+// Derived rather than written out, for the reason the three system frames above are: the figure the
+// sheet states is `FleetBalance.cargo` to the unit, and a hand-typed one would drift from the
+// arithmetic the run is actually dispatched with — which is the one number the player is shown
+// *before* they commit, and therefore the one that must not be a fixture's opinion.
+
+// The nearest world in the home system a run may actually be sent to. Read off the fixture rather
+// than written down, because hardcoding a slot here would be asserting the seed — and a run's
+// legality is `startRun`'s rule, not this file's guess: home is refused, so the slot is whichever
+// one holds a world that is neither home nor held.
+internal val RUNNABLE_SLOT: Int = homeSystemUiState.bands
+    .flatMap { it.rows }
+    .first { it.verdict is VerdictUiState.Blocked || it.verdict is VerdictUiState.Barren }
+    .slot
+
+// The world a settler cannot have and a fleet can — which is the whole mechanic in one frame.
+// Hostility gates settling, never gathering, so the commonest verdict on the map is also a perfectly
+// ordinary target.
+internal val dispatchOfferUiState: GalaxyUiState = state.openWorld(RUNNABLE_SLOT)
+
+// 98% of the map. A hold cannot be priced from a world nobody has looked at, so the sheet refuses
+// and offers the flight that would fix it — the one refusal in the app that hands back a verb.
+internal val dispatchUnsurveyedUiState: GalaxyUiState = state.toGalaxyUiState(
+    at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system - 1),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
+    dispatch = DispatchSelection(
+        slot = unsurveyedSystemUiState.bands.flatMap { it.rows }.first().slot,
+        gathering = null,
+        ships = null,
+        window = null,
+    ),
+)
+
+// Every hull away. The pool is the *idle* count, so this is genesis with its one granted skiff
+// already out — the state a player reaches on their first check-in and cannot reach twice.
+internal val dispatchNoShipsUiState: GalaxyUiState = state
+    .copy(
+        ships = Ships.NONE,
+        runs = listOf(
+            FleetRun(
+                target = GalaxyCoordinate(
+                    galaxy = galaxy.home.galaxy,
+                    system = galaxy.home.system,
+                    slot = RUNNABLE_SLOT,
+                ),
+                ships = Ships.of(ShipType.SKIFF, 1),
+                gathering = ResourceKind.METAL,
+                cargo = Resources.of(metal = 66),
+                dispatchedAt = FIXTURE_NOW,
+                returnsAt = FIXTURE_NOW + 3.hours,
+            ),
+        ),
+    )
+    .openWorld(RUNNABLE_SLOT)
+
+// The frontier, where the ladder narrows rather than greying out: the next galaxy is 9h 20m each
+// way, so the four short rungs are simply not on the sheet. That narrowing is what teaches distance
+// before any copy does — see `FleetBalance.windowsFor`.
+//
+// **It has to be surveyed, and the first version of this fixture was not.** An unsurveyed world
+// refuses before it ever prices a window, so the sheet showed the probe refusal and the test that
+// asserts the short rungs are absent passed against a sheet that had no rungs at all — a fixture
+// that made its own assertion vacuous. Marked surveyed here rather than reached by dispatching a
+// probe and advancing nine hours, which is a different feature's journey.
+private val farSystem: SystemAddress =
+    SystemAddress(galaxy = galaxy.home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
+
+private val farSlot: Int = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { slot ->
+    worldAt(galaxy.seed, GalaxyCoordinate(galaxy = farSystem.galaxy, system = farSystem.system, slot = slot)) != null
+}
+
+internal val dispatchFarUiState: GalaxyUiState = state
+    .copy(
+        galaxy = galaxy.copy(
+            surveyed = galaxy.surveyed + (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+                .map { GalaxyCoordinate(galaxy = farSystem.galaxy, system = farSystem.system, slot = it) }
+                .filter { worldAt(galaxy.seed, it) != null },
+        ),
+    )
+    .toGalaxyUiState(
+        at = SystemSelection(galaxy = farSystem.galaxy, system = farSystem.system),
+        now = FIXTURE_NOW,
+        timeZone = TimeZone.UTC,
+        dispatch = DispatchSelection(slot = farSlot, gathering = null, ships = null, window = null),
+    )
+
+private fun GameState.openWorld(slot: Int): GalaxyUiState = toGalaxyUiState(
+    at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
+    now = FIXTURE_NOW,
+    timeZone = TimeZone.UTC,
+    dispatch = DispatchSelection(slot = slot, gathering = null, ships = null, window = null),
 )
 
 // A system holding nine bodies, which the seed can produce and the four-body home cannot show: past
