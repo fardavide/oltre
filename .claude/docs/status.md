@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-12 (0.7.1)
+Updated: 2026-08-12 (0.8.0)
 
 ## Landed
 
@@ -330,6 +330,31 @@ Updated: 2026-08-12 (0.7.1)
   render the contents rather than the popup. See `decisions.md`; the regression test is a swipe that
   asserts the page underneath did not move.
 
+- **0.8.0 the fleet has a size (fleet arc, slice 3 — and the exploration sheet's Slice A)** —
+  `buildShips`, the sixth verb, and the two tabs that stopped saying "nothing here yet".
+  **`FleetBalance.shipCost` had been priced, tested and pinned in the benchmark since 0.3.0 with no
+  production caller at all**, so a colony had the one skiff genesis granted and could never own two;
+  the whole *"the natural fleet is three to four skiffs"* argument described a game that was not
+  built. The verb charges and delivers in the same call — no yard job, because a fifth job kind would
+  add a `FutureEvent` member, a tie-break slot and a notification id to put a second wait in front of
+  the wait the mechanic is about, and the compounding price already does the bounding.
+  `:client:shipyard:presentation` is a price list rather than a hero panel, per Design's sixth call:
+  the pool on the card (`6 owned · 1 idle · 5 away`), one sentence naming what the hull is *for* so
+  slice 4's "four berths at half the speed" lands as a trade, the Hauler as a dimmed card, and **the
+  cannot-afford state this tab owns** — the metal chip reddens and the verb becomes a ghost carrying
+  the wait, which is why the dispatch sheet has none.
+  `:client:fleets:presentation` is one card per run with **three phases on one bar** and two hairline
+  ticks, the phase derived in presentation from `dispatchedAt + flight` so `core` keeps storing one
+  instant rather than three; under it a `Landed` ledger that is a fold over `Event.FleetReturned` and
+  costs no state at all — the first player-facing use the event log has ever had.
+  **`OltreTab.pendingWork` and `UnbuiltTabScreen` are deleted rather than nulled**: with five
+  destinations built the column could only ever say "no". Twenty-eight unit tests, fourteen behaviour
+  tests, nine new baselines and one retired.
+  **It moves no balance number and spends a guardrail instead.** The sweep this slice owed found
+  0.7.2's rate failing round 17's fleet-first test at 268%; the build lowered the rate, Davide
+  overruled it, and 60 stands with the criterion retired rather than met — `balance-log.md` round 22
+  and the Pending entry below.
+
 
 ## Roadmap — v1 in vertical slices
 
@@ -345,8 +370,8 @@ Four of the eight are done. What is left, decomposed into slices that each end p
 | ~~3~~ | ~~**Research: screen**~~ | Landed at 0.0.12 | — |
 | ~~4~~ | ~~**Galaxy: procgen**~~ | Landed at 0.0.15 | — |
 | ~~5~~ | ~~**Galaxy: screen**~~ | Landed at 0.0.15 | — |
-| ~~6~~ | ~~**Shipyard: core**~~ | ship set answered and `core` landed at 0.3.0; the **tab** is slice 3 of the fleet arc | — |
-| ~~7~~ | ~~**Fleets: outbound, core**~~ | landed at 0.3.0 — travel-time formula settled, **no fuel** (Davide, 2026-08-10); the **screens** are next | — |
+| ~~6~~ | ~~**Shipyard**~~ | ship set answered and `core` landed at 0.3.0; the **tab and `buildShips`** landed at 0.8.0 | — |
+| ~~7~~ | ~~**Fleets: outbound**~~ | `core` landed at 0.3.0 — travel-time formula settled, **no fuel** (Davide, 2026-08-10); the dispatch sheet at 0.7.0 and the **Fleets tab** at 0.8.0 | — |
 | 8 | **Combat** | Seeded `resolve(a, b, seed)` and a battle report in the event log | **Yes** — the combat model |
 | 9 | **AI empires** | 3 scripted empires that grow and raid, driven from `advance` | **Yes** — how visible, how aggressive |
 | 10 | **Colonisation** | Settling a second world; the outpost → settlement → self-sufficient lifecycle | **Yes** — the pillar's rules |
@@ -381,13 +406,36 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
-- **0.7.2 shipped the sheet's Slice B and the other two slices are still owed.** `EXTRACTION_PER_HOUR`
-  20 → 60, danger inverted from −10% a point to **+35%**, `FRONTIER_PERCENT` deleted rather than
-  wired. `balance-log.md` round 21. **What is still not built: the Shipyard (so one skiff is still
-  all there is, and the rate is tuned for a fleet of one) and the drive technology (so Davide's
-  *"travel towards far planes to be way more time consuming"* is entirely untouched).** The
-  benchmark's new `[frontier]` section is the reading that says whether this worked — four rows that
-  were all below 1.00 by construction and now read 1.00 / 1.19 / 1.32 / 1.10.
+- **DAVIDE'S CALL, RULED: the rate stays at 60 and round 17's guardrail is spent.** 0.8.0 built the
+  Shipyard and ran the sweep `exploration-rewards-sheet.md` §6.4 said could veto the rate. It vetoed
+  it — **at 60 a fleet-first player's fleet delivers 268% of their colony's own crystal**, against
+  89% at 20, and 30 is already 134% — the build took the rate back to 20, and Davide overruled it:
+  *"Why did you revert the rate? Bring it back."*
+  **The number is not the decision; the criterion is.** Nobody disputes the 268%; what has been
+  rejected is round 17's rule that *"the fleet must never be the economy"* is what sizes this
+  constant. A later round wanting the rate lower argues against Davide's bar, not round 17's — and
+  should reach for the **hull curve** first, since that decides how many hulls the 268% is spread
+  over. `balance-log.md` round 22 has the bracket and the argument the build lost.
+  **What settles it is an install, not another sweep**: the 268% assumes a player who buys hulls
+  before buildings at *every* check-in, and if nobody plays that way the honest reading is 94.5%. The
+  failure shape to watch for is not a number — it is the mines starting to feel optional.
+
+- **`:sim:run` was dead from 0.7.2 to 0.8.0 and nobody noticed.** Round 21 inverted the danger term
+  in `core` and left the harness's replica subtracting; the `check` between them fired on the first
+  dispatch and killed the whole report. The discipline worked — a loud failure rather than a quiet
+  disagreement — and then the round shipped without running it. **A balance round that does not run
+  the harness is how a broken harness survives a release.** Fixed at 0.8.0, along with four sweep
+  tables that had been printing grids not containing the shipped rate since round 21.
+
+- **0.7.2 shipped the sheet's Slice B, 0.8.0 shipped Slice A, and Slice C is still owed.**
+  `EXTRACTION_PER_HOUR` 20 → 60 and staying there, danger inverted from −10% a point to **+35%**,
+  `FRONTIER_PERCENT` deleted rather than wired, and the Shipyard built. **What is still not built is
+  the drive technology, so Davide's *"travel towards far planes to be way more time consuming, and
+  require upgraded fleets to get there faster"* is untouched in both halves** — a galaxy hop is still
+  9h 20m round trip at a speed nothing can improve. The benchmark's `[frontier]` section is the
+  reading that says whether the inversion worked, and it survives the rate coming back down: four
+  rows that were all below 1.00 by construction read 1.00 / 1.19 / 1.32 / 1.10, and the sim's band
+  spread holds at 13 of 56 dispatches past the home system against **0 of 56** before 0.7.2.
 
 - **THE SHEET IS STILL THE PLAN, and it is waiting on Davide's calls:
   [`exploration-rewards-sheet.md`](exploration-rewards-sheet.md).** Davide played 0.7.1 and reported
@@ -399,16 +447,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
   **Three findings from writing it are worth knowing even if the sheet is overruled entirely:**
 
-  1. **`buildShips` does not exist, so a player owns exactly one skiff forever.** `shipCost` has no
-     production caller — only `FleetBalanceTest`, `BalanceBenchmark`, and the sim, which buys with a
-     raw `state.copy` and says why at `Main.kt:1537`. `GameSave.kt:155` states it plainly. The hull
-     curve, the Shipyard tab and *"the natural fleet is three to four skiffs"* all describe a game
-     that is not built. **The sheet reorders `fleet-sheet.md`'s plan to put the Shipyard first**,
-     because every constant it proposes is a *per-hull* rate.
-  2. **Round 17's guardrail cannot be tripped by any shipped player.** `EXTRACTION_PER_HOUR = 20` was
-     sized on *"a fleet-first player must not out-produce their own colony"*, measured against a bot
-     owning six to nine hulls. There is no purchase, so there is no fleet-first player. The number was
-     measured honestly and it is guarding a door nobody can reach.
+  1. ~~**`buildShips` does not exist, so a player owns exactly one skiff forever.**~~ — **built at
+     0.8.0**, which is the sheet's own Slice A and `fleet-sheet.md`'s slice 3. `shipCost` had been
+     priced and pinned since 0.3.0 with no production caller, so the hull curve, the Shipyard tab and
+     *"the natural fleet is three to four skiffs"* all described a game that was not built. **The
+     sheet reordered `fleet-sheet.md`'s plan to put the Shipyard first** because every constant it
+     proposes is a *per-hull* rate, and that ordering is what let round 22 size the rate against a
+     fleet rather than against a single ship.
+  2. ~~**Round 17's guardrail cannot be tripped by any shipped player.**~~ — **it can now, and it
+     is.** `EXTRACTION_PER_HOUR = 20` was sized on *"a fleet-first player must not out-produce their
+     own colony"*, measured against a bot owning six to nine hulls; 0.7.2 tripled the rate on the
+     grounds that no such player existed. 0.8.0 made one exist and the guardrail bit immediately —
+     268% at rate 60. See the open call at the top of this section.
   3. **Hostility has never gated a dispatch, and nothing on screen says so.** `StartRun.kt:56-66` and
      `DispatchUiState.kt:119-201` both check survey, hulls and window and neither reads a verdict — a
      `Blocked` world has always raised a full `Offer`. Davide spent two days on Thermal 1 to reach a

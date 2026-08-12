@@ -72,7 +72,13 @@ Tests come in four kinds and say which by class-name suffix — `…Test` (unit)
 the total, must hold at or above the last `main` run. No floor, no slack.
 See the `test-coverage` skill.
 
-All work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
+Work that comes from an issue starts by **assigning that issue to `fardavide`** — `gh issue edit
+<n> --repo fardavide/oltre --add-assignee "@me"`, before the branch — so the tracker shows it is
+taken. The assignee means *picked up*, never work handed to Davide. Already assigned is nothing to
+do; see the global `github-workflow` skill for the rest, including what to do when `gh` cannot
+reach it.
+
+Then: all work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
 no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.
 
 **Merging to `main` publishes.** Xcode Cloud archives every `main` commit and ships it to

@@ -20,6 +20,8 @@ import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.SaveFile
 import dev.fardavide.oltre.client.colony.presentation.ColonyTestTags
+import dev.fardavide.oltre.client.shipyard.presentation.ShipyardTestTags
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameSnapshot
 import kotlinx.coroutines.flow.Flow
@@ -81,6 +83,14 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
     // that commit is unconditional precisely because asking for an alert writes no event.
     fun assertAlertsBooked(count: Int) = apply {
         assertEquals(count, booked.scheduled.size, "booked: ${booked.scheduled.map { it.id }}")
+    }
+
+    // The Shipyard's one control. Reached by tag rather than by its word, because "Build" is a
+    // verb the app uses on more than one surface and an unscoped query would be ambiguous the day a
+    // second one appears.
+    fun buyAHull() = apply {
+        test.onNodeWithTag(ShipyardTestTags.action(ShipType.SKIFF), useUnmergedTree = true).performClick()
+        test.waitForIdle()
     }
 
     // Scoped to the cell, because all three rates end in the same two characters and an unscoped

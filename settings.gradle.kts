@@ -49,11 +49,16 @@ include(":client:design:core")
 include(":client:design:format")
 include(":client:design:icon")
 include(":client:design:screenshot-testing")
+// The two tabs that stopped saying "nothing here yet" at 0.8.0. They ship together on purpose: a
+// shipyard that builds hulls with nowhere to send them is worse than the empty tab it replaces, and
+// a fleets tab is a list that can never have two rows until hulls go on sale.
+include(":client:fleets:presentation")
 include(":client:galaxy:presentation")
 include(":client:notifications:data")
 include(":client:research:presentation")
 include(":client:save:data")
 include(":client:shell")
+include(":client:shipyard:presentation")
 // How the device is being held, and the second sensor in the build after the accelerometer. Two
 // layers rather than one for the reason the debug menu has them: what a tilt *means* — where the
 // centre is, how far is far enough, what a still hand should do — is arithmetic, and arithmetic

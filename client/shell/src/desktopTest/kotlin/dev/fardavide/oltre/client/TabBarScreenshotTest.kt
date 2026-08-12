@@ -38,30 +38,13 @@ class TabBarScreenshotTest {
         captureBar(width = 393, selected = OltreTab.GALAXY, name = "tab_bar_galaxy_selected")
     }
 
-    // Galaxy carried this baseline until 0.0.15 gave it a real screen. Shipyard inherits it rather
-    // than the empty state losing its coverage — two destinations are still unbuilt, and the
-    // treatment they share is exactly what this pins.
-    @Test
-    fun `an unbuilt tab`() {
-        runDesktopComposeUiTest(width = 393, height = 852) {
-            mainClock.autoAdvance = false
-            setContent {
-                OltreTheme {
-                    Surface {
-                        UnbuiltTabScreen(
-                            tab = OltreTab.SHIPYARD,
-                            pendingWork = checkNotNull(OltreTab.SHIPYARD.pendingWork),
-                        )
-                    }
-                }
-            }
-            mainClock.advanceTimeBy(SETTLED_MILLIS)
-            onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/unbuilt_tab_shipyard.png",
-                roborazziOptions = oltreRoborazziOptions(),
-            )
-        }
-    }
+    // **`an unbuilt tab` was here and it is retired.** Galaxy carried the baseline until 0.0.15 gave
+    // it a real screen, Shipyard inherited it, and at 0.8.0 there is no unbuilt tab left to
+    // photograph: `UnbuiltTabScreen` lost its last caller and went with it, and
+    // `unbuilt_tab_shipyard.png` is deleted rather than left as a picture of a screen that no longer
+    // exists. What replaced its coverage is the two new tabs' own baselines, which is the right
+    // trade — the empty state was one drawing shared by two destinations, and each of them has a
+    // drawing of its own now.
 
     // Tall enough for the whole bar and little else. The first recording used 60px, which clipped
     // the labels off the bottom — the bar needs ~68dp — and produced a baseline of five icons

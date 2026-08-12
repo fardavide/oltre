@@ -237,11 +237,13 @@ class FleetBalanceTest {
             danger = FleetBalance.danger(home, rich),
         )
 
-        // then — 198 at the `EXTRACTION_PER_HOUR` of 60. This row has now been published three times:
+        // then — 198 at the `EXTRACTION_PER_HOUR` of 60. This row has been published three times:
         // 132 against the draft's 40, 66 after round 17 halved it to 20, and 198 after round 21
-        // tripled it to 60 on Davide's *"I don't think a 20% is enough"*. Pinned as a literal on
-        // purpose, the way `GalaxyBalanceTest` pins its published tables: a balance change should have
-        // to edit a test.
+        // tripled it on Davide's *"I don't think a 20% is enough"*. Round 22 swept it against a game
+        // that can finally buy hulls, found a fleet-first player out-producing their colony 2.7 to 1,
+        // and Davide kept 60 anyway — so the figure stands and the guardrail is the thing that moved.
+        // Pinned as a literal on purpose, the way `GalaxyBalanceTest` pins its published tables: a
+        // balance change should have to edit a test.
         assertEquals(198L, cargo.metal)
         assertEquals(0L, cargo.crystal)
         assertEquals(0L, cargo.deuterium)

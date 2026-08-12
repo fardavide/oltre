@@ -17,24 +17,34 @@ This sheet **revises `fleet-sheet.md` §3.5 and §4** and closes fleet-arc **sli
 supposed to deliver the frontier and has been outstanding since 0.3.0. It changes no `GalaxyBalance`
 number, no `GalaxyDistributionTest` band, no `verdictFor` case and no generation constant.
 
-> ## Status — §9's Slice B shipped at 0.7.2 (2026-08-12)
+> ## Status — Slice B shipped at 0.7.2, Slice A at 0.8.0, and the rate outlived its sweep
 >
 > Davide, on being handed the sheet rather than the change: *"Where's the rewarding balance we talked
 > about?"* So the half that needed no new noun went in immediately, on the sheet's own numbers:
 > **`EXTRACTION_PER_HOUR` 20 → 60, danger −10%/point → +35%/point, and `FRONTIER_PERCENT` deleted.**
 > `balance-log.md` round 21 has the measurement and the benchmark's new `[frontier]` section.
 >
+> Then 0.8.0 built the Shipyard, which is what §9 says has to come first, and re-ran the sweep §6.4
+> named as able to veto the rate. **It vetoed it, and Davide overruled the veto** — *"Why did you
+> revert the rate? Bring it back."* Round 22 has the bracket; the one-line version is that a
+> fleet-first player at rate 60 delivers **268%** of their own colony's crystal, against 89% at 20,
+> and that this is now an accepted cost rather than a failed test.
+>
 > | | | |
 > |---|---|---|
-> | §2.1 danger multiplies | **SHIPPED** 0.7.2 | |
-> | §4 the rate | **SHIPPED** 0.7.2 at 60 | re-sweep when the Shipyard lands |
-> | §9 Slice A — the Shipyard | **NOT BUILT** | still one skiff and no way to buy a second |
-> | §9 Slice C — the drive | **NOT BUILT** | travel time is untouched |
-> | §2.5 the screen says a `Blocked` world is gatherable | **NOT BUILT** | the cheapest item here |
+> | §2.1 danger multiplies | **SHIPPED** 0.7.2 | unchanged by the rate coming back down |
+> | §4 the rate | **SHIPPED** 0.7.2 at 60, swept 0.8.0, **60 stands** | §6.4 vetoed it; Davide overruled the veto |
+> | §9 Slice A — the Shipyard | **SHIPPED** 0.8.0 | `buildShips`, both tabs, hull count is a growth term at last |
+> | §9 Slice C — the drive | **NOT BUILT** | travel time is untouched; this is the whole of what is left |
+> | §2.5 the screen says a `Blocked` world is gatherable | **NOT BUILT** | still the cheapest item here |
 > | §2.4 a fleet payoff for the ladders | open, recommended *no* | |
 >
-> **The two open calls that matter are unchanged by this**: whether the Shipyard goes first, and
-> whether the rate survives its sweep once a fleet can have more than one hull.
+> **Both of the open calls that mattered are answered.** The Shipyard did go first, and it was right
+> to: every constant here is a per-hull rate, and a per-hull rate against a fleet of one is a single
+> multiplication rather than a balance decision. The rate survived its sweep **by ruling rather than
+> by measurement** — §8's first open call anticipated a veto and got one, and Davide declined it. So
+> the thing that changed is §4's guardrail, not §4's number: *"a fleet-first player must not
+> out-produce their own colony"* is no longer what sizes this constant.
 
 ---
 
@@ -461,7 +471,7 @@ them.
 
 Three slices, and §0's first finding reorders them: **the Shipyard goes first.**
 
-### Slice A — you can buy a hull
+### Slice A — you can buy a hull — **SHIPPED 0.8.0**
 
 `buildShips`, the compounding curve that already exists in `FleetBalance`, and somewhere to tap it.
 No new balance number — `shipCost` is written, tested and pinned in the benchmark, and it has simply
@@ -475,6 +485,17 @@ triple — cannot even be evaluated until a player can buy a second skiff.
 **Done means:** a player can turn metal into a hull; `printFleetReport`'s fleet-first purchase order
 becomes a thing a real player can do; and the rate for Slice B is chosen against that measurement
 rather than against the bot's `state.copy`.
+
+> **All three met, and the third one bit.** The fleet-first purchase order is now a real player, and
+> at rate 60 it delivers 268% of its own colony's crystal — so the rate Slice B shipped fails the test
+> this slice was supposed to give it. Round 22 lowered the rate to 20 on that reading and was
+> overruled: **60 stands, and the criterion is retired instead.**
+>
+> **The growth term arrived either way, and it is the part to keep hold of.** A player owns seven
+> hulls by hour 48 and seventeen by day 14, where before they owned one forever. That is §4's own
+> warning read back — *"a rate raise alone cannot fix what he is describing"* — and the missing
+> multiplier it named is hull count. At 60 the game now has both, which is what makes the fleet 92%
+> of colony metal income at 48 hours and what an install has to judge.
 
 ### Slice B — the payout inverts
 

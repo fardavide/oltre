@@ -20,6 +20,8 @@ import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.presentation.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
+import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
@@ -27,17 +29,23 @@ import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.client.shipyard.presentation.ShipyardScreen
+import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.tilt.data.TiltSource
 import dev.fardavide.oltre.client.tilt.data.defaultTiltSource
 import dev.fardavide.oltre.client.tilt.domain.Tilt
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
+import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startRun
@@ -389,6 +397,52 @@ fun App(
                                         }
                                     }
                                 },
+                            )
+                        },
+                        // **The sixth verb, and the first shop in the game.** `FleetBalance.shipCost`
+                        // has been priced, tested and pinned in the benchmark since 0.3.0 with no
+                        // production caller at all — the fleet was one granted skiff that could
+                        // never become two, which is most of why exploring paid so little.
+                        //
+                        // One hull a tap, not a quantity picker. `buildShips` takes a whole manifest
+                        // and prices it rung by rung, which is what slice 4 will need the day a
+                        // second hull is on sale; what a card can express today is "another one of
+                        // these", and a stepper for a purchase you can simply repeat is a control
+                        // bought for nothing.
+                        shipyard = { scroll ->
+                            ShipyardScreen(
+                                scrollState = scroll,
+                                uiState = current.state.toShipyardUiState(),
+                                onBuild = { type ->
+                                    act { state, at ->
+                                        when (val result = buildShips(state, Ships.of(type, 1), at = at)) {
+                                            is BuildShipsResult.Started -> result.state
+                                            // Exhaustive and every branch returns the state
+                                            // untouched: the card is built so that none of the three
+                                            // is reachable from a finger — the button is a ghost
+                                            // while the price is short, the manifest is never empty,
+                                            // and a hull with no price is drawn as a dimmed card
+                                            // with nothing to press. This `when` is what says so out
+                                            // loud rather than trusting it.
+                                            BuildShipsResult.NothingToBuild,
+                                            BuildShipsResult.NotForSale,
+                                            BuildShipsResult.InsufficientResources,
+                                            -> state
+                                        }
+                                    }
+                                },
+                            )
+                        },
+                        // Read-only, and the only destination in the app that is. There is no cancel
+                        // and no recall anywhere in this game, and the cargo is fixed at dispatch —
+                        // so a run in flight is something to watch rather than something to change.
+                        fleets = { scroll ->
+                            FleetsScreen(
+                                scrollState = scroll,
+                                uiState = current.state.toFleetsUiState(
+                                    now = current.lastUpdatedAt,
+                                    timeZone = TimeZone.currentSystemDefault(),
+                                ),
                             )
                         },
                     )

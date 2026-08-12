@@ -18,9 +18,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
+import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
+import dev.fardavide.oltre.client.shipyard.presentation.ShipyardScreen
+import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GameState
@@ -97,6 +101,22 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 // nothing and the assertions stay about the one journey under test.
                                 onDispatchProbe = {},
                                 onDispatchRun = { _, _, _, _ -> },
+                            )
+                        },
+                        // The two tabs this harness never opens. Real screens rather than markers,
+                        // because the journey under test crosses the tab bar and a destination that
+                        // could not compose would be a trap the day it did.
+                        shipyard = { scroll ->
+                            ShipyardScreen(
+                                scrollState = scroll,
+                                uiState = game.state.toShipyardUiState(),
+                                onBuild = {},
+                            )
+                        },
+                        fleets = { scroll ->
+                            FleetsScreen(
+                                scrollState = scroll,
+                                uiState = game.state.toFleetsUiState(now = game.now, timeZone = TimeZone.UTC),
                             )
                         },
                     )

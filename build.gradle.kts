@@ -101,10 +101,12 @@ dependencies {
     kover(projects.client.debug.data)
     kover(projects.client.debug.domain)
     kover(projects.client.debug.presentation)
+    kover(projects.client.fleets.presentation)
     kover(projects.client.galaxy.presentation)
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
     kover(projects.client.save.data)
+    kover(projects.client.shipyard.presentation)
     kover(projects.client.tilt.data)
     kover(projects.client.tilt.domain)
 }
@@ -113,6 +115,32 @@ kover {
     reports {
         filters {
             excludes {
+                // ── Composables, and **only while measuring the unit pass** ───────────────────
+                //
+                // A unit test cannot render a composable. That is not a gap to be closed, it is
+                // what the kind *is*: `…Test` runs in-process with no Compose, so every `@Composable`
+                // in the repository reads 0% in this pass and always will. Left in, the unit row
+                // stops measuring how well the logic is tested and starts measuring **what fraction
+                // of the repository is UI** — a number that falls on every screen that ships and can
+                // never be recovered by writing a better test. 0.8.0 is where that became load-
+                // bearing: two new tabs put 296 lines and 100 branches of drawing into the pass, all
+                // of them unreachable, and the unit row fell 51.1% → 50.1% on a slice that added
+                // twenty-eight unit tests.
+                //
+                // **Scoped to the pass, which is the whole of what makes this safe.** The behaviour,
+                // screenshot and unfiltered passes still see every composable, so nothing becomes
+                // invisible — the table keeps its ability to say whether a screen is rendered by any
+                // test at all, which is the 0.4.2 lesson (an exclusion "does not lower the gate, it
+                // removes the gate's ability to see"). Read the behaviour row for that; this only
+                // stops the unit row answering a question it was never able to answer.
+                //
+                // **By annotation rather than by path**, so it lands on exactly the functions that
+                // cannot be reached and nothing else: a ui-state mapper, a `cardState()` or a
+                // `tint()` sitting in the same file is still counted and still has to be tested.
+                // A path or package rule would have hidden those too.
+                if (testCategory == "unit") {
+                    annotatedBy("androidx.compose.runtime.Composable")
+                }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
                 classes("*ComposableSingletons*", "*\$\$serializer")
