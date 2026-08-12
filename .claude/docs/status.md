@@ -381,6 +381,32 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
+- **THE NEXT THING TO BUILD, and it is waiting on Davide's calls:
+  [`exploration-rewards-sheet.md`](exploration-rewards-sheet.md).** Davide played 0.7.1 and reported
+  the loop dead — *"exploring other planets is way too little rewarding… I grinded to upgrade
+  Thermal, to travel 3h, and 14 cristals lol"*, and *"now it not rewarding AT ALL, like 1 to 10 →
+  minus 50."* The sheet is the 0.8 design answer: **danger stops subtracting and starts multiplying**,
+  travel to the frontier gets longer, and a **drive technology** buys it back — the fleet's first
+  growth term of any kind. Six open calls in its §8, none of them answered yet.
+
+  **Three findings from writing it are worth knowing even if the sheet is overruled entirely:**
+
+  1. **`buildShips` does not exist, so a player owns exactly one skiff forever.** `shipCost` has no
+     production caller — only `FleetBalanceTest`, `BalanceBenchmark`, and the sim, which buys with a
+     raw `state.copy` and says why at `Main.kt:1537`. `GameSave.kt:155` states it plainly. The hull
+     curve, the Shipyard tab and *"the natural fleet is three to four skiffs"* all describe a game
+     that is not built. **The sheet reorders `fleet-sheet.md`'s plan to put the Shipyard first**,
+     because every constant it proposes is a *per-hull* rate.
+  2. **Round 17's guardrail cannot be tripped by any shipped player.** `EXTRACTION_PER_HOUR = 20` was
+     sized on *"a fleet-first player must not out-produce their own colony"*, measured against a bot
+     owning six to nine hulls. There is no purchase, so there is no fleet-first player. The number was
+     measured honestly and it is guarding a door nobody can reach.
+  3. **Hostility has never gated a dispatch, and nothing on screen says so.** `StartRun.kt:56-66` and
+     `DispatchUiState.kt:119-201` both check survey, hulls and window and neither reads a verdict — a
+     `Blocked` world has always raised a full `Offer`. Davide spent two days on Thermal 1 to reach a
+     world he could already reach. That is a legibility failure, and it is the cheapest item in the
+     sheet (§2.5).
+
 - **The opening is pinned now, and 0.5.1 is why.** `OpeningBalanceTest` in `core` measures what the
   *first screen* costs a player — how far the cheapest neighbour is, how far the ones behind it are,
   how many rows there are, and when the adaptation branch opens — because 0.5.1 changed all of that
