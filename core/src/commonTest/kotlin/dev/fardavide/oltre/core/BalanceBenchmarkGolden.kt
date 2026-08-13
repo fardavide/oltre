@@ -28,7 +28,7 @@ internal object BalanceBenchmarkGolden {
         mines past the opening discount (level 9)         hour 39 (day 1)
         first applied technology finished                 hour 5 (day 0)
         first adaptation level finished                   hour 10 (day 0)
-        second skiff affordable                           hour 0 (day 0)
+        second skiff affordable                           hour 37 (day 1)
         metal mine when the nanite unlocks                level 17 (ramp starts at 18)
 
         [session] completions a player is present for, minute by minute
@@ -160,15 +160,25 @@ internal object BalanceBenchmarkGolden {
         colonies with every neighbour blocked             62.00%
 
         [fleet] the hull curve and one representative run
-          skiff 1                                         80 metal / 20 crystal, priced 120
-          skiff 2                                         120 metal / 30 crystal, priced 180
-          skiff 3                                         180 metal / 45 crystal, priced 270
-          skiff 4                                         270 metal / 67 crystal, priced 404
-          skiff 5                                         405 metal / 100 crystal, priced 605
+          skiff 1                                         800 metal / 200 crystal, priced 1200
+          skiff 2                                         1200 metal / 300 crystal, priced 1800
+          skiff 3                                         1800 metal / 450 crystal, priced 2700
+          skiff 4                                         2700 metal / 675 crystal, priced 4050
+          skiff 5                                         4050 metal / 1012 crystal, priced 6074
+          skiff 1 takes                                   2h 04m at robotics 0 · 24m at robotics 4
+          skiff 2 takes                                   2h 32m at robotics 0 · 30m at robotics 4
+          skiff 3 takes                                   3h 08m at robotics 0 · 37m at robotics 4
+          skiff 4 takes                                   3h 52m at robotics 0 · 46m at robotics 4
+          skiff 5 takes                                   4h 44m at robotics 0 · 56m at robotics 4
         6h run to the next slot, round trip               26m
           station time                                    5h 34m
           one skiff brings home                           345 metal
           as hours of a genesis colony's metal            3.83h
+          skiff 1 repays itself in                        20 station-hours
+          skiff 2 repays itself in                        30 station-hours
+          skiff 3 repays itself in                        45 station-hours
+          skiff 4 repays itself in                        67 station-hours
+          skiff 5 repays itself in                        101 station-hours
         [frontier] the 24h rung at one richness — what distance and danger are worth
           the next slot                                   band 0 · round trip 26m · 1972 metal · 1.00x
           60 systems out                                  band 1 · round trip 1h 38m · 2357 metal · 1.19x

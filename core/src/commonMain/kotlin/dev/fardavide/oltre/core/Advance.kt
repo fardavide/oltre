@@ -36,13 +36,17 @@ private tailrec fun advanced(state: GameState, from: Instant, to: Instant): Game
     // are in flight at once and each one changes what the following span accrues. Take the
     // earliest due event, apply it, and recurse.
     // **There is no registry here, and a job kind missing from this expression never completes** —
-    // `advance` accrues straight past it forever and no test fails. Five terms, and the fifth is the
-    // runs.
+    // `advance` accrues straight past it forever and no test fails. Six terms, and the sixth is the
+    // yard. Only the head of that queue can be due, since the list is chained — but every entry is
+    // offered anyway rather than just `firstOrNull()`, because "only the head can be due" is a
+    // property of the invariant in `GameState.init` and this expression is the one place in the game
+    // where being wrong about that is silent.
     val nextEventAt = (
         state.builds.values.map { it.completesAt } +
             listOfNotNull(state.researchSlotFreesAt) +
             state.surveys.map { it.completesAt } +
-            state.runs.map { it.returnsAt }
+            state.runs.map { it.returnsAt } +
+            state.yard.map { it.completesAt }
         ).filter { it <= to }.minOrNull() ?: return accrue(state, from = from, to = to)
     // An event at or before `from` can only come from a caller resuming with a stale span;
     // apply it defensively instead of wedging it forever.
@@ -57,8 +61,9 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     // the event log — everything up to the boundary has already accrued, and none of these
     // transitions reads another's result — but the log has to be reproducible, so the order is
     // fixed here and mirrored by `futureEvents`: build completions in building order, then the
-    // research completion, then the adaptation completion, then survey landings in target order,
-    // then the fleet arrival. Colony first, then the empire, then what arrives from outside it. The
+    // research completion, then the adaptation completion, then the yard's deliveries, then survey
+    // landings in target order, then the fleet arrival. Colony first, then the empire, then what the
+    // colony finished making, then what arrives from outside it. The
     // two research branches share one slot
     // so only one of them can ever be due, but the order between them is still written down —
     // a tie-break that depends on which case happens to be reachable is one a later slice breaks.
@@ -96,6 +101,23 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
                 newLevel = adaptation.toLevel,
                 at = adaptation.completesAt,
             ),
+        )
+    }
+    // **The yard, and it is the one kind that needs no tie-break at all.** The queue is serial and
+    // every job is strictly positive in length, so two hulls cannot share an instant — the invariant
+    // in `GameState.init` is what says so, and it is checked on every construction including every
+    // decode. Still a loop rather than an `if`, because `filter` is what states the rule; an
+    // `it.first()` would be reading the invariant instead of applying it.
+    //
+    // A delivery **fills the idle pool** rather than the total: the hull is home, it was never
+    // anywhere else, and it is dispatchable from the instant it exists.
+    val delivered = next.yard.filter { it.completesAt == instant }
+    for (job in delivered) {
+        val hull = Ships.of(job.ship, 1)
+        next = next.copy(
+            ships = next.ships + hull,
+            yard = next.yard - job,
+            eventLog = next.eventLog + Event.ShipsBuilt(ships = hull, at = job.completesAt),
         )
     }
     // Probes land in parallel and their durations are a pure function of distance, which is

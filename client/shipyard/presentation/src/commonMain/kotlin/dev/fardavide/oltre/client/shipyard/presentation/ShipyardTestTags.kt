@@ -17,4 +17,8 @@ object ShipyardTestTags {
     fun card(type: ShipType): String = "shipyard-card-${type.name.lowercase()}"
 
     fun action(type: ShipType): String = "shipyard-action-${type.name.lowercase()}"
+
+    // The slipway footer, which exists only while something is on it — so this is also the handle a
+    // Robot asks "is the yard busy" with, rather than reading a countdown string.
+    fun yard(type: ShipType): String = "shipyard-yard-${type.name.lowercase()}"
 }

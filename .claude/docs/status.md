@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-12 (0.8.0)
+Updated: 2026-08-13 (0.9.0)
 
 ## Landed
 
@@ -330,6 +330,35 @@ Updated: 2026-08-12 (0.8.0)
   render the contents rather than the popup. See `decisions.md`; the regression test is a swipe that
   asserts the page underneath did not move.
 
+- **0.9.0 the yard gets a clock and the hull gets a price** — Davide, having played 0.8.0: *"I
+  think we need to add time to build ships, it shouldn't be instantaneous. Also I think ships are WAY
+  to cheap, considered the benefits they bring back."* Two of 0.8.0's stated design decisions
+  overruled in one message, and both are marked as overruled in `fleet-sheet.md` rather than edited
+  away.
+  **The yard is the sixth kind of job and the only serial one** — `GameState.yard` is a chained list
+  rather than a slot, Davide's call, so a check-in can commit everything it can pay for and the yard
+  works through it one hull at a time. One entry per hull rather than per order, because the price
+  walks the curve hull by hull and the wait is taken from the price. The four costs 0.8.0 refused to
+  pay were all real and are all paid: a sixth term in `advance`, `FutureEvent.ShipsComplete`, a rung
+  at 250 in the tie-break ladder, and a **third unbounded kind** in the notification budget.
+  `Event` gets the `ShipsOrdered` partner `ShipsBuilt` was the one member of the taxonomy to lack.
+  Save schema **10**, one additive key.
+  **The wait is `4 × √(metal + crystal) ÷ (1 + robotics)`**, both halves borrowed rather than
+  invented — `PlaceholderBalance.MINUTES_PER_ROOT_COST` is the colony's own rate, so a hull and a
+  facility that cost the same take the same time to make, and `integerRoot` moved to `Curves.kt`
+  because two balance objects take a wait from the root of a price now. Nothing is gated; Robotics
+  divides the wait without being a requirement.
+  **The hull base went from 80/20 to 800/200** — tenfold, Davide's floor, the base and not the
+  exponent on his call. The reading that was missing: at 80/20 the second skiff repaid itself in
+  **three station-hours**, half of one six-hour run, for an asset that pays forever. It is thirty
+  now, and the benchmark prints that ratio for the first time. **This gives round 17's guardrail
+  back at the rate Davide insisted on**: the fleet-first player falls from 268% of their colony's
+  crystal to **63.3%**, with `EXTRACTION_PER_HOUR` untouched. `balance-log.md` round 23.
+  The Shipyard card takes `OltreCardState.RUNNING` and the probe's in-flight footer — an accent
+  countdown, the wall-clock instant, `2 queued`, and the bar — **with the verb still live under it**,
+  which is the one thing here that is not the Colony row's treatment: a busy facility cannot be
+  started again and a serial yard can always take another order.
+
 - **0.8.0 the fleet has a size (fleet arc, slice 3 — and the exploration sheet's Slice A)** —
   `buildShips`, the sixth verb, and the two tabs that stopped saying "nothing here yet".
   **`FleetBalance.shipCost` had been priced, tested and pinned in the benchmark since 0.3.0 with no
@@ -419,6 +448,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   **What settles it is an install, not another sweep**: the 268% assumes a player who buys hulls
   before buildings at *every* check-in, and if nobody plays that way the honest reading is 94.5%. The
   failure shape to watch for is not a number — it is the mines starting to feel optional.
+  **RESOLVED AT 0.9.0, and by the dial this entry pointed at.** *"A later round wanting the rate
+  lower … should reach for the hull curve first, since that decides how many hulls the 268% is spread
+  over."* That is what happened: Davide's tenfold base raise took the fleet-first player to **63.3%**
+  and the from-what-is-left player to **36.4%**, both under round 17's bar, with the rate untouched.
+  Round 22's trade — a guardrail for a rate — turns out not to have been the trade on offer. Davide's
+  ruling still stands as the thing that *sizes* the rate; what has changed is that nothing violates
+  round 17's rule any more, so a future round has nothing to reinstate. The install this entry asks
+  for is still owed, and the question it settles is now the opposite one: whether the opening feels
+  **slow** rather than empty, since a new colony can no longer buy its second skiff on day one.
 
 - **`:sim:run` was dead from 0.7.2 to 0.8.0 and nobody noticed.** Round 21 inverted the danger term
   in `core` and left the harness's replica subtracting; the `check` between them fired on the first

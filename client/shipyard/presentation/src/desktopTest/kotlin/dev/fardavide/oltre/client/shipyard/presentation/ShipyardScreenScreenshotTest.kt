@@ -34,6 +34,18 @@ class ShipyardScreenScreenshotTest {
         capture(width = PHONE_WIDTH, uiState = sixHullsUiState, name = "shipyard_six_hulls")
     }
 
+    // **The state 0.9.0 added.** The card is lit, the footer counts down, and the verb is still
+    // there — a busy yard takes another order, unlike a busy facility.
+    @Test
+    fun `a hull on the slipway at phone width`() {
+        capture(width = PHONE_WIDTH, uiState = buildingUiState, name = "shipyard_building")
+    }
+
+    @Test
+    fun `a hull on the slipway in a Slide Over window`() {
+        capture(width = SLIDE_OVER_WIDTH, uiState = buildingUiState, name = "shipyard_building_slide_over")
+    }
+
     // **The state this tab owns**, and the whole reason the dispatch sheet has none: the metal chip
     // reddens and the verb becomes a ghost carrying the wait.
     @Test

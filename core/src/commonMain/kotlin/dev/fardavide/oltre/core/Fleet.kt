@@ -115,3 +115,35 @@ data class FleetRun(
 
     fun inboundBeginsAt(from: GalaxyCoordinate): Instant = returnsAt - FleetBalance.flight(from, target)
 }
+
+// One hull on the slipway, and the sixth kind of job — Davide's call, 2026-08-13, overruling the
+// fleet sheet's *"purchase is instant, and that is a sizing decision"*.
+//
+// **One entry per hull rather than one per order**, although `buildShips` takes a whole manifest.
+// The price already walks the curve hull by hull, so the wait — which is taken from that price — has
+// to as well: three skiffs ordered together are three different jobs of three different lengths, and
+// an entry holding a `Ships` would have to carry a duration that is the sum of three rungs and then
+// deliver them all at the end. A player who ordered three would watch nothing arrive for six hours
+// instead of watching one arrive every two.
+//
+// It **does** take the `(subject, startedAt, completesAt)` shape the builds, the projects and the
+// probes share, unlike `FleetRun` which carries its own outcome. There is no outcome here: the
+// outcome is the hull, and the hull is the subject.
+//
+// **Absolute instants, chained at the order, rather than a duration served from the head.** The
+// queue is serial, so entry n's start is entry n−1's finish — and storing that as arithmetic rather
+// than as two stored instants would make `advance` re-derive the whole queue at every boundary and
+// `futureEvents` promise to derive it the same way. Every other job in this game carries the instant
+// it completes at; the queue is what puts them in order, not what computes them.
+@Serializable
+data class YardJob(
+    val ship: ShipType,
+    val startedAt: Instant,
+    val completesAt: Instant,
+) {
+    init {
+        require(completesAt > startedAt) {
+            "a hull must finish after it was laid down: started $startedAt, completes $completesAt"
+        }
+    }
+}

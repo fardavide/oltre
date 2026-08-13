@@ -273,22 +273,11 @@ object PlaceholderBalance {
     // Deuterium is deliberately outside the sum, as in OGame and as in round 10. It is the resource
     // that gates the Robotics Factory and therefore the whole research branch, and pricing *time*
     // in it too would make one scarcity govern two things the player has to trade off separately.
-    private const val MINUTES_PER_ROOT_COST: Long = 4
-
-    // Integer, and Newton's rather than `sqrt`: `core` is pure and must give the same answer on
-    // every platform it compiles for, and a float root that lands a hair under a perfect square
-    // would truncate to a different minute on one target than on another. Converges in a handful
-    // of steps and is only ever called on a cost.
-    private fun rootOf(value: Long): Long {
-        if (value <= 0) return 0
-        var root = value
-        var next = (root + 1) / 2
-        while (next < root) {
-            root = next
-            next = (root + value / root) / 2
-        }
-        return root
-    }
+    // `internal` rather than private since the yard: `FleetBalance` takes a hull's wait from the
+    // root of the hull's price, and it takes it at *this* rate rather than at one of its own — so a
+    // hull and a facility that cost the same take the same time to make. One number, one rule, and
+    // the sweep above sized it.
+    internal const val MINUTES_PER_ROOT_COST: Long = 4
 
     // Nothing is instant, however deep the Robotics Factory goes or however steep the opening
     // speed-up gets. **Two minutes rather than the five it was until 0.2.7**, and the number is
@@ -387,7 +376,7 @@ object PlaceholderBalance {
         naniteFactory: BuildingLevel,
     ): Duration {
         val fullPrice = fullPriceCost(building, toLevel)
-        val fullMinutes = MINUTES_PER_ROOT_COST * rootOf(fullPrice.metal + fullPrice.crystal)
+        val fullMinutes = MINUTES_PER_ROOT_COST * integerRoot(fullPrice.metal + fullPrice.crystal)
         val ramped = openingSpeedUp(fullMinutes, toLevel.value, FULL_PRICE_LEVEL)
         // Order is the rule, not an implementation detail. The late-game ramp reads the *unhelped*
         // wait, so how slow the late game is does not depend on which buildings the player happens

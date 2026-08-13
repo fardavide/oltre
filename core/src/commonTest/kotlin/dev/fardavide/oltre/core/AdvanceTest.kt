@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -172,6 +173,13 @@ class AdvanceTest {
                         returnsAt = t0 + 3.hours,
                     ),
                 ),
+                // Two hulls on the slipway, chained — the sixth kind of job, and the first one whose
+                // instants are a *sequence* rather than independent. A split that landed on the head
+                // finishing and did not start the tail would show up here and nowhere else.
+                yard = listOf(
+                    YardJob(ship = ShipType.SKIFF, startedAt = t0, completesAt = t0 + 2.hours),
+                    YardJob(ship = ShipType.SKIFF, startedAt = t0 + 2.hours, completesAt = t0 + 5.hours),
+                ),
             )
         val oneShot = advance(busy, from = t0, to = t2)
         val researchCompletesAt = busy.project().completesAt
@@ -188,11 +196,82 @@ class AdvanceTest {
                 add(job.completesAt)
                 add(job.completesAt + 1.milliseconds)
             }
+            busy.yard.forEach { job ->
+                add(job.completesAt - 1.milliseconds)
+                add(job.completesAt)
+                add(job.completesAt + 1.milliseconds)
+            }
         }
 
         // then
         for (t1 in splits) {
             assertEquals(oneShot, advance(advance(busy, from = t0, to = t1), from = t1, to = t2), "split at $t1 diverged")
         }
+    }
+
+    // ── The yard ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a hull leaves the slipway for the idle pool at its own instant`() {
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),
+                Ships.of(ShipType.SKIFF, 1),
+                at = t0,
+            ),
+        ).state
+        val due = ordered.yard.single().completesAt
+
+        // a millisecond short of the instant, the hull is still being made
+        val before = advance(ordered, from = t0, to = due - 1.milliseconds)
+        assertEquals(Ships.of(ShipType.SKIFF, 1), before.ships)
+        assertEquals(1, before.yard.size)
+
+        // and on it, it exists
+        val after = advance(ordered, from = t0, to = due)
+        assertEquals(Ships.of(ShipType.SKIFF, 2), after.ships)
+        assertTrue(after.yard.isEmpty())
+        assertEquals(Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = due), after.eventLog.last())
+    }
+
+    @Test
+    fun `a queue is served one hull at a time and logged in that order`() {
+        // The whole of what "serial" means, in one assertion: three orders placed in one call arrive
+        // at three different instants, and the log says so.
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                GameState.initial().copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000)),
+                Ships.of(ShipType.SKIFF, 3),
+                at = t0,
+            ),
+        ).state
+
+        val landed = advance(ordered, from = t0, to = ordered.yard.last().completesAt)
+
+        assertEquals(Ships.of(ShipType.SKIFF, 4), landed.ships)
+        assertTrue(landed.yard.isEmpty())
+        val deliveries = landed.eventLog.filterIsInstance<Event.ShipsBuilt>()
+        assertEquals(ordered.yard.map { it.completesAt }, deliveries.map { it.at })
+    }
+
+    @Test
+    fun `a hull delivered mid-span is dispatchable for the rest of it`() {
+        // The reason the delivery fills the *idle* pool rather than a total: nothing else in the game
+        // would notice, and the fleet the player can send is the one thing that has to.
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),
+                Ships.of(ShipType.SKIFF, 1),
+                at = t0,
+            ),
+        ).state
+
+        val later = advance(ordered, from = t0, to = ordered.yard.single().completesAt + 1.hours)
+
+        assertEquals(Ships.of(ShipType.SKIFF, 2), later.ownedShips())
+        assertEquals(later.ships, later.ownedShips())
     }
 }

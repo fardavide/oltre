@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":10,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":11,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -103,6 +103,10 @@ class GameSaveTest {
                 // which opens holding the one granted skiff, and the runs in flight, which at
                 // genesis are none.
                 """"ships":{"counts":{"SKIFF":1}},"runs":[],""" +
+                // The slipway, which schema 10 added as one hop. Empty at genesis and on every
+                // colony saved before hulls took time to make — every one of those was handed its
+                // hull in the same call it paid for it, so there is nothing on disk to fold in.
+                """"yard":[],""" +
                 // The square, which schema 9 added as one hop: the row whose price is watched, and
                 // the jobs whose landing was asked about. Both empty at genesis and on every colony
                 // that has never tapped a bell. Neither is a job — they schedule nothing and
@@ -141,12 +145,14 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a colony that has bought a hull survives a round trip`() {
-        // The pool is the only thing a purchase moves, and it is already a schema-8 key — so this
-        // rides an existing shape rather than needing a hop. What is new on disk is the event.
+    fun `a colony with hulls on the slipway survives a round trip`() {
+        // The queue is what a purchase moves now, and it is the schema-10 key. Two hulls rather than
+        // one, so the round trip carries the *chaining* as well as the shape: a decode that lost the
+        // order, or rounded an instant, would land on `GameState.init`'s serial rule rather than on
+        // an assertion here.
         val state = assertIs<BuildShipsResult.Started>(
             buildShips(
-                GameState.initial().copy(resources = Resources.of(metal = 10_000, crystal = 10_000)),
+                GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),
                 Ships.of(ShipType.SKIFF, 2),
                 at = EPOCH,
             ),
@@ -156,7 +162,8 @@ class GameSaveTest {
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
 
         assertEquals(snapshot, decoded)
-        assertEquals(Ships.of(ShipType.SKIFF, 3), decoded.state.ships)
+        assertEquals(listOf(ShipType.SKIFF, ShipType.SKIFF), decoded.state.yard.map { it.ship })
+        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
     }
 
     @Test
@@ -544,8 +551,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 10 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":10"""), rewritten)
+        // then — and from then on it is a version 11 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":11"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -823,6 +830,49 @@ class GameSaveTest {
         assertEquals(Ships.of(ShipType.SKIFF, 14), returned.ships)
         assertEquals(null, returned.from)
         assertEquals(500L, returned.cargo.metal)
+    }
+
+    @Test
+    fun `a colony saved before hulls took time wakes up with an empty slipway`() {
+        // The 9 -> 10 hop, and the truthful zero rather than the 7 -> 8 hop's deliberate gift: every
+        // hull that colony ever bought was handed over in the same call it paid for, so there is
+        // nothing in flight to fold in and nothing to invent.
+        //
+        // Built by taking the keys back out of a current save rather than frozen, because a
+        // schema-9 save is exactly a current one without them — both hops add keys and rewrite
+        // nothing. **Three keys rather than one since 0.10.0**: schema 11 landed deposits and the
+        // fourth technology's level on top of the yard, so a fixture that only removed `yard` would
+        // be a schema-10 save wearing a 9, and would exercise one hop instead of two.
+        val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+            .replace(""""schemaVersion":11""", """"schemaVersion":9""")
+            .replace(""""yard":[],""", "")
+            .replace(""","deposits":[]""", "")
+            .replace(""""prospecting":0,""", "")
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(beforeTheYard)).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(emptyList(), decoded.state.yard)
+        // And the fleet it already owned is untouched. The hull base went up tenfold in the version
+        // that added this key, and a migration that re-priced a fleet the player earned under the
+        // old rules would be confiscating it.
+        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
+    }
+
+    @Test
+    fun `a save whose slipway serves two hulls at once is refused rather than half-read`() {
+        // The rule `GameState.init` states about the queue, met by a hand-edited file: two jobs
+        // overlapping is the one shape a serial yard cannot hold, and `futureEvents` relies on it
+        // being impossible rather than merely unusual.
+        val overlapping = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+            .replace(
+                """"yard":[]""",
+                """"yard":[""" +
+                    """{"ship":"SKIFF","startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T02:00:00Z"},""" +
+                    """{"ship":"SKIFF","startedAt":"1970-01-01T01:00:00Z","completesAt":"1970-01-01T03:00:00Z"}]""",
+            )
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(overlapping))
     }
 
     @Test

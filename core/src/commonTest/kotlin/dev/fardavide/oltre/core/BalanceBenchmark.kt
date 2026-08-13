@@ -346,6 +346,15 @@ internal object BalanceBenchmark {
             val cost = FleetBalance.shipCost(ShipType.SKIFF, owned)
             add(row("  skiff ${owned + 1}", "${cost.metal} metal / ${cost.crystal} crystal, priced ${priced(cost)}"))
         }
+        // **The yard, at both ends of the one building that answers it.** Two columns rather than
+        // one, because 0.9.0's wait is the first number in the game a player can shorten by building
+        // something they were going to build anyway — and a page showing only the Robotics 0 column
+        // would report the wait of a colony nobody has after day two.
+        for (owned in 0 until 5) {
+            val alone = FleetBalance.buildDuration(ShipType.SKIFF, owned, BuildingLevel(0))
+            val helped = FleetBalance.buildDuration(ShipType.SKIFF, owned, BuildingLevel(4))
+            add(row("  skiff ${owned + 1} takes", "${clock(alone)} at robotics 0 · ${clock(helped)} at robotics 4"))
+        }
         val home = GalaxyState.initial(TEST_GALAXY_SEED).home
         val neighbour = home.copy(slot = if (home.slot == 1) 2 else 1)
         val window = 6.hours
@@ -366,6 +375,21 @@ internal object BalanceBenchmark {
         )
         add(row("  one skiff brings home", "${cargo.metal} metal"))
         add(row("  as hours of a genesis colony's metal", ratio(cargo.metal, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))) + "h"))
+
+        // **The reading Davide's 2026-08-13 complaint was about, and the one the page could not
+        // make before.** *"Ships are WAY too cheap, considered the benefits they bring back"* is a
+        // statement about a ratio, and nothing here printed one: the curve was on the page and the
+        // hold was on the page and what it costs to *earn* a hull was left to the reader.
+        //
+        // Station-hours rather than wall-clock hours, deliberately — flight is a property of the
+        // target and station is what the hull is paid for. At 1.00 the hull has repaid its own price
+        // once. Held at richness 1.0 and danger 0, so it is the floor of what a hull is worth rather
+        // than the best case.
+        val perStationHour = FleetBalance.EXTRACTION_PER_HOUR
+        for (owned in 0 until 5) {
+            val cost = priced(FleetBalance.shipCost(ShipType.SKIFF, owned))
+            add(row("  skiff ${owned + 1} repays itself in", "${cost / perStationHour} station-hours"))
+        }
 
         // **Is the frontier worth crossing the map for** — round 21's whole question, in four rows.
         // One richness throughout (the home world's), the 24h rung throughout, so the only things

@@ -413,7 +413,10 @@ fun App(
                         shipyard = { scroll ->
                             ShipyardScreen(
                                 scrollState = scroll,
-                                uiState = current.state.toShipyardUiState(),
+                                uiState = current.state.toShipyardUiState(
+                                    now = current.lastUpdatedAt,
+                                    timeZone = TimeZone.currentSystemDefault(),
+                                ),
                                 onBuild = { type ->
                                     act { state, at ->
                                         when (val result = buildShips(state, Ships.of(type, 1), at = at)) {

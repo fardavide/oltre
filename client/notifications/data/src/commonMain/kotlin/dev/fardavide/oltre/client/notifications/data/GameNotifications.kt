@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchedPurchase
@@ -95,20 +96,23 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
     val groupBy = groups.associateBy { it.last() as FutureEvent }
     val absorbed = groups.flatMap { it.dropLast(1) }.toSet()
 
-    // **Two kinds are now unbounded, not one.** Six facilities, one research slot and one watch are
+    // **Three kinds are now unbounded, not two.** Six facilities, one research slot and one watch are
     // bounded by the model — eight at the ceiling, and none of them can ever be the thing that
     // overflows. Probes were the only kind that ran in parallel with no cap; fleet runs are the
-    // second, so the partition has to name both or `bounded.size` stops describing the protected set
-    // and the trim arithmetic quietly under-counts.
+    // second and the yard queue is the third, so the partition has to name all three or
+    // `bounded.size` stops describing the protected set and the trim arithmetic quietly under-counts.
     //
     // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
-    // one: protect the model-bounded seven, then returns, then probe landings — because a return
-    // carries resources that a full store can void, and a probe carries information that does not
-    // spoil. Davide's to overrule.
+    // one: protect the model-bounded seven, then returns, then probe landings, then hulls — because a
+    // return carries resources that a full store can void, a probe carries information that does not
+    // spoil, and a hull on the slipway loses nothing at all by being announced late. It is last for
+    // that reason and not because it matters least; it is the only one of the three whose news keeps
+    // indefinitely. Davide's to overrule.
     val (unbounded, bounded) = pending.filterNot { it in absorbed }.partition {
-        it is FutureEvent.SurveyLands || it is FutureEvent.FleetReturns
+        it is FutureEvent.SurveyLands || it is FutureEvent.FleetReturns || it is FutureEvent.ShipsComplete
     }
-    val (returns, landings) = unbounded.partition { it is FutureEvent.FleetReturns }
+    val (returns, rest) = unbounded.partition { it is FutureEvent.FleetReturns }
+    val (landings, hulls) = rest.partition { it is FutureEvent.SurveyLands }
 
     // Trimmed from the far end, keeping the soonest. Two reasons, and the second is the one that
     // makes this safe: the near landings are the ones that will actually fire before the player
@@ -116,8 +120,11 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
     // set — so a far landing dropped today is re-booked long before it was due. Keeping the far
     // ones instead would drop alerts that nothing would ever come back for.
     val keptReturns = returns.take((IOS_PENDING_REQUEST_LIMIT - bounded.size).coerceAtLeast(0)).toSet()
-    val kept = keptReturns +
-        landings.take((IOS_PENDING_REQUEST_LIMIT - bounded.size - keptReturns.size).coerceAtLeast(0))
+    val keptLandings = landings
+        .take((IOS_PENDING_REQUEST_LIMIT - bounded.size - keptReturns.size).coerceAtLeast(0))
+        .toSet()
+    val kept = keptReturns + keptLandings +
+        hulls.take((IOS_PENDING_REQUEST_LIMIT - bounded.size - keptReturns.size - keptLandings.size).coerceAtLeast(0))
 
     // Filtered out of the original list rather than reassembled from the halves, so `futureEvents`'
     // ordering survives intact — including its tie-breaks, which say a landing sorts before a fleet
@@ -216,6 +223,20 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         // The only notification in the game that is about somewhere else. What changed is not the
         // colony but which worlds it could stand on, so the sentence points at the Galaxy tab.
         body = "Worlds you could not settle may have opened up — check the galaxy.",
+        at = at,
+    )
+    is FutureEvent.ShipsComplete -> LocalNotification(
+        // **The instant is the whole id, and it is the only one here derived from a time rather than
+        // from a subject.** Every other alert names a thing there is one of — a facility, a
+        // technology, a target system — and a hull names nothing: a queue of four skiffs is four
+        // alerts about four objects that are identical in every respect except when they arrive. The
+        // group id above has the same shape for the same reason, and it is safe for the same reason
+        // too: the yard is serial, so no two of these can share an instant, and the instant of a
+        // queued hull never moves once it is queued. Both halves are `GameState.init`'s serial rule,
+        // which is checked on every decode.
+        id = "hull-${at.toEpochMilliseconds()}",
+        title = "A ${ship.displayName()} has left the yard",
+        body = "It is in your fleet and ready to send.",
         at = at,
     )
     is FutureEvent.SurveyLands -> LocalNotification(
@@ -340,6 +361,15 @@ private fun BuildingType.displayName(): String = when (this) {
     BuildingType.SOLAR_PLANT -> "Solar Plant"
     BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
     BuildingType.NANITE_FACTORY -> "Nanite Factory"
+}
+
+// Capitalised, unlike the Colony screen's lower-case version of this — that one appears mid-sentence
+// inside a strip ("your skiff is on station"), and this one opens a lock-screen title.
+private fun ShipType.displayName(): String = when (this) {
+    ShipType.SKIFF -> "Skiff"
+    ShipType.HAULER -> "Hauler"
+    ShipType.ESCORT -> "Escort"
+    ShipType.SETTLER -> "Settler"
 }
 
 private fun Technology.displayName(): String = when (this) {

@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
@@ -34,23 +36,26 @@ class ShipyardAppBehaviourTest {
 
             buyAHull()
 
-            // Through `act` into `buildShips` and back out through the mapper: the pool the screen
-            // reads is the pool the verb wrote.
-            assertReads("2 owned · 2 idle")
-            assertReads("2 hulls")
+            // Through `act` into `buildShips` and back out through the mapper: the queue the screen
+            // reads is the queue the verb wrote. **The fleet has not grown**, which is the whole of
+            // what 0.9.0 changed about this tap — the hull is paid for and on the slipway.
+            assertReads("1 owned · 1 idle · 1 building")
+            assertReads("1 hull")
         }
     }
 
     @Test
-    fun `a hull bought on one tab is away on the other`() {
-        // The two tabs are two readings of one pool and must not be able to disagree — which is
-        // only checkable from here, because a feature module cannot see the other feature.
+    fun `a hull bought on one tab is not yet a hull on the other`() {
+        // The two tabs are two readings of one pool and must not be able to disagree — which is only
+        // checkable from here, because a feature module cannot see the other feature. A hull on the
+        // slipway is the case that could make them: the Shipyard has just charged for it and the
+        // Fleets tab must not count it, because it cannot be sent.
         app(saved = snapshot(rich())) {
             open(OltreTab.SHIPYARD)
             buyAHull()
 
             open(OltreTab.FLEETS)
-            assertReads("0 of 2 away")
+            assertReads("0 of 1 away")
             assertReads("Nothing is out.")
         }
     }
@@ -78,8 +83,53 @@ class ShipyardAppBehaviourTest {
         }
     }
 
+    @Test
+    fun `a hull ordered before you closed the app is in the fleet when you open it`() {
+        // **The whole reason the yard has a clock, driven end to end.** A launch advances from the
+        // saved instant to now, which is the only path in the app that runs `advance` over a yard
+        // job — the tap above cannot, because a purchase and its delivery are hours apart now.
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(rich(), Ships.of(ShipType.SKIFF, 1), at = Clock.System.now() - 12.hours),
+        ).state
+        // Twelve hours covers the second skiff's 2h 32m at Robotics 0 several times over, so this
+        // does not become a test about the duration curve.
+        val closed = GameSnapshot(lastUpdatedAt = Clock.System.now() - 12.hours, state = ordered)
+
+        app(saved = closed) {
+            open(OltreTab.SHIPYARD)
+            assertReads("2 hulls")
+            assertReads("2 owned · 2 idle")
+
+            // And the Fleets tab agrees, which is the pair that could disagree: the hull did not
+            // exist when the save was written and does now.
+            open(OltreTab.FLEETS)
+            assertReads("0 of 2 away")
+        }
+    }
+
+    @Test
+    fun `a queue you left running is still running when you come back`() {
+        // The serial half. Three hulls ordered, long enough away for the first to have landed and
+        // not the rest — so the launch has to apply one completion, leave two, and re-book the
+        // alerts for them.
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(veryRich(), Ships.of(ShipType.SKIFF, 3), at = Clock.System.now() - 3.hours),
+        ).state
+        val closed = GameSnapshot(lastUpdatedAt = Clock.System.now() - 3.hours, state = ordered)
+
+        app(saved = closed) {
+            open(OltreTab.SHIPYARD)
+            assertReads("2 hulls")
+            assertReads("2 owned · 2 idle · 2 building")
+            assertReads("1 queued")
+        }
+    }
+
     private fun rich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
         .copy(resources = Resources.of(metal = 10_000, crystal = 10_000))
+
+    private fun veryRich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
+        .copy(resources = Resources.of(metal = 100_000, crystal = 100_000))
 
     private fun snapshot(state: GameState): GameSnapshot =
         GameSnapshot(lastUpdatedAt = Clock.System.now(), state = state)

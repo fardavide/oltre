@@ -109,7 +109,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         shipyard = { scroll ->
                             ShipyardScreen(
                                 scrollState = scroll,
-                                uiState = game.state.toShipyardUiState(),
+                                uiState = game.state.toShipyardUiState(now = game.now, timeZone = TimeZone.UTC),
                                 onBuild = {},
                             )
                         },
