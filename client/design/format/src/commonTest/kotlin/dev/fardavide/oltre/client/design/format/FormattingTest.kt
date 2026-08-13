@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.design.format
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -35,6 +36,43 @@ class FormattingTest {
     @Test
     fun `an exact minute does not round up to the next one`() {
         assertEquals("1m", 60.seconds.toChipLabel())
+    }
+
+    // ── The wait for a vein to be worth visiting again ──────────────────────────────────────
+    //
+    // Claude Design's three tiers, of which only the top one is new. Two units, never three, which is
+    // the shape `toChipLabel` already has.
+
+    @Test
+    fun `a wait of a day or more reads in days and hours`() {
+        assertEquals("18d 13h", (18.days + 13.hours).toWaitLabel())
+        assertEquals("1d 00h", 1.days.toWaitLabel())
+    }
+
+    @Test
+    fun `the hour is padded so a column of waits stays tabular and the day never is`() {
+        // "04d" reads like a countdown to a launch; "4d 03h" reads like a wait.
+        assertEquals("4d 03h", (4.days + 3.hours).toWaitLabel())
+    }
+
+    @Test
+    fun `under a day a wait is the duration shape the app already has`() {
+        assertEquals("4h 20m", (4.hours + 20.minutes).toWaitLabel())
+        assertEquals("23h 59m", (23.hours + 59.minutes).toWaitLabel())
+    }
+
+    @Test
+    fun `under an hour a wait is the countdown the app already has`() {
+        // The tier this state usually sits in: a 1,450 vein puts a whole unit back every twenty
+        // minutes, so a world that is dry to a small ask is usually minutes away.
+        assertEquals("00:19:41", (19.minutes + 41.seconds).toWaitLabel())
+        assertEquals("00:00:09", 9.seconds.toWaitLabel())
+    }
+
+    @Test
+    fun `a wait never reads zero and never reads a bare day`() {
+        assertEquals("00:00:01", 0.seconds.toWaitLabel())
+        assertEquals("2d 00h", (2.days + 30.minutes).toWaitLabel())
     }
 
     @Test
