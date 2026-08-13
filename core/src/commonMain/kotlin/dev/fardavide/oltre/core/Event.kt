@@ -88,10 +88,25 @@ sealed interface Event {
         override val at: Instant,
     ) : Event
 
-    // No `Completed` partner, and it is the only member of the taxonomy without one — because the
-    // purchase has no duration to complete. There is no yard job: `buildShips` charges and delivers
-    // in the same call, so the transition this records is the whole of it. See `BuildShips.kt` for
-    // why the timer was refused.
+    // The partner `ShipsBuilt` lacked from 0.8.0 to 0.9.0, and the reason it lacked one is gone: the
+    // yard has a clock now, so an order and a delivery are two things that happen at two instants.
+    // It carries the whole manifest because that is what the player tapped; the delivery below
+    // carries one hull, because that is what arrives.
+    @Serializable
+    @SerialName("ShipsOrdered")
+    data class ShipsOrdered(
+        val ships: Ships,
+        override val at: Instant,
+    ) : Event
+
+    // **The meaning is unchanged and that is why the name and the identifier are** — this has always
+    // said *a hull exists now*, which is exactly what the yard finishing says. A save written before
+    // 0.9.0 holds these for purchases that were instant, and they are still true about that colony:
+    // it bought a hull, and at that instant it had one.
+    //
+    // One hull per event rather than a manifest, because the yard serves one hull at a time. A
+    // three-hull order writes one `ShipsOrdered` and three of these, hours apart — which is the log
+    // saying what actually happened rather than what was asked for.
     @Serializable
     @SerialName("ShipsBuilt")
     data class ShipsBuilt(

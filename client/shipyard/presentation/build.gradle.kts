@@ -35,8 +35,14 @@ kotlin {
             implementation(projects.client.design.format)
 
             // The ghost on an unaffordable card carries a wait, and the wait is a duration written
-            // the way every other wait in the app is written. No date library: the Shipyard names no
-            // instant, because a hull has no completion to name — see `buildShips`.
+            // the way every other wait in the app is written.
+            //
+            // **The date library arrived at 0.9.0 and the comment that used to be here said why it
+            // could not be needed** — *"the Shipyard names no instant, because a hull has no
+            // completion to name"*. It has one now: the yard has a clock, so a card on the slipway
+            // says when it is done in wall-clock time, exactly as a facility row does.
+            implementation(libs.kotlinx.datetime)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

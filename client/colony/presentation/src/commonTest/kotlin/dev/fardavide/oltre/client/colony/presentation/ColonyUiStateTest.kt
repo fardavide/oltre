@@ -1357,6 +1357,9 @@ class ColonyUiStateTest {
         // colony with no hull at home still renders every row asserted above.
         ships = Ships.NONE,
         runs = emptyList(),
+        // The slipway competes with this screen's upgrades for the same metal and for nothing else:
+        // a hull being made holds no construction slot and appears on no facility row.
+        yard = emptyList(),
         // Which row the empire is watching, when it is watching one. A parameter rather than a
         // constant because it is the input half of the square: `watch` on a row is derived from it.
         watching = watching,

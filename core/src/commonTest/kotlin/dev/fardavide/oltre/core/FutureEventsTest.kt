@@ -270,6 +270,69 @@ class FutureEventsTest {
         // then
         assertEquals(listOf("BuildCompletes", "FleetReturns"), upcoming.map { it::class.simpleName })
     }
+
+    // ── The yard ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `every hull on the slipway is one upcoming delivery`() {
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial().copy(
+            yard = listOf(
+                YardJob(ship = ShipType.SKIFF, startedAt = t0, completesAt = t0 + 2.hours),
+                YardJob(ship = ShipType.SKIFF, startedAt = t0 + 2.hours, completesAt = t0 + 5.hours),
+            ),
+        )
+
+        val upcoming = futureEvents(state, now = t0)
+
+        assertEquals(
+            listOf(
+                FutureEvent.ShipsComplete(ship = ShipType.SKIFF, at = t0 + 2.hours),
+                FutureEvent.ShipsComplete(ship = ShipType.SKIFF, at = t0 + 5.hours),
+            ),
+            upcoming,
+        )
+    }
+
+    @Test
+    fun `a delivery is not a Completion because the queue has no cap and a hull has no watch square`() {
+        // The marker means three things and the yard fails one of them — the model caps completions
+        // at seven and a serial queue caps at nothing. It is also what the subscription gate filters
+        // on, so calling this one would mean a hull nobody could subscribe to is never announced.
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = GameState.initial().copy(
+            yard = listOf(YardJob(ship = ShipType.SKIFF, startedAt = t0, completesAt = t0 + 2.hours)),
+        )
+
+        assertEquals(emptyList(), futureEvents(state, now = t0).filterIsInstance<FutureEvent.Completion>())
+    }
+
+    @Test
+    fun `a delivery sorts after the colony's own completions and before what arrives from outside`() {
+        // The order `advance` applies at a shared instant, mirrored. Everything below lands on the
+        // same millisecond on purpose: this is the tie-break ladder and nothing else.
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val together = t0 + 4.hours
+        val state = GameState.initial().copy(
+            builds = mapOf(
+                BuildingType.METAL_MINE to BuildJob(
+                    building = BuildingType.METAL_MINE,
+                    toLevel = BuildingLevel(2),
+                    startedAt = t0,
+                    completesAt = together,
+                ),
+            ),
+            yard = listOf(YardJob(ship = ShipType.SKIFF, startedAt = t0, completesAt = together)),
+            runs = listOf(inboundRun(returnsAt = together)),
+        )
+
+        val upcoming = futureEvents(state, now = t0)
+
+        assertEquals(
+            listOf("BuildCompletes", "ShipsComplete", "FleetReturns"),
+            upcoming.map { it::class.simpleName },
+        )
+    }
 }
 
 // The smallest run that stands in for "a fleet is coming home at this instant" — one skiff and a

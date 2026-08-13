@@ -314,6 +314,7 @@ private fun FutureEvent.describe(): String = when (this) {
     is FutureEvent.BuildCompletes -> "${building.name} → ${toLevel.value}"
     is FutureEvent.ResearchCompletes -> "${technology.name} → ${toLevel.value}"
     is FutureEvent.AdaptationCompletes -> "${technology.name} → ${toLevel.value}"
+    is FutureEvent.ShipsComplete -> "YARD → ${ship.name}"
     is FutureEvent.SurveyLands -> "PROBE → ${target.galaxy}:${target.system}"
     is FutureEvent.FleetReturns -> "FLEET RETURNS"
     // The one entry here that is not a job: nothing is in flight, the stores are simply on their

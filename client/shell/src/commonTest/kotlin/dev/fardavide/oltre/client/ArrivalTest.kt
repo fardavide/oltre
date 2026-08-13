@@ -46,14 +46,18 @@ class ArrivalTest {
     }
 
     @Test
-    fun `a hull bought while you were away is not something you came back to`() {
-        // `ShipsBuilt` is the one member of the taxonomy with no `Completed` partner, because the
-        // purchase has no duration: `buildShips` charges and delivers in the same call, so a hull can
-        // never land while the app is closed. The exhaustive `when` in `toAwayCompletion` had to
-        // answer for it, and this pins the answer rather than leaving it inside a grouped `-> null`.
+    fun `a hull that landed while you were away sweeps nothing because it has no row to sweep`() {
+        // **The reason changed at 0.9.0 and the answer did not.** This used to read *"the purchase
+        // has no duration, so a hull can never land while the app is closed"*, which the yard's clock
+        // made false — an overnight order lands exactly like an upgrade does. What is still true is
+        // weaker: an `AwayCompletion` is a band drawn across a row whose level changed, and a hull
+        // has no row. See `Arrival.kt`, where the gap that leaves is written down rather than closed.
         val saved = freshState()
         val resumed = saved.copy(
-            eventLog = listOf(Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = EPOCH + 1.hours)),
+            eventLog = listOf(
+                Event.ShipsOrdered(ships = Ships.of(ShipType.SKIFF, 1), at = EPOCH),
+                Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = EPOCH + 1.hours),
+            ),
         )
 
         assertNull(checkNotNull(arrivalOf(saved = saved, resumed = resumed)).finished)

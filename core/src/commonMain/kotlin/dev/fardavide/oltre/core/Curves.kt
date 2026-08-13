@@ -40,6 +40,27 @@ internal fun compound(base: Long, steps: Int, numerator: Long, denominator: Long
     return value
 }
 
+// ── The root a wait is taken of ──────────────────────────────────────────────────────────────
+//
+// Integer, and Newton's rather than `sqrt`: `core` is pure and must give the same answer on every
+// platform it compiles for, and a float root that lands a hair under a perfect square would truncate
+// to a different minute on one target than on another. Converges in a handful of steps and is only
+// ever called on a cost.
+//
+// It lives here rather than inside `PlaceholderBalance`, where it was written, for this file's own
+// stated reason: two balance objects take a wait from the root of a price now — the facilities and
+// the yard — and a second copy would be a second rounding convention nobody chose.
+internal fun integerRoot(value: Long): Long {
+    if (value <= 0) return 0
+    var root = value
+    var next = (root + 1) / 2
+    while (next < root) {
+        root = next
+        next = (root + value / root) / 2
+    }
+    return root
+}
+
 // ── The opening discount ─────────────────────────────────────────────────────────────────────
 //
 // Davide, 2026-08-09: *"Everything must be cheaper and quicker across the board, until first

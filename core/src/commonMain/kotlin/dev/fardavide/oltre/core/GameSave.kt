@@ -76,7 +76,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 9
+    const val SCHEMA_VERSION: Int = 10
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -199,6 +199,17 @@ object GameSave {
                 "subscribed" to JsonArray(emptyList()),
             )
         },
+        // 9 -> 10: the yard. Purely additive, and the truthful zero this time rather than the 7 -> 8
+        // hop's deliberate gift — a colony saved before hulls took time has nothing on the slipway,
+        // because every hull it ever bought was handed over in the same call it paid for.
+        //
+        // **What it does not do is re-price the fleet the colony already has.** The hull base went up
+        // tenfold in this version, and a save carrying six skiffs bought at the old price keeps all
+        // six. That is deliberate and it is `OBSOLETE_SCHEMAS`' own line: migrating is for a change
+        // that is only shape, retiring is for one that hands back a colony no longer worth playing —
+        // and a fleet bought cheaply is a fleet the player earned under the rules that were in force.
+        // What they will notice is the *next* hull, which is priced off a curve whose base moved.
+        9 to { root -> root.withState("yard" to JsonArray(emptyList())) },
     )
 
     // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a

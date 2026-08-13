@@ -158,6 +158,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.9.0 — 2026-08-13
+
+- **Ships take time to build.** Order a hull and it goes on the slipway with a countdown on its
+  card, the way a mine upgrade does. Orders queue: tap Build as many times as you can pay for and
+  the yard works through them one at a time, so a check-in with full stores can commit the lot and
+  find them waiting. The Robotics Factory shortens the wait, exactly as it shortens a build.
+- **Ships cost ten times what they did.** A hull was three station-hours of its own work to pay
+  back — half of one six-hour run — for something that then pays back forever. It is thirty now. A
+  new colony can no longer buy a second skiff out of its opening stock; it has to earn one, and the
+  fleet grows over days rather than over a single afternoon.
+- **Your fleet is worth having and no longer worth everything.** At the old price a player who
+  bought hulls before anything else ended up with a fleet delivering nearly three times their own
+  colony's crystal. It is under two thirds now, at the same rate per ship — the runs pay what
+  0.7.2 said they pay, and the fleet that carries them is a decision again.
+- **You are told when a hull is done.** A skiff leaving the yard buzzes like a probe landing or a
+  fleet coming home, so an overnight order is something you come back to rather than something you
+  find.
+
 ### 0.8.0 — 2026-08-12
 
 - **You can buy ships.** The Shipyard tab is a price list: what the skiff is for, what the next one
