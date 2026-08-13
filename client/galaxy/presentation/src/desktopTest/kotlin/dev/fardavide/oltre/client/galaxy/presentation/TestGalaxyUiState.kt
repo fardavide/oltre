@@ -407,6 +407,23 @@ internal val dispatchWaitingUiState: GalaxyUiState = state
     }
     .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL, ships = 4, window = 6.hours)
 
+// **The ask no waiting ever covers**, which is the finding the waiting state was built around: the
+// vein and the rate carry one multiplier, so a full fleet's lift is about the size of a vein and
+// eight hulls at a day want several times what any world of this size holds. The sheet says so
+// rather than naming a date, and the remedy is the stepper above it.
+internal val dispatchWaitingForeverUiState: GalaxyUiState = state
+    .copy(ships = Ships.of(ShipType.SKIFF, 8))
+    .let { colony ->
+        val target = GalaxyCoordinate(
+            galaxy = colony.galaxy.home.galaxy,
+            system = colony.galaxy.home.system,
+            slot = RUNNABLE_SLOT,
+        )
+        val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
+        colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap, at = FIXTURE_NOW))
+    }
+    .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL, ships = 8, window = 24.hours)
+
 // A world worked down but not out, which is the reading the row exists for: a fraction rather than a
 // word, on the one card where a player is choosing between two currencies.
 internal val dispatchWorkedUiState: GalaxyUiState = state

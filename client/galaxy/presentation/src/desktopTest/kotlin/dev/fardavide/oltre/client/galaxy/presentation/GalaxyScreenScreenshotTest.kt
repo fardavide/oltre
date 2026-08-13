@@ -171,6 +171,17 @@ class GalaxyScreenScreenshotTest {
         captureSheet(width = PHONE_WIDTH, uiState = dispatchWaitingUiState, name = "galaxy_dispatch_waiting")
     }
 
+    // The ask no waiting covers: no ghost at all, because a countdown reading "never" would be worse
+    // than the sentence above it, which says to ask for less.
+    @Test
+    fun `the dispatch sheet asking for more than any world of that size holds`() {
+        captureSheet(
+            width = PHONE_WIDTH,
+            uiState = dispatchWaitingForeverUiState,
+            name = "galaxy_dispatch_waiting_forever",
+        )
+    }
+
     // A world worked down but not out — the fraction on the chip, which is what a bare figure could
     // never say: 120 of 600 and 120 of 2,400 are the same number and not the same target.
     @Test

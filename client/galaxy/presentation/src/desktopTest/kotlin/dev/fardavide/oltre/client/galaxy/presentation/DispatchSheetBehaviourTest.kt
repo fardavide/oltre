@@ -306,6 +306,17 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
+    fun `an ask no world can ever hold says so instead of naming a date`() {
+        // The other half of the waiting state, and the reason its controls stay live: a full fleet
+        // wants several times what any world of this size holds, so there is no date to give and the
+        // remedy is the stepper rather than the calendar.
+        galaxyScreen(uiState = dispatchWaitingForeverUiState) {
+            assertTheSheetReads("No world this size ever holds that much.")
+            assertTheSheetReads("Fewer skiffs, or a shorter window, is sooner.")
+        }
+    }
+
+    @Test
     fun `a worked world states a fraction rather than a word`() {
         galaxyScreen(uiState = dispatchWorkedUiState) {
             assertTheSheetReads("/")
