@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
@@ -188,6 +189,146 @@ class DispatchUiStateTest {
     private val home: GalaxyCoordinate = galaxy.home
     private val state: GameState = GameState.initial(seed).copy(galaxy = galaxy)
     private val homeSelection = SystemSelection(galaxy = home.galaxy, system = home.system)
+
+    // ── The vein, which is where this sheet's mechanic actually lives ────────────────────────
+
+    @Test
+    fun `a chip carries the richness and what is left of it`() {
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
+
+        assertTrue(offer.metalDeposit.startsWith("richness "), offer.metalDeposit)
+        assertTrue(offer.metalDeposit.endsWith("· deposit full"), offer.metalDeposit)
+        assertTrue(offer.crystalDeposit.endsWith("· deposit full"), offer.crystalDeposit)
+    }
+
+    @Test
+    fun `a worked world states what is left on the chip rather than the word`() {
+        val slot = runnableSlot()
+        val target = homeSystemAt(slot)
+        val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+        val worked = withSkiffs(1).let {
+            it.copy(galaxy = it.galaxy.withTaken(target, ResourceKind.METAL, cap / 4, at = EPOCH))
+        }
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot, state = worked))
+
+        assertTrue(offer.metalDeposit.contains("/"), offer.metalDeposit)
+        assertTrue(offer.crystalDeposit.endsWith("· deposit full"), offer.crystalDeposit)
+    }
+
+    @Test
+    fun `the legs line says how long the fleet is actually working`() {
+        // The invariant made visible with no copy at all — `working` reads the same everywhere on the
+        // map, because the vein and the rate carry one multiplier.
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
+
+        assertTrue(offer.legs.contains("· working "), offer.legs)
+        assertTrue(offer.compactLegs.contains("· working "), offer.compactLegs)
+    }
+
+    @Test
+    fun `a clamped run says the whole deposit rather than printing the figure twice`() {
+        val slot = runnableSlot()
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+        )
+
+        assertEquals("the whole deposit", offer.perShip)
+        // The headline figure already *is* the deposit, so nothing restates it.
+        assertTrue(!offer.figure.contains("deposit"), offer.figure)
+    }
+
+    @Test
+    fun `a clamped run names the hulls that bring nothing`() {
+        val slot = runnableSlot()
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+        )
+
+        val note = assertNotNull(offer.clampNote)
+        assertTrue(note.contains("empt"), note)
+        assertTrue(note.endsWith("brings nothing.") || note.endsWith("bring nothing."), note)
+    }
+
+    @Test
+    fun `a note nobody can act on is not printed`() {
+        // Earned rather than standing. One hull has no smaller fleet to send, so the clause would be
+        // an instruction with no verb — and a note on every dispatch is furniture, which is what stops
+        // the other two being read as instructions.
+        val slot = runnableSlot()
+        val unclamped = assertIs<DispatchUiState.Offer>(dispatchAt(slot))
+        assertNull(unclamped.clampNote)
+
+        val oneHull = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = withSkiffs(1), selection = selection(slot).copy(window = 24.hours)),
+        )
+        assertNull(oneHull.clampNote)
+    }
+
+    @Test
+    fun `a window with hours to spare names the rung that brings the same`() {
+        val slot = runnableSlot()
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+        )
+
+        val note = assertNotNull(offer.rungNote)
+        assertTrue(note.endsWith("window brings the same."), note)
+    }
+
+    @Test
+    fun `an emptied world keeps its whole sheet and counts down to the ask`() {
+        // Design's mode rather than a refusal: the controls stay live because the wait is a function
+        // of the ask, so shrinking the ask is the remedy.
+        val slot = runnableSlot()
+        val target = homeSystemAt(slot)
+        val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+        val stripped = withSkiffs(1).let {
+            it.copy(galaxy = it.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH))
+        }
+
+        // The currency is named rather than defaulted: the sheet opens on whichever resource the
+        // world is richer in, and this test is about the one that was emptied.
+        val waiting = assertIs<DispatchUiState.Waiting>(
+            dispatchAt(slot, state = stripped, selection = selection(slot).copy(gathering = ResourceKind.METAL)),
+        )
+
+        assertEquals("This deposit is empty.", waiting.title)
+        assertTrue(waiting.windows.isNotEmpty(), "the ladder is still live")
+        assertTrue(waiting.note.endsWith("Fewer skiffs, or a shorter window, is sooner."), waiting.note)
+        assertTrue(waiting.metalDeposit.endsWith("· deposit empty"), waiting.metalDeposit)
+    }
+
+    @Test
+    fun `the countdown moves when the ask does`() {
+        // The finding the waiting state exists for: a big ask is often one no world can ever hold, so
+        // the same world reads "never" to a fleet and a date to a single hull.
+        val slot = runnableSlot()
+        val target = homeSystemAt(slot)
+        val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+        val stripped = state.copy(
+            ships = Ships.of(ShipType.SKIFF, 8),
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH),
+        )
+
+        val big = assertIs<DispatchUiState.Waiting>(
+            dispatchAt(
+                slot,
+                state = stripped,
+                selection = selection(slot).copy(gathering = ResourceKind.METAL, window = 24.hours),
+            ),
+        )
+        val small = assertIs<DispatchUiState.Waiting>(
+            dispatchAt(
+                slot,
+                state = stripped,
+                selection = selection(slot).copy(gathering = ResourceKind.METAL, ships = 1, window = 3.hours),
+            ),
+        )
+
+        assertNull(big.wait, "a fleet's ask is bigger than the world: ${big.note}")
+        assertNotNull(small.wait, small.note)
+    }
 
     private fun withSkiffs(count: Int): GameState = state.copy(ships = Ships.of(ShipType.SKIFF, count))
 

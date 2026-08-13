@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.core
 
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 // How deep a world is, and how slowly it comes back. `.claude/docs/deposit-sheet.md` is the design;
@@ -125,6 +126,28 @@ object DepositBalance {
     // `Advance.accrued` already states: a save whose instant is far in the past, or a clock that
     // jumped, would otherwise form a product that wraps negative on the way to an answer that is
     // simply the cap.
+    // How long until this world holds what is being asked of it — **null when it never will**,
+    // because the ask is bigger than the world.
+    //
+    // That null is not an edge case, it is the finding Claude Design built the waiting state around:
+    // the vein and the rate carry one multiplier, so a full fleet's lift is about the size of a vein,
+    // and "four skiffs at 6h" is routinely an ask no world can ever satisfy. **The countdown is only
+    // honest because the offer above it can move** — shrink the ask to one skiff at 3h and the same
+    // world is worth visiting in days rather than never.
+    //
+    // Ceiled to the millisecond, so the answer is the first instant the ask is covered rather than
+    // the last instant it is not.
+    fun timeUntil(storedFine: Long, capFine: Long, wanted: Long): Duration? {
+        require(wanted >= 0) { "an ask cannot be negative, was $wanted" }
+        val wantedFine = wanted * Resources.FINE_PER_UNIT
+        if (storedFine >= wantedFine) return Duration.ZERO
+        if (wantedFine > capFine) return null
+        val perDayFine = capFine / PERCENT * REFILL_PERCENT_PER_DAY
+        if (perDayFine <= 0) return null
+        val shortBy = wantedFine - storedFine
+        return ((shortBy * MILLISECONDS_PER_DAY + perDayFine - 1) / perDayFine).milliseconds
+    }
+
     fun regenerated(storedFine: Long, capFine: Long, elapsed: Duration): Long {
         require(storedFine >= 0) { "a deposit cannot be negative, was $storedFine" }
         require(capFine >= 0) { "a cap cannot be negative, was $capFine" }

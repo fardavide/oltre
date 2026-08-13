@@ -3,6 +3,8 @@ package dev.fardavide.oltre.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -205,6 +207,43 @@ class DepositBalanceTest {
 
         assertEquals(capFine, DepositBalance.regenerated(0, capFine, (365 * 100).days))
         assertEquals(0, DepositBalance.regenerated(0, capFine, 0.minutes))
+    }
+
+    // ── How long until a world is worth the ask ──────────────────────────────────────────────
+
+    @Test
+    fun `a world already holding what was asked for is worth visiting now`() {
+        val capFine = 1_450L * Resources.FINE_PER_UNIT
+
+        assertEquals(Duration.ZERO, DepositBalance.timeUntil(capFine, capFine, wanted = 900))
+        assertEquals(Duration.ZERO, DepositBalance.timeUntil(capFine, capFine, wanted = 1_450))
+    }
+
+    @Test
+    fun `an emptied world names when it will hold the ask again`() {
+        val capFine = 1_450L * Resources.FINE_PER_UNIT
+
+        // 5% of 1,450 is 72.5 a day, so 725 units is ten days and 1,450 is twenty.
+        assertEquals(10.days, DepositBalance.timeUntil(0, capFine, wanted = 725))
+        assertEquals(20.days, DepositBalance.timeUntil(0, capFine, wanted = 1_450))
+    }
+
+    @Test
+    fun `an ask no world could ever hold is never`() {
+        // Design's finding, and the reason the dispatch sheet's controls stay live in the waiting
+        // state: a full fleet's lift is about the size of a vein, so the ask has to be able to shrink.
+        val capFine = 1_450L * Resources.FINE_PER_UNIT
+
+        assertNull(DepositBalance.timeUntil(0, capFine, wanted = 1_451))
+    }
+
+    @Test
+    fun `a small ask of a nearly empty world is minutes rather than days`() {
+        // The tier this state usually sits in: a whole unit comes back every twenty minutes.
+        val capFine = 1_450L * Resources.FINE_PER_UNIT
+
+        val wait = DepositBalance.timeUntil(0, capFine, wanted = 1)
+        assertEquals(true, wait!! < 1.hours, "$wait")
     }
 
     private fun world(

@@ -4,6 +4,9 @@ import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.format.toWaitLabel
+import dev.fardavide.oltre.core.DepositBalance
+import dev.fardavide.oltre.core.Richness
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -64,6 +67,12 @@ sealed interface DispatchUiState {
         val gathering: ResourceKind,
         val metalRichness: String,
         val crystalRichness: String,
+        // What each chip says about the world, under its currency: "richness 1.24 · deposit full",
+        // "richness 0.74 · deposit 620/1,798", "richness 0.74 · deposit empty". **Richness lives here
+        // now rather than on the row** — Design moved it when the stocks took the row's headline, and
+        // the chip is where there is prose room for both.
+        val metalDeposit: String,
+        val crystalDeposit: String,
         val ships: String,
         val shipCount: Int,
         val atFewest: Boolean,
@@ -73,11 +82,68 @@ sealed interface DispatchUiState {
         // Present only when the ladder has narrowed. The rung that vanished is the copy — this
         // sentence exists so a player who never saw the full ladder still learns why.
         val ladderNote: String?,
+        // "The 12h window brings the same." — the shortest rung that still takes everything there is,
+        // named only when a shorter one exists and the chosen one is wasting hours. **Earned rather
+        // than standing**: on a rung that is already the shortest that empties the vein there is
+        // nothing to say, and a note that appeared on every dispatch would be furniture.
+        //
+        // No new control and no new state on the rungs. A rung whose extra hours bring nothing is not
+        // locked and not disabled — inventing a state for *not better* would be the first greyed thing
+        // in the app, and the ladder narrows by absence everywhere else.
+        val rungNote: String?,
+        // "3 skiffs empty it. The 4th brings nothing." Present only when the clamp bites *and* there
+        // is a remedy: at `atFewest` there is no smaller fleet to send, so the sheet shows the figure
+        // and stops. Under the cliff the marginal hull is worth exactly zero, so this is arithmetic
+        // stated before the tap rather than a scold.
+        val clampNote: String?,
         // The only thing on the sheet that moves when a control is touched, which is why it sits
         // under a rule and above the verb.
         val figure: String,
-        // Null on a single hull, because "132 each" beside "132 metal" is the same number twice.
+        // "449 each" on an unclamped run, "the whole deposit" when the vein is what stopped it —
+        // one token in a slot that already exists, and the only marker the clamped state needs.
+        // **The figure is never restated**: when the clamp bites the headline number already *is* the
+        // deposit, and printing it twice is the defect the null-on-a-single-hull rule below exists to
+        // prevent. Null on a single unclamped hull, because "132 each" beside "132 metal" is the same
+        // number twice.
         val perShip: String?,
+        val legs: String,
+        val compactLegs: String,
+        val danger: String,
+        val compactDanger: String,
+    ) : DispatchUiState
+
+    // **A mode rather than a refusal, and that distinction is Design's.** A dry world keeps its whole
+    // sheet — chips, stepper, ladder — and loses only the figure, which becomes a countdown to the
+    // hold *this* offer would lift. That is what makes the state worth entering rather than backing
+    // out of: **the wait is a function of the ask**, so the remedy is in the player's hands.
+    //
+    // It has to be, because of what Design measured: the vein and the rate carry one multiplier, so a
+    // full fleet's lift is about the size of a vein — "four skiffs at 6h" is 18d 13h away, which reads
+    // exactly like the "full again" this sheet ruled out. Shrink the ask to one skiff at 3h and the
+    // same world is worth visiting in 2d 04h. The countdown is only honest because the controls above
+    // it still move.
+    data class Waiting(
+        override val coordinate: String,
+        override val head: String,
+        override val compactHead: String,
+        val slot: Int,
+        val window: Duration,
+        val gathering: ResourceKind,
+        val metalRichness: String,
+        val crystalRichness: String,
+        val metalDeposit: String,
+        val crystalDeposit: String,
+        val ships: String,
+        val shipCount: Int,
+        val atFewest: Boolean,
+        val atMost: Boolean,
+        val pool: String,
+        val windows: List<WindowRungUiState>,
+        val ladderNote: String?,
+        val title: String,
+        val note: String,
+        // "in 18d 13h", or null when no amount of waiting covers this ask and only a smaller one will.
+        val wait: String?,
         val legs: String,
         val compactLegs: String,
         val danger: String,
@@ -173,7 +239,64 @@ internal fun GameState.toDispatchUiState(
         danger = danger,
         research = research,
     )
-    val haul = cargo.of(gathering)
+    val lift = cargo.of(gathering)
+    // What is actually in the ground, and the cap behind it. Both are read once and shared by the
+    // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
+    val inTheGround = galaxy.remaining(target, gathering, now)
+    val haul = minOf(lift, inTheGround)
+    val clamped = lift > inTheGround
+    val working = DepositBalance.workingTime(
+        world = world,
+        gathering = gathering,
+        ships = sent,
+        danger = danger,
+        remaining = haul,
+        research = research,
+    )
+    val chips = DepositChips(
+        metal = depositChip(target, ResourceKind.METAL, world.traits.metalRichness, now),
+        crystal = depositChip(target, ResourceKind.CRYSTAL, world.traits.crystalRichness, now),
+    )
+    val stepper = SteppedFleet(
+        ships = "$hulls ${if (hulls == 1) "skiff" else "skiffs"}",
+        shipCount = hulls,
+        atFewest = hulls <= 1,
+        atMost = hulls >= idle,
+        pool = "of $idle idle",
+    )
+    val rungs = offered.map { WindowRungUiState(label = it.rungLabel(), window = it, selected = it == window) }
+    val ladderNote = ladderNoteFor(offered = offered, roundTrip = flight * 2)
+
+    if (inTheGround <= 0) {
+        val wait = galaxy.timeUntil(target, gathering, wanted = lift, now = now)
+        return DispatchUiState.Waiting(
+            coordinate = coordinate,
+            head = head,
+            compactHead = compactHead,
+            slot = selection.slot,
+            window = window,
+            gathering = gathering,
+            metalRichness = world.traits.metalRichness.perMillion.perMillion(),
+            crystalRichness = world.traits.crystalRichness.perMillion.perMillion(),
+            metalDeposit = chips.metal,
+            crystalDeposit = chips.crystal,
+            ships = stepper.ships,
+            shipCount = stepper.shipCount,
+            atFewest = stepper.atFewest,
+            atMost = stepper.atMost,
+            pool = stepper.pool,
+            windows = rungs,
+            ladderNote = ladderNote,
+            title = waitingTitle(target, now),
+            note = waitingNote(ships = stepper.ships, window = window, lift = lift, gathering = gathering, wait = wait),
+            wait = wait?.let { "in ${it.toWaitLabel()}" },
+            legs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = false),
+            compactLegs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = true),
+            danger = dangerLine(world = world, danger = danger, compact = false),
+            compactDanger = dangerLine(world = world, danger = danger, compact = true),
+        )
+    }
+
     return DispatchUiState.Offer(
         coordinate = coordinate,
         head = head,
@@ -183,22 +306,133 @@ internal fun GameState.toDispatchUiState(
         gathering = gathering,
         metalRichness = world.traits.metalRichness.perMillion.perMillion(),
         crystalRichness = world.traits.crystalRichness.perMillion.perMillion(),
-        ships = "$hulls ${if (hulls == 1) "skiff" else "skiffs"}",
-        shipCount = hulls,
-        atFewest = hulls <= 1,
-        atMost = hulls >= idle,
-        pool = "of $idle idle",
-        windows = offered.map {
-            WindowRungUiState(label = it.rungLabel(), window = it, selected = it == window)
-        },
-        ladderNote = ladderNoteFor(offered = offered, roundTrip = flight * 2),
+        metalDeposit = chips.metal,
+        crystalDeposit = chips.crystal,
+        ships = stepper.ships,
+        shipCount = stepper.shipCount,
+        atFewest = stepper.atFewest,
+        atMost = stepper.atMost,
+        pool = stepper.pool,
+        windows = rungs,
+        ladderNote = ladderNote,
+        rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
+        clampNote = clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround),
         figure = "${haul.groupedByThousands()} ${gathering.label()}",
-        perShip = "${(haul / hulls).groupedByThousands()} each".takeIf { hulls > 1 },
-        legs = "out ${flight.toChipLabel()} · on station ${station.toChipLabel()} · home ${flight.toChipLabel()}",
-        compactLegs = "out ${flight.toChipLabel()} · station ${station.toChipLabel()} · home ${flight.toChipLabel()}",
+        perShip = when {
+            clamped -> "the whole deposit"
+            hulls > 1 -> "${(haul / hulls).groupedByThousands()} each"
+            else -> null
+        },
+        legs = legsLine(flight = flight, station = station, working = working, compact = false),
+        compactLegs = legsLine(flight = flight, station = station, working = working, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),
         compactDanger = dangerLine(world = world, danger = danger, compact = true),
     )
+}
+
+private class DepositChips(val metal: String, val crystal: String)
+
+private class SteppedFleet(
+    val ships: String,
+    val shipCount: Int,
+    val atFewest: Boolean,
+    val atMost: Boolean,
+    val pool: String,
+)
+
+// "richness 1.24 · deposit full". The chip is where richness went when the stocks took the row's
+// headline, and it is the one place both readings sit together — which is what makes the currency
+// choice a comparison rather than a memory test.
+private fun GameState.depositChip(
+    target: GalaxyCoordinate,
+    kind: ResourceKind,
+    richness: Richness,
+    now: Instant,
+): String {
+    val cap = galaxy.depositCap(target, kind)
+    val remaining = galaxy.remaining(target, kind, now)
+    val stock = when {
+        cap == null || remaining <= 0 -> "empty"
+        remaining >= cap -> "full"
+        else -> "${remaining.groupedByThousands()}/${cap.groupedByThousands()}"
+    }
+    return "richness ${richness.perMillion.perMillion()} · deposit $stock"
+}
+
+// "out 10m · on station 11h 40m · working 6h 03m · home 10m". **The fourth segment is the invariant
+// made visible with no copy at all** — because the vein and the rate carry one multiplier, `working`
+// reads the same on the doorstep as in the next galaxy, so the rule teaches itself off this line
+// rather than out of a tooltip. Absent when there is nothing to work.
+private fun legsLine(flight: Duration, station: Duration, working: Duration, compact: Boolean): String {
+    val stationWord = if (compact) "station" else "on station"
+    val parts = listOfNotNull(
+        "out ${flight.toChipLabel()}",
+        "$stationWord ${station.toChipLabel()}",
+        "working ${working.toChipLabel()}".takeIf { working > Duration.ZERO },
+        "home ${flight.toChipLabel()}",
+    )
+    return parts.joinToString(SEPARATOR)
+}
+
+// "3 skiffs empty it. The 4th brings nothing." Under the cliff the marginal hull contributes exactly
+// zero and is locked away for the whole window, so this is deterministic arithmetic stated before the
+// tap — the app's own voice — rather than a scold.
+//
+// **Earned rather than standing.** Null at one hull, where there is no smaller fleet to send and the
+// shorter rung is the only remedy left; null when nothing is clamped. A note that appeared on every
+// dispatch would be furniture, and furniture is what stops the other two being read as instructions.
+private fun clampNoteFor(clamped: Boolean, hulls: Int, perShip: Long, inTheGround: Long): String? {
+    if (!clamped || hulls <= 1 || perShip <= 0) return null
+    val enough = ((inTheGround + perShip - 1) / perShip).toInt().coerceIn(1, hulls)
+    if (enough >= hulls) return null
+    val idle = hulls - enough
+    val subject = if (enough == 1) "1 skiff empties it" else "$enough skiffs empty it"
+    val rest = if (idle == 1) "The ${ordinal(hulls)} brings nothing." else "The other $idle bring nothing."
+    return "$subject. $rest"
+}
+
+private fun ordinal(n: Int): String = when (n % 10) {
+    1 -> if (n % 100 == 11) "${n}th" else "${n}st"
+    2 -> if (n % 100 == 12) "${n}th" else "${n}nd"
+    3 -> if (n % 100 == 13) "${n}th" else "${n}rd"
+    else -> "${n}th"
+}
+
+// "The 12h window brings the same." The shortest rung that still takes everything there is — named
+// only when the chosen rung is longer than it needs to be, because a rung that is already the
+// shortest that empties the vein has nothing to say.
+private fun rungNoteFor(
+    offered: List<Duration>,
+    chosen: Duration,
+    roundTrip: Duration,
+    working: Duration,
+): String? {
+    val shortest = offered.firstOrNull { it >= roundTrip + working } ?: return null
+    if (shortest >= chosen) return null
+    return "The ${shortest.rungLabel()} window brings the same."
+}
+
+private fun GameState.waitingTitle(target: GalaxyCoordinate, now: Instant): String {
+    val metal = galaxy.remaining(target, ResourceKind.METAL, now)
+    val crystal = galaxy.remaining(target, ResourceKind.CRYSTAL, now)
+    return if (metal <= 0 && crystal <= 0) "Both deposits are empty." else "This deposit is empty."
+}
+
+// The ask, what it would lift, and when the world holds that much again — then the remedy, which is
+// that the ask can shrink. Design's finding is the reason the last sentence is there at all: a full
+// fleet's lift is about the size of a vein, so the honest answer to "when?" is often "not soon, and
+// you can ask for less."
+private fun waitingNote(
+    ships: String,
+    window: Duration,
+    lift: Long,
+    gathering: ResourceKind,
+    wait: Duration?,
+): String {
+    val ask = "$ships at ${window.rungLabel()} would lift ${lift.groupedByThousands()} ${gathering.label()}."
+    val when_ = wait?.let { "The world holds that much again in ${it.toWaitLabel()}." }
+        ?: "No world this size ever holds that much."
+    return "$ask $when_ Fewer skiffs, or a shorter window, is sooner."
 }
 
 // 3h is the rhythm the measured cadence names — *"ogni 2/3 ore"* — so it is where the ladder opens

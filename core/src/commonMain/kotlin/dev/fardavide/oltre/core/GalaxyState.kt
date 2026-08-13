@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 // Who holds a world. In 0.2 the only empire is the player, because the three scripted empires are
@@ -98,6 +99,22 @@ data class GalaxyState(
         val capFine = (depositCap(at, gathering) ?: return 0) * Resources.FINE_PER_UNIT
         val entry = deposits.firstOrNull { it.at == at } ?: return capFine
         return DepositBalance.regenerated(entry.fineOf(gathering), capFine, now - entry.asOf)
+    }
+
+    // When this world will hold `wanted` of a resource — zero if it already does, and **null when it
+    // never will**, because the ask is bigger than the world. The null is the dispatch sheet's
+    // waiting state doing its job: a full fleet's ask is routinely one no world can satisfy, and the
+    // honest answer is "ask for less" rather than a date.
+    //
+    // Here rather than on `DepositBalance` so that fine units stay inside `core`. A caller in
+    // presentation asks in whole units, which is what every figure it prints is in.
+    fun timeUntil(at: GalaxyCoordinate, gathering: ResourceKind, wanted: Long, now: Instant): Duration? {
+        val cap = depositCap(at, gathering) ?: return null
+        return DepositBalance.timeUntil(
+            storedFine = remainingFine(at, gathering, now),
+            capFine = cap * Resources.FINE_PER_UNIT,
+            wanted = wanted,
+        )
     }
 
     // The debit, applied at dispatch. Both deposits are brought forward to `at` before either is
