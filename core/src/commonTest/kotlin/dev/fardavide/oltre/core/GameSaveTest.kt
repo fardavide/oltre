@@ -65,11 +65,12 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":10,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":11,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
                 """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0,""" +
+                """"prospecting":0,""" +
                 // The three adaptation ladders, in the same record as the three applied
                 // technologies: what the empire knows is one thing however it was learned.
                 """"thermal":0,"gravitic":0,"atmospheric":0},""" +
@@ -93,7 +94,8 @@ class GameSaveTest {
                 """{"galaxy":3,"system":171,"slot":4},{"galaxy":3,"system":171,"slot":7},""" +
                 """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
                 """{"galaxy":3,"system":171,"slot":11}],""" +
-                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}]},""" +
+                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}],""" +
+                """"deposits":[]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
@@ -549,8 +551,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 10 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":10"""), rewritten)
+        // then — and from then on it is a version 11 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":11"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -777,6 +779,22 @@ class GameSaveTest {
     }
 
     @Test
+    fun `a colony saved before worlds could run dry wakes up with every vein full`() {
+        // The 9 -> 10 hop is additive and writes an empty list — which is not a placeholder but the
+        // statement itself, because an absent deposit entry *is* a full world. The test that matters
+        // is therefore not that the key arrived but that the map reads full through it.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+        val galaxy = decoded.state.galaxy
+        val worked = galaxy.surveyed.first { it != galaxy.home }
+
+        assertEquals(emptyList(), galaxy.deposits)
+        assertEquals(
+            galaxy.depositCap(worked, ResourceKind.METAL),
+            galaxy.remaining(worked, ResourceKind.METAL, EPOCH),
+        )
+    }
+
+    @Test
     fun `a colony saved before the fleet existed wakes up with one skiff and nothing out`() {
         // The 7 -> 8 hop is the only one in the table that grants something rather than writing the
         // truthful zero, and it is deliberate: nothing in this slice can *buy* a hull, so an empty
@@ -820,11 +838,16 @@ class GameSaveTest {
         // hull that colony ever bought was handed over in the same call it paid for, so there is
         // nothing in flight to fold in and nothing to invent.
         //
-        // Built by taking the key back out of a current save rather than frozen, because a schema-9
-        // save is exactly a schema-10 one without it — the hop adds one key and rewrites nothing.
+        // Built by taking the keys back out of a current save rather than frozen, because a
+        // schema-9 save is exactly a current one without them — both hops add keys and rewrite
+        // nothing. **Three keys rather than one since 0.10.0**: schema 11 landed deposits and the
+        // fourth technology's level on top of the yard, so a fixture that only removed `yard` would
+        // be a schema-10 save wearing a 9, and would exercise one hop instead of two.
         val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
-            .replace(""""schemaVersion":10""", """"schemaVersion":9""")
+            .replace(""""schemaVersion":11""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
+            .replace(""","deposits":[]""", "")
+            .replace(""""prospecting":0,""", "")
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(beforeTheYard)).snapshot
 

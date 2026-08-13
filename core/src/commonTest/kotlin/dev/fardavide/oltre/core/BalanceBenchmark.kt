@@ -371,6 +371,7 @@ internal object BalanceBenchmark {
             ships = Ships.of(ShipType.SKIFF, 1),
             station = FleetBalance.stationFor(home, neighbour, window),
             danger = 0,
+            research = Research.initial(),
         )
         add(row("  one skiff brings home", "${cargo.metal} metal"))
         add(row("  as hours of a genesis colony's metal", ratio(cargo.metal, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))) + "h"))
@@ -416,6 +417,7 @@ internal object BalanceBenchmark {
             ships = Ships.of(ShipType.SKIFF, 1),
             station = station,
             danger = FleetBalance.danger(home, world),
+            research = Research.initial(),
         ).metal
     }
 

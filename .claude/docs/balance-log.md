@@ -2972,3 +2972,105 @@ have gone stale the moment this round landed — three rows about a game nobody 
 the defect that was just fixed next door. It is `HULL_BASE_CANDIDATES` now, and it `check`s that it
 contains `FleetBalance.HULL_BASE_METAL`. **A named-and-checked candidate list is now the rule for
 every dial this file sweeps**, not a fix applied twice.
+
+## Round 24 — worlds run out (0.10.0, 2026-08-13)
+
+Davide, after playing 0.8.0:
+
+> *"I noticed planets never exhaust resources, and that seems like OP, and makes the game boring, as
+> I can just build many ships, and keep sending them to the same planet. I think each planet should
+> have a resources cap … The replenishment should be slow, I would expect perhaps 5% of the total per
+> day, so I don't have a good reason to go back to the same planet anytime soon, but I'm forced to
+> explore others, requiring me also to go further and so requiring me to upgrade my stuff."*
+
+The design is `.claude/docs/deposit-sheet.md`; this is what the sweep measured and what moved.
+
+### What shipped
+
+`DepositBalance.BASE_PRICED = 1,450`, refill 5% of cap a day, cap = `base × richness × (1 + 0.35 ×
+danger) / price`. A fourth applied technology, `PROSPECTING`, multiplying the extraction rate at +10%
+a level.
+
+**The cap was derived from a rule rather than chosen**, which is the useful part of this round.
+Davide, asked for a number, gave a rule: *"I would expect a regular ship to take two rounds or a whole
+day to deplete a planet, the ship capacity (a basic one) is never more than the planet resources."*
+One skiff on a 24h run works 1,418 minutes and lifts 1,418 priced units, so 1,450 is the smallest cap
+that satisfies both halves — 0.99 days, or 2.0 runs at the 12h window.
+
+**His first answer, 1,000, was measured and rejected.** Below a single skiff's day the vein binds on
+essentially every dispatch, and when the vein binds nothing else does:
+
+| base | 1h | 3h | 6h | 12h | 24h | dispatches the vein stopped |
+|---|---|---|---|---|---|---|
+| 1,000 | 0.15 | 0.63 | **1.35** | **2.79** | **5.67** | **41.1%** |
+| **1,450** | 0.10 | 0.44 | 0.93 | **1.93** | **3.91** | **33.0%** |
+| 2,500 | 0.06 | 0.25 | 0.54 | **1.12** | **2.27** | 25.0% |
+
+Cargo as a multiple of a full doorstep vein, four skiffs. Every bolded cell returns the identical
+figure, so at 1,000 three of five window rungs and the whole hull stepper stop changing the answer —
+two controls the last two slices were spent building, made ornamental by a constant.
+
+**The ship hold ceiling Davide proposed was measured and dropped.** A 500-per-skiff ceiling pays the
+six-hourly player **4.00×** the once-a-day player and flattens every target at or above 6h onto one
+number. Any binding per-run ceiling is arithmetically a tax on absence. What replaced it is
+`PROSPECTING`, which answers the same want — *"power up my ship so it can gather more resources in the
+same time"* — without a ceiling.
+
+### What the sweep found that nobody was looking for
+
+**The absent player is not taxed. They are paid about fifty times over.**
+
+| cadence | metal/day at day 14 | dispatches the vein stopped | worlds reached |
+|---|---|---|---|
+| every 6h | 480 | 90.1% | **6** |
+| twice a day | 582 | 92.8% | **6** |
+| once a day | 25,312 | 24.1% | **39** |
+
+The last column is the mechanism: the window rung decides reach, reach decides how many veins you can
+spread across, and a player on the 3h rung is confined to six doorstep worlds they have already
+stripped. Where `fleet-sheet.md` measured every cadence inside 4% of each other, depletion makes the
+long window strictly better.
+
+**Accepted rather than fixed, and the build's call on Davide's instruction to decide it.** The dials
+this round owns — the cap and the refill — do not touch it; both move every cadence together. What
+does touch it is *reach*, and making the frontier reachable at a shorter window is what the drive
+technology has been for since `exploration-rewards-sheet.md` §9 named it. Shrinking reach at long
+windows would undo 0.7.2 to fix a problem 0.7.2 did not cause. **This is the thing to watch on a
+device**: if the six-hourly player feels poor, the answer is a faster hull, not a shallower world.
+
+### Crystal, and the halving nobody asked for
+
+The cap is stated in the priced basket, so a crystal vein is half a metal one. Forced-currency row,
+because the adaptive bot is rarely crystal-short at four check-ins a day:
+
+| base | d14 crystal | dispatches the vein stopped |
+|---|---|---|
+| 1,000 | 5,954 | 47.1% |
+| **1,450** | **7,141** | **42.6%** |
+| 2,500 | 10,684 | 30.0% |
+
+Crystal clamps ten points harder than metal at the same cap (42.6% against 33.0%), which is the
+halving showing up exactly where the sheet's §11 said to look for it. **Kept**, and the reason is the
+one that sizes everything else: the basket is the game's single pricing convention, and a crystal vein
+worth double a metal one in the basket would make the currency choice collapse into "always crystal" —
+which `fleet-sheet.md` calls the whole reason the payout is one currency at all. If crystal scarcity
+needs relieving, the lever is `PROSPECTING` or the cap, not the basket.
+
+### The trap the screens have to close
+
+| strategy | metal/day at day 14 | dispatches the vein stopped |
+|---|---|---|
+| one hull per world | 16,545 | 33.0% |
+| the whole fleet on one world | 6,863 | 78.5% |
+
+Spreading is worth 2.4× concentrating, and nothing in the game says so. That gap is what Design's
+clamp copy exists to close — *"3 skiffs empty it. The 4th brings nothing."*
+
+### What it should feel like, so round 24 can tell
+
+Your doorstep should carry the first two days and then visibly thin. The question a dispatch asks
+should change from *"how long will I be gone"* to *"which of my worlds still has anything in it"*, and
+probing should stop feeling like an errand and start feeling like income. **If instead the fleet feels
+optional by the second week, the cap is too small; if the doorstep never runs dry, it is too large.**
+The save carries 50 vein entries at the shipped tuning after a fortnight, against the ~160 the sheet
+predicted as a ceiling — so the bound that answered `fleet-sheet.md` §8's objection holds with room.

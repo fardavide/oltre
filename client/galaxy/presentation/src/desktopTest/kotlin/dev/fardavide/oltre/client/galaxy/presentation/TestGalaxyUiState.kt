@@ -13,6 +13,7 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.worldAt
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
@@ -114,6 +115,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 3,
                     band = OrbitBand.HOT,
                     verdict = VerdictUiState.Relay(effect = "+18% range while held"),
+                    deposits = null,
                 ),
             ),
         ),
@@ -125,36 +127,37 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 4,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Home(note = homeNote()),
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:5]",
                     slot = 5,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Occupied(note = "Held by kepler"),
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:6]",
                     slot = 6,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Unsurveyed,
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:8]",
                     slot = 8,
                     band = OrbitBand.TEMPERATE,
-                    // Rich in both, and locked behind a ladder nobody has bought — which is treatment
-                    // 1b's whole argument in one row: what you can do about this world today is send
-                    // a hold to it, so the two numbers that price a hold take the headline and the
-                    // blockage becomes the sentence underneath.
+                    // Locked behind a ladder nobody has bought, and worked twice already — which is
+                    // the 0.9 row in one card: the verdict word is back in the header, and what you
+                    // can do about this world today is the pair of stocks on the line below it.
                     verdict = VerdictUiState.Blocked(
                         reading = FleetReadingUiState(
-                            metal = "metal 1.24",
-                            crystal = "crystal 0.74",
                             hazards = "ion storms · +1 danger",
                             reach = "1h 12m out and back",
                         ),
                         failures = listOf(blocked("gravity", "2.40", "1.40", "g", AdaptationTechnology.GRAVITIC, 9)),
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:9]",
@@ -162,13 +165,12 @@ internal val everyVerdictUiState = GalaxyUiState(
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Barren(
                         reading = FleetReadingUiState(
-                            metal = "metal 0.81",
-                            crystal = "crystal 0.68",
                             hazards = "tidally locked · +1 danger",
                             reach = "1h 14m out and back",
                         ),
                         threshold = "yield 0.81, worth it at 0.92",
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
             ),
         ),
@@ -182,6 +184,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     verdict = VerdictUiState.Settleable(
                         note = "Yield 1.12 · metal 1.21 · crystal 0.88 · 163 fields",
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
             ),
         ),
@@ -380,6 +383,61 @@ internal val dispatchNoShipsUiState: GalaxyUiState = state
     )
     .openWorld(RUNNABLE_SLOT)
 
+// **The clamped offer, which is where this mechanic actually lives.** A fleet big enough to outlift
+// the world it is standing on: the figure is the vein rather than the fleet, the slot beside it says
+// so in one token, and the clause under the stepper names the hulls that would come home empty.
+internal val dispatchClampedUiState: GalaxyUiState = state
+    .copy(ships = Ships.of(ShipType.SKIFF, 8))
+    .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL, ships = 8, window = 24.hours)
+
+// The dry world, and the rarer of the two states by construction: a vein puts a whole unit back
+// every twenty minutes, so exact zero survives about a third of an hour. The sheet keeps its chips,
+// its stepper and its ladder, because the wait is a function of the ask and shrinking the ask is the
+// only remedy there is.
+internal val dispatchWaitingUiState: GalaxyUiState = state
+    .copy(ships = Ships.of(ShipType.SKIFF, 4))
+    .let { colony ->
+        val target = GalaxyCoordinate(
+            galaxy = colony.galaxy.home.galaxy,
+            system = colony.galaxy.home.system,
+            slot = RUNNABLE_SLOT,
+        )
+        val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
+        colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap, at = FIXTURE_NOW))
+    }
+    .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL, ships = 4, window = 6.hours)
+
+// **The ask no waiting ever covers**, which is the finding the waiting state was built around: the
+// vein and the rate carry one multiplier, so a full fleet's lift is about the size of a vein and
+// eight hulls at a day want several times what any world of this size holds. The sheet says so
+// rather than naming a date, and the remedy is the stepper above it.
+internal val dispatchWaitingForeverUiState: GalaxyUiState = state
+    .copy(ships = Ships.of(ShipType.SKIFF, 8))
+    .let { colony ->
+        val target = GalaxyCoordinate(
+            galaxy = colony.galaxy.home.galaxy,
+            system = colony.galaxy.home.system,
+            slot = RUNNABLE_SLOT,
+        )
+        val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
+        colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap, at = FIXTURE_NOW))
+    }
+    .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL, ships = 8, window = 24.hours)
+
+// A world worked down but not out, which is the reading the row exists for: a fraction rather than a
+// word, on the one card where a player is choosing between two currencies.
+internal val dispatchWorkedUiState: GalaxyUiState = state
+    .let { colony ->
+        val target = GalaxyCoordinate(
+            galaxy = colony.galaxy.home.galaxy,
+            system = colony.galaxy.home.system,
+            slot = RUNNABLE_SLOT,
+        )
+        val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
+        colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap * 3 / 4, at = FIXTURE_NOW))
+    }
+    .openWorld(RUNNABLE_SLOT, gathering = ResourceKind.METAL)
+
 // The frontier, where the ladder narrows rather than greying out: the next galaxy is 9h 20m each
 // way, so the four short rungs are simply not on the sheet. That narrowing is what teaches distance
 // before any copy does — see `FleetBalance.windowsFor`.
@@ -411,11 +469,16 @@ internal val dispatchFarUiState: GalaxyUiState = state
         dispatch = DispatchSelection(slot = farSlot, gathering = null, ships = null, window = null),
     )
 
-private fun GameState.openWorld(slot: Int): GalaxyUiState = toGalaxyUiState(
+private fun GameState.openWorld(
+    slot: Int,
+    gathering: ResourceKind? = null,
+    ships: Int? = null,
+    window: Duration? = null,
+): GalaxyUiState = toGalaxyUiState(
     at = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
     now = FIXTURE_NOW,
     timeZone = TimeZone.UTC,
-    dispatch = DispatchSelection(slot = slot, gathering = null, ships = null, window = null),
+    dispatch = DispatchSelection(slot = slot, gathering = gathering, ships = ships, window = window),
 )
 
 // A system holding nine bodies, which the seed can produce and the four-body home cannot show: past

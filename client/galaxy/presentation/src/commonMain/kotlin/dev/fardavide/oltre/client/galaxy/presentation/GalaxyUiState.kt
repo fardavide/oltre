@@ -9,6 +9,8 @@ import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.GalaxyState
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Hazard
 import dev.fardavide.oltre.core.HostilityAxis
@@ -141,7 +143,28 @@ data class WorldRowUiState(
     val slot: Int,
     val band: OrbitBand,
     val verdict: VerdictUiState,
+    // **Present exactly where a run is legal**, which is Claude Design's rule and not a coincidence:
+    // absent on `Unsurveyed`, because a hold cannot be priced from a world nobody has looked at, and
+    // absent on `Home` and `Occupied`, because a run there is refused outright. On the row rather
+    // than inside a verdict so that `Settleable` needs no special case — one row shape, six verdicts.
+    val deposits: DepositReadingUiState?,
 )
+
+// What is still in the ground, and the only pair of numbers on a world row since 0.9.
+//
+// **The stocks replaced the richnesses; they do not join them.** Richness was put on this row for the
+// fleet at 0.4, and the fleet no longer reads it: the cap *is* richness times the danger multiplier,
+// and strip time is the same everywhere, so what a run brings home is the stock and nothing else.
+// Showing both would be one fact twice on the row that can least afford it — the header's children
+// are all single-line and unwrappable, and two labelled fractions overflow the slot outright.
+// Richness survives on the dispatch sheet's chip, where there is room to state it.
+//
+// **A word at each end and a fraction between**, which is Design's second decision: roughly 98% of
+// rows have never been touched, so `full` keeps an untouched galaxy reading as a shape the eye skips
+// rather than thirty figures it has to compare — and it is what makes `empty` and a working fraction
+// legible at a glance down fifteen rows. The fraction is the app's own `84/163 fields` idiom, so no
+// new form arrives, and the denominator is the only place a cap is ever visible on the map.
+data class DepositReadingUiState(val metal: String, val crystal: String)
 
 // One row, six verdicts and a relay that is not one.
 //
@@ -202,17 +225,31 @@ sealed interface VerdictUiState {
     data class Relay(val effect: String) : VerdictUiState
 }
 
-// What a hold can be priced from: the two resources a run may carry, the hazards that will be taken
-// out of it, and how long the trip is. Together they are the row's answer to "what can I do about
-// this today", which is why they take the headline on the two verdicts that have no other answer.
+// `startRun`'s rule, restated once as a question about the row: which verdicts is a run legal at.
+// **Not the same set as `isRunnable`** — that one governs whether the card opens a sheet, and it
+// includes `Unsurveyed`, where the sheet's whole job is to refuse and offer a probe instead. A
+// deposit reading on an unsurveyed world would be the row claiming knowledge nobody paid for.
+private fun VerdictUiState.pricesAHold(): Boolean = when (this) {
+    is VerdictUiState.Blocked,
+    is VerdictUiState.Barren,
+    is VerdictUiState.Settleable,
+    -> true
+    VerdictUiState.Unsurveyed,
+    is VerdictUiState.Home,
+    is VerdictUiState.Occupied,
+    is VerdictUiState.Relay,
+    -> false
+}
+
+// The hazards that will be taken out of a hold and how long the trip is. **It lost the richness pair
+// at 0.9** — see `DepositReadingUiState`, which took the job of saying what a world is worth to a
+// fleet and says it in the units a run is actually clamped by.
 //
 // **The hazards carry their own arithmetic and never a total** — "seismic instability · +1 danger",
 // never "danger 2". The other half of that sum is the distance band, which is astronomy and is
 // stated once under the system header; only the dispatch sheet, where the number is spent, adds them
 // up. See `GalaxyUiState.astronomy`.
 data class FleetReadingUiState(
-    val metal: String,
-    val crystal: String,
     val hazards: String,
     val reach: String,
 )
@@ -283,17 +320,22 @@ internal fun GameState.toGalaxyUiState(
     val rows = worlds.mapNotNull { (slot, world) ->
         val coordinate = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)
         when {
-            world != null -> WorldRowUiState(
-                coordinate = coordinate.label(),
-                slot = slot,
-                band = OrbitBand.of(slot),
-                verdict = verdictFor(world, this).toUiState(world = world, from = galaxy.home),
-            )
+            world != null -> {
+                val verdict = verdictFor(world, this).toUiState(world = world, from = galaxy.home)
+                WorldRowUiState(
+                    coordinate = coordinate.label(),
+                    slot = slot,
+                    band = OrbitBand.of(slot),
+                    verdict = verdict,
+                    deposits = if (verdict.pricesAHold()) toDepositReading(coordinate, now) else null,
+                )
+            }
             coordinate == relay -> WorldRowUiState(
                 coordinate = coordinate.label(),
                 slot = slot,
                 band = OrbitBand.of(slot),
                 verdict = VerdictUiState.Relay(effect = RELAY_EFFECT),
+                deposits = null,
             )
             else -> null
         }
@@ -476,15 +518,35 @@ private fun WorldVerdict.toUiState(world: World, from: GalaxyCoordinate): Verdic
     }
 }
 
-// The two numbers that price a hold, the hazards that will be taken out of it, and the round trip.
-// Read from `FleetBalance` rather than restated, so a row and the sheet it raises cannot disagree
-// about how far away a world is.
+// The hazards a hold will pay for and the round trip. Read from `FleetBalance` rather than restated,
+// so a row and the sheet it raises cannot disagree about how far away a world is.
 private fun World.toFleetReading(from: GalaxyCoordinate): FleetReadingUiState = FleetReadingUiState(
-    metal = "metal ${traits.metalRichness.perMillion.perMillion()}",
-    crystal = "crystal ${traits.crystalRichness.perMillion.perMillion()}",
     hazards = traits.fleetHazardLabel(),
     reach = "${FleetBalance.roundTrip(from = from, to = at).toChipLabel()} out and back",
 )
+
+// `metal full`, `metal 174/819`, `metal empty` — a word at each end because neither end poses any
+// arithmetic, and a fraction between because 120 of 600 and 120 of 2,400 are the same number and not
+// the same target.
+//
+// **Never the words this design refused**: no *left*, no *deposit*, no rate of refill. With no noun
+// the row asserts nothing about who took what, which is what lets `full` be the honest reading of the
+// ~98% of worlds nobody has ever worked.
+private fun GameState.toDepositReading(at: GalaxyCoordinate, now: Instant): DepositReadingUiState =
+    DepositReadingUiState(
+        metal = "metal ${galaxy.stockLabel(at, ResourceKind.METAL, now)}",
+        crystal = "crystal ${galaxy.stockLabel(at, ResourceKind.CRYSTAL, now)}",
+    )
+
+private fun GalaxyState.stockLabel(at: GalaxyCoordinate, gathering: ResourceKind, now: Instant): String {
+    val cap = depositCap(at, gathering) ?: return "empty"
+    val remaining = remaining(at, gathering, now)
+    return when {
+        remaining >= cap -> "full"
+        remaining <= 0 -> "empty"
+        else -> "${remaining.groupedByThousands()}/${cap.groupedByThousands()}"
+    }
+}
 
 // "seismic instability · +1 danger", and "no hazards" when there are none — which is a fact worth
 // printing rather than an absence worth hiding, because a clean world is the one you want to find.

@@ -913,6 +913,7 @@ class GameNotificationsTest {
             Technology.PHOTOVOLTAICS to "Photovoltaics",
             Technology.EXTRACTION to "Extraction",
             Technology.ENRICHMENT to "Enrichment",
+            Technology.PROSPECTING to "Prospecting",
         )
         assertEquals(Technology.entries.toSet(), expected.keys, "a technology was added without a name")
 

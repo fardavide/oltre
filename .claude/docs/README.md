@@ -11,6 +11,7 @@
 | [adaptation-sheet.md](adaptation-sheet.md) | The three adaptation ladders — why they are a second branch, what they cost, why they share one research slot |
 | [fleet-sheet.md](fleet-sheet.md) | The 0.4 fleet design — the run, the ship set, danger, the hull curve, the four-slice plan |
 | [exploration-rewards-sheet.md](exploration-rewards-sheet.md) | **Proposed, awaiting Davide's calls.** Why exploration pays nothing, and the inversion that fixes it — danger as payout, a drive technology, fleet-arc slice 2 |
+| [deposit-sheet.md](deposit-sheet.md) | The 0.9 design — a world is a finite vein: per-world deposits, 5%/day refill, why the ship hold ceiling was dropped, and the guardrail the numbers must pass |
 
 Work that a remote agent session cannot do — UI of any kind, screenshot baselines, or a repo only
 the desktop machine has — is written up as a ready-to-paste prompt. See

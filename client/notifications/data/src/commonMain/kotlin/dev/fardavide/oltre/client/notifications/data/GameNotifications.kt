@@ -376,6 +376,7 @@ private fun Technology.displayName(): String = when (this) {
     Technology.PHOTOVOLTAICS -> "Photovoltaics"
     Technology.EXTRACTION -> "Extraction"
     Technology.ENRICHMENT -> "Enrichment"
+    Technology.PROSPECTING -> "Prospecting"
 }
 
 // Spelled out in full, with the word the Galaxy screen's blocked rows drop to save eleven

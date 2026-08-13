@@ -258,6 +258,71 @@ class DispatchSheetBehaviourTest {
         }
     }
 
+    // ── What the vein does to the sheet ──────────────────────────────────────────────────────
+
+    @Test
+    fun `a chip says what is left as well as how rich it is`() {
+        // Richness moved here when the stocks took the row's headline, and this is the one card where
+        // both readings sit together — which is what makes the currency choice a comparison rather
+        // than a memory test.
+        galaxyScreen(uiState = dispatchOfferUiState) {
+            assertTheSheetReads("deposit full")
+        }
+    }
+
+    @Test
+    fun `a fleet the world cannot fill is told so rather than shown a number twice`() {
+        // The clamped state, which is the common one. The headline figure already *is* the deposit,
+        // so what marks it is the slot beside it — one token, in a slot that already exists.
+        galaxyScreen(uiState = dispatchClampedUiState) {
+            assertTheSheetReads("the whole deposit")
+            // Design's copy is the one-idle-hull case — "The 4th brings nothing." — and this fixture
+            // sends eight at a world two can empty, so it is the plural form of the same sentence.
+            assertTheSheetReads("empty it.")
+            assertTheSheetReads("bring nothing.")
+        }
+    }
+
+    @Test
+    fun `the sheet says how long the fleet is actually working`() {
+        // The invariant made visible with no copy at all: because the vein and the rate carry one
+        // multiplier, this segment reads the same on the doorstep as in the next galaxy.
+        galaxyScreen(uiState = dispatchClampedUiState) {
+            assertTheSheetReads("working")
+        }
+    }
+
+    @Test
+    fun `a dry world keeps its controls and counts down to the ask instead of refusing`() {
+        // **A mode rather than a refusal**, and the distinction is the whole design: the wait is a
+        // function of the ask, so the chips and the ladder have to stay reachable for the remedy to
+        // be in the player's hands at all.
+        galaxyScreen(uiState = dispatchWaitingUiState) {
+            assertTheSheetReads("is empty.")
+            assertTheSheetReads("Fewer skiffs, or a shorter window, is sooner.")
+            // The ladder is still there to be tapped, which a refusal would not have.
+            assertTheSheetReads("6h")
+        }
+    }
+
+    @Test
+    fun `an ask no world can ever hold says so instead of naming a date`() {
+        // The other half of the waiting state, and the reason its controls stay live: a full fleet
+        // wants several times what any world of this size holds, so there is no date to give and the
+        // remedy is the stepper rather than the calendar.
+        galaxyScreen(uiState = dispatchWaitingForeverUiState) {
+            assertTheSheetReads("No world this size ever holds that much.")
+            assertTheSheetReads("Fewer skiffs, or a shorter window, is sooner.")
+        }
+    }
+
+    @Test
+    fun `a worked world states a fraction rather than a word`() {
+        galaxyScreen(uiState = dispatchWorkedUiState) {
+            assertTheSheetReads("/")
+        }
+    }
+
     // ── The screen that owns the sheet ───────────────────────────────────────────────────────
     //
     // Which world has its sheet up is `GalaxyScreen`'s own state, so these two are the only

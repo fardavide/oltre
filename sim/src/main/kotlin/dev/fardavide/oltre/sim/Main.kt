@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.DepositBalance
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -73,6 +74,7 @@ fun main() {
     printDemandReport()
     printOpeningReport()
     printFleetReport()
+    printDepositReport()
     printCheckInPressureReport()
     printInteractionCensus()
     printGateClock()
@@ -1374,6 +1376,10 @@ private fun cargoAt(
     ships: Ships,
     station: Duration,
     danger: Int,
+    // The fourth technology multiplies the rate, so a replica that assumed nothing was researched
+    // would disagree with `core` the moment the bot bought a level of it — and the `check` below is
+    // the whole point of the replica existing.
+    research: Research = Research.initial(),
 ): Resources {
     val stationMinutes = station.inWholeMinutes
     if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
@@ -1394,7 +1400,10 @@ private fun cargoAt(
         ResourceKind.CRYSTAL -> 2L
         ResourceKind.DEUTERIUM -> 3L
     }
-    val numerator = ships.total.toLong() * tuning.extractionPerHour * stationMinutes *
+    val rate = tuning.extractionPerHour *
+        ResearchBalance.multiplier(Technology.PROSPECTING, research.levelOf(Technology.PROSPECTING)) /
+        ResearchBalance.MULTIPLIER_BASIS
+    val numerator = ships.total.toLong() * rate * stationMinutes *
         richness.perMillion.toLong() * paid
     val whole = numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit)
     val cargo = when (gathering) {
@@ -1403,7 +1412,7 @@ private fun cargoAt(
         ResourceKind.DEUTERIUM -> error("unreachable")
     }
     if (tuning.isShippedExtraction) {
-        check(cargo == FleetBalance.cargo(world, gathering, ships, station, danger)) {
+        check(cargo == FleetBalance.cargo(world, gathering, ships, station, danger, research)) {
             "the harness's hold replica disagrees with FleetBalance.cargo: $cargo"
         }
     }
@@ -1571,7 +1580,17 @@ private fun bestDispatch(
         // is what the narrowing ladder says on the screen.
         if (window !in offered) continue
         val station = FleetBalance.stationFor(home, target, window)
-        val cargo = cargoAt(tuning, world, gathering, ships, station, FleetBalance.danger(home, world))
+        // `state.research` rather than nothing researched: the bot buys Prospecting like any other
+        // row, and a replica that ignored it would price every hold below what `startRun` charges.
+        val cargo = cargoAt(
+            tuning,
+            world,
+            gathering,
+            ships,
+            station,
+            FleetBalance.danger(home, world),
+            state.research,
+        )
         if (best == null || priced(cargo) > priced(best.cargo)) {
             best = Dispatch(target = target, window = window, gathering = gathering, cargo = cargo)
         }
@@ -1795,6 +1814,8 @@ private fun fleetRun(
                         ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
                     val choice = bestDispatch(state, manifest, windowFor(policy, gapMinutes), gathering, tuning)
                     if (choice != null) {
+                        // Read before the dispatch, because the dispatch is what debits it.
+                        val inTheGround = state.galaxy.remaining(choice.target, gathering, now)
                         val result = startRun(
                             state = state,
                             target = choice.target,
@@ -1806,12 +1827,26 @@ private fun fleetRun(
                         if (result is StartRunResult.Started) {
                             var next = result.state
                             val run = next.runs.last()
+                            // **The vein clamps this sweep too, and it cannot be switched off.**
+                            // Emptying `galaxy.deposits` does not help: at 0.9 a grown fleet outlifts
+                            // a world's *whole* cap, so the clamp bites on an untouched vein. So the
+                            // replica is compared against what `startRun` may legitimately have done
+                            // — priced the hold, then taken the smaller of it and what was there —
+                            // and the rows below are lower than round 22's for that reason rather
+                            // than because a rate moved.
+                            val clampedTo = minOf(choice.cargo.of(gathering), inTheGround)
                             if (tuning.isShippedExtraction) {
-                                check(run.cargo == choice.cargo) {
-                                    "startRun priced the hold at ${run.cargo}, the sweep at ${choice.cargo}"
+                                check(run.cargo.of(gathering) == clampedTo) {
+                                    "startRun priced the hold at ${run.cargo.of(gathering)}, " +
+                                        "the sweep at $clampedTo"
                                 }
                             } else {
-                                next = next.copy(runs = next.runs.dropLast(1) + run.copy(cargo = choice.cargo))
+                                val held = if (gathering == ResourceKind.METAL) {
+                                    Resources.of(metal = clampedTo)
+                                } else {
+                                    Resources.of(crystal = clampedTo)
+                                }
+                                next = next.copy(runs = next.runs.dropLast(1) + run.copy(cargo = held))
                             }
                             state = next
                             val returnsAt = now + choice.window
@@ -3057,4 +3092,362 @@ private fun meanRichness(worlds: List<World>, of: (WorldTraits) -> Int): String 
     if (worlds.isEmpty()) return "—"
     val mean = worlds.sumOf { of(it.traits).toLong() } / worlds.size
     return yieldLabel(mean.toInt())
+}
+
+// ── The depletion sweep, which `.claude/docs/deposit-sheet.md` §9 makes a merge condition ────────
+//
+// Davide took the harshest cell of the grid and asked for a brake — *"please don't allow me to screw
+// up"*. This is that brake, and it has already caught one thing: his first cap of 1,000 is below a
+// single skiff's day, so the deposit binds on essentially every dispatch, and when the deposit binds
+// **nothing else does** — the window ladder and the hull stepper stop changing the answer. That is
+// what the `clamped` column is for, and no other reading in this file would have shown it.
+//
+// **The vein is modelled here rather than read off `GameState`**, for the reason the rate sweep
+// carries its own `cargoAt`: `DepositBalance.BASE_PRICED` is a `const val`, so a swept row cannot ask
+// `core` what a world holds. The replica is checked against `core` on every call at the shipped
+// values, and the bot's own deposits are the authority — `state.galaxy.deposits` is cleared each
+// check-in so the two cannot both debit the same world.
+private class DepositTuning(val basePriced: Long, val refillPercent: Long) {
+
+    val isShipped: Boolean
+        get() = basePriced == DepositBalance.BASE_PRICED && refillPercent == DepositBalance.REFILL_PERCENT_PER_DAY
+
+    val label: String get() = "$basePriced · ${refillPercent}%/day"
+}
+
+private val DEPOSIT_CANDIDATES: List<Long> = listOf(1_000L, 1_200L, 1_450L, 2_000L, 2_500L).also {
+    check(DepositBalance.BASE_PRICED in it) {
+        "the sweep must contain the shipped cap ${DepositBalance.BASE_PRICED}"
+    }
+}
+
+// `DepositBalance.cap` with the base lifted out, checked against `core` at the shipped base.
+private fun capAt(tuning: DepositTuning, world: World, gathering: ResourceKind, danger: Int): Long {
+    val richness = when (gathering) {
+        ResourceKind.METAL -> world.traits.metalRichness
+        ResourceKind.CRYSTAL -> world.traits.crystalRichness
+        ResourceKind.DEUTERIUM -> error("a world holds no deuterium deposit")
+    }
+    val price = if (gathering == ResourceKind.METAL) 1L else 2L
+    val cap = tuning.basePriced * richness.perMillion.toLong() * (100L + 35L * danger) /
+        (GalaxyBalance.RICHNESS_BASIS.toLong() * 100L * price)
+    if (tuning.isShipped) {
+        check(cap == DepositBalance.cap(world, gathering, danger)) {
+            "the harness's cap replica disagrees with DepositBalance.cap: $cap"
+        }
+    }
+    return cap
+}
+
+// One world's two veins, in whole units, refilled on read. Whole units rather than `core`'s fine ones
+// because nothing here needs sub-unit precision over fourteen days and a harness that carried a
+// second fine-unit convention would be a second place for it to drift.
+private class Vein(val cap: Long, var remaining: Long, var asOfHour: Int)
+
+private class Veins(private val tuning: DepositTuning, private val state: GameState) {
+
+    private val worlds = linkedMapOf<Pair<GalaxyCoordinate, ResourceKind>, Vein>()
+
+    val touched: Int get() = worlds.count { it.value.remaining < it.value.cap }
+
+    fun remaining(at: GalaxyCoordinate, gathering: ResourceKind, hour: Int, home: GalaxyCoordinate): Long {
+        val world = worldAt(state.galaxy.seed, at) ?: return 0
+        val danger = FleetBalance.danger(home, world)
+        val vein = worlds.getOrPut(at to gathering) {
+            val cap = capAt(tuning, world, gathering, danger)
+            Vein(cap = cap, remaining = cap, asOfHour = hour)
+        }
+        val perDay = vein.cap * tuning.refillPercent / 100
+        val hours = (hour - vein.asOfHour).coerceAtLeast(0)
+        vein.remaining = minOf(vein.cap, vein.remaining + perDay * hours / 24)
+        vein.asOfHour = hour
+        return vein.remaining
+    }
+
+    fun take(at: GalaxyCoordinate, gathering: ResourceKind, amount: Long) {
+        worlds.getValue(at to gathering).remaining -= amount
+    }
+}
+
+private class DepositDay(var metal: Long = 0, var crystal: Long = 0, var dispatches: Int = 0, var clamped: Int = 0)
+
+private class DepositOutcome(
+    val days: List<DepositDay>,
+    val entriesHeld: Int,
+    val systemsSurveyed: Int,
+    val targetsReached: Int,
+    val colonyMetalPerDay: Long,
+    val colonyCrystalPerDay: Long,
+)
+
+// One player, fourteen days, spreading one hull per world — which is the strategy the sheet's §4.1
+// measures as absence-neutral, and therefore the one a veto has to be read against. Concentrating is
+// printed separately because it is the trap rather than the play.
+private fun depositRun(
+    tuning: DepositTuning,
+    days: Int = 14,
+    checkInHours: List<Int> = CHECK_IN_HOURS,
+    spread: Boolean = true,
+    // Null is the adaptive rule — crystal while the colony is short of it, metal otherwise — which is
+    // what a player does and what every row above uses. Forcing one is the only way to get a crystal
+    // reading at all: at four check-ins a day this colony is rarely crystal-short, so the adaptive bot
+    // gathers metal for almost the whole fortnight. `printFleetReport` needed the same escape hatch
+    // for the same reason and for the same currency.
+    forceGathering: ResourceKind? = null,
+): DepositOutcome {
+    var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
+    val genesis = Instant.fromEpochMilliseconds(0)
+    var now = genesis
+    val fleet = SHIPPED_FLEET
+    val veins = Veins(tuning, state)
+    val ledger = List(days) { DepositDay() }
+    val offsets = (0 until days).flatMap { day -> checkInHours.map { day * 24 + it } }
+    val checkIns = offsets.toSet()
+    var shortOfCrystal = false
+    val targets = mutableSetOf<GalaxyCoordinate>()
+
+    for (hour in 0 until days * 24) {
+        val at = genesis + hour.hours
+        state = advance(state, from = now, to = at)
+        now = at
+        // The harness owns the vein; `core`'s copy is emptied so the two cannot both debit a world.
+        state = state.copy(galaxy = state.galaxy.copy(deposits = emptyList()))
+
+        if (hour !in checkIns) continue
+        val gapMinutes = ((offsets.firstOrNull { it > hour } ?: (days * 24)) - hour) * 60L
+        val visible = optionsFor(state, FULL_PLAN, withProjects = true)
+        shortOfCrystal = (visible.buildings + visible.projects)
+            .any { Blocker.CRYSTAL in shortagesOf(it.second, state.resources) }
+
+        probeTargetFor(state, gapMinutes)?.let { target ->
+            (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
+        }
+        for ((building, cost) in optionsFor(state, FULL_PLAN, withProjects = true).buildings) {
+            if (!state.resources.covers(cost)) continue
+            (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+        }
+        for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
+            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            when (project) {
+                is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
+                    ?.let { state = it.state }
+                is AdaptationTechnology ->
+                    (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
+                        ?.let { state = it.state }
+            }
+        }
+        while (true) {
+            state = buyOneHull(state, fleet, at = now) ?: break
+        }
+
+        val gathering = forceGathering ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
+        val window = windowFor(WindowPolicy.HOME_WHEN_I_LOOK, gapMinutes)
+        val idle = state.ships.countOf(ShipType.SKIFF)
+        val manifests = if (spread) List(idle) { 1 } else listOf(idle)
+        for (hulls in manifests) {
+            if (hulls <= 0) continue
+            val ships = Ships.of(ShipType.SKIFF, hulls)
+            val choice = bestVein(state, ships, window, gathering, fleet, veins, hour) ?: continue
+            val result = startRun(state, choice.target, gathering, ships, choice.window, at = now)
+            if (result !is StartRunResult.Started) continue
+            var next = result.state
+            val run = next.runs.last()
+            next = next.copy(runs = next.runs.dropLast(1) + run.copy(cargo = choice.cargo))
+            state = next
+            veins.take(choice.target, gathering, priced(choice.cargo).let { choice.cargo.of(gathering) })
+            targets += choice.target
+            val day = hour / 24
+            ledger[day].dispatches++
+            if (choice.clamped) ledger[day].clamped++
+        }
+    }
+    state = advance(state, from = now, to = genesis + (days * 24).hours)
+
+    for (event in state.eventLog.filterIsInstance<Event.FleetReturned>()) {
+        val day = ((event.at - genesis).inWholeHours / 24).toInt().coerceIn(0, days - 1)
+        ledger[day].metal += event.cargo.metal
+        ledger[day].crystal += event.cargo.crystal
+    }
+    return DepositOutcome(
+        days = ledger,
+        entriesHeld = veins.touched,
+        systemsSurveyed = state.galaxy.surveyed.map { it.galaxy to it.system }.distinct().size,
+        targetsReached = targets.size,
+        colonyMetalPerDay = PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research) * 24,
+        colonyCrystalPerDay =
+            PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research) * 24,
+    )
+}
+
+private class VeinChoice(
+    val target: GalaxyCoordinate,
+    val window: Duration,
+    val cargo: Resources,
+    val clamped: Boolean,
+)
+
+// The richest *remaining* world rather than the richest world, which is the whole behavioural change
+// the mechanic asks of a player: what is in the ground is now part of choosing where to send a hull.
+private fun bestVein(
+    state: GameState,
+    ships: Ships,
+    window: Duration,
+    gathering: ResourceKind,
+    fleet: FleetTuning,
+    veins: Veins,
+    hour: Int,
+): VeinChoice? {
+    val home = state.galaxy.home
+    var best: VeinChoice? = null
+    for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
+        if (target == home || state.galaxy.holderOf(target) != null) continue
+        val world = worldAt(state.galaxy.seed, target) ?: continue
+        if (window !in FleetBalance.windowsFor(home, target)) continue
+        val station = FleetBalance.stationFor(home, target, window)
+        val lift = cargoAt(
+            fleet,
+            world,
+            gathering,
+            ships,
+            station,
+            FleetBalance.danger(home, world),
+            state.research,
+        ).of(gathering)
+        val inTheGround = veins.remaining(target, gathering, hour, home)
+        val taken = minOf(lift, inTheGround)
+        if (taken <= 0) continue
+        val cargo = if (gathering == ResourceKind.METAL) {
+            Resources.of(metal = taken)
+        } else {
+            Resources.of(crystal = taken)
+        }
+        if (best == null || taken > best.cargo.of(gathering)) {
+            best = VeinChoice(target = target, window = window, cargo = cargo, clamped = lift > inTheGround)
+        }
+    }
+    return best
+}
+
+private fun Resources.of(kind: ResourceKind): Long = when (kind) {
+    ResourceKind.METAL -> metal
+    ResourceKind.CRYSTAL -> crystal
+    ResourceKind.DEUTERIUM -> deuterium
+}
+
+// The report §9 asks for, and the four readings that would veto the numbers. Each names the dial to
+// move, because a veto that only says "wrong" sends the next round back to the same grid.
+private fun printDepositReport() {
+    println()
+    println("## Depletion — the sweep the deposit sheet's §9 makes a merge condition")
+    println()
+    println("Fourteen days, four check-ins a day, one hull per world (the spread strategy §4.1 measures")
+    println("as absence-neutral). `clamped` is the share of dispatches the vein stopped rather than the")
+    println("fleet — the column that caught a cap of 1,000, and the one no other report in this file has.")
+    println()
+    println("**Caveat, and it is the same one `printFleetReport` carries: the crystal column is mostly")
+    println("zero because the bot gathers crystal only while the colony is short of it, and at four")
+    println("check-ins a day this colony rarely is.** A crystal reading wants a forced-currency row the")
+    println("way §4's binding row did; until then, read the crystal column as absent rather than as low.")
+    println()
+    println("| cap · refill | d1 metal | d7 metal | d14 metal | d14 crystal | clamped | veins held | systems |")
+    println("|---|---|---|---|---|---|---|---|")
+    for (base in DEPOSIT_CANDIDATES) {
+        for (refill in listOf(5L, 10L)) {
+            val tuning = DepositTuning(basePriced = base, refillPercent = refill)
+            val out = depositRun(tuning)
+            val dispatches = out.days.sumOf { it.dispatches }
+            val clamped = out.days.sumOf { it.clamped }
+            val shipped = if (tuning.isShipped) " **" else ""
+            println(
+                "| ${tuning.label}$shipped | ${out.days[0].metal.grouped()} | ${out.days[6].metal.grouped()} | " +
+                    "${out.days[13].metal.grouped()} | ${out.days[13].crystal.grouped()} | " +
+                    "${share(clamped.toLong(), dispatches.toLong())} | ${out.entriesHeld} | ${out.systemsSurveyed} |",
+            )
+        }
+    }
+
+    val shipped = DepositTuning(DepositBalance.BASE_PRICED, DepositBalance.REFILL_PERCENT_PER_DAY)
+    println()
+    println("### Veto 1 — does the fleet stay worth owning?")
+    println()
+    println("| | day 1 | day 7 | day 14 | colony/day at 14 | fleet as a share of it |")
+    println("|---|---|---|---|---|---|")
+    val out = depositRun(shipped)
+    println(
+        "| metal | ${out.days[0].metal.grouped()} | ${out.days[6].metal.grouped()} | " +
+            "${out.days[13].metal.grouped()} | ${out.colonyMetalPerDay.grouped()} | " +
+            "${share(out.days[13].metal, out.colonyMetalPerDay)} |",
+    )
+    println(
+        "| crystal | ${out.days[0].crystal.grouped()} | ${out.days[6].crystal.grouped()} | " +
+            "${out.days[13].crystal.grouped()} | ${out.colonyCrystalPerDay.grouped()} | " +
+            "${share(out.days[13].crystal, out.colonyCrystalPerDay)} |",
+    )
+    println()
+    println("The sheet's bar is ~25% of colony income. Below it the fleet stops being worth owning, the")
+    println("hull curve bounds nothing because nobody buys a second hull, and the dial is the cap.")
+
+    println()
+    println("### The crystal column, forced — because the adaptive bot almost never asks for it")
+    println()
+    println("| cap · refill | d1 crystal | d7 crystal | d14 crystal | clamped | colony crystal/day |")
+    println("|---|---|---|---|---|---|")
+    for (base in DEPOSIT_CANDIDATES) {
+        val tuning = DepositTuning(basePriced = base, refillPercent = 5)
+        val row = depositRun(tuning, forceGathering = ResourceKind.CRYSTAL)
+        val dispatches = row.days.sumOf { it.dispatches }
+        val mark = if (tuning.isShipped) " **" else ""
+        println(
+            "| ${tuning.label}$mark | ${row.days[0].crystal.grouped()} | ${row.days[6].crystal.grouped()} | " +
+                "${row.days[13].crystal.grouped()} | " +
+                "${share(row.days.sumOf { it.clamped }.toLong(), dispatches.toLong())} | " +
+                "${row.colonyCrystalPerDay.grouped()} |",
+        )
+    }
+    println()
+    println("Crystal is the game's standing scarcity and its deposits are **half the size** of a metal")
+    println("one, because the cap is stated in the priced basket. That halving is the sharpest thing in")
+    println("the deposit sheet nobody asked for, and this is the table that would show it hurting.")
+    println()
+    println("### Veto 3 — is the absent player taxed?")
+    println()
+    println("| cadence | metal a day at 14 | crystal a day at 14 | clamped | worlds reached |")
+    println("|---|---|---|---|---|")
+    for ((label, hours) in listOf("every 6h" to listOf(0, 6, 12, 18), "twice a day" to listOf(0, 12), "once a day" to listOf(0))) {
+        val row = depositRun(shipped, checkInHours = hours)
+        val dispatches = row.days.sumOf { it.dispatches }
+        println(
+            "| $label | ${row.days[13].metal.grouped()} | ${row.days[13].crystal.grouped()} | " +
+                "${share(row.days.sumOf { it.clamped }.toLong(), dispatches.toLong())} | " +
+                "${row.targetsReached} |",
+        )
+    }
+    println()
+    println("**The first run of this table found the mirror of the failure it was built to catch.** The")
+    println("sheet's §9 asks whether the *absent* player is taxed. They are not — they are paid roughly")
+    println("fifty times over, and the `worlds reached` column says why: the window rung decides how far")
+    println("a run can go, reach decides how many veins you can spread across, and a player confined to")
+    println("the 3h rung is confined to their own doorstep. Six worlds, stripped, living on 5% a day.")
+    println()
+    println("So depletion makes the long window strictly better, where the fleet sheet measured every")
+    println("cadence inside 4% of each other. That is a design call rather than a constant: the answer")
+    println("if it is unwanted is to make the frontier reachable at a shorter window — which is what")
+    println("the drive technology was always for — and not to move the cap or the refill.")
+
+    println()
+    println("### The trap — the same player concentrating instead of spreading")
+    println()
+    println("| strategy | metal a day at 14 | clamped |")
+    println("|---|---|---|")
+    for ((label, spread) in listOf("one hull per world" to true, "the whole fleet on one world" to false)) {
+        val row = depositRun(shipped, spread = spread)
+        val dispatches = row.days.sumOf { it.dispatches }
+        println(
+            "| $label | ${row.days[13].metal.grouped()} | " +
+                "${share(row.days.sumOf { it.clamped }.toLong(), dispatches.toLong())} |",
+        )
+    }
+    println()
+    println("The gap between these two rows is what the dispatch sheet's clamp copy has to close. It is")
+    println("a skill the game did not previously contain, and an undiscovered one is a trap.")
 }

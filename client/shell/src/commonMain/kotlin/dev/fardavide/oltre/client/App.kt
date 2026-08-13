@@ -393,6 +393,7 @@ fun App(
                                             StartRunResult.NotAValidTarget,
                                             StartRunResult.NoSuchShips,
                                             StartRunResult.WindowTooShort,
+                                            StartRunResult.Depleted,
                                             -> state
                                         }
                                     }

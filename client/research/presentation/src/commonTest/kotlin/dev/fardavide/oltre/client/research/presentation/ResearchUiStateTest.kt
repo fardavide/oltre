@@ -54,16 +54,24 @@ import kotlinx.datetime.toLocalDateTime
 class ResearchUiStateTest {
 
     @Test
-    fun `the branch is three rows in a fixed order`() {
+    fun `the branch is four rows in a fixed order`() {
         // given
         val uiState = freshState().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         // then
         assertEquals(
-            listOf(Technology.PHOTOVOLTAICS, Technology.EXTRACTION, Technology.ENRICHMENT),
+            listOf(
+                Technology.PHOTOVOLTAICS,
+                Technology.EXTRACTION,
+                Technology.ENRICHMENT,
+                Technology.PROSPECTING,
+            ),
             uiState.technologies.map { it.technology },
         )
-        assertEquals(listOf("Photovoltaics", "Extraction", "Enrichment"), uiState.technologies.map { it.name })
+        assertEquals(
+            listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting"),
+            uiState.technologies.map { it.name },
+        )
     }
 
     @Test
@@ -1079,7 +1087,10 @@ class ResearchUiStateTest {
         // then - the level already held is on the ladder too; it is how you learn that gating is a
         // thing this technology does at all
         assertEquals(
-            listOf(SheetLadderStep(level = "LV 3", opens = "Enrichment · you have this", held = true)),
+            listOf(
+                SheetLadderStep(level = "LV 1", opens = "Prospecting · you have this", held = true),
+                SheetLadderStep(level = "LV 3", opens = "Enrichment · you have this", held = true),
+            ),
             row.sheet.ladder,
         )
     }
@@ -1091,7 +1102,10 @@ class ResearchUiStateTest {
 
         // then
         assertEquals(
-            listOf(SheetLadderStep(level = "LV 3", opens = "Enrichment", held = false)),
+            listOf(
+                SheetLadderStep(level = "LV 1", opens = "Prospecting", held = false),
+                SheetLadderStep(level = "LV 3", opens = "Enrichment", held = false),
+            ),
             row.sheet.ladder,
         )
     }

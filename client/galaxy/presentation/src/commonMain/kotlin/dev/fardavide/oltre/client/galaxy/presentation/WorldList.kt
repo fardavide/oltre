@@ -94,10 +94,15 @@ private fun WorldRow(
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Header(row = row, compact = compact)
+        Header(row = row)
+        row.deposits?.let { DepositLine(deposits = it, compact = compact) }
         when (val verdict = row.verdict) {
             is VerdictUiState.Home -> Note(text = verdict.note)
             is VerdictUiState.Occupied -> Note(text = verdict.note)
+            // Its yield, richness and fields, unchanged. The deposits are a line *above* this rather
+            // than a replacement for it: what a settler wants to know about a world and what a run
+            // can lift out of it are different questions, and this row is the only one that answers
+            // both.
             is VerdictUiState.Settleable -> Note(text = verdict.note)
             // Two facts, both free: the coordinate and the orbit, both already in the header. The
             // shortest card in the app, because a screen of them is the normal case — and it says
@@ -111,13 +116,14 @@ private fun WorldRow(
                     onOpenResearch = onOpenResearch,
                 )
             }
+
             is VerdictUiState.Barren -> {
                 FleetReading(reading = verdict.reading, compact = compact)
                 // The same slot the blocked axes take, with one clause instead of a list: Barren
                 // fails no band at all, it fails the bar. No technology, because no ladder widens a
                 // yield — which is why this line has nothing flush right and Blocked's does.
                 BlockedLine(
-                    lead = "Barren$SEPARATOR",
+                    lead = null,
                     body = verdict.threshold,
                     failure = null,
                     slot = row.slot,
@@ -129,12 +135,17 @@ private fun WorldRow(
     }
 }
 
-// The coordinate, then either the two numbers that price a hold or the verdict word, then the orbit.
-// **A row never carries two label-shaped states at once** — which is the whole of 1b: on the two
-// verdicts that are not an offer the badge steps down into the sentence below, and the slot it
-// vacates says what the world is worth to a fleet.
+// The coordinate, the verdict word, the orbit. **One shape on all six verdicts since 0.9**, which is
+// what Claude Design's Decision 1 bought: the richness pair used to take this slot on `Blocked` and
+// `Barren`, and the deposits replaced it on a line of their own — so the header stopped being two
+// different things and `Settleable` stopped being a special case.
+//
+// Treatment 1b's rule survives the change rather than being undone by it. It said *a row leads with
+// what you can do about it today*, and put richness in this slot because the verdict was not an
+// offer. What you can do is still send a hold; the numbers that price one are now the stocks, and
+// they read better on a line that can wrap than in a slot that cannot.
 @Composable
-private fun Header(row: WorldRowUiState, compact: Boolean) {
+private fun Header(row: WorldRowUiState) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Bottom) {
         Text(
@@ -145,49 +156,17 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
             maxLines = 1,
             softWrap = false,
         )
-        val reading = row.verdict.fleetReading()
-        if (reading == null) {
-            Text(
-                text = row.verdict.word(),
-                color = row.verdict.hue(),
-                fontFamily = mono,
-                fontSize = 10.5.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.4.sp,
-                maxLines = 1,
-                softWrap = false,
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
-            )
-        } else {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(9.dp),
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
-            ) {
-                Text(
-                    text = reading.metal,
-                    color = OltreColors.metal,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    maxLines = 1,
-                    softWrap = false,
-                )
-                // At 320dp the pair does not fit beside a coordinate and an orbit tag, and what goes
-                // is the *lesser* half rather than an ellipsis through a figure — the same rule that
-                // moved the yield out of this header at 0.5.0. Both numbers are still on the sheet
-                // the row raises, which is where the choice between them is actually made.
-                if (!compact) {
-                    Text(
-                        text = reading.crystal,
-                        color = OltreColors.crystal,
-                        fontFamily = mono,
-                        fontSize = 10.5.sp,
-                        maxLines = 1,
-                        softWrap = false,
-                    )
-                }
-            }
-        }
+        Text(
+            text = row.verdict.word(),
+            color = row.verdict.hue(),
+            fontFamily = mono,
+            fontSize = 10.5.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.4.sp,
+            maxLines = 1,
+            softWrap = false,
+            modifier = Modifier.weight(1f).padding(start = 8.dp),
+        )
         Text(
             text = row.band.label.uppercase(),
             color = row.band.hue(),
@@ -197,6 +176,35 @@ private fun Header(row: WorldRowUiState, compact: Boolean) {
             maxLines = 1,
             softWrap = false,
         )
+    }
+}
+
+// What is left in the ground, on a line of its own — which is why nothing drops at the compact width.
+// The header's children are single-line and unwrappable; this one wraps, so the card grows by a line
+// rather than losing one, and `GalaxyScreenBehaviourTest` already pins that as the rule.
+@Composable
+private fun DepositLine(deposits: DepositReadingUiState, compact: Boolean) {
+    val mono = oltreMono()
+    Row(horizontalArrangement = Arrangement.spacedBy(9.dp), verticalAlignment = Alignment.Bottom) {
+        Text(
+            text = deposits.metal,
+            color = OltreColors.metal,
+            fontFamily = mono,
+            fontSize = 10.5.sp,
+            lineHeight = 15.sp,
+        )
+        // At 320dp the second deposit goes, which is the rule this row already spends twice — what
+        // leaves is the reading you were not going to act on, and both are still on the sheet the row
+        // raises, where the choice between them is actually made.
+        if (!compact) {
+            Text(
+                text = deposits.crystal,
+                color = OltreColors.crystal,
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                lineHeight = 15.sp,
+            )
+        }
     }
 }
 
@@ -244,7 +252,10 @@ private fun BlockedAxes(slot: Int, failures: List<BlockedAxisUiState>, onOpenRes
     Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
         failures.forEachIndexed { index, failure ->
             BlockedLine(
-                lead = if (index == 0) "Blocked$SEPARATOR" else null,
+                // **The lead retired at 0.9.** It existed because the verdict word had given up this
+                // row's header to the richness pair; the header carries the word again, so a second
+                // statement of it here would be the row saying "Blocked" twice.
+                lead = null,
                 body = "${failure.axis} ${failure.reading}, you tolerate ${failure.tolerated}",
                 failure = failure,
                 slot = slot,

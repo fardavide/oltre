@@ -132,21 +132,20 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `Blocked leads with what a hold is worth and demotes the verdict to a clause`() {
-        // **Treatment 1b, and the row a player meets over and over: 98% of surveyed worlds read
-        // Blocked.** Its verdict is not an offer — you cannot live there, and no ladder you can
-        // afford this week changes that — so the headline goes to what you *can* act on today, which
-        // is the pair of numbers that price a hold. The blockage is not deleted; it becomes the
-        // opening clause of the sentence underneath, keeping its axis, its band and its technology.
+    fun `Blocked keeps its badge again and says what is in the ground underneath it`() {
+        // **Treatment 1b, revised by Claude Design at 0.9 rather than undone.** 1b's rule was *a row
+        // leads with what you can do about it today*, and it gave this header to the richness pair
+        // because the verdict was not an offer. What you can do is still send a hold — but the
+        // numbers that price one are now the *stocks*, and two labelled fractions do not fit a slot
+        // that cannot wrap. So they moved to a line of their own, the header took the verdict word
+        // back, and the row went from two shapes to one.
         //
-        // What went with it: a "yield 1.06" and a "Fails 2 of 3 bands, worth it at 0.92" that both
-        // shipped at 0.0.18. Pinned as absences here, because a header that quietly grew them back
-        // would be two verdicts in the same weight in the same row again — which is the exact
-        // contradiction 1b exists to resolve.
+        // The two absences 1b bought are still pinned: no yield, no "Fails 2 of 3 bands".
         galaxyScreen(uiState = homeSystemUiState) {
-            assertRowReads(11, "metal 1.13")
-            assertRowReads(11, "crystal 0.71")
-            assertRowReads(11, "Blocked · temperature")
+            assertRowReads(11, "BLOCKED")
+            assertRowReads(11, "metal full")
+            assertRowReads(11, "temperature")
+            assertNothingReads("Blocked · temperature")
             assertNothingReads("yield 1.06")
             assertNothingReads("Fails 2 of 3 bands")
         }
@@ -231,34 +230,36 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `Barren states the ratio and then the threshold it missed`() {
+    fun `Barren states the threshold it missed without restating its own verdict`() {
         // Barren is designed to be the common answer, so naming the threshold on the row is what
-        // makes a run of them read as calibration rather than as bad luck. Under 1b it says it in
-        // the slot the blocked axes take, with the verdict as its opening clause: Barren fails no
-        // band at all, it fails the bar, so it has one line where Blocked has a list.
+        // makes a run of them read as calibration rather than as bad luck. **The verdict clause
+        // retired at 0.9**: the header carries the word again, so an opening "Barren · " would be
+        // the row saying it twice.
         galaxyScreen(uiState = everyVerdictUiState) {
-            assertRowReads(9, "Barren · yield 0.81, worth it at 0.92")
+            assertRowReads(9, "BARREN")
+            assertRowReads(9, "yield 0.81, worth it at 0.92")
+            assertNothingReads("Barren · yield")
         }
     }
 
     @Test
-    fun `the four verdicts that are still an offer keep their badge and the two that are not lose it`() {
-        // **The whole of treatment 1b in one assertion.** A row never carries two label-shaped
-        // states at once, so the two verdicts that lead with a fleet reading give up the badge and
-        // say the word one line down instead. The other four keep it, because for them the verdict
-        // *is* what you can do about the world today — even Unsurveyed, whose offer is a probe.
+    fun `every verdict carries its badge and only a legal target carries a deposit`() {
+        // **One row shape, six verdicts** — Design's Decision 1, and the reason `Settleable` stopped
+        // needing a special case. The badge is back on all of them; what varies is the line under it,
+        // which is present exactly where a run is legal. Absent on Unsurveyed, because a hold cannot
+        // be priced from a world nobody has looked at, and on Home and Occupied, because a run there
+        // is refused outright.
         galaxyScreen(uiState = everyVerdictUiState) {
             assertRowReads(4, "HOME")
             assertRowReads(5, "OCCUPIED")
             assertRowReads(6, "UNSURVEYED")
+            assertRowReads(8, "BLOCKED")
+            assertRowReads(9, "BARREN")
             assertRowReads(11, "SETTLEABLE")
             assertRowReads(3, "RELAY")
-            // Demoted rather than deleted: the word is still on both rows, in the sentence rather
-            // than in the badge slot the richness now holds.
-            assertRowReads(8, "metal 1.24")
-            assertRowReads(8, "Blocked · gravity")
-            assertRowReads(9, "metal 0.81")
-            assertRowReads(9, "Barren · yield")
+            assertRowReads(8, "metal full")
+            assertRowReads(9, "metal full")
+            assertRowReads(11, "metal full")
         }
     }
 
@@ -400,23 +401,22 @@ class GalaxyScreenBehaviourTest {
     }
 
     @Test
-    fun `the lesser of the two richnesses leaves the header at 320dp rather than being cut by it`() {
-        // A coordinate, two richnesses and an orbit tag do not fit on one line at 320dp, and an
-        // ellipsis would land on a *figure* — which is the one thing on this row a player is
-        // comparing against another world. Abbreviation may drop a noun; it may never truncate a
-        // number, so what goes is the whole of the lesser half. Both are still on the sheet the row
-        // raises, which is where the choice between them is actually made.
+    fun `the second deposit leaves the row at 320dp rather than being cut by it`() {
+        // The same rule the richness pair used to spend, now spent on the pair that replaced it: an
+        // ellipsis would land on a *figure*, which is the one thing on this row a player compares
+        // against another world. Abbreviation may drop a noun; it may never truncate a number, so
+        // what goes is the whole of the second deposit. Both are still on the sheet the row raises.
         //
         // A node query cannot see an ellipsis — Compose semantics carry the whole string whatever is
         // painted — so this asserts the *structural* fix instead. The baselines watch the pixels.
         galaxyScreen(uiState = everyVerdictUiState, width = SLIDE_OVER_WIDTH) {
-            assertRowReads(9, "metal 0.81")
-            assertNothingReads("crystal 0.68")
-            assertRowReads(9, "Barren · yield 0.81, worth it at 0.92")
+            assertRowReads(9, "metal full")
+            assertNothingReads("crystal full")
+            assertRowReads(9, "yield 0.81, worth it at 0.92")
         }
         galaxyScreen(uiState = everyVerdictUiState, width = PHONE_WIDTH) {
-            assertRowReads(9, "metal 0.81")
-            assertRowReads(9, "crystal 0.68")
+            assertRowReads(9, "metal full")
+            assertRowReads(9, "crystal full")
         }
     }
 }

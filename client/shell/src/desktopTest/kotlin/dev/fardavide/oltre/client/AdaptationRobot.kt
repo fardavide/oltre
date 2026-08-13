@@ -144,12 +144,29 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
         test.onNodeWithText(label).performScrollTo().performClick()
     }
 
-    // The colony below can afford exactly one project, so there is exactly one Research *button* —
-    // which is the setup saying what the test is about rather than a lucky query. The tab bar says
-    // "Research" too and always will, so the destination is excluded by tag rather than by hoping
-    // the strings stay different.
-    fun startTheOnlyProjectOffered() = apply {
-        test.onNode(researchButton).performScrollTo().performClick()
+    // **"The only" stopped being true at 0.9**, when the branch grew a fourth applied row: a colony
+    // that could afford exactly one project can now afford two, because Prospecting opens behind
+    // Extraction 1 and costs what the others cost. The test is about the *slot* rather than about
+    // which row fills it, so it takes the first offered — and `assertNothingOffersResearch` below is
+    // still the assertion that matters, and is unaffected, because it asserts that none match.
+    //
+    // The tab bar says "Research" too and always will, so the destination is excluded by tag rather
+    // than by hoping the strings stay different.
+    fun startTheFirstProjectOffered() = apply {
+        test.onAllNodes(researchButton).onFirst().performScrollTo().performClick()
+    }
+
+    // Which row, by tag — because "the only one offered" stopped identifying a row at 0.9, and both
+    // tests that used it are about a *particular* project rather than about the slot. Matching on the
+    // word "Atmospheric" is not enough either: every row shares one screen, so an ancestor query
+    // reaches all of them.
+    //
+    // The tag is spelled out rather than imported because `ResearchTestTags` is internal to
+    // `:client:research:presentation` and this test lives across the seam in the shell. That is a
+    // duplication with teeth rather than a silent one: rename the tag and this test fails by name on
+    // the next run.
+    fun startTheAtmosphericLadder() = apply {
+        test.onNode(hasTestTag(ATMOSPHERIC_ACTION)).performScrollTo().performClick()
     }
 
     fun assertNothingOffersResearch() = apply {
@@ -181,5 +198,9 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
 
     private companion object {
         val researchButton = hasText("Research") and !hasTestTag(ShellTestTags.tab(OltreTab.RESEARCH))
+
+        // Mirrors `ResearchTestTags.action(AdaptationTechnology.ATMOSPHERIC)`, which is internal to
+        // another module. See `startTheAtmosphericLadder`.
+        const val ATMOSPHERIC_ACTION = "research-action-atmospheric"
     }
 }

@@ -122,6 +122,7 @@ class StartRunTest {
                 ships = ships,
                 station = FleetBalance.stationFor(from = state.galaxy.home, to = target, window = threeHours),
                 danger = FleetBalance.danger(from = state.galaxy.home, world = world),
+                research = Research.initial(),
             ),
             run.cargo,
         )

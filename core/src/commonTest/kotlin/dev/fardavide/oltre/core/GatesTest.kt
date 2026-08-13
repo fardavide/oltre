@@ -32,9 +32,15 @@ class GatesTest {
     }
 
     @Test
-    fun `extraction opens enrichment at the level enrichment asks for`() {
+    fun `extraction opens two rows and they are listed in the order they unlock`() {
+        // Extraction became a fork at 0.9: level 1 opens the away half of the same idea, level 3 the
+        // deuterium one. The order is the level order rather than the enum's, which is what makes the
+        // row readable as a ladder.
         assertEquals(
-            listOf(Gate(level = 3, opens = GateSubject.Project(Technology.ENRICHMENT))),
+            listOf(
+                Gate(level = 1, opens = GateSubject.Project(Technology.PROSPECTING)),
+                Gate(level = 3, opens = GateSubject.Project(Technology.ENRICHMENT)),
+            ),
             gatesOf(Technology.EXTRACTION),
         )
     }
@@ -43,6 +49,7 @@ class GatesTest {
     fun `a technology nothing waits on opens nothing`() {
         assertEquals(emptyList(), gatesOf(Technology.PHOTOVOLTAICS))
         assertEquals(emptyList(), gatesOf(Technology.ENRICHMENT))
+        assertEquals(emptyList(), gatesOf(Technology.PROSPECTING))
     }
 
     // The point of deriving the index rather than writing it out: a gate that moves in the balance

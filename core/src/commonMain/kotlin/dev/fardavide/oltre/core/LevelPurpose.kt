@@ -51,6 +51,18 @@ sealed interface LevelPurpose {
     // colony could start now, which is the one the wait is actually about.
     data class Sooner(val on: BuildingType, val before: Duration, val after: Duration) : LevelPurpose
 
+    // The level raises no rate the colony owns: it raises what a hull pulls out of a world it is
+    // standing on. **The first purpose in this game measured away from home**, and it exists because
+    // the generic answer was actively wrong — `purposeOfRaise` reads the three effective production
+    // rates, `Technology.PROSPECTING` moves none of them, so the row would have fallen through to
+    // `Inert` and told a player the level "does nothing while you are in surplus". It does something;
+    // it does it somewhere else.
+    //
+    // Quoted per hull per hour in priced units, which is the one figure that is a property of the
+    // technology rather than of a fleet, a window or a world — the row has no target selected and
+    // must not imply one.
+    data class Haul(val from: Long, val to: Long) : LevelPurpose
+
     // There is no next level to price. Reached only at a ceiling — a facility at 40 or a
     // technology at 30 — where the row has no upgrade to offer either.
     data object Unmeasured : LevelPurpose
@@ -123,6 +135,16 @@ fun GameState.purposeOfNextLevel(technology: Technology): LevelPurpose {
     val next = research.levelOf(technology).value + 1
     if (next > TechLevel.MAX) return LevelPurpose.Unmeasured
     val toLevel = TechLevel(next)
+    // The one technology whose payoff is not a rate this colony produces. Routed before
+    // `purposeOfRaise` rather than inside it, because that function's whole method — diff the three
+    // effective rates — cannot see this effect at all and would report a truthful zero about the
+    // wrong quantity.
+    if (technology == Technology.PROSPECTING) {
+        return LevelPurpose.Haul(
+            from = FleetBalance.extractionPerHour(research),
+            to = FleetBalance.extractionPerHour(research.withLevel(technology, toLevel)),
+        )
+    }
     return purposeOfRaise(
         raisedBuildings = buildings,
         raisedResearch = research.withLevel(technology, toLevel),

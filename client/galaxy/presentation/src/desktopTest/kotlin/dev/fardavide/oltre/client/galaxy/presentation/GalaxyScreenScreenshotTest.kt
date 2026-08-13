@@ -155,6 +155,49 @@ class GalaxyScreenScreenshotTest {
         captureSheet(width = PHONE_WIDTH, uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
     }
 
+    // **The state this mechanic actually lives in**, and the one Design asked to be weighted heaviest:
+    // eight skiffs against a world that cannot fill them. The figure is the vein, the slot beside it
+    // reads "the whole deposit" instead of a per-hull share, and the clause under the stepper names
+    // the hulls that would come home empty.
+    @Test
+    fun `the dispatch sheet clamped by the world rather than by the fleet`() {
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchClampedUiState, name = "galaxy_dispatch_clamped")
+    }
+
+    // The dry world, which is a mode rather than a refusal: the chips, the stepper and the ladder are
+    // all still live, because the wait is a function of the ask and shrinking the ask is the remedy.
+    @Test
+    fun `the dispatch sheet waiting for a world to come back`() {
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchWaitingUiState, name = "galaxy_dispatch_waiting")
+    }
+
+    // The ask no waiting covers: no ghost at all, because a countdown reading "never" would be worse
+    // than the sentence above it, which says to ask for less.
+    @Test
+    fun `the dispatch sheet asking for more than any world of that size holds`() {
+        captureSheet(
+            width = PHONE_WIDTH,
+            uiState = dispatchWaitingForeverUiState,
+            name = "galaxy_dispatch_waiting_forever",
+        )
+    }
+
+    // A world worked down but not out — the fraction on the chip, which is what a bare figure could
+    // never say: 120 of 600 and 120 of 2,400 are the same number and not the same target.
+    @Test
+    fun `the dispatch sheet on a world somebody has already worked`() {
+        captureSheet(width = PHONE_WIDTH, uiState = dispatchWorkedUiState, name = "galaxy_dispatch_worked")
+    }
+
+    @Test
+    fun `the dispatch sheet clamped in a Slide Over window`() {
+        captureSheet(
+            width = SLIDE_OVER_WIDTH,
+            uiState = dispatchClampedUiState,
+            name = "galaxy_dispatch_clamped_slide_over",
+        )
+    }
+
     // The one refusal in the app that hands back a verb.
     @Test
     fun `the dispatch sheet on a world nobody has surveyed`() {

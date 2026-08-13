@@ -33,6 +33,33 @@ fun Duration.toPaybackLabel(): String =
 
 private const val HOURS_PER_DAY: Int = 24
 
+// ── How long until a world is worth visiting again ───────────────────────────────────────────
+//
+// Claude Design's three tiers, and only the top one is new. A deposit refills at 5% of its cap a day,
+// so this one label has to carry everything from nineteen minutes to nineteen days without ever
+// showing three units — which is why it delegates to the two shapes the app already has and adds a
+// third only where they run out.
+//
+// **`toPaybackLabel` deliberately has no day unit and keeps none**: the brief writes a 186-hour build
+// as 186 hours, and hours stay comparable against each other all the way up where "4d 6h" against
+// "1h 42m" does not. That argument is about *comparing* payback figures in a column. A wait is not
+// compared with anything — it answers "come back when?" once — so at eighteen days "18d 13h" is the
+// readable form and "445h" is arithmetic homework.
+//
+// The hour is zero-padded so a column of these stays tabular; the day never is, because "04d" reads
+// like a countdown to a launch rather than a wait. Below a day this is `toChipLabel`, and below an
+// hour it is the running countdown — which is the tier the mechanic actually spends most of its time
+// in, since a 1,450 vein puts a whole unit back every twenty minutes.
+fun Duration.toWaitLabel(): String = when {
+    inWholeHours >= HOURS_PER_DAY -> "${inWholeDays}d ${(inWholeHours % HOURS_PER_DAY).toInt().pad2()}h"
+    inWholeHours >= 1 -> toChipLabel()
+    // Ceiled to the second for `toChipLabel`'s own reason: a wait reading 00:00:00 claims a thing has
+    // already happened, and this one has not.
+    else -> ((inWholeMilliseconds + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND).coerceAtLeast(1).toCountdown()
+}
+
+private const val MILLIS_PER_SECOND: Long = 1_000
+
 // Zero-padded and always three fields, so a countdown never changes width as it runs down.
 fun Long.toCountdown(): String {
     val hours = this / 3600

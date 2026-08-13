@@ -85,6 +85,13 @@ internal fun DispatchSheet(
                     onSelectWindow = onSelectWindow,
                     onDispatch = onDispatch,
                 )
+                is DispatchUiState.Waiting -> Waiting(
+                    uiState = uiState,
+                    compact = compact,
+                    onSelectGathering = onSelectGathering,
+                    onSelectShips = onSelectShips,
+                    onSelectWindow = onSelectWindow,
+                )
                 is DispatchUiState.Refuse -> Refuse(uiState = uiState, onDispatchProbe = onDispatchProbe)
             }
         }
@@ -137,6 +144,7 @@ private fun Offer(
                 kind = ResourceKind.METAL,
                 name = "Metal",
                 richness = uiState.metalRichness,
+                deposit = uiState.metalDeposit,
                 hue = OltreColors.metal,
                 selected = uiState.gathering == ResourceKind.METAL,
                 onClick = { onSelectGathering(ResourceKind.METAL) },
@@ -146,6 +154,7 @@ private fun Offer(
                 kind = ResourceKind.CRYSTAL,
                 name = "Crystal",
                 richness = uiState.crystalRichness,
+                deposit = uiState.crystalDeposit,
                 hue = OltreColors.crystal,
                 selected = uiState.gathering == ResourceKind.CRYSTAL,
                 onClick = { onSelectGathering(ResourceKind.CRYSTAL) },
@@ -181,6 +190,11 @@ private fun Offer(
                 onClick = { onSelectShips(uiState.shipCount + 1) },
             )
         }
+        // "3 skiffs empty it. The 4th brings nothing." Present only when the vein is what stopped the
+        // run *and* there is a smaller fleet to send: under the cliff the marginal hull is worth
+        // exactly zero and is locked away for the whole window, which is arithmetic rather than a
+        // scold. At one hull there is no remedy here and the ladder carries the only one there is.
+        uiState.clampNote?.let { note -> Aside(text = note) }
     }
     Control(label = "Home in") {
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
@@ -190,16 +204,12 @@ private fun Offer(
         }
         // Only when the ladder has actually narrowed. The rung that vanished is the copy — this
         // sentence is for the player who never saw the full ladder and cannot know one is missing.
-        uiState.ladderNote?.let { note ->
-            Text(
-                text = note,
-                color = OltreColors.textTertiary,
-                fontFamily = oltreMono(),
-                fontSize = 10.5.sp,
-                lineHeight = 15.sp,
-                modifier = Modifier.padding(top = 2.dp),
-            )
-        }
+        uiState.ladderNote?.let { note -> Aside(text = note) }
+        // "The 12h window brings the same." The rung is not locked and not greyed — inventing a state
+        // for *not better* would be the first disabled control in the app — so the note is the whole
+        // of the mechanism, and it is absent when the chosen rung is already the shortest that empties
+        // the vein.
+        uiState.rungNote?.let { note -> Aside(text = note) }
     }
     Rule()
     Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
@@ -265,6 +275,131 @@ private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit)
     }
 }
 
+// **A mode, not a refusal.** The chips, the stepper and the ladder are all still live, and they have
+// to be: the wait is a function of the ask, so shrinking the ask is the remedy and the player has to
+// be able to reach it without backing out of the sheet. What changes is the block under the rule —
+// the figure becomes a title, a sentence and a ghost carrying the time, which is
+// `RefuseActionUiState.Waiting`'s shape without the refusal around it.
+@Composable
+private fun Waiting(
+    uiState: DispatchUiState.Waiting,
+    compact: Boolean,
+    onSelectGathering: (ResourceKind) -> Unit,
+    onSelectShips: (Int) -> Unit,
+    onSelectWindow: (Duration) -> Unit,
+) {
+    Control(label = "Bring back") {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            GatherCard(
+                kind = ResourceKind.METAL,
+                name = "Metal",
+                richness = uiState.metalRichness,
+                deposit = uiState.metalDeposit,
+                hue = OltreColors.metal,
+                selected = uiState.gathering == ResourceKind.METAL,
+                onClick = { onSelectGathering(ResourceKind.METAL) },
+                modifier = Modifier.weight(1f),
+            )
+            GatherCard(
+                kind = ResourceKind.CRYSTAL,
+                name = "Crystal",
+                richness = uiState.crystalRichness,
+                deposit = uiState.crystalDeposit,
+                hue = OltreColors.crystal,
+                selected = uiState.gathering == ResourceKind.CRYSTAL,
+                onClick = { onSelectGathering(ResourceKind.CRYSTAL) },
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+    Control(label = "Send", trailing = uiState.pool) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Stepper(
+                glyph = "−",
+                enabled = !uiState.atFewest,
+                tag = GalaxyTestTags.SHIPS_FEWER,
+                onClick = { onSelectShips(uiState.shipCount - 1) },
+            )
+            Text(
+                text = uiState.ships,
+                color = OltreColors.text,
+                fontFamily = oltreMono(),
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
+            )
+            Stepper(
+                glyph = "+",
+                enabled = !uiState.atMost,
+                tag = GalaxyTestTags.SHIPS_MORE,
+                onClick = { onSelectShips(uiState.shipCount + 1) },
+            )
+        }
+    }
+    Control(label = "Home in") {
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
+            uiState.windows.forEach { rung ->
+                WindowRung(rung = rung, onClick = { onSelectWindow(rung.window) }, modifier = Modifier.weight(1f))
+            }
+        }
+        uiState.ladderNote?.let { note -> Aside(text = note) }
+    }
+    Rule()
+    Text(
+        text = uiState.title,
+        color = OltreColors.text,
+        fontFamily = oltreMono(),
+        fontSize = 13.5.sp,
+        lineHeight = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+    )
+    Text(
+        text = uiState.note,
+        color = OltreColors.textSecondary,
+        fontFamily = oltreMono(),
+        fontSize = 10.5.sp,
+        lineHeight = 17.sp,
+    )
+    // A reading rather than a control, in the idiom the unaffordable probe already spends — and null
+    // when no amount of waiting covers this ask, because a ghost carrying "never" would be worse than
+    // the sentence above it, which says to ask for less.
+    uiState.wait?.let { label ->
+        Verb(label = label, tag = GalaxyTestTags.SHEET_ACTION, primary = false, onClick = {})
+    }
+    Legs(legs = if (compact) uiState.compactLegs else uiState.legs)
+    Legs(legs = if (compact) uiState.compactDanger else uiState.danger)
+}
+
+// One faint sentence under a control, which is the shape every earned note on this sheet takes —
+// the narrowed ladder, the rung that brings the same, and the hull that brings nothing.
+@Composable
+private fun Aside(text: String) {
+    Text(
+        text = text,
+        color = OltreColors.textTertiary,
+        fontFamily = oltreMono(),
+        fontSize = 10.5.sp,
+        lineHeight = 15.sp,
+        modifier = Modifier.padding(top = 2.dp),
+    )
+}
+
+@Composable
+private fun Legs(legs: String) {
+    Text(
+        text = legs,
+        color = OltreColors.textTertiary,
+        fontFamily = oltreMono(),
+        fontSize = 10.5.sp,
+        lineHeight = 15.sp,
+    )
+}
+
 @Composable
 private fun Control(label: String, trailing: String? = null, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
@@ -298,6 +433,7 @@ private fun GatherCard(
     kind: ResourceKind,
     name: String,
     richness: String,
+    deposit: String,
     hue: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -321,6 +457,16 @@ private fun GatherCard(
         )
         Text(
             text = "richness $richness",
+            color = OltreColors.textTertiary,
+            fontFamily = oltreMono(),
+            fontSize = 10.5.sp,
+            maxLines = 1,
+            softWrap = false,
+        )
+        // The stock under the richness rather than beside it: two readings of one world, and the
+        // chip is the only place they sit together now that the row carries the stocks alone.
+        Text(
+            text = deposit,
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,

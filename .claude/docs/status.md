@@ -768,6 +768,36 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   out Research entirely and *still* leaves 83% of the window empty. See `decisions.md` and
   `balance-log.md` round 8.
 
+- **0.10.0 worlds run out (the deposit milestone)** — every world holds a finite metal deposit and a
+  finite crystal deposit, drained at dispatch and refilling at 5% of cap a day. `DepositBalance` is a
+  new object rather than a section of `FleetBalance`, because another session was editing that file;
+  `GalaxyState` gains a sparse `deposits` list where **an absent entry is a full world**, which is
+  what answers `fleet-sheet.md` §8's objection that a counter per world is a save without bound —
+  `advance` prunes an entry the moment it refills, and the sim measures 50 entries after a fortnight.
+  `startRun` clamps and debits at dispatch. Schema 11. The row lost its richness pair to a deposit
+  line and the verdict badge came back on all six verdicts; the dispatch sheet gained the clamp
+  marker, two earned notes, a `working` leg and a `waiting` mode. `Technology.PROSPECTING` is the
+  fourth applied technology, and `LevelPurpose.Haul` exists because the generic purpose would have
+  told a player the level "does nothing while you are in surplus". See `.claude/docs/deposit-sheet.md`
+  and `balance-log.md` round 24.
+
+## Pending, from 0.10.0
+
+- **The two placeholder strings on the Prospecting row** — its subject and its verdict. Every other
+  row on that screen quotes a rate the colony produces; this is the first measured in a run, and
+  Claude Design left the wording to Davide.
+- **The deposit is measured from your home**, because the cap carries `danger` and `danger` contains
+  `distanceBand`. That is what makes the time to strip a world identical everywhere, which is what
+  makes the rule teachable — and it is observer-relative, so multiplayer will have to revisit it. The
+  fix is named in the sheet's §11. **Do not "tidy" it to hazards alone.**
+- **The absent player is paid about fifty times over**, measured, and accepted rather than fixed: the
+  window rung decides reach and reach decides how many veins you can spread across, so a player on
+  the 3h rung reaches six worlds where a once-a-day player reaches thirty-nine. The dial that touches
+  it is the drive technology, not the cap. **The thing to watch on a device**: if the six-hourly
+  player feels poor, the answer is a faster hull rather than a shallower world.
+- **Two `error("unreachable")` arms stay uncovered** in the `when`s over `ResourceKind`, because the
+  enum is three-valued where the fleet only handles two. The fix is a type rather than a test.
+
 - **THE NEXT THING TO BUILD: the screen that dispatches a probe.** The `core` half landed at 0.1.2
   and **nothing a player can reach changed** — `startSurvey` exists, `advance` lands probes,
   `adaptationShortlist` derives what a ladder level would unlock, and no screen offers any of it.

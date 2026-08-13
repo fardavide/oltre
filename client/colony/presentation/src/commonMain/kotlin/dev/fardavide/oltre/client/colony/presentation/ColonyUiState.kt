@@ -406,8 +406,12 @@ private fun LevelPurpose.toVerdict(
             compactLabel = saved,
         )
     }
-    // Reached only at a ceiling, where the row has no upgrade to offer either.
-    LevelPurpose.Unmeasured -> null
+    // Two the colony screen cannot reach, kept as branches rather than folded into an `else` so a
+    // seventh purpose still has to answer here. `Haul` is a technology's answer and this screen
+    // prices facilities; `Unmeasured` is a ceiling, where the row has no upgrade to offer either.
+    is LevelPurpose.Haul,
+    LevelPurpose.Unmeasured,
+    -> null
 }
 
 private fun LevelPurpose.Output.gain(): String = "+${perHour.groupedByThousands()}/h ${kind.word()}"
@@ -452,7 +456,9 @@ private fun LevelPurpose.toLines(
     is LevelPurpose.Inert -> plantInertLines(energy)
     is LevelPurpose.Throttled -> throttledLines()
     is LevelPurpose.Sooner -> factoryLines(building, level)
-    LevelPurpose.Unmeasured -> emptyList()
+    is LevelPurpose.Haul,
+    LevelPurpose.Unmeasured,
+    -> emptyList()
 }
 
 private fun LevelPurpose.Output.mineLines(level: BuildingLevel): List<SheetLine> = listOf(
