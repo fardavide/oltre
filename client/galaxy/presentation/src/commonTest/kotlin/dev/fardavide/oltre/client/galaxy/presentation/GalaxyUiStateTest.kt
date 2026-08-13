@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.WorldOwnership
 import dev.fardavide.oltre.core.WorldVerdict
@@ -202,8 +203,43 @@ class GalaxyUiStateTest {
             uiState.bands.flatMap { it.rows }.first { it.slot == 11 }.verdict,
         )
 
-        assertEquals("metal 1.13", blocked.reading.metal)
-        assertEquals("crystal 0.71", blocked.reading.crystal)
+        // The richness pair left this row at 0.9 and the deposits took its place — see
+        // `DepositReadingUiState`. An untouched world reads in words rather than figures, which is
+        // what keeps a galaxy nobody has worked a shape the eye skips.
+        val row = uiState.bands.flatMap { it.rows }.first { it.slot == 11 }
+        assertEquals("metal full", row.deposits?.metal)
+        assertEquals("crystal full", row.deposits?.crystal)
+    }
+
+    @Test
+    fun `a deposit reading is present exactly where a run is legal`() {
+        val rows = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+            .bands.flatMap { it.rows }
+
+        for (row in rows) {
+            val legal = row.verdict is VerdictUiState.Blocked ||
+                row.verdict is VerdictUiState.Barren ||
+                row.verdict is VerdictUiState.Settleable
+            assertEquals(legal, row.deposits != null, "${row.coordinate} reads ${row.verdict}")
+        }
+    }
+
+    @Test
+    fun `a worked world states what is left against what it holds when full`() {
+        // 120 of 600 and 120 of 2,400 are the same number and not the same target, so the row never
+        // prints a bare figure — the denominator is the only place a cap is visible on the map.
+        val worked = state().let { state ->
+            val target = state.galaxy.surveyed.first { it != state.galaxy.home }
+            val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+            state.copy(galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap / 2, at = EPOCH))
+        }
+        val slot = worked.galaxy.surveyed.first { it != worked.galaxy.home }.slot
+
+        val row = worked.toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+            .bands.flatMap { it.rows }.first { it.slot == slot }
+
+        assertTrue(row.deposits!!.metal.contains("/"), row.deposits!!.metal)
+        assertEquals("crystal full", row.deposits?.crystal)
     }
 
     @Test
@@ -416,9 +452,8 @@ class GalaxyUiStateTest {
         // luck, and Barren is designed to be a common answer.
         assertTrue(verdict.threshold.startsWith("yield 0."), verdict.threshold)
         assertTrue(verdict.threshold.endsWith("worth it at 0.92"), verdict.threshold)
-        // ...and it leads with richness like Blocked does, because a world too thin to settle is
-        // still perfectly good ground to send a hold to.
-        assertTrue(verdict.reading.metal.startsWith("metal "), verdict.reading.metal)
+        // ...and it still carries the reach, because a world too thin to settle is perfectly good
+        // ground to send a hold to and the trip is what that costs.
         assertTrue(verdict.reading.reach.endsWith("out and back"), verdict.reading.reach)
     }
 

@@ -114,6 +114,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 3,
                     band = OrbitBand.HOT,
                     verdict = VerdictUiState.Relay(effect = "+18% range while held"),
+                    deposits = null,
                 ),
             ),
         ),
@@ -125,36 +126,37 @@ internal val everyVerdictUiState = GalaxyUiState(
                     slot = 4,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Home(note = homeNote()),
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:5]",
                     slot = 5,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Occupied(note = "Held by kepler"),
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:6]",
                     slot = 6,
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Unsurveyed,
+                    deposits = null,
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:8]",
                     slot = 8,
                     band = OrbitBand.TEMPERATE,
-                    // Rich in both, and locked behind a ladder nobody has bought — which is treatment
-                    // 1b's whole argument in one row: what you can do about this world today is send
-                    // a hold to it, so the two numbers that price a hold take the headline and the
-                    // blockage becomes the sentence underneath.
+                    // Locked behind a ladder nobody has bought, and worked twice already — which is
+                    // the 0.9 row in one card: the verdict word is back in the header, and what you
+                    // can do about this world today is the pair of stocks on the line below it.
                     verdict = VerdictUiState.Blocked(
                         reading = FleetReadingUiState(
-                            metal = "metal 1.24",
-                            crystal = "crystal 0.74",
                             hazards = "ion storms · +1 danger",
                             reach = "1h 12m out and back",
                         ),
                         failures = listOf(blocked("gravity", "2.40", "1.40", "g", AdaptationTechnology.GRAVITIC, 9)),
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
                 WorldRowUiState(
                     coordinate = "[2:118:9]",
@@ -162,13 +164,12 @@ internal val everyVerdictUiState = GalaxyUiState(
                     band = OrbitBand.TEMPERATE,
                     verdict = VerdictUiState.Barren(
                         reading = FleetReadingUiState(
-                            metal = "metal 0.81",
-                            crystal = "crystal 0.68",
                             hazards = "tidally locked · +1 danger",
                             reach = "1h 14m out and back",
                         ),
                         threshold = "yield 0.81, worth it at 0.92",
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
             ),
         ),
@@ -182,6 +183,7 @@ internal val everyVerdictUiState = GalaxyUiState(
                     verdict = VerdictUiState.Settleable(
                         note = "Yield 1.12 · metal 1.21 · crystal 0.88 · 163 fields",
                     ),
+                    deposits = DepositReadingUiState(metal = "metal full", crystal = "crystal full"),
                 ),
             ),
         ),
