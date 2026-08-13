@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":9,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":10,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -93,7 +93,8 @@ class GameSaveTest {
                 """{"galaxy":3,"system":171,"slot":4},{"galaxy":3,"system":171,"slot":7},""" +
                 """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
                 """{"galaxy":3,"system":171,"slot":11}],""" +
-                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}]},""" +
+                """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}],""" +
+                """"deposits":[]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
@@ -542,8 +543,8 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 9 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":9"""), rewritten)
+        // then — and from then on it is a version 10 save like any other
+        assertTrue(rewritten.startsWith("""{"schemaVersion":10"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -767,6 +768,22 @@ class GameSaveTest {
         assertEquals(GalaxyCoordinate(galaxy = 3, system = 165, slot = 7), decoded.state.galaxy.home)
         assertEquals(4, decoded.state.galaxy.surveyed.size)
         assertEquals(TechLevel(3), decoded.state.research.gravitic)
+    }
+
+    @Test
+    fun `a colony saved before worlds could run dry wakes up with every vein full`() {
+        // The 9 -> 10 hop is additive and writes an empty list — which is not a placeholder but the
+        // statement itself, because an absent deposit entry *is* a full world. The test that matters
+        // is therefore not that the key arrived but that the map reads full through it.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+        val galaxy = decoded.state.galaxy
+        val worked = galaxy.surveyed.first { it != galaxy.home }
+
+        assertEquals(emptyList(), galaxy.deposits)
+        assertEquals(
+            galaxy.depositCap(worked, ResourceKind.METAL),
+            galaxy.remaining(worked, ResourceKind.METAL, EPOCH),
+        )
     }
 
     @Test

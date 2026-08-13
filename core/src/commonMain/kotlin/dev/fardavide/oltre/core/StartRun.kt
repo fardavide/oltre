@@ -23,6 +23,15 @@ sealed interface StartRunResult {
     // 18h 20m out and back, which the 24h rung still covers — so it first occurs with the hauler.
     // Built now because the rule is the rule; the screen shows it by *omitting* the rung.
     data object WindowTooShort : StartRunResult
+
+    // The world has nothing at all left of what was asked for. **Rare, and that is by construction
+    // rather than by luck** — a stripped vein puts a whole unit back every twenty minutes, so exact
+    // zero survives about a third of an hour and never outlives a check-in gap. The player who meets
+    // it is the one who emptied the world seconds ago with the run before this one.
+    //
+    // A *partial* world never reaches here: it clamps, and the sheet says so before the tap. That
+    // asymmetry is the design — see `.claude/docs/deposit-sheet.md` §4.
+    data object Depleted : StartRunResult
 }
 
 // The fifth verb. Same `(state, subject, at) -> sealed Result` shape as `startUpgrade`,
@@ -65,6 +74,23 @@ fun startRun(
     val station = FleetBalance.stationFor(from = home, to = target, window = window)
     if (station < FleetBalance.MINIMUM_STATION) return StartRunResult.WindowTooShort
 
+    // What is actually in the ground, now. A world nobody has worked answers with its whole cap, so
+    // this costs a generation and no state for the 98% of targets that have never been touched.
+    val inTheGround = state.galaxy.remaining(target, gathering, at)
+    if (inTheGround <= 0) return StartRunResult.Depleted
+
+    // **Clamped, then debited, both at dispatch.** Debiting on arrival would let two runs ordered in
+    // one check-in each see a full world and each take it, which is a duplication bug with a
+    // narrative excuse. Clamping here is also what makes the sheet's promise true: the figure it
+    // stated before the tap is the figure that lands, because the subtraction has already happened.
+    val lifted = FleetBalance.cargo(
+        world = world,
+        gathering = gathering,
+        ships = ships,
+        station = station,
+        danger = FleetBalance.danger(from = home, world = world),
+    )
+    val taken = minOf(lifted.of(gathering), inTheGround)
     val run = FleetRun(
         target = target,
         ships = ships,
@@ -72,13 +98,7 @@ fun startRun(
         // Fixed at dispatch, and this is the rule one step past every other verb's. A mine level
         // completing mid-flight must not retroactively enrich a run already out, exactly as a
         // Robotics Factory finishing mid-build must not retroactively shorten it.
-        cargo = FleetBalance.cargo(
-            world = world,
-            gathering = gathering,
-            ships = ships,
-            station = station,
-            danger = FleetBalance.danger(from = home, world = world),
-        ),
+        cargo = hold(gathering, taken),
         dispatchedAt = at,
         returnsAt = at + window,
     )
@@ -89,6 +109,7 @@ fun startRun(
             // holds no money.
             ships = state.ships - ships,
             runs = state.runs + run,
+            galaxy = state.galaxy.withTaken(target = target, gathering = gathering, taken = taken, at = at),
             eventLog = state.eventLog + Event.FleetDispatched(
                 target = target,
                 gathering = gathering,
@@ -97,4 +118,16 @@ fun startRun(
             ),
         ),
     )
+}
+
+private fun Resources.of(kind: ResourceKind): Long = when (kind) {
+    ResourceKind.METAL -> metal
+    ResourceKind.CRYSTAL -> crystal
+    ResourceKind.DEUTERIUM -> deuterium
+}
+
+private fun hold(kind: ResourceKind, amount: Long): Resources = when (kind) {
+    ResourceKind.METAL -> Resources.of(metal = amount)
+    ResourceKind.CRYSTAL -> Resources.of(crystal = amount)
+    ResourceKind.DEUTERIUM -> error("a run never gathers deuterium")
 }

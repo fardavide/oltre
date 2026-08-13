@@ -200,6 +200,7 @@ class WorldVerdictTest {
         home = HOME,
         surveyed = surveyed,
         ownership = ownership,
+        deposits = emptyList(),
     )
 
     private fun surveyedGalaxy(): GalaxyState = galaxy(surveyed = setOf(HOME, NEIGHBOUR))

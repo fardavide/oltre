@@ -12,7 +12,18 @@ import kotlin.time.Instant
 // that would re-check it at every boundary for nothing.
 fun advance(state: GameState, from: Instant, to: Instant): GameState {
     require(to >= from) { "advance must not go backwards: from=$from to=$to" }
-    return advanced(state, from = from, to = to).withoutSpentWatch()
+    return advanced(state, from = from, to = to).withoutSpentWatch().withoutFullDeposits(to)
+}
+
+// The second thing settled after the span rather than inside it, and it is here for the same reason
+// the watch is: it reads what the span left behind. **Safe because being full is monotone** — a world
+// full at one instant is full at every later one — so pruning at every boundary and pruning once at
+// the end land on the same state, and the composability property survives it. Without this the save
+// would grow by an entry for every world ever worked, which is the objection `fleet-sheet.md` §8
+// rejected this whole mechanic on.
+private fun GameState.withoutFullDeposits(at: Instant): GameState {
+    val pruned = galaxy.prunedFull(at)
+    return if (pruned === galaxy) this else copy(galaxy = pruned)
 }
 
 // `tailrec` because the recursive call below is already in tail position and the recursion depth is

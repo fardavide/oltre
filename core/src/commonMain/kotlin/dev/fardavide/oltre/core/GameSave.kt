@@ -55,6 +55,11 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 10 — deposits: what has been taken out of each world, and when that was last true. Nested
+    //     inside `galaxy` rather than beside it, because it is the third thing in the same family as
+    //     `surveyed` and `ownership` — what the player changed about a map that is otherwise a seed.
+    //     Additive, and the emptiest hop in the table: a colony saved before veins ran dry has taken
+    //     nothing out of anything, which is exactly what an empty list says.
     // 9 — the square: one nullable `watching` row and the `subscribed` set of jobs whose landing the
     //     player asked to be told about. **One hop for two fields** — they shipped together, so no
     //     save has ever held one without the other and a second version would be a migration nobody
@@ -76,7 +81,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 9
+    const val SCHEMA_VERSION: Int = 10
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -198,6 +203,15 @@ object GameSave {
                 "watching" to JsonNull,
                 "subscribed" to JsonArray(emptyList()),
             )
+        },
+        // 9 -> 10: deposits. The first hop that writes *inside* `galaxy` rather than beside it, which
+        // is what the mechanic's own shape asks for — a deposit is a thing the player changed about
+        // the map, like a survey and like ownership, and it belongs with them. Additive: a colony
+        // saved before worlds could run dry has full veins everywhere, and an empty list is precisely
+        // that statement rather than a placeholder for it.
+        9 to { root ->
+            val galaxy = (root["state"] as? JsonObject)?.get("galaxy") as? JsonObject ?: return@to root
+            root.withState("galaxy" to JsonObject(galaxy + ("deposits" to JsonArray(emptyList()))))
         },
     )
 
