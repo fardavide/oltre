@@ -330,6 +330,31 @@ class DispatchUiStateTest {
         assertNotNull(small.wait, small.note)
     }
 
+    @Test
+    fun `the hull that brings nothing is named by its ordinal and never by an off-by-one`() {
+        // The one-idle-hull case is Design's own copy — "The 4th brings nothing." — and it is the
+        // only branch where an ordinal is printed at all, so it is the only one that can get the
+        // suffix wrong. Two hulls at a world one can empty is the smallest state that reaches it.
+        val slot = runnableSlot()
+        val target = homeSystemAt(slot)
+        val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+        // A world holding just over what one hull lifts on this window, so the second is the spare.
+        val nearlyEmptied = state.copy(
+            ships = Ships.of(ShipType.SKIFF, 2),
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap - cap / 8, at = EPOCH),
+        )
+
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(
+                slot,
+                state = nearlyEmptied,
+                selection = selection(slot).copy(gathering = ResourceKind.METAL, ships = 2, window = 24.hours),
+            ),
+        )
+
+        assertEquals("1 skiff empties it. The 2nd brings nothing.", offer.clampNote)
+    }
+
     private fun withSkiffs(count: Int): GameState = state.copy(ships = Ships.of(ShipType.SKIFF, count))
 
     private fun surveying(target: GalaxyCoordinate): GameState =
