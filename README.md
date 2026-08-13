@@ -158,6 +158,35 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.10.0 — 2026-08-13
+
+- **Worlds run out.** Every world holds a finite metal deposit and a finite crystal deposit, and a
+  run takes from them. A plain world at your doorstep holds about 1,450 metal; a hazardous one in
+  another galaxy holds nearly three thousand. One skiff strips an average world in a day, or two
+  runs at the twelve-hour window, and never lifts more than the planet has. Sending the same fleet
+  back to the same rock is no longer the answer to anything.
+- **A world comes back at five percent a day.** Twenty days from empty to full, which is slow on
+  purpose: the planet you stripped this morning is not worth visiting again this week. What that
+  makes valuable instead is the map — how much of the galaxy you have surveyed is now an income
+  stat rather than a one-off errand, and a probe buys you veins as well as verdicts.
+- **Every surveyed world says what is left in it.** The row that used to print two richness figures
+  now prints two stocks: `metal full · crystal 174/819`, in words at the ends and a fraction
+  between, so a galaxy nobody has worked reads as a shape you skip rather than thirty numbers you
+  compare. The verdict badge is back on every row, and the world you can settle is no longer a
+  special case.
+- **The dispatch sheet says when your fleet is bigger than the world.** Send eight skiffs at a vein
+  two can empty and the figure is the vein, the line beside it reads "the whole deposit" instead of
+  a share per hull, and a clause under the stepper names the ships that would come home with
+  nothing. The legs line gained a fourth segment — how long the fleet is actually working — and it
+  reads the same on your doorstep as it does in the next galaxy.
+- **A stripped world counts down instead of refusing.** The sheet keeps its chips, its stepper and
+  its ladder, and swaps the figure for how long until the world holds what you just asked for.
+  Ask for less and the wait shrinks; ask for more than any world of that size can ever hold and it
+  says so rather than naming a date.
+- **Prospecting.** A fourth technology on the research branch, behind Extraction 1, and the first
+  whose payoff is measured in a run rather than in an hourly rate: every hull pulls more out of
+  every world. It shares the one research slot, so it competes with the mines and the ladders.
+
 ### 0.9.0 — 2026-08-13
 
 - **Ships take time to build.** Order a hull and it goes on the slipway with a countdown on its
