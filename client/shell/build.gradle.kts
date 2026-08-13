@@ -56,10 +56,12 @@ kotlin {
             implementation(projects.client.design.core)
             implementation(projects.client.design.format)
             implementation(projects.client.design.icon)
+            implementation(projects.client.fleets.presentation)
             implementation(projects.client.galaxy.presentation)
             implementation(projects.client.notifications.data)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
+            implementation(projects.client.shipyard.presentation)
             // Only the `data` half is named, because it declares `api` on its own `domain` —
             // `TiltSource` hands out a `Tilt`, so the type travels with the module that emits it.
             implementation(projects.client.tilt.data)

@@ -2733,3 +2733,122 @@ it did not.
 haul, it is the **band spread** — the sim's `band 0 x56`. If a post-change bot still sends every
 dispatch to the home system, the multipliers are too small and the rate did the work, which is the
 outcome this round was specifically trying not to buy.
+
+---
+
+
+## Round 22 — 0.8.0, the Shipyard lands and the guardrail is spent rather than met (2026-08-12)
+
+The slice `exploration-rewards-sheet.md` §9 called **Slice A** and `fleet-sheet.md` §10 called
+**slice 3**: `buildShips`, the Shipyard tab and the Fleets tab. It moves no balance number. What it
+moves is a **constraint** — and that is worth a round of its own, because a guardrail that is
+knowingly spent is a different thing from one that was never tested.
+
+### The sweep round 21 was told to wait for
+
+Round 21 tripled `EXTRACTION_PER_HOUR` to 60 on an argument with an expiry date written into it:
+*"round 17 sized 20 against a guardrail no shipped player can trip"* — the guardrail being **a
+fleet-first player must not out-produce their own colony**, measured against a bot owning six to
+nine hulls when a real player owned one and could never own two. The sheet said so in as many words:
+*"this must be re-swept the day `buildShips` lands."* It landed. It was re-swept.
+
+`printFleetReport`'s purchase-order bracket, crystal-seeking, 48 hours, at the shipped hull base.
+**A cell over 100% is a fleet that has become the economy.**
+
+| rate | hulls from what is left | **hulls first** |
+|---|---|---|
+| 20 | 31.4% | **89.3%** |
+| 30 | 47.2% | **134.0%** |
+| 40 | 63.0% | **178.7%** |
+| **60** *(shipped)* | 94.5% | **268.1%** |
+
+Round 17's criterion is not met at 60 and is not close to met. **20 would still be the highest rate
+that satisfies it**, and 30 is already over.
+
+### Davide's ruling — the criterion moves, not the number
+
+The build took the rate back to 20 on the strength of that table and was overruled on sight:
+*"Why did you revert the rate? Bring it back."*
+
+**So the reading stands and the constraint does not.** Recorded that way round, deliberately, because
+the two are separable and only one of them was decided: the 268% is a measurement and it has not been
+argued with; what has been rejected is round 17's rule that it violates. From here, *"the fleet must
+never be the economy"* is no longer the thing that sizes this number, and a future round proposing to
+lower the rate has to argue against Davide's bar rather than reinstate round 17's by default.
+
+**The argument the build made and lost, kept because the next round will be tempted by it.** Hull
+count is a growth term the fleet had never had, and this slice is what adds it: at 20 the same
+four-a-day player owns six hulls at 48 hours and sixteen at a fortnight, so a dispatch would bring
+home six to sixteen times the *"14 cristals"* without the constant moving. The build read that as the
+rate raise having been compensation for a missing multiplier. Davide's call is that the multiplier and
+the rate are both wanted. **The way to test which reading is right is a device session, not another
+sweep** — see "what to watch".
+
+### What it does to the game, at 60 with hulls on sale
+
+| Reading, 48h, four a day | no fleet | with fleet |
+|---|---|---|
+| Hulls owned at 48h | 1 | **7** |
+| Dispatches | 0 | **8** |
+| Fleet duty cycle | — | **74.7%** |
+| Fleet metal delivered | 0 | **12,662** |
+| Fleet metal as a share of colony metal income | — | **91.8%** |
+| Building levels at 48h | 32 | **33** |
+
+**Levels went up rather than down**, which is the guardrail this slice was most likely to break: the
+fleet is bought out of metal the colony had nowhere else to put, so it costs the build queue nothing.
+The share, though, is the story — a fleet delivering 92% of what the mines do, at 48 hours, before
+any frontier target is reachable.
+
+### The danger inversion is doing its own work, and it is separable from the rate
+
+The reading round 21 said would decide it, at both rates:
+
+| | 0.7.1 | 0.7.2 (rate 60, no Shipyard) | **0.8.0 (rate 60, Shipyard)** |
+|---|---|---|---|
+| dispatches to band 0, of 56 | **56** | 42 | **42** |
+| dispatches past the home system | **0** | 14 | **14** |
+| distinct targets over a fortnight | 2 | 4 | **4** |
+
+A quarter of dispatches leave the home system at either rate. **The multipliers moved the target and
+the rate never did**, which is round 21's own thesis surviving contact with a fleet that can grow.
+
+### The benchmark
+
+Unmoved by this round: the rate did not change, so the six fleet rows read exactly what 0.7.2 signed
+off. That is the honest outcome of a slice that adds a verb rather than a number, and it is worth
+saying out loud — `[fleet]` and `[frontier]` are per-hull readings, and **the benchmark's fixed player
+still owns one hull**, so nothing this slice built is visible there at all. The instrument that sees
+it is `printFleetReport`, not the golden.
+
+### Two instrument repairs, and the first one is embarrassing
+
+1. **`:sim:run` had been dead since 0.7.2 and nobody noticed.** The harness carries a replica of
+   `FleetBalance.cargo` and checks it against `core` on every dispatch; round 21 inverted the danger
+   term in `core` and left the replica subtracting, so the `check` fired the first time the bot chose
+   any target with a hazard or outside the home system — which is to say, immediately — and the whole
+   report died on it. The discipline worked exactly as designed (a loud failure rather than a quiet
+   disagreement) and then nobody ran it. **A balance round that ships without running the harness is
+   how that happens.**
+2. **Every sweep in the file was missing the shipped rate.** Round 17 swept {10, 20, 30, 40} and
+   round 21 shipped 60 without widening the candidate lists, so four separate tables printed a grid
+   that did not contain the constant the game was running on — including the bracket above, which is
+   the one table that could have caught this. They are one named list now, and the list `check`s that
+   it contains `FleetBalance.EXTRACTION_PER_HOUR`.
+
+### What to watch
+
+- **Whether the fleet-first player is a real player.** The 268% assumes somebody buys hulls before
+  the buildings at *every* check-in. If nobody plays that way the honest column is 94.5%, which is a
+  fleet matching the colony rather than tripling it. This is the single reading that decides whether
+  the ruling above was right, and only a device session can produce it.
+- **Whether the mines start feeling optional.** That is the shape the failure takes if it takes one —
+  not a number in a table, a player who stops tapping the Colony tab. `fleet-sheet.md`'s own words:
+  *"if a round finds the mines feeling optional, `EXTRACTION_PER_HOUR` is too high."*
+- **Whether six or seven hulls is the natural fleet.** §4 predicted *"three to four at the opening and
+  six or seven at depth"*; the bot reaches seven at 48 hours and seventeen at a fortnight, which is
+  more than the sheet expected. If a real player ends up with seventeen skiffs and nothing to do with
+  them, **the hull curve is the dial**, not the rate.
+- **The drive technology is still not built** (sheet §9 Slice C), so *"travel towards far planets to
+  be way more time consuming, and require upgraded fleets to get there faster"* remains unanswered in
+  both halves.

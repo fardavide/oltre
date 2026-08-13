@@ -3,6 +3,7 @@ package dev.fardavide.oltre.sim
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -37,6 +38,7 @@ import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
+import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.futureEvents
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
@@ -1326,6 +1328,17 @@ private val SHIPPED_FLEET = FleetTuning(
     hullBaseMetal = FleetBalance.HULL_BASE_METAL,
 )
 
+// **The rate candidates, in one place because they were in four and one of them went stale.** Round
+// 17 swept {10, 20, 30, 40} and round 21 shipped 60 without widening them, so every sweep in this
+// file printed a grid that did not contain the constant the game was running on — and the row a
+// reader most wanted was the row that was missing. Named here so a candidate list cannot drift from
+// the shipped value again, and `check`ed for the same reason `cargoAt` checks its replica.
+private val RATE_CANDIDATES: List<Long> = listOf(10L, 20L, 30L, 40L, 60L).also { candidates ->
+    check(FleetBalance.EXTRACTION_PER_HOUR in candidates) {
+        "the sweep must contain the shipped rate ${FleetBalance.EXTRACTION_PER_HOUR}"
+    }
+}
+
 private val FULL_PLAN = listOf(
     BuildingType.METAL_MINE,
     BuildingType.CRYSTAL_MINE,
@@ -1348,7 +1361,13 @@ private fun cargoAt(
 ): Resources {
     val stationMinutes = station.inWholeMinutes
     if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
-    val kept = (100L - 10L * danger).coerceAtLeast(0)
+    // **Danger pays, and this line was left behind when it started to.** Round 21 inverted the term
+    // in `core` — `100 − 10 × danger` became `100 + 35 × danger` — and the replica kept subtracting,
+    // so the `check` below fired the first time the bot chose any target with a hazard or outside the
+    // home system and `:sim:run` died on the whole report. Copied rather than approximated is the
+    // rule this file states two paragraphs up; the cost of breaking it is that the harness cannot run
+    // at all, which is the loud failure this discipline is chosen for.
+    val paid = 100L + 35L * danger.coerceAtLeast(0)
     val richness = when (gathering) {
         ResourceKind.METAL -> world.traits.metalRichness
         ResourceKind.CRYSTAL -> world.traits.crystalRichness
@@ -1360,7 +1379,7 @@ private fun cargoAt(
         ResourceKind.DEUTERIUM -> 3L
     }
     val numerator = ships.total.toLong() * tuning.extractionPerHour * stationMinutes *
-        richness.perMillion.toLong() * kept
+        richness.perMillion.toLong() * paid
     val whole = numerator / (60L * GalaxyBalance.RICHNESS_BASIS * 100L * pricePerUnit)
     val cargo = when (gathering) {
         ResourceKind.METAL -> Resources.of(metal = whole)
@@ -1524,6 +1543,29 @@ private fun bestDispatch(
 private fun ownedSkiffs(state: GameState): Int =
     state.ships.countOf(ShipType.SKIFF) + state.runs.sumOf { it.ships.countOf(ShipType.SKIFF) }
 
+// One hull, bought the way the player buys it. Null when the colony cannot pay, which is the loop's
+// stop condition.
+//
+// **At the shipped base it goes through `buildShips`, and everywhere else it cannot.** The verb
+// prices from `FleetBalance.shipCost`, so a sweep row asking what a 40-metal hull would do has no
+// way to ask it through the verb — those rows keep the `state.copy` the whole loop used until 0.8.0,
+// and `hullCostAt`'s own `check` is what keeps the two prices identical where they overlap. What the
+// verb buys the harness that the copy did not is the rest of it: the log entry, the refusal
+// branches, and the fact that the shipped column now measures the code a tap actually runs.
+private fun buyOneHull(state: GameState, tuning: FleetTuning, at: Instant): GameState? {
+    val cost = hullCostAt(tuning, ownedSkiffs(state))
+    if (!state.resources.covers(cost)) return null
+    if (!tuning.isShippedHull) {
+        return state.copy(
+            resources = state.resources - cost,
+            ships = state.ships + Ships.of(ShipType.SKIFF, 1),
+        )
+    }
+    val result = buildShips(state, Ships.of(ShipType.SKIFF, 1), at = at)
+    check(result is BuildShipsResult.Started) { "the harness could afford a hull and buildShips said $result" }
+    return result.state
+}
+
 // One runner, two lengths, one variable. The colony's rule is the harness's usual one — everything
 // affordable, cheapest first — and the fleet's is the paragraph above. Measurement is hourly; acting
 // is at the four times a day the brief designs for.
@@ -1534,9 +1576,11 @@ private fun ownedSkiffs(state: GameState): Int =
 // behind a full queue; and one per check-in is the probe's rule too — a statement about how a person
 // plays rather than about what the game allows.
 //
-// **The purchase is a `state.copy` rather than a verb, because `buildShips` is slice 3.** The price is
-// `FleetBalance.shipCost` and nothing else about it is invented; no `ShipsBuilt` event is appended,
-// which nothing in this harness reads.
+// **The purchase goes through `buildShips` at the shipped price**, which it could not before 0.8.0 —
+// the verb did not exist and the harness bought hulls with a raw `state.copy`. The sweep rows that
+// ask what a 40-metal hull would do still cannot use the verb, because it prices from
+// `FleetBalance.shipCost`; see `buyOneHull` for the split and for what the check between them keeps
+// true.
 //
 // **`hourlyColony` is the one knob that is not about the fleet, and it exists because the two
 // questions want different colonies.** The opening's readings — idleness, what a check-in booked,
@@ -1628,11 +1672,7 @@ private fun fleetRun(
             if (withFleet && hullsFirst) {
                 while (true) {
                     val hullCost = hullCostAt(tuning, ownedSkiffs(state))
-                    if (!state.resources.covers(hullCost)) break
-                    state = state.copy(
-                        resources = state.resources - hullCost,
-                        ships = state.ships + Ships.of(ShipType.SKIFF, 1),
-                    )
+                    state = buyOneHull(state, tuning, at = now) ?: break
                     hullSpendMetal += hullCost.metal
                     hullSpendCrystal += hullCost.crystal
                 }
@@ -1683,11 +1723,7 @@ private fun fleetRun(
                 if (!hullsFirst) {
                     while (true) {
                         val hullCost = hullCostAt(tuning, ownedSkiffs(state))
-                        if (!state.resources.covers(hullCost)) break
-                        state = state.copy(
-                            resources = state.resources - hullCost,
-                            ships = state.ships + Ships.of(ShipType.SKIFF, 1),
-                        )
+                        state = buyOneHull(state, tuning, at = now) ?: break
                         hullSpendMetal += hullCost.metal
                         hullSpendCrystal += hullCost.crystal
                     }
@@ -2049,7 +2085,7 @@ private fun printSkiffAgainstColony() {
     println("|---|---|---|---|---|")
     // The hold is linear in the rate and floors once, so scaling the measured 40-rate hold is exact
     // to within a unit — and the shape is what is being read here rather than the last digit.
-    for (rate in listOf(10L, 20L, 30L, 40L)) {
+    for (rate in RATE_CANDIDATES) {
         val cells = listOf(0, 24, 48, 168).joinToString(" | ") { mark ->
             val sample = samples.firstOrNull { it.first == mark }
             if (sample == null) "—" else {
@@ -2099,10 +2135,15 @@ private fun printWindowPolicies() {
     println("owns more hulls sooner, so the crystal column triples — and a rate is only safe if even")
     println("that player cannot out-produce their own colony in the currency they chose.")
     println()
+    println("**Read this table before any other.** Until the Shipyard shipped there was no")
+    println("fleet-first player to measure — `buildShips` did not exist, so the hull count was one")
+    println("and the last column was a reading of a game nobody could play. It is a real player now,")
+    println("and a cell over 100% is a fleet that has become the economy.")
+    println()
     println("| Order | rate | levels @48h | hulls @48h | priced on hulls " +
         "| fleet metal / colony metal | **fleet crystal / colony crystal** |")
     println("|---|---|---|---|---|---|---|")
-    for (rate in listOf(20L, 40L)) {
+    for (rate in RATE_CANDIDATES.filter { it >= 20L }) {
         val tuning = FleetTuning(rate, FleetBalance.HULL_BASE_METAL)
         for (first in listOf(false, true)) {
             val outcome = fleetRun(days = 2, withFleet = true, tuning = tuning, hullsFirst = first)
@@ -2215,7 +2256,7 @@ private fun printFleetCensus(outcome: FleetOutcome) {
 private fun printFleetSweeps() {
     println("### Sweep: `EXTRACTION_PER_HOUR`, at the shipped hull base")
     println()
-    printSweepTable(listOf(10L, 20L, 30L, 40L).map { FleetTuning(it, FleetBalance.HULL_BASE_METAL) })
+    printSweepTable(RATE_CANDIDATES.map { FleetTuning(it, FleetBalance.HULL_BASE_METAL) })
 
     println("### Sweep: the hull base, at the shipped extraction rate")
     println()
@@ -2241,7 +2282,7 @@ private fun printFleetSweeps() {
     println()
     println("| extraction \\ hull base | 40 metal | 80 metal | 140 metal |")
     println("|---|---|---|---|")
-    for (extraction in listOf(10L, 20L, 30L, 40L)) {
+    for (extraction in RATE_CANDIDATES) {
         val cells = listOf(40L, 80L, 140L).joinToString(" | ") { base ->
             val tuning = FleetTuning(extraction, base)
             val short = fleetRun(days = 2, withFleet = true, tuning = tuning)

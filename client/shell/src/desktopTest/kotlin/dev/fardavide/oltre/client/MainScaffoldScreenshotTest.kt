@@ -68,6 +68,8 @@ class MainScaffoldScreenshotTest {
                             colony = { Text("colony-under-test") },
                             research = { Text("research-under-test") },
                             galaxy = { _, _ -> Text("galaxy-under-test") },
+                            shipyard = { Text("shipyard-under-test") },
+                            fleets = { Text("fleets-under-test") },
                         )
                     }
                 }

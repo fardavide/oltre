@@ -158,6 +158,22 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.8.0 — 2026-08-12
+
+- **You can buy ships.** The Shipyard tab is a price list: what the skiff is for, what the next one
+  costs, and how many you own, how many are idle and how many are away. Every hull costs half again
+  as much as the one before it, so the fleet has a ceiling you can see rather than one you find.
+  Until now a colony had the one skiff it was given at genesis and no way to get a second.
+- **The Fleets tab shows what is away.** One card per run, with a bar carrying all three phases —
+  out, on station, and home again — and two marks where the flight ends and begins. Under it, what
+  has landed and what it brought. The Colony strip has said `2 more away` since 0.7.0; this is what
+  it was pointing at.
+- **No tab says "nothing here yet" any more.** All five destinations have a screen behind them.
+- **A fleet now brings home six times what one ship did, at the same rate per ship.** 0.7.2 tripled
+  what a run pays; this release is what lets you have more than one ship carrying it. By the second
+  day a four-a-day player is sending six skiffs instead of the single one the game used to grant —
+  and the run itself still reads what 0.7.2 said it would.
+
 ### 0.7.2 — 2026-08-12
 
 - **A gathering run brings home three times what it used to.** The first run a new colony can order

@@ -182,26 +182,41 @@ object FleetBalance {
     //    leaves the frontier landing near an effective 46; sizing at 40 would put it at 92 the day
     //    slice 2 ships, which is a rebalance disguised as a feature.
     //
-    // **TRIPLED TO 60 AT ROUND 21, and the reasoning above is left standing because it is what the
-    // new number had to answer.** Davide, 2026-08-12: *"Just adjust the rate, but I don't think a 20%
-    // is enough!"*
+    // **TRIPLED TO 60 AT ROUND 21, SWEPT AT ROUND 22, AND 60 STANDS.** Davide, 2026-08-12: *"Just
+    // adjust the rate, but I don't think a 20% is enough!"* — and, on being shown the sweep below
+    // and a build that had taken it back to 20: *"Why did you revert the rate? Bring it back."*
     //
-    // What unlocked it is that **round 17's binding constraint cannot be tripped by any shipped
-    // player.** "A fleet-first player must not out-produce their own colony" was measured against a
-    // bot owning six to nine hulls — and `buildShips` does not exist, so `shipCost` has no production
-    // caller and a player owns the one skiff genesis granted and can never own two (`GameSave.kt`
-    // says so in as many words). The 98.6% and the 49% above are readings of a game that is not
-    // built. Until the Shipyard ships, the fleet is one hull, and one hull at 20 was the *"14
-    // cristals"* Davide reported.
+    // The rate went to 60 on the argument that **round 17's binding constraint could not be tripped
+    // by any shipped player** — "a fleet-first player must not out-produce their own colony" was
+    // measured against a bot owning six to nine hulls, and at 0.7.2 `buildShips` did not exist, so a
+    // player owned the one skiff genesis granted and could never own two. That argument had an
+    // expiry date written into it: *"this must be re-swept the day `buildShips` lands."* It landed
+    // at 0.8.0, the sweep ran, and **the constraint it was waiting on now binds**:
+    //
+    // | rate | hulls from what is left | **hulls first** |
+    // |---|---|---|
+    // | 20 | 31.4% | **89.3%** |
+    // | 30 | 47.2% | **134.0%** |
+    // | 40 | 63.0% | **178.7%** |
+    // | **60** | 94.5% | **268.1%** |
+    //
+    // **So round 17's criterion is not satisfied at 60, and it is overruled rather than met.** A
+    // player who buys hulls before buildings at every check-in reaches a fleet delivering 2.7x their
+    // own colony's crystal. That is a real reading and it is not a defect in the measurement — it is
+    // the trade Davide has taken, knowing it, and it makes "the fleet must never be the economy" no
+    // longer the constraint that sizes this number. The next round to touch the rate should argue
+    // against *his* bar rather than reinstating round 17's by default.
     //
     // 60 is also the legible number rather than merely a bigger one: **one priced unit per hull per
     // station-minute.** A consequence worth knowing, because it moved a test — at 60 the priced hold
     // is exactly the station in minutes, so `hulls x RATE x minutes / 60` has no fraction left to
-    // lose and the flooring hazard `FleetBalanceTest` pins now lives entirely in the richness and
-    // danger terms.
+    // lose and the flooring hazard `FleetBalanceTest` pins lives entirely in the richness and danger
+    // terms.
     //
-    // **This must be re-swept the day `buildShips` lands**, against the fleet-first purchase order
-    // that sized its predecessor. See `exploration-rewards-sheet.md` §6.4 and §9's Slice A.
+    // **What to watch, since the guardrail is spent rather than intact.** Whether the fleet-first
+    // player is a real player: the 268% assumes somebody buys hulls before the buildings at every
+    // single check-in, and if nobody plays that way the honest column is the 94.5% one. A device
+    // session is what says. If the mines start feeling optional, this is the number that did it.
     const val EXTRACTION_PER_HOUR: Long = 60
 
     private const val MINUTES_PER_HOUR: Long = 60

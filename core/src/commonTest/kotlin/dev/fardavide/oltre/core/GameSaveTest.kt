@@ -119,6 +119,10 @@ class GameSaveTest {
                 Event.BuildCompleted(building = BuildingType.SOLAR_PLANT, newLevel = BuildingLevel(2), at = EPOCH),
                 Event.ResearchStarted(technology = Technology.EXTRACTION, toLevel = TechLevel(1), at = EPOCH),
                 Event.ResearchCompleted(technology = Technology.EXTRACTION, newLevel = TechLevel(1), at = EPOCH),
+                // The newest discriminator, and the first one a real player's save can carry from
+                // the day it ships — every hull bought writes one, where no production build has
+                // ever appended a `FleetReturned` with the old `CARGO` name in it.
+                Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = EPOCH),
             ),
         )
 
@@ -130,6 +134,27 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""type":"BuildCompleted""""), encoded)
         assertTrue(encoded.contains(""""type":"ResearchStarted""""), encoded)
         assertTrue(encoded.contains(""""type":"ResearchCompleted""""), encoded)
+        assertTrue(encoded.contains(""""type":"ShipsBuilt""""), encoded)
+        assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
+    }
+
+    @Test
+    fun `a colony that has bought a hull survives a round trip`() {
+        // The pool is the only thing a purchase moves, and it is already a schema-8 key — so this
+        // rides an existing shape rather than needing a hop. What is new on disk is the event.
+        val state = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                GameState.initial().copy(resources = Resources.of(metal = 10_000, crystal = 10_000)),
+                Ships.of(ShipType.SKIFF, 2),
+                at = EPOCH,
+            ),
+        ).state
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        assertEquals(snapshot, decoded)
+        assertEquals(Ships.of(ShipType.SKIFF, 3), decoded.state.ships)
     }
 
     @Test

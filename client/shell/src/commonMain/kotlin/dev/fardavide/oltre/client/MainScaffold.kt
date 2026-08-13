@@ -27,9 +27,9 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // "you were on Fleets" would restore a screen that is not built yet.
 //
 // Each feature that lands takes a parameter here, so this signature is the honest list of what
-// exists — the tabs with no parameter are the ones that are not built. `resources` is the
-// exception that proves it: the rail is chrome rather than a feature, framing every destination
-// exactly as the tab bar does.
+// exists — and since 0.8.0 the list is complete: five destinations, five parameters, and nothing
+// left that the frame has to apologise for. `resources` is the exception that proves it: the rail is
+// chrome rather than a feature, framing every destination exactly as the tab bar does.
 // `galaxy` takes a parameter the other two do not: the way to the Research tab. A blocked world
 // names the ladder that would land it, and since 0.0.18 that string is a tap target — but which
 // destination is showing is the scaffold's state, so the galaxy cannot select a tab and must be
@@ -51,6 +51,8 @@ fun MainScaffold(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
+    shipyard: @Composable (ScrollState) -> Unit,
+    fleets: @Composable (ScrollState) -> Unit,
     // The second thing the field behind the destinations moves on, after the scroll above. A lambda
     // and not a value — `Starfield` argues both reasons, and the second one (Compose would infer a
     // `Tilt` parameter unstable and stop skipping this whole scaffold) is the load-bearing one.
@@ -67,6 +69,8 @@ fun MainScaffold(
     val colonyScroll = rememberScrollState()
     val researchScroll = rememberScrollState()
     val galaxyScroll = rememberScrollState()
+    val shipyardScroll = rememberScrollState()
+    val fleetsScroll = rememberScrollState()
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
@@ -78,9 +82,13 @@ fun MainScaffold(
             colony = colony,
             research = research,
             galaxy = galaxy,
+            shipyard = shipyard,
+            fleets = fleets,
             colonyScroll = colonyScroll,
             researchScroll = researchScroll,
             galaxyScroll = galaxyScroll,
+            shipyardScroll = shipyardScroll,
+            fleetsScroll = fleetsScroll,
             tilt = tilt,
             onOpenResearch = { selected = OltreTab.RESEARCH },
         )
@@ -94,20 +102,26 @@ private fun ColumnScope.Destination(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
+    shipyard: @Composable (ScrollState) -> Unit,
+    fleets: @Composable (ScrollState) -> Unit,
     colonyScroll: ScrollState,
     researchScroll: ScrollState,
     galaxyScroll: ScrollState,
+    shipyardScroll: ScrollState,
+    fleetsScroll: ScrollState,
     tilt: () -> Tilt,
     onOpenResearch: () -> Unit,
 ) {
-    // The two tabs with no screen have nothing to scroll, so the field behind them holds still. A
-    // null here rather than a zero constant, because "this destination does not scroll" and "this
-    // destination is at the top" are different facts and only one of them can change.
+    // Every destination scrolls now, so the field behind every one of them moves. The nullable this
+    // used to be — "the two tabs with no screen have nothing to scroll" — went with the two tabs
+    // that had no screen; a `null` branch kept for a case that cannot occur is a case a reader has
+    // to rule out on every pass.
     val scroll = when (selected) {
         OltreTab.COLONY -> colonyScroll
         OltreTab.RESEARCH -> researchScroll
         OltreTab.GALAXY -> galaxyScroll
-        OltreTab.SHIPYARD, OltreTab.FLEETS -> null
+        OltreTab.SHIPYARD -> shipyardScroll
+        OltreTab.FLEETS -> fleetsScroll
     }
     Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
         // Inside the destination box and first in it, so it sits under every screen and under none
@@ -123,21 +137,16 @@ private fun ColumnScope.Destination(
         //
         // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.
-        Starfield(scrollOffset = { scroll?.value?.toFloat() ?: 0f }, tilt = tilt)
-        // Exhaustive on purpose: a `when` over the destinations is what makes a tab with no screen
-        // impossible to reach by accident, and `pendingWork` is the table saying which those are.
+        Starfield(scrollOffset = { scroll.value.toFloat() }, tilt = tilt)
+        // Exhaustive on purpose, and it is what a sixth destination will have to answer to: every
+        // branch names a screen now, so a tab added without one cannot compile rather than falling
+        // through to an apology.
         when (selected) {
             OltreTab.COLONY -> colony(colonyScroll)
             OltreTab.RESEARCH -> research(researchScroll)
             OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
-            OltreTab.SHIPYARD,
-            OltreTab.FLEETS,
-            -> UnbuiltTabScreen(
-                tab = selected,
-                pendingWork = checkNotNull(selected.pendingWork) {
-                    "${selected.label} has no screen and no pending-work line"
-                },
-            )
+            OltreTab.SHIPYARD -> shipyard(shipyardScroll)
+            OltreTab.FLEETS -> fleets(fleetsScroll)
         }
     }
 }

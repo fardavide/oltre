@@ -2828,3 +2828,87 @@ was raised from. The dispatch sheet already capped itself there; the row sheet n
   with it: what dismissal does in this app is `onDismiss` from one component, and the platform's
   scrim is not ours to assert. What that test also claimed — that touching a control commits
   nothing — is `sending commits the run and nothing else does`, which is unchanged.
+
+## The Shipyard sells hulls and takes back the rate that was raised for having none (2026-08-12, 0.8.0)
+
+Two decisions in one slice, and the second one is only defensible because of the first.
+
+### `buildShips` charges and delivers in the same call
+
+No yard job, and it was proposed as one twice. A fifth job kind would have added a term to
+`Advance`'s completion union, a member to `FutureEvent`, a slot to the tie-break ladder and an id to
+the notification budget — all bought to put **a second wait in front of the wait the mechanic is
+actually about**. What a timer would have been protecting is already protected by the price:
+`shipCost` compounds ×1.5 against a linear return, which is how every ceiling in this game is proved.
+The probe's own philosophy transfers unchanged — *the wait a hull costs you is the flight, not the
+yard* — and a check-in has to be able to buy and dispatch inside five minutes.
+
+It still appends `Event.ShipsBuilt`, and that is not decoration: `GameSession` detects a discrete
+transition by `eventLog.size` changing, so a verb that changed state without appending would write no
+save and re-sync no notifications, and the hull would vanish on the next launch.
+
+**`BuildShipsResult.NotForSale` exists because `shipCost` raises.** The balance object refuses to
+price the other three hulls on purpose — *"a plausible number invented here would be
+indistinguishable, to every later reader, from one somebody chose"* — and a verb reachable from a
+finger may not throw. So the price's refusal is carried back as a result, which is exactly what the
+Shipyard's dimmed Hauler card means on screen.
+
+### `OltreTab.pendingWork` and `UnbuiltTabScreen` are deleted rather than nulled
+
+Every tab carried a nullable string saying what would be there one day, and a real screen drew it —
+deliberately real, because *"an empty black rectangle reads as a bug in the game rather than as a gap
+in it"*. Shipyard and Fleets were the last two holding one. Left in place the column would be five
+nulls, and a field that can only ever say "no" is a field rather than a table.
+
+If a sixth destination ever arrives ahead of its screen, **the honest empty state should come back as
+that tab's own, in that tab's module.** What made the old one shell-shaped was that two tabs shared
+one drawing, and that is the condition rather than the pattern.
+
+### The rate stays at 60, and round 17's guardrail is spent rather than met
+
+0.7.2 tripled `EXTRACTION_PER_HOUR` on Davide's *"Just adjust the rate, but I don't think a 20% is
+enough!"* The argument that made tripling safe was that **round 17's guardrail could not be tripped
+by any shipped player** — "a fleet-first player must not out-produce their own colony" was measured
+against a bot owning six to nine hulls, and there was no way to buy a second. That argument had an
+expiry date written into it, in `FleetBalance` and in the sheet: *"this must be re-swept the day
+`buildShips` lands."*
+
+It landed. The sweep says, crystal-seeking over 48 hours, hulls bought before the buildings:
+
+| rate | hulls from what is left | **hulls first** |
+|---|---|---|
+| 20 | 31.4% | **89.3%** |
+| 30 | 47.2% | **134.0%** |
+| 40 | 63.0% | **178.7%** |
+| **60** | 94.5% | **268.1%** |
+
+The build took the rate back to 20 on the strength of that and was overruled: *"Why did you revert
+the rate? Bring it back."*
+
+**So the decision recorded here is not about the number, it is about the criterion.** The 268% is a
+measurement and nobody has disputed it; what has been rejected is round 17's rule that it violates.
+*"The fleet must never be the economy"* stops being the constraint that sizes this constant. A future
+round that wants the rate lower has to make that case against Davide's bar rather than reinstate
+round 17's by default — and a round that finds the rate too high should expect to reach for the
+**hull curve** first, since that is the term that decides how many hulls the 268% is spread across.
+
+**The argument the build made and lost is kept, because the next session will find it too.** Hull
+count is a growth term the fleet never had, and this slice is what adds it: at rate 20 the same
+four-a-day player owns six hulls at 48 hours and sixteen at a fortnight, so a dispatch brings home six
+to sixteen times the *"14 cristals"* without the constant moving. The build read the 0.7.2 raise as
+compensation for a multiplier that was missing and has now arrived. Davide's call is that both are
+wanted. **What settles it is an install, not another sweep**: the 268% assumes a player who buys hulls
+before buildings at every check-in, and if nobody plays that way the honest reading is 94.5%.
+
+### And the harness had been dead since the round that raised it
+
+`:sim:run` carries a replica of `FleetBalance.cargo` and `check`s it against `core` on every dispatch
+of every sweep row. Round 21 inverted the danger term in `core` and left the replica subtracting, so
+the check fired the first time the bot chose a target with a hazard or outside the home system —
+immediately — and the whole report died on it. **The discipline worked exactly as designed and then
+nobody ran it.** Four sweep tables had also been printing candidate grids that did not contain the
+shipped rate ever since. Both are fixed, and the candidate list now `check`s that it contains
+`FleetBalance.EXTRACTION_PER_HOUR`.
+
+The rule this leaves behind: **a balance round that ships without running the harness is how a broken
+harness survives a release.**

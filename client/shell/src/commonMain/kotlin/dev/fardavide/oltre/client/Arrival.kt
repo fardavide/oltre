@@ -57,13 +57,17 @@ internal fun arrivalOf(saved: GameState?, resumed: GameState): Arrival? {
     )
 }
 
-// Exhaustive on `Event`, so an eleventh kind of event has to decide whether it is something a row
+// Exhaustive on `Event`, so a twelfth kind of event has to decide whether it is something a row
 // can announce — and the fleet slice is the first to be asked: `FleetDispatched` arrived with 0.3.0
 // and this refused to compile until it was answered, which is exactly what the exhaustiveness is
 // for. Most events are not announcements. A build *starting* is something the player did rather
 // than something they came back to; a run landing already has the fleet strip at the top of the
 // colony, which is a better place to say it than a band across a facility row; and a probe landing
 // draws a receipt in the map card, which is not a row and has no level to change.
+//
+// `ShipsBuilt` is the clearest of the whole table and it is worth saying why: a hull is delivered in
+// the same call that charges for it, so it can never land while the app is closed. There is nothing
+// for a player to come back to.
 private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.BuildCompleted -> AwayCompletion.Facility(building)
     is Event.ResearchCompleted -> AwayCompletion.Project(technology)
@@ -73,6 +77,7 @@ private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.AdaptationStarted,
     is Event.FleetDispatched,
     is Event.FleetReturned,
+    is Event.ShipsBuilt,
     is Event.SurveyStarted,
     is Event.SurveyCompleted,
     -> null

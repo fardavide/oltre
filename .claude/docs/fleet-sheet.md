@@ -1398,7 +1398,7 @@ choice is a decision at all.
 §1's table reproduces in the sim; and the census can say whether the player's chosen distances actually
 spread with the gap ahead or collapse onto one target.
 
-### Slice 3 — the fleet has a size
+### Slice 3 — the fleet has a size — **LANDED 0.8.0**
 
 `buildShips`, the compounding hull curve, and the **Shipyard tab** — hulls for sale, the pool, and what
 is away. The **Fleets tab** — one card per run in flight, with the phase derived in presentation from
@@ -1408,6 +1408,27 @@ parameters and `UnbuiltTabScreen` loses its last caller.
 **Done means:** both `pendingWork` strings are `null`, `unbuilt_tab_shipyard.png` is retired, several
 runs can be in flight at once without an alert colliding, and the sweep in §6 has run and one number has
 moved on the strength of it.
+
+> **Met, with three things worth recording rather than only ticking.**
+>
+> - **`pendingWork` did not become two nulls — it was deleted.** With no unbuilt tab left the column
+>   could only ever say "no", and `UnbuiltTabScreen` went with its last caller. If a sixth
+>   destination ever arrives ahead of its screen, the honest empty state should come back as *that
+>   tab's own*, in that tab's module; what made the old one shell-shaped was that two tabs shared it.
+> - **No number moved; a guardrail was spent instead.** The sweep this slice owed is the one
+>   `exploration-rewards-sheet.md` §6.4 named as able to veto round 21's rate, and it vetoed it — at
+>   60 a fleet-first player's fleet delivers **268%** of their colony's crystal, where round 17's rule
+>   is that it must stay under 100. The build lowered the rate to 20 on that reading and Davide
+>   overruled it: 60 stands and *"the fleet must never be the economy"* stops being what sizes this
+>   constant. Balance-log round 22 has the bracket and the argument the build lost.
+> - **The alert collision was already held.** `NotificationIdentityTest` has keyed on the run since
+>   0.3.0, so several returns at once was never at risk; what this slice actually made reachable is
+>   several runs at once, which nothing but the sim could produce before.
+>
+> One thing the checklist did not anticipate: **the Fleets tab's empty state has no frame behind it.**
+> Design drew three runs, one run and the 320dp variant, never the case a new colony opens on. It
+> shipped as a muted sentence in the idiom the Shipyard's footnote spends, with a baseline, and it is
+> the one drawing in this slice that a design could overrule.
 
 ### Slice 4 — the hauler, and the composition
 

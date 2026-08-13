@@ -88,6 +88,17 @@ sealed interface Event {
         override val at: Instant,
     ) : Event
 
+    // No `Completed` partner, and it is the only member of the taxonomy without one — because the
+    // purchase has no duration to complete. There is no yard job: `buildShips` charges and delivers
+    // in the same call, so the transition this records is the whole of it. See `BuildShips.kt` for
+    // why the timer was refused.
+    @Serializable
+    @SerialName("ShipsBuilt")
+    data class ShipsBuilt(
+        val ships: Ships,
+        override val at: Instant,
+    ) : Event
+
     @Serializable
     @SerialName("SurveyStarted")
     data class SurveyStarted(

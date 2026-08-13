@@ -1,0 +1,59 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.kotlinMultiplatform)
+    alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.roborazzi)
+}
+
+kotlin {
+    jvmToolchain(21)
+
+    jvm("desktop")
+    iosArm64()
+    iosSimulatorArm64()
+
+    android {
+        namespace = "dev.fardavide.oltre.client.fleets.presentation"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+
+        compilerOptions {
+            jvmTarget = JvmTarget.JVM_11
+        }
+    }
+
+    sourceSets {
+        commonMain.dependencies {
+            implementation(projects.core)
+            // No `:client:design:icon` — a run card draws no glyph. The three-phase bar is this
+            // feature's own geometry rather than a mark any other screen wants.
+            implementation(projects.client.design.component)
+            implementation(projects.client.design.core)
+            implementation(projects.client.design.format)
+
+            // A run counts down to a wall-clock instant and the ledger stamps what has landed, which
+            // is the same pair of needs that put this on Colony, Research and Galaxy.
+            implementation(libs.kotlinx.datetime)
+
+            implementation(libs.compose.runtime)
+            implementation(libs.compose.foundation)
+            implementation(libs.compose.material3)
+            implementation(libs.compose.ui)
+        }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+        val desktopTest by getting {
+            dependencies {
+                implementation(projects.client.design.screenshotTesting)
+
+                implementation(compose.desktop.uiTestJUnit4)
+                implementation(compose.desktop.currentOs)
+                implementation(libs.roborazzi.compose.desktop)
+            }
+        }
+    }
+}

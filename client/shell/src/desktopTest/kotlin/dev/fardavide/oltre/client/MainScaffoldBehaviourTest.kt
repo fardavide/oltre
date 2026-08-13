@@ -63,19 +63,27 @@ class MainScaffoldBehaviourTest {
         }
     }
 
-    // The honest empty state is the whole point of shipping the bar before the screens: a tab
-    // that quietly re-showed the colony would read as a bug in the colony. Two tabs are still
-    // unbuilt — Galaxy left the list at 0.0.15 — and the filter is what keeps this test honest as
-    // they land rather than needing an edit per slice.
+    // **Every destination shows its own screen, and there is no longer an "unbuilt" case to
+    // exempt.** This test used to iterate the tabs whose `pendingWork` was non-null and assert the
+    // honest empty state; at 0.8.0 that filter matches nothing and the property it was protecting —
+    // *a tab never quietly re-shows a neighbour* — is the one worth keeping. So it is stated over
+    // all five rather than over the built three.
     @Test
-    fun `an unbuilt tab says what will be there rather than showing a built screen`() {
-        OltreTab.entries.filter { it.pendingWork != null }.forEach { tab ->
+    fun `no destination shows another destination's screen`() {
+        val markers = mapOf(
+            OltreTab.COLONY to COLONY_MARKER,
+            OltreTab.RESEARCH to RESEARCH_MARKER,
+            OltreTab.GALAXY to GALAXY_MARKER,
+            OltreTab.SHIPYARD to SHIPYARD_MARKER,
+            OltreTab.FLEETS to FLEETS_MARKER,
+        )
+        OltreTab.entries.forEach { tab ->
             scaffold {
                 onNodeWithTag(ShellTestTags.tab(tab)).performClick()
-                onNodeWithText(COLONY_MARKER).assertDoesNotExist()
-                onNodeWithText(RESEARCH_MARKER).assertDoesNotExist()
-                onNodeWithText(GALAXY_MARKER).assertDoesNotExist()
-                onNodeWithText(checkNotNull(tab.pendingWork)).assertIsDisplayed()
+                onNodeWithText(markers.getValue(tab)).assertIsDisplayed()
+                markers.filterKeys { it != tab }.values.forEach { other ->
+                    onNodeWithText(other).assertDoesNotExist()
+                }
             }
         }
     }
@@ -114,6 +122,8 @@ class MainScaffoldBehaviourTest {
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
                         galaxy = { _, _ -> Text(GALAXY_MARKER) },
+                        shipyard = { Text(SHIPYARD_MARKER) },
+                        fleets = { Text(FLEETS_MARKER) },
                     )
                 }
             }
@@ -128,5 +138,7 @@ class MainScaffoldBehaviourTest {
         const val COLONY_MARKER = "colony-under-test"
         const val RESEARCH_MARKER = "research-under-test"
         const val GALAXY_MARKER = "galaxy-under-test"
+        const val SHIPYARD_MARKER = "shipyard-under-test"
+        const val FLEETS_MARKER = "fleets-under-test"
     }
 }
