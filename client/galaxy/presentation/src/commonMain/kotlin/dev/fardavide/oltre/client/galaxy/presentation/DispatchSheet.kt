@@ -143,7 +143,8 @@ private fun Offer(
             GatherCard(
                 kind = ResourceKind.METAL,
                 name = "Metal",
-                richness = uiState.metalDeposit,
+                richness = uiState.metalRichness,
+                deposit = uiState.metalDeposit,
                 hue = OltreColors.metal,
                 selected = uiState.gathering == ResourceKind.METAL,
                 onClick = { onSelectGathering(ResourceKind.METAL) },
@@ -152,7 +153,8 @@ private fun Offer(
             GatherCard(
                 kind = ResourceKind.CRYSTAL,
                 name = "Crystal",
-                richness = uiState.crystalDeposit,
+                richness = uiState.crystalRichness,
+                deposit = uiState.crystalDeposit,
                 hue = OltreColors.crystal,
                 selected = uiState.gathering == ResourceKind.CRYSTAL,
                 onClick = { onSelectGathering(ResourceKind.CRYSTAL) },
@@ -291,7 +293,8 @@ private fun Waiting(
             GatherCard(
                 kind = ResourceKind.METAL,
                 name = "Metal",
-                richness = uiState.metalDeposit,
+                richness = uiState.metalRichness,
+                deposit = uiState.metalDeposit,
                 hue = OltreColors.metal,
                 selected = uiState.gathering == ResourceKind.METAL,
                 onClick = { onSelectGathering(ResourceKind.METAL) },
@@ -300,7 +303,8 @@ private fun Waiting(
             GatherCard(
                 kind = ResourceKind.CRYSTAL,
                 name = "Crystal",
-                richness = uiState.crystalDeposit,
+                richness = uiState.crystalRichness,
+                deposit = uiState.crystalDeposit,
                 hue = OltreColors.crystal,
                 selected = uiState.gathering == ResourceKind.CRYSTAL,
                 onClick = { onSelectGathering(ResourceKind.CRYSTAL) },
@@ -429,6 +433,7 @@ private fun GatherCard(
     kind: ResourceKind,
     name: String,
     richness: String,
+    deposit: String,
     hue: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -452,6 +457,16 @@ private fun GatherCard(
         )
         Text(
             text = "richness $richness",
+            color = OltreColors.textTertiary,
+            fontFamily = oltreMono(),
+            fontSize = 10.5.sp,
+            maxLines = 1,
+            softWrap = false,
+        )
+        // The stock under the richness rather than beside it: two readings of one world, and the
+        // chip is the only place they sit together now that the row carries the stocks alone.
+        Text(
+            text = deposit,
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,

@@ -6,7 +6,6 @@ import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toWaitLabel
 import dev.fardavide.oltre.core.DepositBalance
-import dev.fardavide.oltre.core.Richness
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -254,8 +253,8 @@ internal fun GameState.toDispatchUiState(
         research = research,
     )
     val chips = DepositChips(
-        metal = depositChip(target, ResourceKind.METAL, world.traits.metalRichness, now),
-        crystal = depositChip(target, ResourceKind.CRYSTAL, world.traits.crystalRichness, now),
+        metal = depositChip(target, ResourceKind.METAL, now),
+        crystal = depositChip(target, ResourceKind.CRYSTAL, now),
     )
     val stepper = SteppedFleet(
         ships = "$hulls ${if (hulls == 1) "skiff" else "skiffs"}",
@@ -340,15 +339,12 @@ private class SteppedFleet(
     val pool: String,
 )
 
-// "richness 1.24 · deposit full". The chip is where richness went when the stocks took the row's
-// headline, and it is the one place both readings sit together — which is what makes the currency
-// choice a comparison rather than a memory test.
-private fun GameState.depositChip(
-    target: GalaxyCoordinate,
-    kind: ResourceKind,
-    richness: Richness,
-    now: Instant,
-): String {
+// "deposit full", "deposit 620/1,798", "deposit empty" — the second line of a chip whose first is
+// the richness the card already prints. **The two are separate strings because the card owns the
+// word "richness"**, and the first cut of this returned both in one and rendered "richness richness
+// 1.15" with the stock clipped off the end. A screenshot caught it; no test could have, because a
+// node query reads the whole string whatever is painted.
+private fun GameState.depositChip(target: GalaxyCoordinate, kind: ResourceKind, now: Instant): String {
     val cap = galaxy.depositCap(target, kind)
     val remaining = galaxy.remaining(target, kind, now)
     val stock = when {
@@ -356,7 +352,7 @@ private fun GameState.depositChip(
         remaining >= cap -> "full"
         else -> "${remaining.groupedByThousands()}/${cap.groupedByThousands()}"
     }
-    return "richness ${richness.perMillion.perMillion()} · deposit $stock"
+    return "deposit $stock"
 }
 
 // "out 10m · on station 11h 40m · working 6h 03m · home 10m". **The fourth segment is the invariant

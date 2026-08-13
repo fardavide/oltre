@@ -196,9 +196,11 @@ class DispatchUiStateTest {
     fun `a chip carries the richness and what is left of it`() {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
 
-        assertTrue(offer.metalDeposit.startsWith("richness "), offer.metalDeposit)
-        assertTrue(offer.metalDeposit.endsWith("· deposit full"), offer.metalDeposit)
-        assertTrue(offer.crystalDeposit.endsWith("· deposit full"), offer.crystalDeposit)
+        // Two strings rather than one: the card owns the word "richness" and prints it above this,
+        // so a chip string that carried the word too rendered "richness richness 1.15".
+        assertTrue(offer.metalRichness.first().isDigit(), offer.metalRichness)
+        assertEquals("deposit full", offer.metalDeposit)
+        assertEquals("deposit full", offer.crystalDeposit)
     }
 
     @Test
@@ -213,7 +215,7 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot, state = worked))
 
         assertTrue(offer.metalDeposit.contains("/"), offer.metalDeposit)
-        assertTrue(offer.crystalDeposit.endsWith("· deposit full"), offer.crystalDeposit)
+        assertEquals("deposit full", offer.crystalDeposit)
     }
 
     @Test
@@ -296,7 +298,7 @@ class DispatchUiStateTest {
         assertEquals("This deposit is empty.", waiting.title)
         assertTrue(waiting.windows.isNotEmpty(), "the ladder is still live")
         assertTrue(waiting.note.endsWith("Fewer skiffs, or a shorter window, is sooner."), waiting.note)
-        assertTrue(waiting.metalDeposit.endsWith("· deposit empty"), waiting.metalDeposit)
+        assertEquals("deposit empty", waiting.metalDeposit)
     }
 
     @Test
@@ -378,7 +380,7 @@ class DispatchUiStateTest {
         )
 
         assertEquals("Both deposits are empty.", waiting.title)
-        assertTrue(waiting.crystalDeposit.endsWith("· deposit empty"), waiting.crystalDeposit)
+        assertEquals("deposit empty", waiting.crystalDeposit)
     }
 
     @Test
