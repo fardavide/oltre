@@ -3132,6 +3132,12 @@ private fun depositRun(
     days: Int = 14,
     checkInHours: List<Int> = CHECK_IN_HOURS,
     spread: Boolean = true,
+    // Null is the adaptive rule — crystal while the colony is short of it, metal otherwise — which is
+    // what a player does and what every row above uses. Forcing one is the only way to get a crystal
+    // reading at all: at four check-ins a day this colony is rarely crystal-short, so the adaptive bot
+    // gathers metal for almost the whole fortnight. `printFleetReport` needed the same escape hatch
+    // for the same reason and for the same currency.
+    forceGathering: ResourceKind? = null,
 ): DepositOutcome {
     var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
     val genesis = Instant.fromEpochMilliseconds(0)
@@ -3178,7 +3184,7 @@ private fun depositRun(
             state = buyOneHull(state, fleet, at = now) ?: break
         }
 
-        val gathering = if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
+        val gathering = forceGathering ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
         val window = windowFor(WindowPolicy.HOME_WHEN_I_LOOK, gapMinutes)
         val idle = state.ships.countOf(ShipType.SKIFF)
         val manifests = if (spread) List(idle) { 1 } else listOf(idle)
@@ -3325,6 +3331,27 @@ private fun printDepositReport() {
     println("The sheet's bar is ~25% of colony income. Below it the fleet stops being worth owning, the")
     println("hull curve bounds nothing because nobody buys a second hull, and the dial is the cap.")
 
+    println()
+    println("### The crystal column, forced — because the adaptive bot almost never asks for it")
+    println()
+    println("| cap · refill | d1 crystal | d7 crystal | d14 crystal | clamped | colony crystal/day |")
+    println("|---|---|---|---|---|---|")
+    for (base in DEPOSIT_CANDIDATES) {
+        val tuning = DepositTuning(basePriced = base, refillPercent = 5)
+        val row = depositRun(tuning, forceGathering = ResourceKind.CRYSTAL)
+        val dispatches = row.days.sumOf { it.dispatches }
+        val mark = if (tuning.isShipped) " **" else ""
+        println(
+            "| ${tuning.label}$mark | ${row.days[0].crystal.grouped()} | ${row.days[6].crystal.grouped()} | " +
+                "${row.days[13].crystal.grouped()} | " +
+                "${share(row.days.sumOf { it.clamped }.toLong(), dispatches.toLong())} | " +
+                "${row.colonyCrystalPerDay.grouped()} |",
+        )
+    }
+    println()
+    println("Crystal is the game's standing scarcity and its deposits are **half the size** of a metal")
+    println("one, because the cap is stated in the priced basket. That halving is the sharpest thing in")
+    println("the deposit sheet nobody asked for, and this is the table that would show it hurting.")
     println()
     println("### Veto 3 — is the absent player taxed?")
     println()

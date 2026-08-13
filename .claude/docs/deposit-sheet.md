@@ -600,6 +600,18 @@ TDD throughout, failing test first, and the `core` half is entirely testable in 
 
 ## 11. Left open, deliberately
 
+- ~~**Whether the absent player is taxed.**~~ — **measured, and it is the reverse: they are paid about
+  fifty times over**, because the window rung decides reach and reach decides how many veins you can
+  spread across. Six worlds against thirty-nine. **Accepted rather than fixed**, the build's call on
+  Davide's *"decide for me"*, 2026-08-13: the cap and the refill both move every cadence together, so
+  neither dial touches it, and the thing that does is making the frontier reachable at a shorter
+  window — which is what the drive technology has been for since `exploration-rewards-sheet.md` §9.
+  Watch it on a device: if the six-hourly player feels poor, the answer is a faster hull rather than a
+  shallower world. `balance-log.md` round 23 has the table.
+- ~~**Whether crystal deposits should be half the size of metal ones.**~~ — **kept**, measured at ten
+  points more clamping than metal (42.6% against 33.0%). The basket is the game's single pricing
+  convention, and a crystal vein worth double a metal one in it would collapse the currency choice
+  into "always crystal", which `fleet-sheet.md` calls the whole reason the payout is one currency.
 - **The deposit is measured from your home, and multiplayer will have to take that back.** §2.2's
   surviving objection, accepted knowingly: `distanceBand` is observer-relative, so two players sharing
   a world would disagree about how much is in it. The fix, when it is needed, is to freeze the band
@@ -610,10 +622,6 @@ TDD throughout, failing test first, and the `core` half is entirely testable in 
   sweep, not a choice. Naming is Davide's or Design's.
 - **Where the remaining figure lives on a row**, and whether it displaces the richness pair. §6.1.
   Design's, with the thirty-character header budget attached.
-- **Whether crystal deposits should be half the size of metal ones.** They are, because the cap is
-  stated in the priced basket and crystal is worth two. Defensible and consistent — but crystal is the
-  game's standing scarcity, and halving its stock is the sharpest thing in this sheet that nobody
-  asked for. Round 23's sweep should look at it directly.
 - **What a stripped world does to `WorldVerdict`.** A `Settleable` world that has been mined flat is
   still settleable, and `fleet-sheet.md` §9 already asks whether a run may strip a world you would
   rather colonise. Depletion makes that question sharper and it is still unanswered.
