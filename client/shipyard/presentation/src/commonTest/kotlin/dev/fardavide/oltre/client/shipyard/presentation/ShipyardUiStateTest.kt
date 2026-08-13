@@ -13,8 +13,10 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
+import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.startRun
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -203,6 +205,36 @@ class ShipyardUiStateTest {
         assertEquals(
             listOf(third.metal.groupedByThousands(), third.crystal.groupedByThousands()),
             ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.map { it.amount },
+        )
+    }
+
+    @Test
+    fun `a card reports the slipway only when the hull on it is its own`() {
+        // The guard the mapper reads off `yard.first()` rather than searching for: the yard is
+        // serial, so the hull being made is the one at the front, and a Hauler ahead of a Skiff in
+        // the queue must not put a countdown on the Skiff's card. Unreachable from a finger today —
+        // `FOR_SALE` is the skiff alone — and reachable the day slice 4 lands, which is the point.
+        val state = wealthy().copy(
+            yard = listOf(YardJob(ship = ShipType.HAULER, startedAt = t0, completesAt = t0 + 2.hours)),
+        )
+
+        assertEquals(null, state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
+    }
+
+    @Test
+    fun `the wall-clock instant is the one the hull is actually done at`() {
+        // The other half of the countdown, and the half a countdown cannot say: a player who looks at
+        // 23:50 wants "done 02:22", not "in 2h 32m" alone. Read in a fixed zone so the assertion is
+        // about the mapper rather than about where the test runs.
+        val ordered = wealthy().order(1)
+        val job = ordered.yard.single()
+
+        val yard = assertNotNull(ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
+
+        val expected = job.completesAt.toLocalDateTime(TimeZone.UTC)
+        assertEquals(
+            "done ${expected.hour.toString().padStart(2, '0')}:${expected.minute.toString().padStart(2, '0')}",
+            yard.doneAt,
         )
     }
 

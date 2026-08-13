@@ -173,6 +173,40 @@ class BuildShipsTest {
     }
 
     @Test
+    fun `an order placed at an instant the queue has already passed still falls in behind it`() {
+        // The defensive branch in `yardFreesAt`, and the same defence `advance` applies at its own
+        // boundary: a caller resuming with a stale span can hand this verb an instant the queue has
+        // already gone past. Chaining from the tail rather than from `at` is what keeps
+        // `GameState.init`'s serial rule true — starting at the stale instant would produce two jobs
+        // running at once and the state would refuse to construct.
+        val state = wealthy(GameState.initial())
+        val queued = build(state, Ships.of(ShipType.SKIFF, 1))
+        val tail = queued.yard.single().completesAt
+
+        val stale = assertIs<BuildShipsResult.Started>(
+            buildShips(queued, Ships.of(ShipType.SKIFF, 1), at = t0 - 1.hours),
+        ).state
+
+        assertEquals(tail, stale.yard.last().startedAt)
+    }
+
+    @Test
+    fun `a queue whose last hull is already due starts the next one now rather than in the past`() {
+        // The other side of the same `maxOf`, and the reason it is a `maxOf` rather than the tail
+        // outright: a state that has not been advanced yet can hold a job whose completion has
+        // passed, and chaining onto it would lay a hull down before the moment the player tapped.
+        val state = wealthy(GameState.initial())
+        val queued = build(state, Ships.of(ShipType.SKIFF, 1))
+        val longAfter = queued.yard.single().completesAt + 1.hours
+
+        val next = assertIs<BuildShipsResult.Started>(
+            buildShips(queued, Ships.of(ShipType.SKIFF, 1), at = longAfter),
+        ).state
+
+        assertEquals(longAfter, next.yard.last().startedAt)
+    }
+
+    @Test
     fun `an empty manifest is refused before the yard is touched`() {
         val state = wealthy(GameState.initial())
         val queued = build(state, Ships.of(ShipType.SKIFF, 1))

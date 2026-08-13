@@ -503,6 +503,18 @@ class FleetBalanceTest {
     }
 
     @Test
+    fun `the root of nothing is nothing rather than a loop that never converges`() {
+        // Newton's method divides by its own estimate, so the zero case is a guard rather than a
+        // rounding decision — and `integerRoot` is shared by two balance objects now, so the guard is
+        // pinned here rather than left to whichever caller happens to reach it first.
+        assertEquals(0L, integerRoot(0))
+        assertEquals(0L, integerRoot(-1))
+        assertEquals(1L, integerRoot(1))
+        assertEquals(3L, integerRoot(15))
+        assertEquals(4L, integerRoot(16))
+    }
+
+    @Test
     fun `a hull with no price has no wait either`() {
         for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
             assertFailsWith<IllegalStateException> {

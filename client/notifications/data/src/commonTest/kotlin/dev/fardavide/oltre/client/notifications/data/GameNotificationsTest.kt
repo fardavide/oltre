@@ -781,6 +781,29 @@ class GameNotificationsTest {
         )
     }
 
+    @Test
+    fun `every hull the ship set has is named rather than falling through to one word`() = runTest {
+        // The four constants of `ShipType`, three of which no yard can hold today — `FOR_SALE` is
+        // the skiff alone and `shipCost` raises for the rest. They are reachable *here* because a
+        // `YardJob` is a plain data class, and pinning them is what stops the day the Hauler ships
+        // being the day a lock screen reads "A HAULER has left the yard".
+        for ((type, expected) in mapOf(
+            ShipType.SKIFF to "Skiff",
+            ShipType.HAULER to "Hauler",
+            ShipType.ESCORT to "Escort",
+            ShipType.SETTLER to "Settler",
+        )) {
+            val scheduler = FakeNotificationScheduler()
+            val state = wealthy().copy(
+                yard = listOf(YardJob(ship = type, startedAt = EPOCH, completesAt = EPOCH + 2.hours)),
+            )
+
+            GameNotifications(scheduler).sync(state, now = EPOCH)
+
+            assertEquals("A $expected has left the yard", scheduler.scheduled.single().title)
+        }
+    }
+
     // A serial queue of `hulls` skiffs, an hour apart. Written out rather than bought through
     // `buildShips`, so the fixture states the one thing it is about — how many alerts are due and
     // when — instead of inheriting it from whatever the hull curve happens to be this week.

@@ -99,9 +99,16 @@ internal val buildingUiState = ShipyardUiState(
                 CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,518", short = false),
             ),
             action = BuildActionUiState.Build,
+            // **The four fields are one job seen four ways, so they are stated as one job.** A hull
+            // laid down at 11:00 and due at 14:05 is 185 minutes long; read at 12:04 that is 64
+            // minutes elapsed — 34% — and 121 minutes left. The first draft of this fixture typed
+            // the four independently and pinned a state the app cannot produce: 31% through a job
+            // with 2h 11m left implies a 3h 10m job, which is not the one "done 14:05" describes.
+            // Hand-written still, per this file's rule — the instants are the fixture's own and no
+            // balance constant can move them — but arithmetically a drawing that can happen.
             yard = YardUiState(
-                countdown = "02:11:47",
-                progressPercent = 31,
+                countdown = "02:01:00",
+                progressPercent = 34,
                 doneAt = "done 14:05",
                 queued = "2 queued",
             ),
