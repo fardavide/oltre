@@ -212,6 +212,21 @@ class GalaxyUiStateTest {
     }
 
     @Test
+    fun `a stripped world reads empty rather than a fraction of nothing`() {
+        val stripped = state().let { state ->
+            val target = state.galaxy.surveyed.first { it != state.galaxy.home }
+            val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+            state.copy(galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH))
+        }
+        val slot = stripped.galaxy.surveyed.first { it != stripped.galaxy.home }.slot
+
+        val row = stripped.toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
+            .bands.flatMap { it.rows }.first { it.slot == slot }
+
+        assertEquals("metal empty", row.deposits?.metal)
+    }
+
+    @Test
     fun `a deposit reading is present exactly where a run is legal`() {
         val rows = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
             .bands.flatMap { it.rows }

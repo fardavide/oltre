@@ -355,6 +355,49 @@ class DispatchUiStateTest {
         assertEquals("1 skiff empties it. The 2nd brings nothing.", offer.clampNote)
     }
 
+    @Test
+    fun `a world stripped of both resources says so in the plural`() {
+        // The other half of the waiting title, and the state a player reaches by working one world
+        // twice in a check-in rather than by anything exotic.
+        val slot = runnableSlot()
+        val target = homeSystemAt(slot)
+        val stripped = state.copy(
+            ships = Ships.of(ShipType.SKIFF, 1),
+            galaxy = state.galaxy
+                .withTaken(target, ResourceKind.METAL, state.galaxy.depositCap(target, ResourceKind.METAL)!!, EPOCH)
+                .withTaken(
+                    target,
+                    ResourceKind.CRYSTAL,
+                    state.galaxy.depositCap(target, ResourceKind.CRYSTAL)!!,
+                    EPOCH,
+                ),
+        )
+
+        val waiting = assertIs<DispatchUiState.Waiting>(
+            dispatchAt(slot, state = stripped, selection = selection(slot).copy(gathering = ResourceKind.METAL)),
+        )
+
+        assertEquals("Both deposits are empty.", waiting.title)
+        assertTrue(waiting.crystalDeposit.endsWith("· deposit empty"), waiting.crystalDeposit)
+    }
+
+    @Test
+    fun `a rung that is already the shortest that empties the vein says nothing`() {
+        // Earned rather than standing, the same rule the clamp clause follows: on the shortest rung
+        // there is no shorter one to name, and a note on every dispatch would be furniture.
+        val slot = runnableSlot()
+        val shortest = FleetBalance.windowsFor(
+            from = state.galaxy.home,
+            to = homeSystemAt(slot),
+        ).first()
+
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = shortest)),
+        )
+
+        assertNull(offer.rungNote)
+    }
+
     private fun withSkiffs(count: Int): GameState = state.copy(ships = Ships.of(ShipType.SKIFF, count))
 
     private fun surveying(target: GalaxyCoordinate): GameState =

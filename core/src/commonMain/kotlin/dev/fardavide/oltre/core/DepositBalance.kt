@@ -90,8 +90,10 @@ object DepositBalance {
         require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
         if (remaining == 0L || ships.isEmpty) return Duration.ZERO
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
+        // No zero guard on the rate: `extractionPerHour` is 60 multiplied by a technology multiplier
+        // that starts at 1, so it cannot reach zero — and a branch that cannot be taken is a branch
+        // no test can ever justify.
         val rate = FleetBalance.extractionPerHour(research)
-        if (rate <= 0) return Duration.ZERO
         var numerator = checkedTimes(remaining, GalaxyBalance.RICHNESS_BASIS.toLong()) { "working remaining" }
         numerator = checkedTimes(numerator, PERCENT * pricePerUnit(gathering)) { "working price" }
         numerator = checkedTimes(numerator, MINUTES_PER_HOUR) { "working hour" }

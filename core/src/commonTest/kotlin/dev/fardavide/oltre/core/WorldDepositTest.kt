@@ -153,6 +153,38 @@ class WorldDepositTest {
     }
 
     @Test
+    fun `a galaxy nobody has worked prunes to itself`() {
+        // The early return, and the reason it is there: `advance` calls this at the end of every span
+        // and the overwhelmingly common answer is that there is nothing to do.
+        assertEquals(galaxy, galaxy.prunedFull(origin + 30.days))
+    }
+
+    @Test
+    fun `a slot with no world in it is never worth waiting for`() {
+        val empty = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+            .map { GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = it) }
+            .first { worldAt(seed, it) == null }
+
+        assertNull(galaxy.timeUntil(empty, ResourceKind.METAL, wanted = 1, now = origin))
+    }
+
+    @Test
+    fun `a world already holding the ask is worth visiting now and a bigger ask is never`() {
+        val at = aNeighbour()
+        val full = galaxy.remaining(at, ResourceKind.METAL, origin)
+
+        assertEquals(kotlin.time.Duration.ZERO, galaxy.timeUntil(at, ResourceKind.METAL, full, origin))
+        assertNull(galaxy.timeUntil(at, ResourceKind.METAL, wanted = full + 1, now = origin))
+    }
+
+    @Test
+    fun `a run cannot take a negative hold`() {
+        assertFailsWith<IllegalArgumentException> {
+            galaxy.withTaken(aNeighbour(), ResourceKind.METAL, taken = -1, at = origin)
+        }
+    }
+
+    @Test
     fun `a partly drained world is still carried`() {
         val at = aNeighbour()
         val stripped = galaxy.withTaken(at, ResourceKind.METAL, taken = 100, at = origin)

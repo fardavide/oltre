@@ -246,6 +246,67 @@ class DepositBalanceTest {
         assertEquals(true, wait!! < 1.hours, "$wait")
     }
 
+    // ── The guards, which are the model refusing rather than the balance answering ────────────
+
+    @Test
+    fun `a fleet that is not there works no time at all`() {
+        val world = world(at = at(2, 125, 8), hazards = emptySet())
+
+        assertEquals(
+            Duration.ZERO,
+            DepositBalance.workingTime(
+                world = world,
+                gathering = ResourceKind.METAL,
+                ships = Ships.NONE,
+                danger = 0,
+                remaining = 1_000,
+                research = Research.initial(),
+            ),
+        )
+    }
+
+    @Test
+    fun `nothing about a vein is defined for deuterium or for a negative stock`() {
+        val world = world(at = at(2, 125, 8), hazards = emptySet())
+
+        assertFailsWith<IllegalArgumentException> {
+            DepositBalance.workingTime(
+                world = world,
+                gathering = ResourceKind.DEUTERIUM,
+                ships = Ships.of(ShipType.SKIFF, 1),
+                danger = 0,
+                remaining = 100,
+                research = Research.initial(),
+            )
+        }
+        assertFailsWith<IllegalArgumentException> {
+            DepositBalance.workingTime(
+                world = world,
+                gathering = ResourceKind.METAL,
+                ships = Ships.of(ShipType.SKIFF, 1),
+                danger = 0,
+                remaining = -1,
+                research = Research.initial(),
+            )
+        }
+    }
+
+    @Test
+    fun `a corrupt stock or cap is refused rather than carried`() {
+        // A negative here can only come from a hand-edited save, and catching it at the point of
+        // definition is what turns that into a clean failure instead of a wrong answer.
+        assertFailsWith<IllegalArgumentException> { DepositBalance.regenerated(-1, 100, 1.days) }
+        assertFailsWith<IllegalArgumentException> { DepositBalance.regenerated(0, -1, 1.days) }
+        assertFailsWith<IllegalArgumentException> { DepositBalance.timeUntil(0, 100, wanted = -1) }
+    }
+
+    @Test
+    fun `a world with no vein at all is never worth waiting for`() {
+        // Reached through `prunedFull`, which asks about a coordinate that may hold no world.
+        assertEquals(0, DepositBalance.regenerated(0, capFine = 0, elapsed = 5.days))
+        assertNull(DepositBalance.timeUntil(0, capFine = 0, wanted = 1))
+    }
+
     private fun world(
         at: GalaxyCoordinate,
         hazards: Set<Hazard>,
