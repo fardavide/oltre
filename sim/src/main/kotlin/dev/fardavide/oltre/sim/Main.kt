@@ -49,6 +49,7 @@ import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
+import dev.fardavide.oltre.core.YardJob
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -1339,6 +1340,21 @@ private val RATE_CANDIDATES: List<Long> = listOf(10L, 20L, 30L, 40L, 60L).also {
     }
 }
 
+// **The same defect, one dial along, and it went unnoticed for exactly as long.** Round 22 named the
+// rate candidates because four tables were printing a grid that did not contain the shipped rate;
+// the hull base was `listOf(40L, 80L, 140L)` inline in two places and went stale the moment 0.9.0
+// raised the base tenfold — so the sweep would have printed three rows about a game nobody is
+// playing, which is precisely what the rate list was fixed for.
+//
+// The span is Davide's question rather than a neat geometric series: he asked for *"at least 10x"*,
+// so the list runs from the old base through half his floor to twice it, and 800 is his floor and the
+// shipped value. `check`ed for the reason the rates are.
+private val HULL_BASE_CANDIDATES: List<Long> = listOf(80L, 400L, 800L, 1_200L, 1_600L).also { candidates ->
+    check(FleetBalance.HULL_BASE_METAL in candidates) {
+        "the sweep must contain the shipped hull base ${FleetBalance.HULL_BASE_METAL}"
+    }
+}
+
 private val FULL_PLAN = listOf(
     BuildingType.METAL_MINE,
     BuildingType.CRYSTAL_MINE,
@@ -1410,6 +1426,29 @@ private fun hullCostAt(tuning: FleetTuning, alreadyOwned: Int): Resources {
         }
     }
     return cost
+}
+
+// The yard's clock, with the hull base lifted out the way `cargoAt` lifts the extraction rate — four
+// minutes per root of the hull's own price, divided by the Robotics Factory, floored last. Newton's
+// root rather than `sqrt` for `core`'s own reason: an integer answer that is the same on every
+// target. Checked against `FleetBalance.buildDuration` at the shipped base on every call.
+private fun buildDurationAt(tuning: FleetTuning, alreadyOwned: Int, roboticsFactory: BuildingLevel): Duration {
+    val cost = hullCostAt(tuning, alreadyOwned)
+    var root = (cost.metal + cost.crystal).coerceAtLeast(0)
+    if (root > 0) {
+        var next = (root + 1) / 2
+        while (next < root) {
+            root = next
+            next = (root + (cost.metal + cost.crystal) / root) / 2
+        }
+    }
+    val wait = maxOf(FleetBalance.MINIMUM_YARD_DURATION, (4L * root).minutes / (1 + roboticsFactory.value))
+    if (tuning.isShippedHull) {
+        check(wait == FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned, roboticsFactory)) {
+            "the harness's yard replica disagrees with FleetBalance.buildDuration: $wait"
+        }
+    }
+    return wait
 }
 
 // Minute-resolution coverage, one array per ledger. The interval helpers above answer "how much of
@@ -1543,6 +1582,13 @@ private fun bestDispatch(
 private fun ownedSkiffs(state: GameState): Int =
     state.ships.countOf(ShipType.SKIFF) + state.runs.sumOf { it.ships.countOf(ShipType.SKIFF) }
 
+// What the *price* answers to, which since 0.9.0 is not the same as what the fleet is: a hull on the
+// slipway has been paid for and is not yet a hull. The harness has to use this wherever it asks what
+// the next rung costs, or `buyOneHull`'s replica and `buildShips` disagree the first time the bot
+// buys twice in one check-in — and the greedy loop buys until it cannot, so that is every check-in.
+private fun committedSkiffs(state: GameState): Int =
+    ownedSkiffs(state) + state.yard.count { it.ship == ShipType.SKIFF }
+
 // One hull, bought the way the player buys it. Null when the colony cannot pay, which is the loop's
 // stop condition.
 //
@@ -1553,12 +1599,22 @@ private fun ownedSkiffs(state: GameState): Int =
 // verb buys the harness that the copy did not is the rest of it: the log entry, the refusal
 // branches, and the fact that the shipped column now measures the code a tap actually runs.
 private fun buyOneHull(state: GameState, tuning: FleetTuning, at: Instant): GameState? {
-    val cost = hullCostAt(tuning, ownedSkiffs(state))
+    val committed = committedSkiffs(state)
+    val cost = hullCostAt(tuning, committed)
     if (!state.resources.covers(cost)) return null
     if (!tuning.isShippedHull) {
+        // **The sweep rows queue too, and they have to.** Until 0.9.0 this branch differed from the
+        // shipped one only in the price; if it kept handing the hull over at once it would now also
+        // differ in *when the fleet exists*, which is the single largest term in a duty cycle. So it
+        // carries the yard replica as well, chained onto the tail exactly as `buildShips` does.
+        val startsAt = maxOf(at, state.yard.lastOrNull()?.completesAt ?: at)
         return state.copy(
             resources = state.resources - cost,
-            ships = state.ships + Ships.of(ShipType.SKIFF, 1),
+            yard = state.yard + YardJob(
+                ship = ShipType.SKIFF,
+                startedAt = startsAt,
+                completesAt = startsAt + buildDurationAt(tuning, committed, state.buildings.roboticsFactory),
+            ),
         )
     }
     val result = buildShips(state, Ships.of(ShipType.SKIFF, 1), at = at)
@@ -1671,7 +1727,7 @@ private fun fleetRun(
 
             if (withFleet && hullsFirst) {
                 while (true) {
-                    val hullCost = hullCostAt(tuning, ownedSkiffs(state))
+                    val hullCost = hullCostAt(tuning, committedSkiffs(state))
                     state = buyOneHull(state, tuning, at = now) ?: break
                     hullSpendMetal += hullCost.metal
                     hullSpendCrystal += hullCost.crystal
@@ -1722,7 +1778,7 @@ private fun fleetRun(
                 // every price, so the curve's own bound is never tested and the sweep reports the cap.
                 if (!hullsFirst) {
                     while (true) {
-                        val hullCost = hullCostAt(tuning, ownedSkiffs(state))
+                        val hullCost = hullCostAt(tuning, committedSkiffs(state))
                         state = buyOneHull(state, tuning, at = now) ?: break
                         hullSpendMetal += hullCost.metal
                         hullSpendCrystal += hullCost.crystal
@@ -2260,7 +2316,7 @@ private fun printFleetSweeps() {
 
     println("### Sweep: the hull base, at the shipped extraction rate")
     println()
-    printSweepTable(listOf(40L, 80L, 140L).map { FleetTuning(FleetBalance.EXTRACTION_PER_HOUR, it) })
+    printSweepTable(HULL_BASE_CANDIDATES.map { FleetTuning(FleetBalance.EXTRACTION_PER_HOUR, it) })
 
     println("### The two dials together, because they do not separate")
     println()
@@ -2280,10 +2336,10 @@ private fun printFleetSweeps() {
     println("is not a signal** — round 12 swept deuterium income by one unit and crystal's sole count")
     println("jumped from 58 to 200.")
     println()
-    println("| extraction \\ hull base | 40 metal | 80 metal | 140 metal |")
-    println("|---|---|---|---|")
+    println("| extraction \\ hull base | " + HULL_BASE_CANDIDATES.joinToString(" | ") { "$it metal" } + " |")
+    println("|---" + "|---".repeat(HULL_BASE_CANDIDATES.size) + "|")
     for (extraction in RATE_CANDIDATES) {
-        val cells = listOf(40L, 80L, 140L).joinToString(" | ") { base ->
+        val cells = HULL_BASE_CANDIDATES.joinToString(" | ") { base ->
             val tuning = FleetTuning(extraction, base)
             val short = fleetRun(days = 2, withFleet = true, tuning = tuning)
             val crystal = fleetRun(days = 2, withFleet = true, tuning = tuning, forceGathering = ResourceKind.CRYSTAL)

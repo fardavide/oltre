@@ -41,6 +41,16 @@ data class GameState(
     // `surveys`. See `startRun`: a one-per-target rule would turn each probe into ~4.75 guaranteed
     // dispatch slots and make surveying strictly efficient, which the galaxy sheet forbids.
     val runs: List<FleetRun>,
+    // Hulls on the slipway, **in the order they will be served** — the one job list in the game that
+    // is serial rather than parallel, and Davide's call. Builds run one per facility and probes and
+    // runs run without a cap; the yard runs one at a time, so a check-in that can pay for four hulls
+    // is buying a commitment rather than a fleet.
+    //
+    // A list rather than a single slot and a backlog, because a serial queue *is* a list and the
+    // chaining is what makes it one: each entry's `startedAt` is the one before it finishing. The
+    // rule is checked in `init` below rather than made unrepresentable, for `surveys`' own reason —
+    // the shape that would state it is not one the save format can hold.
+    val yard: List<YardJob>,
     // The one row the player has asked to be told the *price* of, across the facilities, the
     // technologies and the ladders alike — null when there is none. Not a job and not a booking: it
     // schedules nothing and `advance` never applies it, it only points at a row whose price the
@@ -71,6 +81,14 @@ data class GameState(
         require(surveys.distinctBy { it.target }.size == surveys.size) {
             "one probe per target system: was ${surveys.map { it.target }}"
         }
+        // **The serial rule, and it is load-bearing twice over.** It is what makes the list an
+        // ordering rather than a bag — and it is what lets `FutureEvents` state that two hulls can
+        // never be due at the same instant, which is the difference between a total order over the
+        // predictions and one that only misbehaves when two land on the same millisecond. Checked on
+        // every construction, which includes every decode, so a hand-edited save fails here.
+        require(yard.zipWithNext().all { (earlier, later) -> earlier.completesAt <= later.startedAt }) {
+            "the yard serves one hull at a time: was ${yard.map { it.startedAt to it.completesAt }}"
+        }
     }
 
     // What is holding the slot, whichever branch it belongs to. Null means it is free now.
@@ -97,6 +115,7 @@ data class GameState(
             // player learns the shop exists by wanting something from it.
             ships = Ships.of(ShipType.SKIFF, 1),
             runs = emptyList(),
+            yard = emptyList(),
             watching = null,
             subscribed = emptySet(),
             eventLog = emptyList(),

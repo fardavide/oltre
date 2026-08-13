@@ -618,7 +618,26 @@ legibility rather than for a curve: at 8% a two-hazard far world is a rounding e
 frontier is unreachable at every window. **Deterministic and stated before the tap** — the pillar is
 signposted or it is a tax wearing a story.
 
-### The hull — 80 metal / 20 crystal, compounding ×1.5 per hull already owned
+### The hull — 800 metal / 200 crystal, compounding ×1.5 per hull already owned
+
+> **The base went up tenfold at 0.9.0 — Davide's call, 2026-08-13**: *"I think ships are WAY to
+> cheap, considered the benefits they bring back … Raise the base, I'd say at least 10x the current
+> price. As ships are a single investment that pays back forever."*
+>
+> **The table below is 0.4's and every figure in it is ten times too small.** It is kept because the
+> *argument* is unchanged and is the one this section exists for — a compounding price against a
+> linear return, no Shipyard building, no berth, no cap — and because the reading that broke it is
+> only legible against it: at 80/20 the second skiff repaid itself in **three station-hours**, which
+> is half of one six-hour run, for an asset that then pays forever. It is thirty now.
+>
+> The exponent did not move, on Davide's call about which end was wrong: the ×1.5 already bites by
+> the eighth hull, so what was free was the bottom of the curve. `FleetBalance.HULL_BASE_METAL`
+> carries the current number and balance-log round 23 carries the sweep that sized it.
+>
+> The prediction three paragraphs down — *"three to four skiffs at the opening and six or seven at
+> depth"* — is closer to true than it was: the sim's fleet-first bot reached seventeen hulls in a
+> fortnight at the old base and reaches eleven at this one.
+
 
 `shipCost(SKIFF, owned) = compound(Resources.of(metal = 80, crystal = 20), owned, 3, 2)` — the game's
 one cost curve, through `Curves.compound`, floored at every step.
@@ -659,7 +678,29 @@ buy and the player can see it.
 is the thing to buy with it."* The 1 : 4 crystal component is there so the fleet is not entirely free
 of the scarce resource, and it is small enough never to compete with a ladder.
 
-### Purchase is instant, and that is a sizing decision
+### Purchase is instant, and that is a sizing decision — **OVERRULED 2026-08-13, 0.9.0**
+
+> **Davide, having played 0.8.0: *"I think we need to add time to build ships, it shouldn't be
+> instantaneous."* The section below is kept as written because half of it survived and the half
+> that did not is worth reading.**
+>
+> What survived: the price really is the ceiling, and it is now ten times taller — see the hull
+> section above, also overruled and also rewritten in place. What did not: the *sizing* claim, that
+> a wait in the yard buys nothing a compounding price does not already buy. It buys the thing 0.8.0
+> measured and could not charge for — a hull bought and dispatched inside one check-in grows a fleet
+> as fast as the stores allow, which put a fleet-first player at **268%** of their own colony's
+> crystal.
+>
+> The four costs this section lists were all real and all paid: `Advance` has a sixth term,
+> `FutureEvent` has a `ShipsComplete`, the tie-break ladder has a rung at 250, and the notification
+> budget has a third unbounded kind. What it got wrong is that they were not worth paying.
+>
+> **And the shape is not the one this section imagined.** It argues against *a* yard job; what
+> shipped is a **serial queue**, Davide's call in the same breath — so a check-in can still spend
+> everything it has in one pass, which is the concern the last sentence below is about. What it
+> cannot do is fly the result the same afternoon.
+>
+> `.claude/docs/balance-log.md` round 23 has the sweep and the bracket.
 
 `buildShips(state, ships, at)` charges and delivers in the same call. **No yard job, no fifth job
 kind** — which removes a term from `Advance`'s completion union, a member from `FutureEvent`, a slot

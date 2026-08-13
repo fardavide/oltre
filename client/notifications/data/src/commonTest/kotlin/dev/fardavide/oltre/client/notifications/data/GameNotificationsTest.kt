@@ -27,6 +27,7 @@ import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchTarget
+import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.futureEvents
 import dev.fardavide.oltre.core.timeUntilAffordable
 import dev.fardavide.oltre.core.toggleAlert
@@ -712,6 +713,83 @@ class GameNotificationsTest {
         val dropped = futureEvents(state, now = EPOCH).map { it.at } - kept.toSet()
         assertEquals(IOS_PENDING_REQUEST_LIMIT, kept.size)
         assertTrue(dropped.isNotEmpty() && kept.max() <= dropped.min())
+    }
+
+    // ── The yard, the third unbounded kind ──────────────────────────────────────────────────
+
+    @Test
+    fun `a hull leaving the yard is announced without anybody subscribing to it`() = runTest {
+        // A delivery is deliberately not a `Completion`, so the subscription gate does not touch it
+        // — which it must not, because there is no watch square on a hull. This is the assertion
+        // that says so from the outside: nothing is subscribed and the alert is booked anyway.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(
+            yard = listOf(YardJob(ship = ShipType.SKIFF, startedAt = EPOCH, completesAt = EPOCH + 2.hours)),
+        )
+        assertTrue(state.subscribed.isEmpty())
+
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        assertEquals(1, scheduler.scheduled.size)
+        assertTrue("Skiff" in scheduler.scheduled.single().title, scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `a queue of hulls is one alert each and every id is distinct`() = runTest {
+        // The id is the instant, which is the only thing that separates two hulls — and it separates
+        // them because the yard is serial. A queue that collided into one id would silently announce
+        // the last hull and swallow the rest.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(yard = queueOf(hulls = 5))
+
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        assertEquals(5, scheduler.scheduled.size)
+        assertEquals(5, scheduler.scheduled.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun `a yard longer than the platform holds is trimmed rather than overflowing it`() = runTest {
+        // The third unbounded kind, and the reason the partition in `notificationsFor` had to name
+        // it: `bounded.size` stops describing the protected set the moment a kind is missing from it,
+        // and the trim arithmetic then under-counts against a limit the platform enforces silently.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(yard = queueOf(hulls = IOS_PENDING_REQUEST_LIMIT + 20))
+
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
+    }
+
+    @Test
+    fun `a hull is what a full budget drops before a fleet coming home`() = runTest {
+        // The trim order this file states: returns first, then landings, then hulls — because a
+        // return carries resources a full store can void and a hull on the slipway loses nothing at
+        // all by being announced late.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(
+            yard = queueOf(hulls = IOS_PENDING_REQUEST_LIMIT),
+            runs = listOf(fleetReturningAt(EPOCH + 500.hours)),
+        )
+
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
+        assertTrue(
+            scheduler.scheduled.any { "ships are home" in it.title },
+            "the return was evicted by a hull: ${scheduler.scheduled.map { it.title }.toSet()}",
+        )
+    }
+
+    // A serial queue of `hulls` skiffs, an hour apart. Written out rather than bought through
+    // `buildShips`, so the fixture states the one thing it is about — how many alerts are due and
+    // when — instead of inheriting it from whatever the hull curve happens to be this week.
+    private fun queueOf(hulls: Int): List<YardJob> = (1..hulls).map { nth ->
+        YardJob(
+            ship = ShipType.SKIFF,
+            startedAt = EPOCH + (nth - 1).hours,
+            completesAt = EPOCH + nth.hours,
+        )
     }
 
     @Test

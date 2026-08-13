@@ -34,23 +34,26 @@ class ShipyardAppBehaviourTest {
 
             buyAHull()
 
-            // Through `act` into `buildShips` and back out through the mapper: the pool the screen
-            // reads is the pool the verb wrote.
-            assertReads("2 owned · 2 idle")
-            assertReads("2 hulls")
+            // Through `act` into `buildShips` and back out through the mapper: the queue the screen
+            // reads is the queue the verb wrote. **The fleet has not grown**, which is the whole of
+            // what 0.9.0 changed about this tap — the hull is paid for and on the slipway.
+            assertReads("1 owned · 1 idle · 1 building")
+            assertReads("1 hull")
         }
     }
 
     @Test
-    fun `a hull bought on one tab is away on the other`() {
-        // The two tabs are two readings of one pool and must not be able to disagree — which is
-        // only checkable from here, because a feature module cannot see the other feature.
+    fun `a hull bought on one tab is not yet a hull on the other`() {
+        // The two tabs are two readings of one pool and must not be able to disagree — which is only
+        // checkable from here, because a feature module cannot see the other feature. A hull on the
+        // slipway is the case that could make them: the Shipyard has just charged for it and the
+        // Fleets tab must not count it, because it cannot be sent.
         app(saved = snapshot(rich())) {
             open(OltreTab.SHIPYARD)
             buyAHull()
 
             open(OltreTab.FLEETS)
-            assertReads("0 of 2 away")
+            assertReads("0 of 1 away")
             assertReads("Nothing is out.")
         }
     }

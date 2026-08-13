@@ -1284,6 +1284,9 @@ class ResearchUiStateTest {
         // compete for metal, and neither can hold the slot this screen is entirely about.
         ships = Ships.NONE,
         runs = emptyList(),
+        // The slipway, which this screen draws none of: a hull competes for metal and crystal and
+        // never for the one research slot.
+        yard = emptyList(),
         // The one slot the watch holds, which this screen shares with the colony's — a parameter,
         // because `watch` on a row is derived from it.
         watching = watching,

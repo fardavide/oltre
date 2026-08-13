@@ -33,6 +33,7 @@ internal val oneHullUiState = ShipyardUiState(
                 CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "30", short = false),
             ),
             action = BuildActionUiState.Build,
+            yard = null,
         ),
     ),
     comingHulls = listOf(HAULER),
@@ -53,6 +54,7 @@ internal val sixHullsUiState = ShipyardUiState(
                 CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "225", short = false),
             ),
             action = BuildActionUiState.Build,
+            yard = null,
         ),
     ),
     comingHulls = listOf(HAULER),
@@ -74,6 +76,35 @@ internal val cannotAffordUiState = ShipyardUiState(
                 CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "225", short = false),
             ),
             action = BuildActionUiState.AvailableIn("in 1h 06m"),
+            yard = null,
+        ),
+    ),
+    comingHulls = listOf(HAULER),
+)
+
+// **The state 0.9.0 added, and the only one on this tab where something is happening.** A hull on
+// the slipway with two behind it: the card takes `OltreCardState.RUNNING`, the footer is the probe's
+// in-flight drawing, and the verb above it stays live — which is the one thing here that is not the
+// Colony row's treatment, because a serial yard can always be given another hull.
+internal val buildingUiState = ShipyardUiState(
+    fleet = "2 hulls",
+    hulls = listOf(
+        HullUiState(
+            type = ShipType.SKIFF,
+            name = "Skiff",
+            pool = "2 owned · 2 idle · 3 building",
+            purpose = "One berth of hold · 10m + 1m per 10 units, one way",
+            costs = listOf(
+                CostChipUiState(kind = ResourceKind.METAL, amount = "6,075", short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,518", short = false),
+            ),
+            action = BuildActionUiState.Build,
+            yard = YardUiState(
+                countdown = "02:11:47",
+                progressPercent = 31,
+                doneAt = "done 14:05",
+                queued = "2 queued",
+            ),
         ),
     ),
     comingHulls = listOf(HAULER),

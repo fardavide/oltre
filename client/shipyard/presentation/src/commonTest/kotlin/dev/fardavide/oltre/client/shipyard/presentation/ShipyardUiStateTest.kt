@@ -1,7 +1,10 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
+import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.Buildings
+import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
@@ -11,9 +14,11 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.startRun
+import kotlinx.datetime.TimeZone
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
@@ -30,24 +35,24 @@ class ShipyardUiStateTest {
         val state = fleetOf(3).dispatchOne()
 
         // then — three hulls, one of them away, and the heading says three
-        assertEquals("3 hulls", state.toShipyardUiState().fleet)
+        assertEquals("3 hulls", state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     @Test
     fun `one hull is a hull rather than one hulls`() {
-        assertEquals("1 hull", GameState.initial(SEED).toShipyardUiState().fleet)
+        assertEquals("1 hull", GameState.initial(SEED).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     @Test
     fun `the pool names what is owned and what is idle and what is away`() {
         val state = fleetOf(3).dispatchOne()
 
-        assertEquals("3 owned · 2 idle · 1 away", state.toShipyardUiState().skiff().pool)
+        assertEquals("3 owned · 2 idle · 1 away", state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
     }
 
     @Test
     fun `nothing away drops the clause rather than printing a zero`() {
-        assertEquals("3 owned · 3 idle", fleetOf(3).toShipyardUiState().skiff().pool)
+        assertEquals("3 owned · 3 idle", fleetOf(3).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
     }
 
     @Test
@@ -58,14 +63,14 @@ class ShipyardUiStateTest {
         // then the fourth is priced as the fourth — a fleet that is away is still a fleet you bought
         val fourth = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 3)
         assertEquals(
-            listOf(fourth.metal.toString(), fourth.crystal.toString()),
-            state.toShipyardUiState().skiff().costs.map { it.amount },
+            listOf(fourth.metal.groupedByThousands(), fourth.crystal.groupedByThousands()),
+            state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.map { it.amount },
         )
     }
 
     @Test
     fun `a hull the colony can pay for offers the verb`() {
-        assertEquals(BuildActionUiState.Build, wealthy().toShipyardUiState().skiff().action)
+        assertEquals(BuildActionUiState.Build, wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action)
     }
 
     @Test
@@ -75,7 +80,7 @@ class ShipyardUiStateTest {
         val state = GameState.initial(SEED).copy(resources = Resources.of(crystal = cost.crystal))
 
         // then the chip that reddened is the one that is short and the other is not
-        val chips = state.toShipyardUiState().skiff().costs.associate { it.kind to it.short }
+        val chips = state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.associate { it.kind to it.short }
         assertEquals(mapOf(ResourceKind.METAL to true, ResourceKind.CRYSTAL to false), chips)
     }
 
@@ -83,7 +88,7 @@ class ShipyardUiStateTest {
     fun `a hull the colony cannot pay for says when rather than saying no`() {
         val state = GameState.initial(SEED).copy(resources = Resources.of())
 
-        val action = assertIs<BuildActionUiState.AvailableIn>(state.toShipyardUiState().skiff().action)
+        val action = assertIs<BuildActionUiState.AvailableIn>(state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action)
         assertTrue(action.label.startsWith("in "), action.label)
     }
 
@@ -100,7 +105,7 @@ class ShipyardUiStateTest {
 
         assertEquals(
             BuildActionUiState.AvailableIn("—"),
-            stopped.toShipyardUiState().skiff().action,
+            stopped.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action,
         )
     }
 
@@ -108,7 +113,7 @@ class ShipyardUiStateTest {
     fun `the hull that has no price yet is drawn and cannot be bought`() {
         // Design's sixth call: the Hauler ships from this slice as a dimmed card carrying its one
         // line. It has no cost chips and no verb, because `FleetBalance.shipCost` refuses to guess.
-        val coming = wealthy().toShipyardUiState().comingHulls
+        val coming = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).comingHulls
 
         assertEquals(listOf(ShipType.HAULER), coming.map { it.type })
         assertTrue(coming.single().purpose.isNotEmpty())
@@ -118,14 +123,95 @@ class ShipyardUiStateTest {
     fun `the sentence on a hull names what it is for`() {
         // The line that has to be worth reading before a second hull exists — otherwise "four berths
         // at half the speed" arrives as a bigger number rather than as a trade.
-        val skiff = wealthy().toShipyardUiState().skiff()
+        val skiff = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff()
 
         assertTrue(skiff.purpose.contains("berth"), skiff.purpose)
+    }
+
+    // ── The yard ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `an idle yard says nothing at all rather than saying nothing is building`() {
+        assertEquals(null, wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
+    }
+
+    @Test
+    fun `a hull on the slipway is a countdown and a bar on its own card`() {
+        val ordered = wealthy().order(1)
+        val job = ordered.yard.single()
+
+        val yard = assertNotNull(ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
+
+        assertEquals(0, yard.progressPercent)
+        assertTrue(yard.countdown.isNotEmpty(), yard.countdown)
+        assertEquals(null, yard.queued)
+        assertTrue(job.completesAt > t0)
+    }
+
+    @Test
+    fun `progress is how far through the hull is rather than how far through the queue is`() {
+        // Halfway through the *head* job, with two more behind it. A bar measuring the whole queue
+        // would sit near a tenth here and crawl, which is the opposite of what a bar is for.
+        val ordered = wealthy().order(3)
+        val head = ordered.yard.first()
+        val halfway = head.startedAt + (head.completesAt - head.startedAt) / 2
+
+        val yard = assertNotNull(ordered.toShipyardUiState(now = halfway, timeZone = TimeZone.UTC).skiff().yard)
+
+        assertEquals(50, yard.progressPercent)
+    }
+
+    @Test
+    fun `the hulls waiting behind the one being made are counted`() {
+        val yard = assertNotNull(wealthy().order(3).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
+
+        assertEquals("2 queued", yard.queued)
+    }
+
+    @Test
+    fun `the pool counts what is on the slipway separately from what exists`() {
+        // A hull being made is not a hull you own — it cannot be sent and it is not in the fleet —
+        // so it is its own clause rather than folded into either of the other two.
+        val ordered = fleetOf(3).copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000)).order(2)
+
+        assertEquals("3 owned · 3 idle · 2 building", ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
+    }
+
+    @Test
+    fun `the section rule still counts the fleet that exists rather than the one that is paid for`() {
+        val ordered = fleetOf(3).copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000)).order(2)
+
+        assertEquals("3 hulls", ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+    }
+
+    @Test
+    fun `a busy yard still offers the verb because the queue is what a check-in spends into`() {
+        // The whole point of a serial queue rather than a single slot: a player with full stores can
+        // commit all of it in one tap-through, and the yard serves it while they are away.
+        val ordered = wealthy().order(1)
+
+        assertEquals(BuildActionUiState.Build, ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action)
+    }
+
+    @Test
+    fun `a hull already paid for raises the price of the next one on the card`() {
+        // The card has to price the *next* hull against everything committed, or the screen would
+        // offer a rung the verb will not sell.
+        val ordered = wealthy().order(1)
+
+        val third = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 2)
+        assertEquals(
+            listOf(third.metal.groupedByThousands(), third.crystal.groupedByThousands()),
+            ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.map { it.amount },
+        )
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
     private fun ShipyardUiState.skiff(): HullUiState = hulls.single { it.type == ShipType.SKIFF }
+
+    private fun GameState.order(hulls: Int): GameState =
+        assertIs<BuildShipsResult.Started>(buildShips(this, Ships.of(ShipType.SKIFF, hulls), at = t0)).state
 
     private fun fleetOf(hulls: Int): GameState =
         GameState.initial(SEED).copy(ships = Ships.of(ShipType.SKIFF, hulls))

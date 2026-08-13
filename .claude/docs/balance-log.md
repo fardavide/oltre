@@ -2852,3 +2852,123 @@ it is `printFleetReport`, not the golden.
 - **The drive technology is still not built** (sheet §9 Slice C), so *"travel towards far planets to
   be way more time consuming, and require upgraded fleets to get there faster"* remains unanswered in
   both halves.
+
+---
+
+
+## Round 23 — 0.9.0, the yard gets a clock and the hull gets a price (2026-08-13)
+
+Davide, having played 0.8.0: *"I think we need to add time to build ships, it shouldn't be
+instantaneous. Also I think ships are WAY to cheap, considered the benefits they bring back."* Asked
+where the increase belonged: *"Raise the base, I'd say at least 10x the current price. As ships are a
+single investment that pays back forever."* And on the shape of the wait: a **serial queue**, priced
+off the hull, divided by the Robotics Factory.
+
+Two constants moved and one mechanic arrived. **This is the round that gives round 17's guardrail
+back**, which is the most useful sentence in it.
+
+### What was actually too cheap, in one number
+
+A hull returns `EXTRACTION_PER_HOUR` priced units per station-hour and costs a compounding price
+once. The ratio between those was on no page in this repository, which is why the complaint arrived
+from a device rather than from a table. It is on the benchmark now:
+
+| | 0.8.0 | **0.9.0** |
+|---|---|---|
+| second skiff, priced | 180 | **1,800** |
+| station-hours to repay it | **3** | **30** |
+| as a share of one 6h run's station | **55%** | 5.5 runs |
+| second skiff affordable, hourly bot | hour 0 | **hour 30** |
+
+**Three station-hours is half of one six-hour window.** A colony could buy the second hull out of its
+opening stock, before it had produced anything, and have it paid off before lunch — for an asset that
+then pays forever. That is the whole of Davide's second sentence, and it was true at every rung: the
+compounding only starts to bite around the eighth hull, so what was free was the *bottom* of the
+curve, which is why the base and not the exponent moved.
+
+### The sweep, and why 800 rather than 1,600
+
+`HULL_BASE_CANDIDATES` = {80, 400, 800, 1200, 1600} — the old base, half Davide's floor, his floor,
+and twice it. Shipped extraction 60 throughout.
+
+| hull base | levels @48h | hulls @48h | fleet metal / colony metal | hulls @14d |
+|---|---|---|---|---|
+| 80 *(0.8.0)* | 33 | **7** | 75.8% | **17** |
+| 400 | 34 | 2 | 27.4% | 13 |
+| **800** *(shipped)* | 34 | **1** | 16.3% | **11** |
+| 1200 | 34 | 1 | 16.3% | 9 |
+| 1600 | 34 | 1 | 16.3% | 8 |
+
+**Above 800 the 48-hour columns stop moving**, because a greedy four-a-day colony buys no hull at all
+in its first two days at any of them — the reading saturates and only the fortnight's depth keeps
+falling. So Davide's floor is also where the dial stops doing what he asked it to do and starts doing
+something else, and 800 is taken on that rather than on taste. Anything above it buys a smaller
+late fleet at no further cost to the opening.
+
+### Round 17's guardrail, given back without touching the rate
+
+Round 22 measured the fleet-first player at **268.1%** of their own colony's crystal and Davide
+overruled the criterion rather than the number: *"Why did you revert the rate? Bring it back."* The
+rate is untouched here. The price is what moved, and the bracket moved with it:
+
+| Order, rate 60 | 0.8.0 | **0.9.0** |
+|---|---|---|
+| hulls from what is left | 94.5% | **36.4%** |
+| **hulls first** | **268.1%** | **63.3%** |
+
+**Both columns are under 100 again.** Round 17's rule — *"a fleet-first player must not out-produce
+their own colony"* — is satisfied at the rate Davide insisted on, which is the outcome round 22 said
+was not available. It was; it was in the other dial. Recorded plainly because round 22 spent a
+guardrail to keep a rate, and this round shows the trade was not the one on offer.
+
+The rule still does not *size* the rate — Davide's ruling stands and a future round has to argue
+against his bar, not reinstate round 17's. What has changed is that nothing currently violates it.
+
+### The wait
+
+`4 × √(metal + crystal) ÷ (1 + robotics)`, five-minute floor. Both halves borrowed rather than
+invented: the rate is `PlaceholderBalance.MINUTES_PER_ROOT_COST`, swept at round 11, so **a hull and
+a facility that cost the same take the same time to make**; the divisor is the facilities' own.
+
+| | robotics 0 | robotics 4 |
+|---|---|---|
+| skiff 1 | 2h 04m | 24m |
+| skiff 2 | 2h 32m | 30m |
+| skiff 3 | 3h 08m | 37m |
+| skiff 5 | 4h 44m | 56m |
+
+The root of a x1.5 curve grows at x1.2247, so the wait compounds with the price it is taken from and
+the tenth skiff is a different decision from the second. Nothing is gated: a colony at Robotics 0 can
+order a hull in its first minute and simply waits longer for it.
+
+### What it should feel like, to check next round
+
+- **A hull is a thing you plan rather than a thing you tap.** The greedy bot buys none in 48 hours
+  and eleven in a fortnight; a real player who wants one sooner has to skip a mine level for it,
+  which is the trade the Shipyard's own footnote has been describing since 0.8.0 and could not
+  actually charge for.
+- **The check-in has something to leave running.** The opening's real complaint was 95.83% of the
+  first 48 hours with nothing in flight; the yard is a fourth thing that can be busy while the app is
+  closed, and unlike the other three it is serial, so a queue is how a player spends a windfall.
+- **Watch whether the opening now feels *slow* rather than empty.** This is the risk the round takes
+  and the one to bring back from a device: `second skiff affordable: hour 0 → hour 30` is a real
+  delay to the moment the fleet becomes a system rather than a single granted hull. If day one reads
+  as waiting rather than as saving, the base is the dial and 400 is the rung below.
+
+### The benchmark
+
+Six rows moved and fifteen are new. The five hull-cost rows and `second skiff affordable` are the
+change; the ten new rows are the two readings this page could not make — what a hull *takes*, at both
+ends of the Robotics Factory, and what it takes to *repay*. **No colony row moved**: `[opening]`,
+`[session]`, `[progression]`, `[research]`, `[adaptation]`, `[galaxy]`, `[horizon]`, `[pressure]`,
+`[economy]` and `[late game]` are byte-identical, which is what says a fleet change stayed a fleet
+change.
+
+### One instrument repair, and it is round 22's repair one dial along
+
+Round 22 named `RATE_CANDIDATES` because four tables were sweeping a grid that did not contain the
+shipped rate. The **hull base** was `listOf(40L, 80L, 140L)` written inline in two places and would
+have gone stale the moment this round landed — three rows about a game nobody plays, which is exactly
+the defect that was just fixed next door. It is `HULL_BASE_CANDIDATES` now, and it `check`s that it
+contains `FleetBalance.HULL_BASE_METAL`. **A named-and-checked candidate list is now the rule for
+every dial this file sweeps**, not a fix applied twice.

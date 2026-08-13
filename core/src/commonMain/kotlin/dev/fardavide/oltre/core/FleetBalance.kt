@@ -284,9 +284,28 @@ object FleetBalance {
     // entirely free of the scarce resource, and it is small enough never to compete with a ladder.
     // Deuterium is absent for the reason the payout excludes it: it is the Robotics gate's currency.
     //
-    // PROPOSED, NOT DECIDED, like everything else in this object. The sweep is in the balance log.
-    const val HULL_BASE_METAL: Long = 80
-    const val HULL_BASE_CRYSTAL: Long = 20
+    // **TENFOLD AT 0.9.0 — DAVIDE'S CALL, 2026-08-13, AND IT IS A FLOOR RATHER THAN A FIGURE.**
+    // *"I think ships are WAY too cheap, considered the benefits they bring back"*, and, asked where
+    // the increase should go: *"Raise the base, I'd say at least 10x the current price. As ships are
+    // a single investment that pays back forever."*
+    //
+    // The base and not the exponent, on his call, and the reading says why that is the right end:
+    // the x1.5 already bites by the eighth hull, and what was free was the *bottom* of the curve. At
+    // 80/20 the second skiff cost 180 priced units against a hold of 60 priced units per hull per
+    // station-hour — **three station-hours to repay a permanent asset**, which is half of one 6h
+    // window. A genesis colony could buy it out of its opening stock before it had made anything.
+    //
+    // At 800/200 the second skiff is 1,800 priced and repays in **30 station-hours**: two or three
+    // overnight runs, or a couple of days for the once-a-day player. That is the shape Davide's
+    // sentence asks for — an investment that has to be earned before it pays forever — and it is the
+    // first time in this object's life that the hull competes with a mine level on the reading the
+    // sheet's own table used to lose.
+    //
+    // **The wait is the other half and neither would do alone.** See `buildDuration`: a price the
+    // player cannot pay yet is a wait they serve without knowing it, and the two together are what
+    // stop a check-in with full stores becoming a fleet. The balance log's round 23 has the sweep.
+    const val HULL_BASE_METAL: Long = 800
+    const val HULL_BASE_CRYSTAL: Long = 200
 
     // The game's one cost curve, +50% a step, through `Curves.compound` so the flooring happens at
     // every step rather than once at the end — the rule the building and adaptation curves already
@@ -310,4 +329,48 @@ object FleetBalance {
                 error("$type has no price until the slice that gives it a job")
         }
     }
+
+    // ── The yard clock — DAVIDE'S CALL, 2026-08-13 ───────────────────────────────────────────
+    //
+    // *"I think we need to add time to build ships, it shouldn't be instantaneous."*
+    //
+    // **This overrules §4's "Purchase is instant, and that is a sizing decision".** That section
+    // argued the wait a hull costs you is the flight rather than the yard, and that the compounding
+    // price was already the ceiling a timer would have been protecting. The price half of that
+    // argument survives and is now much stronger — see `HULL_BASE_METAL` — but the sizing half does
+    // not: a hull bought and dispatched inside one check-in is a fleet that grows as fast as the
+    // stores allow, and 0.8.0 measured what that does. `printFleetReport`'s purchase-order bracket
+    // put a fleet-first player's hulls at **268%** of their own colony's crystal income at 48 hours,
+    // on a curve whose second rung a genesis colony can pay for out of its opening stock.
+    //
+    // **Four minutes per root of the hull's own price, divided by the Robotics Factory.** Both
+    // halves are borrowed rather than invented: `PlaceholderBalance.MINUTES_PER_ROOT_COST` is the
+    // colony's own rate, swept at round 11, so a hull and a facility that cost the same take the
+    // same time to make; and the divisor is the same `1 + level` the facilities serve. What that
+    // buys is a wait that compounds with the price it is taken from — the root of a x1.5 curve grows
+    // at x1.2247 a hull — so the tenth skiff is a different decision from the second rather than the
+    // same one at a bigger number.
+    //
+    // **Robotics divides it although nothing gates it**, which is not a contradiction: §4's "gated
+    // by nothing" is about the *requirement* to buy, and it is untouched — a colony at Robotics 0
+    // can order a hull in its first minute. What the factory buys is the answer to a wait the player
+    // is already serving, which is the only role this game gives a building over a clock.
+    //
+    // The level is read at the order and never again, the rule every other job in the game follows:
+    // *"a Robotics Factory finishing mid-flight must not retroactively shorten a build."*
+    fun buildDuration(type: ShipType, alreadyOwned: Int, roboticsFactory: BuildingLevel): Duration {
+        val cost = shipCost(type, alreadyOwned)
+        val minutes = PlaceholderBalance.MINUTES_PER_ROOT_COST * integerRoot(cost.metal + cost.crystal)
+        // The floor is applied last, to what the player actually waits, for `upgradeDuration`'s own
+        // reason: a floor ahead of the divisor would let the divisor cut through the minimum and put
+        // instant hulls back at depth.
+        return maxOf(MINIMUM_YARD_DURATION, minutes.minutes / (1 + roboticsFactory.value))
+    }
+
+    // **Unreachable in play and mandatory anyway.** The second skiff is 2h 32m at Robotics 0, so it
+    // would take a factory past level 30 to reach this — but a zero-duration job completes at its own
+    // boundary, re-enters `advance` at the same instant and recurses forever, which is the same
+    // failure `MINIMUM_STATION` exists to prevent one section up. It is what makes the yard queue's
+    // strictly-increasing invariant provable rather than merely observed.
+    val MINIMUM_YARD_DURATION: Duration = 5.minutes
 }

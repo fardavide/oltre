@@ -388,26 +388,28 @@ class FleetBalanceTest {
 
     @Test
     fun `the hull curve compounds by half per hull already owned`() {
-        // The sheet's §4 table, metal column, value by value. This curve is the fleet's ceiling and
+        // The metal column at the 0.9.0 base, value by value. This curve is the fleet's ceiling and
         // the reason there is no Shipyard building: a compounding price against a linear return is
-        // how every bound in this game is proved.
+        // how every bound in this game is proved. Only the base moved at 0.9.0 — the x1.5 is
+        // untouched, which is Davide's call about *which end* was too cheap.
         val metal = (0..5).map { FleetBalance.shipCost(ShipType.SKIFF, it).metal }
-        assertEquals(listOf(80L, 120L, 180L, 270L, 405L, 607L), metal)
+        assertEquals(listOf(800L, 1_200L, 1_800L, 2_700L, 4_050L, 6_075L), metal)
     }
 
     @Test
     fun `the crystal component compounds on its own base rather than tracking the metal one`() {
         // Per-step flooring on each component separately, which is `Curves.compound`'s rule and the
-        // one the whole game's costs already follow. It drifts a unit below a quarter of the metal
-        // column from the fifth hull on — 100 against 101 — and the quarter is the coincidence
-        // rather than the rule.
-        val crystal = (0..5).map { FleetBalance.shipCost(ShipType.SKIFF, it).crystal }
-        assertEquals(listOf(20L, 30L, 45L, 67L, 100L, 150L), crystal)
+        // one the whole game's costs already follow. The two agree for six rungs at this base and
+        // then part — 2,277 against a quarter of 9,112 — so the quarter is a coincidence that lasts
+        // longer than it used to rather than the rule.
+        val crystal = (0..6).map { FleetBalance.shipCost(ShipType.SKIFF, it).crystal }
+        assertEquals(listOf(200L, 300L, 450L, 675L, 1_012L, 1_518L, 2_277L), crystal)
+        assertTrue(FleetBalance.shipCost(ShipType.SKIFF, 6).metal / 4 != crystal.last())
     }
 
     @Test
     fun `the first hull is the published base`() {
-        assertEquals(Resources.of(metal = 80, crystal = 20), FleetBalance.shipCost(ShipType.SKIFF, 0))
+        assertEquals(Resources.of(metal = 800, crystal = 200), FleetBalance.shipCost(ShipType.SKIFF, 0))
         assertEquals(FleetBalance.HULL_BASE_METAL, FleetBalance.shipCost(ShipType.SKIFF, 0).metal)
         assertEquals(FleetBalance.HULL_BASE_CRYSTAL, FleetBalance.shipCost(ShipType.SKIFF, 0).crystal)
     }
@@ -441,6 +443,72 @@ class FleetBalanceTest {
     @Test
     fun `a negative fleet cannot be priced`() {
         assertFailsWith<IllegalArgumentException> { FleetBalance.shipCost(ShipType.SKIFF, -1) }
+    }
+
+    // ── The yard clock ───────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a hull takes four minutes per root of its own price`() {
+        // The colony's own rule, `PlaceholderBalance.MINUTES_PER_ROOT_COST`, applied to the hull's
+        // price — so a hull and a facility that cost the same take the same time to make.
+        val cost = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1)
+        val expected = 4 * integerRoot(cost.metal + cost.crystal)
+
+        assertEquals(
+            expected.minutes,
+            FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(0)),
+        )
+    }
+
+    @Test
+    fun `the wait compounds with the price rather than staying flat`() {
+        // The price compounds at x1.5, so its root compounds at x1.2247 — which is the whole reason
+        // the clock is derived from the cost rather than fixed per hull. The tenth skiff is not the
+        // second one again with a bigger number beside it.
+        val waits = (0..9).map {
+            FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = it, roboticsFactory = BuildingLevel(0))
+        }
+
+        assertEquals(waits.sorted(), waits)
+        assertTrue(waits.last() > waits.first() * 5, "the curve barely moved across ten hulls: $waits")
+    }
+
+    @Test
+    fun `the Robotics Factory divides the yard's clock the way it divides the colony's`() {
+        // Davide's call, 2026-08-13. The fleet is gated by nothing, so this is not a requirement —
+        // it is the one building that answers a wait the player is already serving.
+        val alone = FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(0))
+
+        for (level in 1..8) {
+            assertEquals(
+                alone / (1 + level),
+                FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(level)),
+                "Robotics $level did not divide the wait",
+            )
+        }
+    }
+
+    @Test
+    fun `no hull is ever instant however deep the factory goes`() {
+        // A zero-duration job completes at its own boundary, re-enters `advance` at the same instant
+        // and recurses forever — the reason `MINIMUM_STATION` exists one section up, for the reason
+        // it exists here.
+        for (level in 0..60) {
+            assertTrue(
+                FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 0, roboticsFactory = BuildingLevel(level)) >=
+                    FleetBalance.MINIMUM_YARD_DURATION,
+                "Robotics $level cut a hull below the floor",
+            )
+        }
+    }
+
+    @Test
+    fun `a hull with no price has no wait either`() {
+        for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
+            assertFailsWith<IllegalStateException> {
+                FleetBalance.buildDuration(type, alreadyOwned = 0, roboticsFactory = BuildingLevel(0))
+            }
+        }
     }
 
     // Constructed rather than generated, deliberately: these curves have to be pinned against numbers

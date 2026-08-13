@@ -68,6 +68,20 @@ sealed interface FutureEvent {
         override val at: Instant,
     ) : FutureEvent
 
+    // A hull leaving the slipway. **Deliberately not a `Completion`**, although it is unmistakably a
+    // job the player started — that marker means three specific things, and this fails the second of
+    // them: the model caps completions at seven, and a serial yard queue has no cap at all. It is
+    // therefore an unbounded kind, like a probe landing and a fleet return, and the notification
+    // layer's budget has to name it as one.
+    //
+    // The consequence of getting that wrong is worth stating: `Completion` is also what the
+    // subscription gate filters on, so calling this one would mean a hull nobody tapped a watch
+    // square for is never announced — and there is no square on a hull.
+    data class ShipsComplete(
+        val ship: ShipType,
+        override val at: Instant,
+    ) : FutureEvent
+
     data class FleetReturns(
         val target: GalaxyCoordinate,
         val ships: Ships,
@@ -119,6 +133,7 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
             at = job.completesAt,
         )
     }
+    val hulls = state.yard.map { job -> FutureEvent.ShipsComplete(ship = job.ship, at = job.completesAt) }
     val returns = state.runs.map { run ->
         FutureEvent.FleetReturns(
             target = run.target,
@@ -138,11 +153,15 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
             ?.let { wait -> FutureEvent.AffordableAt(purchase = purchase, at = now + wait) }
     }
     // Ties are broken exactly the way `advance` applies them — build completions in building
-    // order, then the research completion, then the adaptation completion, then survey landings,
-    // then fleet returns — so this list and the event log it predicts never disagree on order. The
+    // order, then the research completion, then the adaptation completion, then the yard's
+    // deliveries, then survey landings, then fleet returns — so this list and the event log it
+    // predicts never disagree on order. The
     // watch sorts after all of them, and its place in the order is arbitrary in a way theirs is not:
     // it mirrors nothing `advance` does, so there is no log for it to agree with.
-    return (builds + listOfNotNull(project) + listOfNotNull(ladder) + probes + returns + listOfNotNull(affordable))
+    return (
+        builds + listOfNotNull(project) + listOfNotNull(ladder) + hulls + probes + returns +
+            listOfNotNull(affordable)
+        )
         .sortedWith(
             compareBy({ it.at }, { it.tieBreak() }, { it.secondaryTieBreak() }, { it.tertiaryTieBreak() }),
         )
@@ -174,6 +193,7 @@ private fun FutureEvent.tieBreak(): Int = when (this) {
     is FutureEvent.BuildCompletes -> building.ordinal
     is FutureEvent.ResearchCompletes -> 100
     is FutureEvent.AdaptationCompletes -> 200
+    is FutureEvent.ShipsComplete -> 250
     is FutureEvent.SurveyLands -> 300
     is FutureEvent.FleetReturns -> 400
     is FutureEvent.AffordableAt -> 500
@@ -190,10 +210,15 @@ private fun FutureEvent.tieBreak(): Int = when (this) {
 private fun FutureEvent.secondaryTieBreak(): Long = when (this) {
     is FutureEvent.SurveyLands -> target.galaxy.toLong() * GalaxyBalance.SYSTEMS_PER_GALAXY + target.system
     is FutureEvent.FleetReturns -> dispatchedAt.toEpochMilliseconds()
-    // The watch needs none: there is one of it in the whole game, so it cannot tie with itself.
+    // The watch needs none: there is one of it in the whole game, so it cannot tie with itself. The
+    // yard needs none for a stronger reason than "there is one of it": there are as many as the
+    // player has paid for, and they still cannot tie, because the queue is serial and every job is
+    // strictly positive in length. `GameState.init` is where that is enforced — if it ever stops
+    // being, this line is one of the two places that goes quietly wrong.
     is FutureEvent.BuildCompletes,
     is FutureEvent.ResearchCompletes,
     is FutureEvent.AdaptationCompletes,
+    is FutureEvent.ShipsComplete,
     is FutureEvent.AffordableAt,
     -> 0
 }

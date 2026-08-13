@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.OltreCardState
+import dev.fardavide.oltre.client.design.component.ProgressBar
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -32,10 +33,20 @@ import dev.fardavide.oltre.core.ShipType
 // a facility row — a shop that invented a surface of its own would be a second design of the one
 // thing the app draws everywhere.
 //
-// **What it is not is a row.** There is no level, so there is no dial and no badge; there is no job,
-// so there is no countdown and no progress. What is left is a name, a pool, what the hull is for,
-// and a price — which is the whole of what a purchase decision needs and the reason this reads as a
-// shop rather than as a fourth list of rows.
+// **What it is not is a row.** There is no level, so there is no dial and no badge. What is left is
+// a name, a pool, what the hull is for, and a price — which is the whole of what a purchase decision
+// needs and the reason this reads as a shop rather than as a fourth list of rows.
+//
+// **It grew a countdown at 0.9.0 and the sentence above used to rule that out too** — *"there is no
+// job, so there is no countdown and no progress"*. The yard has a clock now, and what it draws is
+// the treatment a Colony row already has for exactly this: `OltreCardState.RUNNING`, a `ProgressBar`
+// and a countdown. Nothing here is a new drawing; what is new is that this card can be in the third
+// state the design system has always had for it.
+//
+// **The one thing that is not the facility row's treatment**: the verb stays live underneath it. A
+// facility that is building cannot be started again and its action is *replaced* by the countdown; a
+// serial yard can always be given another hull, and refusing one would turn a queue back into the
+// single slot it deliberately is not.
 @Composable
 internal fun HullList(hulls: List<HullUiState>, onBuild: (ShipType) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -49,7 +60,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .oltreCard(hull.action.cardState())
+            .oltreCard(hull.cardState())
             .testTag(ShipyardTestTags.card(hull.type))
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -122,6 +133,42 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
                 )
             }
         }
+        // The slipway, under the price rather than in place of it — see the note at the top of this
+        // file for why the verb stays live above it. The drawing is the probe's in-flight footer,
+        // spent unchanged: an accent countdown, the wall-clock instant beside it in the faintest
+        // grey, and the bar underneath. A probe and a hull are both a card with a job and no level,
+        // which is the case that shape was drawn for.
+        hull.yard?.let { yard -> YardFooter(yard = yard, type = hull.type) }
+    }
+}
+
+@Composable
+private fun YardFooter(yard: YardUiState, type: ShipType) {
+    val mono = oltreMono()
+    Column(modifier = Modifier.fillMaxWidth().testTag(ShipyardTestTags.yard(type))) {
+        Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(
+                text = yard.countdown,
+                color = OltreColors.accent,
+                fontFamily = mono,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                softWrap = false,
+            )
+            // The two trailing clauses are one run of faint text with the app's own separator
+            // between them, so "done 14:05 · 2 queued" reads as one aside rather than as two
+            // competing readings. `listOfNotNull` because the queue count is absent at one hull.
+            Text(
+                text = listOfNotNull(yard.doneAt, yard.queued).joinToString(" · "),
+                color = OltreColors.textTertiary,
+                fontFamily = mono,
+                fontSize = 10.5.sp,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
+        ProgressBar(percent = yard.progressPercent)
     }
 }
 
@@ -165,9 +212,15 @@ internal fun ComingHullList(hulls: List<ComingHullUiState>) {
 }
 
 // What the card is made of is the design system's; which of its three states a hull is in is this
-// feature's. There is no RUNNING branch and there never will be: `buildShips` charges and delivers
-// in the same call, so a hull is never in flight.
-private fun BuildActionUiState.cardState(): OltreCardState = when (this) {
-    BuildActionUiState.Build -> OltreCardState.ACTIONABLE
-    is BuildActionUiState.AvailableIn -> OltreCardState.WAITING
+// feature's.
+//
+// **The yard wins over the price**, and that ordering is the reading rather than a tie-break: a card
+// with a hull on the slipway is the lit one whatever the player can currently afford, because
+// RUNNING's own definition is *"the only lit thing on the screen from four rows away"* and a busy
+// yard is the thing on this screen that is happening. The price still speaks — through the chips,
+// which redden on their own, and through the ghost, which stays where it was.
+private fun HullUiState.cardState(): OltreCardState = when {
+    yard != null -> OltreCardState.RUNNING
+    action is BuildActionUiState.Build -> OltreCardState.ACTIONABLE
+    else -> OltreCardState.WAITING
 }

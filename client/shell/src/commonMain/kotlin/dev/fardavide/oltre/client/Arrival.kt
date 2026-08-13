@@ -65,9 +65,20 @@ internal fun arrivalOf(saved: GameState?, resumed: GameState): Arrival? {
 // colony, which is a better place to say it than a band across a facility row; and a probe landing
 // draws a receipt in the map card, which is not a row and has no level to change.
 //
-// `ShipsBuilt` is the clearest of the whole table and it is worth saying why: a hull is delivered in
-// the same call that charges for it, so it can never land while the app is closed. There is nothing
-// for a player to come back to.
+// **`ShipsBuilt` used to be the clearest entry in the table and it no longer is.** The reason given
+// here was *"a hull is delivered in the same call that charges for it, so it can never land while
+// the app is closed"* — true until 0.9.0 gave the yard a clock, and now false: a hull ordered at
+// bedtime is exactly the kind of thing a player comes back to.
+//
+// It stays `null` anyway, for a different and weaker reason: **an `AwayCompletion` is a band drawn
+// across a row, and a hull has no row.** The three kinds this returns are all facilities or
+// technologies on a list with a level that changed; the Shipyard's card is a price, not a job, and
+// the fleet count beside it will simply have gone up. The alert is what tells the player, and the
+// Shipyard says it when they get there.
+//
+// That is a real gap rather than a settled answer — a returning player is announced two of the three
+// things that landed overnight. What would close it is a fleet-side arrival treatment, which is a
+// drawing nobody has made. Flagged rather than invented.
 private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.BuildCompleted -> AwayCompletion.Facility(building)
     is Event.ResearchCompleted -> AwayCompletion.Project(technology)
@@ -77,6 +88,7 @@ private fun Event.toAwayCompletion(): AwayCompletion? = when (this) {
     is Event.AdaptationStarted,
     is Event.FleetDispatched,
     is Event.FleetReturned,
+    is Event.ShipsOrdered,
     is Event.ShipsBuilt,
     is Event.SurveyStarted,
     is Event.SurveyCompleted,
