@@ -57,7 +57,7 @@ class StartRunDepositTest {
         val world = worldAt(state.galaxy.seed, target)!!
         val danger = FleetBalance.danger(from = state.galaxy.home, world = world)
         val station = FleetBalance.stationFor(from = state.galaxy.home, to = target, window = 24.hours)
-        val unclamped = FleetBalance.cargo(world, ResourceKind.METAL, ships, station, danger).metal
+        val unclamped = FleetBalance.cargo(world, ResourceKind.METAL, ships, station, danger, state.research).metal
         assertTrue(unclamped > vein, "the fleet would lift $unclamped from a vein of $vein")
 
         // when

@@ -13,6 +13,7 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.RowSheetContent
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
@@ -90,25 +91,30 @@ internal const val SLIDE_OVER_WIDTH = 320
 internal class ResearchRobot(private val test: ComposeUiTest) {
 
     fun startResearching(technology: Technology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).performClick()
     }
 
     // Overloads rather than one widened signature, for the reason `ResearchTestTags` is overloaded:
     // a caller cannot ask about a row that does not exist, and the compiler says so.
     fun startResearching(technology: AdaptationTechnology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).performClick()
     }
 
     fun assertBranchShows(technology: AdaptationTechnology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.row(technology), useUnmergedTree = true).assertIsDisplayed()
     }
 
     fun assertOffersResearch(technology: AdaptationTechnology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true)
             .assertTextEquals("Research")
     }
 
     fun assertWaits(technology: AdaptationTechnology, label: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertTextEquals(label)
     }
 
@@ -117,25 +123,30 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
     }
 
     fun assertRowReads(technology: AdaptationTechnology, text: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.row(technology), useUnmergedTree = true)
             .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
     fun assertBranchShows(technology: Technology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.row(technology), useUnmergedTree = true).assertIsDisplayed()
     }
 
     fun assertOffersResearch(technology: Technology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true)
             .assertTextEquals("Research")
     }
 
     // The ghost carries a time, never a dead button.
     fun assertWaits(technology: Technology, label: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertTextEquals(label)
     }
 
     fun assertCountsDown(technology: Technology, countdown: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertTextEquals(countdown)
     }
 
@@ -148,8 +159,18 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
     // them carry "Requires Robotics 1" before the gate, and an unscoped query would match both and
     // fail on the ambiguity rather than on the assertion.
     fun assertRowReads(technology: Technology, text: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.row(technology), useUnmergedTree = true)
             .assert(hasAnyDescendant(hasText(text, substring = true)))
+    }
+
+    // **The branch stopped fitting a phone at 0.9.** Seven rows — four applied and three ladders —
+    // are taller than a 393x852 viewport, so a row near the bottom is present but not displayed, and
+    // both `assertIsDisplayed` and `performClick` fail on it. Scrolling here rather than in each test
+    // is the Robot doing its job: a behaviour test says what the player did, and a player scrolls
+    // without it being part of the story.
+    private fun scrollTo(tag: String) {
+        test.onNodeWithTag(tag, useUnmergedTree = true).performScrollTo()
     }
 
     fun assertRowDoesNotRead(technology: Technology, text: String) = apply {

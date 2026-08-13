@@ -67,6 +67,17 @@ internal val beforeTheGateUiState = ResearchUiState(
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
             watch = null,
         ),
+        technologyRow(
+            technology = Technology.PROSPECTING,
+            name = "Prospecting",
+            level = 0,
+            effect = prospectingEffect(current = null, next = "+10%"),
+            verdict = haulVerdict(from = 60, to = 66),
+            costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
+            duration = "2h 00m",
+            action = ResearchActionUiState.Locked("Requires Extraction 1"),
+            watch = null,
+        ),
     ),
 )
 
@@ -112,6 +123,17 @@ internal val nothingRunningUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 10m",
             action = ResearchActionUiState.Locked("Requires Extraction 3"),
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROSPECTING,
+            name = "Prospecting",
+            level = 0,
+            effect = prospectingEffect(current = null, next = "+10%"),
+            verdict = haulVerdict(from = 60, to = 66),
+            costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
+            duration = "2h 00m",
+            action = ResearchActionUiState.Locked("Requires Extraction 1"),
             watch = null,
         ),
     ),
@@ -161,6 +183,17 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
             action = ResearchActionUiState.Start,
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROSPECTING,
+            name = "Prospecting",
+            level = 0,
+            effect = prospectingEffect(current = null, next = "+10%"),
+            verdict = haulVerdict(from = 60, to = 66),
+            costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
+            duration = "2h 00m",
+            action = ResearchActionUiState.Locked("Requires Extraction 1"),
             watch = null,
         ),
     ),
@@ -284,6 +317,17 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             verdict = enrichmentAtNine(),
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
+            action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROSPECTING,
+            name = "Prospecting",
+            level = 0,
+            effect = prospectingEffect(current = null, next = "+10%"),
+            verdict = haulVerdict(from = 60, to = 66),
+            costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
+            duration = "2h 00m",
             action = ResearchActionUiState.AvailableIn("in 1h 13m"),
             watch = null,
         ),
@@ -631,6 +675,19 @@ private fun enrichmentEffect(current: String?, next: String) = EffectUiState(
     next = next,
     subject = "deuterium output",
 )
+
+// The fourth row's subject is the one on this screen that names no resource: what it multiplies is
+// what a hull lifts, not what the colony makes. PLACEHOLDER copy — see `ResearchUiState`.
+private fun prospectingEffect(current: String?, next: String) = EffectUiState(
+    current = current,
+    next = next,
+    subject = "what a fleet lifts",
+)
+
+// Quoted per hull per hour in priced units, which is the only figure that is a property of the
+// technology rather than of a fleet or a target.
+private fun haulVerdict(from: Long, to: Long): VerdictUiState =
+    checkNotNull(LevelPurpose.Haul(from = from, to = to).toVerdictUiState(throttled = false))
 
 private fun costs(
     metal: String,

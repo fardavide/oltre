@@ -171,6 +171,7 @@ internal fun GameState.toDispatchUiState(
         ships = sent,
         station = station,
         danger = danger,
+        research = research,
     )
     val haul = cargo.of(gathering)
     return DispatchUiState.Offer(

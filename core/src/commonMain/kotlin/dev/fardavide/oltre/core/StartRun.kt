@@ -89,6 +89,7 @@ fun startRun(
         ships = ships,
         station = station,
         danger = FleetBalance.danger(from = home, world = world),
+        research = state.research,
     )
     val taken = minOf(lifted.of(gathering), inTheGround)
     val run = FleetRun(

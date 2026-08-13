@@ -70,6 +70,7 @@ class GameSaveTest {
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
                 """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0,""" +
+                """"prospecting":0,""" +
                 // The three adaptation ladders, in the same record as the three applied
                 // technologies: what the empire knows is one thing however it was learned.
                 """"thermal":0,"gravitic":0,"atmospheric":0},""" +

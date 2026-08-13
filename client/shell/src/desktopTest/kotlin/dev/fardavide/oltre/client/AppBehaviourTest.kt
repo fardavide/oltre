@@ -56,17 +56,18 @@ class AppBehaviourTest {
             open(OltreTab.RESEARCH)
 
             // then the row is there, still holding the level it started from while the band
-            // crosses: six of the six rows read LV 0, where without an announcement to make only
-            // five of them would and Photovoltaics would already read LV 1.
+            // crosses: seven of the seven rows read LV 0, where without an announcement to make only
+            // six of them would and Photovoltaics would already read LV 1. Seven since 0.9, when the
+            // applied branch grew Prospecting — the count is the branch's size and moves with it.
             assertReads("Photovoltaics")
-            assertRowsReading("LV 0", count = 6)
+            assertRowsReading("LV 0", count = 7)
 
             // and it arrives at the level it reached while the app was closed, on its own schedule.
             // Reaching this at all is the assertion: the badge only counts up behind a band, and the
             // band only exists if the announcement survived the trip to this tab.
             letTheSweepFinish()
             assertReads("LV 1")
-            assertRowsReading("LV 0", count = 5)
+            assertRowsReading("LV 0", count = 6)
         }
     }
 

@@ -60,7 +60,7 @@ class AdaptationBehaviourTest {
             assertReads("Atmospheric")
             assertReads("Unlocks 1 world, 1 worth taking")
 
-            startTheOnlyProjectOffered()
+            startTheAtmosphericLadder()
 
             // the ladder still takes real time, so nothing lands early. Atmospheric 3 is 6h 22m at
             // this colony's Robotics 4 — the sheet's 240 a level, carrying the opening discount
@@ -94,7 +94,7 @@ class AdaptationBehaviourTest {
 
         game(game) {
             open(OltreTab.RESEARCH)
-            startTheOnlyProjectOffered()
+            startTheAtmosphericLadder()
 
             // the countdown is the row's, and no row on either side of the seam offers to start
             assertReads("→ LV 3")

@@ -219,6 +219,16 @@ object FleetBalance {
     // session is what says. If the mines start feeling optional, this is the number that did it.
     const val EXTRACTION_PER_HOUR: Long = 60
 
+    // **What `Technology.PROSPECTING` multiplies, and the only rate in the game a fleet owns.** The
+    // other three technologies multiply something the colony produces; this one multiplies what a
+    // hull pulls out of a world it is standing on. It reaches every figure that quotes the rate —
+    // the hold, the per-ship split, and `DepositBalance.workingTime` — through this one function, so
+    // there is no second place for the multiplier to be forgotten.
+    fun extractionPerHour(research: Research): Long =
+        EXTRACTION_PER_HOUR *
+            ResearchBalance.multiplier(Technology.PROSPECTING, research.levelOf(Technology.PROSPECTING)) /
+            ResearchBalance.MULTIPLIER_BASIS
+
     private const val MINUTES_PER_HOUR: Long = 60
 
     private fun pricePerUnit(kind: ResourceKind): Long = when (kind) {
@@ -249,12 +259,13 @@ object FleetBalance {
         ships: Ships,
         station: Duration,
         danger: Int,
+        research: Research,
     ): Resources {
         require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
         if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(ships.total.toLong(), EXTRACTION_PER_HOUR) { "cargo hulls" }
+        var numerator = checkedTimes(ships.total.toLong(), extractionPerHour(research)) { "cargo hulls" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
         numerator = checkedTimes(numerator, richnessOf(world, gathering).perMillion.toLong()) { "cargo richness" }
         numerator = checkedTimes(numerator, paid) { "cargo danger" }

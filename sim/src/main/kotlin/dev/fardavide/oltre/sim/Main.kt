@@ -1387,7 +1387,7 @@ private fun cargoAt(
         ResourceKind.DEUTERIUM -> error("unreachable")
     }
     if (tuning.isShippedExtraction) {
-        check(cargo == FleetBalance.cargo(world, gathering, ships, station, danger)) {
+        check(cargo == FleetBalance.cargo(world, gathering, ships, station, danger, Research.initial())) {
             "the harness's hold replica disagrees with FleetBalance.cargo: $cargo"
         }
     }

@@ -509,6 +509,14 @@ internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? 
     // `purposeOfNextLevel` can only answer with a rate that moved or one that did not; and the level
     // above the ceiling is refused by `TechLevel` before a purpose is ever asked for. Nothing rather
     // than words this screen has no design for.
+    // **PLACEHOLDER COPY, and the one string this version owes** — see the deposit sheet's §11.
+    // Every other verdict on this screen quotes a rate the colony produces; this one quotes what a
+    // hull lifts while it is standing on someone else's world, and Claude Design left the wording to
+    // Davide. The figure is exact and the shape matches its neighbours; only the noun is provisional.
+    is LevelPurpose.Haul -> VerdictUiState(
+        label = "+${(to - from).groupedByThousands()} a hull an hour on station",
+        compactLabel = "+${(to - from).groupedByThousands()} a hull an hour",
+    )
     is LevelPurpose.Throttled,
     is LevelPurpose.Sooner,
     LevelPurpose.Unmeasured,
@@ -612,6 +620,21 @@ private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState,
                 figure(purpose.payback.toPaybackLabel()),
                 words("."),
             ),
+        )
+        // **The only sheet on this screen that never names the colony**, because the level does
+        // nothing to it. The second sentence answers the question the first one raises — more per
+        // hour of *what* — and it answers it in the unit the dispatch sheet spends, which is where
+        // the player will next meet this number. PLACEHOLDER copy; see `toVerdictUiState`.
+        is LevelPurpose.Haul -> listOf(
+            effectSentence(effect),
+            sheetLine(
+                words("Each hull lifts "),
+                figure(purpose.from.groupedByThousands()),
+                words(" an hour on station and would lift "),
+                figure(purpose.to.groupedByThousands()),
+                words("."),
+            ),
+            sheetLine(words("It pays on the next run rather than on a clock at home.")),
         )
         // The row names itself rather than naming Photovoltaics, because in a deficit any of the
         // three lands here — see `toVerdictUiState`. The ledger sentence carries the percentage in
@@ -875,6 +898,7 @@ fun Technology.displayName(): String = when (this) {
     Technology.PHOTOVOLTAICS -> "Photovoltaics"
     Technology.EXTRACTION -> "Extraction"
     Technology.ENRICHMENT -> "Enrichment"
+    Technology.PROSPECTING -> "Prospecting"
 }
 
 // One word each, like the applied three, and no trailing "Adaptation": all three would end in the
@@ -891,6 +915,11 @@ private fun Technology.subject(): String = when (this) {
     Technology.PHOTOVOLTAICS -> "Solar Plant output"
     Technology.EXTRACTION -> "metal · crystal output"
     Technology.ENRICHMENT -> "deuterium output"
+    // **PLACEHOLDER, and the one string this version owes.** Every other row here names a rate the
+    // colony produces; this is the first whose payoff is measured in a run, so "output" is the one
+    // word it cannot borrow. Claude Design flagged it and left it to Davide — see the deposit
+    // sheet's §11. Until then this says what it does and no more.
+    Technology.PROSPECTING -> "what a fleet lifts"
 }
 
 // No subject noun, unlike the applied rows: Thermal already says temperature, Gravitic gravity and

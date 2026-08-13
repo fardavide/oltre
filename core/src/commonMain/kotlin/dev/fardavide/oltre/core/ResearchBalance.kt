@@ -51,6 +51,11 @@ object ResearchBalance {
         // A second gate so the branch opens on one decision rather than three, and so a locked row
         // appears in normal play rather than only before the first gate.
         Technology.ENRICHMENT -> ResearchRequirement.Tech(Technology.EXTRACTION, TechLevel(3))
+        // Behind Extraction rather than beside it, for the reason Enrichment is: the branch opens on
+        // one decision rather than three, and a fourth row live at Robotics 1 would make it four.
+        // Level 1 rather than Enrichment's 3, because this is the away half of the same idea and a
+        // chain a player can say out loud — pull more out of your own ground, then out of anyone's.
+        Technology.PROSPECTING -> ResearchRequirement.Tech(Technology.EXTRACTION, TechLevel(1))
     }
 
     // What a level is worth, in parts of MULTIPLIER_BASIS. Compounds per level in the same curve
@@ -105,6 +110,7 @@ object ResearchBalance {
             Technology.PHOTOVOLTAICS -> 60
             Technology.EXTRACTION -> 90
             Technology.ENRICHMENT -> 150
+            Technology.PROSPECTING -> 120
         }
         // "Cheaper **and quicker**" — and a building got the second half for nothing, because round
         // 11 made its duration a function of its cost. This one is a table times a level, so it has
@@ -123,12 +129,17 @@ object ResearchBalance {
         Technology.PHOTOVOLTAICS -> 11
         Technology.EXTRACTION -> 27
         Technology.ENRICHMENT -> 57
+        // 1.10 a level. **A STARTING VALUE, owed to the sweep** the sheet's §9 makes a merge
+        // condition: it is the one constant here that has never been measured against a fourteen-day
+        // run, and it accelerates depletion as well as paying for it.
+        Technology.PROSPECTING -> 11
     }
 
     private fun Technology.effectDenominator(): Long = when (this) {
         Technology.PHOTOVOLTAICS -> 10
         Technology.EXTRACTION -> 25
         Technology.ENRICHMENT -> 50
+        Technology.PROSPECTING -> 10
     }
 
     // Metal and crystal are here to make the cost chips mean something; deuterium is the price.
@@ -139,6 +150,11 @@ object ResearchBalance {
         Technology.PHOTOVOLTAICS -> BaseCost(metal = 300, crystal = 150, deuterium = 100)
         Technology.EXTRACTION -> BaseCost(metal = 600, crystal = 400, deuterium = 200)
         Technology.ENRICHMENT -> BaseCost(metal = 500, crystal = 700, deuterium = 200)
+        // Metal-led, which is the fleet's own house style — `SurveyBalance` and the hull curve both
+        // lean on metal for the same reason, that it is the resource with nothing else to buy. The
+        // deuterium column stays in line with the other three, because deuterium is what prices this
+        // branch and a fleet technology is not an exception to that.
+        Technology.PROSPECTING -> BaseCost(metal = 800, crystal = 300, deuterium = 200)
     }
 
     private data class BaseCost(val metal: Long, val crystal: Long, val deuterium: Long)

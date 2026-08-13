@@ -38,6 +38,7 @@ object DepositBalance {
 
     private const val PERCENT: Long = 100
     private const val DANGER_BONUS_PERCENT: Long = 35
+    private const val MINUTES_PER_HOUR: Long = 60
 
     // **The cap carries the multiplier the rate carries, and that is the load-bearing line of the
     // whole design.** Time to strip a world is `cap / rate`; give the two different multipliers and
@@ -82,17 +83,22 @@ object DepositBalance {
         ships: Ships,
         danger: Int,
         remaining: Long,
+        research: Research,
     ): Duration {
         require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
         require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
         if (remaining == 0L || ships.isEmpty) return Duration.ZERO
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
+        val rate = FleetBalance.extractionPerHour(research)
+        if (rate <= 0) return Duration.ZERO
         var numerator = checkedTimes(remaining, GalaxyBalance.RICHNESS_BASIS.toLong()) { "working remaining" }
         numerator = checkedTimes(numerator, PERCENT * pricePerUnit(gathering)) { "working price" }
+        numerator = checkedTimes(numerator, MINUTES_PER_HOUR) { "working hour" }
         var denominator = checkedTimes(ships.total.toLong(), richnessOf(world, gathering).perMillion.toLong()) {
             "working fleet"
         }
         denominator = checkedTimes(denominator, paid) { "working danger" }
+        denominator = checkedTimes(denominator, rate) { "working rate" }
         // Ceiled: a partial minute is still a minute the fleet is on the surface.
         return ((numerator + denominator - 1) / denominator).minutes
     }

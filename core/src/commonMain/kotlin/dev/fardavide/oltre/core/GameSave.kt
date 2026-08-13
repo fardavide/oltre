@@ -55,7 +55,8 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
-    // 10 — deposits: what has been taken out of each world, and when that was last true. Nested
+    // 10 — deposits, and the fourth technology's level beside them: what has been taken out of each
+    //     world, and when that was last true. Nested
     //     inside `galaxy` rather than beside it, because it is the third thing in the same family as
     //     `surveyed` and `ownership` — what the player changed about a map that is otherwise a seed.
     //     Additive, and the emptiest hop in the table: a colony saved before veins ran dry has taken
@@ -210,8 +211,15 @@ object GameSave {
         // saved before worlds could run dry has full veins everywhere, and an empty list is precisely
         // that statement rather than a placeholder for it.
         9 to { root ->
-            val galaxy = (root["state"] as? JsonObject)?.get("galaxy") as? JsonObject ?: return@to root
-            root.withState("galaxy" to JsonObject(galaxy + ("deposits" to JsonArray(emptyList()))))
+            val state = root["state"] as? JsonObject
+            val galaxy = state?.get("galaxy") as? JsonObject ?: return@to root
+            val research = state["research"] as? JsonObject ?: JsonObject(emptyMap())
+            root.withState(
+                "galaxy" to JsonObject(galaxy + ("deposits" to JsonArray(emptyList()))),
+                // The fourth technology ships in the same version, so it hops in the same step —
+                // schema 9's own precedent, one hop for two fields that no save can ever hold apart.
+                "research" to JsonObject(research + ("prospecting" to JsonPrimitive(0))),
+            )
         },
     )
 

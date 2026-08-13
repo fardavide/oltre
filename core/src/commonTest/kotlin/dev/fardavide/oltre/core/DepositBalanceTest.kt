@@ -88,6 +88,7 @@ class DepositBalanceTest {
                     gathering = ResourceKind.METAL,
                     ships = one,
                     danger = danger,
+                    research = Research.initial(),
                     remaining = cap,
                 ),
                 "stripping ${world.at} at danger $danger",
@@ -108,6 +109,7 @@ class DepositBalanceTest {
                 gathering = ResourceKind.METAL,
                 ships = Ships.of(ShipType.SKIFF, 4),
                 danger = 0,
+                research = Research.initial(),
                 remaining = cap,
             ),
         )
@@ -126,12 +128,13 @@ class DepositBalanceTest {
             gathering = ResourceKind.METAL,
             ships = ships,
             danger = 3,
+            research = Research.initial(),
             remaining = remaining,
         )
 
-        val atThatMinute = FleetBalance.cargo(world, ResourceKind.METAL, ships, working, danger = 3).metal
+        val atThatMinute = FleetBalance.cargo(world, ResourceKind.METAL, ships, working, danger = 3, research = Research.initial()).metal
         val aMinuteEarlier =
-            FleetBalance.cargo(world, ResourceKind.METAL, ships, working - 1.minutes, danger = 3).metal
+            FleetBalance.cargo(world, ResourceKind.METAL, ships, working - 1.minutes, danger = 3, research = Research.initial()).metal
         assertEquals(true, atThatMinute >= remaining, "at $working the fleet lifts $atThatMinute of $remaining")
         assertEquals(true, aMinuteEarlier < remaining, "a minute earlier it lifts $aMinuteEarlier of $remaining")
     }
@@ -147,6 +150,7 @@ class DepositBalanceTest {
                 gathering = ResourceKind.METAL,
                 ships = Ships.of(ShipType.SKIFF, 1),
                 danger = 0,
+                research = Research.initial(),
                 remaining = 0,
             ),
         )

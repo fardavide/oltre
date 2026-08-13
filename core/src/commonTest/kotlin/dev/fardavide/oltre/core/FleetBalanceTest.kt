@@ -17,6 +17,10 @@ class FleetBalanceTest {
 
     private val home = at(2, 125, 5)
 
+    // Nothing researched: every curve pinned here is the unresearched one, and the fourth
+    // technology's effect is `ProspectingTest`'s subject rather than a term in these tables.
+    private val NONE: Research = Research.initial()
+
     // ── Distance: three rules and not one metric ─────────────────────────────────────────────
 
     @Test
@@ -235,6 +239,7 @@ class FleetBalanceTest {
             ships = Ships.of(ShipType.SKIFF, 1),
             station = station,
             danger = FleetBalance.danger(home, rich),
+            research = Research.initial(),
         )
 
         // then — 198 at the `EXTRACTION_PER_HOUR` of 60. This row has been published three times:
@@ -276,6 +281,7 @@ class FleetBalanceTest {
             ships = Ships.of(ShipType.SKIFF, 1),
             station = station,
             danger = 1,
+            research = Research.initial(),
         )
         assertEquals(284L, cargo.metal)
         assertTrue(cargo.metal > flooredEarly)
@@ -288,6 +294,7 @@ class FleetBalanceTest {
             ships = Ships.of(ShipType.SKIFF, 4),
             station = station,
             danger = 1,
+            research = Research.initial(),
         )
         assertEquals(1_138L, four.metal)
         assertTrue(four.metal > 4 * cargo.metal)
@@ -300,8 +307,8 @@ class FleetBalanceTest {
         val target = home.copy(slot = 6)
         val even = world(target, metalPerMillion = 1_240_000, crystalPerMillion = 1_240_000, hazards = emptySet())
 
-        val metal = FleetBalance.cargo(even, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
-        val crystal = FleetBalance.cargo(even, ResourceKind.CRYSTAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
+        val metal = FleetBalance.cargo(even, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE)
+        val crystal = FleetBalance.cargo(even, ResourceKind.CRYSTAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE)
 
         assertEquals(198L, metal.metal)
         assertEquals(99L, crystal.crystal)
@@ -317,7 +324,7 @@ class FleetBalanceTest {
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
         fun holdAt(danger: Int): Long =
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger).metal
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger, NONE).metal
 
         assertEquals(198L, holdAt(0))
         assertEquals(267L, holdAt(1))
@@ -335,7 +342,7 @@ class FleetBalanceTest {
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
         fun holdAt(danger: Int): Long =
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger).metal
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, danger, NONE).metal
 
         assertTrue(holdAt(10) > holdAt(5))
         assertTrue(holdAt(14) > holdAt(10))
@@ -348,15 +355,15 @@ class FleetBalanceTest {
 
         assertEquals(
             Resources.of(),
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 0.minutes, 0),
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 0.minutes, 0, NONE),
         )
         assertEquals(
             Resources.of(),
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), (-30).minutes, 0),
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), (-30).minutes, 0, NONE),
         )
         assertEquals(
             Resources.of(),
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.NONE, 160.minutes, 0),
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.NONE, 160.minutes, 0, NONE),
         )
     }
 
@@ -367,8 +374,8 @@ class FleetBalanceTest {
         val rich = world(target, metalPerMillion = 1_600_000, hazards = emptySet())
 
         assertTrue(
-            FleetBalance.cargo(poor, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0).metal <
-                FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0).metal,
+            FleetBalance.cargo(poor, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE).metal <
+                FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE).metal,
         )
     }
 
@@ -380,7 +387,7 @@ class FleetBalanceTest {
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
 
         assertFailsWith<IllegalArgumentException> {
-            FleetBalance.cargo(rich, ResourceKind.DEUTERIUM, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0)
+            FleetBalance.cargo(rich, ResourceKind.DEUTERIUM, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE)
         }
     }
 

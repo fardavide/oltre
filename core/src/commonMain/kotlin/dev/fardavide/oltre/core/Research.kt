@@ -17,6 +17,18 @@ enum class Technology {
     PHOTOVOLTAICS,
     EXTRACTION,
     ENRICHMENT,
+
+    // **The fourth, and the first whose payoff is not an hourly rate.** The other three multiply
+    // something the colony produces while you are away; this one multiplies what a fleet pulls out of
+    // a world it is standing on, so it is the only row on that screen a player cannot read off their
+    // own production. It is what Davide asked for at 0.9 — *"power up my ship so it can gather more
+    // resources in the same time"* — after the hold ceiling he first proposed was measured and
+    // dropped.
+    //
+    // Note what it deliberately does **not** buy, because the sheet's §5 got this wrong once: it is
+    // not relief from depletion. Where the binding constraint is a vein rather than a clock, a faster
+    // hull drains the same vein sooner. What it buys is reach — the frontier at a shorter window.
+    PROSPECTING,
 }
 
 @Serializable
@@ -52,6 +64,7 @@ data class Research(
     val photovoltaics: TechLevel,
     val extraction: TechLevel,
     val enrichment: TechLevel,
+    val prospecting: TechLevel,
     val thermal: TechLevel,
     val gravitic: TechLevel,
     val atmospheric: TechLevel,
@@ -60,6 +73,7 @@ data class Research(
         Technology.PHOTOVOLTAICS -> photovoltaics
         Technology.EXTRACTION -> extraction
         Technology.ENRICHMENT -> enrichment
+        Technology.PROSPECTING -> prospecting
     }
 
     fun levelOf(technology: AdaptationTechnology): TechLevel = when (technology) {
@@ -72,6 +86,7 @@ data class Research(
         Technology.PHOTOVOLTAICS -> copy(photovoltaics = level)
         Technology.EXTRACTION -> copy(extraction = level)
         Technology.ENRICHMENT -> copy(enrichment = level)
+        Technology.PROSPECTING -> copy(prospecting = level)
     }
 
     fun withLevel(technology: AdaptationTechnology, level: TechLevel): Research = when (technology) {
@@ -94,6 +109,7 @@ data class Research(
             photovoltaics = TechLevel(0),
             extraction = TechLevel(0),
             enrichment = TechLevel(0),
+            prospecting = TechLevel(0),
             thermal = TechLevel(0),
             gravitic = TechLevel(0),
             atmospheric = TechLevel(0),
