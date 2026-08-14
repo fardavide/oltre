@@ -201,6 +201,7 @@ class WorldVerdictTest {
         surveyed = surveyed,
         ownership = ownership,
         deposits = emptyList(),
+        pinned = emptySet(),
     )
 
     private fun surveyedGalaxy(): GalaxyState = galaxy(surveyed = setOf(HOME, NEIGHBOUR))

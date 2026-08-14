@@ -85,7 +85,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 11
+    const val SCHEMA_VERSION: Int = 12
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -234,6 +234,17 @@ object GameSave {
                 // schema 9's own precedent, one hop for two fields that no save can ever hold apart.
                 "research" to JsonObject(research + ("prospecting" to JsonPrimitive(0))),
             )
+        },
+        // 11 -> 12: pins. The galaxy identity slice's *only* on-disk cost — names, epithets,
+        // portraits and regions are all regenerated from the seed, and the ledger's filters and sort
+        // deliberately do not persist. Additive, and inside `galaxy` for schema 11's own reason: a
+        // pin is a thing the player changed about the map, like a survey and like ownership.
+        //
+        // An empty set is the statement rather than a placeholder for it — a colony saved before the
+        // ledger existed had nowhere to pin anything from.
+        11 to { root ->
+            val galaxy = (root["state"] as? JsonObject)?.get("galaxy") as? JsonObject ?: return@to root
+            root.withState("galaxy" to JsonObject(galaxy + ("pinned" to JsonArray(emptyList()))))
         },
     )
 

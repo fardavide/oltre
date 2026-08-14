@@ -187,6 +187,7 @@ class GalaxyDistributionTest {
             surveyed = setOf(at),
             ownership = listOf(WorldOwnership(at = HOME, holder = EmpireId.PLAYER)),
             deposits = emptyList(),
+            pinned = emptySet(),
         ),
         adaptation = AdaptationLevels.NONE,
     )
