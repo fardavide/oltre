@@ -816,8 +816,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   the 3h rung reaches six worlds where a once-a-day player reaches thirty-nine. The dial that touches
   it is the drive technology, not the cap. **The thing to watch on a device**: if the six-hourly
   player feels poor, the answer is a faster hull rather than a shallower world.
-- **Two `error("unreachable")` arms stay uncovered** in the `when`s over `ResourceKind`, because the
-  enum is three-valued where the fleet only handles two. The fix is a type rather than a test.
+- ~~**Two `error("unreachable")` arms stay uncovered** in the `when`s over `ResourceKind`, because the
+  enum is three-valued where the fleet only handles two. The fix is a type rather than a test.~~
+  **Done at 0.10.1, and by the fix this entry named.** `FleetBalance` carries a private two-valued
+  `Gathered`, and `cargo` maps into it once at the door instead of guarding with a `require` and then
+  carrying three dead arms downstream. The public signature, `Run.gathering` and the save format are
+  untouched — the narrowing is entirely inside the object. It was the coverage gate that finally
+  forced it: flattening the hull price deleted six *covered* branches, so unit branch coverage fell
+  0.06pp with nothing newly uncovered, and the honest way back up was to stop counting branches no
+  test can reach.
 
 - **THE NEXT THING TO BUILD: the screen that dispatches a probe.** The `core` half landed at 0.1.2
   and **nothing a player can reach changed** — `startSurvey` exists, `advance` lands probes,

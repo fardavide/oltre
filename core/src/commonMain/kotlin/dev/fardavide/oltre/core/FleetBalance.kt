@@ -231,16 +231,40 @@ object FleetBalance {
 
     private const val MINUTES_PER_HOUR: Long = 60
 
-    private fun pricePerUnit(kind: ResourceKind): Long = when (kind) {
-        ResourceKind.METAL -> 1
-        ResourceKind.CRYSTAL -> 2
-        ResourceKind.DEUTERIUM -> 3
+    // **The two resources a hull can actually lift, as a type rather than as three `when` arms that
+    // say "unreachable".** `cargo` takes a `ResourceKind` because that is what a `Run` stores and what
+    // a save round-trips, and it has always refused deuterium at the door — but the refusal lived in a
+    // `require` and then three separate `when`s downstream each had to carry a dead `DEUTERIUM` arm.
+    // Dead in the exact sense that matters: unreachable by construction, so no test could ever reach
+    // them, which is what `status.md` recorded as *"two `error("unreachable")` arms stay uncovered —
+    // the fix is a type rather than a test"*.
+    //
+    // This is that type, kept private and kept small. It converts the guard into a mapping that
+    // happens once: past `gathered()` the impossible case is not representable, so the arithmetic
+    // below has nothing left to assert about it. The public signature, `Run.gathering` and the save
+    // format are all untouched — the narrowing is entirely inside this object.
+    private enum class Gathered(val pricePerUnit: Long) {
+        METAL(1),
+        CRYSTAL(2),
+        ;
+
+        fun richnessOf(world: World): Richness = when (this) {
+            METAL -> world.traits.metalRichness
+            CRYSTAL -> world.traits.crystalRichness
+        }
+
+        fun holding(whole: Long): Resources = when (this) {
+            METAL -> Resources.of(metal = whole)
+            CRYSTAL -> Resources.of(crystal = whole)
+        }
     }
 
-    private fun richnessOf(world: World, gathering: ResourceKind): Richness = when (gathering) {
-        ResourceKind.METAL -> world.traits.metalRichness
-        ResourceKind.CRYSTAL -> world.traits.crystalRichness
-        ResourceKind.DEUTERIUM -> world.traits.deuteriumRichness
+    // Null is "a hull cannot lift this", and the one caller turns it into the same
+    // `IllegalArgumentException` the `require` used to raise, with the same message.
+    private fun ResourceKind.gathered(): Gathered? = when (this) {
+        ResourceKind.METAL -> Gathered.METAL
+        ResourceKind.CRYSTAL -> Gathered.CRYSTAL
+        ResourceKind.DEUTERIUM -> null
     }
 
     // **One rounding rule, here and on every screen: the whole expression divides once, at the end.**
@@ -261,24 +285,19 @@ object FleetBalance {
         danger: Int,
         research: Research,
     ): Resources {
-        require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
+        val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
         if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
         var numerator = checkedTimes(ships.total.toLong(), extractionPerHour(research)) { "cargo hulls" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
-        numerator = checkedTimes(numerator, richnessOf(world, gathering).perMillion.toLong()) { "cargo richness" }
+        numerator = checkedTimes(numerator, gathered.richnessOf(world).perMillion.toLong()) { "cargo richness" }
         numerator = checkedTimes(numerator, paid) { "cargo danger" }
         val denominator = MINUTES_PER_HOUR *
             GalaxyBalance.RICHNESS_BASIS *
             PERCENT *
-            pricePerUnit(gathering)
-        val whole = numerator / denominator
-        return when (gathering) {
-            ResourceKind.METAL -> Resources.of(metal = whole)
-            ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
-            ResourceKind.DEUTERIUM -> error("unreachable — guarded above")
-        }
+            gathered.pricePerUnit
+        return gathered.holding(numerator / denominator)
     }
 
     // ── The hull ─────────────────────────────────────────────────────────────────────────────
