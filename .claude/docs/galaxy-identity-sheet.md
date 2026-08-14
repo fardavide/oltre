@@ -123,8 +123,9 @@ is the same class of fact as *"the outer slots are where the deuterium is"* and 
 
 ### 1.2 The temperaments are a permutation, not ten independent draws — and this is the load-bearing detail
 
-Each galaxy holds a **fixed multiset** of ten temperaments — proposed `3 × Deep, 4 × Settled,
-3 × Burning` — shuffled into its ten regions by the seed. Not ten independent draws.
+Each galaxy holds a **fixed multiset** of ten temperaments — `4 × Deep, 2 × Settled, 4 × Burning`,
+**shipped**, after `3 × Deep, 4 × Settled, 3 × Burning` was proposed here and measured — shuffled into
+its ten regions by the seed. Not ten independent draws.
 
 Two consequences, both required:
 
@@ -137,9 +138,11 @@ Two consequences, both required:
    a player for whom this entire section did nothing.
 
 **What it is *not* is identical to today's mix, and an earlier draft of this sheet claimed it could
-be.** It cannot: ten regions cannot average to thirds of 1,000, and `3 × Deep, 4 × Settled,
-3 × Burning` on the table above pools to **29 / 42 / 29**. That is a decision rather than a missed
-target, and it is a cheap one to take, because **equal thirds was never decided either** —
+be.** It cannot: ten regions cannot average to thirds of 1,000. `4 / 2 / 4` pools to **32 / 36 / 32**,
+which is what shipped and is near enough equal thirds to leave every target below alone; the proposed
+`3 / 4 / 3` pooled to 29 / 42 / 29 and left four bland regions in ten instead of two. That is a
+decision rather than a missed target, and it is a cheap one to take, because **equal thirds was never
+decided either** —
 `GalaxyBalance.kt:74` says so in as many words: *"ASSUMED, NOT DECIDED. The sheet gives each star
 class its temperature offset but never says how often each one occurs, so this slice takes equal
 thirds and says so"*, and it is carried as an open call in `balance-log.md`. So this section closes
@@ -393,7 +396,7 @@ worth having. **C is its own.** D is its own because baselines move.
 | 1 | Region count and width | **10 × 25.** A region is about two hours wide at drive 0 — a plausible night's dispatch — and ten names a galaxy is learnable in a week |
 | 2 | How hard a region tilts | **Moderate, 60 / 30 / 10.** A Deep is clearly cold and a Settled still reads like today's map, so a region keeps some texture instead of becoming one fact |
 | 3 | Migration for existing saves | **Keep the seed and the home coordinate** — §1.4, and the changelog says the map moved |
-| 4 | The temperament multiset | `3 × Deep, 4 × Settled, 3 × Burning`, pooling to 29 / 42 / 29 — which **closes** `GalaxyBalance.kt:74`'s assumed equal thirds rather than disturbing a decided number. The sim reports §9's four rows against it before it is believed |
+| 4 | The temperament multiset | **`4 × Deep, 2 × Settled, 4 × Burning`**, pooling to 32 / 36 / 32 — which **closes** `GalaxyBalance.kt:74`'s assumed equal thirds rather than disturbing a decided number. Measured: both §9 rows stay in band, and the row was re-pinned across six maps because one map cannot carry it. `balance-log.md` round 26 |
 | 5 | Where the epithet appears | **The row and the dispatch sheet.** The list you scan is the thing that reads as faceless, so the row is where it has to earn its line — and the row is already the tightest surface in the app, which is why §6 sends it to Design |
 | 6 | Where the ledger lives | **Design's call**, asked. With it went the portrait's visual language and whether region names belong on the reach strip |
 

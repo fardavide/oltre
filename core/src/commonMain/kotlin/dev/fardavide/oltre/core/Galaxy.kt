@@ -45,6 +45,21 @@ data class GalaxyCoordinate(
 // system's stream rather than the world's.
 enum class StarClass { DIM, STANDARD, BRIGHT }
 
+// What a region of 25 systems is like, and the only spatial structure the map has ever had.
+//
+// Until 0.10 star class was hashed per system and nothing else was system-level at all, so any two
+// neighbourhoods of the galaxy were drawn from the same distribution — which meant **nothing about
+// any region could be learned**, and a map you cannot learn has addresses rather than places. See
+// `galaxy-identity-sheet.md` §0.
+//
+// The lesson each one teaches is arithmetic rather than flavour: a dim star is −40 °C and a bright
+// one +40 °C against a fall of 28 °C per orbit, so the tolerable orbits move about three slots
+// between them and deuterium richness swings across two thirds of its range. *In a Deep you settle
+// close in and the deuterium is good; in a Burning you settle far out and it is poor* is therefore
+// a true thing a player can act on before surveying anything — because star class is charted, and
+// charted is free from the first launch.
+enum class RegionTemperament { DEEP, SETTLED, BURNING }
+
 // Not an axis, deliberately: a hazard is about what happens *over time* where the three axes are
 // about what the world *is*. As a fourth bar it would be a number the player cannot act on until
 // colonisation exists; as words it makes a world memorable in one line, and gives slice #10 its

@@ -151,6 +151,28 @@ class GalaxyDistributionTest {
         )
     }
 
+    @Test
+    fun `passing every band holds its target across seeds rather than on one lucky map`() {
+        // **Added at 0.10, and it is a correction to how this file measures rather than a new
+        // target.** Regions made the two rows above move — 1.81% to 1.51% on the test seed — and
+        // reading that as a 17% thinning was wrong: `passes every band` is a count of about 75
+        // worlds, so its Poisson noise is ±11% on a single map and a one-seed reading cannot tell a
+        // real shift from a fluctuation. The per-axis marginals next door are counts of ~1,200 and
+        // are tight; this row never was.
+        //
+        // So the instrument is the spread across seeds, and the assertion is that **every** map is
+        // inside the sheet's band rather than that the average is.
+        val shares = DISTRIBUTION_SEEDS.map { seed ->
+            val worlds = galaxy(seed)
+            percentOf(worlds.count { it.passesEveryBand() }, worlds.size)
+        }
+
+        assertTrue(
+            shares.all { it in 100..200 },
+            "every seed must pass every band on 1–2% of its worlds, measured ${shares.map { it / 100.0 }}",
+        )
+    }
+
     private val unaided = GalaxyBalance.tolerance(AdaptationLevels.NONE)
 
     private fun World.passesEveryBand(): Boolean =
@@ -184,5 +206,16 @@ class GalaxyDistributionTest {
     private companion object {
         // Somewhere the sampled worlds are not, so no sampled world is ever read as Home.
         val HOME = GalaxyCoordinate(galaxy = 1, system = 1, slot = 1)
+
+        // Six maps of 4,700 worlds each. Enough that a 1–2% row cannot hold on luck; few enough
+        // that the whole file still runs in a couple of seconds.
+        val DISTRIBUTION_SEEDS = listOf(
+            TEST_GALAXY_SEED,
+            OTHER_GALAXY_SEED,
+            GalaxySeed(20_260_814),
+            GalaxySeed(1),
+            GalaxySeed(-7),
+            GalaxySeed(Long.MAX_VALUE / 3),
+        )
     }
 }
