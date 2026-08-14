@@ -60,6 +60,10 @@ internal enum class GenerationAxis(val tag: Long) {
     // Which of the ten regions of a galaxy gets which temperament. Drawn from the *galaxy's* seed,
     // because a region is a property of a galaxy's layout rather than of any system in it.
     REGION(0xA54FF53A5F1D36F1uL.toLong()),
+
+    // What a system and a region are called. Adding this tag is the sub-stream rule paying for
+    // itself: 4,700 worlds get names and not one existing trait moves.
+    NAMES(0xB5026F5AA96619E9uL.toLong()),
 }
 
 // The galaxy's own seed, shared by every system in it. Extracted from `systemSeed` rather than
@@ -81,7 +85,7 @@ internal fun draw(stream: Long, index: Int): Long = mix(stream + DRAW_STEP * ind
 
 // `mod` rather than `%` throughout: a hash is as often negative as positive, and `%` would make
 // half the galaxy fall outside every range.
-private fun Long.boundedBy(bound: Int): Int = mod(bound.toLong()).toInt()
+internal fun Long.boundedBy(bound: Int): Int = mod(bound.toLong()).toInt()
 
 internal fun uniformFrom(stream: Long): Uniform = Uniform(stream.boundedBy(Uniform.BASIS + 1))
 
