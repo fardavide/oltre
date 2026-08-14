@@ -64,6 +64,7 @@ object GalaxyBalance {
     // rolled ten Settled regions is a galaxy this slice did nothing for. Shuffling a fixed list
     // makes the pooled distribution identical for *every* seed, and lets the game promise that
     // there is a Deep somewhere in yours.
+    //
     // **Four, two, four.** `3 / 4 / 3` was the sheet's proposal and this is the build's call under
     // `galaxy-identity-sheet.md` §9.4, on two arguments:
     //
@@ -108,6 +109,10 @@ object GalaxyBalance {
     // nothing only if nothing else was ever drawn from its sub-seed.
     const val RELAY_SYSTEM_IN: Int = 40
 
+    // One world in two hundred wears a ring — about six in a galaxy, twenty-three across the map.
+    // Rare enough to be worth remarking on, common enough that a fortnight's play meets one.
+    const val RING_IN: Int = 200
+
     // ── Temperature: a function of the orbit, which is why the coordinate is worth having ────
     //
     // Position *is* a trait, so the charted map is readable before anything has been surveyed and
@@ -126,7 +131,7 @@ object GalaxyBalance {
     // **DECIDED at 0.10, and it closes the open call this function used to carry.** Until then it
     // read *"ASSUMED, NOT DECIDED … this slice takes equal thirds and says so"*, with the mix
     // recorded as open in `balance-log.md`. The mix is now a consequence of the region temperaments
-    // rather than a number of its own: `3 × Deep, 4 × Settled, 3 × Burning` pools to 29 / 42 / 29.
+    // rather than a number of its own: `4 × Deep, 2 × Settled, 4 × Burning` pools to 32 / 36 / 32.
     //
     // The same sentence that made equal thirds safe is what makes this safe — **because the
     // habitable orbits shift with the offset, each class passes the temperature band on ~25% of its

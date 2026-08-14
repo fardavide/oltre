@@ -367,6 +367,7 @@ internal object BalanceBenchmark {
             at = neighbour,
             starClass = StarClass.STANDARD,
             traits = worldAt(TEST_GALAXY_SEED, home)?.traits ?: error("home has no world"),
+            hasRing = false,
         )
         val cargo = FleetBalance.cargo(
             world = average,

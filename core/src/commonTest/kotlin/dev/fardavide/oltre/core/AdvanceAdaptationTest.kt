@@ -196,6 +196,7 @@ class AdvanceAdaptationTest {
             hazards = emptySet(),
             fields = GalaxyBalance.fields(Gravity(gravity)),
         ),
+        hasRing = false,
     )
 
     @Test

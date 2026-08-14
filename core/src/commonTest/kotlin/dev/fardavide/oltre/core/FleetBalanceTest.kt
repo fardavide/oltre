@@ -514,5 +514,6 @@ class FleetBalanceTest {
             hazards = hazards,
             fields = 150,
         ),
+        hasRing = false,
     )
 }

@@ -64,6 +64,9 @@ internal enum class GenerationAxis(val tag: Long) {
     // What a system and a region are called. Adding this tag is the sub-stream rule paying for
     // itself: 4,700 worlds get names and not one existing trait moves.
     NAMES(0xB5026F5AA96619E9uL.toLong()),
+
+    // Whether a world wears a ring. The only generated quantity in the game that no rule reads.
+    RING(0xC6EF372FE94F82BEuL.toLong()),
 }
 
 // The galaxy's own seed, shared by every system in it. Extracted from `systemSeed` rather than
@@ -143,6 +146,12 @@ fun worldAt(seed: GalaxySeed, at: GalaxyCoordinate): World? {
     return World(
         at = at,
         starClass = starClass,
+        // **Means nothing, on purpose.** One world in `RING_IN` is memorable for no reason at all,
+        // and "the one with the ring" is a sentence a player says about a place rather than about a
+        // statistic. It is on `World` rather than on `WorldTraits` because a survey is not what
+        // reveals it — a ring is visible from home, like the star class, and the portrait only draws
+        // one because the portrait is only drawn once a world is surveyed anyway.
+        hasRing = streamOf(world, GenerationAxis.RING).boundedBy(GalaxyBalance.RING_IN) == 0,
         traits = WorldTraits(
             temperature = temperature,
             gravity = gravity,

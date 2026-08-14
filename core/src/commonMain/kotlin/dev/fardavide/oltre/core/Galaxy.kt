@@ -126,4 +126,8 @@ data class World(
     val at: GalaxyCoordinate,
     val starClass: StarClass,
     val traits: WorldTraits,
+    // Decoration, and the only one in the game. It reads no trait and no trait reads it, so it can
+    // never disagree with anything — which is what makes it safe on a screen where every other mark
+    // is a measurement. See `GenerationAxis.RING`.
+    val hasRing: Boolean,
 )

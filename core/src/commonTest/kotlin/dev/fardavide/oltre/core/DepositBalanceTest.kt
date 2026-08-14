@@ -325,5 +325,6 @@ class DepositBalanceTest {
             hazards = hazards,
             fields = 150,
         ),
+        hasRing = false,
     )
 }
