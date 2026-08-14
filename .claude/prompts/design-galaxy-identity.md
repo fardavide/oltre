@@ -9,7 +9,7 @@ the sheet to come back and then builds it.
 ```
 Oltre is an asynchronous space-colonisation strategy game in the OGame lineage — Kotlin Multiplatform,
 Compose Multiplatform, iPhone is the delivery target. Check-ins are 5–10 minutes; everything progresses
-while the app is closed. It is at 0.10.0. Colony, Research, Shipyard, Galaxy and Fleets are all built.
+while the app is closed. It is at 0.10.1. Colony, Research, Shipyard, Galaxy and Fleets are all built.
 You designed the fleet slice at 0.4 (world row treatments 1a/1b/1c, the dispatch sheet, Fleets,
 Shipyard) and this is the same Galaxy screen, one year of slices later.
 
@@ -39,22 +39,39 @@ WHAT WE FOUND, MEASURED — so you know the shape of the hole
 
 WHAT IS BEING BUILT — read `.claude/docs/galaxy-identity-sheet.md` in full; this is the summary
 
+The first three bullets are ALREADY BUILT AND GREEN in core — regions, names and epithets exist, are
+tested, and produce the real strings quoted below. The last three are what your frames decide.
+
 - REGIONS. Each galaxy's 250 systems are cut into 10 contiguous regions of 25. Each region has a
   generated name and a real star-class bias — a "Deep" runs 60% dim stars, a "Burning" 60% bright.
   Because a dim star is −40 °C and a bright one +40 °C against a fall of 28 °C per orbit, the
   HABITABLE ORBITS MOVE: in a Deep you settle close in and the deuterium is good, in a Burning you
   settle far out and it is poor. That is a fact a player can act on before surveying anything, because
-  star class is free from the first launch. Every galaxy holds exactly 3 Deep, 4 Settled, 3 Burning.
-- NAMES, generated, never stored, never renameable by the player (deferred to colonisation). A system
-  is "Calanova"; the world in slot 7 is "Calanova VII". Systems in a region rhyme in character — the
-  Deep's names long and soft, the Burning's short and hard. The coordinate does not disappear: it is
-  the address, and it becomes the subtitle.
+  star class is free from the first launch. Every galaxy holds exactly 4 Deep, 2 Settled, 4 Burning.
+  ALL OF THIS IS BUILT AND MEASURED — it is not a proposal you are designing against in the abstract.
+- NAMES, generated, never stored, never renameable by the player (deferred to colonisation). Systems
+  in a region rhyme in character. Real output, from the shipped generator, galaxy 1 of the test seed:
+    a Deep   — Lumiaren · Almianova · Nerimira · Calelis · Velovae · Miraren
+    a Reach  — Elyuvell · Bramura · Sorodun · Ostimar · Ardetis · Venavell
+    a Blaze  — Kragith · Vokik · Teshux · Karodra · Torezon · Daxath
+    regions  — "Almiaren Deep", "Bramuvell Reach", "Vokith Blaze"
+  The world in slot 7 of Calianova is "Calianova VII" — the numeral is the SLOT, not the world's rank
+  among its neighbours, so the map's existing slot labels and the name never disagree.
+  Names are unique within a galaxy, so search by name returns exactly one place.
+  The coordinate does not disappear: it is the address, and it becomes the subtitle.
 - A PORTRAIT per world. A procedurally drawn disc where every channel is a trait the game already
   generates: hue from temperature, banding from pressure, size from gravity, plus a terminator for
   TIDALLY_LOCKED, a storm swirl for ION_STORMS, fracture lines for SEISMIC_INSTABILITY / THIN_CRUST, a
   halo for RADIATION_BELT, and a rare ring that means nothing at all.
-- AN EPITHET per world — a derived two-word phrase, never rolled, so it cannot lie: "iron giant",
-  "frost husk", "storm shroud".
+- AN EPITHET per world — a derived two-word phrase, never rolled, so it cannot lie. BUILT; the noun
+  comes from the axis a world is most extreme on and the adjective from the second, both measured
+  against the level-0 tolerance bands. Real output, and the spread across a galaxy is wide — no single
+  epithet is more than 8% of worlds:
+    hollow shroud · frozen giant · iron frost · airless furnace · scorched shroud · brittle husk
+    drowned shroud · deep frost · ashen furnace · bare waste · iron giant · temperate world
+  "temperate world" is the ~1.5% that sit inside every band — the only worlds a settler can take, and
+  the one epithet a player should be glad to read.
+  The words are Davide's to overrule; the derivation is not.
 - A LEDGER of everything you have surveyed, with filters, sort, pins and search by name.
 - HISTORY per world: when you found it, how many runs you have sent, how much you have taken out.
 
