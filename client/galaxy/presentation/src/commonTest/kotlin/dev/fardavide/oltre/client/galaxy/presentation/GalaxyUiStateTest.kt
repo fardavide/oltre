@@ -41,10 +41,10 @@ class GalaxyUiStateTest {
         val uiState = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
         assertEquals("3:171", uiState.coordinate)
-        assertEquals("DIM · 7 worlds", uiState.detail)
+        assertEquals("STANDARD · 7 worlds", uiState.detail)
         // A Slide Over pane drops the noun rather than truncating it — a width decision, not a
         // change of voice: the star class and the count both survive.
-        assertEquals("DIM · 7", uiState.compactDetail)
+        assertEquals("STANDARD · 7", uiState.compactDetail)
         assertTrue(uiState.isHome)
         assertEquals("250 systems", uiState.scope)
     }
@@ -177,7 +177,7 @@ class GalaxyUiStateTest {
         // The space before each unit is U+00A0, written as an escape here so the expectation is
         // legible in a diff — a value and its unit must never be split across a wrap.
         val verdict = assertIs<VerdictUiState.Home>(home.verdict)
-        assertEquals("−5 °C · 1.21 g · 1.95 atm · 159 fields", verdict.note)
+        assertEquals("+35 °C · 1.21 g · 1.95 atm · 159 fields", verdict.note)
         assertEquals("[3:171:7]", home.coordinate)
     }
 
@@ -314,7 +314,7 @@ class GalaxyUiStateTest {
         val atGenesis = state().toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val climbed = climbed(AdaptationTechnology.THERMAL, to = 12).toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
 
-        // Slot 1 fails all three axes at level 0, and the hottest of them wants Thermal 7 — so an
+        // Slot 1 fails all three axes at level 0, and the hottest of them wants Thermal 10 — so an
         // empire at Thermal 12 is past it and the row is down to two failures.
         val before = assertIs<VerdictUiState.Blocked>(atGenesis.rowAt(slot = 1).verdict)
         val after = assertIs<VerdictUiState.Blocked>(climbed.rowAt(slot = 1).verdict)
@@ -324,13 +324,13 @@ class GalaxyUiStateTest {
     }
 
     // The row still names the level to *buy* rather than the one already held, which is what keeps
-    // it a shopping list: an empire at Thermal 3 facing a world that wants 7 reads "Thermal 7".
+    // it a shopping list: an empire at Thermal 3 facing a world that wants 10 reads "Thermal 10".
     @Test
     fun `a partly climbed ladder still names the level that would land the world`() {
         val uiState = climbed(AdaptationTechnology.THERMAL, to = 3).toGalaxyUiState(at = homeSelection(), now = EPOCH, timeZone = TimeZone.UTC)
         val blocked = assertIs<VerdictUiState.Blocked>(uiState.rowAt(slot = 1).verdict)
 
-        assertEquals("Thermal 7", blocked.failures.first { it.axis == "temperature" }.label)
+        assertEquals("Thermal 10", blocked.failures.first { it.axis == "temperature" }.label)
     }
 
     @Test
@@ -367,7 +367,7 @@ class GalaxyUiStateTest {
         )
 
         assertTrue(blocked.failures.none { it.label.contains("Adaptation") })
-        assertEquals(listOf("Thermal 7", "Gravitic 2", "Atmospheric 3"), blocked.failures.map { it.label })
+        assertEquals(listOf("Thermal 10", "Gravitic 2", "Atmospheric 3"), blocked.failures.map { it.label })
         // The ladder itself travels beside its label, so the tap target is keyed by the enum rather
         // than by a string that moves every time the empire climbs a level.
         assertEquals(
