@@ -10,13 +10,13 @@ import dev.fardavide.oltre.client.shipyard.ui.ComingHullUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
-import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.ownedShips
+import dev.fardavide.oltre.core.priceOf
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlinx.datetime.TimeZone
@@ -51,11 +51,13 @@ private fun GameState.toHullRow(
     timeZone: TimeZone,
 ): HullUiState {
     val type = hull.type
-    // **The same price at every depth**, which is what `buildShips` charges. This row read the fleet
-    // until 0.10.1 — it had to, because the price climbed with it and a card priced off the *idle*
-    // pool would have quoted a rung the verb would not sell. There is no rung now, so the chips are a
-    // constant and the card cannot disagree with the tap.
-    val cost = FleetBalance.shipCost(type)
+    // **The chips are the verb's own answer, asked for rather than reconstructed.** This line used to
+    // call `FleetBalance.shipCost` with a fleet count it derived itself, which was a second copy of
+    // the rule inside `buildShips` — so the card could quote a price the tap would not honour, and
+    // only a comment and a behaviour test stood between the two. `priceOf` is the same function the
+    // verb charges from, so they cannot disagree, and a price rule that changes does not reach this
+    // file at all.
+    val cost = priceOf(Ships.of(type, 1))
     val short = resources.shortfallOf(cost)
     return HullUiState(
         type = type,

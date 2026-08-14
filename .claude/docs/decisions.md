@@ -2955,3 +2955,40 @@ The Shipyard's footnote opened with *"The next hull costs half again as much as 
 the curve stated to the player. It now names what actually bounds a fleet — *"Every hull costs the
 same, and the yard builds one at a time"* — and all seven shipyard baselines were re-recorded for it.
 PLACEHOLDER copy like every string in the app; content is Davide's.
+
+### A cost function's parameters name what is bought, never how it is priced
+
+Davide, on reviewing the diff above: *"Why are you touching so many files to change the ships price…
+it makes me question the architecture."* The layering was not what hurt — no build file moved, no
+dependency changed, `core` stayed pure. The defect was one level down, in what `core` exposed.
+
+`FleetBalance.shipCost(type, alreadyOwned)` published an **ingredient of the pricing rule** as a
+parameter. Every caller therefore had to know that a hull's price depends on the fleet, and had to
+derive that fleet the same way `buildShips` did — so `ShipyardUiState` carried a second
+implementation of the rule, kept in agreement by a comment (*"a card that priced the next hull off the
+fleet would offer a rung the verb will not sell"*) and by a behaviour test whose only job was to check
+the two copies matched. A test that chaperones duplication is duplication.
+
+Contrast `PlaceholderBalance.upgradeCost(building, toLevel)`, which would survive the identical change
+untouched: `toLevel` is a **fact about the thing being bought**, stable under any pricing rule.
+`alreadyOwned` was a fact about how the thing was priced, and a parameter like that outlives the rule
+that justified it by exactly one release.
+
+So `priceOf` is public and takes the state:
+
+```kotlin
+fun GameState.priceOf(ships: Ships): Resources
+```
+
+The receiver is unused at a flat price, which is the point — a caller passes what it already holds
+rather than an ingredient, so a price that starts reading the fleet again, or the research, or a yard
+technology, changes one function and reaches no screen. The idiom already existed in `Affordability.kt`
+(`shortfallOf`, `timeUntilAffordable`); the Shipyard simply had not used it for price.
+
+**What this would have saved, concretely**: the flat-price change touched `BuildShips.kt`,
+`ShipyardUiState.kt`, the sim's call sites and four test files because of the parameter. With
+`priceOf` in place it is `FleetBalance` plus one function body, and `client/` never moves.
+
+Two things this does *not* indict. The sim's replica of every curve is a deliberate documented trade —
+it sweeps candidate constants `core` cannot produce, and its `check` caught a real bug at round 24.
+And balance tests pinning `800/1200/1800/2700` rung by rung is those tests doing their job.

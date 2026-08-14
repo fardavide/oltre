@@ -110,6 +110,25 @@ class BuildShipsTest {
     }
 
     @Test
+    fun `the price a screen can quote is the price the verb charges`() {
+        // **The seam this exists to close.** The Shipyard used to assemble the price itself — read the
+        // fleet, add the slipway, call `FleetBalance.shipCost` with the total — which was a second
+        // implementation of a rule this file already had, kept in agreement by a comment. So a change
+        // to the rule was a change to the screen, and 0.10.1 paid that bill across four files.
+        //
+        // `priceOf` is what a caller asks instead. It takes the state rather than an ingredient of the
+        // curve, so a price that starts reading the fleet, the research or the buildings again moves
+        // this function and nothing else.
+        val state = wealthy(GameState.initial())
+        val manifest = Ships.of(ShipType.SKIFF, 3)
+
+        val quoted = state.priceOf(manifest)
+        val built = build(state, manifest)
+
+        assertEquals(state.resources - quoted, built.resources)
+    }
+
+    @Test
     fun `an order is logged`() {
         // `GameSession` detects a discrete transition by the log growing, so a verb that appends
         // nothing writes no save and re-syncs no notification. The order and the delivery are two

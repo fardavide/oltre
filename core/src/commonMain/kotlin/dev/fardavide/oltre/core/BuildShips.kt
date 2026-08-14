@@ -53,7 +53,7 @@ sealed interface BuildShipsResult {
 fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
     if (ships.isEmpty) return BuildShipsResult.NothingToBuild
     if (ships.counts.keys.any { it !in FOR_SALE }) return BuildShipsResult.NotForSale
-    val cost = priceOf(ships)
+    val cost = state.priceOf(ships)
     if (!state.resources.covers(cost)) return BuildShipsResult.InsufficientResources
     return BuildShipsResult.Started(
         state.copy(
@@ -81,16 +81,31 @@ fun GameState.ownedShips(): Ships = runs.fold(ships) { total, run -> total + run
 // instant has already passed — the same defence `advance` applies at its own boundary.
 private fun GameState.yardFreesAt(at: Instant): Instant = maxOf(at, yard.lastOrNull()?.completesAt ?: at)
 
-// One price per hull, summed. It walked a compounding curve rung by rung until 0.10.1 and the property
-// that walk existed to protect is the one still asserted: buying two together costs exactly what
-// buying them one after the other costs. With a flat price that is arithmetic rather than a
-// discipline, but it is still what a test pins, because the day a hull is priced against the fleet
-// again this is the loop that has to get it right.
+// **What a manifest costs, and the one place that answers it.** Public, and on `GameState` rather
+// than free-standing, because a screen has to be able to ask — and until 0.10.1 it could not, so the
+// Shipyard assembled the price itself out of `FleetBalance.shipCost` and a fleet count it derived to
+// match this function. Two implementations of one rule, kept in agreement by a comment and a
+// behaviour test, which is why flattening the price cost four files instead of one.
+//
+// **The receiver is unused today and it is the whole point.** A caller passes the state, which it
+// already holds, rather than an ingredient of the pricing rule — so a price that starts reading the
+// fleet again, or the research, or a hull-yard technology, changes this function and nothing that
+// calls it. That is the distinction `PlaceholderBalance.upgradeCost(building, toLevel)` gets right
+// by luck: `toLevel` is a fact about what is being bought. `alreadyOwned` was a fact about how it was
+// priced, and a parameter like that outlives the rule that justified it by exactly one release.
+//
+// One price per hull, summed. It walked a compounding curve rung by rung until 0.10.1 and the
+// property that walk existed to protect is the one still asserted: buying two together costs exactly
+// what buying them one after the other costs.
 //
 // `checkedTimes` guards the multiplication: a manifest's count is whatever a caller passed, so a hull
 // price times a count is the one place here that can leave a Long — and a cost that has wrapped is a
 // cost `covers` reads as free.
-private fun priceOf(ships: Ships): Resources {
+//
+// It raises for a hull with no price, exactly as `FleetBalance.shipCost` does. `buildShips` checks
+// `FOR_SALE` first and the Shipyard draws those hulls as dimmed cards, so no caller reaches it — and
+// a balance object that refuses to invent a number should not start inventing one here.
+fun GameState.priceOf(ships: Ships): Resources {
     var metal = 0L
     var crystal = 0L
     var deuterium = 0L
