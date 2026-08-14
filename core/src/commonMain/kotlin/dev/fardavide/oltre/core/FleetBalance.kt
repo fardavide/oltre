@@ -231,16 +231,40 @@ object FleetBalance {
 
     private const val MINUTES_PER_HOUR: Long = 60
 
-    private fun pricePerUnit(kind: ResourceKind): Long = when (kind) {
-        ResourceKind.METAL -> 1
-        ResourceKind.CRYSTAL -> 2
-        ResourceKind.DEUTERIUM -> 3
+    // **The two resources a hull can actually lift, as a type rather than as three `when` arms that
+    // say "unreachable".** `cargo` takes a `ResourceKind` because that is what a `Run` stores and what
+    // a save round-trips, and it has always refused deuterium at the door — but the refusal lived in a
+    // `require` and then three separate `when`s downstream each had to carry a dead `DEUTERIUM` arm.
+    // Dead in the exact sense that matters: unreachable by construction, so no test could ever reach
+    // them, which is what `status.md` recorded as *"two `error("unreachable")` arms stay uncovered —
+    // the fix is a type rather than a test"*.
+    //
+    // This is that type, kept private and kept small. It converts the guard into a mapping that
+    // happens once: past `gathered()` the impossible case is not representable, so the arithmetic
+    // below has nothing left to assert about it. The public signature, `Run.gathering` and the save
+    // format are all untouched — the narrowing is entirely inside this object.
+    private enum class Gathered(val pricePerUnit: Long) {
+        METAL(1),
+        CRYSTAL(2),
+        ;
+
+        fun richnessOf(world: World): Richness = when (this) {
+            METAL -> world.traits.metalRichness
+            CRYSTAL -> world.traits.crystalRichness
+        }
+
+        fun holding(whole: Long): Resources = when (this) {
+            METAL -> Resources.of(metal = whole)
+            CRYSTAL -> Resources.of(crystal = whole)
+        }
     }
 
-    private fun richnessOf(world: World, gathering: ResourceKind): Richness = when (gathering) {
-        ResourceKind.METAL -> world.traits.metalRichness
-        ResourceKind.CRYSTAL -> world.traits.crystalRichness
-        ResourceKind.DEUTERIUM -> world.traits.deuteriumRichness
+    // Null is "a hull cannot lift this", and the one caller turns it into the same
+    // `IllegalArgumentException` the `require` used to raise, with the same message.
+    private fun ResourceKind.gathered(): Gathered? = when (this) {
+        ResourceKind.METAL -> Gathered.METAL
+        ResourceKind.CRYSTAL -> Gathered.CRYSTAL
+        ResourceKind.DEUTERIUM -> null
     }
 
     // **One rounding rule, here and on every screen: the whole expression divides once, at the end.**
@@ -261,34 +285,47 @@ object FleetBalance {
         danger: Int,
         research: Research,
     ): Resources {
-        require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
+        val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
         if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
         var numerator = checkedTimes(ships.total.toLong(), extractionPerHour(research)) { "cargo hulls" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
-        numerator = checkedTimes(numerator, richnessOf(world, gathering).perMillion.toLong()) { "cargo richness" }
+        numerator = checkedTimes(numerator, gathered.richnessOf(world).perMillion.toLong()) { "cargo richness" }
         numerator = checkedTimes(numerator, paid) { "cargo danger" }
         val denominator = MINUTES_PER_HOUR *
             GalaxyBalance.RICHNESS_BASIS *
             PERCENT *
-            pricePerUnit(gathering)
-        val whole = numerator / denominator
-        return when (gathering) {
-            ResourceKind.METAL -> Resources.of(metal = whole)
-            ResourceKind.CRYSTAL -> Resources.of(crystal = whole)
-            ResourceKind.DEUTERIUM -> error("unreachable — guarded above")
-        }
+            gathered.pricePerUnit
+        return gathered.holding(numerator / denominator)
     }
 
     // ── The hull ─────────────────────────────────────────────────────────────────────────────
     //
-    // **This curve is the fleet's ceiling, and it is why there is no Shipyard building.** It proves
-    // boundedness the way every ceiling in this game is proved — a compounding price against a linear
-    // return — and it needs no seventh facility, no berth concept and no new noun. The mine is the
-    // better rate buy permanently and by construction; the fleet is bought anyway, because
-    // `startUpgrade` refuses a facility that is already building and a check-in that has tapped all
-    // six has nowhere left to put its metal.
+    // **FLAT — DAVIDE'S CALL, 2026-08-14, AND IT REPLACES THE ONE CEILING THIS DESIGN HAD.** *"Why is
+    // skiff pricing increasing at every buy? This is wrong."* A hull costs what a hull costs; the
+    // fleet a player already owns is not an input to the price of the next one.
+    //
+    // The x1.5-per-hull curve lived here from 0.3.0 to 0.9.0 and the argument for it is worth keeping
+    // in full, because it is the argument this decision overrules rather than one that stopped being
+    // true: *"this curve is the fleet's ceiling, and it is why there is no Shipyard building. It
+    // proves boundedness the way every ceiling in this game is proved — a compounding price against a
+    // linear return — and it needs no seventh facility, no berth concept and no new noun."*
+    //
+    // **What actually broke it was the tenfold base at 0.9.0, and the break is arithmetic rather than
+    // aesthetic.** The 0.9.0 call was about *which end* was too cheap — *"the x1.5 already bites by
+    // the eighth hull, so what was free was the bottom of the curve"* — but a base multiplied by ten
+    // multiplies every rung by ten, so the bite that was scheduled for the eighth hull arrived at the
+    // second. The first hull a player could buy went to 1,200 priced and the fourth to 4,050, against
+    // a Metal Mine 5 -> 6 at 444. A curve sized to bite late, scaled to bite immediately, is not the
+    // curve anybody ratified.
+    //
+    // **So the fleet is now bounded by the yard rather than by the price** — the serial queue and
+    // `buildDuration`, which no longer compounds either because it is taken from this price. That is
+    // a real loss and it is the one to watch: a check-in with deep stores can buy as many hulls as it
+    // can pay for, and only the slipway makes it wait. `balance-log.md` round 24 has what the sim says
+    // about it; if the fleet starts out-producing the colony again, this paragraph is where it
+    // started.
     //
     // **Metal-led, for `SurveyBalance`'s own reason** — *"metal is the resource with nothing to buy,
     // and this is the thing to buy with it."* The 1 : 4 crystal component is there so the fleet is not
@@ -312,33 +349,26 @@ object FleetBalance {
     // first time in this object's life that the hull competes with a mine level on the reading the
     // sheet's own table used to lose.
     //
-    // **The wait is the other half and neither would do alone.** See `buildDuration`: a price the
-    // player cannot pay yet is a wait they serve without knowing it, and the two together are what
-    // stop a check-in with full stores becoming a fleet. The balance log's round 23 has the sweep.
+    // **The wait is the other half, and since 0.10.1 it is the only half.** See `buildDuration`: a
+    // price the player cannot pay yet is a wait they serve without knowing it, and with the curve
+    // gone the yard is what stops a check-in with full stores becoming a fleet. The balance log's
+    // round 23 has the sweep that sized the base and round 24 has what removing the curve did to it.
     const val HULL_BASE_METAL: Long = 800
     const val HULL_BASE_CRYSTAL: Long = 200
-
-    // The game's one cost curve, +50% a step, through `Curves.compound` so the flooring happens at
-    // every step rather than once at the end — the rule the building and adaptation curves already
-    // follow. Each component compounds on its own base, so the crystal column is a quarter of the
-    // metal one only until the flooring separates them at the fifth hull.
-    private const val HULL_COST_NUMERATOR: Long = 3
-    private const val HULL_COST_DENOMINATOR: Long = 2
 
     // **Only the skiff has a price this slice, and the other three raise rather than guess.** Each of
     // them waits on exactly one design call — the hauler on slice 4's speed-against-hold axis, the
     // escort on a combat model, the settler on colonisation — and a plausible number invented here
     // would be indistinguishable, to every later reader, from one somebody chose.
-    fun shipCost(type: ShipType, alreadyOwned: Int): Resources {
-        require(alreadyOwned >= 0) { "a fleet cannot be negative, was $alreadyOwned" }
-        return when (type) {
-            ShipType.SKIFF -> Resources.of(
-                metal = compound(HULL_BASE_METAL, alreadyOwned, HULL_COST_NUMERATOR, HULL_COST_DENOMINATOR),
-                crystal = compound(HULL_BASE_CRYSTAL, alreadyOwned, HULL_COST_NUMERATOR, HULL_COST_DENOMINATOR),
-            )
-            ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
-                error("$type has no price until the slice that gives it a job")
-        }
+    //
+    // **There is no `alreadyOwned` parameter, deliberately.** Carrying one that every branch ignores
+    // would leave the callers threading a fleet count through to a price that does not read it — and
+    // the day somebody restores the curve, a live parameter is exactly how it comes back without a
+    // decision. The day it *is* a decision, this signature is the thing that has to change.
+    fun shipCost(type: ShipType): Resources = when (type) {
+        ShipType.SKIFF -> Resources.of(metal = HULL_BASE_METAL, crystal = HULL_BASE_CRYSTAL)
+        ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
+            error("$type has no price until the slice that gives it a job")
     }
 
     // ── The yard clock — DAVIDE'S CALL, 2026-08-13 ───────────────────────────────────────────
@@ -357,10 +387,17 @@ object FleetBalance {
     // **Four minutes per root of the hull's own price, divided by the Robotics Factory.** Both
     // halves are borrowed rather than invented: `PlaceholderBalance.MINUTES_PER_ROOT_COST` is the
     // colony's own rate, swept at round 11, so a hull and a facility that cost the same take the
-    // same time to make; and the divisor is the same `1 + level` the facilities serve. What that
-    // buys is a wait that compounds with the price it is taken from — the root of a x1.5 curve grows
-    // at x1.2247 a hull — so the tenth skiff is a different decision from the second rather than the
-    // same one at a bigger number.
+    // same time to make; and the divisor is the same `1 + level` the facilities serve.
+    //
+    // **It used to compound and it does not any more**, because it is taken from a price that used to
+    // compound: the root of a x1.5 curve grows at x1.2247 a hull, so the tenth skiff was a different
+    // decision from the second. At a flat price every skiff is 2h 04m at Robotics 0, and the tenth is
+    // the second again — nine of them in a row. That is the shape of a flat price, not a second
+    // decision, and it is stated here because this is where a reader will look for the ceiling.
+    //
+    // Two consequences worth having in front of you. The **queue** is now the whole of the cost of
+    // buying deep, so the serial rule in `buildShips` is load-bearing in a way it was not. And the
+    // **floor** below is no longer unreachable: Robotics 25 divides 124 minutes to five.
     //
     // **Robotics divides it although nothing gates it**, which is not a contradiction: §4's "gated
     // by nothing" is about the *requirement* to buy, and it is untouched — a colony at Robotics 0
@@ -369,8 +406,8 @@ object FleetBalance {
     //
     // The level is read at the order and never again, the rule every other job in the game follows:
     // *"a Robotics Factory finishing mid-flight must not retroactively shorten a build."*
-    fun buildDuration(type: ShipType, alreadyOwned: Int, roboticsFactory: BuildingLevel): Duration {
-        val cost = shipCost(type, alreadyOwned)
+    fun buildDuration(type: ShipType, roboticsFactory: BuildingLevel): Duration {
+        val cost = shipCost(type)
         val minutes = PlaceholderBalance.MINUTES_PER_ROOT_COST * integerRoot(cost.metal + cost.crystal)
         // The floor is applied last, to what the player actually waits, for `upgradeDuration`'s own
         // reason: a floor ahead of the divisor would let the divisor cut through the minimum and put
@@ -378,10 +415,12 @@ object FleetBalance {
         return maxOf(MINIMUM_YARD_DURATION, minutes.minutes / (1 + roboticsFactory.value))
     }
 
-    // **Unreachable in play and mandatory anyway.** The second skiff is 2h 32m at Robotics 0, so it
-    // would take a factory past level 30 to reach this — but a zero-duration job completes at its own
-    // boundary, re-enters `advance` at the same instant and recurses forever, which is the same
-    // failure `MINIMUM_STATION` exists to prevent one section up. It is what makes the yard queue's
-    // strictly-increasing invariant provable rather than merely observed.
+    // **Reachable in play as of 0.10.1, which it was not before.** A hull is 2h 04m at Robotics 0 and
+    // flat, so Robotics 25 divides it to exactly this and every level past that buys nothing — where
+    // the compounding wait needed a factory past level 30 to touch the floor. The reason for the
+    // floor is unchanged: a zero-duration job completes at its own boundary, re-enters `advance` at
+    // the same instant and recurses forever, the same failure `MINIMUM_STATION` exists to prevent one
+    // section up. It is what makes the yard queue's strictly-increasing invariant provable rather
+    // than merely observed.
     val MINIMUM_YARD_DURATION: Duration = 5.minutes
 }

@@ -10,16 +10,15 @@ import dev.fardavide.oltre.client.shipyard.ui.ComingHullUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
-import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.ownedShips
+import dev.fardavide.oltre.core.priceOf
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
-import dev.fardavide.oltre.core.committedShips
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
@@ -38,9 +37,7 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
         // sent, so counting it here would put a number on the heading that the Fleets tab disagrees
         // with. What it *does* count against is the price, one line down.
         fleet = owned.total.let { if (it == 1) "1 hull" else "$it hulls" },
-        hulls = FOR_SALE.map {
-            toHullRow(it, owned = owned, committed = committedShips(), now = now, timeZone = timeZone)
-        },
+        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
         comingHulls = COMING.map {
             ComingHullUiState(type = it.type, name = it.name, purpose = it.purpose)
         },
@@ -50,15 +47,17 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
 private fun GameState.toHullRow(
     hull: HullCopy,
     owned: Ships,
-    committed: Ships,
     now: Instant,
     timeZone: TimeZone,
 ): HullUiState {
     val type = hull.type
-    // Priced against everything committed rather than everything owned, which is what `buildShips`
-    // charges — a card that priced the next hull off the *fleet* would offer a rung the verb will
-    // not sell the moment anything is on the slipway.
-    val cost = FleetBalance.shipCost(type, alreadyOwned = committed.countOf(type))
+    // **The chips are the verb's own answer, asked for rather than reconstructed.** This line used to
+    // call `FleetBalance.shipCost` with a fleet count it derived itself, which was a second copy of
+    // the rule inside `buildShips` — so the card could quote a price the tap would not honour, and
+    // only a comment and a behaviour test stood between the two. `priceOf` is the same function the
+    // verb charges from, so they cannot disagree, and a price rule that changes does not reach this
+    // file at all.
+    val cost = priceOf(Ships.of(type, 1))
     val short = resources.shortfallOf(cost)
     return HullUiState(
         type = type,

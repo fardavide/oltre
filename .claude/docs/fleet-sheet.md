@@ -618,7 +618,25 @@ legibility rather than for a curve: at 8% a two-hazard far world is a rounding e
 frontier is unreachable at every window. **Deterministic and stated before the tap** — the pillar is
 signposted or it is a tax wearing a story.
 
-### The hull — 800 metal / 200 crystal, compounding ×1.5 per hull already owned
+### The hull — 800 metal / 200 crystal, flat
+
+> **The compounding curve is gone — Davide's call, 2026-08-14, 0.10.1**: *"Why is skiff pricing
+> increasing at every buy? This is wrong."* Offered four shapes, he took a flat price with the
+> consequence stated: it deletes the game's only bound on fleet size, leaving the serial yard queue
+> as the sole limit.
+>
+> **What broke the curve was the tenfold base one release earlier, and the break is arithmetic.**
+> That call was about *which end* was too cheap — the ×1.5 was left alone because it *"already bites
+> by the eighth hull"* — but a base ×10 multiplies every rung, so the bite arrived at the second: the
+> first buyable hull went to 1,200 priced and the fourth to 4,050, against a Metal Mine 5 → 6 at 444.
+>
+> **Everything below this box is the compounding design, kept because it is the argument being
+> overruled rather than one that stopped applying.** The boundedness claim in particular is now
+> unsecured: `balance-log.md` round 25 measured a greedy bot reaching **300 hulls in a fortnight**
+> and losing ten building levels to pay for them, where the curve held it to ten. The wait went flat
+> with the price — every hull is 2h 04m at Robotics 0 — so what bounds a fleet is the queue.
+>
+> The section's other half is untouched and still governs: metal-led, 1 : 4 crystal, no deuterium.
 
 > **The base went up tenfold at 0.9.0 — Davide's call, 2026-08-13**: *"I think ships are WAY to
 > cheap, considered the benefits they bring back … Raise the base, I'd say at least 10x the current

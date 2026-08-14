@@ -27,16 +27,17 @@ sealed interface BuildShipsResult {
 // 0.9.0.
 //
 // **There is a yard job, and it is Davide's call** — *"I think we need to add time to build ships, it
-// shouldn't be instantaneous"*, 2026-08-13. The sheet's §4 argued the opposite and the argument is
-// kept in `FleetBalance.buildDuration` rather than deleted, because half of it survives: the
-// compounding price really is the ceiling, and it is now ten times taller. What did not survive is
-// the sizing claim that the wait a hull costs you is only the flight — a hull bought and dispatched
-// inside one check-in grows a fleet as fast as the stores allow, which is what 0.8.0's 268% bracket
-// measured.
+// shouldn't be instantaneous"*, 2026-08-13. The sheet's §4 argued the opposite, and what it argued
+// was that the compounding price was already the ceiling a timer would be protecting. That half has
+// since gone too: 0.10.1 made the hull price flat, so **the yard is the ceiling** rather than the
+// second of two. What was true at 0.8.0 and is more true now is the sizing claim it replaced — a hull
+// bought and dispatched inside one check-in grows a fleet as fast as the stores allow, which is what
+// that release's 268% bracket measured.
 //
 // **The queue is serial**, Davide's call in the same breath, and it is the only job list in the game
 // that is: one hull at a time, each falling in behind the last. A check-in that can pay for four
-// hulls is buying a commitment rather than a fleet.
+// hulls is buying a commitment rather than a fleet — and since the price stopped climbing, that
+// sentence is the only thing standing between deep stores and a fleet bought in one tap.
 //
 // Same `(state, subject, at) -> sealed Result` shape as the other five and the same order of checks:
 // validity, then requirements, then cost, then the state change, then the `Started` event. It is
@@ -52,13 +53,12 @@ sealed interface BuildShipsResult {
 fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
     if (ships.isEmpty) return BuildShipsResult.NothingToBuild
     if (ships.counts.keys.any { it !in FOR_SALE }) return BuildShipsResult.NotForSale
-    val committed = state.committedShips()
-    val cost = priceOf(ships, owned = committed)
+    val cost = state.priceOf(ships)
     if (!state.resources.covers(cost)) return BuildShipsResult.InsufficientResources
     return BuildShipsResult.Started(
         state.copy(
             resources = state.resources - cost,
-            yard = state.yard + laidDown(ships, committed, state.buildings, from = state.yardFreesAt(at)),
+            yard = state.yard + laidDown(ships, state.buildings, from = state.yardFreesAt(at)),
             eventLog = state.eventLog + Event.ShipsOrdered(ships = ships, at = at),
         ),
     )
@@ -68,61 +68,73 @@ fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
 // so a fleet that happens to be out would otherwise look like a fleet that was never bought.
 //
 // **This is the fleet that exists** — a hull on the slipway is not in it, because it cannot be sent,
-// cannot be counted and does not yet exist. What the *price* answers to is `committedShips` below.
+// cannot be counted and does not yet exist.
+//
+// It is a reading rather than an input now. Its sibling `committedShips()` — owned plus everything on
+// the slipway — existed for one job, *"without the yard term a queue would be a way round the
+// compounding price"*, and 0.10.1 deleted the compounding price, so it was deleted with it. Nothing is
+// priced against a fleet any more; see `FleetBalance.shipCost`.
 fun GameState.ownedShips(): Ships = runs.fold(ships) { total, run -> total + run.ships }
-
-// What the next hull is priced and timed against: everything owned, plus everything paid for and not
-// yet delivered. **Without the yard term a queue would be a way round the compounding price**, which
-// is the whole ceiling — four taps in one check-in would each pay the second rung, and the curve
-// would only bind a player patient enough to wait between them.
-fun GameState.committedShips(): Ships =
-    yard.fold(ownedShips()) { total, job -> total + Ships.of(job.ship, 1) }
 
 // When the slipway is next empty: the tail of the queue, or now if there is no queue. `maxOf` rather
 // than the tail outright, because a state carried forward from a stale span can hold a job whose
 // instant has already passed — the same defence `advance` applies at its own boundary.
 private fun GameState.yardFreesAt(at: Instant): Instant = maxOf(at, yard.lastOrNull()?.completesAt ?: at)
 
-// The manifest walks the curve rather than multiplying one rung by the count, so buying the second
-// and the third together costs exactly what buying them one after the other costs. A quantity
-// discount here would be a way round the compounding price, which is the whole ceiling.
+// **What a manifest costs, and the one place that answers it.** Public, and on `GameState` rather
+// than free-standing, because a screen has to be able to ask — and until 0.10.1 it could not, so the
+// Shipyard assembled the price itself out of `FleetBalance.shipCost` and a fleet count it derived to
+// match this function. Two implementations of one rule, kept in agreement by a comment and a
+// behaviour test, which is why flattening the price cost four files instead of one.
 //
-// Summed on whole units rather than through a `Resources` addition: every `shipCost` is built by
-// `Resources.of`, so the whole-unit values are exact and `Resources.of` re-applies the same bound
-// check `covers` depends on. `checkedTimes` is not reached because nothing here multiplies — the
-// compounding happens inside `shipCost`, where it is already guarded.
-private fun priceOf(ships: Ships, owned: Ships): Resources {
+// **The receiver is unused today and it is the whole point.** A caller passes the state, which it
+// already holds, rather than an ingredient of the pricing rule — so a price that starts reading the
+// fleet again, or the research, or a hull-yard technology, changes this function and nothing that
+// calls it. That is the distinction `PlaceholderBalance.upgradeCost(building, toLevel)` gets right
+// by luck: `toLevel` is a fact about what is being bought. `alreadyOwned` was a fact about how it was
+// priced, and a parameter like that outlives the rule that justified it by exactly one release.
+//
+// One price per hull, summed. It walked a compounding curve rung by rung until 0.10.1 and the
+// property that walk existed to protect is the one still asserted: buying two together costs exactly
+// what buying them one after the other costs.
+//
+// `checkedTimes` guards the multiplication: a manifest's count is whatever a caller passed, so a hull
+// price times a count is the one place here that can leave a Long — and a cost that has wrapped is a
+// cost `covers` reads as free.
+//
+// It raises for a hull with no price, exactly as `FleetBalance.shipCost` does. `buildShips` checks
+// `FOR_SALE` first and the Shipyard draws those hulls as dimmed cards, so no caller reaches it — and
+// a balance object that refuses to invent a number should not start inventing one here.
+fun GameState.priceOf(ships: Ships): Resources {
     var metal = 0L
     var crystal = 0L
     var deuterium = 0L
     for ((type, count) in ships.counts) {
-        for (nth in 0 until count) {
-            val rung = FleetBalance.shipCost(type, alreadyOwned = owned.countOf(type) + nth)
-            metal += rung.metal
-            crystal += rung.crystal
-            deuterium += rung.deuterium
-        }
+        val each = FleetBalance.shipCost(type)
+        metal += checkedTimes(each.metal, count.toLong()) { "$type metal" }
+        crystal += checkedTimes(each.crystal, count.toLong()) { "$type crystal" }
+        deuterium += checkedTimes(each.deuterium, count.toLong()) { "$type deuterium" }
     }
     return Resources.of(metal = metal, crystal = crystal, deuterium = deuterium)
 }
 
 // The queue the manifest becomes, chained end to end from the moment the slipway frees.
 //
-// **It walks the same curve `priceOf` walked, in the same order**, which is what makes the third
-// skiff of an order longer than the first rather than three copies of one job. The two loops are
-// deliberately the same shape: a manifest is priced rung by rung and served rung by rung, and if one
-// of them ever stops agreeing with the other, a hull will cost what the fourth costs and take what
-// the second takes.
+// **Three copies of one job now, and that is the whole of what a deep order costs.** The wait is
+// taken from the price and the price is flat, so the third skiff of an order is the first one again,
+// laid behind it. With the compounding curve gone this chain is the only thing that makes buying four
+// hulls different from buying one — which is why the loop stays a loop over individual jobs rather
+// than becoming a count on one.
 //
 // The Robotics level is read once, here, and never again — the rule every other job follows.
-private fun laidDown(ships: Ships, owned: Ships, buildings: Buildings, from: Instant): List<YardJob> {
+private fun laidDown(ships: Ships, buildings: Buildings, from: Instant): List<YardJob> {
     val robotics = buildings.levelOf(BuildingType.ROBOTICS_FACTORY)
     var startsAt = from
     val jobs = mutableListOf<YardJob>()
     for ((type, count) in ships.counts) {
-        for (nth in 0 until count) {
-            val completesAt = startsAt +
-                FleetBalance.buildDuration(type, alreadyOwned = owned.countOf(type) + nth, roboticsFactory = robotics)
+        val each = FleetBalance.buildDuration(type, roboticsFactory = robotics)
+        repeat(count) {
+            val completesAt = startsAt + each
             jobs += YardJob(ship = type, startedAt = startsAt, completesAt = completesAt)
             startsAt = completesAt
         }

@@ -78,7 +78,7 @@ internal object BalanceBenchmark {
         add(row("mines past the opening discount (level 9)", hourText(run.firstHourWhere { it.buildings.metalMine.value >= 9 })))
         add(row("first applied technology finished", hourText(run.firstHourWhere { state -> Technology.entries.any { state.research.levelOf(it).value >= 1 } })))
         add(row("first adaptation level finished", hourText(run.firstHourWhere { state -> AdaptationTechnology.entries.any { state.research.levelOf(it).value >= 1 } })))
-        add(row("second skiff affordable", hourText(run.firstHourWhere { it.resources.covers(FleetBalance.shipCost(ShipType.SKIFF, 1)) })))
+        add(row("second skiff affordable", hourText(run.firstHourWhere { it.resources.covers(FleetBalance.shipCost(ShipType.SKIFF)) })))
         // What `LATE_GAME_FIRST_LEVEL` is measured against: the ramp is supposed to begin where the
         // Nanite Factory becomes buildable, so if this row and that constant ever disagree, the
         // constant is wrong and this page is where it shows.
@@ -339,22 +339,25 @@ internal object BalanceBenchmark {
         add(row("colonies with every neighbour blocked", percent(openings.count { it.isNotEmpty() && it.all { levels -> levels > 0 } }, openings.size)))
     }
 
-    // ── [fleet] the hull curve, and when the second one lands ───────────────────────────────
+    // ── [fleet] the hull price, and when the second one lands ───────────────────────────────
     private fun fleet(): List<String> = buildList {
-        add("[fleet] the hull curve and one representative run")
-        for (owned in 0 until 5) {
-            val cost = FleetBalance.shipCost(ShipType.SKIFF, owned)
-            add(row("  skiff ${owned + 1}", "${cost.metal} metal / ${cost.crystal} crystal, priced ${priced(cost)}"))
-        }
+        // **One row where there were five, which is 0.10.1 in one line.** This block printed a curve
+        // — five rungs of a x1.5 price and five of the wait taken from it — and Davide's call made
+        // the price flat, so five rows would be the same row five times. What the page has to carry
+        // instead is the thing that *does* grow with a fleet, and that is the queue: see the yard row.
+        add("[fleet] the hull price and one representative run")
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
+        add(row("  every skiff", "${cost.metal} metal / ${cost.crystal} crystal, priced ${priced(cost)}"))
         // **The yard, at both ends of the one building that answers it.** Two columns rather than
         // one, because 0.9.0's wait is the first number in the game a player can shorten by building
         // something they were going to build anyway — and a page showing only the Robotics 0 column
-        // would report the wait of a colony nobody has after day two.
-        for (owned in 0 until 5) {
-            val alone = FleetBalance.buildDuration(ShipType.SKIFF, owned, BuildingLevel(0))
-            val helped = FleetBalance.buildDuration(ShipType.SKIFF, owned, BuildingLevel(4))
-            add(row("  skiff ${owned + 1} takes", "${clock(alone)} at robotics 0 · ${clock(helped)} at robotics 4"))
-        }
+        // would report the wait of a colony nobody has after day two. Since the price went flat this
+        // is also the *only* thing that makes the fifth hull cost more than the first, so the row
+        // states what five in one order come to.
+        val alone = FleetBalance.buildDuration(ShipType.SKIFF, BuildingLevel(0))
+        val helped = FleetBalance.buildDuration(ShipType.SKIFF, BuildingLevel(4))
+        add(row("  every skiff takes", "${clock(alone)} at robotics 0 · ${clock(helped)} at robotics 4"))
+        add(row("  five in one order take", "${clock(alone * 5)} at robotics 0 · ${clock(helped * 5)} at robotics 4"))
         val home = GalaxyState.initial(TEST_GALAXY_SEED).home
         val neighbour = home.copy(slot = if (home.slot == 1) 2 else 1)
         val window = 6.hours
@@ -386,10 +389,12 @@ internal object BalanceBenchmark {
         // once. Held at richness 1.0 and danger 0, so it is the floor of what a hull is worth rather
         // than the best case.
         val perStationHour = FleetBalance.EXTRACTION_PER_HOUR
-        for (owned in 0 until 5) {
-            val cost = priced(FleetBalance.shipCost(ShipType.SKIFF, owned))
-            add(row("  skiff ${owned + 1} repays itself in", "${cost / perStationHour} station-hours"))
-        }
+        add(
+            row(
+                "  a skiff repays itself in",
+                "${priced(FleetBalance.shipCost(ShipType.SKIFF)) / perStationHour} station-hours",
+            ),
+        )
 
         // **Is the frontier worth crossing the map for** — round 21's whole question, in four rows.
         // One richness throughout (the home world's), the 24h rung throughout, so the only things

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-13 (0.9.0)
+Updated: 2026-08-14 (0.10.1)
 
 ## Landed
 
@@ -781,6 +781,27 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   told a player the level "does nothing while you are in surplus". See `.claude/docs/deposit-sheet.md`
   and `balance-log.md` round 24.
 
+- **0.10.1 the hull price goes flat** — Davide, having played 0.10.0: *"Why is skiff pricing
+  increasing at every buy? This is wrong."* Offered four shapes he took a flat price, with the
+  consequence named in the option: it deletes the game's only bound on fleet size. A skiff is 800
+  metal / 200 crystal at every depth; `alreadyOwned` is **removed from the signatures** rather than
+  kept and ignored, because a live parameter is how a curve comes back without a decision, and
+  `GameState.committedShips()` goes with it since pricing was all that read it. The wait went flat
+  too — it is taken from the price — so every hull is 2h 04m at Robotics 0 and **the serial queue is
+  the ceiling**. What broke the curve was 0.9.0's tenfold base: that call was about which end was too
+  cheap, but a base x10 multiplies every rung, so a bite meant for the eighth hull arrived at the
+  second. Measured cost of the change, `:sim:run`: the greedy bot reaches **300 hulls in a fortnight**
+  against ten, delivering 2% of the colony's metal — the fleet becomes a metal sink rather than the
+  economy, and the colony pays ten building levels for it. See `balance-log.md` round 25 and
+  `decisions.md`.
+
+## Pending, from 0.10.1
+
+- **Nobody has held a flat-priced fleet.** The 300-hull reading is a bot that buys while it can pay,
+  which no person does; the `hulls from what is left` column is unchanged from 0.10.0 at every rate.
+  Whether the mines start feeling optional is a device question, and if they do the lever is the yard
+  or the base — **not a restored curve**, which is the shape Davide ruled on.
+
 ## Pending, from 0.10.0
 
 - **The two placeholder strings on the Prospecting row** — its subject and its verdict. Every other
@@ -795,8 +816,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   the 3h rung reaches six worlds where a once-a-day player reaches thirty-nine. The dial that touches
   it is the drive technology, not the cap. **The thing to watch on a device**: if the six-hourly
   player feels poor, the answer is a faster hull rather than a shallower world.
-- **Two `error("unreachable")` arms stay uncovered** in the `when`s over `ResourceKind`, because the
-  enum is three-valued where the fleet only handles two. The fix is a type rather than a test.
+- ~~**Two `error("unreachable")` arms stay uncovered** in the `when`s over `ResourceKind`, because the
+  enum is three-valued where the fleet only handles two. The fix is a type rather than a test.~~
+  **Done at 0.10.1, and by the fix this entry named.** `FleetBalance` carries a private two-valued
+  `Gathered`, and `cargo` maps into it once at the door instead of guarding with a `require` and then
+  carrying three dead arms downstream. The public signature, `Run.gathering` and the save format are
+  untouched — the narrowing is entirely inside the object. It was the coverage gate that finally
+  forced it: flattening the hull price deleted six *covered* branches, so unit branch coverage fell
+  0.06pp with nothing newly uncovered, and the honest way back up was to stop counting branches no
+  test can reach.
 
 - **THE NEXT THING TO BUILD: the screen that dispatches a probe.** The `core` half landed at 0.1.2
   and **nothing a player can reach changed** — `startSurvey` exists, `advance` lands probes,

@@ -394,47 +394,20 @@ class FleetBalanceTest {
     // ── The hull ────────────────────────────────────────────────────────────────────────────
 
     @Test
-    fun `the hull curve compounds by half per hull already owned`() {
-        // The metal column at the 0.9.0 base, value by value. This curve is the fleet's ceiling and
-        // the reason there is no Shipyard building: a compounding price against a linear return is
-        // how every bound in this game is proved. Only the base moved at 0.9.0 — the x1.5 is
-        // untouched, which is Davide's call about *which end* was too cheap.
-        val metal = (0..5).map { FleetBalance.shipCost(ShipType.SKIFF, it).metal }
-        assertEquals(listOf(800L, 1_200L, 1_800L, 2_700L, 4_050L, 6_075L), metal)
-    }
-
-    @Test
-    fun `the crystal component compounds on its own base rather than tracking the metal one`() {
-        // Per-step flooring on each component separately, which is `Curves.compound`'s rule and the
-        // one the whole game's costs already follow. The two agree for six rungs at this base and
-        // then part — 2,277 against a quarter of 9,112 — so the quarter is a coincidence that lasts
-        // longer than it used to rather than the rule.
-        val crystal = (0..6).map { FleetBalance.shipCost(ShipType.SKIFF, it).crystal }
-        assertEquals(listOf(200L, 300L, 450L, 675L, 1_012L, 1_518L, 2_277L), crystal)
-        assertTrue(FleetBalance.shipCost(ShipType.SKIFF, 6).metal / 4 != crystal.last())
-    }
-
-    @Test
-    fun `the first hull is the published base`() {
-        assertEquals(Resources.of(metal = 800, crystal = 200), FleetBalance.shipCost(ShipType.SKIFF, 0))
-        assertEquals(FleetBalance.HULL_BASE_METAL, FleetBalance.shipCost(ShipType.SKIFF, 0).metal)
-        assertEquals(FleetBalance.HULL_BASE_CRYSTAL, FleetBalance.shipCost(ShipType.SKIFF, 0).crystal)
+    fun `the hull price is the published base and nothing else`() {
+        // **Flat — Davide's call, 2026-08-14**, replacing the x1.5-per-hull curve this file pinned
+        // rung by rung from 0.3.0 to 0.9.0. A hull costs what a hull costs; the fleet a player
+        // already owns is not an input to it.
+        assertEquals(Resources.of(metal = 800, crystal = 200), FleetBalance.shipCost(ShipType.SKIFF))
+        assertEquals(FleetBalance.HULL_BASE_METAL, FleetBalance.shipCost(ShipType.SKIFF).metal)
+        assertEquals(FleetBalance.HULL_BASE_CRYSTAL, FleetBalance.shipCost(ShipType.SKIFF).crystal)
     }
 
     @Test
     fun `a hull is never priced in deuterium`() {
         // Metal-led for `SurveyBalance`'s own reason — metal is the resource with nothing to buy —
         // and the deuterium column stays empty because deuterium is the Robotics gate's currency.
-        for (owned in 0..8) {
-            assertEquals(0L, FleetBalance.shipCost(ShipType.SKIFF, owned).deuterium)
-        }
-    }
-
-    @Test
-    fun `a deep fleet is priced rather than overflowed`() {
-        // The curve is the ceiling, so it has to stay arithmetic all the way out rather than wrap
-        // into a cost `covers()` reads as free — the bug `checkedTimes` exists for.
-        assertTrue(FleetBalance.shipCost(ShipType.SKIFF, 40).metal > FleetBalance.shipCost(ShipType.SKIFF, 39).metal)
+        assertEquals(0L, FleetBalance.shipCost(ShipType.SKIFF).deuterium)
     }
 
     @Test
@@ -443,13 +416,8 @@ class FleetBalanceTest {
         // escort on a combat model, the settler on colonisation — and a made-up price for one of
         // them would be a number nobody chose sitting in a balance object that forbids exactly that.
         for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
-            assertFailsWith<IllegalStateException> { FleetBalance.shipCost(type, 0) }
+            assertFailsWith<IllegalStateException> { FleetBalance.shipCost(type) }
         }
-    }
-
-    @Test
-    fun `a negative fleet cannot be priced`() {
-        assertFailsWith<IllegalArgumentException> { FleetBalance.shipCost(ShipType.SKIFF, -1) }
     }
 
     // ── The yard clock ───────────────────────────────────────────────────────────────────────
@@ -457,39 +425,30 @@ class FleetBalanceTest {
     @Test
     fun `a hull takes four minutes per root of its own price`() {
         // The colony's own rule, `PlaceholderBalance.MINUTES_PER_ROOT_COST`, applied to the hull's
-        // price — so a hull and a facility that cost the same take the same time to make.
-        val cost = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1)
+        // price — so a hull and a facility that cost the same take the same time to make. With a flat
+        // price that is 2h 04m a hull, at every depth: 4 x root(1,000).
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
         val expected = 4 * integerRoot(cost.metal + cost.crystal)
 
+        assertEquals(expected.minutes, 124.minutes)
         assertEquals(
             expected.minutes,
-            FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(0)),
+            FleetBalance.buildDuration(ShipType.SKIFF, roboticsFactory = BuildingLevel(0)),
         )
-    }
-
-    @Test
-    fun `the wait compounds with the price rather than staying flat`() {
-        // The price compounds at x1.5, so its root compounds at x1.2247 — which is the whole reason
-        // the clock is derived from the cost rather than fixed per hull. The tenth skiff is not the
-        // second one again with a bigger number beside it.
-        val waits = (0..9).map {
-            FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = it, roboticsFactory = BuildingLevel(0))
-        }
-
-        assertEquals(waits.sorted(), waits)
-        assertTrue(waits.last() > waits.first() * 5, "the curve barely moved across ten hulls: $waits")
     }
 
     @Test
     fun `the Robotics Factory divides the yard's clock the way it divides the colony's`() {
         // Davide's call, 2026-08-13. The fleet is gated by nothing, so this is not a requirement —
-        // it is the one building that answers a wait the player is already serving.
-        val alone = FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(0))
+        // it is the one building that answers a wait the player is already serving. **And since the
+        // price went flat it is the only thing in the game that answers the wait at all**, which is
+        // what makes the factory the fleet's pace rather than a discount on it.
+        val alone = FleetBalance.buildDuration(ShipType.SKIFF, roboticsFactory = BuildingLevel(0))
 
         for (level in 1..8) {
             assertEquals(
                 alone / (1 + level),
-                FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 1, roboticsFactory = BuildingLevel(level)),
+                FleetBalance.buildDuration(ShipType.SKIFF, roboticsFactory = BuildingLevel(level)),
                 "Robotics $level did not divide the wait",
             )
         }
@@ -500,9 +459,14 @@ class FleetBalanceTest {
         // A zero-duration job completes at its own boundary, re-enters `advance` at the same instant
         // and recurses forever — the reason `MINIMUM_STATION` exists one section up, for the reason
         // it exists here.
+        //
+        // **This is no longer unreachable in play, and that is the price of a flat clock.** At the
+        // compounding wait a factory past level 30 was needed to touch this floor; at 2h 04m flat,
+        // Robotics 25 reaches it, and every level past that buys nothing. The floor is what the yard
+        // converges on rather than a guard nobody trips.
         for (level in 0..60) {
             assertTrue(
-                FleetBalance.buildDuration(ShipType.SKIFF, alreadyOwned = 0, roboticsFactory = BuildingLevel(level)) >=
+                FleetBalance.buildDuration(ShipType.SKIFF, roboticsFactory = BuildingLevel(level)) >=
                     FleetBalance.MINIMUM_YARD_DURATION,
                 "Robotics $level cut a hull below the floor",
             )
@@ -525,7 +489,7 @@ class FleetBalanceTest {
     fun `a hull with no price has no wait either`() {
         for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
             assertFailsWith<IllegalStateException> {
-                FleetBalance.buildDuration(type, alreadyOwned = 0, roboticsFactory = BuildingLevel(0))
+                FleetBalance.buildDuration(type, roboticsFactory = BuildingLevel(0))
             }
         }
     }

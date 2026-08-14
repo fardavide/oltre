@@ -38,7 +38,6 @@ class BuildShipsTest {
         assertEquals(
             t0 + FleetBalance.buildDuration(
                 ShipType.SKIFF,
-                alreadyOwned = 1,
                 roboticsFactory = state.buildings.levelOf(BuildingType.ROBOTICS_FACTORY),
             ),
             job.completesAt,
@@ -87,30 +86,46 @@ class BuildShipsTest {
     }
 
     @Test
-    fun `each hull in one order is slower than the one before it`() {
-        // The wait is taken from the price and the price compounds, so the queue is not three copies
-        // of one job — it is the curve, in minutes.
+    fun `every hull in one order takes the same time as the one before it`() {
+        // The wait is taken from the price, and since the price went flat so is the wait: three hulls
+        // are three copies of one job, laid end to end. **The queue is the only thing that grows now**
+        // — what a fourth hull costs a player is the three ahead of it, not a rung.
         val state = wealthy(GameState.initial())
 
         val spans = build(state, Ships.of(ShipType.SKIFF, 3)).yard.map { it.completesAt - it.startedAt }
 
-        assertEquals(spans.sorted(), spans)
-        assertTrue(spans.first() < spans.last(), "the queue was flat: $spans")
+        assertEquals(1, spans.distinct().size, "the queue was not flat: $spans")
     }
 
     @Test
-    fun `the second skiff costs what the curve says the second skiff costs`() {
-        // given one hull owned
+    fun `a skiff costs the base whatever the fleet already is`() {
+        // **Davide's call, 2026-08-14: flat.** The state here already owns the granted skiff, and the
+        // charge is the published base rather than a second rung.
         val state = wealthy(GameState.initial())
+        assertEquals(1, state.ownedShips().total)
 
-        // when
         val built = build(state, Ships.of(ShipType.SKIFF, 1))
 
-        // then
-        assertEquals(
-            state.resources - FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1),
-            built.resources,
-        )
+        assertEquals(state.resources - FleetBalance.shipCost(ShipType.SKIFF), built.resources)
+    }
+
+    @Test
+    fun `the price a screen can quote is the price the verb charges`() {
+        // **The seam this exists to close.** The Shipyard used to assemble the price itself — read the
+        // fleet, add the slipway, call `FleetBalance.shipCost` with the total — which was a second
+        // implementation of a rule this file already had, kept in agreement by a comment. So a change
+        // to the rule was a change to the screen, and 0.10.1 paid that bill across four files.
+        //
+        // `priceOf` is what a caller asks instead. It takes the state rather than an ingredient of the
+        // curve, so a price that starts reading the fleet, the research or the buildings again moves
+        // this function and nothing else.
+        val state = wealthy(GameState.initial())
+        val manifest = Ships.of(ShipType.SKIFF, 3)
+
+        val quoted = state.priceOf(manifest)
+        val built = build(state, manifest)
+
+        assertEquals(state.resources - quoted, built.resources)
     }
 
     @Test
@@ -126,37 +141,40 @@ class BuildShipsTest {
     }
 
     @Test
-    fun `two hulls in one call are charged at two consecutive rungs of the curve`() {
-        // The manifest is not a quantity discount and it is not a flat multiple: buying the second
-        // and the third together costs what buying them one after the other costs.
+    fun `two hulls in one call cost twice one hull`() {
+        // The manifest is a flat multiple now, and the property that mattered when it was not still
+        // holds and is still the one worth pinning: buying two together costs exactly what buying
+        // them one after the other costs. It is what stops the price and the queue disagreeing.
         val state = wealthy(GameState.initial())
 
         val together = build(state, Ships.of(ShipType.SKIFF, 2))
         val separately = build(build(state, Ships.of(ShipType.SKIFF, 1)), Ships.of(ShipType.SKIFF, 1))
 
         assertEquals(separately.resources, together.resources)
+        val one = FleetBalance.shipCost(ShipType.SKIFF)
+        assertEquals(state.resources - one - one, together.resources)
         assertEquals(separately.yard.map { it.ship }, together.yard.map { it.ship })
     }
 
     @Test
-    fun `a hull still on the slipway counts against the price of the next one`() {
-        // Otherwise a queue is a way round the compounding price, which is the whole ceiling: four
-        // taps in one check-in would each pay the second rung.
+    fun `a hull on the slipway does not change what the next one costs`() {
+        // The mirror of what this test asserted until 0.10.1, when a queue *had* to count against the
+        // price or it would have been a way round the compounding curve. With a flat price there is
+        // no rung to skip, so what the slipway costs the next hull is the wait, not the money.
         val state = wealthy(GameState.initial())
         val queued = build(state, Ships.of(ShipType.SKIFF, 1))
 
         val next = build(queued, Ships.of(ShipType.SKIFF, 1))
 
-        assertEquals(
-            queued.resources - FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 2),
-            next.resources,
-        )
+        assertEquals(queued.resources - FleetBalance.shipCost(ShipType.SKIFF), next.resources)
     }
 
     @Test
-    fun `a hull already in flight still counts against the price of the next one`() {
-        // The pool is the *idle* count, so a fleet that is out would otherwise look like a fleet
-        // that was never bought — and the compounding curve is the only ceiling this design has.
+    fun `a hull already in flight does not change what the next one costs`() {
+        // The pool is the *idle* count, so a fleet that is out looks like no fleet at all from
+        // `state.ships` — which used to be a price bug waiting to happen and is now simply not an
+        // input. Kept as a test because the day a hull is priced against the fleet again, this is the
+        // case that will be got wrong.
         val state = wealthy(GameState.initial())
         val target = state.galaxy.surveyed.first { it != state.galaxy.home }
         val away = assertIs<StartRunResult.Started>(
@@ -166,10 +184,7 @@ class BuildShipsTest {
 
         val built = build(away, Ships.of(ShipType.SKIFF, 1))
 
-        assertEquals(
-            away.resources - FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1),
-            built.resources,
-        )
+        assertEquals(away.resources - FleetBalance.shipCost(ShipType.SKIFF), built.resources)
     }
 
     @Test
@@ -245,11 +260,15 @@ class BuildShipsTest {
 
     @Test
     fun `a manifest is refused whole rather than part-filled`() {
+        // 200 hulls at a flat 800 metal is 160,000 against a stock of 100,000. It took 40 to break
+        // the bank on the compounding curve and it takes two hundred now, which is the trade in one
+        // number: **a check-in can buy as many hulls as it can pay for, and the price no longer
+        // climbs to stop it.**
         val state = wealthy(GameState.initial())
 
         assertEquals(
             BuildShipsResult.InsufficientResources,
-            buildShips(state, Ships.of(ShipType.SKIFF, 40), at = t0),
+            buildShips(state, Ships.of(ShipType.SKIFF, 200), at = t0),
         )
     }
 

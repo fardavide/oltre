@@ -2912,3 +2912,122 @@ shipped rate ever since. Both are fixed, and the candidate list now `check`s tha
 
 The rule this leaves behind: **a balance round that ships without running the harness is how a broken
 harness survives a release.**
+
+## The hull price is flat, and the yard is the ceiling (2026-08-14, 0.10.1)
+
+Davide, having played 0.10.0: *"Why is skiff pricing increasing at every buy? This is wrong."*
+Offered flatten-the-exponent, flat, keep-×1.5-and-lower-the-base, or leave it, he took **flat** — with
+the consequence named in the option he chose: it deletes the game's only bound on fleet size.
+
+`FleetBalance.shipCost(SKIFF)` is 800 metal / 200 crystal at every depth. The `alreadyOwned` parameter
+is gone from `shipCost` and from `buildDuration` rather than kept and ignored, because a live
+parameter is how a curve comes back without a decision being taken. `GameState.committedShips()` is
+deleted with it: pricing was the only thing that read it, and its whole justification was *"without
+the yard term a queue would be a way round the compounding price."*
+
+### The wait went flat too, and that was not a separate call
+
+`buildDuration` is four minutes per root of the hull's own price — the colony's rule, so a hull and a
+facility that cost the same take the same time. A flat price therefore makes a flat wait: every skiff
+is **2h 04m** at Robotics 0, where the root of a ×1.5 curve grew at ×1.2247 a hull. Giving the yard a
+curve of its own would have been inventing a design number to replace one that had just been
+withdrawn. Two consequences worth knowing: the serial queue in `buildShips` is now the only thing that
+makes buying four hulls different from buying one, and `MINIMUM_YARD_DURATION` stops being unreachable
+— Robotics 25 divides 124 minutes to five, and every level past that buys nothing.
+
+### What it cost, measured rather than feared
+
+`balance-log.md` round 25 has the sweep. The short version is that the failure mode is not the one the
+curve was written against: the greedy bot reaches **300 hulls in a fortnight** against ten, and they
+deliver **2%** of the colony's metal, because 0.10.0's finite deposits mean there is nothing for the
+291st hull to lift. The fleet does not become the economy — it becomes a **metal sink**, and the
+colony pays in levels (66 against 76 at a fortnight; 19 against 34 at 48 hours for a fleet-first
+player). §4's own guardrail — *"building levels at 48h: falls → the hull price is eating the colony"*
+— is the one that trips.
+
+That is recorded rather than argued: the decision was taken with the trade named, and **a device
+session is what says whether any player wants to buy three hundred hulls.** If it needs a ceiling
+again, the lever is the yard or the base, not a restored curve.
+
+### One string changed on a screen
+
+The Shipyard's footnote opened with *"The next hull costs half again as much as the last"*, which was
+the curve stated to the player. It now names what actually bounds a fleet — *"Every hull costs the
+same, and the yard builds one at a time"* — and all seven shipyard baselines were re-recorded for it.
+PLACEHOLDER copy like every string in the app; content is Davide's.
+
+### A cost function's parameters name what is bought, never how it is priced
+
+Davide, on reviewing the diff above: *"Why are you touching so many files to change the ships price…
+it makes me question the architecture."* The layering was not what hurt — no build file moved, no
+dependency changed, `core` stayed pure. The defect was one level down, in what `core` exposed.
+
+`FleetBalance.shipCost(type, alreadyOwned)` published an **ingredient of the pricing rule** as a
+parameter. Every caller therefore had to know that a hull's price depends on the fleet, and had to
+derive that fleet the same way `buildShips` did — so `ShipyardUiState` carried a second
+implementation of the rule, kept in agreement by a comment (*"a card that priced the next hull off the
+fleet would offer a rung the verb will not sell"*) and by a behaviour test whose only job was to check
+the two copies matched. A test that chaperones duplication is duplication.
+
+Contrast `PlaceholderBalance.upgradeCost(building, toLevel)`, which would survive the identical change
+untouched: `toLevel` is a **fact about the thing being bought**, stable under any pricing rule.
+`alreadyOwned` was a fact about how the thing was priced, and a parameter like that outlives the rule
+that justified it by exactly one release.
+
+So `priceOf` is public and takes the state:
+
+```kotlin
+fun GameState.priceOf(ships: Ships): Resources
+```
+
+The receiver is unused at a flat price, which is the point — a caller passes what it already holds
+rather than an ingredient, so a price that starts reading the fleet again, or the research, or a yard
+technology, changes one function and reaches no screen. The idiom already existed in `Affordability.kt`
+(`shortfallOf`, `timeUntilAffordable`); the Shipyard simply had not used it for price.
+
+**What this would have saved, concretely**: the flat-price change touched `BuildShips.kt`,
+`ShipyardUiState.kt`, the sim's call sites and four test files because of the parameter. With
+`priceOf` in place it is `FleetBalance` plus one function body, and `client/` never moves.
+
+Two things this does *not* indict. The sim's replica of every curve is a deliberate documented trade —
+it sweeps candidate constants `core` cannot produce, and its `check` caught a real bug at round 24.
+And balance tests pinning `800/1200/1800/2700` rung by rung is those tests doing their job.
+
+### The coverage passes have to wipe Kover's state between them (2026-08-14, 0.10.1)
+
+The gate blocked PR #65 on a number that had nothing to do with the branch: Screenshot line read
+**83.6%** on one run and **84.6%** on a re-run of the *same commit*, against a `main` baseline of
+85.6%. Davide: *"Why is it unstable and reports different percentages? It always been very stable
+till now."*
+
+**The per-category report filters are per category; Kover's per-module artifacts are not.** The root
+`build.gradle.kts` drops composables from the unit pass and drops `core`, `*.presentation`,
+`*.domain` and `*.data` from the screenshot pass, and those exclusions are what make the two rows
+measure what they claim to. But `-Poltre.testCategory` is not an input to `koverGenerateArtifact`, so
+an artifact built in an earlier pass is UP-TO-DATE in a later one and is reused **with the earlier
+pass's filters baked in**. `measure-coverage.sh` runs the unfiltered `all` pass first, so what it
+leaves on disk is exactly the artifact the filtered passes must not read.
+
+Nothing fails when this happens. The report is produced, it looks plausible, and `core`'s 1,611
+lines are quietly back in the screenshot denominator — 61% instead of 85.6%, with no indication
+which of the two you are looking at. Whether it bites depends on incidental up-to-dateness, which is
+why it differs between a fresh CI workspace and a warm local one, and between two runs of one commit.
+
+The fix is one line in `measure-coverage.sh`: delete `**/build/kover` before each pass, so every
+pass rebuilds its artifacts under its own filters. Verified by running the whole script twice and
+reading all ten numbers, which now reproduce `main` exactly.
+
+**Why it surfaced now.** #64 split every feature into `ui` + `presentation` and added the screenshot
+pass's layer exclusions in the same release. Before that the filters barely moved the number, so
+reusing a stale artifact cost a rounding error; after it, the same reuse is worth twenty-four points.
+
+Two things worth keeping from how this was chased, because both were wrong turns taken confidently:
+
+- **"It is flaky" is not a diagnosis.** Two CI runs disagreeing proved only that the input was not
+  the code. The measurement that mattered was per-*task* state — `:core:koverGenerateArtifact
+  UP-TO-DATE` in the screenshot pass — and it was in the log all along.
+- **The build was read after the conclusion rather than before it.** This session proposed changing
+  what a category *means* — counting the whole codebase, so screenshot would read 61% — and called
+  85.6% an artifact. `build.gradle.kts` argues the exact opposite at length, and had done since #64:
+  counting `core` in the screenshot pass measures *"what fraction of the repository is not
+  drawable"*. The intended number was right; only the plumbing was broken.

@@ -3074,3 +3074,80 @@ probing should stop feeling like an errand and start feeling like income. **If i
 optional by the second week, the cap is too small; if the doorstep never runs dry, it is too large.**
 The save carries 50 vein entries at the shipped tuning after a fortnight, against the ~160 the sheet
 predicted as a ceiling — so the bound that answered `fleet-sheet.md` §8's objection holds with room.
+
+## Round 25 — the hull price goes flat (0.10.1, 2026-08-14)
+
+Davide, having played 0.10.0: *"Why is skiff pricing increasing at every buy? This is wrong."* Shown
+the four options — flatten the exponent, flat price, keep ×1.5 and lower the base, leave it — he took
+**flat price, no compounding**, with the consequence stated in the option itself: *"it deletes the
+game's only bound on fleet size — the yard clock and the serial queue become the sole limit."*
+
+So `shipCost(SKIFF)` is 800 metal / 200 crystal at every depth, `alreadyOwned` is gone from the
+signature, and `committedShips()` is deleted because pricing was the only thing that read it. The
+wait went flat with it: `buildDuration` is taken from the price, so every hull is **2h 04m** at
+Robotics 0 rather than a root that compounded at ×1.2247.
+
+### What the 10× base actually did, which is the argument for the change
+
+Round 23 raised the base tenfold on Davide's call about *which end* was too cheap — *"the ×1.5
+already bites by the eighth hull, so what was free was the bottom of the curve"*. But a base ×10 is
+every rung ×10, so the bite scheduled for the eighth hull arrived at the second:
+
+| Nth skiff | priced, 0.9.0 | priced, 0.10.0 | against a Metal Mine 5 → 6 at 444 |
+|---|---|---|---|
+| 2 | 180 | **1,800** | 4.1× |
+| 4 | 404 | **4,050** | 9.1× |
+| 6 | 909 | **9,111** | 20.5× |
+
+A curve sized to bite late, scaled to bite immediately, is not the curve round 17 ratified. That is
+the defect the complaint found; flat is Davide's answer to it rather than the only available one.
+
+### The ceiling, measured going away
+
+`:sim:run`, same seed, same bot, the only change being the price.
+
+**The purchase-order bracket at 48h** — the table §4 says to read before any other:
+
+| Order | rate | levels @48h | hulls @48h | priced on hulls | fleet metal / colony metal | fleet crystal / colony crystal |
+|---|---|---|---|---|---|---|
+| hulls first, 0.10.0 | 60 | 30 | 3 | 4,500 | 25.6% | 31.4% |
+| **hulls first, 0.10.1** | 60 | **19** | **8** | 8,400 | **60.8%** | **38.2%** |
+| hulls from what is left | 60 | 34 | 1 | 0 | 16.1% | 28.8% |
+
+**The fortnight, greedy hourly bot:**
+
+| Reading, 14 days | 0.10.0 | **0.10.1** |
+|---|---|---|
+| Hulls owned | 10 | **300** |
+| Building levels | 76 | **66** |
+| Hours blocked by metal alone, of 336 | 187 | **289** |
+| Fleet metal / colony metal | 1.0% | **2.0%** |
+
+**Three hundred hulls delivering two per cent of the colony's metal is the whole finding.** The fear
+the compounding curve was written against was the fleet *becoming* the economy; what actually happens
+without it is stranger and worse — the fleet becomes a **metal sink**. Dispatches stay at 56, because
+a player sends what they have targets for, and 0.10.0's finite deposits mean there is nothing for the
+291st hull to lift. So the metal goes into hulls that sit in dock, and the colony pays for it in
+levels: ten fewer at a fortnight, eleven fewer at 48 hours in the fleet-first bracket.
+
+**§4's own guardrail is the one that trips**: *"Building levels at 48h — within a level or two. Falls
+→ the hull price is eating the colony."* It reads 19 against a no-fleet 34. Round 22 spent this
+guardrail once already and said the next round should argue against *Davide's* bar rather than
+reinstate round 17's by default; this round does not argue at all, because the decision was taken
+with the trade named. It records the number so the next one has it.
+
+**The honest caveat**, because it decides whether any of the above matters: the bot's rule is *buy
+while the next one is affordable*, and against a flat price that loop only stops when the stores are
+empty — every check-in, forever. No person plays that. The `hulls from what is left` row is what a
+player who buys the buildings first looks like, and it is **identical** to 0.10.0 at every rate,
+because that player never gets to a second hull inside two days at either price. So the 300 is the
+worst case a determined player could reach rather than a prediction, and the reading that a device
+session settles is whether anyone wants to.
+
+### What to watch, and the lever if it goes wrong
+
+If the mines start feeling optional, or a check-in turns into "spend everything on hulls", the fix is
+**not** to restore the curve by reflex — Davide has ruled on the shape. The levers that stay
+available, cheapest first: raise `HULL_BASE_METAL` (a flat price is a single number and moves
+cleanly), lengthen `PlaceholderBalance.MINUTES_PER_ROOT_COST` for the yard only, or cap the queue.
+The yard is the ceiling now, so the yard is where a ceiling should be adjusted.

@@ -34,12 +34,14 @@ class ShipyardFromStateBehaviourTest {
 
     @Test
     fun `a new colony is shown the second skiff and has to earn it`() {
-        // given the granted skiff and genesis stocks — 500 metal, against a hull that costs 1,200
+        // given the granted skiff and genesis stocks — 500 metal, against a hull that costs 800
         // since the 0.9.0 base raise. **This test asserted `assertOffersToBuild` until then**, and
         // the change is the point rather than a casualty: a hull is no longer something a colony
-        // opens holding the price of, which is what "ships are WAY too cheap" was about.
+        // opens holding the price of, which is what "ships are WAY too cheap" was about. 0.10.1 made
+        // the price flat and this is the rung it landed on — still out of reach at hour zero, which
+        // is what the test is here for.
         val state = GameState.initial(SEED)
-        val second = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1)
+        val second = FleetBalance.shipCost(ShipType.SKIFF)
 
         shipyard(uiState = state.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
             assertReads("1 hull")
@@ -75,21 +77,22 @@ class ShipyardFromStateBehaviourTest {
     }
 
     @Test
-    fun `buying a hull moves the tab on to the next rung`() {
-        // The seam this test exists for: the state changes, the mapper re-reads it, and the screen
-        // has to show the *next* price rather than the one that was just paid.
+    fun `buying a hull moves the tab on to the slipway rather than to a new price`() {
+        // The seam this test exists for: the state changes and the mapper re-reads it. Until 0.10.1
+        // what it re-read was the *next rung*; with a flat price what moves is the pool line and the
+        // yard, and the chips holding still is the assertion rather than the absence of one.
         val rich = GameState.initial(SEED).copy(resources = Resources.of(metal = 10_000, crystal = 10_000))
         val after = assertIs<BuildShipsResult.Started>(
             buildShips(rich, Ships.of(ShipType.SKIFF, 1), at = EPOCH),
         ).state
-        val third = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 2)
+        val next = FleetBalance.shipCost(ShipType.SKIFF)
 
         shipyard(uiState = after.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
-            // The fleet has not grown — the hull is on the slipway — and the price has moved on
-            // anyway, because `buildShips` charges the next rung against everything committed.
+            // The fleet has not grown — the hull is on the slipway — and the price is where it was,
+            // because `buildShips` charges the same thing every time.
             assertReads("1 hull")
             assertCardReads(ShipType.SKIFF, "1 owned · 1 idle · 1 building")
-            assertCardReads(ShipType.SKIFF, third.metal.groupedByThousands())
+            assertCardReads(ShipType.SKIFF, next.metal.groupedByThousands())
         }
     }
 
@@ -167,7 +170,7 @@ class ShipyardFromStateBehaviourTest {
 
         assertEquals(Ships.of(ShipType.SKIFF, 1), state.ships)
         assertEquals(listOf(ShipType.SKIFF), state.yard.map { it.ship })
-        assertEquals(rich.resources - FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1), state.resources)
+        assertEquals(rich.resources - FleetBalance.shipCost(ShipType.SKIFF), state.resources)
     }
 
     private companion object {
