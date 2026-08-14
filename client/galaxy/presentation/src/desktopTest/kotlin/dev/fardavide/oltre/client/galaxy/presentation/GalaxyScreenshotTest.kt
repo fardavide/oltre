@@ -1,13 +1,18 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -134,40 +139,120 @@ class GalaxyScreenshotTest {
         )
     }
 
+
+    // ── The dispatch sheet, and the probe footer it quotes ───────────────────────────────────
+    //
+    // **These carried baselines before 0.11 and keep them**, which is the point: the sheet and the
+    // footer are unchanged by this slice, so a moved pixel in either is a regression rather than a
+    // redesign. Four of them are also the README's screens.
+
+    @Test
+    fun `the dispatch sheet as it opens`() {
+        captureSheet(uiState = dispatchOfferUiState, name = "galaxy_dispatch")
+    }
+
+    @Test
+    fun `the sheet refuses a world nobody has looked at and offers a probe`() {
+        captureSheet(uiState = dispatchUnsurveyedUiState, name = "galaxy_dispatch_unsurveyed")
+    }
+
+    @Test
+    fun `the sheet with every hull away`() {
+        captureSheet(uiState = dispatchNoShipsUiState, name = "galaxy_dispatch_no_ships")
+    }
+
+    @Test
+    fun `the sheet on a world that has been stripped`() {
+        captureSheet(uiState = dispatchWaitingUiState, name = "galaxy_dispatch_waiting")
+    }
+
+    @Test
+    fun `the sheet on a target in another galaxy`() {
+        captureSheet(uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
+    }
+
+    @Test
+    fun `the sheet in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchOfferUiState, name = "galaxy_dispatch_slide_over")
+    }
+
+    @Test
+    fun `a probe in flight counts down in the footer`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = probeInFlightUiState,
+            name = "galaxy_probe_in_flight",
+        )
+    }
+
+    @Test
+    fun `a landed probe is a receipt`() {
+        capture(width = 393, height = 1200, uiState = probeLandedUiState, name = "galaxy_probe_landed")
+    }
+
+    // Every verdict on one screen, which is the frame that would catch one of the six being drawn
+    // like another.
+    @Test
+    fun `every verdict at phone width`() {
+        capture(
+            width = 393,
+            height = 1600,
+            uiState = everyVerdictUiState,
+            name = "galaxy_every_verdict",
+        )
+    }
+
+    // The sheet is a popup and a popup is a root of its own, so `onRoot` finds two and refuses to
+    // choose. The one to photograph is named by what is inside it rather than by the order the two
+    // arrive in.
+    private fun captureSheet(width: Int = 393, uiState: GalaxyUiState, name: String) {
+        runDesktopComposeUiTest(width = width, height = 852) {
+            mainClock.autoAdvance = false
+            setContent { OltreTheme { Surface { Page(uiState) } } }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onNode(isRoot() and hasAnyDescendant(hasTestTag(GalaxyTestTags.SHEET))).captureRoboImage(
+                filePath = "src/desktopTest/screenshots/$name.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
     private fun capture(width: Int, height: Int, uiState: GalaxyUiState, name: String) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
-            setContent {
-                OltreTheme {
-                    Surface {
-                        GalaxyPage(
-                            uiState = uiState,
-                            onSelectMode = {},
-                            onQueryChange = {},
-                            onToggleChip = {},
-                            onCycleSort = {},
-                            onSelectGalaxy = {},
-                            onSelectSystem = {},
-                            onOpenRegionIndex = {},
-                            onOpenRegion = {},
-                            onGoHome = {},
-                            onOpenResearch = {},
-                            onDispatchProbe = {},
-                            onOpenWorld = {},
-                            onCloseDispatch = {},
-                            onSelectGathering = {},
-                            onSelectShips = {},
-                            onSelectWindow = {},
-                            onDispatchRun = {},
-                        )
-                    }
-                }
-            }
+            setContent { OltreTheme { Surface { Page(uiState) } } }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }
+    }
+
+    // Every callback is empty: a screenshot renders a state, and a frame that could react to a tap
+    // would be a frame whose baseline depended on where the mouse was.
+    @Composable
+    private fun Page(uiState: GalaxyUiState) {
+        GalaxyPage(
+            uiState = uiState,
+            onSelectMode = {},
+            onQueryChange = {},
+            onToggleChip = {},
+            onCycleSort = {},
+            onSelectGalaxy = {},
+            onSelectSystem = {},
+            onOpenRegionIndex = {},
+            onOpenRegion = {},
+            onGoHome = {},
+            onOpenResearch = {},
+            onDispatchProbe = {},
+            onOpenWorld = {},
+            onCloseDispatch = {},
+            onSelectGathering = {},
+            onSelectShips = {},
+            onSelectWindow = {},
+            onDispatchRun = {},
+        )
     }
 }

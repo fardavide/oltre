@@ -15,12 +15,12 @@ All rights reserved. No license is granted for reuse of this code.
 <img src="client/colony/ui/src/desktopTest/screenshots/colony_screen_watching_phone.png" alt="The Colony screen: a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and four unsurveyed worlds" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_ledger.png" alt="The Galaxy screen: every world you have surveyed, nearest first, each with its name, its drawn planet disc, what it is, and what is still in the ground" width="320">
 </td>
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — a system you have never been to: the reach band across the top, its fifteen orbits, and a probe you can send for 150 metal and half an hour of flight.</td>
+<td align="center"><b>Galaxy</b> — the worlds you know, nearest first, each with the name the seed gave it and a disc drawn from what it is: the fill is temperature, the size is gravity, the banding is pressure. Search it, filter it, or switch to the map to go and find another.</td>
 </tr>
 </table>
 
@@ -43,9 +43,9 @@ before you step. Crossing a galaxy used to be 249 taps.
 Everything the probe says lands in the card that owns the star it is about: the price and the
 flight, then a countdown, then what it found.
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
 
 **"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
 the same breath as the count rather than burying it — a run of them should read as calibration, not
@@ -62,7 +62,7 @@ between a rock worth flying to and one worth skipping this week.
 A blocked world names the ladder that would unblock it and the level it would take, which is what
 turns 98% of the galaxy from a wall into a shopping list:
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: a relay, the home world, an occupied world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: the home world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
 
 ### Sending a fleet
 
@@ -72,7 +72,7 @@ rule is what actually lands, and it moves as you touch the controls: it is cappe
 sent, by what the deposit still holds, and by how long the fleet gets to work once the flight is
 paid for. The legs line spends the trip in front of you — out, on station, working, home.
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_dispatch.png" alt="The dispatch sheet: metal or crystal, a hull stepper, five return windows, and what lands" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_dispatch.png" alt="The dispatch sheet: metal or crystal, a hull stepper, five return windows, and what lands" width="320">
 
 Send a fleet bigger than the world and it says so — the figure becomes the whole deposit and a
 clause under the stepper names the ships that would come home with nothing. Send it too far and
