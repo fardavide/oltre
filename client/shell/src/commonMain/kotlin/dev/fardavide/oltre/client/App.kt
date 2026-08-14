@@ -352,6 +352,10 @@ fun App(
                                 scrollState = scroll,
                                 state = current.state,
                                 now = current.lastUpdatedAt,
+                                // What the ledger's discovery section is measured from: the instant
+                                // this launch advanced from, so a world surveyed while the app was
+                                // closed is new and one surveyed before that is not.
+                                since = current.resumedFrom,
                                 timeZone = TimeZone.currentSystemDefault(),
                                 onOpenResearch = openResearch,
                                 onDispatchProbe = { target ->

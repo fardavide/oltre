@@ -3151,3 +3151,89 @@ If the mines start feeling optional, or a check-in turns into "spend everything 
 available, cheapest first: raise `HULL_BASE_METAL` (a flat price is a single number and moves
 cleanly), lengthen `PlaceholderBalance.MINUTES_PER_ROOT_COST` for the yard only, or cap the queue.
 The yard is the ceiling now, so the yard is where a ceiling should be adjusted.
+
+## Round 26 — the galaxy gets geography (0.11.0, 2026-08-14)
+
+Davide, having played 0.10.1: *"I'm so unhappy with the map. It is huge, but terrible to navigate!
+Finding a planet feels like searching a phone number on pagine gialle in the 90s."* And, on the
+second half of the same message: *"the map should gain 'an identity' … here it's just numbers."*
+
+`galaxy-identity-sheet.md` is the design; this round is its **first slice — regions — and the only
+part of it that touches a balance number.** Names, portraits, the ledger and per-world history move
+nothing measured here.
+
+### What the map was, and why nothing about it could be learned
+
+`starClassAt` hashed each system's seed independently. Star class was the **only** system-level trait
+in the game and every other trait is per world, so any two neighbourhoods of 250 systems were drawn
+from the same distribution. That is not a UI problem: **a map with no spatial structure has addresses
+rather than places**, and no amount of drawing fixes it.
+
+Now a galaxy's 250 systems are ten contiguous regions of 25, each with a temperament that biases its
+stars: a **Deep** runs 60% dim, a **Burning** 60% bright, a **Settled** 20 / 60 / 20. Since a dim star
+is −40 °C and a bright one +40 °C against a fall of 28 °C per orbit, the habitable orbits move about
+three slots between them — so *in a Deep you settle close in and the deuterium is good, in a Burning
+you settle far out and it is poor* is a true thing a player can read off a **charted** map, free, in
+their first session.
+
+### The multiset is a permutation, and that is what keeps the distribution honest
+
+Every galaxy holds the same ten temperaments shuffled — **4 Deep, 2 Settled, 4 Burning** — rather than
+ten independent draws. Ten draws would hold the galaxy-wide star mix only in expectation, so a
+per-seed test would have to widen its bands to admit the unlucky map, and a galaxy that rolled ten
+Settled regions is one this slice did nothing for. A permutation also lets the game promise that there
+is a Deep somewhere in yours.
+
+`4 / 2 / 4` rather than the sheet's proposed `3 / 4 / 3`: it pools to **32 / 36 / 32** against
+`3 / 4 / 3`'s 29 / 42 / 29, which is near enough the equal thirds every target below was measured
+against to leave them alone — and it leaves only two bland regions in ten instead of four.
+
+### What moved, measured
+
+Nine rows of the benchmark, all of them galaxy rows:
+
+| Reading | Before | After |
+|---|---|---|
+| temperature band passes | 25.85% | 25.93% |
+| passes every band | 1.81% | 1.51% |
+| settleable at level 0 | 17 · 0.35% | 13 · 0.27% |
+| at one adaptation level | 40 · 0.84% | 41 · 0.86% |
+| at two | 105 · 2.21% | 107 · 2.25% |
+| at three | 218 · 4.59% | 210 · 4.42% |
+| third neighbour, levels away, median | 13 | 14 |
+
+**Both `galaxy-sheet.md` §9 rows stay inside their targets** — 1.51% against 1 – 2%, and 0.27% against
+≤ 0.5% — and the doubling the sheet asks each adaptation level for survives intact (13 → 41 → 107 →
+210). The tolerance bands, the richness formulas, the yield weights and the worth-it threshold are all
+untouched: **this round changed where the stars are, not what a world is worth.**
+
+### The instrument was wrong, and fixing it is the durable part of this round
+
+The first reading of `passes every band` falling 1.81% → 1.51% was written up here as a 17% thinning
+and used to justify the multiset. **That was wrong, and the mistake is worth keeping rather than
+quietly correcting.** That row is a count of about seventy-five worlds, so one map carries ±11% of
+Poisson noise — it cannot distinguish a real shift from a fluctuation, and the per-axis marginals
+beside it are counts of ~1,200 and are tight. Both multisets measure identically on the test seed.
+
+So the row is now pinned **across six maps instead of one**, and every one of them is inside the
+sheet's band: measured **1.51 / 1.60 / 1.64 / 1.49 / 1.69 / 1.55 %**. See
+`GalaxyDistributionTest.passing every band holds its target across seeds`. A one-seed reading of a
+seventy-five-world statistic should not have been load-bearing in the first place, and the same
+caution applies to every `≤ 0.5%` row on that table.
+
+### Existing saves keep their seed and their home, and their map moves under them
+
+Davide's call. The alternative — re-minting the galaxy — restores the 0.5.1 doorstep guarantee by
+deleting the player's surveys, which is the worse trade at the exact moment surveys start being worth
+something (the ledger is the next slice). The doorstep rule exists to make the **opening** legible, and
+a player with a fortnight of colony behind them is not in the opening. The changelog says the map
+changed and that it will not change again.
+
+### What to watch next round
+
+- Whether a region is legible **without a label** on the reach strip. Tick height and alpha are
+  already star class, so a Deep should read as a visibly darker, shorter run of ticks — if it does not,
+  the bias is too mild and 60 / 30 / 10 is the number to move.
+- Whether *"settle close in"* is a lesson players actually reach, or whether it needs the map to say it.
+- The doorstep median moved 13 → 14 levels for the third neighbour. It is one map's reading of a
+  statistic this round has just finished warning about, so it is a thing to watch rather than to act on.

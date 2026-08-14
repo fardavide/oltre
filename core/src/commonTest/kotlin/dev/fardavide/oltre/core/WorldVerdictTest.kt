@@ -188,6 +188,7 @@ class WorldVerdictTest {
             hazards = emptySet(),
             fields = GalaxyBalance.fields(Gravity(gravity)),
         ),
+        hasRing = false,
     )
 
     private fun homeOwnership(): WorldOwnership = WorldOwnership(at = HOME, holder = EmpireId.PLAYER)
@@ -201,6 +202,7 @@ class WorldVerdictTest {
         surveyed = surveyed,
         ownership = ownership,
         deposits = emptyList(),
+        pinned = emptySet(),
     )
 
     private fun surveyedGalaxy(): GalaxyState = galaxy(surveyed = setOf(HOME, NEIGHBOUR))

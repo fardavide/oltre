@@ -18,6 +18,12 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    // **The screenshots moved here at 0.11.0**, and the reason is in `decisions.md`: the frames were
+    // three thousand lines of stated fixtures in `:client:galaxy:ui-testing` because a ui module
+    // cannot see a `GameState`, and that copy drifted from the mapper exactly as its own header
+    // warned it would. A frame is `state.toGalaxyUiState(nav)` now — the same call the app makes —
+    // so a mapper that re-words anything moves a baseline, which is what a baseline is for.
+    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -68,10 +74,12 @@ kotlin {
                 // `GalaxyScreenHarness`, because a ui-layer module may not depend on this one.
                 implementation(projects.client.galaxy.uiTesting)
                 implementation(projects.client.design.core)
+                implementation(projects.client.design.screenshotTesting)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
                 implementation(libs.compose.material3)
+                implementation(libs.roborazzi.compose.desktop)
             }
         }
     }

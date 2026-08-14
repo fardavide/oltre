@@ -3,18 +3,10 @@ package dev.fardavide.oltre.client.galaxy.presentation
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
-import dev.fardavide.oltre.client.galaxy.ui.VerdictUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
+import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
 import dev.fardavide.oltre.client.galaxy.ui.galaxyPage
-import dev.fardavide.oltre.client.galaxy.ui.homeSystemUiState
-import dev.fardavide.oltre.client.galaxy.ui.everyVerdictUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchOfferUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchUnsurveyedUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchNoShipsUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchClampedUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchWaitingUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchWaitingForeverUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchWorkedUiState
-import dev.fardavide.oltre.client.galaxy.ui.dispatchFarUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
@@ -50,8 +42,8 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `the sheet names the world it was raised from`() {
-        val coordinate = homeSystemUiState.bands
-            .flatMap { it.rows }
+        val coordinate = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
+            .filterIsInstance<GalaxyRowUiState.World>()
             .first { it.slot == RUNNABLE_SLOT }
             .coordinate
 
@@ -211,9 +203,9 @@ class DispatchSheetBehaviourTest {
         // be refused the moment it was used. The screen and the model agree about this rather than
         // the screen finding out afterwards.
         val opened = mutableListOf<Int>()
-        val homeSlot = homeSystemUiState.bands
-            .flatMap { it.rows }
-            .first { it.verdict is VerdictUiState.Home }
+        val homeSlot = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
+            .filterIsInstance<GalaxyRowUiState.World>()
+            .first { it.verdict == WorldVerdictUiState.HOME }
             .slot
 
         galaxyPage(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
@@ -230,8 +222,8 @@ class DispatchSheetBehaviourTest {
         // changes that; a relay is not a world and has no hold to fill.
         val opened = mutableListOf<Int>()
 
-        galaxyPage(uiState = everyVerdictUiState, onOpenWorld = { opened += it }) {
-            tapTheWorld(3)
+        galaxyPage(uiState = relaySystemUiState, onOpenWorld = { opened += it }) {
+            tapTheWorld(relaySlot)
         }
 
         assertTrue(opened.isEmpty())
@@ -287,7 +279,7 @@ class DispatchSheetBehaviourTest {
     fun `a fleet the world cannot fill is told so rather than shown a number twice`() {
         // The clamped state, which is the common one. The headline figure already *is* the deposit,
         // so what marks it is the slot beside it — one token, in a slot that already exists.
-        galaxyPage(uiState = dispatchClampedUiState) {
+        galaxyPage(uiState = dispatchWholeDepositUiState) {
             assertTheSheetReads("the whole deposit")
             // Design's copy is the one-idle-hull case — "The 4th brings nothing." — and this fixture
             // sends eight at a world two can empty, so it is the plural form of the same sentence.

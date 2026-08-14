@@ -56,15 +56,28 @@ internal enum class GenerationAxis(val tag: Long) {
     RELAY(0x7F4A7C15F39CC060uL.toLong()),
     RELAY_SLOT(0x8EBC6AF09C88C6E3uL.toLong()),
     HOME(0x9E3779B97F4A7C55uL.toLong()),
+
+    // Which of the ten regions of a galaxy gets which temperament. Drawn from the *galaxy's* seed,
+    // because a region is a property of a galaxy's layout rather than of any system in it.
+    REGION(0xA54FF53A5F1D36F1uL.toLong()),
+
+    // What a system and a region are called. Adding this tag is the sub-stream rule paying for
+    // itself: 4,700 worlds get names and not one existing trait moves.
+    NAMES(0xB5026F5AA96619E9uL.toLong()),
+
+    // Whether a world wears a ring. The only generated quantity in the game that no rule reads.
+    RING(0xC6EF372FE94F82BEuL.toLong()),
 }
+
+// The galaxy's own seed, shared by every system in it. Extracted from `systemSeed` rather than
+// inlined there because the region layout is drawn at this level — one hash chain, stopped two
+// steps early instead of one.
+internal fun galaxySeed(seed: GalaxySeed, galaxy: Int): Long = mix(mix(seed.value) + GALAXY_SALT * galaxy)
 
 // The system's own seed, shared by every slot in it — which is why the star class is the same for
 // all of them. Deliberately the prefix of `worldSeed`: one hash chain, stopped a step earlier.
-internal fun systemSeed(seed: GalaxySeed, galaxy: Int, system: Int): Long {
-    var hash = mix(seed.value)
-    hash = mix(hash + GALAXY_SALT * galaxy)
-    return mix(hash + SYSTEM_SALT * system)
-}
+internal fun systemSeed(seed: GalaxySeed, galaxy: Int, system: Int): Long =
+    mix(galaxySeed(seed, galaxy) + SYSTEM_SALT * system)
 
 internal fun worldSeed(seed: GalaxySeed, at: GalaxyCoordinate): Long =
     mix(systemSeed(seed, at.galaxy, at.system) + SLOT_SALT * at.slot)
@@ -75,14 +88,45 @@ internal fun draw(stream: Long, index: Int): Long = mix(stream + DRAW_STEP * ind
 
 // `mod` rather than `%` throughout: a hash is as often negative as positive, and `%` would make
 // half the galaxy fall outside every range.
-private fun Long.boundedBy(bound: Int): Int = mod(bound.toLong()).toInt()
+internal fun Long.boundedBy(bound: Int): Int = mod(bound.toLong()).toInt()
 
 internal fun uniformFrom(stream: Long): Uniform = Uniform(stream.boundedBy(Uniform.BASIS + 1))
 
 internal fun percentFrom(stream: Long): Int = stream.boundedBy(100)
 
-fun starClassAt(seed: GalaxySeed, galaxy: Int, system: Int): StarClass =
-    GalaxyBalance.starClass(streamOf(systemSeed(seed, galaxy, system), GenerationAxis.STAR_CLASS).boundedBy(3))
+// Which of a galaxy's ten regions a system falls in, 1-based. Fixed boundaries rather than
+// generated ones: regions of varying width per seed buy nothing a player can perceive and cost this
+// one line of arithmetic, plus the ability to compare one galaxy with another.
+fun regionOf(system: Int): Int = (system - 1) / GalaxyBalance.SYSTEMS_PER_REGION + 1
+
+// The galaxy's ten regions in order, as a **permutation** of `REGION_TEMPERAMENTS` — see the note
+// there for why it is a shuffle of a fixed list and not ten draws.
+//
+// Fisher–Yates, one draw per position from the galaxy's own REGION stream, so the layout is a
+// function of the seed and the galaxy and of nothing else. Ten elements, so building the whole list
+// to answer for one region keeps `worldAt`'s locality promise intact.
+fun temperamentsOf(seed: GalaxySeed, galaxy: Int): List<RegionTemperament> {
+    val stream = streamOf(galaxySeed(seed, galaxy), GenerationAxis.REGION)
+    val order = GalaxyBalance.REGION_TEMPERAMENTS.toMutableList()
+    for (index in order.lastIndex downTo 1) {
+        val other = draw(stream, index).boundedBy(index + 1)
+        val held = order[index]
+        order[index] = order[other]
+        order[other] = held
+    }
+    return order
+}
+
+fun temperamentOf(seed: GalaxySeed, galaxy: Int, region: Int): RegionTemperament =
+    temperamentsOf(seed, galaxy)[region - 1]
+
+fun temperamentAt(seed: GalaxySeed, galaxy: Int, system: Int): RegionTemperament =
+    temperamentOf(seed, galaxy, regionOf(system))
+
+fun starClassAt(seed: GalaxySeed, galaxy: Int, system: Int): StarClass = GalaxyBalance.starClass(
+    temperament = temperamentAt(seed, galaxy, system),
+    percent = percentFrom(streamOf(systemSeed(seed, galaxy, system), GenerationAxis.STAR_CLASS)),
+)
 
 // The entry point. Null when the slot is empty, which is most of them.
 fun worldAt(seed: GalaxySeed, at: GalaxyCoordinate): World? {
@@ -102,6 +146,12 @@ fun worldAt(seed: GalaxySeed, at: GalaxyCoordinate): World? {
     return World(
         at = at,
         starClass = starClass,
+        // **Means nothing, on purpose.** One world in `RING_IN` is memorable for no reason at all,
+        // and "the one with the ring" is a sentence a player says about a place rather than about a
+        // statistic. It is on `World` rather than on `WorldTraits` because a survey is not what
+        // reveals it — a ring is visible from home, like the star class, and the portrait only draws
+        // one because the portrait is only drawn once a world is surveyed anyway.
+        hasRing = streamOf(world, GenerationAxis.RING).boundedBy(GalaxyBalance.RING_IN) == 0,
         traits = WorldTraits(
             temperature = temperature,
             gravity = gravity,

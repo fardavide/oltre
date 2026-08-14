@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":11,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":12,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -95,7 +95,7 @@ class GameSaveTest {
                 """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
                 """{"galaxy":3,"system":171,"slot":11}],""" +
                 """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}],""" +
-                """"deposits":[]},""" +
+                """"deposits":[],"pinned":[]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
@@ -551,8 +551,10 @@ class GameSaveTest {
         // when — the shell writes the snapshot back on the first commit after loading
         val rewritten = GameSave.encode(decoded)
 
-        // then — and from then on it is a version 11 save like any other
-        assertTrue(rewritten.startsWith("""{"schemaVersion":11"""), rewritten)
+        // then — and from then on it is a current save like any other. Written against
+        // `SCHEMA_VERSION` rather than a literal: the claim is "the version it was migrated to",
+        // and a literal here has to be edited by every hop that has nothing to do with it.
+        assertTrue(rewritten.startsWith("""{"schemaVersion":${GameSave.SCHEMA_VERSION}"""), rewritten)
         assertEquals(decoded, assertIs<DecodeResult.Success>(GameSave.decode(rewritten)).snapshot)
     }
 
@@ -842,11 +844,15 @@ class GameSaveTest {
         // schema-9 save is exactly a current one without them — both hops add keys and rewrite
         // nothing. **Three keys rather than one since 0.10.0**: schema 11 landed deposits and the
         // fourth technology's level on top of the yard, so a fixture that only removed `yard` would
-        // be a schema-10 save wearing a 9, and would exercise one hop instead of two.
+        // be a schema-10 save wearing a 9, and would exercise one hop instead of two. **Four since
+        // 0.11.0**, which landed pins — and note what keeps this honest: the version this subtracts
+        // *from* has to move with `SCHEMA_VERSION`, or the replace silently stops matching and the
+        // fixture is a current save claiming to be old.
         val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
-            .replace(""""schemaVersion":11""", """"schemaVersion":9""")
+            .replace(""""schemaVersion":12""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
             .replace(""","deposits":[]""", "")
+            .replace(""","pinned":[]""", "")
             .replace(""""prospecting":0,""", "")
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(beforeTheYard)).snapshot
@@ -910,6 +916,30 @@ class GameSaveTest {
         assertEquals(snapshot, decoded)
         assertEquals(EmpireId("kepler"), decoded.state.galaxy.holderOf(taken))
         assertTrue(taken in decoded.state.galaxy.surveyed)
+    }
+
+    @Test
+    fun `a pinned world survives a round trip and a legacy colony wakes up with none`() {
+        // The galaxy identity slice's only on-disk cost. Both halves in one test because they are
+        // one claim: the field round-trips, and the 11 -> 12 hop writes the empty set that is the
+        // truth about a colony saved before there was anywhere to pin anything from.
+        val fresh = GameState.initial()
+        val target = GalaxyCoordinate(galaxy = fresh.galaxy.home.galaxy, system = 200, slot = 5)
+        val snapshot = GameSnapshot(
+            lastUpdatedAt = EPOCH,
+            state = fresh.copy(
+                galaxy = fresh.galaxy.copy(
+                    surveyed = fresh.galaxy.surveyed + target,
+                    pinned = setOf(target),
+                ),
+            ),
+        )
+
+        val roundTripped = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+        val legacy = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+
+        assertEquals(setOf(target), roundTripped.state.galaxy.pinned)
+        assertEquals(emptySet(), legacy.state.galaxy.pinned)
     }
 
     @Test

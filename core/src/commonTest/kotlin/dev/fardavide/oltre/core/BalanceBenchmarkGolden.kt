@@ -140,22 +140,22 @@ internal object BalanceBenchmarkGolden {
 
         [galaxy] the map as generated, from seed 20260807
         worlds in the coordinate space                    4746 of 15000 slots
-          temperature band passes                         25.85%
+          temperature band passes                         25.93%
           gravity band passes                             25.28%
           pressure band passes                            25.01%
-          passes every band                               1.81%
+          passes every band                               1.51%
         settleable at adaptation level                    count    share
-          all three ladders at 0                             17    0.35%
-          all three ladders at 1                             40    0.84%
-          all three ladders at 2                            105    2.21%
-          all three ladders at 3                            218    4.59%
-          all three ladders at 4                            338    7.12%
-          all three ladders at 6                            720   15.17%
+          all three ladders at 0                             13    0.27%
+          all three ladders at 1                             41    0.86%
+          all three ladders at 2                            107    2.25%
+          all three ladders at 3                            210    4.42%
+          all three ladders at 4                            349    7.35%
+          all three ladders at 6                            730   15.38%
         [galaxy] the opening screen, over 100 colonies
         non-home worlds on the screen, median             5
           cheapest neighbour, levels away, median         1
           second neighbour, levels away, median           9
-          third neighbour, levels away, median            13
+          third neighbour, levels away, median            14
         colonies with a neighbour at one level            100.00%
         colonies with every neighbour blocked             62.00%
 

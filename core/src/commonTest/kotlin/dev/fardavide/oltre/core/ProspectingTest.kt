@@ -176,5 +176,6 @@ class ProspectingTest {
             hazards = hazards,
             fields = 150,
         ),
+        hasRing = false,
     )
 }

@@ -20,6 +20,17 @@ value class Uniform(val ofBasis: Int) {
     }
 }
 
+// How often each star class turns up in a region of a given temperament. The three always sum to
+// 100, and it is a named type rather than three loose percentages so that `GalaxyBalanceTest` can
+// pin a whole temperament in one assertion — the treatment every other published table here gets.
+data class StarMix(val dimPercent: Int, val standardPercent: Int, val brightPercent: Int) {
+    init {
+        require(dimPercent + standardPercent + brightPercent == 100) {
+            "a star mix must sum to 100, was $dimPercent + $standardPercent + $brightPercent"
+        }
+    }
+}
+
 // DECIDED balance, not placeholders — the same standing `ResearchBalance` has, and for the same
 // reason: every number here comes from the galaxy decision sheet, and `GalaxyBalanceTest` pins its
 // published tables value by value. Changing one of these is a design change, not a refactor.
@@ -40,6 +51,47 @@ object GalaxyBalance {
     const val SLOTS_PER_SYSTEM: Int = 15
     const val TOTAL_SLOTS: Int = GALAXIES * SYSTEMS_PER_GALAXY * SLOTS_PER_SYSTEM
 
+    // ── Regions: the map's only geography ────────────────────────────────────────────────────
+    //
+    // Ten of them, 25 systems each — about two hours wide at drive 0, which is a plausible night's
+    // dispatch, and ten names a galaxy, which is learnable in a week. Davide's call, 2026-08-14.
+    const val REGIONS_PER_GALAXY: Int = 10
+    const val SYSTEMS_PER_REGION: Int = SYSTEMS_PER_GALAXY / REGIONS_PER_GALAXY
+
+    // **A permutation of a fixed multiset, not ten independent draws**, and the difference is the
+    // whole design. Ten draws would preserve the galaxy-wide star mix only in expectation, so a
+    // per-seed test would have to widen its bands to admit the unlucky galaxy — and a galaxy that
+    // rolled ten Settled regions is a galaxy this slice did nothing for. Shuffling a fixed list
+    // makes the pooled distribution identical for *every* seed, and lets the game promise that
+    // there is a Deep somewhere in yours.
+    //
+    // **Four, two, four.** `3 / 4 / 3` was the sheet's proposal and this is the build's call under
+    // `galaxy-identity-sheet.md` §9.4, on two arguments:
+    //
+    // 1. **It pools to 32 / 36 / 32**, against `3 / 4 / 3`'s 29 / 42 / 29 — near enough the equal
+    //    thirds that every §9 target was measured against to leave them alone.
+    // 2. **It makes the map more characterful, not less**: only two regions in ten are the bland
+    //    one, where `3 / 4 / 3` leaves four.
+    //
+    // **What it is *not* justified by is the settleable share, and an earlier draft of this comment
+    // claimed it was.** `passes every band` is a count of about seventy-five worlds, so one map's
+    // reading carries ±11% of Poisson noise and cannot tell a real shift from a fluctuation — which
+    // is exactly the mistake that reading is there to invite. Both multisets measure identically on
+    // the test seed. The row is now pinned across six maps instead of one, and every one of them is
+    // inside 1 – 2%: see `GalaxyDistributionTest.passing every band holds its target across seeds`.
+    val REGION_TEMPERAMENTS: List<RegionTemperament> = listOf(
+        RegionTemperament.DEEP,
+        RegionTemperament.DEEP,
+        RegionTemperament.DEEP,
+        RegionTemperament.DEEP,
+        RegionTemperament.SETTLED,
+        RegionTemperament.SETTLED,
+        RegionTemperament.BURNING,
+        RegionTemperament.BURNING,
+        RegionTemperament.BURNING,
+        RegionTemperament.BURNING,
+    )
+
     // A slot holds a world more often in the middle of a system than at its edges, which averages
     // 4.75 worlds per system and ~4,750 galaxy-wide. The inner band is also where the temperature
     // formula puts the habitable orbits, so the worlds worth looking at are where the worlds are.
@@ -57,6 +109,10 @@ object GalaxyBalance {
     // nothing only if nothing else was ever drawn from its sub-seed.
     const val RELAY_SYSTEM_IN: Int = 40
 
+    // One world in two hundred wears a ring — about six in a galaxy, twenty-three across the map.
+    // Rare enough to be worth remarking on, common enough that a fortnight's play meets one.
+    const val RING_IN: Int = 200
+
     // ── Temperature: a function of the orbit, which is why the coordinate is worth having ────
     //
     // Position *is* a trait, so the charted map is readable before anything has been surveyed and
@@ -72,15 +128,33 @@ object GalaxyBalance {
         StarClass.BRIGHT -> 40
     }
 
-    // ASSUMED, NOT DECIDED. The sheet gives each star class its temperature offset but never says
-    // how often each one occurs, so this slice takes equal thirds and says so rather than burying
-    // it. The choice is close to free: because the habitable orbits shift with the offset, each
-    // class ends up passing the temperature band on ~25% of its worlds either way, so the galaxy's
-    // distribution barely moves. Recorded as an open call in `balance-log.md`.
-    fun starClass(ofThree: Int): StarClass = when (ofThree) {
-        0 -> StarClass.DIM
-        1 -> StarClass.STANDARD
-        else -> StarClass.BRIGHT
+    // **DECIDED at 0.10, and it closes the open call this function used to carry.** Until then it
+    // read *"ASSUMED, NOT DECIDED … this slice takes equal thirds and says so"*, with the mix
+    // recorded as open in `balance-log.md`. The mix is now a consequence of the region temperaments
+    // rather than a number of its own: `4 × Deep, 2 × Settled, 4 × Burning` pools to 32 / 36 / 32.
+    //
+    // The same sentence that made equal thirds safe is what makes this safe — **because the
+    // habitable orbits shift with the offset, each class passes the temperature band on ~25% of its
+    // worlds either way**, so the galaxy-wide verdict distribution barely moves whatever the class
+    // mix is. That property is why star class could be given a regional bias at all and why gravity
+    // and pressure could not: they are threshold crossings on a fixed distribution with no
+    // compensating coordinate. `galaxy-identity-sheet.md` §1.3 has the argument.
+    fun starClass(temperament: RegionTemperament, percent: Int): StarClass {
+        val mix = starMix(temperament)
+        return when {
+            percent < mix.dimPercent -> StarClass.DIM
+            percent < mix.dimPercent + mix.standardPercent -> StarClass.STANDARD
+            else -> StarClass.BRIGHT
+        }
+    }
+
+    // Moderate rather than strong — Davide's call, 2026-08-14. A Deep is clearly cold and a Settled
+    // still reads like the map did before, so a region keeps some texture instead of collapsing
+    // into a single fact.
+    fun starMix(temperament: RegionTemperament): StarMix = when (temperament) {
+        RegionTemperament.DEEP -> StarMix(dimPercent = 60, standardPercent = 30, brightPercent = 10)
+        RegionTemperament.SETTLED -> StarMix(dimPercent = 20, standardPercent = 60, brightPercent = 20)
+        RegionTemperament.BURNING -> StarMix(dimPercent = 10, standardPercent = 30, brightPercent = 60)
     }
 
     fun temperature(slot: Int, starClass: StarClass, jitter: Int): Temperature = Temperature(

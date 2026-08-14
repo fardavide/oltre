@@ -3031,3 +3031,96 @@ Two things worth keeping from how this was chased, because both were wrong turns
   85.6% an artifact. `build.gradle.kts` argues the exact opposite at length, and had done since #64:
   counting `core` in the screenshot pass measures *"what fraction of the repository is not
   drawable"*. The intended number was right; only the plumbing was broken.
+
+## The map gains a name (0.11.0, 2026-08-14)
+
+Davide, having played 0.10.1: *"I'm so unhappy with the map. It is huge, but terrible to navigate!
+Finding a planet feels like searching a phone number on pagine gialle in the 90s."* And: *"the map
+should gain 'an identity' … here it's just numbers."*
+
+`galaxy-identity-sheet.md` is the design and `.claude/prompts/design-galaxy-identity.md` is the
+Claude Design round trip that answered its visual half. What follows is only what is expensive to
+reverse.
+
+### The galaxy has geography now, and every existing map changed to get it
+
+`starClassAt` hashed each system independently, so **nothing about any region of the map could be
+learned** — not hidden by the UI, absent from the model. A galaxy is now ten contiguous regions of
+25 systems, each with a temperament that biases its stars, and the ten are a **permutation of a
+fixed multiset** (4 Deep, 2 Settled, 4 Burning) rather than ten independent draws — so the pooled
+star mix is identical for every seed and every galaxy is promised one of each.
+
+**Davide accepted the reroll**, and the migration keeps the seed and the home coordinate rather than
+re-minting: the 0.5.1 doorstep guarantee exists to make the *opening* legible, and a player with a
+fortnight behind them is not in the opening. Re-minting would have restored that guarantee by
+deleting their surveys, at the exact moment surveys started being worth something.
+
+The one thing that closed with it: `GalaxyBalance.starClass`'s *"ASSUMED, NOT DECIDED … equal
+thirds"* is now decided, as a consequence of the multiset rather than as a number of its own.
+
+### The Galaxy tab opens on the ledger, not the map
+
+Claude Design's option (c), Davide's call. The argument is about what the tab is *for*: the map is
+where you spend probes and the ledger is where you spend ships, and runs go out several times a day
+where probes go once or twice — so the rarer errand was sitting in the commoner one's chair, and
+reaching a world you already had a reading on cost four taps of paging.
+
+The honest cost, stated by Design and accepted: a returning player's first sight of the tab is a
+list, which is a weaker picture than a map. It is right at forty worlds and wrong at five, which is
+why the genesis frame spends its empty half on the region rather than on an apology.
+
+### The word `Unsurveyed` left the row
+
+The design's one subtraction, and the one it most wanted argued with. An empty disc socket where
+every surveyed row has a body is the state, stated where the state belongs — and it bought back a
+colour, a ten-character reading and the row's whole right end on 98% of rows. `WorldVerdictUiState`
+keeps the constant with a null word so the decision stays arguable rather than deleted.
+
+### Pins are the only thing the slice writes to disk
+
+Schema 12, a set inside `galaxy`. Names, epithets, portraits, regions and the ledger's own filters
+and sort are all derived. **Filters and the sort deliberately do not persist** — Design's rule: *"a
+filter that outlives the check-in that set it is a screen lying about what it holds."*
+
+### The screenshot tests moved from `:client:galaxy:ui` to `:client:galaxy:presentation`
+
+**This reverses the arrangement 0.9.1 accepted, and the reason is that its stated cost came due.**
+`TestGalaxyUiState.kt` was three thousand lines of generator output, hand-stated because a ui module
+is a leaf that cannot see a `GameState` — and its own header named what that bought: *"the drift the
+old header warned about is now real again … a mapper that re-words a verdict leaves this file
+asserting the old text, and the baselines will agree with it."*
+
+This redesign changed every row, every header and the whole body shape at once, so the file had to be
+regenerated wholesale regardless. What replaced it is not a smaller copy but **no copy**: the
+screenshot tests now live in the presentation module, which owns the same feature and *can* build a
+`GameState`, so a frame is `state.toGalaxyUiState(nav)` — the same call the app makes. The
+`screenshot-testing` skill asks for the owning client module's `desktopTest`, and this is one. The
+module rules are untouched: no ui module gained a dependency.
+
+What is lost is the screenshot sitting beside the composable it photographs. What is gained is that
+a mapper which re-words anything moves a baseline, which is what a baseline is for.
+
+### The discovery card costs the save nothing
+
+The design asked for a card shown "once ever", which needs a seen-flag per world. What shipped is
+*surveyed since you last had this tab open*, answered from `Event.SurveyCompleted` — which already
+carries an instant and a system, and whose worlds are regenerable from the seed. The weaker
+guarantee is the one that stores nothing and cannot fire twice.
+
+**The boundary that span is measured from was wrong in the first cut, and the way it was wrong is
+worth keeping.** `seenAt` opened at `now`, and `now` is `lastUpdatedAt` — the instant the launch had
+already advanced *to* before anything was composed. So every `SurveyCompleted` the launch itself
+produced was `at <= seenAt` and excluded: **the section could never fire on the check-in it exists
+for**, which is the only one that matters. It worked only for a player who left the tab composed
+across a later foreground, and a comment three lines above it claimed the opposite.
+
+Nothing caught it. Both mapper tests passed, because they set `seenAt` themselves and were therefore
+testing the filter rather than the boundary; the screenshot frame passed by dating its landing an
+*hour in the future*, which shipped a baseline reading `found -59m ago` — the defect printing itself
+into a committed image that had already been looked at. A behaviour test driving the real
+`GalaxyScreen` is what found it.
+
+The fix is that `GameSession` carries `resumedFrom` — the instant `resume` advanced *from* — and the
+shell hands it down. The general lesson is the one `advance` has taught before: **a span has two
+ends, and a screen that is about what happened while you were away cannot derive the far one from
+the near one.**

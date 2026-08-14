@@ -69,10 +69,28 @@ data class GalaxyState(
     val ownership: List<WorldOwnership>,
     // Sparse, and pruned back to nothing as worlds refill. See `WorldDeposit`.
     val deposits: List<WorldDeposit>,
+    // **The only thing the galaxy identity slice writes to disk.** Names, epithets, portraits,
+    // regions and the ledger's own sort and filters are all derived; a pin is the one fact about the
+    // map that exists nowhere but in the player's head until it is stored.
+    //
+    // A set of coordinates, which is `surveyed`'s shape rather than `ownership`'s — a pin carries
+    // nothing beside itself. Bounded by the player's own patience, so `WorldDeposit`'s objection to
+    // per-world records ("a save that grows without bound") does not reach it: nothing pins a world
+    // except a tap.
+    //
+    // **Filters and the sort deliberately do not persist.** Claude Design, 2026-08-14: *"a filter
+    // that outlives the check-in that set it is a screen lying about what it holds."*
+    val pinned: Set<GalaxyCoordinate>,
 ) {
     init {
         require(ownership.distinctBy { it.at }.size == ownership.size) {
             "a world cannot have two holders, was $ownership"
+        }
+        // A pin is a bookmark into what you know, and the ledger — the only surface that shows one —
+        // draws a pinned world as a full row. A pin on an unsurveyed coordinate is therefore a row
+        // the screen cannot draw, so it is refused here rather than filtered there.
+        require(pinned.all { it in surveyed }) {
+            "a world cannot be pinned before it is surveyed, was ${pinned - surveyed}"
         }
         require(holderOf(home) == EmpireId.PLAYER) {
             "the home world must be held by the player, was ${holderOf(home)}"
@@ -179,6 +197,10 @@ data class GalaxyState(
                 ownership = listOf(WorldOwnership(at = home, holder = EmpireId.PLAYER)),
                 // Nothing has been taken out of anything yet, and an empty list says exactly that.
                 deposits = emptyList(),
+                // Nobody has pinned anything on their first launch, and the ledger's genesis frame
+                // is five rows with no PINNED section — which is the honest state rather than an
+                // empty heading.
+                pinned = emptySet(),
             )
         }
 

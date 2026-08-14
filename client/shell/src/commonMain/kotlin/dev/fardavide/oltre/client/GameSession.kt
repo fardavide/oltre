@@ -23,6 +23,15 @@ internal data class GameSession(
     val state: GameState,
     val lastUpdatedAt: Instant,
     val debugUsed: Boolean = false,
+    // **The instant this launch advanced *from*, which is the only way to know what happened while
+    // the app was closed.** `lastUpdatedAt` is where the advance ended, so by the time anything is
+    // composed it is already the present and every event the launch produced looks old.
+    //
+    // The Galaxy tab's discovery section is measured from here: a world surveyed inside the span
+    // that just ran is new, and one surveyed before it is not. Defaults to `lastUpdatedAt` — an
+    // empty span, so nothing is new — which is right for a colony that has not been resumed and is
+    // what keeps the fifty existing constructions of this type saying what they meant.
+    val resumedFrom: Instant = lastUpdatedAt,
 ) {
 
     fun toSnapshot(): GameSnapshot =
@@ -50,6 +59,9 @@ internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
     return GameSession(
         state = advance(saved.state, from = saved.lastUpdatedAt, to = to),
         lastUpdatedAt = to,
+        // Where the advance started. A probe that landed overnight completed inside `[from, to]`,
+        // and this is the `from`.
+        resumedFrom = saved.lastUpdatedAt,
         // Carried across, never re-derived: the flag is one-way, and a colony that was debugged
         // three launches ago is still a colony that was debugged.
         debugUsed = saved.debugUsed,

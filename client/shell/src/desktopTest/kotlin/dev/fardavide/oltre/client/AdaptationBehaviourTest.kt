@@ -73,15 +73,13 @@ class AdaptationBehaviourTest {
             // then, once it completes, the same world reads differently without a survey or a fleet
             letTimePass(by = 7.hours)
             assertReads(HOME_SYSTEM_BEST)
-            // The yield rather than the verdict word, because it names *which* world moved. Slot 10
-            // is still blocked on pressure and still wants Atmospheric 4 — one level further out —
-            // so the remedy string leaving the screen is this world's verdict changing rather than
-            // the whole system's.
-            //
-            // Capitalised since treatment 1b: a settleable world states everything it has on one
-            // note line, and that line opens a sentence. The lower-case "yield" now belongs to the
-            // two verdicts that lead with richness, where it is a clause inside one.
-            assertReads("Yield 1.17")
+            // **The world's own name rather than its yield, since 0.11.** The point of the
+            // assertion is unchanged — it has to name *which* world moved, because slot 10 is still
+            // blocked on pressure and wants Atmospheric 4, so a system-wide reading would pass on
+            // the wrong world. What changed is that a settleable row no longer prints a yield: its
+            // one note line is "Nothing here blocks a colony", and the thing that identifies the
+            // row is the headline the whole slice exists to give it.
+            assertReads("Nothing here blocks a colony.")
             assertNothingReads(REMEDY)
         }
     }

@@ -15,12 +15,12 @@ All rights reserved. No license is granted for reuse of this code.
 <img src="client/colony/ui/src/desktopTest/screenshots/colony_screen_watching_phone.png" alt="The Colony screen: a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and four unsurveyed worlds" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_ledger.png" alt="The Galaxy screen: every world you have surveyed, nearest first, each with its name, its drawn planet disc, what it is, and what is still in the ground" width="320">
 </td>
 </tr>
 <tr>
 <td align="center"><b>Colony</b> — a fleet on its way home, what your plant supplies against what your facilities draw, and every facility with its level, cost, build time and countdown. Upgrades run in parallel.</td>
-<td align="center"><b>Galaxy</b> — a system you have never been to: the reach band across the top, its fifteen orbits, and a probe you can send for 150 metal and half an hour of flight.</td>
+<td align="center"><b>Galaxy</b> — the worlds you know, nearest first, each with the name the seed gave it and a disc drawn from what it is: the fill is temperature, the size is gravity, the banding is pressure. Search it, filter it, or switch to the map to go and find another.</td>
 </tr>
 </table>
 
@@ -43,9 +43,9 @@ before you step. Crossing a galaxy used to be 249 taps.
 Everything the probe says lands in the card that owns the star it is about: the price and the
 flight, then a countdown, then what it found.
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
 
 **"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
 the same breath as the count rather than burying it — a run of them should read as calibration, not
@@ -62,7 +62,7 @@ between a rock worth flying to and one worth skipping this week.
 A blocked world names the ladder that would unblock it and the level it would take, which is what
 turns 98% of the galaxy from a wall into a shopping list:
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: a relay, the home world, an occupied world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: the home world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
 
 ### Sending a fleet
 
@@ -72,7 +72,7 @@ rule is what actually lands, and it moves as you touch the controls: it is cappe
 sent, by what the deposit still holds, and by how long the fleet gets to work once the flight is
 paid for. The legs line spends the trip in front of you — out, on station, working, home.
 
-<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_dispatch.png" alt="The dispatch sheet: metal or crystal, a hull stepper, five return windows, and what lands" width="320">
+<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_dispatch.png" alt="The dispatch sheet: metal or crystal, a hull stepper, five return windows, and what lands" width="320">
 
 Send a fleet bigger than the world and it says so — the figure becomes the whole deposit and a
 clause under the stepper names the ships that would come home with nothing. Send it too far and
@@ -205,6 +205,29 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - `.claude/docs/` — architecture, decisions, status.
 
 ## Changelog
+
+### 0.11.0 — 2026-08-14
+
+- **The map has places instead of addresses.** Every system and every world has a name now —
+  Calianova, Kragith, Velovae IX — generated from the seed, unique inside a galaxy, and free from the
+  first launch. The coordinate survives as the subtitle. You can search for a name and get one
+  world back, which is the whole answer to finding somewhere you have been before.
+- **The Galaxy tab opens on what you know.** A ledger of every world you have surveyed, nearest
+  first, with filters — reachable in six hours, still holding, one adaptation level away, settleable,
+  by region — a sort, a search, and pinned worlds at the top. The map is one tap away and is where
+  you go to find something new rather than where you go to look something up.
+- **A surveyed world has a face.** A drawn disc where every channel is a real trait: the fill is
+  temperature, the size is gravity, the banding is pressure, and the marks are the hazards. An
+  unsurveyed world is an empty socket, so a list of them reads as somewhere to go rather than as a
+  table you have already read. About one world in two hundred wears a ring, which means nothing at
+  all.
+- **And a name for what it is.** *iron giant*, *deep frost*, *drowned shroud*, *temperate world* —
+  derived from the three axes, so the words can never disagree with the numbers beside them.
+- **The galaxy has regions.** Ten per galaxy, twenty-five systems each, each one named and each one
+  genuinely different: a Deep runs sixty percent dim stars, which moves its habitable orbits inward
+  and makes its deuterium good, and a Blaze does the opposite. That is readable off the strip before
+  you have surveyed anything, and there is an index of the ten that says what each is for.
+  **Your map has changed to make room for it, and it will not change again.**
 
 ### 0.10.1 — 2026-08-14
 
