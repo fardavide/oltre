@@ -16,9 +16,9 @@ configures, not by a task you can forget to run and not by a reviewer who might 
 | # | Rule | |
 |---|---|---|
 | 1 | A module cannot contain another module | layout |
-| 2 | `domain` may not depend on `data` or `presentation` | layers |
+| 2 | `domain` may not depend on `data`, `presentation` or `ui` | layers |
 | 3 | `presentation` may not depend on `data` | layers |
-| 4 | `data` may not depend on `presentation` | layers |
+| 4 | `data` may not depend on `presentation` or `ui`; `ui` may not depend on either | layers |
 | 5 | Only a test source set may reach a `-testing` module | fakes |
 | 6 | `core` may not depend on any module | direction |
 | 7 | Nothing may depend on `:client:shell` | direction |
@@ -50,16 +50,42 @@ property — the failure mode is silent.
 ## Rules 2–4 — which layer may see which
 
 A module's **layer is the last segment of its Gradle path**, minus a `-testing` suffix:
-`:client:save:data` is data, `:client:colony:presentation` is presentation, and
-`:client:save:data-testing` is data too. Only `domain`, `data` and `presentation` are layers.
-Each forbidden edge is forbidden for its own reason, not for symmetry:
+`:client:save:data` is data, `:client:colony:presentation` is presentation, `:client:colony:ui` is
+ui, and `:client:save:data-testing` is data too. Only `domain`, `data`, `presentation` and `ui` are
+layers. Each forbidden edge is forbidden for its own reason, not for symmetry:
 
-- **`domain` → `data` / `presentation`.** Domain is the feature's rules; it *defines* the
+- **`domain` → `data` / `presentation` / `ui`.** Domain is the feature's rules; it *defines* the
   interfaces data implements and knows nothing of a screen.
 - **`presentation` → `data`.** A screen talks to domain, never to a store or a socket. The day a
   feature grows a domain layer, a presentation that reached past it has to be rewritten rather
   than rewired.
-- **`data` → `presentation`.** Obvious, and cheap to keep obvious.
+- **`data` → `presentation` / `ui`.** Obvious, and cheap to keep obvious.
+- **`ui` → `data` / `presentation`.** A ui module draws and decides nothing, so it is a leaf. The
+  mapping into what it renders belongs one layer up, and `presentation` depends on `ui` rather than
+  the reverse — a leaf that could see its own mapper is not a leaf.
+
+## `ui` and `presentation` — the split, and when the second one is not there
+
+**`ui`** holds composables and the models they render. **`presentation`** holds the mapping from
+`core` or domain state into those models, and anything else that decides rather than draws.
+
+**A `presentation` module is optional and a `ui` module is not.** A feature with nothing to decide
+is a `ui` module and no more — the same rule `domain` and `data` already follow, and a
+`presentation` that only forwards its arguments is the placeholder layer this prevents.
+`:client:debug` is the worked example: `debugReport(...)` in its `domain` already produces exactly
+what `DebugSheet` draws, so there is nothing for a presentation module to do.
+
+**A `ui` module should depend on the design system and little else.** It *may* take `core` or its
+own feature's `domain` where a model genuinely needs them — a row keyed by a `BuildingType` is the
+shape that earns it — but reaching for a *balance* or a *rule* is the signal that a mapping belongs
+one layer up. In practice this is what strips `:client:design:format` and `kotlinx-datetime` out of
+every ui module: by the time a duration reaches one it is a `String`.
+
+**Where a screen holds its own navigation, the composable goes in `presentation`.**
+`:client:galaxy:presentation` is the one presentation module in the build that applies the Compose
+plugins, because *which system is on screen* is a decision: `GalaxyScreen` holds it, re-derives the
+page whenever it changes, and hands the stateless `GalaxyPage` a frame. The test for a second one is
+the same — does the module decide, or does it draw a frame it was handed.
 
 **Test source sets count.** A presentation module that reaches a data module only from
 `commonTest` still compiles against it, still couples to it, and is exactly as expensive to
@@ -147,7 +173,7 @@ the graph contains plugin-injected edges as well as declared ones.
 
 ## What is not a layer
 
-`:core`, `:sim`, `:server`, `:client:design` and `:client:shell` end in none of the three layer
+`:core`, `:sim`, `:server`, `:client:design` and `:client:shell` end in none of the four layer
 names, and are deliberately unconstrained by rules 2–4.
 
 `:client:shell` is the one worth stating out loud, because it looks like an exception and is not.

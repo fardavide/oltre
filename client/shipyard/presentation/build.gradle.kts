@@ -1,11 +1,16 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// Everything the Shipyard tab decides: the mapping from `GameState` into the models
+// `:client:shipyard:ui` draws, the unit tests that pin every price and every clause of the pool
+// line, and the seam test that renders the two together.
+//
+// **No Compose plugin, and there is a seam test in here that renders a screen.** That is the point
+// rather than an oversight — see `:client:fleets:presentation`, which is the same shape for the same
+// reason: the robot in `:client:shipyard:ui-testing` does the composing and hands the whole harness
+// back as `api`, so this module gets the test without the compiler.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -28,10 +33,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            // No `:client:design:icon` — a price list draws no glyph. The hull is named rather than
-            // pictured, which is also what keeps a second hull from needing a second drawing.
+            // `api`, so the composition root names this feature once — see `:client:colony:presentation`.
+            api(projects.client.shipyard.ui)
             implementation(projects.client.design.component)
-            implementation(projects.client.design.core)
             implementation(projects.client.design.format)
 
             // The ghost on an unaffordable card carries a wait, and the wait is a duration written
@@ -42,22 +46,15 @@ kotlin {
             // completion to name"*. It has one now: the yard has a clock, so a card on the slipway
             // says when it is done in wall-clock time, exactly as a facility row does.
             implementation(libs.kotlinx.datetime)
-
-            implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
-            implementation(libs.compose.ui)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }
         val desktopTest by getting {
             dependencies {
-                implementation(projects.client.design.screenshotTesting)
-
-                implementation(compose.desktop.uiTestJUnit4)
-                implementation(compose.desktop.currentOs)
-                implementation(libs.roborazzi.compose.desktop)
+                // Brings the screen, the robot, the JUnit harness and the desktop Skiko binary
+                // with it — see that module's build file.
+                implementation(projects.client.shipyard.uiTesting)
             }
         }
     }

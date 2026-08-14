@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.ReachBandUiState
+import dev.fardavide.oltre.client.galaxy.ui.ReachDotUiState
+import dev.fardavide.oltre.client.galaxy.ui.ReachTick
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState

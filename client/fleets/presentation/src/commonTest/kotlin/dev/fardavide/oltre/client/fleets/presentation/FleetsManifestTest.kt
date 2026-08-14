@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate

@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
+import dev.fardavide.oltre.client.galaxy.ui.RefuseActionUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -398,6 +402,100 @@ class DispatchUiStateTest {
         )
 
         assertNull(offer.rungNote)
+    }
+
+    // ── The four readings the screenshot fixtures used to carry ─────────────────────────────
+    //
+    // **These are not new behaviour and they are not padding.** Until 0.9.1 `TestGalaxyUiState`
+    // built its frames by calling this mapper, so a fixture aimed at another galaxy, or at a colony
+    // with runs out, was quietly the only thing exercising these branches. The frames are stated by
+    // hand now — a ui module cannot see a mapper — so what the images used to reach incidentally is
+    // asserted here on purpose, which is where it should always have been.
+
+    @Test
+    fun `a target in another galaxy is priced as a whole galaxy away`() {
+        val far = SystemSelection(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
+        val slot = firstWorldSlot(far)
+        val target = GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = slot)
+
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(slot, state = surveying(target), at = far),
+        )
+
+        // The danger line names the crossing rather than a number of systems: from here, "how far"
+        // stops being a count and becomes a different galaxy.
+        assertTrue("another galaxy" in offer.danger, offer.danger)
+        // And the ladder narrows rather than greying out — a round trip this long has no short
+        // rungs to offer, which is the thing that teaches distance before any copy does.
+        assertNotNull(offer.ladderNote)
+        assertTrue(offer.windows.isNotEmpty())
+    }
+
+    @Test
+    fun `the sheet says how much of the fleet is already out in the singular and the plural`() {
+        val slot = runnableSlot()
+        val other = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+            .first { it != slot && it != home.slot && worldAt(seed, homeSystemAt(it)) != null }
+
+        // Every hull away, because the note only exists where the pool is empty: with something
+        // idle the sheet prices a run instead of explaining why it cannot.
+        val one = withSkiffs(1).copy(ships = Ships.NONE, runs = listOf(runReturningIn(2.hours, other)))
+        val several = withSkiffs(1).copy(
+            ships = Ships.NONE,
+            runs = listOf(runReturningIn(2.hours, other), runReturningIn(5.hours, other)),
+        )
+
+        // A refusal rather than an offer, and the refusal is the subject: with nothing idle the
+        // sheet explains where the fleet is instead of pricing a run it cannot send.
+        val withOne = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, state = one))
+        val withSeveral = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, state = several))
+
+        // One run is a sentence about a run; two is a sentence about a queue, and the second one
+        // has to say how much is behind the first or the count reads as the whole fleet.
+        assertTrue("run is" in withOne.note, withOne.note)
+        assertTrue("runs are" in withSeveral.note, withSeveral.note)
+        assertTrue("more behind it" in withSeveral.note, withSeveral.note)
+    }
+
+    @Test
+    fun `a world richer in crystal opens on crystal and leads its head line with it`() {
+        // Searched rather than written down, for the reason every other figure here is read off the
+        // generator: which slot happens to be crystal-heavy is the seed's business, and a hardcoded
+        // one would be this test asserting the map.
+        val slot = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { candidate ->
+            val world = worldAt(seed, homeSystemAt(candidate))
+            candidate != home.slot && world != null && world.crystalPerMillion > world.metalPerMillion
+        }
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot))
+
+        assertEquals(ResourceKind.CRYSTAL, offer.gathering)
+        assertTrue(offer.head.startsWith("crystal"), offer.head)
+        // The compact head drops the lesser resource rather than ellipsising the pair, so what goes
+        // at 320dp is the number you were not going to pick.
+        assertTrue("metal" !in offer.compactHead, offer.compactHead)
+    }
+
+    @Test
+    fun `a clean world says so rather than going quiet about its hazards`() {
+        val clean = (1..GalaxyBalance.SLOTS_PER_SYSTEM).firstOrNull { candidate ->
+            val world = worldAt(seed, homeSystemAt(candidate))
+            candidate != home.slot && world != null && world.traits.hazards.isEmpty()
+        }
+        val hazardous = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { candidate ->
+            val world = worldAt(seed, homeSystemAt(candidate))
+            candidate != home.slot && world != null && world.traits.hazards.isNotEmpty()
+        }
+
+        // A hazard is named in words, because it is memorable that way and a count is not.
+        val risky = assertIs<DispatchUiState.Offer>(dispatchAt(hazardous))
+        assertTrue(risky.danger.isNotEmpty())
+        // "no hazards" is a fact worth printing rather than an absence worth hiding: a clean world
+        // is the one you want to find, and silence would read as missing information.
+        clean?.let {
+            val safe = assertIs<DispatchUiState.Offer>(dispatchAt(it))
+            assertTrue("no hazards" in safe.danger, safe.danger)
+        }
     }
 
     private fun withSkiffs(count: Int): GameState = state.copy(ships = Ships.of(ShipType.SKIFF, count))
