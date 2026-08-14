@@ -84,7 +84,10 @@ class GalaxyScreenshotTest {
     fun `the home system at phone width`() {
         capture(
             width = 393,
-            height = 1500,
+            // Tall enough for all seven rows. At 1500 the frame cut `Elyotis X` mid-row and slot 11
+            // never rendered at all, so the two rows most likely to wrap had no baseline — a
+            // screenshot that stops short asserts its own truncation forever.
+            height = 1800,
             uiState = frame(view = GalaxyView.SYSTEM),
             name = "galaxy_home_system",
         )
@@ -97,6 +100,20 @@ class GalaxyScreenshotTest {
             height = 1200,
             uiState = frame(view = GalaxyView.SYSTEM, at = frameState.neighbourSelection()),
             name = "galaxy_unsurveyed",
+        )
+    }
+
+    // The one row on the whole screen that is neither a card nor a target: a hairline, the address,
+    // the word and the effect. It is drawn by a composable no other frame reaches — one system in
+    // forty carries a relay and the home system does not — so without this the demotion from accent
+    // settled at 0.0.18 is asserted by a node query and by nothing that can see a colour.
+    @Test
+    fun `a system carrying a relay`() {
+        capture(
+            width = 393,
+            height = 1100,
+            uiState = relaySystemUiState,
+            name = "galaxy_relay_system",
         )
     }
 
@@ -169,6 +186,33 @@ class GalaxyScreenshotTest {
     @Test
     fun `the sheet on a target in another galaxy`() {
         captureSheet(uiState = dispatchFarUiState, name = "galaxy_dispatch_far")
+    }
+
+    // The clamp, which is the one place the sheet prints a word where a figure would be: the fleet
+    // would lift more than the ground holds, so the headline is the deposit and the slot beside it
+    // says so. The clamp note underneath is earned rather than standing — it only exists when some
+    // of the hulls sent are contributing nothing — so this is the frame that would catch it going
+    // missing or, worse, appearing on every dispatch.
+    @Test
+    fun `the sheet on a fleet the world cannot fill`() {
+        captureSheet(uiState = dispatchWholeDepositUiState, name = "galaxy_dispatch_whole_deposit")
+    }
+
+    // The other half of the waiting state, and the reason it is a frame of its own: the stripped
+    // world above still has a date, and this ask never will. So the tile that carries "in 2d 02h"
+    // is simply absent here, and the sheet ends on a sentence — the one layout in the family whose
+    // last row is missing rather than different.
+    @Test
+    fun `the sheet on an ask no world can ever hold`() {
+        captureSheet(uiState = dispatchWaitingForeverUiState, name = "galaxy_dispatch_waiting_forever")
+    }
+
+    // Between full and empty, where the deposit chips state a fraction. Both other stock words —
+    // "full" and "empty" — are already photographed, so this is the third and last reading the chip
+    // has, and the only one whose glyphs can be clipped by a chip sized for a word.
+    @Test
+    fun `the sheet on a world part worked`() {
+        captureSheet(uiState = dispatchWorkedUiState, name = "galaxy_dispatch_worked")
     }
 
     @Test

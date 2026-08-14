@@ -91,7 +91,14 @@ internal val dispatchNoShipsUiState: GalaxyUiState = frameState.let { state ->
 
 // More hulls asked for than the idle pool holds: the sheet clamps rather than refusing, because the
 // number it shows is the number that would really go.
-internal val dispatchClampedUiState: GalaxyUiState = sheet(ships = 99)
+//
+// **The fleet has to be bigger than one for that to be observable**, and it was not: genesis grants
+// a single skiff, so `hulls = (selection.ships ?: idle).coerceIn(1, idle)` resolved 99 and null to
+// the same 1 and this frame rendered the plain offer byte for byte. A screenshot recorded from it
+// was identical to `galaxy_dispatch.png`, and its behaviour test would have passed against the offer
+// — a fixture named for a mechanism it could not exercise.
+internal val dispatchClampedUiState: GalaxyUiState =
+    sheet(state = frameState.copy(ships = Ships.of(ShipType.SKIFF, 6)), ships = 99)
 
 // A fleet big enough that what it would lift is more than the world currently holds — so the sheet
 // says it is taking *the whole deposit* rather than printing a figure the ground cannot supply.
