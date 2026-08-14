@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
+import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
+import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState

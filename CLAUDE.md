@@ -50,12 +50,17 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 4. `client/` is a directory of modules, never a monolith: `:client:shell` (composition root),
    `:client:design` (a *directory* of design-system layer modules — `:core` tokens, `:icon`,
    `:component`, `:format`, `:testing`), and one *directory* per feature holding layer modules
-   (`:client:<feature>:presentation`, plus `:domain` / `:data` only when the feature needs them).
-5. A module cannot contain another module; `domain` cannot see `data` or `presentation`;
-   `presentation` cannot see `data`; `data` cannot see `presentation`; only a test source set may
-   reach a `-testing` module; `core` depends on nothing, nothing depends on `:client:shell`, and
-   `sim`/`server` never reach into `client/*`. **Enforced by the build** — a violation fails the
-   IDE sync, not just review. See the `module-rules` skill.
+   (`:client:<feature>:ui`, plus `:presentation` / `:domain` / `:data` only when the feature needs
+   them). **`ui` holds composables and the models they render and decides nothing; `presentation`
+   holds the mapping from `core` or domain state into those models. `presentation` depends on `ui`,
+   never the reverse, and a feature with nothing to decide has no `presentation` at all** — see
+   `:client:debug`, whose logic is already its `domain`.
+5. A module cannot contain another module; `domain` cannot see `data`, `presentation` or `ui`;
+   `presentation` cannot see `data`; `data` cannot see `presentation` or `ui`; `ui` cannot see
+   `data` or `presentation`; only a test source set may reach a `-testing` module; `core` depends on
+   nothing, nothing depends on `:client:shell`, and `sim`/`server` never reach into `client/*`.
+   **Enforced by the build** — a violation fails the IDE sync, not just review. See the
+   `module-rules` skill.
 
 ## Build & test
 
@@ -77,6 +82,11 @@ Work that comes from an issue starts by **assigning that issue to `fardavide`** 
 taken. The assignee means *picked up*, never work handed to Davide. Already assigned is nothing to
 do; see the global `github-workflow` skill for the rest, including what to do when `gh` cannot
 reach it.
+
+**Start from an up-to-date `main`, always** — `git fetch origin main` and branch from that, before
+the first edit. A branch cut from a stale local `main` rebases later at the worst moment, and on a
+repo that squash-merges it is the difference between a clean diff and a PR that re-litigates commits
+that already shipped.
 
 Then: all work on branches → PR → all required checks green → squash merge (`protect-main` ruleset,
 no bypass). PRs batch a coherent milestone of related slices — commits stay small, PRs don't. TDD per the global `tdd` skill: failing test first, always.

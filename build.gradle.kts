@@ -87,6 +87,21 @@ subprojects {
 //
 // `:androidApp` is absent on purpose and is the one module that can be: it holds a manifest, a
 // theme and the launcher icons, and not a line of Kotlin. There is nothing there to measure.
+//
+// **Every `-testing` module is absent too, and that is 0.9.1's change rather than an oversight.**
+// A `-testing` module's main source set is test scaffolding by construction — rule 5 already says
+// nothing but a test source set may reach one — so counting it measures the fixtures rather than
+// the app. It was harmless while the only one was `:client:design:screenshot-testing` and thirty
+// lines of Roborazzi options; the layer split added three robots and, in
+// `:client:galaxy:ui-testing`, three thousand lines of hand-written frames. Listed, those frames
+// are production code that no unit test can reach, and the unit row fell **86.3% → 52.3%** on a
+// change that deleted no test and covered no less of the app.
+//
+// This is an omission from the aggregate rather than an entry in the `excludes` filter below, and
+// the difference matters: the filter's rule is that a fourth entry needs a failing report and
+// Davide's explicit say-so, because an exclusion removes the gate's ability to *see*. This removes
+// nothing the gate could see — a robot is exercised by every behaviour test that drives it, and
+// what it would report is how thoroughly the tests test themselves.
 dependencies {
     kover(projects.core)
     kover(projects.sim)
@@ -95,18 +110,22 @@ dependencies {
     kover(projects.client.design.core)
     kover(projects.client.design.format)
     kover(projects.client.design.icon)
-    kover(projects.client.design.screenshotTesting)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
+    kover(projects.client.colony.ui)
     kover(projects.client.debug.data)
     kover(projects.client.debug.domain)
-    kover(projects.client.debug.presentation)
+    kover(projects.client.debug.ui)
     kover(projects.client.fleets.presentation)
+    kover(projects.client.fleets.ui)
     kover(projects.client.galaxy.presentation)
+    kover(projects.client.galaxy.ui)
     kover(projects.client.notifications.data)
     kover(projects.client.research.presentation)
+    kover(projects.client.research.ui)
     kover(projects.client.save.data)
     kover(projects.client.shipyard.presentation)
+    kover(projects.client.shipyard.ui)
     kover(projects.client.tilt.data)
     kover(projects.client.tilt.domain)
 }
@@ -140,6 +159,44 @@ kover {
                 // A path or package rule would have hidden those too.
                 if (testCategory == "unit") {
                     annotatedBy("androidx.compose.runtime.Composable")
+                }
+                // ── Everything that is not a drawing, and **only while measuring the screenshot
+                // pass** ─────────────────────────────────────────────────────────────────────
+                //
+                // The mirror image of the rule above, and it arrives for the same reason. A
+                // screenshot test renders a `ui` module — since 0.9.1 it is handed a declarative
+                // model and it draws it, which is the whole point of the layer split. It cannot
+                // reach a mapper, a store or a `core` rule, and that is not a gap to be closed.
+                //
+                // Left in, the screenshot row stops measuring how well the drawings are covered
+                // and starts measuring **what fraction of the repository is not drawable** — the
+                // unit row's defect with the sign flipped. 0.9.1 is where that became load-bearing:
+                // the frames stopped deriving themselves from `toGalaxyUiState`, so the mappers
+                // left the screenshot pass's reach and the row fell 62.1% -> 47.0% on a change that
+                // deleted no screenshot test, moved no baseline by a byte, and drew nothing less.
+                // Chasing that number back would mean screenshot tests that map a real `GameState`
+                // — exactly the coupling the split removed, bought back to satisfy a measurement.
+                //
+                // **Scoped to the pass, which is what makes it safe**, exactly as above. The
+                // behaviour and unfiltered passes still see every mapper, so nothing becomes
+                // invisible — a mapper that no test reaches at all still shows up there, which is
+                // the property the 0.4.2 lesson is about.
+                //
+                // **By layer rather than by module list.** The last segment of a package is the
+                // layer, so this is the same fact the build already enforces on the module graph,
+                // read off the other end. What survives is what draws: every `*.ui`, the design
+                // system, and `:client:shell`, which holds the chrome and has baselines of its own.
+                //
+                // **`core` needs `classes(… .**)` and not `packages(…)`, which is worth the line it
+                // costs**: a Kover package filter matches that package and not what is under it,
+                // and a single `*` in a class pattern does not cross a dot. `packages("…core")` and
+                // `classes("…core.*")` were both tried and both left all 1,077 of `core`'s branches
+                // in the denominator, silently — the report simply still listed them. Only `.**`
+                // empties it. The layer patterns above work because every layer package *is* a
+                // leaf.
+                if (testCategory == "screenshot") {
+                    packages("*.presentation", "*.domain", "*.data")
+                    classes("dev.fardavide.oltre.core.**")
                 }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
@@ -240,17 +297,28 @@ kover {
 //   6–8  the graph points inward, and both ends of it are sealed
 //
 // A module's layer is the last segment of its Gradle path, so `:client:save:data` is data and
-// `:client:colony:presentation` is presentation. Three edges are forbidden, and each is forbidden
-// for its own reason rather than for symmetry:
+// `:client:colony:presentation` is presentation. Each forbidden edge is forbidden for its own
+// reason rather than for symmetry:
 //
-//   domain       -> data, presentation   domain is the feature's rules; it defines the interfaces
-//                                        data implements and knows nothing of a screen.
-//   presentation -> data                 a screen talks to domain, never to a store or a socket;
-//                                        the day a feature grows a domain layer, a presentation
-//                                        that reached past it has to be rewritten, not rewired.
-//   data         -> presentation         obvious, and cheap to keep obvious.
+//   domain       -> data, presentation,   domain is the feature's rules; it defines the interfaces
+//                  ui                     data implements and knows nothing of a screen.
+//   presentation -> data                  a screen talks to domain, never to a store or a socket;
+//                                         the day a feature grows a domain layer, a presentation
+//                                         that reached past it has to be rewritten, not rewired.
+//   data         -> presentation, ui      obvious, and cheap to keep obvious.
+//   ui           -> data, presentation    `ui` draws and decides nothing, so it is a leaf: the
+//                                         mapping into what it renders is `presentation`'s, and
+//                                         `presentation` depends on `ui` rather than the reverse.
 //
-// Only those three names are layers. `:core`, `:sim`, `:server`, `:client:design` and
+// **`ui` is the fourth layer, added at 0.9.1, and the direction of the one new edge is the whole
+// of it.** A ui module holds composables and the models they render; a presentation module holds
+// the mapping from `core` or domain state into those models. `presentation -> ui` is legal and is
+// how a screen is assembled; `ui -> presentation` is not, because a leaf that could see its own
+// mapper is not a leaf. `ui` is also the one layer that is *optional in the other direction*: a
+// feature with nothing to decide is a ui module and no more — see `:client:debug:ui`, which has no
+// presentation because its logic already lives in `:client:debug:domain`.
+//
+// Only those four names are layers. `:core`, `:sim`, `:server`, `:client:design` and
 // `:client:shell` are not, and are deliberately unconstrained here: the composition root is the
 // one module that may see every layer — that is the whole of its job — and the graph already
 // stops it from being anything else, because nothing depends on it. Rule 1 (a module cannot
@@ -260,9 +328,10 @@ kover {
 // build. Configuration is skipped on a configuration-cache hit, which is the behaviour we want:
 // the check re-runs exactly when a build script changes, which is exactly when an edge can appear.
 val forbiddenLayerDependencies = mapOf(
-    "domain" to setOf("data", "presentation"),
+    "domain" to setOf("data", "presentation", "ui"),
     "presentation" to setOf("data"),
-    "data" to setOf("presentation"),
+    "data" to setOf("presentation", "ui"),
+    "ui" to setOf("data", "presentation"),
 )
 
 // The only modules allowed through rule 7. A list of names rather than a rule about shapes,
@@ -279,7 +348,7 @@ val platformEntryPoints = setOf(":androidApp")
 fun layerOf(projectPath: String): String? = projectPath
     .substringAfterLast(':')
     .removeSuffix("-testing")
-    .takeIf { it in setOf("domain", "data", "presentation") }
+    .takeIf { it in setOf("domain", "data", "presentation", "ui") }
 
 fun isTestingModule(projectPath: String): Boolean =
     projectPath.substringAfterLast(':').endsWith("-testing")

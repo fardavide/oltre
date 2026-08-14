@@ -1,6 +1,6 @@
 package dev.fardavide.oltre.client
 
-import dev.fardavide.oltre.client.research.presentation.FinishedWhileAway
+import dev.fardavide.oltre.client.research.ui.FinishedWhileAway
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event

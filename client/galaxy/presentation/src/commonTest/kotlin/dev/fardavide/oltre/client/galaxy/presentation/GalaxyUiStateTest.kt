@@ -1,5 +1,13 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.galaxy.ui.DepositReadingUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.MapBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.MapMark
+import dev.fardavide.oltre.client.galaxy.ui.OrbitBand
+import dev.fardavide.oltre.client.galaxy.ui.SystemMapUiState
+import dev.fardavide.oltre.client.galaxy.ui.VerdictUiState
+import dev.fardavide.oltre.client.galaxy.ui.WorldRowUiState
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.EmpireId
 import dev.fardavide.oltre.core.GalaxyBalance

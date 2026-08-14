@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
+import dev.fardavide.oltre.client.fleets.ui.PHONE_WIDTH
+import dev.fardavide.oltre.client.fleets.ui.SLIDE_OVER_WIDTH
+import dev.fardavide.oltre.client.fleets.ui.fleets
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed

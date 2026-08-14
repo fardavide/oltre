@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
+import dev.fardavide.oltre.client.shipyard.ui.HullUiState
+import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.Buildings

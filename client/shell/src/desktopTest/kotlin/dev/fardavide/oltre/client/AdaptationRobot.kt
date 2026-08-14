@@ -18,13 +18,13 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
-import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
+import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
-import dev.fardavide.oltre.client.research.presentation.ResearchScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
-import dev.fardavide.oltre.client.shipyard.presentation.ShipyardScreen
+import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
+import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GameState
