@@ -12,10 +12,10 @@ All rights reserved. No license is granted for reuse of this code.
 <table>
 <tr>
 <td width="50%" align="center">
-<img src="client/colony/presentation/src/desktopTest/screenshots/colony_screen_ipad_slide_over.png" alt="The Colony screen: resource rail, a returning fleet, the power card, and the facility list" width="320">
+<img src="client/colony/ui/src/desktopTest/screenshots/colony_screen_watching_phone.png" alt="The Colony screen: a returning fleet, the power card, and the facility list" width="320">
 </td>
 <td width="50%" align="center">
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and six unsurveyed worlds" width="320">
+<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_unsurveyed.png" alt="The Galaxy screen: the reach band, the orbit map, a probe you can dispatch, and four unsurveyed worlds" width="320">
 </td>
 </tr>
 <tr>
@@ -43,19 +43,65 @@ before you step. Crossing a galaxy used to be 249 taps.
 Everything the probe says lands in the card that owns the star it is about: the price and the
 flight, then a countdown, then what it found.
 
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
+<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_in_flight.png" alt="A probe in flight: a countdown, the landing time, and a progress bar in the system card's footer" width="320">
 
-<img src="client/galaxy/presentation/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
+<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_probe_landed.png" alt="A landed probe: five worlds surveyed, none settleable" width="320">
 
 **"None settleable" is the honest answer about fifty-nine times in sixty**, and the screen says it in
 the same breath as the count rather than burying it — a run of them should read as calibration, not
 as bad luck. The notification you get while the app is closed says the same words off the same
 count, so the lock screen and the card can never disagree about what your probe found.
 
-One branch, three technologies, one project at a time — running, waiting on the deuterium,
-and waiting on the lab:
+### What a surveyed world says
 
-<img src="client/research/presentation/src/desktopTest/screenshots/research_in_flight.png" alt="The Research screen: Photovoltaics counting down, Extraction and Enrichment waiting" width="393">
+A surveyed world carries a verdict — settleable, blocked, barren, occupied — and two stocks rather
+than two richness figures. Worlds run out: a run takes from a finite deposit and a stripped world
+comes back at five percent a day, so a row reading `metal full crystal 174/819` is the difference
+between a rock worth flying to and one worth skipping this week.
+
+A blocked world names the ladder that would unblock it and the level it would take, which is what
+turns 98% of the galaxy from a wall into a shopping list:
+
+<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_every_verdict.png" alt="A surveyed system: a relay, the home world, an occupied world, blocked worlds with the adaptation levels they need, a barren one, and a settleable one" width="320">
+
+### Sending a fleet
+
+Tap any world and the dispatch sheet comes up. Pick metal or crystal, how many hulls to send, and
+how long until you want them home — one hour, three, six, twelve or a day. The figure under the
+rule is what actually lands, and it moves as you touch the controls: it is capped by the hold you
+sent, by what the deposit still holds, and by how long the fleet gets to work once the flight is
+paid for. The legs line spends the trip in front of you — out, on station, working, home.
+
+<img src="client/galaxy/ui/src/desktopTest/screenshots/galaxy_dispatch.png" alt="The dispatch sheet: metal or crystal, a hull stepper, five return windows, and what lands" width="320">
+
+Send a fleet bigger than the world and it says so — the figure becomes the whole deposit and a
+clause under the stepper names the ships that would come home with nothing. Send it too far and
+the short windows disappear rather than greying out, because the flight has eaten them.
+
+### The yard, and what is away
+
+The Shipyard is a price list: what the hull is for, what it costs, and how many you own, how many
+are idle and how many are away. Every hull costs the same at every depth — orders queue and the
+yard works through them one at a time, so what makes a fleet expensive is the afternoon, not a
+bill that grows while you read it.
+
+<img src="client/shipyard/ui/src/desktopTest/screenshots/shipyard_six_hulls.png" alt="The Shipyard: the skiff with its price and its counts, and the hauler not yet built" width="320">
+
+The Fleets tab is one card per run, with a bar carrying all three phases — out, on station, home
+again — and two marks where the flight ends and begins. Under it, what has landed and what it
+brought:
+
+<img src="client/fleets/ui/src/desktopTest/screenshots/fleets_three_runs.png" alt="The Fleets screen: three runs in flight with phase bars and countdowns, and four landings underneath" width="320">
+
+### Research
+
+One project at a time, and everything competes for it. Four technologies on the main branch —
+including Prospecting, whose payoff is measured in a run rather than in an hourly rate — and three
+adaptation ladders that share the very same slot. Each ladder row says what the next level would
+actually unlock, counted against the worlds you have surveyed, so `unlocks 5 worlds, 1 worth
+taking` is a price you can weigh against a mine:
+
+<img src="client/research/ui/src/desktopTest/screenshots/research_in_flight.png" alt="The Research screen: Photovoltaics counting down, three technologies waiting, and the three adaptation ladders under it" width="393">
 
 Five destinations across the bottom, on a phone:
 
@@ -71,15 +117,15 @@ shortage is holding the rates down:
 A facility row per state — building with a countdown, affordable, not yet affordable
 (the resource you're short in red, and when you'll have it), and locked:
 
-<img src="client/colony/presentation/src/desktopTest/screenshots/facility_list.png" alt="Four facility rows, one in each action state" width="393">
+<img src="client/colony/ui/src/desktopTest/screenshots/facility_list.png" alt="Four facility rows, one in each action state" width="393">
 
 Energy is not a resource — it never accumulates — so it is a ratio with a consequence attached
 rather than a fourth cell in the rail. The empty tail is headroom you have not spent; the amber
 tail is draw your plant cannot cover:
 
-<img src="client/colony/presentation/src/desktopTest/screenshots/power_indicator_headroom.png" alt="The power card with headroom: room for 1 mine level" width="393">
+<img src="client/colony/ui/src/desktopTest/screenshots/power_indicator_headroom.png" alt="The power card with headroom: room for 1 mine level" width="393">
 
-<img src="client/colony/presentation/src/desktopTest/screenshots/power_indicator_deficit.png" alt="The power card in deficit: every mine at 55%" width="393">
+<img src="client/colony/ui/src/desktopTest/screenshots/power_indicator_deficit.png" alt="The power card in deficit: every mine at 55%" width="393">
 
 These are the committed Roborazzi baselines, not exported marketing shots — the same images CI
 verifies the UI against on every push, so a screen here cannot drift from the screen that ships.
@@ -93,13 +139,15 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
-| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design` (theme), `:client:colony:presentation`, `:client:research:presentation` and `:client:galaxy:presentation` (the three screens that exist), `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), `:client:debug:*` (the shake-to-open debug menu), `:client:tilt:*` (which way the device is being held, for the sky behind every screen), one directory per feature as features land. |
+| `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design:*` (tokens, icons, components, formatting), one directory per feature holding its layers: `colony`, `research`, `shipyard`, `galaxy` and `fleets` are each a `:ui` (the composables and the models they render) plus a `:presentation` (the mapping from `core` state into those models). Then `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), `:client:debug:*` (the shake-to-open debug menu), `:client:tilt:*` (which way the device is being held, for the sky behind every screen). |
 | `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
 Eight module rules are enforced by the build, and break an IDE sync rather than a review. A module
-cannot contain another module. `domain` cannot depend on `data` or `presentation`, `presentation`
-cannot depend on `data`, `data` cannot depend on `presentation`. A `-testing` module can be reached
+cannot contain another module. `domain` cannot depend on `data`, `presentation` or `ui`;
+`presentation` cannot depend on `data`; `data` cannot depend on `presentation` or `ui`; and `ui`
+cannot depend on `data` or `presentation` — it draws and decides nothing, so it is a leaf, and
+`presentation` depends on it rather than the reverse. A `-testing` module can be reached
 only from a test source set, so fakes never ship. And the graph points inward with both ends
 sealed: `core` depends on nothing, nothing depends on `:client:shell`, and `sim`/`server` never
 reach into `client/*`. A module's layer is the last segment of its Gradle path, so `:client:shell`
