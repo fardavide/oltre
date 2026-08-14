@@ -11,9 +11,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,24 +47,49 @@ import dev.fardavide.oltre.core.StarClass
 // the lens, and at ~1.4dp a system that drag is coarse by construction — which is right: the strip
 // picks a neighbourhood and an hour, the lens picks the star. Precision arrives exactly where it is
 // needed and nowhere else.
+//
+// ── What 0.11 changed, and what each change bought ───────────────────────────────────────────────
+//
+// - **Nine hairline breaks.** The bias was always drawn — 25 short dark ticks in a row *is* a Deep —
+//   but texture with no edges is not ten places. Nine and not ten: the galaxy's outer edges are the
+//   ends of the strip, and a line there would say something the strip already ends by saying.
+// - **A pinned system is a mark of its own.** Shorter than a probe and taller than any star, so the
+//   three things that are *yours* — your star, your probe, anywhere you said mattered — are findable
+//   in a field of 250 without a legend.
+// - **Five named cells rather than seven numbered ones.** 65dp a cell fits a nine-character name at
+//   the 9.5 floor and 46dp did not, so the cell grew to 56dp to hold a name row and the picker
+//   stopped being a row of coordinates and started being a row of places.
+//
+// Ten region names *on the strip* were drawn, measured and rejected: a region is 33dp of strip at
+// 393dp and its name is 68–90dp of type at the same floor, so ten of them overlap by a factor of two
+// and a half before one is legible. The system header names the region you are in instead.
 @Composable
-internal fun ReachBand(
-    uiState: ReachBandUiState,
+internal fun RegionStrip(
+    uiState: RegionStripUiState,
     compact: Boolean,
     onSelectSystem: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Which lens a narrow window gets is `presentation`'s call and not the design's — the frames
+    // settle five as the phone count and say nothing about 320dp, where five cells leave 53dp each
+    // and the name row is what the extra dp were bought for.
     val lens = if (compact) uiState.compactLens else uiState.lens
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Strip(ticks = uiState.ticks, lens = lens, onSelectSystem = onSelectSystem)
         Ruler(marks = uiState.marks)
-        Lens(lens = lens, onSelectSystem = onSelectSystem)
+        Picker(lens = lens, onSelectSystem = onSelectSystem)
     }
 }
 
-// 250 ticks in one `Canvas`, drawn once per selection change — no animation and no state that has
-// to survive a foreground. Same argument that made the system map a Canvas: this is geometry, not
-// 250 composables.
+// 250 ticks, nine breaks and a baseline in one `Canvas`, drawn once per selection change — no
+// animation and no state that has to survive a foreground. Same argument that made the system map a
+// Canvas: this is geometry, not 250 composables.
+//
+// **The Canvas is the whole 44dp, not the 22dp of ink**, and that is what the breaks forced. A break
+// reaches 5dp above the tallest tick and 4dp below the line the ticks stand on, so a surface sized to
+// the ink has nowhere to put either end — and the baseline sits one dp *under* the ticks rather than
+// inside their last dp, which the ink-sized version could not express either. Every y here is
+// therefore measured from the top of the touch target.
 //
 // **The 22dp of ticks claims 44dp of touch**, and it is a scrub target rather than 250 small ones:
 // no tick is individually tappable at either width, and the design does not pretend otherwise.
@@ -70,9 +98,8 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
-            .height(STRIP_TOUCH_HEIGHT)
+            .height(STRIP_HEIGHT)
             .testTag(GalaxyTestTags.REACH_STRIP),
-        contentAlignment = Alignment.Center,
     ) {
         val step = maxWidth / GalaxyBalance.SYSTEMS_PER_GALAXY
         val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
@@ -86,8 +113,7 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
         }
         Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .height(STRIP_HEIGHT)
+                .fillMaxSize()
                 .pointerInput(widthPx) {
                     detectHorizontalDragGestures { change, _ -> onSelectSystem(systemAt(change.position.x)) }
                 }
@@ -97,15 +123,33 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
                     detectTapGestures { offset -> onSelectSystem(systemAt(offset.x)) }
                 },
         ) {
-            Canvas(modifier = Modifier.fillMaxWidth().height(STRIP_HEIGHT)) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
                 val stepPx = size.width / GalaxyBalance.SYSTEMS_PER_GALAXY
+                val hairline = HAIRLINE.toPx()
+                val ground = STRIP_GROUND.toPx()
                 // The line the ticks stand on. Without it the strip is a row of marks; with it, it
                 // is an axis — which is what the ruler underneath is measuring along.
                 drawRect(
                     color = Color.White.copy(alpha = 0.09f),
-                    topLeft = Offset(x = 0f, y = size.height - 1f),
-                    size = Size(width = size.width, height = 1f),
+                    topLeft = Offset(x = 0f, y = ground),
+                    size = Size(width = size.width, height = hairline),
                 )
+                // **Under the ticks, deliberately.** Painted last, the nine of them turn a field of
+                // texture into a grid and the eye starts reading the cells instead of the runs; under
+                // the ticks they are a division of something continuous, which is what a region is.
+                //
+                // Left edge on the boundary rather than centred on it, so a break belongs to the
+                // first system of the region it opens rather than straddling two.
+                for (region in 1 until GalaxyBalance.REGIONS_PER_GALAXY) {
+                    drawRect(
+                        color = Color.White.copy(alpha = 0.16f),
+                        topLeft = Offset(
+                            x = stepPx * region * GalaxyBalance.SYSTEMS_PER_REGION,
+                            y = BREAK_TOP.toPx(),
+                        ),
+                        size = Size(width = hairline, height = BREAK_HEIGHT.toPx()),
+                    )
+                }
                 ticks.forEach { tick ->
                     val spec = tick.mark.spec()
                     val thickness = spec.width.toPx()
@@ -115,7 +159,7 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
                         color = spec.color,
                         topLeft = Offset(
                             x = (tick.system - 0.5f) * stepPx - thickness / 2f,
-                            y = size.height - height,
+                            y = ground - height,
                         ),
                         size = Size(width = thickness, height = height),
                     )
@@ -123,12 +167,16 @@ private fun Strip(ticks: List<ReachTickUiState>, lens: ReachLensUiState, onSelec
             }
             // The window the lens is showing, over the strip, so the two read as one instrument
             // rather than as a picture with a row of buttons under it.
+            //
+            // **A break out-ranges it by a dp at each end** — 6…38 against the frame's 7…37 — so the
+            // lens can never sit on a boundary and swallow it, which is the one place the two marks
+            // compete for the same pixels.
             Box(
                 modifier = Modifier
-                    .offset(x = step * (lens.firstSystem - 1))
+                    .offset(x = step * (lens.firstSystem - 1), y = LENS_TOP)
                     .width(step * lens.cells.size)
-                    .height(STRIP_HEIGHT)
-                    .border(1.dp, Color.White.copy(alpha = 0.30f), RoundedCornerShape(3.dp)),
+                    .height(LENS_HEIGHT)
+                    .border(HAIRLINE, Color.White.copy(alpha = 0.30f), RoundedCornerShape(3.dp)),
             )
         }
     }
@@ -146,6 +194,11 @@ private fun Ruler(marks: List<ReachMarkUiState>) {
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 9.5.sp,
+                // The caption track, which every other 9.5sp reading in the app carries and this one
+                // had been missing: an hour mark is a legend on an axis, and a legend that tracks
+                // tighter than the captions beside it reads as a different size rather than as the
+                // same one.
+                letterSpacing = 1.sp,
                 maxLines = 1,
                 softWrap = false,
                 textAlign = TextAlign.Center,
@@ -157,41 +210,58 @@ private fun Ruler(marks: List<ReachMarkUiState>) {
     }
 }
 
-// Seven cells at a phone and five in a Slide Over — the cell size holds and the count drops, so a
-// target is never under 44dp. A cell is one system: its number, and a dot sized by how many worlds
-// it holds and lit by its class. The lit one takes the border an active card takes.
+// A cell is one system: its name, its coordinate, and a dot sized by how many worlds it holds and lit
+// by its class. The lit one takes the border an active card takes.
+//
+// **Selection is said once, by the name.** The number is the faintest ink in the component in every
+// state — it is an address, and an address does not become truer for being chosen. Said twice, the
+// cell reads as two changes and the eye stops trusting either.
 @Composable
-private fun Lens(lens: ReachLensUiState, onSelectSystem: (Int) -> Unit) {
+private fun Picker(lens: ReachLensUiState, onSelectSystem: (Int) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
         lens.cells.forEach { cell ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
+                verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically),
                 modifier = Modifier
                     .weight(1f)
                     .height(CELL_HEIGHT)
                     .border(
-                        1.dp,
+                        HAIRLINE,
                         if (cell.selected) {
                             OltreColors.accent.copy(alpha = 0.45f)
                         } else {
                             Color.White.copy(alpha = 0.09f)
                         },
-                        RoundedCornerShape(6.dp),
+                        RoundedCornerShape(CELL_RADIUS),
                     )
                     .background(
                         if (cell.selected) OltreColors.accent.copy(alpha = 0.10f) else Color.Transparent,
-                        RoundedCornerShape(6.dp),
+                        RoundedCornerShape(CELL_RADIUS),
                     )
                     .clickable { onSelectSystem(cell.system) }
-                    .testTag(GalaxyTestTags.reachCell(cell.system)),
+                    .testTag(GalaxyTestTags.reachCell(cell.system))
+                    .padding(horizontal = 2.dp),
             ) {
                 Box(modifier = Modifier.height(DOT_ROW_HEIGHT), contentAlignment = Alignment.Center) {
                     Dot(dot = cell.dot)
                 }
+                // **One line, ellipsised, never wrapped and never shrunk.** Two names in a row are
+                // two heights, and a name set a point smaller than its neighbour is a name the eye
+                // reads as less important — where a name cut short is still the same row of places.
+                Text(
+                    text = cell.name,
+                    color = if (cell.selected) OltreColors.text else OltreColors.textSecondary,
+                    fontFamily = oltreMono(),
+                    fontSize = 9.5.sp,
+                    lineHeight = 12.35.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     text = cell.label,
-                    color = if (cell.selected) OltreColors.text else OltreColors.textSecondary,
+                    color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 10.sp,
                     maxLines = 1,
@@ -206,27 +276,36 @@ private fun Lens(lens: ReachLensUiState, onSelectSystem: (Int) -> Unit) {
 private fun Dot(dot: ReachDotUiState) {
     when (dot) {
         ReachDotUiState.Home -> Box(modifier = Modifier.size(8.dp).background(OltreColors.accent, CircleShape))
+        // The one dot drawn in pure white rather than in the text ink: it is the absence of a
+        // reading rather than a faint one, and the smallest mark the component has.
         ReachDotUiState.Empty -> Box(
             modifier = Modifier.size(2.dp).background(Color.White.copy(alpha = 0.18f), CircleShape),
         )
         is ReachDotUiState.Worlds -> Box(
             modifier = Modifier
                 .size(DOT_BASE + DOT_PER_WORLD * dot.count.coerceAtMost(MAX_DRAWN_WORLDS))
-                .background(Color.White.copy(alpha = dot.starClass.dotAlpha()), CircleShape),
+                .background(OltreColors.text.copy(alpha = dot.starClass.dotAlpha()), CircleShape),
         )
     }
 }
 
+// **The precedence is already spent by the time a tick arrives here.** The design states it as a
+// chain — your star beats a probe beats a pin beats the star class — but a system carries exactly one
+// mark, so what resolved it lives in `presentation` and this is a total `when` over what survived.
+// Re-deriving the chain in the draw would be the same fact decided in two places.
 private fun ReachTick.spec(): TickSpec = when (this) {
     // Dim is short and faint because that is what dim means — which makes the *desirable* class the
     // least visible mark on the strip. Kept: it is true, it costs nothing to learn, and inverting it
     // would mean a bright tick means "dim star", a lie the player carries forever. Design call 4.
-    ReachTick.DIM -> TickSpec(1.dp, 4.dp, Color.White.copy(alpha = 0.30f))
-    ReachTick.STANDARD -> TickSpec(1.dp, 7.dp, Color.White.copy(alpha = 0.42f))
-    ReachTick.BRIGHT -> TickSpec(1.dp, 11.dp, Color.White.copy(alpha = 0.66f))
+    ReachTick.DIM -> TickSpec(1.dp, 4.dp, OltreColors.text.copy(alpha = 0.30f))
+    ReachTick.STANDARD -> TickSpec(1.dp, 7.dp, OltreColors.text.copy(alpha = 0.42f))
+    ReachTick.BRIGHT -> TickSpec(1.dp, 11.dp, OltreColors.text.copy(alpha = 0.66f))
     ReachTick.ORIGIN -> TickSpec(2.dp, 17.dp, OltreColors.accent)
-    ReachTick.FOREIGN_ORIGIN -> TickSpec(2.dp, 17.dp, Color.White.copy(alpha = 0.85f))
+    ReachTick.FOREIGN_ORIGIN -> TickSpec(2.dp, 17.dp, OltreColors.text.copy(alpha = 0.85f))
     ReachTick.PROBE -> TickSpec(2.dp, 14.dp, OltreColors.warn)
+    // Between the probe and the tallest star, which is where it belongs: a pin outranks anything the
+    // sky did on its own and never outranks something of yours that is moving.
+    ReachTick.PIN -> TickSpec(2.dp, 13.dp, OltreColors.text.copy(alpha = 0.90f))
 }
 
 private data class TickSpec(val width: Dp, val height: Dp, val color: Color)
@@ -237,11 +316,25 @@ private fun StarClass.dotAlpha(): Float = when (this) {
     StarClass.BRIGHT -> 0.80f
 }
 
-private val STRIP_HEIGHT = 22.dp
+// Every line in the component is exactly one dp — the baseline, a region break, the lens frame and a
+// cell's border.
+private val HAIRLINE = 1.dp
 
 // 22dp of ticks plus 11dp above and below: a scrub target that clears the delivery platform's 44pt
 // minimum without any tick pretending to be a button.
-private val STRIP_TOUCH_HEIGHT = 44.dp
+private val STRIP_HEIGHT = 44.dp
+
+// Where the ticks stand, measured from the top of that 44dp — 11dp of padding plus the 22dp of ink.
+private val STRIP_GROUND = 33.dp
+
+// 6 and 32 rather than 11 and 22: a break clears the tallest tick by 5dp and drops 4dp past the
+// baseline, which is what makes it read as a division of the strip rather than as one more tick.
+private val BREAK_TOP = 6.dp
+private val BREAK_HEIGHT = 32.dp
+
+// One dp inside the break at each end, so the frame and the boundary never contend for a pixel.
+private val LENS_TOP = 7.dp
+private val LENS_HEIGHT = 30.dp
 
 // 14dp rather than the design's 12: a 9.5sp line box measures ~13dp in Compose, and a Box that
 // short constrains the label's *height* rather than merely reserving space for it — the first
@@ -252,7 +345,14 @@ private val RULER_HEIGHT = 14.dp
 // collide at 320dp — the closest pair is 60 systems, which is ~43dp there.
 private val RULER_LABEL_WIDTH = 22.dp
 
-private val CELL_HEIGHT = 46.dp
+// 46dp held a dot and a number. 56dp holds a dot, a name and a number, and its content still only
+// fills about 38 of them — the slack is what keeps a nine-character name from touching a border.
+private val CELL_HEIGHT = 56.dp
+
+// The tab radius rather than the card's: five of these in a row is a segmented control, and it takes
+// the corner every other segmented control in the app takes.
+private val CELL_RADIUS = 10.dp
+
 private val DOT_ROW_HEIGHT = 12.dp
 private val DOT_BASE = 3.dp
 private val DOT_PER_WORLD = 0.6.dp

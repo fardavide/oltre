@@ -268,14 +268,6 @@ private fun MapBodyUiState.positionIn(width: Dp, height: Dp): Offset {
 private fun MapBodyUiState.orbitRadiusPx(width: Float): Float =
     width * (ORBIT_INNER_FRACTION + (ORBIT_OUTER_FRACTION - ORBIT_INNER_FRACTION) * orbit)
 
-// Deuterium for cold and metal for temperate is not decoration: those are the resources those
-// orbits are rich in, so the world list's own band headings are already teaching the same table.
-internal fun OrbitBand.hue(): Color = when (this) {
-    OrbitBand.HOT -> OltreColors.warn
-    OrbitBand.TEMPERATE -> OltreColors.metal
-    OrbitBand.COLD -> OltreColors.deuterium
-}
-
 // Red for Blocked because it is the same "you are short of something" that reddens a cost chip,
 // green for Settleable because it is production, and grey for the two that are facts rather than
 // states. Unsurveyed is bright rather than dim: dimming is the *locked* treatment, and calling

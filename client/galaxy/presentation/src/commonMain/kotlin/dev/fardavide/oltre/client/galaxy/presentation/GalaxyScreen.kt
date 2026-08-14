@@ -10,6 +10,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
+import dev.fardavide.oltre.client.galaxy.ui.LedgerFilter
+import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
+import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
@@ -51,6 +54,17 @@ fun GalaxyScreen(
     var at by remember(state.galaxy.seed) {
         mutableStateOf(SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system))
     }
+    // **The tab opens on what you know.** Davide's call, 2026-08-14 — the map is where you spend
+    // probes and the ledger is where you spend ships, and runs go out several times a day where
+    // probes go once or twice.
+    var view by remember(state.galaxy.seed) { mutableStateOf(GalaxyView.LEDGER) }
+    var query by remember(state.galaxy.seed) { mutableStateOf("") }
+    var filters by remember(state.galaxy.seed) { mutableStateOf(emptySet<LedgerFilter>()) }
+    var sort by remember(state.galaxy.seed) { mutableStateOf(LedgerSort.NEAREST) }
+    // What the discovery section is measured from. It starts at the instant this screen was first
+    // composed, so a world surveyed while the app was closed is new and one surveyed before that is
+    // not — and it moves forward only when the player has actually looked.
+    var seenAt by remember(state.galaxy.seed) { mutableStateOf(now) }
     // Which world the sheet is up on, and what has been chosen inside it. The feature's own
     // navigation exactly as `at` is — a world selector names only the galaxy, so nothing outside this
     // module has an opinion about it.
@@ -59,14 +73,40 @@ fun GalaxyScreen(
     // across a change of system would leave it open on a different world than the one it was raised
     // from. Going somewhere else closes it, which is also what a player means by going somewhere else.
     var open by remember(state.galaxy.seed, at) { mutableStateOf<DispatchSelection?>(null) }
-    val uiState = state.toGalaxyUiState(at = at, now = now, timeZone = timeZone, dispatch = open)
+    val nav = GalaxyNavigation(
+        view = view,
+        at = at,
+        query = query,
+        filters = filters,
+        sort = sort,
+        seenAt = seenAt,
+        availableFilters = state.availableFiltersFor(at),
+    )
+    val uiState = state.toGalaxyUiState(nav = nav, now = now, timeZone = timeZone, dispatch = open)
     GalaxyPage(
         uiState = uiState,
+        onSelectMode = { mode ->
+            // Leaving the ledger is what banks the discoveries: they were on screen, so they have
+            // been seen. Anything surveyed after this is new again.
+            if (mode == LedgerMode.MAP) seenAt = now
+            view = if (mode == LedgerMode.WORLDS) GalaxyView.LEDGER else GalaxyView.SYSTEM
+        },
+        onQueryChange = { query = it },
+        onToggleChip = { filter -> filters = if (filter in filters) filters - filter else filters + filter },
+        onCycleSort = { sort = LedgerSort.entries[(sort.ordinal + 1) % LedgerSort.entries.size] },
+        onOpenRegionIndex = { view = GalaxyView.REGIONS },
+        // Choosing a region puts you at its first system and hands you back the map — the index is a
+        // chooser, not a level you stay in.
+        onOpenRegion = { region ->
+            at = at.copy(system = (region - 1) * GalaxyBalance.SYSTEMS_PER_REGION + 1)
+            view = GalaxyView.SYSTEM
+        },
         onSelectGalaxy = { selected -> at = at.copy(galaxy = selected) },
         // Clamped rather than wrapped: 250 is the edge of a galaxy, and a band that jumped from the
         // last system to the first would be a different move than the one it looks like.
         onSelectSystem = { system ->
             at = at.copy(system = system.coerceIn(1, GalaxyBalance.SYSTEMS_PER_GALAXY))
+            view = GalaxyView.SYSTEM
         },
         onGoHome = {
             at = SystemSelection(galaxy = state.galaxy.home.galaxy, system = state.galaxy.home.system)

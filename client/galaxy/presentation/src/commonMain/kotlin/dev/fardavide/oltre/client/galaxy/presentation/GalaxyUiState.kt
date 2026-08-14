@@ -1,40 +1,31 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.toChipLabel
-import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
-import dev.fardavide.oltre.client.galaxy.ui.DepositReadingUiState
-import dev.fardavide.oltre.client.galaxy.ui.FleetReadingUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTabUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapMark
 import dev.fardavide.oltre.client.galaxy.ui.MapTrajectoryUiState
-import dev.fardavide.oltre.client.galaxy.ui.OrbitBand
-import dev.fardavide.oltre.client.galaxy.ui.OrbitBandUiState
+import dev.fardavide.oltre.client.galaxy.ui.SystemHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.SystemMapUiState
-import dev.fardavide.oltre.client.galaxy.ui.VerdictUiState
-import dev.fardavide.oltre.client.galaxy.ui.WorldRowUiState
-import dev.fardavide.oltre.core.AdaptationTechnology
-import dev.fardavide.oltre.client.design.format.perMillion
-import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
-import dev.fardavide.oltre.core.GalaxyState
-import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Hazard
-import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.StarClass
-import dev.fardavide.oltre.core.ToleranceFailure
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
+import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.regionNameAt
+import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
-import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -44,157 +35,128 @@ import kotlinx.datetime.TimeZone
 // knows nothing about a seed or a `GameState` — this is where a slot becomes a verdict, a world
 // becomes a sentence and a system becomes a page.
 
-
 // Which system is on screen. The galaxy and the system, never the slot: the page *is* a system, and
-// the slot is what the fifteen rows below the map are for.
+// the slot is what the rows below the map are for.
 data class SystemSelection(val galaxy: Int, val system: Int)
 
-// `startRun`'s rule, restated once as a question about the row: which verdicts is a run legal at.
-// **Not the same set as `isRunnable`** — that one governs whether the card opens a sheet, and it
-// includes `Unsurveyed`, where the sheet's whole job is to refuse and offer a probe instead. A
-// deposit reading on an unsurveyed world would be the row claiming knowledge nobody paid for.
-private fun VerdictUiState.pricesAHold(): Boolean = when (this) {
-    is VerdictUiState.Blocked,
-    is VerdictUiState.Barren,
-    is VerdictUiState.Settleable,
-    -> true
-    VerdictUiState.Unsurveyed,
-    is VerdictUiState.Home,
-    is VerdictUiState.Occupied,
-    is VerdictUiState.Relay,
-    -> false
-}
-
-// PLACEHOLDER copy, marked as such for the same reason the notification copy and the unbuilt tabs'
-// one-liners are: what a screen says to the player is content, and content is Davide's. The relay
-// states an effect no mechanic can yet confer — there is no way to hold one until multiplayer — so
-// this is the line the design flagged as its fifth open call.
-private const val RELAY_EFFECT = "+18% range while held"
-
-// 0.0.16's PLACEHOLDER header line — "Adaptation research lands later. You are at level 0." — was
-// deleted here rather than replaced. It existed to account for an absence, and the absence ended
-// when Research started selling the three ladders; an absence that ends does not need a successor,
-// and keeping the slot alive would leave the header shaped by something no longer true.
-//
-// The honest candidate for the slot was where the empire actually stands — "Thermal 2 · Gravitic 0
-// · Atmospheric 1" — and the design rejected it for one reason worth keeping written down: a
-// tolerance band means nothing except against a reading. Every place a player needs one, the
-// reading is already beside it — "gravity 2.62, you tolerate 1.45 g" on the row below, and the
-// current band on the left of every adaptation row on Research. A standing total in a header would
-// answer a question nobody is holding at that moment, and would be the only header in Oltre
-// stating empire state that is not about what is on screen. The rail already does empire state.
-
-// Written once because `Blocked` and `Barren` both quote it, and two rows on one screen disagreeing
-// about the bar would be the screen contradicting itself. It is the number `verdictFor` actually
-// decides by, not a string that looks like it.
-private val WORTH_IT_AT = "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()}"
-
-// The whole state rather than its `galaxy` half, and that is the fix 0.0.17 left for this slice:
-// `verdictFor(world, state)` reads the empire's real adaptation levels, where the two-argument form
-// took an `AdaptationLevels` that this mapper defaulted to `NONE`. With the ladders buyable, a
-// default of `NONE` would leave every world exactly as blocked as it was at genesis however deep
-// the player had climbed — the screen quietly refusing to show what they had bought.
-// `now` and `timeZone` arrive with 0.2.0, because the footer runs a countdown and prints a landing
-// clock. This was the one screen in the app that needed neither, and it stopped being so the moment
-// it grew a job of its own.
 internal fun GameState.toGalaxyUiState(
-    at: SystemSelection,
+    nav: GalaxyNavigation,
     now: Instant,
     timeZone: TimeZone,
-    // Which world the player has raised the dispatch sheet on, and what they have chosen inside it.
-    // Null is the honest default — a screen with no sheet up — and it is what every render before
-    // the first tap passes, which is why it defaults rather than being threaded through the twenty
-    // existing callers.
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState {
-    val seed = galaxy.seed
-    val starClass = starClassAt(seed, at.galaxy, at.system)
-    val relay = relayAt(seed, at.galaxy, at.system)
-    val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM).associateWith { slot ->
-        worldAt(seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot))
-    }
-
-    val rows = worlds.mapNotNull { (slot, world) ->
-        val coordinate = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)
-        when {
-            world != null -> {
-                val verdict = verdictFor(world, this).toUiState(world = world, from = galaxy.home)
-                WorldRowUiState(
-                    coordinate = coordinate.label(),
-                    slot = slot,
-                    band = OrbitBand.of(slot),
-                    verdict = verdict,
-                    deposits = if (verdict.pricesAHold()) toDepositReading(coordinate, now) else null,
-                )
-            }
-            coordinate == relay -> WorldRowUiState(
-                coordinate = coordinate.label(),
-                slot = slot,
-                band = OrbitBand.of(slot),
-                verdict = VerdictUiState.Relay(effect = RELAY_EFFECT),
-                deposits = null,
-            )
-            else -> null
-        }
-    }
-
-    // Hoisted out of the constructor because the dispatch sheet's unsurveyed refusal quotes it: the
-    // card's footer already decides whether a probe can be sent — in flight, unaffordable, landed —
-    // and a second copy of that decision inside the sheet is a second place for the two to disagree
-    // about one flight.
+    val at = nav.at
     val probe = toProbeActionUiState(
         at = at,
-        // The worlds this system actually holds, passed rather than regenerated: the mapper has just
-        // paid for all fifteen slots, and the footer's "nothing to survey" branch turns on exactly
-        // the same set.
-        worlds = worlds.values.filterNotNull(),
+        worlds = worldsOf(at),
         now = now,
         timeZone = timeZone,
     )
     return GalaxyUiState(
+        head = toLedgerHeadUiState(nav = nav, now = now),
+        body = when (nav.view) {
+            GalaxyView.LEDGER -> GalaxyBodyUiState.Ledger(toLedgerBodyUiState(nav = nav, now = now))
+            GalaxyView.REGIONS -> GalaxyBodyUiState.Regions(
+                galaxy = "Galaxy ${at.galaxy}",
+                scope = "${GalaxyBalance.REGIONS_PER_GALAXY} regions · " +
+                    "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
+                rows = toRegionRows(galaxy = at.galaxy, now = now),
+            )
+            GalaxyView.SYSTEM -> GalaxyBodyUiState.System(
+                strip = toRegionStripUiState(at = at),
+                header = toSystemHeadUiState(at = at),
+                map = toSystemMapUiState(at = at, now = now),
+                probe = probe,
+                rows = toSystemRows(at = at, now = now),
+            )
+        },
+        dispatch = dispatch?.let { toDispatchUiState(at = at, selection = it, probe = probe, now = now) },
+    )
+}
+
+internal fun GameState.worldsOf(at: SystemSelection): List<World> =
+    (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
+        worldAt(galaxy.seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot))
+    }
+
+// The system view's rows: every slot that holds something, in slot order — a world, or the system's
+// one relay. **No round trip travels with them**, because the astronomy line above has already said
+// it for all fifteen.
+private fun GameState.toSystemRows(at: SystemSelection, now: Instant): List<GalaxyRowUiState> {
+    val relay = relayAt(galaxy.seed, at.galaxy, at.system)
+    return (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
+        val coordinate = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)
+        val world = worldAt(galaxy.seed, coordinate)
+        when {
+            world != null -> toWorldRow(world = world, now = now, withTrailing = false)
+            coordinate == relay -> GalaxyRowUiState.Relay(
+                slot = slot,
+                coordinate = coordinate.label(),
+                effect = RELAY_EFFECT,
+            )
+            else -> null
+        }
+    }
+}
+
+private fun GameState.toSystemHeadUiState(at: SystemSelection): SystemHeadUiState {
+    val worlds = worldsOf(at)
+    val starClass = starClassAt(galaxy.seed, at.galaxy, at.system)
+    return SystemHeadUiState(
         galaxies = (1..GalaxyBalance.GALAXIES).map { index ->
             GalaxyTabUiState(label = "G$index", galaxy = index, selected = index == at.galaxy)
         },
         scope = "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
+        system = systemNameAt(galaxy.seed, at.galaxy, at.system),
         coordinate = "${at.galaxy}:${at.system}",
-        detail = detailFor(starClass, worlds.count { it.value != null }, compact = false),
-        compactDetail = detailFor(starClass, worlds.count { it.value != null }, compact = true),
+        region = regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system)),
+        detail = detailFor(starClass, worlds.size, compact = false),
+        astronomy = astronomyFor(at = at, worlds = worlds),
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
-        astronomy = astronomyFor(at = at, worlds = worlds.values.filterNotNull()),
-        reach = toReachBandUiState(at = at),
-        map = SystemMapUiState(
-            // Only the slots that hold something. `rows` is already exactly that set — a world or
-            // the system's relay — so the map and the list below it can never disagree about what
-            // is there.
-            bodies = rows.sortedBy { it.slot }.let { sorted ->
-                sorted.mapIndexed { index, row ->
-                    MapBodyUiState(
-                        slot = row.slot,
-                        mark = markFor(row),
-                        orbit = orbitOf(index, of = sorted.size),
-                    )
-                }
-            },
-            trajectory = if (at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system) {
-                // The one landing soonest rather than whichever the list happens to hold first:
-                // nothing caps simultaneous probes, and the arc can only carry one of them, so it
-                // carries the one whose countdown the player is actually waiting on.
-                surveys.minByOrNull { it.completesAt }?.let { job ->
-                    MapTrajectoryUiState(
-                        label = "[${job.target.galaxy}:${job.target.system}]" +
-                            " · ${(job.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()}",
-                    )
-                }
-            } else {
-                null
-            },
-        ),
-        probe = probe,
-        bands = OrbitBand.entries
-            .map { band -> OrbitBandUiState(band = band, rows = rows.filter { it.band == band }) }
-            .filter { it.rows.isNotEmpty() },
-        dispatch = dispatch?.let { toDispatchUiState(at = at, selection = it, probe = probe, now = now) },
     )
+}
+
+private fun GameState.toSystemMapUiState(at: SystemSelection, now: Instant): SystemMapUiState {
+    val relay = relayAt(galaxy.seed, at.galaxy, at.system)
+    val occupied = (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
+        val coordinate = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)
+        val world = worldAt(galaxy.seed, coordinate)
+        when {
+            world != null -> slot to markFor(world)
+            coordinate == relay -> slot to MapMark.RELAY
+            else -> null
+        }
+    }
+    return SystemMapUiState(
+        // `occupied` is exactly the set the list below draws, so the map and the rows can never
+        // disagree about what is there.
+        bodies = occupied.mapIndexed { index, (slot, mark) ->
+            MapBodyUiState(slot = slot, mark = mark, orbit = orbitOf(index, of = occupied.size))
+        },
+        trajectory = if (at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system) {
+            // The one landing soonest rather than whichever the list happens to hold first: nothing
+            // caps simultaneous probes, and the arc can only carry one of them.
+            surveys.minByOrNull { it.completesAt }?.let { job ->
+                MapTrajectoryUiState(
+                    label = "[${job.target.galaxy}:${job.target.system}]" +
+                        " · ${(job.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()}",
+                )
+            }
+        } else {
+            null
+        },
+    )
+}
+
+// Straight off the verdict rather than off a rendered row: a mark needs no deposits, no name and no
+// clock, and asking for a row to get one would make the map depend on an instant it does not read.
+private fun GameState.markFor(world: World): MapMark = when (verdictFor(world, this)) {
+    WorldVerdict.Home -> MapMark.HOME
+    is WorldVerdict.Occupied -> MapMark.OCCUPIED
+    WorldVerdict.Unsurveyed -> MapMark.UNSURVEYED
+    is WorldVerdict.Blocked -> MapMark.BLOCKED
+    WorldVerdict.Barren -> MapMark.BARREN
+    is WorldVerdict.Settleable -> MapMark.SETTLEABLE
 }
 
 // "195 units out · danger 1 from here · 58m out and back", and on your own doorstep "Your own system
@@ -257,9 +219,6 @@ private fun List<Duration>.reachLabel(): String? {
     return "$collapsed out and back"
 }
 
-// The star class sits in the header rather than on every row, because a class is a property of the
-// system. It also shifts the whole system's temperature curve by ±40 °C, which is why the map's
-// band strip means something different in a BRIGHT system than in a DIM one.
 private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): String {
     if (compact) return "${starClass.name} · $worlds"
     val plural = if (worlds == 1) "world" else "worlds"
@@ -272,128 +231,7 @@ private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): Stri
 private fun orbitOf(index: Int, of: Int): Float =
     if (of <= 1) 0.5f else index.toFloat() / (of - 1).toFloat()
 
-private fun markFor(row: WorldRowUiState?): MapMark = when (row?.verdict) {
-    null -> MapMark.EMPTY
-    is VerdictUiState.Home -> MapMark.HOME
-    is VerdictUiState.Occupied -> MapMark.OCCUPIED
-    VerdictUiState.Unsurveyed -> MapMark.UNSURVEYED
-    is VerdictUiState.Blocked -> MapMark.BLOCKED
-    is VerdictUiState.Barren -> MapMark.BARREN
-    is VerdictUiState.Settleable -> MapMark.SETTLEABLE
-    is VerdictUiState.Relay -> MapMark.RELAY
-}
-
-private fun WorldVerdict.toUiState(world: World, from: GalaxyCoordinate): VerdictUiState {
-    val traits = world.traits
-    return when (this) {
-        WorldVerdict.Home -> VerdictUiState.Home(
-            note = listOf(
-                "${traits.temperature.celsius.signed()}$NBSP°C",
-                "${traits.gravity.milliG.milli()}${NBSP}g",
-                "${traits.pressure.milliAtm.milli()}${NBSP}atm",
-                traits.fieldsLabel(),
-            ).joinToString(SEPARATOR),
-        )
-        is WorldVerdict.Occupied -> VerdictUiState.Occupied(note = "Held by ${holder.value}")
-        WorldVerdict.Unsurveyed -> VerdictUiState.Unsurveyed
-        is WorldVerdict.Blocked -> VerdictUiState.Blocked(
-            reading = world.toFleetReading(from = from),
-            failures = failures.map { it.toUiState() },
-        )
-        WorldVerdict.Barren -> VerdictUiState.Barren(
-            reading = world.toFleetReading(from = from),
-            threshold = "yield ${traits.yieldLabel()}, $WORTH_IT_AT",
-        )
-        is WorldVerdict.Settleable -> VerdictUiState.Settleable(
-            note = listOf(
-                "Yield ${traits.yieldLabel()}",
-                "metal ${traits.metalRichness.perMillion.perMillion()}",
-                "crystal ${traits.crystalRichness.perMillion.perMillion()}",
-                traits.fieldsLabel(),
-            ).joinToString(SEPARATOR),
-        )
-    }
-}
-
-// The hazards a hold will pay for and the round trip. Read from `FleetBalance` rather than restated,
-// so a row and the sheet it raises cannot disagree about how far away a world is.
-private fun World.toFleetReading(from: GalaxyCoordinate): FleetReadingUiState = FleetReadingUiState(
-    hazards = traits.fleetHazardLabel(),
-    reach = "${FleetBalance.roundTrip(from = from, to = at).toChipLabel()} out and back",
-)
-
-// `metal full`, `metal 174/819`, `metal empty` — a word at each end because neither end poses any
-// arithmetic, and a fraction between because 120 of 600 and 120 of 2,400 are the same number and not
-// the same target.
-//
-// **Never the words this design refused**: no *left*, no *deposit*, no rate of refill. With no noun
-// the row asserts nothing about who took what, which is what lets `full` be the honest reading of the
-// ~98% of worlds nobody has ever worked.
-private fun GameState.toDepositReading(at: GalaxyCoordinate, now: Instant): DepositReadingUiState =
-    DepositReadingUiState(
-        metal = "metal ${galaxy.stockLabel(at, ResourceKind.METAL, now)}",
-        crystal = "crystal ${galaxy.stockLabel(at, ResourceKind.CRYSTAL, now)}",
-    )
-
-private fun GalaxyState.stockLabel(at: GalaxyCoordinate, gathering: ResourceKind, now: Instant): String {
-    val cap = depositCap(at, gathering) ?: return "empty"
-    val remaining = remaining(at, gathering, now)
-    return when {
-        remaining >= cap -> "full"
-        remaining <= 0 -> "empty"
-        else -> "${remaining.groupedByThousands()}/${cap.groupedByThousands()}"
-    }
-}
-
-// "seismic instability · +1 danger", and "no hazards" when there are none — which is a fact worth
-// printing rather than an absence worth hiding, because a clean world is the one you want to find.
-//
-// **It states its own contribution and never the total.** The other half is the distance band, which
-// is astronomy and belongs to the system rather than to a world; a row printing `danger 2` could not
-// say which half it came from. The comma between two hazards and the interpunct before the
-// arithmetic is what keeps those two readable as different kinds of thing on one line.
-private fun WorldTraits.fleetHazardLabel(): String {
-    if (hazards.isEmpty()) return "no hazards"
-    val named = hazards.sortedBy { it.ordinal }.joinToString(", ") { it.label() }
-    return "$named$SEPARATOR+${hazards.size} danger"
-}
-
-private fun ToleranceFailure.toUiState(): BlockedAxisUiState = BlockedAxisUiState(
-    axis = axis.name.lowercase(),
-    reading = axis.reading(worldValue),
-    tolerated = axis.tolerated(toleratedBound),
-    technology = axis.adaptation,
-    // "Gravitic 9", not "Gravitic Adaptation 9". All three technologies here end in the same word,
-    // so it carries nothing and costs eleven characters the row does not have. Research spells it
-    // out; this row has no room, and the object is the same either way.
-    label = "${axis.adaptation.name.lowercase().replaceFirstChar { it.uppercase() }} $closedAtLevel",
-)
-
-private fun HostilityAxis.reading(value: Int): String = when (this) {
-    HostilityAxis.TEMPERATURE -> value.signed()
-    HostilityAxis.GRAVITY, HostilityAxis.PRESSURE -> value.milli()
-}
-
-// **The space before each unit below is U+00A0, not U+0020** — invisible in a diff, so it is said
-// here. The blocked line is the longest on the screen and it does wrap at 393dp on a three-axis
-// world; the design expects that at 320dp and tolerates it here. What it must not do is break
-// between a number and its unit, which leaves "atm" alone on a line and reads as a defect rather
-// than as a wrap.
-private fun HostilityAxis.tolerated(value: Int): String = when (this) {
-    HostilityAxis.TEMPERATURE -> "${value.signed()} °C"
-    HostilityAxis.GRAVITY -> "${value.milli()} g"
-    HostilityAxis.PRESSURE -> "${value.milli()} atm"
-}
-
 private fun WorldTraits.fieldsLabel(): String = "$fields fields"
-
-private fun WorldTraits.yieldLabel(): String = GalaxyBalance.yieldScore(this).perMillion.perMillion()
-
-// Sentence case on the last line, because a hazard is memorable in words and is not the verdict.
-private fun WorldTraits.hazardLabel(ifNone: String?): String? = when {
-    hazards.isEmpty() -> ifNone
-    else -> hazards.sortedBy { it.ordinal }.joinToString(SEPARATOR) { it.label() }
-}
 
 private fun Hazard.label(): String = name.lowercase().replace('_', ' ')
 
@@ -405,6 +243,10 @@ internal fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
 // and the astronomy line — and one screen writing "·" three different ways is the screen reading as
 // three screens.
 internal const val SEPARATOR = " · "
+
+// The relay's one sentence. It states its effect and stops: no holding mechanic exists until
+// multiplayer, and a relay has no hold for a fleet to fill either.
+internal const val RELAY_EFFECT = "Relay · contested · +18% range while held"
 
 // Between a value and its unit, so a line that has to wrap never leaves "atm" alone on one.
 private const val NBSP = ' '

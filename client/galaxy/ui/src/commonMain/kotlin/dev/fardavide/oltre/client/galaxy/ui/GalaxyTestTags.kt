@@ -20,6 +20,18 @@ object GalaxyTestTags {
     // before you step.
     const val REACH_STRIP = "galaxy-reach-strip"
 
+    // ── The ledger, and the head above all three views ───────────────────────────────────────
+    //
+    // The Galaxy tab opens on `worlds` since 0.11, so these name the controls of the *default*
+    // screen rather than of a corner of it.
+    const val LEDGER_SEARCH = "galaxy-ledger-search"
+    const val LEDGER_SORT = "galaxy-ledger-sort"
+    const val REGION_INDEX = "galaxy-region-index"
+
+    // The region name in the system header: the only accent string there, and the way into the
+    // region index.
+    const val REGION = "galaxy-region"
+
     // The whole footer of the system card, whichever of the six states it is in — so a test can
     // assert *what the card says* without first knowing which state produced it.
     const val PROBE_FOOTER = "galaxy-probe-footer"
@@ -69,6 +81,15 @@ object GalaxyTestTags {
     fun window(minutes: Long): String = "galaxy-dispatch-window-$minutes"
 
     fun row(slot: Int): String = "galaxy-row-$slot"
+
+    fun mode(mode: LedgerMode): String = "galaxy-mode-${mode.name.lowercase()}"
+
+    // Keyed by the label rather than by the filter, because a chip's *label* is what a player reads
+    // and what a robot looks for — and unlike an adaptation level, a filter's label does not move
+    // under it between check-ins.
+    fun chip(label: String): String = "galaxy-chip-${label.replace(' ', '-')}"
+
+    fun regionRow(region: Int): String = "galaxy-region-row-$region"
 
     fun galaxy(galaxy: Int): String = "galaxy-tab-$galaxy"
 

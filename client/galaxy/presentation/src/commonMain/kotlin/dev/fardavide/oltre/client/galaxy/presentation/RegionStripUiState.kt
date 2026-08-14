@@ -1,6 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import dev.fardavide.oltre.client.galaxy.ui.ReachBandUiState
+import dev.fardavide.oltre.client.galaxy.ui.RegionStripUiState
 import dev.fardavide.oltre.client.galaxy.ui.ReachCellUiState
 import dev.fardavide.oltre.client.galaxy.ui.ReachDotUiState
 import dev.fardavide.oltre.client.galaxy.ui.ReachLensUiState
@@ -15,16 +15,23 @@ import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.starClassAt
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 
 // The ruler's arithmetic: which system carries which tick, where the hour marks fall, and what
 // the lens is looking at. The shapes it fills in are `:client:galaxy:ui`'s.
 
 
-internal const val LENS_CELLS: Int = 7
-internal const val COMPACT_LENS_CELLS: Int = 5
+// **Five, not seven, since 0.11.** A cell carries the system's *name* now, and 65dp a cell fits a
+// nine-character name at the 9.5dp floor where 46dp did not — so the picker traded two cells for the
+// thing a player actually remembers. The cell size is what holds; the count is what gives.
+internal const val LENS_CELLS: Int = 5
+// Three at 320dp, on the same rule: the design settles five for the phone and is silent here, and a
+// 320dp pane holding five named cells leaves ~53dp each — under the floor the phone's five were
+// chosen to clear.
+internal const val COMPACT_LENS_CELLS: Int = 3
 
-internal fun GameState.toReachBandUiState(at: SystemSelection): ReachBandUiState {
+internal fun GameState.toRegionStripUiState(at: SystemSelection): RegionStripUiState {
     val seed = galaxy.seed
     val home = SystemAddress.of(galaxy.home)
     val isHomeGalaxy = at.galaxy == home.galaxy
@@ -33,8 +40,9 @@ internal fun GameState.toReachBandUiState(at: SystemSelection): ReachBandUiState
     // galaxy plus the difference of the two system numbers.
     val origin = home.system
     val inFlight = surveys.filter { it.target.galaxy == at.galaxy }.map { it.target.system }.toSet()
+    val pinned = galaxy.pinned.filter { it.galaxy == at.galaxy }.map { it.system }.toSet()
 
-    return ReachBandUiState(
+    return RegionStripUiState(
         ticks = (1..GalaxyBalance.SYSTEMS_PER_GALAXY).map { system ->
             ReachTickUiState(
                 system = system,
@@ -49,10 +57,14 @@ internal fun GameState.toReachBandUiState(at: SystemSelection): ReachBandUiState
                 // a probe aimed at that index in another galaxy, and it is not a coincidence that
                 // wants one system in 250: switching galaxy keeps the system number, so the very
                 // first thing a player sees over there is the index their own home sits at.
+                // **A pin sits below a probe and above a star class**, which is the order the two
+                // marks' meanings ask for: a probe is a job running right now and a pin is a
+                // standing note to yourself, so a system carrying both is better read as busy.
                 mark = when {
                     system == origin && isHomeGalaxy -> ReachTick.ORIGIN
                     system in inFlight -> ReachTick.PROBE
                     system == origin -> ReachTick.FOREIGN_ORIGIN
+                    system in pinned -> ReachTick.PIN
                     else -> starClassAt(seed, at.galaxy, system).toTick()
                 },
             )
@@ -90,6 +102,11 @@ private fun lensAt(seed: GalaxySeed, at: SystemSelection, home: SystemAddress, c
         cells = (first until first + cells).map { system ->
             ReachCellUiState(
                 system = system,
+                // **The cell stopped being a coordinate and started being a place**, which is the
+                // slice in miniature: 65dp a cell fits a nine-character name at the 9.5dp floor and
+                // 46dp did not — so the picker lost two cells and gained the thing a player actually
+                // remembers.
+                name = systemNameAt(seed, at.galaxy, system),
                 label = "$system",
                 dot = dotFor(seed = seed, galaxy = at.galaxy, system = system, home = home),
                 selected = system == at.system,
