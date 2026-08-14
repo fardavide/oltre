@@ -1,11 +1,23 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// Everything the Galaxy tab decides. Four mappers — the page, the ruler, the probe footer and the
+// dispatch sheet — plus `GalaxyScreen`, which is the one composable in the repository that lives in
+// a presentation module.
+//
+// **That is deliberate and it is what the layer is for.** Which system is on screen and which world
+// has its sheet up are decisions, not drawings: `GalaxyScreen` holds them, re-derives the page from
+// a `GameState` whenever one changes, and hands `GalaxyPage` a frame. Splitting it the other way —
+// the state in `ui`, the mapping here — would put a `remember` in the leaf and leave this module
+// unable to answer what the screen is currently showing.
+//
+// So the Compose plugins are here, and this is the only `presentation` module that has them. The
+// test for whether a second one should is the same as it was: does the module *decide*, or does it
+// draw a frame it was handed.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -28,10 +40,9 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            // No `:client:design:icon` — the galaxy draws its own map, and a star and fifteen
-            // orbit dots are this screen's geometry rather than a glyph any other screen wants.
+            // `api`, so the composition root names this feature once — see `:client:colony:presentation`.
+            api(projects.client.galaxy.ui)
             implementation(projects.client.design.component)
-            implementation(projects.client.design.core)
             // `:client:design:format` was declined at 0.0.15 on the grounds that the one thing this
             // screen formats — a milli-unit as a decimal — had a single caller. It has two since
             // the adaptation branch put the same three axes on Research: a band there is read
@@ -46,7 +57,6 @@ kotlin {
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
             implementation(libs.compose.ui)
         }
         commonTest.dependencies {
@@ -54,11 +64,14 @@ kotlin {
         }
         val desktopTest by getting {
             dependencies {
-                implementation(projects.client.design.screenshotTesting)
+                // The shared assertions; the harness that composes `GalaxyScreen` is next door in
+                // `GalaxyScreenHarness`, because a ui-layer module may not depend on this one.
+                implementation(projects.client.galaxy.uiTesting)
+                implementation(projects.client.design.core)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
-                implementation(libs.roborazzi.compose.desktop)
+                implementation(libs.compose.material3)
             }
         }
     }

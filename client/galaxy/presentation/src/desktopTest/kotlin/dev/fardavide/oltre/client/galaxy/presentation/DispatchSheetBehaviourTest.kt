@@ -2,6 +2,19 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.galaxy.ui.VerdictUiState
+import dev.fardavide.oltre.client.galaxy.ui.galaxyPage
+import dev.fardavide.oltre.client.galaxy.ui.homeSystemUiState
+import dev.fardavide.oltre.client.galaxy.ui.everyVerdictUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchOfferUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchUnsurveyedUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchNoShipsUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchClampedUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchWaitingUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchWaitingForeverUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchWorkedUiState
+import dev.fardavide.oltre.client.galaxy.ui.dispatchFarUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
@@ -28,7 +41,7 @@ class DispatchSheetBehaviourTest {
         // an ordinary target for a hold. That is what stops 98% of the galaxy being a wall.
         val opened = mutableListOf<Int>()
 
-        galaxyScreen(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
+        galaxyPage(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
             tapTheWorld(RUNNABLE_SLOT)
         }
 
@@ -42,7 +55,7 @@ class DispatchSheetBehaviourTest {
             .first { it.slot == RUNNABLE_SLOT }
             .coordinate
 
-        galaxyScreen(uiState = dispatchOfferUiState) {
+        galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetIsUp()
             assertTheSheetReads(coordinate)
         }
@@ -54,7 +67,7 @@ class DispatchSheetBehaviourTest {
         // verb spends anything, which is why the sheet costs nothing to open and has no cancel.
         var sent = 0
 
-        galaxyScreen(uiState = dispatchOfferUiState, onDispatchRun = { sent++ }) {
+        galaxyPage(uiState = dispatchOfferUiState, onDispatchRun = { sent++ }) {
             bringBack(ResourceKind.CRYSTAL)
             sendOneMore()
             assertEquals(0, sent, "a control is a choice, not a commitment")
@@ -72,7 +85,7 @@ class DispatchSheetBehaviourTest {
         // leaves Thermal the one ladder with a prize the fleet can never take.
         val chosen = mutableListOf<ResourceKind>()
 
-        galaxyScreen(uiState = dispatchOfferUiState, onSelectGathering = { chosen += it }) {
+        galaxyPage(uiState = dispatchOfferUiState, onSelectGathering = { chosen += it }) {
             assertTheSheetReads("Metal")
             assertTheSheetReads("Crystal")
             assertTheSheetDoesNotRead("Deuterium")
@@ -91,7 +104,7 @@ class DispatchSheetBehaviourTest {
         // say — and "cannot afford" is drawn on the tab that can actually refuse.
         val offer = assertIs<DispatchUiState.Offer>(dispatchOfferUiState.dispatch)
 
-        galaxyScreen(uiState = dispatchOfferUiState) {
+        galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetDoesNotRead("cost")
             assertTheSheetDoesNotRead("Cannot afford")
             assertTheSheetDoesNotRead("in 1h")
@@ -130,7 +143,7 @@ class DispatchSheetBehaviourTest {
         val far = assertIs<DispatchUiState.Offer>(dispatchFarUiState.dispatch)
         assertEquals(listOf(12.hours, 24.hours), far.windows.map { it.window })
 
-        galaxyScreen(uiState = dispatchFarUiState) {
+        galaxyPage(uiState = dispatchFarUiState) {
             assertNoRungFor(1.hours)
             assertNoRungFor(3.hours)
             assertNoRungFor(6.hours)
@@ -142,7 +155,7 @@ class DispatchSheetBehaviourTest {
         }
         // Next door every rung is offered, because 20m out and back leaves surface time on all five
         // — and there the sentence is absent, because it would be explaining nothing.
-        galaxyScreen(uiState = dispatchOfferUiState) {
+        galaxyPage(uiState = dispatchOfferUiState) {
             FleetBalance.WINDOWS.forEach { homeIn(it) }
             assertTheSheetDoesNotRead("No shorter window")
         }
@@ -152,7 +165,7 @@ class DispatchSheetBehaviourTest {
     fun `choosing a window asks for that window`() {
         val chosen = mutableListOf<Long>()
 
-        galaxyScreen(uiState = dispatchOfferUiState, onSelectWindow = { chosen += it.inWholeMinutes }) {
+        galaxyPage(uiState = dispatchOfferUiState, onSelectWindow = { chosen += it.inWholeMinutes }) {
             homeIn(3.hours)
             homeIn(24.hours)
         }
@@ -167,7 +180,7 @@ class DispatchSheetBehaviourTest {
         // so surveying acquires a second-order payoff that does not run out the way verdicts do.
         var probed = 0
 
-        galaxyScreen(uiState = dispatchUnsurveyedUiState, onDispatchProbe = { probed++ }) {
+        galaxyPage(uiState = dispatchUnsurveyedUiState, onDispatchProbe = { probed++ }) {
             assertOffersNoRun()
             assertTheSheetReads("cannot be priced")
             takeTheRefusalsOffer()
@@ -183,7 +196,7 @@ class DispatchSheetBehaviourTest {
         // is the idiom the unaffordable probe already spends.
         var sent = 0
 
-        galaxyScreen(uiState = dispatchNoShipsUiState, onDispatchRun = { sent++ }) {
+        galaxyPage(uiState = dispatchNoShipsUiState, onDispatchRun = { sent++ }) {
             assertOffersNoRun()
             assertTheSheetReads("away")
             takeTheRefusalsOffer()
@@ -203,7 +216,7 @@ class DispatchSheetBehaviourTest {
             .first { it.verdict is VerdictUiState.Home }
             .slot
 
-        galaxyScreen(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
+        galaxyPage(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
             tapTheWorld(homeSlot)
         }
 
@@ -217,7 +230,7 @@ class DispatchSheetBehaviourTest {
         // changes that; a relay is not a world and has no hold to fill.
         val opened = mutableListOf<Int>()
 
-        galaxyScreen(uiState = everyVerdictUiState, onOpenWorld = { opened += it }) {
+        galaxyPage(uiState = everyVerdictUiState, onOpenWorld = { opened += it }) {
             tapTheWorld(3)
         }
 
@@ -237,7 +250,7 @@ class DispatchSheetBehaviourTest {
     fun `a drag on the sheet leaves the screen behind it where it was`() {
         val scroll = ScrollState(initial = 0)
 
-        galaxyScreen(uiState = dispatchOfferUiState, scrollState = scroll) {
+        galaxyPage(uiState = dispatchOfferUiState, scrollState = scroll) {
             dragTheSheet()
         }
 
@@ -251,7 +264,7 @@ class DispatchSheetBehaviourTest {
         //
         // **"pays" rather than "takes" since round 21** — danger adds to the hold instead of taking
         // from it, and this fixture is the safe home-system world, so its clause is the zero case.
-        galaxyScreen(uiState = dispatchOfferUiState) {
+        galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetReads("on station")
             assertTheSheetReads("danger 0")
             assertTheSheetReads("nothing added")
@@ -265,7 +278,7 @@ class DispatchSheetBehaviourTest {
         // Richness moved here when the stocks took the row's headline, and this is the one card where
         // both readings sit together — which is what makes the currency choice a comparison rather
         // than a memory test.
-        galaxyScreen(uiState = dispatchOfferUiState) {
+        galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetReads("deposit full")
         }
     }
@@ -274,7 +287,7 @@ class DispatchSheetBehaviourTest {
     fun `a fleet the world cannot fill is told so rather than shown a number twice`() {
         // The clamped state, which is the common one. The headline figure already *is* the deposit,
         // so what marks it is the slot beside it — one token, in a slot that already exists.
-        galaxyScreen(uiState = dispatchClampedUiState) {
+        galaxyPage(uiState = dispatchClampedUiState) {
             assertTheSheetReads("the whole deposit")
             // Design's copy is the one-idle-hull case — "The 4th brings nothing." — and this fixture
             // sends eight at a world two can empty, so it is the plural form of the same sentence.
@@ -287,7 +300,7 @@ class DispatchSheetBehaviourTest {
     fun `the sheet says how long the fleet is actually working`() {
         // The invariant made visible with no copy at all: because the vein and the rate carry one
         // multiplier, this segment reads the same on the doorstep as in the next galaxy.
-        galaxyScreen(uiState = dispatchClampedUiState) {
+        galaxyPage(uiState = dispatchClampedUiState) {
             assertTheSheetReads("working")
         }
     }
@@ -297,7 +310,7 @@ class DispatchSheetBehaviourTest {
         // **A mode rather than a refusal**, and the distinction is the whole design: the wait is a
         // function of the ask, so the chips and the ladder have to stay reachable for the remedy to
         // be in the player's hands at all.
-        galaxyScreen(uiState = dispatchWaitingUiState) {
+        galaxyPage(uiState = dispatchWaitingUiState) {
             assertTheSheetReads("is empty.")
             assertTheSheetReads("Fewer skiffs, or a shorter window, is sooner.")
             // The ladder is still there to be tapped, which a refusal would not have.
@@ -310,7 +323,7 @@ class DispatchSheetBehaviourTest {
         // The other half of the waiting state, and the reason its controls stay live: a full fleet
         // wants several times what any world of this size holds, so there is no date to give and the
         // remedy is the stepper rather than the calendar.
-        galaxyScreen(uiState = dispatchWaitingForeverUiState) {
+        galaxyPage(uiState = dispatchWaitingForeverUiState) {
             assertTheSheetReads("No world this size ever holds that much.")
             assertTheSheetReads("Fewer skiffs, or a shorter window, is sooner.")
         }
@@ -318,7 +331,7 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `a worked world states a fraction rather than a word`() {
-        galaxyScreen(uiState = dispatchWorkedUiState) {
+        galaxyPage(uiState = dispatchWorkedUiState) {
             assertTheSheetReads("/")
         }
     }
@@ -371,7 +384,7 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `the sheet is not on the screen until a world is tapped`() {
-        galaxyScreen(uiState = homeSystemUiState) { assertNoSheet() }
+        galaxyPage(uiState = homeSystemUiState) { assertNoSheet() }
     }
 }
 

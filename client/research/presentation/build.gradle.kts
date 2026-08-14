@@ -1,11 +1,14 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
+// Everything the Research tab decides: one mapper from `GameState` into the models
+// `:client:research:ui` draws, and the unit tests that pin every sentence it writes.
+//
+// **No Compose plugin and no Compose dependency**, which is the check that nothing here draws. What
+// it takes from the design system is the *vocabulary* — a cost chip, a sheet line, a verdict — which
+// are plain data classes with no Compose type in any of their signatures.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
-    alias(libs.plugins.composeMultiplatform)
-    alias(libs.plugins.composeCompiler)
-    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -28,30 +31,17 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
-            // No `:client:design:icon` — research draws no glyph. The energy bolt belongs to the
-            // two screens that report power, and this is not one of them.
+            // `api`, so the composition root names this feature once: `toResearchUiState` returns a
+            // `ResearchUiState` and the shell hands it straight to `ResearchScreen`, so the models
+            // and the screen are this module's vocabulary and travel with it.
+            api(projects.client.research.ui)
             implementation(projects.client.design.component)
-            implementation(projects.client.design.core)
             implementation(projects.client.design.format)
 
             implementation(libs.kotlinx.datetime)
-
-            implementation(libs.compose.runtime)
-            implementation(libs.compose.foundation)
-            implementation(libs.compose.material3)
-            implementation(libs.compose.ui)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
-        }
-        val desktopTest by getting {
-            dependencies {
-                implementation(projects.client.design.screenshotTesting)
-
-                implementation(compose.desktop.uiTestJUnit4)
-                implementation(compose.desktop.currentOs)
-                implementation(libs.roborazzi.compose.desktop)
-            }
         }
     }
 }

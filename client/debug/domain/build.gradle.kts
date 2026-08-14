@@ -1,10 +1,13 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 // No Compose plugin and no Compose dependency, and that is the reason this is a module rather than
-// a file in `:client:debug:presentation`. Everything a debug action *decides* — where skipping
-// lands, what the clock offset becomes, what the inspector reports — is arithmetic over game state,
-// so it belongs where it can be tested as arithmetic. It is also the half a cloud session can
-// build: see `.claude/tools/gradle-without-agp.sh`.
+// a file in `:client:debug:ui`. Everything a debug action *decides* — where skipping lands, what
+// the clock offset becomes, what the inspector reports — is arithmetic over game state, so it
+// belongs where it can be tested as arithmetic. It is also the half a cloud session can build: see
+// `.claude/tools/gradle-without-agp.sh`.
+//
+// It is also why this feature has no `presentation` module: this one already holds everything one
+// would. See `client/debug/ui/build.gradle.kts`.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)

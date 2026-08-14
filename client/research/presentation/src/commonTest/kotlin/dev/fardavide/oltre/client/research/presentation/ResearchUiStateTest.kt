@@ -14,6 +14,12 @@ import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toPaybackLabel
+import dev.fardavide.oltre.client.research.ui.AdaptationRowUiState
+import dev.fardavide.oltre.client.research.ui.EffectUiState
+import dev.fardavide.oltre.client.research.ui.FinishedWhileAway
+import dev.fardavide.oltre.client.research.ui.ResearchActionUiState
+import dev.fardavide.oltre.client.research.ui.ResearchUiState
+import dev.fardavide.oltre.client.research.ui.TechnologyRowUiState
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
@@ -23,6 +29,7 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.LadderShortlist
 import dev.fardavide.oltre.core.LevelPurpose
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
@@ -827,6 +834,28 @@ class ResearchUiStateTest {
             VerdictUiState(label = row.shortlist.label, compactLabel = row.shortlist.compactLabel),
             row.verdict,
         )
+    }
+
+    @Test
+    fun `a shortlist of one world says world rather than worlds`() {
+        // **The singular used to be reached only by a screenshot fixture**, which called this
+        // mapper to build its frames until 0.9.1. The frames are stated by hand now — a ui module
+        // cannot see a mapper — so the branch is asserted here, where it should always have been.
+        //
+        // Written against the describer rather than a colony, because reaching exactly one unlocked
+        // world means finding a seed and a ladder level that produce it, which would be a test about
+        // the generator wearing this one's name.
+        val one = LadderShortlist(
+            technology = AdaptationTechnology.THERMAL,
+            nextLevel = TechLevel(1),
+            unlocks = 1,
+            worthTaking = 1,
+        ).toUiState()
+
+        assertEquals(1, one.unlocks)
+        assertTrue("1 world," in one.label, one.label)
+        // ...and never "1 worlds", which is the whole of what the branch is for.
+        assertTrue("worlds" !in one.label, one.label)
     }
 
     @Test

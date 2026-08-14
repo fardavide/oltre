@@ -17,9 +17,12 @@ when_to_use: >
 - **Game rules go in `core`; orchestration goes in the consumer.** If a behaviour must agree
   between client and server, it is a `core` rule by definition.
 - **One directory per client feature, layer modules inside.** New feature = a directory under
-  `client/` holding layer modules: `:client:<feature>:presentation` always, `:domain` / `:data`
-  only when the feature actually needs them — no empty placeholder layers. Presentation depends
-  on `core` + the `:client:design:*` layers it actually uses (+ the feature's own domain/data).
+  `client/` holding layer modules: `:client:<feature>:ui` always, `:presentation` / `:domain` /
+  `:data` only when the feature actually needs them — no empty placeholder layers. `ui` holds the
+  composables and the models they render and depends on the `:client:design:*` layers it uses (+
+  `core` or the feature's own domain where a model genuinely needs one). `presentation` holds the
+  mapping from state into those models, depends on `ui` — never the reverse — and is **absent**
+  where there is nothing to decide, as on `:client:debug`.
   `:client:shell` is the only module that sees all features; features never depend on each other —
   shared needs go down into `core` or the design family.
 - **`:client:design` is a directory, not a module.** Its layers are `:core` (tokens, theme, font),
@@ -42,10 +45,11 @@ when_to_use: >
   `:<module>:testing`, which is a child and breaks rule 1. A testing module inherits the layer it
   doubles, restrictions included. Never a repo-wide doubles module.
 - **Eight module rules are enforced by the build**, and break the IDE sync rather than review: a
-  module cannot contain a module; `domain` cannot depend on `data` or `presentation`;
-  `presentation` cannot depend on `data`; `data` cannot depend on `presentation`; only a test
-  source set may reach a `-testing` module; `core` depends on no module; nothing depends on
-  `:client:shell`; `sim` and `server` never reach into `client/*`. Layer is the last segment of the
+  module cannot contain a module; `domain` cannot depend on `data`, `presentation` or `ui`;
+  `presentation` cannot depend on `data`; `data` cannot depend on `presentation` or `ui`; `ui`
+  cannot depend on `data` or `presentation`; only a test source set may reach a `-testing` module;
+  `core` depends on no module; nothing depends on `:client:shell`; `sim` and `server` never reach
+  into `client/*`. Layer is the last segment of the
   Gradle path, so `:client:shell` and `:client:design` are not layers and are not constrained by
   2–4 — the shell may see every layer precisely because rule 7 stops anything seeing it. Read the
   `module-rules` skill before adding a module or a project dependency.

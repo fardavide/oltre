@@ -1,20 +1,20 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
-import androidx.compose.material3.Surface
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.shipyard.ui.PHONE_WIDTH
+import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
+import dev.fardavide.oltre.client.shipyard.ui.shipyard
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.buildShips
+import kotlin.time.Duration.Companion.hours
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlinx.datetime.TimeZone
@@ -94,6 +94,41 @@ class ShipyardFromStateBehaviourTest {
     }
 
     @Test
+    fun `a hull already on the slipway reads its countdown, its bar and the clock it lands on`() {
+        // **The slipway footer, from a real yard.** It was the screenshot fixture that drove this
+        // branch of the mapper until 0.9.1 — `buildingUiState` derived itself from a `GameState` —
+        // and the frames are stated by hand now, so what the image reached incidentally is reached
+        // here on purpose. Read part-way through, because a job at 0% has no bar to speak of.
+        val laidDown = Instant.parse("2026-08-13T11:00:00Z")
+        val due = Instant.parse("2026-08-13T14:05:00Z")
+        val building = GameState.initial(SEED).copy(
+            resources = Resources.of(metal = 1_000_000, crystal = 1_000_000),
+            ships = Ships.of(ShipType.SKIFF, 2),
+            yard = listOf(
+                YardJob(ship = ShipType.SKIFF, startedAt = laidDown, completesAt = due),
+                YardJob(ship = ShipType.SKIFF, startedAt = due, completesAt = due + 3.hours),
+            ),
+        )
+
+        shipyard(
+            uiState = building.toShipyardUiState(
+                now = Instant.parse("2026-08-13T12:04:00Z"),
+                timeZone = TimeZone.UTC,
+            ),
+        ) {
+            // What is on the slipway is visible in the pool line and nowhere else.
+            assertCardReads(ShipType.SKIFF, "2 building")
+            // The wall-clock instant the head job lands on, in the idiom a facility row already
+            // spends, and the queue behind it stated as a queue.
+            assertCardReads(ShipType.SKIFF, "14:05")
+            assertCardReads(ShipType.SKIFF, "1 queued")
+            // ...and the verb stays live beside it, which is the one thing here that is not the
+            // Colony row's treatment: a serial yard can always be given another hull.
+            assertOffersToBuild(ShipType.SKIFF)
+        }
+    }
+
+    @Test
     fun `a colony that cannot pay is shown a wait rather than a dead button`() {
         val broke = GameState.initial(SEED).copy(resources = Resources.of())
 
@@ -109,25 +144,25 @@ class ShipyardFromStateBehaviourTest {
     fun `the tap reaches the verb and the verb reaches the pool`() {
         // End to end through the real mapper, the real screen and the real `core` verb — the one
         // test in the module where nothing is a fixture.
+        //
+        // **Through the Robot like every other behaviour test, including the composing.** It used to
+        // call `setContent` here and reach for a `testTag` in the test body, which is the one thing
+        // this repository's behaviour tests are not allowed to do; it now hands the callback to
+        // `shipyard(…)` and taps through `buy`. The state is still recomputed by the callback and
+        // still asserted below — what went is a second copy of the harness, and with it this
+        // module's last reason to apply the Compose compiler.
         val rich = GameState.initial(SEED).copy(resources = Resources.of(metal = 10_000, crystal = 10_000))
         var state = rich
 
-        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
-            setContent {
-                OltreTheme {
-                    Surface {
-                        ShipyardScreen(
-                            uiState = state.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC),
-                            onBuild = { type ->
-                                state = assertIs<BuildShipsResult.Started>(
-                                    buildShips(state, Ships.of(type, 1), at = EPOCH),
-                                ).state
-                            },
-                        )
-                    }
-                }
-            }
-            onNodeWithTag(ShipyardTestTags.action(ShipType.SKIFF), useUnmergedTree = true).performClick()
+        shipyard(
+            uiState = rich.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC),
+            onBuild = { type ->
+                state = assertIs<BuildShipsResult.Started>(
+                    buildShips(state, Ships.of(type, 1), at = EPOCH),
+                ).state
+            },
+        ) {
+            buy(ShipType.SKIFF)
         }
 
         assertEquals(Ships.of(ShipType.SKIFF, 1), state.ships)

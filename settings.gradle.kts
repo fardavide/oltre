@@ -35,12 +35,18 @@ plugins {
 include(":core")
 include(":sim")
 include(":client:colony:presentation")
-// The debug menu, and the first feature in the build to hold all three layers: what an action
-// decides is arithmetic (`domain`), the accelerometer is a device service (`data`), and the sheet
-// is a screen (`presentation`).
+include(":client:colony:ui")
+// The debug menu, and the first feature in the build to hold three layers: what an action decides
+// is arithmetic (`domain`), the accelerometer is a device service (`data`), and the sheet is a
+// screen (`ui`).
+//
+// **The one feature with no `presentation`, and it is the worked example rather than an omission.**
+// A presentation module maps state into the models a screen renders; here `debugReport(...)` in
+// `domain` already produces exactly what `DebugSheet` draws, so the layer would forward its
+// arguments and no more. See `client/debug/ui/build.gradle.kts`.
 include(":client:debug:data")
 include(":client:debug:domain")
-include(":client:debug:presentation")
+include(":client:debug:ui")
 // `:client:design` is a directory of layer modules, not a module — the same shape every feature
 // directory has. Compose's own split is the model: tokens, components and icons are separate
 // artifacts because they have different dependencies and different rates of change.
@@ -53,12 +59,22 @@ include(":client:design:screenshot-testing")
 // shipyard that builds hulls with nowhere to send them is worse than the empty tab it replaces, and
 // a fleets tab is a list that can never have two rows until hulls go on sale.
 include(":client:fleets:presentation")
+include(":client:fleets:ui")
+// The robot both halves of the Fleets suite drive the screen through — see its build file.
+include(":client:fleets:ui-testing")
 include(":client:galaxy:presentation")
+include(":client:galaxy:ui")
+// The frame-driven half of the Galaxy robot — see its build file for why the other half is not here.
+include(":client:galaxy:ui-testing")
 include(":client:notifications:data")
 include(":client:research:presentation")
+include(":client:research:ui")
 include(":client:save:data")
 include(":client:shell")
 include(":client:shipyard:presentation")
+include(":client:shipyard:ui")
+// The robot both halves of the Shipyard suite drive the screen through — see its build file.
+include(":client:shipyard:ui-testing")
 // How the device is being held, and the second sensor in the build after the accelerometer. Two
 // layers rather than one for the reason the debug menu has them: what a tilt *means* — where the
 // centre is, how far is far enough, what a still hand should do — is arithmetic, and arithmetic
