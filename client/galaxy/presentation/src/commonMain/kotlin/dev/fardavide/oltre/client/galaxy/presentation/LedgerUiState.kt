@@ -211,7 +211,10 @@ private fun GameState.toDiscoveryCard(world: World, foundAt: Instant, now: Insta
         note = verdictFor(world, this).discoveryNote(),
         // **"found 5 days ago", not "found day 9"** — nothing in `GameState` carries a genesis
         // instant, so a day number is not derivable where elapsed-since is.
-        found = "found ${(now - foundAt).toChipLabel()} ago",
+        // Coerced, because a survey cannot have landed in the future and a label that says it did
+        // reads as a defect rather than as a clock. Nothing should produce one now that the span is
+        // measured from where the advance began, which is why this is a floor rather than a fix.
+        found = "found ${(now - foundAt).coerceAtLeast(Duration.ZERO).toChipLabel()} ago",
     )
 }
 

@@ -3,12 +3,16 @@ package dev.fardavide.oltre.client.galaxy.ui
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithText
@@ -131,8 +135,22 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.LEDGER_SEARCH).performTextInput(query)
     }
 
+    // **By the word it prints, because nothing tags it.** `GalaxyTestTags.chip(label)` exists and no
+    // composable applies it — `LedgerHead` tags the two mode pills, the search field and the sort
+    // string and misses the chips — so the only handle on a filter is the string a finger lands on.
+    // That is not a bad handle: the tag itself is keyed by the label for exactly this reason, *"a
+    // chip's label is what a player reads and what a robot looks for"*. It is the exact string rather
+    // than a substring so that a chip reading `settleable` is not also matched by a row's
+    // `SETTLEABLE`, which differs only in case.
     fun toggle(chip: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.chip(chip)).performScrollTo().performClick()
+        // **The head first, and it is not belt and braces.** A chip's own scroll parent is the
+        // horizontal strip it sits in, so scrolling to a chip moves the strip and never the page —
+        // and a test that has already walked down a long ledger is looking at a screen with the whole
+        // head above it, where a click lands on nothing and fails as a wrong answer rather than as a
+        // missed tap. The search field is the head's one tagged anchor and its scroll parent is the
+        // page.
+        test.onNodeWithTag(GalaxyTestTags.LEDGER_SEARCH).performScrollTo()
+        test.onNodeWithText(chip).performScrollTo().performClick()
     }
 
     fun changeTheSort() = apply {
@@ -149,12 +167,63 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.regionRow(region)).performScrollTo().performClick()
     }
 
+    fun assertTheIndexIsUp() = apply {
+        test.onNodeWithTag(GalaxyTestTags.REGION_INDEX).assertIsDisplayed()
+    }
+
+    // **The index is a chooser rather than a level you pass through**, so its absence is as much a
+    // claim as its presence: choosing a region has to leave it, and nothing else on the tab may be
+    // reached through it.
+    fun assertTheIndexIsAway() = apply {
+        test.onNodeWithTag(GalaxyTestTags.REGION_INDEX).assertDoesNotExist()
+    }
+
+    // Scrolls first, for `assertShowsWorld`'s reason and more of it: ten cards carrying a histogram
+    // and four lines each are three screens at 393x852, so only the first two are ever above the
+    // fold. A region nobody drew a card for still throws here.
+    fun assertTheIndexOffers(region: Int) = apply {
+        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).performScrollTo().assertIsDisplayed()
+    }
+
+    // Scoped to the card, for `assertRowReads`' reason: a galaxy's ten regions are a permutation of
+    // one fixed list, so "even mix" is on two cards at once and every strategy fact is on four — an
+    // unscoped query for one would fail on the ambiguity rather than on the claim.
+    fun assertTheRegionReads(region: Int, text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).assert(containing(text))
+    }
+
+    // **Scrolls first**, and that is the same budget `assertShowsWorld` already spends: a ledger of
+    // six surveyed systems is several screens long at 393x852, so a row below the fold is still a row
+    // the ledger lists. What it cannot do is invent one — a name nowhere in the list throws here.
     fun assertTheLedgerLists(name: String) = apply {
-        test.onNodeWithText(name, substring = true).assertIsDisplayed()
+        test.onNodeWithText(name, substring = true).performScrollTo().assertIsDisplayed()
     }
 
     fun assertNothingIsListed(name: String) = apply {
         test.onNodeWithText(name, substring = true).assertDoesNotExist()
+    }
+
+    // The system view, absent — which is the whole of what "the tab opens on what you know" claims.
+    // Its inverse is `assertTheMapIsDrawn`, and between them they are the switch.
+    fun assertNoMapIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.MAP).assertDoesNotExist()
+    }
+
+    // **Reading order, which is all a sort or a pin ever does to a player**: this world is now above
+    // that one. Asked as a comparison rather than as an index because the ledger has no positional
+    // handle — its rows are tagged by slot and rows from six systems share the fifteen slot numbers,
+    // so `row(7)` names as many nodes as there are systems in the list.
+    fun assertListedAbove(name: String, other: String) = apply {
+        val above = test.onNodeWithText(name, substring = true).fetchSemanticsNode().positionInRoot.y
+        val below = test.onNodeWithText(other, substring = true).fetchSemanticsNode().positionInRoot.y
+        check(above < below) { "\"$name\" was listed at ${above}px and \"$other\" at ${below}px" }
+    }
+
+    // **A pin moves a world; it does not copy one.** `assertTheLedgerLists` would already fail on a
+    // second match, but it would fail on the ambiguity rather than on the claim — this one says out
+    // loud what the second row would mean.
+    fun assertListedOnce(name: String) = apply {
+        test.onAllNodesWithText(name, substring = true).assertCountEquals(1)
     }
 
     // The blocked row's remedy, which is a tap target again now that Research can sell it.
@@ -184,6 +253,37 @@ class GalaxyRobot(private val test: ComposeUiTest) {
     // rather than on the assertion.
     fun assertRowReads(slot: Int, text: String) = apply {
         test.onNodeWithTag(GalaxyTestTags.row(slot)).assert(containing(text))
+    }
+
+    // The mirror of `assertRowReads`, and the only way to pin a *subtraction* to one row: an unscoped
+    // `assertNothingReads` is also satisfied by a screen that moved the string one card up.
+    fun assertTheRowDoesNotRead(slot: Int, text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(slot)).assert(containing(text).not())
+    }
+
+    // **The row's own strings in the order they are painted**, which is what turns "leads with the
+    // name" from a wish into an assertion: a row is a merged node, and merging keeps its children's
+    // text in draw order. A ladder is not in this list — each one is a tap target and therefore a
+    // node of its own, which is why a remedy is asserted with `assertRowReads` instead.
+    fun assertTheRowReadsInOrder(slot: Int, vararg texts: String) = apply {
+        val painted = test.onNodeWithTag(GalaxyTestTags.row(slot))
+            .fetchSemanticsNode()
+            .config.getOrNull(SemanticsProperties.Text)
+            .orEmpty()
+            .map { it.text }
+        var from = 0
+        for (text in texts) {
+            val at = painted.drop(from).indexOfFirst { text in it }
+            check(at >= 0) { "row $slot reads $painted, which has no '$text' after the line before it" }
+            from += at + 1
+        }
+    }
+
+    // The address under the system name, and the one reading on the page that says *where you are*.
+    // Every way of going somewhere — a cell, a galaxy, a region — ends here, which is what makes it
+    // the thing to assert rather than whichever control was tapped.
+    fun assertTheHeaderNames(coordinate: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.COORDINATE).assert(containing(coordinate))
     }
 
     fun assertReads(text: String) = apply {

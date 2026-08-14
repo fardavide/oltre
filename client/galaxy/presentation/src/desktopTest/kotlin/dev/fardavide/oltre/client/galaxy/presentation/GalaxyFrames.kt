@@ -10,6 +10,7 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.worldAt
+import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
 // **Every frame the Galaxy tab is photographed in, derived from a real `GameState` through the real
@@ -40,6 +41,10 @@ internal fun frame(
     query: String = "",
     filters: Set<LedgerFilter> = emptySet(),
     sort: LedgerSort = LedgerSort.NEAREST,
+    // Where the frame's "what happened while you were away" span begins. Every frame but the
+    // discovery one starts it at the frame's own instant — an empty span, so nothing is new and a
+    // card cannot appear in a baseline that is not about one.
+    seenAt: Instant = FIXTURE_NOW,
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState = state.toGalaxyUiState(
     nav = GalaxyNavigation(
@@ -48,10 +53,7 @@ internal fun frame(
         query = query,
         filters = filters,
         sort = sort,
-        // The epoch, so nothing is ever "new" unless a frame deliberately makes it so — a discovery
-        // card that appeared in every baseline would be a card nobody could photograph the absence
-        // of.
-        seenAt = FIXTURE_NOW,
+        seenAt = seenAt,
         availableFilters = state.availableFiltersFor(at),
     ),
     now = FIXTURE_NOW,
@@ -66,6 +68,11 @@ internal fun GameState.homeSelection(): SystemSelection =
 // ships, so it is the screen rather than a stage before the screen.
 internal fun GameState.neighbourSelection(): SystemSelection =
     homeSelection().let { it.copy(system = (it.system + 1).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)) }
+
+// That neighbour as a whole page. 249 systems in 250 read exactly like this on the day the slice
+// ships, so it is the screen an unsurveyed row has to be honest on rather than a stage before one.
+internal val unsurveyedSystemUiState: GalaxyUiState =
+    frame(view = GalaxyView.SYSTEM, at = frameState.neighbourSelection())
 
 // A colony a fortnight in: it has surveyed a spread of systems, so the ledger has something to sort
 // and the region index has something to count. Built by surveying rather than by hand-writing a set,
@@ -86,6 +93,9 @@ internal val pinnedState: GameState = wellTravelledState.let { state ->
 
 // A colony that surveyed something while the player was away. The event is what makes it a
 // discovery — nothing is stored on the world — so the frame is a real log entry rather than a flag.
+// An hour before the frame's instant, so the landing is inside the span the frame is measured from.
+internal val JUST_SURVEYED_SINCE: Instant = FIXTURE_NOW - kotlin.time.Duration.parse("2h")
+
 internal val justSurveyedState: GameState = wellTravelledState.let { state ->
     val target = SystemAddress(
         galaxy = state.galaxy.home.galaxy,
@@ -95,7 +105,10 @@ internal val justSurveyedState: GameState = wellTravelledState.let { state ->
         eventLog = state.eventLog + Event.SurveyCompleted(
             target = target,
             worldsFound = state.worldsOf(SystemSelection(target.galaxy, target.system)).size,
-            at = FIXTURE_NOW + kotlin.time.Duration.parse("1h"),
+            // An hour *before* the frame's instant, so the card reads "found 1h 00m ago" rather
+            // than a negative span — a survey cannot land in the future, and the frame is measured
+            // from `FIXTURE_NOW` the way a launch is measured from where it advanced.
+            at = FIXTURE_NOW - kotlin.time.Duration.parse("1h"),
         ),
     )
 }

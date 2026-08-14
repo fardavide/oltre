@@ -3106,3 +3106,21 @@ The design asked for a card shown "once ever", which needs a seen-flag per world
 *surveyed since you last had this tab open*, answered from `Event.SurveyCompleted` — which already
 carries an instant and a system, and whose worlds are regenerable from the seed. The weaker
 guarantee is the one that stores nothing and cannot fire twice.
+
+**The boundary that span is measured from was wrong in the first cut, and the way it was wrong is
+worth keeping.** `seenAt` opened at `now`, and `now` is `lastUpdatedAt` — the instant the launch had
+already advanced *to* before anything was composed. So every `SurveyCompleted` the launch itself
+produced was `at <= seenAt` and excluded: **the section could never fire on the check-in it exists
+for**, which is the only one that matters. It worked only for a player who left the tab composed
+across a later foreground, and a comment three lines above it claimed the opposite.
+
+Nothing caught it. Both mapper tests passed, because they set `seenAt` themselves and were therefore
+testing the filter rather than the boundary; the screenshot frame passed by dating its landing an
+*hour in the future*, which shipped a baseline reading `found -59m ago` — the defect printing itself
+into a committed image that had already been looked at. A behaviour test driving the real
+`GalaxyScreen` is what found it.
+
+The fix is that `GameSession` carries `resumedFrom` — the instant `resume` advanced *from* — and the
+shell hands it down. The general lesson is the one `advance` has taught before: **a span has two
+ends, and a screen that is about what happened while you were away cannot derive the far one from
+the near one.**

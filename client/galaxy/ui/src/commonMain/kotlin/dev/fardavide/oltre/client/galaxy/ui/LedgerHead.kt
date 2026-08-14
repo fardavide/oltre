@@ -234,6 +234,7 @@ private fun FilterChip(chip: LedgerChipUiState, onToggle: () -> Unit) {
         maxLines = 1,
         softWrap = false,
         modifier = Modifier
+            .testTag(GalaxyTestTags.chip(chip.label))
             .border(1.dp, if (chip.on) ON_EDGE else EDGE, BADGE_SHAPE)
             .background(if (chip.on) ON_FILL else Color.Transparent, BADGE_SHAPE)
             .clickable(onClick = onToggle)

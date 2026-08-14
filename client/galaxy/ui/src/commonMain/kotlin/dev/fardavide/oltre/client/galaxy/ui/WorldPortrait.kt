@@ -18,6 +18,8 @@ import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.core.Hazard
+import dev.fardavide.oltre.core.Pressure
+import dev.fardavide.oltre.core.Temperature
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.floor
@@ -75,6 +77,17 @@ private val HAIRLINE = 1.dp
 // than a drawn one.
 private val LARGE_FROM = 60.dp
 
+// **Which step a world's fill is mixed from, and every step owns its own boundary degree**: the
+// comparison is `<=`, so −80 °C is the last frost rather than the first cold. The top step is
+// written with no ceiling because there is none — a lookup that could fall off the end would throw
+// on the hottest world in the galaxy rather than draw it.
+//
+// **`internal` rather than private**, with `surfaceFor`, `mixedWith` and `channel` below and nothing
+// else in the file: those four are rules the design states in figures, and a picture is a poor place
+// to read a figure back off — see `WorldPortraitTest`, which is their only other caller.
+internal fun temperatureStep(temperature: Temperature): Color =
+    TEMPERATURE_STEPS.first { temperature.celsius <= it.first }.second
+
 @Composable
 internal fun WorldPortrait(uiState: WorldPortraitUiState, box: Dp, modifier: Modifier = Modifier) {
     val large = box >= LARGE_FROM
@@ -114,7 +127,7 @@ private fun DrawScope.drawSurveyed(
     val d = wholeDp(box, 0.50f + 0.32f * gravityFraction)
     val topLeft = Offset(centre.x - d / 2f, centre.y - d / 2f)
 
-    val base = TEMPERATURE_STEPS.first { world.temperature.celsius <= it.first }.second
+    val base = temperatureStep(world.temperature)
     val lit = base.mixedWith(Color.White, if (large) 0.34f else 0.30f)
     val dark = base.mixedWith(WINDOW, 0.62f)
 
@@ -153,21 +166,45 @@ private fun DrawScope.drawBaseFill(d: Float, lit: Color, base: Color, dark: Colo
     )
 }
 
-// Exactly one of these, or none. The band count is the design's own table and both of its ends are
-// epithet nouns: no bands at all is a **waste**, bands closed into one featureless veil is a
-// **shroud** — so the vocabulary and the drawing agree, and a player tells them apart at 26dp
-// without reading either word.
-private fun DrawScope.drawSurface(d: Float, world: WorldPortraitUiState.Surveyed, large: Boolean) {
-    val atm = world.pressure.milliAtm
-    when {
-        atm >= 6_000 -> drawShroud(d)
-        atm < 100 -> if (large) drawCraters(d)
+// **Exactly one of these, or none**, and both ends of the table are epithet nouns: no bands at all
+// is a **waste**, bands closed into one featureless veil is a **shroud** — so the vocabulary and the
+// drawing agree, and a player tells them apart at 26dp without reading either word.
+//
+// A type rather than an `Int`, because a count of zero would mean two different pictures: a waste
+// is bare ground and a shroud is the thickest atmosphere in the game, and they sit at opposite ends
+// of the same axis.
+internal sealed interface WorldSurface {
+
+    // Nothing to band. A large disc gets craters and a small one gets nothing at all — at 26dp they
+    // are sub-pixel and would read as noise — so the reading is an absence either way.
+    data object Waste : WorldSurface
+
+    data class Bands(val count: Int) : WorldSurface
+
+    data object Shroud : WorldSurface
+}
+
+// The design's own pressure table. **Capped at two bands on a small disc**, which is why the three
+// middle ranges are one reading at 26dp rather than three that cannot be told apart — and neither
+// end is capped, because a waste and a shroud are drawings rather than counts and say the same thing
+// at both sizes.
+internal fun surfaceFor(pressure: Pressure, large: Boolean): WorldSurface {
+    val atm = pressure.milliAtm
+    return when {
+        atm >= 6_000 -> WorldSurface.Shroud
+        atm < 100 -> WorldSurface.Waste
         else -> {
             val bands = if (atm < 900) 2 else if (atm < 2_600) 4 else 7
-            // **Capped at two on a small disc**, which is why the three middle pressure ranges are
-            // one reading at 26dp rather than three that cannot be told apart.
-            drawBands(d, if (large) bands else minOf(bands, 2))
+            WorldSurface.Bands(if (large) bands else minOf(bands, 2))
         }
+    }
+}
+
+private fun DrawScope.drawSurface(d: Float, world: WorldPortraitUiState.Surveyed, large: Boolean) {
+    when (val surface = surfaceFor(world.pressure, large)) {
+        WorldSurface.Shroud -> drawShroud(d)
+        WorldSurface.Waste -> if (large) drawCraters(d)
+        is WorldSurface.Bands -> drawBands(d, surface.count)
     }
 }
 
@@ -355,13 +392,13 @@ private fun DrawScope.wholeDp(box: Dp, fraction: Float): Float =
 
 // Per-channel sRGB, half-up, no gamma correction and no OkLab — the design mixes in the space CSS
 // mixes in, and a perceptual blend here would shift every base colour.
-private fun Color.mixedWith(other: Color, amount: Float): Color = Color(
+internal fun Color.mixedWith(other: Color, amount: Float): Color = Color(
     red = channel(red, other.red, amount),
     green = channel(green, other.green, amount),
     blue = channel(blue, other.blue, amount),
 )
 
-private fun channel(from: Float, to: Float, amount: Float): Float =
+internal fun channel(from: Float, to: Float, amount: Float): Float =
     ((from * 255f) + ((to * 255f) - (from * 255f)) * amount).roundToInt() / 255f
 
 private fun Offset.dot(other: Offset): Float = x * other.x + y * other.y

@@ -40,6 +40,9 @@ import kotlinx.datetime.TimeZone
 fun GalaxyScreen(
     state: GameState,
     now: Instant,
+    // The instant this launch advanced *from*. Defaults to `now` — an empty span, so nothing is
+    // new — which is what a test or a preview that does not care should get.
+    since: Instant = now,
     timeZone: TimeZone,
     onOpenResearch: () -> Unit,
     onDispatchProbe: (SystemAddress) -> Unit,
@@ -61,10 +64,12 @@ fun GalaxyScreen(
     var query by remember(state.galaxy.seed) { mutableStateOf("") }
     var filters by remember(state.galaxy.seed) { mutableStateOf(emptySet<LedgerFilter>()) }
     var sort by remember(state.galaxy.seed) { mutableStateOf(LedgerSort.NEAREST) }
-    // What the discovery section is measured from. It starts at the instant this screen was first
-    // composed, so a world surveyed while the app was closed is new and one surveyed before that is
-    // not — and it moves forward only when the player has actually looked.
-    var seenAt by remember(state.galaxy.seed) { mutableStateOf(now) }
+    // What the discovery section is measured from. **It starts where the launch's own advance
+    // started, not at `now`** — by the time anything is composed the state has already been advanced
+    // *to* `now`, so measuring from there would exclude every survey the launch itself landed, which
+    // is exactly the set the section exists to show. It moves forward only once the player has
+    // looked.
+    var seenAt by remember(state.galaxy.seed) { mutableStateOf(since) }
     // Which world the sheet is up on, and what has been chosen inside it. The feature's own
     // navigation exactly as `at` is — a world selector names only the galaxy, so nothing outside this
     // module has an opinion about it.

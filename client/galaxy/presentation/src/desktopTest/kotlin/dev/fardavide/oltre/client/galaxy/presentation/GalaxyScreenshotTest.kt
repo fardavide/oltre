@@ -56,7 +56,7 @@ class GalaxyScreenshotTest {
         capture(
             width = 393,
             height = 1400,
-            uiState = frame(state = justSurveyedState),
+            uiState = frame(state = justSurveyedState, seenAt = JUST_SURVEYED_SINCE),
             name = "galaxy_ledger_discovery",
         )
     }
