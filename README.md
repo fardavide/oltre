@@ -206,6 +206,29 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.11.0 — 2026-08-14
+
+- **The map has places instead of addresses.** Every system and every world has a name now —
+  Calianova, Kragith, Velovae IX — generated from the seed, unique inside a galaxy, and free from the
+  first launch. The coordinate survives as the subtitle. You can search for a name and get one
+  world back, which is the whole answer to finding somewhere you have been before.
+- **The Galaxy tab opens on what you know.** A ledger of every world you have surveyed, nearest
+  first, with filters — reachable in six hours, still holding, one adaptation level away, settleable,
+  by region — a sort, a search, and pinned worlds at the top. The map is one tap away and is where
+  you go to find something new rather than where you go to look something up.
+- **A surveyed world has a face.** A drawn disc where every channel is a real trait: the fill is
+  temperature, the size is gravity, the banding is pressure, and the marks are the hazards. An
+  unsurveyed world is an empty socket, so a list of them reads as somewhere to go rather than as a
+  table you have already read. About one world in two hundred wears a ring, which means nothing at
+  all.
+- **And a name for what it is.** *iron giant*, *deep frost*, *drowned shroud*, *temperate world* —
+  derived from the three axes, so the words can never disagree with the numbers beside them.
+- **The galaxy has regions.** Ten per galaxy, twenty-five systems each, each one named and each one
+  genuinely different: a Deep runs sixty percent dim stars, which moves its habitable orbits inward
+  and makes its deuterium good, and a Blaze does the opposite. That is readable off the strip before
+  you have surveyed anything, and there is an index of the ten that says what each is for.
+  **Your map has changed to make room for it, and it will not change again.**
+
 ### 0.10.1 — 2026-08-14
 
 - **Every hull costs the same.** A skiff was priced against the fleet you already had — half again

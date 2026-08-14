@@ -77,7 +77,11 @@ class AppBehaviourTest {
             open(OltreTab.RESEARCH)
             assertReads("TECHNOLOGIES")
             open(OltreTab.GALAXY)
-            assertReads("SYSTEMS")
+            // **The tab opens on the ledger since 0.11**, so the reading that proves it arrived is
+            // the ledger's own sort rather than the system header's scope — `250 SYSTEMS` is one tap
+            // away now, on the map. The sort is the one string here that appears exactly once: both
+            // the switch and the count say "worlds".
+            assertReads("NEAREST FIRST")
             open(OltreTab.SHIPYARD)
             assertReads("Shipyard")
             open(OltreTab.COLONY)

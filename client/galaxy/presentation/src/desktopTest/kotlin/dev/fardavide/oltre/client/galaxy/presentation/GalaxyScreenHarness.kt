@@ -6,8 +6,6 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRobot
 import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
-import dev.fardavide.oltre.client.galaxy.ui.VerdictUiState
-import dev.fardavide.oltre.client.galaxy.ui.homeSystemUiState
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
@@ -62,12 +60,3 @@ internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 // screen rather than a mapped frame: which world has its sheet up is `GalaxyScreen`'s own state, so
 // a tap that raises one is only a tap that raises one from here.
 internal val testGameState: GameState = GameState.initial(GalaxySeed(20_260_807))
-
-// The nearest world in the home system a run may actually be sent to. Read off the fixture rather
-// than written down, because hardcoding a slot here would be asserting the seed — and a run's
-// legality is `startRun`'s rule, not this file's guess: home is refused, so the slot is whichever
-// one holds a world that is neither home nor held.
-internal val RUNNABLE_SLOT: Int = homeSystemUiState.bands
-    .flatMap { it.rows }
-    .first { it.verdict is VerdictUiState.Blocked || it.verdict is VerdictUiState.Barren }
-    .slot

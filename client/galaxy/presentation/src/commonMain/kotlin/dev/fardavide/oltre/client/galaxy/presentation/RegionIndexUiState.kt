@@ -12,14 +12,13 @@ import dev.fardavide.oltre.core.regionNameAt
 import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.temperamentOf
-import kotlin.time.Instant
 
 // **Ten rows against a thousand pages.** Where you decide where to probe next — the one decision the
 // map exists for and the one it has never helped with.
 //
 // Sorted nearest first rather than by coordinate: the index is a chooser, and coordinate order is
 // what the strip is for.
-internal fun GameState.toRegionRows(galaxy: Int, now: Instant): List<RegionRowUiState> =
+internal fun GameState.toRegionRows(galaxy: Int): List<RegionRowUiState> =
     (1..GalaxyBalance.REGIONS_PER_GALAXY)
         .map { region -> toRegionRow(galaxy = galaxy, region = region) }
         .sortedBy { it.nearestMinutes }
@@ -40,7 +39,13 @@ private fun GameState.toRegionRow(galaxy: Int, region: Int): SortableRegion {
             to = GalaxyCoordinate(galaxy = galaxy, system = system, slot = 1),
         )
     }
-    val surveyed = this.galaxy.surveyed.count { it.galaxy == galaxy && it.system in systems }
+    // **Systems, not worlds**, because every other reading on this row is per system — the 25-tick
+    // histogram, the range, the nearest. Counting worlds made the home region read "4 surveyed" at
+    // genesis, when exactly one of its twenty-five systems has ever been looked at.
+    val surveyed = this.galaxy.surveyed
+        .filter { it.galaxy == galaxy && it.system in systems }
+        .distinctBy { it.system }
+        .size
     val isHome = galaxy == home.galaxy && regionOf(home.system) == region
 
     return SortableRegion(
@@ -59,7 +64,7 @@ private fun GameState.toRegionRow(galaxy: Int, region: Int): SortableRegion {
             },
             bias = temperament.bias(),
             fact = temperament.fact(),
-            known = if (surveyed == 0) "none surveyed" else "$surveyed surveyed",
+            known = if (surveyed == 0) "none surveyed" else "$surveyed of 25 surveyed",
             nearest = "nearest ${nearest.toChipLabel()}",
             isHome = isHome,
         ),

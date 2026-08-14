@@ -54,7 +54,7 @@ sealed interface LedgerFilter {
 
     data object StillHolding : LedgerFilter
 
-    data class Region(val region: Int, val name: String) : LedgerFilter
+    data class Region(val galaxy: Int, val region: Int, val name: String) : LedgerFilter
 }
 
 // **Nothing here persists except pins**, and pins live on `GalaxyState` rather than in this model.

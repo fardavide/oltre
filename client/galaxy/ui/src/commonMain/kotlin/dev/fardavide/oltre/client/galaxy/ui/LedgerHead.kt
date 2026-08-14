@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -105,15 +106,25 @@ private fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.background(GROUP_FILL, BADGE_SHAPE).padding(2.dp),
     ) {
-        ModePill(label = "worlds", on = mode == LedgerMode.WORLDS, onClick = { onSelectMode(LedgerMode.WORLDS) })
-        ModePill(label = "map", on = mode == LedgerMode.MAP, onClick = { onSelectMode(LedgerMode.MAP) })
+        ModePill(
+            label = "worlds",
+            mode = LedgerMode.WORLDS,
+            on = mode == LedgerMode.WORLDS,
+            onClick = { onSelectMode(LedgerMode.WORLDS) },
+        )
+        ModePill(
+            label = "map",
+            mode = LedgerMode.MAP,
+            on = mode == LedgerMode.MAP,
+            onClick = { onSelectMode(LedgerMode.MAP) },
+        )
     }
 }
 
 // Uppercase is a style and not a spelling — the word is lowercase in the source here as it is in the
 // count and the sort, per the system's casing rule.
 @Composable
-private fun ModePill(label: String, on: Boolean, onClick: () -> Unit) {
+private fun ModePill(label: String, mode: LedgerMode, on: Boolean, onClick: () -> Unit) {
     Text(
         text = label.uppercase(),
         color = if (on) OltreColors.accent else OltreColors.textTertiary,
@@ -124,6 +135,7 @@ private fun ModePill(label: String, on: Boolean, onClick: () -> Unit) {
         maxLines = 1,
         softWrap = false,
         modifier = Modifier
+            .testTag(GalaxyTestTags.mode(mode))
             .background(if (on) PILL_FILL else Color.Transparent, PILL_SHAPE)
             .clickable(onClick = onClick)
             .padding(horizontal = 9.dp, vertical = 4.dp),
@@ -174,7 +186,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
                     field()
                 }
             },
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.testTag(GalaxyTestTags.LEDGER_SEARCH).weight(1f),
         )
     }
 }
@@ -263,7 +275,7 @@ private fun Meta(count: String, sort: LedgerSort, onCycleSort: () -> Unit) {
             letterSpacing = 1.4.sp,
             maxLines = 1,
             softWrap = false,
-            modifier = Modifier.clickable(onClick = onCycleSort),
+            modifier = Modifier.testTag(GalaxyTestTags.LEDGER_SORT).clickable(onClick = onCycleSort),
         )
     }
 }

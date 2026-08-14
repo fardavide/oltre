@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -89,6 +90,7 @@ private fun RegionRow(uiState: RegionRowUiState, onOpenRegion: (Int) -> Unit) {
             // it scales what is drawn inside it, and a background declared first is drawn outside.
             // The design specifies no press state at all; this is the one the app already committed
             // to for a card you tap, rather than a new one invented here.
+            .testTag(GalaxyTestTags.regionRow(uiState.region))
             .pressable { onOpenRegion(uiState.region) }
             .border(
                 1.dp,

@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
@@ -187,11 +189,26 @@ class ProbeActionUiStateTest {
     private fun GameState.probeActionAt(
         target: SystemAddress,
         now: Instant = EPOCH,
-    ): ProbeActionUiState = toGalaxyUiState(
-        at = SystemSelection(galaxy = target.galaxy, system = target.system),
-        now = now,
-        timeZone = TimeZone.UTC,
+        // The footer is the *system* view's furniture, so the frame has to be asked for that view:
+        // the ledger and the region index do not price a flight, and building one for them would be
+        // paying for a footer nothing draws.
+    ): ProbeActionUiState = assertIs<GalaxyBodyUiState.System>(
+        toGalaxyUiState(
+            nav = navigationAt(SystemSelection(galaxy = target.galaxy, system = target.system)),
+            now = now,
+            timeZone = TimeZone.UTC,
+        ).body,
     ).probe
+
+    private fun GameState.navigationAt(at: SystemSelection): GalaxyNavigation = GalaxyNavigation(
+        view = GalaxyView.SYSTEM,
+        at = at,
+        query = "",
+        filters = emptySet(),
+        sort = LedgerSort.NEAREST,
+        seenAt = EPOCH,
+        availableFilters = availableFiltersFor(at),
+    )
 
     private fun offerAt(state: GameState, systemsAway: Int): ProbeOfferUiState =
         assertIs<ProbeActionUiState.Dispatch>(

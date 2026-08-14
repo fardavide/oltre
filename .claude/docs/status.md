@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-14 (0.10.1)
+Updated: 2026-08-14 (0.11.0)
 
 ## Landed
 
@@ -794,6 +794,23 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   against ten, delivering 2% of the colony's metal — the fleet becomes a metal sink rather than the
   economy, and the colony pays ten building levels for it. See `balance-log.md` round 25 and
   `decisions.md`.
+
+- **0.11.0 the map gains a name** — Davide, having played 0.10.1: *"I'm so unhappy with the map. It
+  is huge, but terrible to navigate! Finding a planet feels like searching a phone number on pagine
+  gialle in the 90s"*, and *"the map should gain 'an identity'"*. The whole of
+  `galaxy-identity-sheet.md` plus Claude Design's return.
+  **`core`**: ten named regions a galaxy, each biasing its stars, drawn as a permutation of a fixed
+  multiset so the pooled mix is identical for every seed; generated names for every system, world and
+  region, unique inside a galaxy by construction; derived two-word epithets; a decorative ring on one
+  world in two hundred; pins on `GalaxyState` at schema 12. Nothing else stored — names, epithets,
+  portraits and regions are all regenerated from the seed.
+  **The screen**: the tab now opens on a ledger of what you know, with filters, a sort, a search and
+  a pinned section; a row leads with the name and a drawn planet disc and the word `Unsurveyed` is
+  gone; the strip gained nine region breaks and five named cells; there is a region index; and a
+  survey lands as a card at the top of the ledger.
+  **The reroll**: every existing map changed. Seeds and home coordinates are kept, so a colony stays
+  where it is and its surveys survive; what moved is what the stars are. Announced in the changelog.
+  See `decisions.md` and `balance-log.md` round 26.
 
 ## Pending, from 0.10.1
 

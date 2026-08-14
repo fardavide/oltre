@@ -41,21 +41,32 @@ import kotlin.time.Instant
 // Nothing here is stored except the pins. The mode, the query, the chips and the sort are
 // navigation: they sit on `GalaxyNavigation` and die with the check-in, because *a filter that
 // outlives the check-in that set it is a screen lying about what it holds*.
-internal fun GameState.toLedgerHeadUiState(nav: GalaxyNavigation, now: Instant): LedgerHeadUiState {
-    val worlds = if (nav.view == GalaxyView.LEDGER) knownWorlds(nav, now) else emptyList()
+// `matching` is passed in rather than recomputed: the head prints the count of exactly what the body
+// lists, and filtering and sorting the whole surveyed set twice per render to say so is work the
+// screen can see on a long ledger.
+internal fun GameState.toLedgerHeadUiState(
+    nav: GalaxyNavigation,
+    matching: List<World>,
+): LedgerHeadUiState {
     return LedgerHeadUiState(
         mode = if (nav.view == GalaxyView.LEDGER) LedgerMode.WORLDS else LedgerMode.MAP,
         query = nav.query,
         // Absent outside the ledger: the map is not a query, so a filter row over it would be a
         // control with nothing to act on.
         chips = if (nav.view == GalaxyView.LEDGER) nav.chips() else emptyList(),
-        count = if (nav.view == GalaxyView.LEDGER) worlds.size.worldCount() else null,
+        count = if (nav.view == GalaxyView.LEDGER) matching.size.worldCount() else null,
         sort = nav.sort,
     )
 }
 
-internal fun GameState.toLedgerBodyUiState(nav: GalaxyNavigation, now: Instant): LedgerBodyUiState {
-    val matching = knownWorlds(nav, now)
+internal fun GameState.knownWorldsFor(nav: GalaxyNavigation, now: Instant): List<World> =
+    if (nav.view == GalaxyView.LEDGER) knownWorlds(nav, now) else emptyList()
+
+internal fun GameState.toLedgerBodyUiState(
+    nav: GalaxyNavigation,
+    matching: List<World>,
+    now: Instant,
+): LedgerBodyUiState {
     val pinnedRows = matching.filter { it.at in galaxy.pinned }
     val rest = matching.filterNot { it.at in galaxy.pinned }
     return LedgerBodyUiState(
@@ -79,9 +90,20 @@ private fun GameState.knownWorlds(nav: GalaxyNavigation, now: Instant): List<Wor
 
 // A full name returns one row and a system name returns its worlds — which is what unique names
 // inside a galaxy buy, and the one place in the app where typing beats tapping.
+//
+// **An exact name wins outright, and a substring match alone would break the promise above.** Roman
+// numerals are substrings of one another: `Calanova I` is inside `Calanova II`, `III`, `IV`, `VI`,
+// `VII`, `VIII`, `IX`, `XI`…, and `Calanova X` is inside `XI` through `XV`. So typing a world's
+// whole name would have returned twelve rows, which is the phone book again with extra steps.
 private fun GameState.matchesQuery(world: World, query: String): Boolean {
     if (query.isBlank()) return true
-    return worldNameAt(galaxy.seed, world.at).contains(query.trim(), ignoreCase = true)
+    val trimmed = query.trim()
+    val name = worldNameAt(galaxy.seed, world.at)
+    if (name.equals(trimmed, ignoreCase = true)) return true
+    // Only when nothing is an exact match does the query widen — otherwise a full name would drag
+    // its numeral-suffixed neighbours along with it.
+    return galaxy.surveyed.none { worldNameAt(galaxy.seed, it).equals(trimmed, ignoreCase = true) } &&
+        name.contains(trimmed, ignoreCase = true)
 }
 
 private fun GameState.matches(filter: LedgerFilter, world: World, now: Instant): Boolean = when (filter) {
@@ -92,8 +114,11 @@ private fun GameState.matches(filter: LedgerFilter, world: World, now: Instant):
     LedgerFilter.StillHolding -> ResourceKind.entries
         .filter { it != ResourceKind.DEUTERIUM }
         .any { galaxy.remaining(world.at, it, now) > 0 }
+    // **The galaxy travels with the chip.** It used to be compared against home, so a player
+    // browsing G2 tapped a chip labelled with a G2 region name and got home-galaxy worlds of the
+    // same index back — a filter naming one place and meaning another.
     is LedgerFilter.Region -> regionOf(world.at.system) == filter.region &&
-        world.at.galaxy == galaxy.home.galaxy
+        world.at.galaxy == filter.galaxy
 }
 
 // A world one level of ONE ladder away from being tolerable — the chip that turns the research tab
@@ -212,7 +237,9 @@ private fun LedgerSort.comparator(state: GameState, now: Instant): Comparator<Wo
     // Nothing records *when* a world was surveyed, so the closest honest reading is coordinate
     // order reversed — the newest thing a probe reached is the furthest one it was sent to. Flagged
     // rather than faked: a real "newest" wants the survey instant, which is a schema hop.
-    LedgerSort.NEWEST -> compareByDescending { it.at.system * 100 + it.at.slot }
+    LedgerSort.NEWEST -> compareByDescending {
+        (it.at.galaxy * 1_000_000L) + (it.at.system * 100L) + it.at.slot
+    }
 }
 
 private fun GalaxyNavigation.chips(): List<LedgerChipUiState> = availableFilters.map { filter ->
@@ -241,6 +268,7 @@ internal fun GameState.availableFiltersFor(at: SystemSelection): List<LedgerFilt
     LedgerFilter.OneLevelAway(AdaptationTechnology.THERMAL),
     LedgerFilter.StillHolding,
     LedgerFilter.Region(
+        galaxy = at.galaxy,
         region = regionOf(at.system),
         name = regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system)),
     ),

@@ -28,11 +28,15 @@ import org.junit.Test
 //
 // Every state here is built from the seed rather than described, for the reason the unit tests give:
 // the screen exists to read what the generator produced, and a fixture would let the two drift.
+// **Every block opens with `openTheMap()` since 0.11**, and it is not ceremony: the Galaxy tab now
+// opens on the ledger of what you know, so a test about the *system* view has to go there the way a
+// player does. That one tap is also the only coverage the switch itself has.
 class GalaxyFromStateBehaviourTest {
 
     @Test
     fun `the home system draws its worlds, its ruler and its probe footer`() {
         galaxyScreen(state = testGameState) {
+            openTheMap()
             // The astronomy line, which is the one reading on the page that is a fact about the
             // *system* rather than about a world — and on your own doorstep it says so.
             assertTheAstronomyReads("Your own system")
@@ -45,6 +49,7 @@ class GalaxyFromStateBehaviourTest {
     @Test
     fun `a neighbour that has never been looked at is offered a probe at its real price`() {
         galaxyScreen(state = testGameState) {
+            openTheMap()
             openSystem(home.system - 1)
             // The price is `SurveyBalance`'s and the flight is the real distance: an unsurveyed
             // system is the one place the footer is a purchase.
@@ -60,6 +65,7 @@ class GalaxyFromStateBehaviourTest {
         ).state
 
         galaxyScreen(state = launched) {
+            openTheMap()
             openSystem(target.system)
             // Three parts, exactly as a running build draws them, and no cancel — nothing in this
             // game cancels.
@@ -72,6 +78,7 @@ class GalaxyFromStateBehaviourTest {
         val state = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 2))
 
         galaxyScreen(state = state) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             assertTheSheetIsUp()
             // The coordinate the row printed, because the sheet is a second reading of a world the
@@ -91,6 +98,7 @@ class GalaxyFromStateBehaviourTest {
         val bigFleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 8))
 
         galaxyScreen(state = bigFleet) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             homeIn(FleetBalance.WINDOWS.last())
             assertTheSheetIsUp()
@@ -111,6 +119,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = emptied) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             bringBack(ResourceKind.METAL)
             assertTheSheetIsUp()
@@ -125,6 +134,7 @@ class GalaxyFromStateBehaviourTest {
         val fleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 2))
 
         galaxyScreen(state = fleet) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             sendOneMore()
             assertTheSheetIsUp()
@@ -145,6 +155,7 @@ class GalaxyFromStateBehaviourTest {
         )
 
         galaxyScreen(state = rich) {
+            openTheMap()
             openSystem(home.system - 1)
             tapTheWorld(firstWorldSlotOfNeighbour())
             assertTheSheetIsUp()
@@ -171,6 +182,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = surveyed) {
+            openTheMap()
             openGalaxy(far.galaxy)
             tapTheWorld(slot)
             assertTheSheetIsUp()
@@ -192,6 +204,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = dry) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             bringBack(ResourceKind.METAL)
             homeIn(FleetBalance.WINDOWS.last())
@@ -207,6 +220,7 @@ class GalaxyFromStateBehaviourTest {
         val fleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 3))
 
         galaxyScreen(state = fleet) {
+            openTheMap()
             tapTheWorld(RUNNABLE_SLOT)
             bringBack(ResourceKind.CRYSTAL)
             assertTheSheetIsUp()
@@ -217,6 +231,7 @@ class GalaxyFromStateBehaviourTest {
     @Test
     fun `the ruler prices another galaxy as a galaxy away rather than as more systems`() {
         galaxyScreen(state = testGameState) {
+            openTheMap()
             openGalaxy(home.galaxy % GalaxyBalance.GALAXIES + 1)
             // The lens re-centres on the same *index* rather than on your star, because a hop is
             // priced as a whole galaxy plus the difference of the two system numbers — so the

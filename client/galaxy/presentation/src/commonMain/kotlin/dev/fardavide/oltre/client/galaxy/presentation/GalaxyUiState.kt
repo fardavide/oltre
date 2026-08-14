@@ -15,7 +15,6 @@ import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
-import dev.fardavide.oltre.core.Hazard
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
@@ -46,31 +45,43 @@ internal fun GameState.toGalaxyUiState(
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState {
     val at = nav.at
-    val probe = toProbeActionUiState(
-        at = at,
-        worlds = worldsOf(at),
-        now = now,
-        timeZone = timeZone,
-    )
+    // Filtered and sorted once, then handed to both halves: the head prints the count of exactly
+    // what the body lists, so deriving it twice is one list walked twice to agree with itself.
+    val matching = knownWorldsFor(nav, now)
     return GalaxyUiState(
-        head = toLedgerHeadUiState(nav = nav, now = now),
+        head = toLedgerHeadUiState(nav = nav, matching = matching),
         body = when (nav.view) {
-            GalaxyView.LEDGER -> GalaxyBodyUiState.Ledger(toLedgerBodyUiState(nav = nav, now = now))
+            GalaxyView.LEDGER -> GalaxyBodyUiState.Ledger(
+                toLedgerBodyUiState(nav = nav, matching = matching, now = now),
+            )
             GalaxyView.REGIONS -> GalaxyBodyUiState.Regions(
                 galaxy = "Galaxy ${at.galaxy}",
                 scope = "${GalaxyBalance.REGIONS_PER_GALAXY} regions · " +
                     "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
-                rows = toRegionRows(galaxy = at.galaxy, now = now),
+                rows = toRegionRows(galaxy = at.galaxy),
             )
+            // The probe footer is built here rather than above because it is the system view's
+            // own furniture: it walks all fifteen slots and prices a flight, and the ledger and the
+            // region index would have paid for that and thrown it away.
             GalaxyView.SYSTEM -> GalaxyBodyUiState.System(
                 strip = toRegionStripUiState(at = at),
                 header = toSystemHeadUiState(at = at),
                 map = toSystemMapUiState(at = at, now = now),
-                probe = probe,
+                probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
                 rows = toSystemRows(at = at, now = now),
             )
         },
-        dispatch = dispatch?.let { toDispatchUiState(at = at, selection = it, probe = probe, now = now) },
+        dispatch = dispatch?.let {
+            toDispatchUiState(
+                at = at,
+                selection = it,
+                // Hoisted rather than restated: the card's footer already decides whether a probe
+                // can be sent, and a second copy of that decision inside the sheet is a second place
+                // for the two to disagree about one flight.
+                probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
+                now = now,
+            )
+        },
     )
 }
 
@@ -230,10 +241,6 @@ private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): Stri
 // coldest slot in the system, and the map has no second body to say it against.
 private fun orbitOf(index: Int, of: Int): Float =
     if (of <= 1) 0.5f else index.toFloat() / (of - 1).toFloat()
-
-private fun WorldTraits.fieldsLabel(): String = "$fields fields"
-
-private fun Hazard.label(): String = name.lowercase().replace('_', ' ')
 
 // Internal since the dispatch sheet: the sheet heads itself with the coordinate the row it was
 // raised from prints, and two copies of this would be two ways of writing one address.

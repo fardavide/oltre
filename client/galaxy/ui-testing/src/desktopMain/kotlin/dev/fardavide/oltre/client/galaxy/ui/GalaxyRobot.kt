@@ -14,6 +14,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipeUp
@@ -37,6 +38,12 @@ fun galaxyPage(
     onSelectGalaxy: (Int) -> Unit = {},
     onSelectSystem: (Int) -> Unit = {},
     onGoHome: () -> Unit = {},
+    onSelectMode: (LedgerMode) -> Unit = {},
+    onQueryChange: (String) -> Unit = {},
+    onToggleChip: (LedgerFilter) -> Unit = {},
+    onCycleSort: () -> Unit = {},
+    onOpenRegionIndex: () -> Unit = {},
+    onOpenRegion: (Int) -> Unit = {},
     onOpenResearch: () -> Unit = {},
     onDispatchProbe: () -> Unit = {},
     onOpenWorld: (Int) -> Unit = {},
@@ -54,6 +61,12 @@ fun galaxyPage(
                     GalaxyPage(
                         uiState = uiState,
                         scrollState = scrollState ?: rememberScrollState(),
+                        onSelectMode = onSelectMode,
+                        onQueryChange = onQueryChange,
+                        onToggleChip = onToggleChip,
+                        onCycleSort = onCycleSort,
+                        onOpenRegionIndex = onOpenRegionIndex,
+                        onOpenRegion = onOpenRegion,
                         onSelectGalaxy = onSelectGalaxy,
                         onSelectSystem = onSelectSystem,
                         onGoHome = onGoHome,
@@ -104,8 +117,44 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.REACH_STRIP).assertIsDisplayed()
     }
 
-    fun goHome() = apply {
-        test.onNodeWithTag(GalaxyTestTags.HOME).performClick()
+    // ── The ledger, which is what the tab opens on since 0.11 ───────────────────────────────
+
+    fun openTheMap() = apply {
+        test.onNodeWithTag(GalaxyTestTags.mode(LedgerMode.MAP)).performClick()
+    }
+
+    fun openTheLedger() = apply {
+        test.onNodeWithTag(GalaxyTestTags.mode(LedgerMode.WORLDS)).performClick()
+    }
+
+    fun search(query: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.LEDGER_SEARCH).performTextInput(query)
+    }
+
+    fun toggle(chip: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.chip(chip)).performScrollTo().performClick()
+    }
+
+    fun changeTheSort() = apply {
+        test.onNodeWithTag(GalaxyTestTags.LEDGER_SORT).performScrollTo().performClick()
+    }
+
+    // The region name in the system header is the only accent string there, which is exactly what
+    // makes it read as the way into the index.
+    fun openTheRegionIndex() = apply {
+        test.onNodeWithTag(GalaxyTestTags.REGION).performScrollTo().performClick()
+    }
+
+    fun openRegion(region: Int) = apply {
+        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).performScrollTo().performClick()
+    }
+
+    fun assertTheLedgerLists(name: String) = apply {
+        test.onNodeWithText(name, substring = true).assertIsDisplayed()
+    }
+
+    fun assertNothingIsListed(name: String) = apply {
+        test.onNodeWithText(name, substring = true).assertDoesNotExist()
     }
 
     // The blocked row's remedy, which is a tap target again now that Research can sell it.

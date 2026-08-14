@@ -190,7 +190,7 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
                 fontFamily = mono,
                 fontSize = 9.5.sp,
                 letterSpacing = 1.sp,
-                modifier = Modifier.clickable(onClick = onOpenRegion),
+                modifier = Modifier.testTag(GalaxyTestTags.REGION).clickable(onClick = onOpenRegion),
             )
             Text(
                 text = "·",
