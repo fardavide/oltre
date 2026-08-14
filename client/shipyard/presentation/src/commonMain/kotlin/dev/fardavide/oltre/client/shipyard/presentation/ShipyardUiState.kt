@@ -14,7 +14,6 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.ownedShips
 import dev.fardavide.oltre.core.shortfallOf
 import dev.fardavide.oltre.core.timeUntilAffordable
-import dev.fardavide.oltre.core.committedShips
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
@@ -93,9 +92,7 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
         // sent, so counting it here would put a number on the heading that the Fleets tab disagrees
         // with. What it *does* count against is the price, one line down.
         fleet = owned.total.let { if (it == 1) "1 hull" else "$it hulls" },
-        hulls = FOR_SALE.map {
-            toHullRow(it, owned = owned, committed = committedShips(), now = now, timeZone = timeZone)
-        },
+        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
         comingHulls = COMING.map {
             ComingHullUiState(type = it.type, name = it.name, purpose = it.purpose)
         },
@@ -105,15 +102,15 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
 private fun GameState.toHullRow(
     hull: HullCopy,
     owned: Ships,
-    committed: Ships,
     now: Instant,
     timeZone: TimeZone,
 ): HullUiState {
     val type = hull.type
-    // Priced against everything committed rather than everything owned, which is what `buildShips`
-    // charges — a card that priced the next hull off the *fleet* would offer a rung the verb will
-    // not sell the moment anything is on the slipway.
-    val cost = FleetBalance.shipCost(type, alreadyOwned = committed.countOf(type))
+    // **The same price at every depth**, which is what `buildShips` charges. This row read the fleet
+    // until 0.10.1 — it had to, because the price climbed with it and a card priced off the *idle*
+    // pool would have quoted a rung the verb would not sell. There is no rung now, so the chips are a
+    // constant and the card cannot disagree with the tap.
+    val cost = FleetBalance.shipCost(type)
     val short = resources.shortfallOf(cost)
     return HullUiState(
         type = type,

@@ -158,6 +158,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.10.1 — 2026-08-14
+
+- **Every hull costs the same.** A skiff was priced against the fleet you already had — half again
+  as much each time, so the fourth cost three times the first and the sixth was out of reach of
+  anything but a week of saving. It is a flat 800 metal and 200 crystal now, at every depth. What
+  makes a fleet expensive is the yard: hulls are built one at a time, about two hours each before
+  the Robotics Factory shortens it, so buying four is a commitment of the afternoon rather than a
+  bill that grows while you read it.
+
 ### 0.10.0 — 2026-08-13
 
 - **Worlds run out.** Every world holds a finite metal deposit and a finite crystal deposit, and a

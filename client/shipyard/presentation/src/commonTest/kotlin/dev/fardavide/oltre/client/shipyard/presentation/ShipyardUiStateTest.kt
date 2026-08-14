@@ -58,14 +58,16 @@ class ShipyardUiStateTest {
     }
 
     @Test
-    fun `the price is the next rung of the curve and counts the hulls in flight`() {
-        // given three hulls owned and one of them out
+    fun `the price is the same whatever the fleet is and wherever it is`() {
+        // Three hulls owned and one of them out. This test read *"the price is the next rung of the
+        // curve and counts the hulls in flight"* until 0.10.1, when the price went flat on Davide's
+        // call — so what it now pins is that neither the fleet nor where it happens to be is an
+        // input to the card, which is the same assertion with the answer changed.
         val state = fleetOf(3).dispatchOne()
 
-        // then the fourth is priced as the fourth — a fleet that is away is still a fleet you bought
-        val fourth = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 3)
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
         assertEquals(
-            listOf(fourth.metal.groupedByThousands(), fourth.crystal.groupedByThousands()),
+            listOf(cost.metal.groupedByThousands(), cost.crystal.groupedByThousands()),
             state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.map { it.amount },
         )
     }
@@ -78,7 +80,7 @@ class ShipyardUiStateTest {
     @Test
     fun `a hull the colony cannot pay for reddens the chip it is short of`() {
         // given a colony with the crystal and none of the metal
-        val cost = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 1)
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
         val state = GameState.initial(SEED).copy(resources = Resources.of(crystal = cost.crystal))
 
         // then the chip that reddened is the one that is short and the other is not
@@ -196,14 +198,15 @@ class ShipyardUiStateTest {
     }
 
     @Test
-    fun `a hull already paid for raises the price of the next one on the card`() {
-        // The card has to price the *next* hull against everything committed, or the screen would
-        // offer a rung the verb will not sell.
+    fun `a hull already paid for leaves the price of the next one alone`() {
+        // The mirror of what this asserted until 0.10.1, when the card had to price against everything
+        // *committed* or it would have offered a rung the verb would not sell. A flat price has no
+        // rung to skip, so a hull on the slipway changes the wait and not the chips.
         val ordered = wealthy().order(1)
 
-        val third = FleetBalance.shipCost(ShipType.SKIFF, alreadyOwned = 2)
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
         assertEquals(
-            listOf(third.metal.groupedByThousands(), third.crystal.groupedByThousands()),
+            listOf(cost.metal.groupedByThousands(), cost.crystal.groupedByThousands()),
             ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().costs.map { it.amount },
         )
     }

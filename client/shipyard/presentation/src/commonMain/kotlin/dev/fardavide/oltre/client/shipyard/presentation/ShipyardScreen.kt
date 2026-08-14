@@ -63,17 +63,19 @@ fun ShipyardScreen(
             SectionLabel(text = "HULLS", rule = uiState.fleet)
             HullList(hulls = uiState.hulls, onBuild = onBuild)
             // The sentence that has to exist at one hull, and the one thing on this screen arguing
-            // against the purchase it is offering. The fleet is a worse rate buy than a mine level
-            // at every depth and by construction — `FleetBalance.shipCost` is a compounding price
-            // against a linear return — so a shop that only said "Build" would be selling a number
-            // the player can check and find wanting. What it is bought for is that it pays in the
+            // against the purchase it is offering. What it is bought for is that it pays in the
             // resource you choose, which no mine does.
+            //
+            // **Rewritten at 0.10.1 because its first clause became false.** It opened with *"the next
+            // hull costs half again as much as the last"*, which was the compounding curve stated to
+            // the player; the price is flat now, so what the screen has to name instead is the thing
+            // that does bound a fleet — the slipway, one hull at a time.
             //
             // PLACEHOLDER copy, like every string in the app: content is Davide's.
             Text(
-                text = "The next hull costs half again as much as the last. A Metal Mine level " +
-                    "returns more per unit spent at every depth — the fleet is bought because it " +
-                    "pays in the resource you choose, not because it pays better.",
+                text = "Every hull costs the same, and the yard builds one at a time. A Metal Mine " +
+                    "level returns more per unit spent — the fleet is bought because it pays in the " +
+                    "resource you choose, not because it pays better.",
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,

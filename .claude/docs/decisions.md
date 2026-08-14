@@ -2912,3 +2912,46 @@ shipped rate ever since. Both are fixed, and the candidate list now `check`s tha
 
 The rule this leaves behind: **a balance round that ships without running the harness is how a broken
 harness survives a release.**
+
+## The hull price is flat, and the yard is the ceiling (2026-08-14, 0.10.1)
+
+Davide, having played 0.10.0: *"Why is skiff pricing increasing at every buy? This is wrong."*
+Offered flatten-the-exponent, flat, keep-×1.5-and-lower-the-base, or leave it, he took **flat** — with
+the consequence named in the option he chose: it deletes the game's only bound on fleet size.
+
+`FleetBalance.shipCost(SKIFF)` is 800 metal / 200 crystal at every depth. The `alreadyOwned` parameter
+is gone from `shipCost` and from `buildDuration` rather than kept and ignored, because a live
+parameter is how a curve comes back without a decision being taken. `GameState.committedShips()` is
+deleted with it: pricing was the only thing that read it, and its whole justification was *"without
+the yard term a queue would be a way round the compounding price."*
+
+### The wait went flat too, and that was not a separate call
+
+`buildDuration` is four minutes per root of the hull's own price — the colony's rule, so a hull and a
+facility that cost the same take the same time. A flat price therefore makes a flat wait: every skiff
+is **2h 04m** at Robotics 0, where the root of a ×1.5 curve grew at ×1.2247 a hull. Giving the yard a
+curve of its own would have been inventing a design number to replace one that had just been
+withdrawn. Two consequences worth knowing: the serial queue in `buildShips` is now the only thing that
+makes buying four hulls different from buying one, and `MINIMUM_YARD_DURATION` stops being unreachable
+— Robotics 25 divides 124 minutes to five, and every level past that buys nothing.
+
+### What it cost, measured rather than feared
+
+`balance-log.md` round 25 has the sweep. The short version is that the failure mode is not the one the
+curve was written against: the greedy bot reaches **300 hulls in a fortnight** against ten, and they
+deliver **2%** of the colony's metal, because 0.10.0's finite deposits mean there is nothing for the
+291st hull to lift. The fleet does not become the economy — it becomes a **metal sink**, and the
+colony pays in levels (66 against 76 at a fortnight; 19 against 34 at 48 hours for a fleet-first
+player). §4's own guardrail — *"building levels at 48h: falls → the hull price is eating the colony"*
+— is the one that trips.
+
+That is recorded rather than argued: the decision was taken with the trade named, and **a device
+session is what says whether any player wants to buy three hundred hulls.** If it needs a ceiling
+again, the lever is the yard or the base, not a restored curve.
+
+### One string changed on a screen
+
+The Shipyard's footnote opened with *"The next hull costs half again as much as the last"*, which was
+the curve stated to the player. It now names what actually bounds a fleet — *"Every hull costs the
+same, and the yard builds one at a time"* — and all seven shipyard baselines were re-recorded for it.
+PLACEHOLDER copy like every string in the app; content is Davide's.
