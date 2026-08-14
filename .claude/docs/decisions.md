@@ -2992,3 +2992,42 @@ technology, changes one function and reaches no screen. The idiom already existe
 Two things this does *not* indict. The sim's replica of every curve is a deliberate documented trade —
 it sweeps candidate constants `core` cannot produce, and its `check` caught a real bug at round 24.
 And balance tests pinning `800/1200/1800/2700` rung by rung is those tests doing their job.
+
+### The coverage passes have to wipe Kover's state between them (2026-08-14, 0.10.1)
+
+The gate blocked PR #65 on a number that had nothing to do with the branch: Screenshot line read
+**83.6%** on one run and **84.6%** on a re-run of the *same commit*, against a `main` baseline of
+85.6%. Davide: *"Why is it unstable and reports different percentages? It always been very stable
+till now."*
+
+**The per-category report filters are per category; Kover's per-module artifacts are not.** The root
+`build.gradle.kts` drops composables from the unit pass and drops `core`, `*.presentation`,
+`*.domain` and `*.data` from the screenshot pass, and those exclusions are what make the two rows
+measure what they claim to. But `-Poltre.testCategory` is not an input to `koverGenerateArtifact`, so
+an artifact built in an earlier pass is UP-TO-DATE in a later one and is reused **with the earlier
+pass's filters baked in**. `measure-coverage.sh` runs the unfiltered `all` pass first, so what it
+leaves on disk is exactly the artifact the filtered passes must not read.
+
+Nothing fails when this happens. The report is produced, it looks plausible, and `core`'s 1,611
+lines are quietly back in the screenshot denominator — 61% instead of 85.6%, with no indication
+which of the two you are looking at. Whether it bites depends on incidental up-to-dateness, which is
+why it differs between a fresh CI workspace and a warm local one, and between two runs of one commit.
+
+The fix is one line in `measure-coverage.sh`: delete `**/build/kover` before each pass, so every
+pass rebuilds its artifacts under its own filters. Verified by running the whole script twice and
+reading all ten numbers, which now reproduce `main` exactly.
+
+**Why it surfaced now.** #64 split every feature into `ui` + `presentation` and added the screenshot
+pass's layer exclusions in the same release. Before that the filters barely moved the number, so
+reusing a stale artifact cost a rounding error; after it, the same reuse is worth twenty-four points.
+
+Two things worth keeping from how this was chased, because both were wrong turns taken confidently:
+
+- **"It is flaky" is not a diagnosis.** Two CI runs disagreeing proved only that the input was not
+  the code. The measurement that mattered was per-*task* state — `:core:koverGenerateArtifact
+  UP-TO-DATE` in the screenshot pass — and it was in the log all along.
+- **The build was read after the conclusion rather than before it.** This session proposed changing
+  what a category *means* — counting the whole codebase, so screenshot would read 61% — and called
+  85.6% an artifact. `build.gradle.kts` argues the exact opposite at length, and had done since #64:
+  counting `core` in the screenshot pass measures *"what fraction of the repository is not
+  drawable"*. The intended number was right; only the plumbing was broken.
