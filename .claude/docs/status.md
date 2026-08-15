@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-14 (0.11.0)
+Updated: 2026-08-15 (0.11.1)
 
 ## Landed
 
@@ -811,6 +811,25 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   **The reroll**: every existing map changed. Seeds and home coordinates are kept, so a colony stays
   where it is and its surveys survive; what moved is what the stars are. Announced in the changelog.
   See `decisions.md` and `balance-log.md` round 26.
+
+- **0.11.1 a ledger row opens the world it names** — Davide, on 0.11.0, twice: *"it says full, but if
+  I tap it says deposit is empty"*. Two different worlds. A row handed its tap only a slot number and
+  the sheet completed the address from whichever system the *map* was on — which in the ledger, the
+  view the tab opens on, has nothing to do with the row. Tapping `[3:174:6]` priced `[3:177:6]`, the
+  same slot of home, and `Dispatch` would have sent the run there. The whole `GalaxyCoordinate` now
+  travels from the row through `DispatchSelection` to the offer, and `toDispatchUiState` no longer
+  takes a `SystemSelection` at all — there is nothing left for a page to complete. Two tests were
+  agreeing with the defect: one asserted `run.at.slot`, the one third of the address that was never
+  wrong, and one asserted an absent rung against a sheet that was refusing outright, where every rung
+  is absent. Issue #74, PR #73.
+
+## Pending, from 0.11.1
+
+- **The dispatch sheet throws on a world three galaxies out** — issue #75, found while reviewing this
+  fix and left open with Davide's call. `windowsFor` narrows the ladder to nothing at a 27h round
+  trip and `defaultRung()` calls `last()` on it. Reachable only from a home in G1 or G4, so not on
+  the current seed. What it needs is not a guard but an answer: whether the far galaxy is
+  reachable-but-not-worth-it or out of a skiff's range at all.
 
 ## Pending, from 0.10.1
 
