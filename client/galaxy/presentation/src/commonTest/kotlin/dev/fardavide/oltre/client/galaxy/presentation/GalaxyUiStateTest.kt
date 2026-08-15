@@ -1,10 +1,9 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerFilter
-import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
 import dev.fardavide.oltre.client.galaxy.ui.MapMark
 import dev.fardavide.oltre.client.galaxy.ui.WorldPortraitUiState
 import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
@@ -45,8 +44,13 @@ class GalaxyUiStateTest {
         // arithmetic, the ledger's key and the eventual multiplayer chat all still need the address.
         assertEquals("Elyotis", header.system)
         assertEquals("3:171", header.coordinate)
-        // The one accent string on the header, which is what makes the region read as a target you
-        // can tap through to rather than as decoration.
+        // **The same string against a different destination, which is the one thing 0.12 moved on
+        // this page.** Until the fold arrived the region name was the way *into* the region index —
+        // a list of ten rows that no longer exists — and it is now the way back *out* to the map,
+        // framed on the system you were reading, because a band of the fold *is* a region. So what
+        // is pinned here is unchanged and what it means is not: it is still the header's only accent
+        // string, and accent still says "go tap this", but where it lands is the drawing rather than
+        // a screen that has been deleted.
         assertEquals("Elyutis Reach", header.region)
         assertEquals("STANDARD · 7 worlds", header.detail)
         assertTrue(header.isHome)
@@ -272,6 +276,26 @@ class GalaxyUiStateTest {
     }
 
     @Test
+    fun `a count belongs to the worlds list and never to one system`() {
+        // given the two views that share one head. The orbit page takes the list head rather than
+        // the map's — the switch and the search are what say *which worlds*, and a system is still
+        // something you reached by choosing among them — so the head's *type* cannot tell the two
+        // apart, and the count is the only field that does.
+        val state = fresh()
+
+        // when
+        val onSystem = state.headOn(GalaxyView.SYSTEM)
+        val onWorlds = state.headOn(GalaxyView.WORLDS)
+
+        // then — null on the system, because one system is a reading rather than a list with a
+        // length, and a count line there would be printing the size of a list that is not on screen.
+        assertNull(assertIs<GalaxyHeadsUiState.Worlds>(onSystem).head.count)
+        // The other half is asserted for the same reason the portrait test asserts both of its: a
+        // count that was never present anywhere would satisfy the line above and say nothing.
+        assertNotNull(assertIs<GalaxyHeadsUiState.Worlds>(onWorlds).head.count)
+    }
+
+    @Test
     fun `the round trip travels with a ledger row and never with a system row`() {
         // The same world in both screens. In a system every row shares the header's astronomy line,
         // so a per-row trip would be the same figure printed fifteen times; in the ledger the rows
@@ -292,8 +316,14 @@ class GalaxyUiStateTest {
     )
 
     private fun GameState.ledgerRows(): List<GalaxyRowUiState.World> = assertIs<GalaxyBodyUiState.Ledger>(
-        toGalaxyUiState(nav = nav(GalaxyView.LEDGER, homeSelection()), now = EPOCH, timeZone = TimeZone.UTC).body,
+        toGalaxyUiState(nav = nav(GalaxyView.WORLDS, homeSelection()), now = EPOCH, timeZone = TimeZone.UTC).body,
     ).body.let { body: LedgerBodyUiState -> body.pinned + body.rows }
+
+    // Always framed on home, and the selection is not a variable this fixture is hiding: which
+    // system is on screen is the body's business, and the list head does not read `at` at all — its
+    // count is of everything you have a reading on, wherever you are standing.
+    private fun GameState.headOn(view: GalaxyView): GalaxyHeadsUiState =
+        toGalaxyUiState(nav = nav(view, homeSelection()), now = EPOCH, timeZone = TimeZone.UTC).head
 
     private fun GameState.worldRowsAt(at: SystemSelection): List<GalaxyRowUiState.World> =
         systemAt(at).rows.filterIsInstance<GalaxyRowUiState.World>()
@@ -301,24 +331,21 @@ class GalaxyUiStateTest {
     private fun GameState.rowAt(at: GalaxyCoordinate): GalaxyRowUiState.World =
         worldRowsAt(SystemSelection(galaxy = at.galaxy, system = at.system)).first { it.at == at }
 
-    // Everything the tab remembers, in one place: seven fields is more than a call site wants
-    // repeating, and only the first two ever vary here. The rest are what the screen opens on.
-    private fun GameState.nav(
-        view: GalaxyView,
-        at: SystemSelection,
-        query: String = "",
-        filters: Set<LedgerFilter> = emptySet(),
-        sort: LedgerSort = LedgerSort.NEAREST,
-    ): GalaxyNavigation = GalaxyNavigation(
+    // Everything the tab remembers, in one place, and it is four fields where it was seven: the
+    // filters, the sort and the set of chips they were offered by all left with the ledger's controls
+    // at 0.12. The two that a call site still varies are parameters; the two that are only ever what
+    // the screen opens on are written below. The same subtraction is why this is no longer a
+    // `GameState` extension — the available filters were the one field here derived from a save.
+    private fun nav(view: GalaxyView, at: SystemSelection): GalaxyNavigation = GalaxyNavigation(
         view = view,
         at = at,
-        query = query,
-        filters = filters,
-        sort = sort,
+        // Blank throughout, because nothing below is about search: what a query does to the worlds
+        // list is `LedgerUiStateTest`'s subject, and the orbit page draws the field but has no rows
+        // it narrows — its fifteen slots come from the seed rather than from the surveyed set.
+        query = "",
         // The epoch, so nothing this colony has surveyed is ever "new" — a discovery card in every
         // frame would be a card no assertion could see the absence of.
         seenAt = EPOCH,
-        availableFilters = availableFiltersFor(at),
     )
 
     private fun GameState.homeSelection(): SystemSelection =

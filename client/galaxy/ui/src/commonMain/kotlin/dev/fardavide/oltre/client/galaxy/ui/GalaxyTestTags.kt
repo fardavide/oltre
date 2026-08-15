@@ -12,25 +12,42 @@ import dev.fardavide.oltre.core.ResourceKind
 object GalaxyTestTags {
 
     const val CONTENT = "galaxy-content"
-    const val MAP = "galaxy-map"
     const val COORDINATE = "galaxy-coordinate"
     const val HOME = "galaxy-home"
 
-    // The ±1 steppers went with 0.2.0: the reach band's lens holds the neighbouring system as the
-    // cell beside the lit one, which is still one tap and tells you what you are stepping onto
-    // before you step.
-    const val REACH_STRIP = "galaxy-reach-strip"
-
-    // ── The ledger, and the head above all three views ───────────────────────────────────────
+    // ── The two maps, which are different drawings of different things ───────────────────────
     //
-    // The Galaxy tab opens on `worlds` since 0.11, so these name the controls of the *default*
-    // screen rather than of a corner of it.
-    const val LEDGER_SEARCH = "galaxy-ledger-search"
-    const val LEDGER_SORT = "galaxy-ledger-sort"
-    const val REGION_INDEX = "galaxy-region-index"
+    // `SYSTEM_MAP` is the orbit card — fifteen slots of one system. `GALAXY_MAP` is the fold —
+    // 250 systems in ten banded regions, and the screen the tab lands on since 0.12. They were one
+    // constant called `MAP` until the fold arrived, and one name for two drawings is exactly the
+    // ambiguity a tag exists to prevent.
+    const val SYSTEM_MAP = "galaxy-system-map"
+    const val GALAXY_MAP = "galaxy-map"
 
-    // The region name in the system header: the only accent string there, and the way into the
-    // region index.
+    // The four discs, and one of them. A disc is tapped as a whole — a summary, not a drawing you
+    // aim at — so the tag is on the card rather than on anything inside it.
+    const val UNIVERSE = "galaxy-universe"
+
+    // The bar under the fold: the map's one readout and, when it carries a probe, the map's one
+    // control. `CAPTION_ACTION` is present exactly when a probe is dispatchable from here, which is
+    // the same assertion `DISPATCH` carries on the orbit page.
+    const val CAPTION = "galaxy-caption"
+    const val CAPTION_ACTION = "galaxy-caption-action"
+
+    // The chip at the right of the map's header — the only way up to the universe and the only way
+    // back down. Not a tab and not a push: it swaps two states of one surface.
+    const val SCALE_CHIP = "galaxy-scale-chip"
+
+    // ── The ledger, and the head above every view ────────────────────────────────────────────
+    //
+    // The Galaxy tab lands on the *map* since 0.12, so these name the controls of the list you get
+    // to from it. The filter chips and the sort control went with that change — a filter narrows a
+    // list, and "where next" was never a list question.
+    const val LEDGER_SEARCH = "galaxy-ledger-search"
+
+    // The region name in the system header: the only accent string there, and the way back out to
+    // the fold, framed on the system you were looking at. It named the region index until 0.12 —
+    // same pixels, different target.
     const val REGION = "galaxy-region"
 
     // The whole footer of the system card, whichever of the six states it is in — so a test can
@@ -70,8 +87,6 @@ object GalaxyTestTags {
     const val SHIPS_MORE = "galaxy-dispatch-ships-more"
     const val SHIPS_FEWER = "galaxy-dispatch-ships-fewer"
 
-    fun reachCell(system: Int): String = "galaxy-reach-cell-$system"
-
     // Keyed by the resource rather than by the label for `adaptation`'s reason: "Metal" is a string
     // the copy owns and `ResourceKind.METAL` is the thing the run actually carries.
     fun gather(kind: ResourceKind): String = "galaxy-dispatch-gather-${kind.name.lowercase()}"
@@ -88,12 +103,9 @@ object GalaxyTestTags {
 
     fun mode(mode: LedgerMode): String = "galaxy-mode-${mode.name.lowercase()}"
 
-    // Keyed by the label rather than by the filter, because a chip's *label* is what a player reads
-    // and what a robot looks for — and unlike an adaptation level, a filter's label does not move
-    // under it between check-ins.
-    fun chip(label: String): String = "galaxy-chip-${label.replace(' ', '-')}"
-
-    fun regionRow(region: Int): String = "galaxy-region-row-$region"
+    // One per galaxy in the universe view, and the same four numbers the orbit page's segmented
+    // control uses — a galaxy is a galaxy whichever surface names it.
+    fun disc(galaxy: Int): String = "galaxy-disc-$galaxy"
 
     fun galaxy(galaxy: Int): String = "galaxy-tab-$galaxy"
 

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-15 (0.11.3)
+Updated: 2026-08-15 (0.12.0)
 
 ## Landed
 
@@ -383,6 +383,16 @@ Updated: 2026-08-15 (0.11.3)
   0.7.2's rate failing round 17's fleet-first test at 268%; the build lowered the rate, Davide
   overruled it, and 60 stands with the criterion retired rather than met — `balance-log.md` round 22
   and the Pending entry below.
+- **0.12.0 a drawn map** — the Galaxy tab lands on the galaxy, drawn: 250 stars in ten banded regions,
+  folded so path order is index order, on one 531dp Canvas that fits 393dp and 320dp alike. A caption
+  under it is the map's one readout and its one control; a chip swaps four galaxy discs into the same
+  frame; the orbit page is the tab's one real push. **The reach strip, the region index, the ledger's
+  filter chips and the ledger's sort are all deleted** — see `drawn-map-sheet.md` for the diagnosis,
+  which is that they narrowed a list of *worlds* when the question is about *systems*. `core` gains a
+  `LAYOUT` generation axis (drift, size wobble, halo) so the sky is a property of the seed rather than
+  of the renderer, and `:client:save:data` gains a second file: the one thing this tab persists is
+  which of its two lists it lands on, which is Davide's amendment to Claude Design's call and
+  deliberately breaks Design's own rule about the save.
 
 
 ## Roadmap — v1 in vertical slices
@@ -857,6 +867,30 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.12.0
+
+- **Nobody has seen the fold on a device.** It is measured at both widths and it is inside the
+  geometry by construction, which is not the same as being readable: the pitch is 14.0dp at 393dp and
+  11.0dp at 320dp, and a star is 2.6–5.2dp across. The test the design set is whether a player can say
+  four things out loud after five seconds on the day-one frame — *I live in a dark region; the bright
+  places are three bands up and three bands down; I am near one end; that one is an hour away.* If
+  what comes back instead is "it looks like a spreadsheet of dots", **the lever is the band gap before
+  it is a different shape.**
+- **The caption's ghost dispatches a probe on one tap, for 150 metal.** That is the same verb the
+  orbit page's footer has always had, but the footer is reached deliberately where the caption sits
+  under a surface you scrub with a thumb. Davide's call whether it wants a confirmation.
+- **The worlds list is nearest-first and has no other order.** Right for a list of places you already
+  hold; possibly wrong at forty worlds, which is the size the ledger was designed for.
+- **The coverage table is what caught the two worst defects in this slice, and neither was a test
+  failure.** Thirty-four lines of `SystemMap` stopped being executed by anything at all — the probe
+  arc on the home orbit page was covered *incidentally*, because the behaviour suite used to dispatch
+  from that page's own footer and stay there, and the map is where a probe is aimed from now. And two
+  ledger frames were silently photographing the map, because `frame(...)`'s default view changed
+  under them. Both are now frames of their own. **A green suite said nothing about either.**
+- **`galaxy_ledger_empty` was retired rather than re-recorded.** It was built from a filter set that
+  no longer exists, and the emptiness it photographed — *"no world matches all three"* — is a state
+  the screen can no longer reach.
 
 ## Pending, from 0.11.3
 

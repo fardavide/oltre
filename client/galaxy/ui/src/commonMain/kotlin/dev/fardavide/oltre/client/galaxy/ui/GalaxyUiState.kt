@@ -3,10 +3,12 @@ package dev.fardavide.oltre.client.galaxy.ui
 // **What the Galaxy tab draws, and nothing about how it is derived.** The mappers that produce these
 // are `:client:galaxy:presentation`, which depends on this module rather than the other way round.
 //
-// The tab has three views since 0.11 and one head above all of them. The head is the switch, the
-// search and the filters; the body is whichever of the three you are looking at.
+// Four views since 0.12 and two heads, and the pairing is the design rather than an accident of
+// layout: the two map scales get a head with a galaxy chip and no search, the two lists get a head
+// with a search and no chip. **A search field over 250 stars is a control that cannot answer its own
+// question**, and a galaxy chip over a list of worlds names a scope the list does not have.
 data class GalaxyUiState(
-    val head: LedgerHeadUiState,
+    val head: GalaxyHeadsUiState,
     val body: GalaxyBodyUiState,
     // Null until a world row is tapped. The sheet is the feature's own navigation exactly as `at`
     // is — nothing outside this module has an opinion about which world is open — so it arrives
@@ -14,23 +16,41 @@ data class GalaxyUiState(
     val dispatch: DispatchUiState?,
 )
 
+// Which head is up. Two shapes rather than one with nullable halves, so a screen cannot be handed a
+// search box it has no list for.
+sealed interface GalaxyHeadsUiState {
+
+    data class Map(val head: GalaxyHeadUiState) : GalaxyHeadsUiState
+
+    data class Worlds(val head: LedgerHeadUiState) : GalaxyHeadsUiState
+}
+
 sealed interface GalaxyBodyUiState {
 
-    // One system, filling the screen: where you go to acquire a reading you do not have.
+    // **The tab's default since 0.12.** The galaxy as a folded ribbon of ten banded regions: where
+    // you go to find somewhere you have never been. Claude Design overruled its own 0.11.0 call to
+    // land here, and the argument is that the galaxy exists nowhere else in the app while the worlds
+    // you hold are already on Colony and on Fleets.
+    data class Map(val map: GalaxyMapUiState, val caption: MapCaptionUiState) : GalaxyBodyUiState
+
+    // One gesture up: four discs in the map's own frame. Not a push, so there is nothing to come
+    // back from.
+    data class Universe(val universe: UniverseUiState, val caption: MapCaptionUiState) : GalaxyBodyUiState
+
+    // One system, filling the screen: where you go to acquire a reading you do not have. The one
+    // real push in the tab, and it lost the reach strip at 0.12 — the strip's figure was already
+    // printed one line above it in the astronomy line, which is a duplicate 0.11.0 found and did not
+    // act on.
     data class System(
-        val strip: RegionStripUiState,
         val header: SystemHeadUiState,
         val map: SystemMapUiState,
         val probe: ProbeActionUiState,
         val rows: List<GalaxyRowUiState>,
     ) : GalaxyBodyUiState
 
-    // Everything you have a reading on: where you go to spend a ship. The tab's default.
+    // Everything you have a reading on: where you go to spend a ship, and to find a world you
+    // already know by name.
     data class Ledger(val body: LedgerBodyUiState) : GalaxyBodyUiState
-
-    // Ten rows against a thousand pages: where you decide where to probe next.
-    data class Regions(val galaxy: String, val scope: String, val rows: List<RegionRowUiState>) :
-        GalaxyBodyUiState
 }
 
 // The system header. **The name is the headline and the coordinate is its subtitle** — the address
@@ -38,7 +58,9 @@ sealed interface GalaxyBodyUiState {
 // the target it is.
 data class SystemHeadUiState(
     // Four, always — the coordinate space is fixed, so this is a segmented control rather than a
-    // list that grows.
+    // list that grows. **Kept when the universe view arrived rather than deleted for it**: the
+    // universe is where you *compare* galaxies, and this is where you step sideways between them
+    // without leaving the system you are reading.
     val galaxies: List<GalaxyTabUiState>,
     val scope: String,
     val system: String,

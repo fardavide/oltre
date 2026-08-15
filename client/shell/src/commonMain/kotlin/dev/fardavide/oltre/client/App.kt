@@ -22,12 +22,16 @@ import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
+import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.client.save.data.Preferences
+import dev.fardavide.oltre.client.save.data.PreferencesStore
+import dev.fardavide.oltre.client.save.data.defaultPreferencesFile
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
@@ -75,6 +79,11 @@ private val ARRIVAL_WINDOW: Duration = 2.seconds
 @Composable
 fun App(
     store: GameStore = remember { GameStore(defaultSaveFile()) },
+    // A second file beside the save, holding what the app remembers about itself rather than about
+    // the colony — one field today, which is which of the Galaxy tab's two lists it lands on. Kept
+    // out of `GameStore` deliberately: a preference must never be able to cost somebody a colony,
+    // and separate files mean a corrupt one of either kind takes only its own down.
+    preferences: PreferencesStore = remember { PreferencesStore(defaultPreferencesFile()) },
     notifications: GameNotifications = remember { GameNotifications(defaultNotificationScheduler()) },
     // A parameter rather than a call, so the desktop entry point can hand in its keyboard chord —
     // a laptop cannot be shaken, and desktop is the platform where the menu is most wanted.
@@ -106,6 +115,12 @@ fun App(
             // it, the moment it has been shown — and by the first action the player takes, because
             // once they have changed the colony themselves, "while you were away" is old news.
             var finishedWhileAway by remember { mutableStateOf<AwayCompletion?>(null) }
+            // **The map until the player says otherwise.** Claude Design's call for the landing
+            // screen, with Davide's amendment that it should then follow whichever list was last
+            // used. Read once, written on every switch, and the tab is composed with the map before
+            // the file comes back — which is right rather than a race, because the map is the
+            // default and a first launch has no file to wait for.
+            var galaxyLanding by remember { mutableStateOf(GalaxyLanding.MAP) }
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
@@ -137,6 +152,10 @@ fun App(
             val lean = remember { mutableStateOf(Tilt.NONE) }
             LaunchedEffect(tiltSource) {
                 tiltSource.tilts().collect { lean.value = it }
+            }
+
+            LaunchedEffect(preferences) {
+                galaxyLanding = preferences.load().galaxyLanding.toGalaxyLanding()
             }
 
             LaunchedEffect(Unit) {
@@ -358,6 +377,11 @@ fun App(
                                 since = current.resumedFrom,
                                 timeZone = TimeZone.currentSystemDefault(),
                                 onOpenResearch = openResearch,
+                                landing = galaxyLanding,
+                                onLandingChange = { chosen ->
+                                    galaxyLanding = chosen
+                                    scope.launch { preferences.save(Preferences(galaxyLanding = chosen.name)) }
+                                },
                                 onDispatchProbe = { target ->
                                     act { state, at ->
                                         when (val result = startSurvey(state, target, at = at)) {
@@ -482,3 +506,11 @@ fun App(
         }
     }
 }
+
+// **The composition root is where the two vocabularies meet**, and that is not an accident of layout:
+// `:client:save:data` may not see a `presentation` module, so the file stores the name of the landing
+// and this is the one place that knows what the name means. An unreadable or unknown value is the
+// map, which is also what a first launch gets — so a preferences file corrupted between builds costs
+// a player one tap rather than a wrong screen.
+private fun String?.toGalaxyLanding(): GalaxyLanding =
+    GalaxyLanding.entries.firstOrNull { it.name == this } ?: GalaxyLanding.MAP

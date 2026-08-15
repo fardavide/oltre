@@ -3124,3 +3124,132 @@ The fix is that `GameSession` carries `resumedFrom` — the instant `resume` adv
 shell hands it down. The general lesson is the one `advance` has taught before: **a span has two
 ends, and a screen that is about what happened while you were away cannot derive the far one from
 the near one.**
+
+## The drawn map moves the layout, not the metric (2026-08-15, issue #69)
+
+Davide asked for "a real map" — the galaxy and the universe drawn, not indexed — and the first thing
+that had to be established before Claude Design could be asked anything is that **the galaxy has no
+geometry to draw**. A system is an index in 1…250. Both travel metrics read the difference of two
+indices and nothing else: `SurveyBalance.distanceUnits` prices a probe hop at `|Δsystem|`, and
+`FleetBalance.distanceUnits` prices a run at `95 + 5·|Δsystem|`.
+
+So a drawn galaxy is a choice between two things, and they are not symmetrical:
+
+- **The layout agrees with the metric.** Any shape whose path order is the index order — spiral, arc,
+  ribbon, serpentine — so that "looks near" and "is near" agree. Costs Design freedom of layout.
+- **The metric agrees with the layout.** A free 2-D scatter, distance re-derived from drawn position.
+  Costs a re-quote of every new dispatch, the reach ruler's hour marks, and the leg split of runs
+  already in flight — `Run.inboundBeginsAt` recomputes `FleetBalance.flight`, so a run dispatched
+  before the change would report a different outbound/inbound boundary after it. Stored arrival
+  instants survive (`Run.returnsAt` and `SurveyJob.completesAt` are both persisted), so nothing in
+  flight lands at a different time; what moves is every number the screens quote about it.
+
+**Davide's call: the layout moves.** The rejected alternative is worth keeping in view because its
+price is a balance round rather than a bug — it would not break anything, it would re-open numbers
+that three rounds of the balance log have already settled.
+
+Two things fall out of the call that are worth having said in advance rather than discovered. A
+region is a contiguous run of 25 indices, so on any index-monotone layout a region is automatically a
+connected stretch — regions become places for free rather than needing a boundary algorithm. And the
+hour ruler the reach strip already draws is a monotone function of position along the path, so
+distance-from-home can become a field on the map instead of a separate instrument.
+
+### What a galaxy draw costs, measured
+
+Taken on this machine against `:core:jvmTest`, one galaxy, per pass, with a throwaway harness that
+was deleted in the same session — a wall-clock reading has no business in the suite:
+
+| pass | cost |
+|---|---|
+| star class for all 250 systems | 55 µs |
+| generated name for all 250 systems | 144 µs |
+| every world in the galaxy — 250 × 15 `worldAt` | 777 µs |
+
+The reading that matters is the ratio rather than the absolutes, which are desktop JVM and will be
+larger on a phone: **the entire charted tier is free to redraw every frame, and "how many worlds does
+this system hold" is fourteen times the cost of it.** Which is convenient, because the charted tier
+is also exactly what the knowledge tiers permit a galaxy view to show. A system glyph carrying star
+class, region and name needs no cache at all; one carrying a world count needs one, and the design
+should say which it wants rather than have the build guess.
+
+## The galaxy is a folded ribbon, and the tab lands on it (2026-08-15, 0.12.0)
+
+Claude Design's *Looks Near Is Near*, built as drawn. The full record of every call is in
+[`drawn-map-sheet.md`](drawn-map-sheet.md); what follows is the handful that would be expensive to
+reverse, each with the alternative it beat.
+
+### Ten bands, and each one is a region
+
+The fold is the only layout tried that satisfies both constraints at once: path order is index order,
+*and* a region gets a straight run long enough to carry its name. Three others were drawn and
+rejected — a free 2-D scatter (needs the metric to move, already declined), an Archimedean spiral
+(index-honest and the best-looking, but a region becomes a curved arc with no straight run and the
+inner turns are 40dp at 393dp), and ten cells in a ring (plenty of room for labels, and it *closes* —
+system 250 sits against system 1, four hours and thirty-nine minutes apart, at the one place the eye
+insists they are neighbours).
+
+The fold's own cost is stated rather than hidden: two stars stacked across a band gap are 25 systems
+apart and drawn 22dp apart, where 25 systems horizontally is 337dp. A fifteenfold understatement in
+one direction, bought back by drawing the turn, alternating the labels and putting vertical
+neighbours in different named regions. **If a device says it reads as a grid, the lever is the band
+gap, not the shape.**
+
+### `GenerationAxis.LAYOUT`, and why the drawing generates anything at all
+
+An even pitch on a straight line reads as a table, so a band needs a perpendicular drift — and every
+player on one seed has to be looking at the same sky, which makes it generation rather than
+rendering. One new tag, appended after `RING`, carrying three draws: drift (±half a pitch, capped so
+it can never reorder two stars), a size wobble inside the class band, and which halo a bright star
+wears. The whole pre-existing suite passing unchanged is the evidence that adding the tag was free,
+which is the enum's own standing rule.
+
+### The map reads `galaxy.surveyed`, never `hasSurveyed`
+
+The obvious call for "have I been here" is `GalaxyState.hasSurveyed(system)`, and it is wrong here in
+two ways at once. It walks fifteen slots per system, which turns a 55 µs draw into a 777 µs one; and
+it is **vacuously true for a system with no worlds**, so a map built on it would ring hundreds of
+places nobody has ever sent a probe to. Membership of `galaxy.surveyed` is cheaper by a factor of
+fourteen and is the honest reading: a system has a ring when you know a world in it. Pinned by a test
+naming an empty system.
+
+### The tab lands on the map, and remembers which list you last used
+
+Claude Design overruled its own 0.11.0 call — *"that argument was against a dot field and it still
+defeats one; it does not survive a map that is named, banded, and prints the places you marked"* —
+and Davide took it with one amendment: the tab should thereafter open on whichever of the two lists
+he last used.
+
+**That amendment knowingly breaks Design's own rule that nothing this tab remembers reaches the
+save.** It is one field, and it lives in a `preferences.json` beside the colony rather than in it:
+a preference must never be able to cost somebody a colony, and separate files mean a corrupt one of
+either kind takes only its own down. `:client:save:data` stores the *name* of the landing as a
+string, because the module rules forbid a `data` module from seeing the `presentation` one that owns
+the enum — the composition root is the only place that knows what the name means, and an unknown
+value degrades to the map, which is also what a first launch gets.
+
+Only the mode switch writes it. Not the scale chip and not the push into a system: the universe is a
+state of the map and the orbit page is somewhere you go *from* it, so neither is a place a tab could
+land.
+
+### The filters and the sort go, and the diagnosis is not the obvious one
+
+Davide called them useless; the reason is one level below the controls. **The ledger's rows are
+worlds and the outbound question is about systems** — a probe is aimed at a star — so the list could
+not answer "where next" filtered, sorted or neither. Wrong unit, before you reach a control. What
+stays is what a list does better than a drawing: finding a place you have already been, by name, and
+keeping the ones you marked at the top. The list is nearest-first as a property rather than as one of
+four choices.
+
+The reach strip and the ten-row region index go with them. The strip's hour ruler becomes four
+hairlines *on* the map, and its own figure was already printed one line above it in the astronomy
+line — a duplicate 0.11.0 found and did not act on. The index existed because ten region names would
+not fit on 393dp **of one dimension**; they fit trivially on ten bands, so the measurement that
+justified it stands and its conclusion has expired.
+
+### The map paints its own ground rather than switching the starfield off
+
+Decorative stars and real ones cannot share a screen, and at 320dp the shell's third parallax plane
+reads as extra dim systems. But `Starfield` is drawn by `MainScaffold` *inside* the destination box,
+under every screen, and a feature cannot reach up and turn it off. Hoisting a flag through
+`MainScaffold` for one substate of one tab was rejected in favour of the map painting one opaque rect
+over it. The worlds list keeps the sky.

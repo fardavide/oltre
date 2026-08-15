@@ -4,29 +4,19 @@ import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.galaxy.ui.DiscoveryCardUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerChipUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerEmptinessUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerFilter
 import dev.fardavide.oltre.client.galaxy.ui.LedgerHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
-import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
 import dev.fardavide.oltre.client.galaxy.ui.WorldPortraitUiState
-import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
 import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.signed
-import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
-import dev.fardavide.oltre.core.HostilityAxis
-import dev.fardavide.oltre.core.axisValue
-import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.epithetFor
-import dev.fardavide.oltre.core.regionNameAt
-import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
@@ -34,33 +24,37 @@ import dev.fardavide.oltre.core.worldNameAt
 import kotlin.time.Duration
 import kotlin.time.Instant
 
-// **The screen the Galaxy tab opens on.** Everything you have a reading on, in one place, in the
-// same row the map draws — which is what makes the ledger cheap and what makes a world look like
-// itself wherever you meet it.
+// **Where you go to find a world you already know.** Everything you have a reading on, in one place,
+// in the same row the map draws — which is what makes the ledger cheap and what makes a world look
+// like itself wherever you meet it.
 //
-// Nothing here is stored except the pins. The mode, the query, the chips and the sort are
-// navigation: they sit on `GalaxyNavigation` and die with the check-in, because *a filter that
-// outlives the check-in that set it is a screen lying about what it holds*.
+// It stopped being the screen the tab opens on at 0.12, and lost its filters and its sort with the
+// move. Both diagnoses are in `LedgerUiState` in the ui module; the short version is that they
+// narrowed and ordered a list of *worlds* when the question they were reached for is about *systems*,
+// and a probe is aimed at a star. What is left is the two jobs a list does better than a drawing:
+// finding a place you have already been, by name, and keeping the ones you marked at the top.
+//
+// Nothing here is stored except the pins. The mode and the query are navigation: they sit on
+// `GalaxyNavigation` and die with the check-in, because *a filter that outlives the check-in that set
+// it is a screen lying about what it holds*.
 // `matching` is passed in rather than recomputed: the head prints the count of exactly what the body
-// lists, and filtering and sorting the whole surveyed set twice per render to say so is work the
-// screen can see on a long ledger.
+// lists, and searching the whole surveyed set twice per render to say so is work the screen can see
+// on a long ledger.
 internal fun GameState.toLedgerHeadUiState(
     nav: GalaxyNavigation,
     matching: List<World>,
 ): LedgerHeadUiState {
     return LedgerHeadUiState(
-        mode = if (nav.view == GalaxyView.LEDGER) LedgerMode.WORLDS else LedgerMode.MAP,
+        mode = if (nav.view == GalaxyView.WORLDS) LedgerMode.WORLDS else LedgerMode.MAP,
         query = nav.query,
-        // Absent outside the ledger: the map is not a query, so a filter row over it would be a
-        // control with nothing to act on.
-        chips = if (nav.view == GalaxyView.LEDGER) nav.chips() else emptyList(),
-        count = if (nav.view == GalaxyView.LEDGER) matching.size.worldCount() else null,
-        sort = nav.sort,
+        // Absent on the orbit page: one system is a reading rather than a list with a length, and
+        // the count line would be printing the size of a list that is not on screen.
+        count = if (nav.view == GalaxyView.WORLDS) matching.size.worldCount() else null,
     )
 }
 
 internal fun GameState.knownWorldsFor(nav: GalaxyNavigation, now: Instant): List<World> =
-    if (nav.view == GalaxyView.LEDGER) knownWorlds(nav, now) else emptyList()
+    if (nav.view == GalaxyView.WORLDS) knownWorlds(nav, now) else emptyList()
 
 internal fun GameState.toLedgerBodyUiState(
     nav: GalaxyNavigation,
@@ -73,20 +67,21 @@ internal fun GameState.toLedgerBodyUiState(
         discoveries = discoveriesIn(now = now, since = nav.seenAt),
         pinned = pinnedRows.map { toWorldRow(it, now = now, withTrailing = true) },
         rows = rest.map { toWorldRow(it, now = now, withTrailing = true) },
-        emptiness = if (matching.isEmpty()) emptinessFor(nav, now) else null,
+        emptiness = if (matching.isEmpty()) emptinessFor(nav) else null,
     )
 }
 
-// Every world the player has a reading on, filtered by the chips and the query and put in the
-// chosen order. **`surveyed` is the source** — it is the set the whole slice exists to make
+// Every world the player has a reading on, narrowed by the query and put in the only order the list
+// still has. **`surveyed` is the source** — it is the set the whole identity slice exists to make
 // valuable, and until 0.11 exactly one function in the codebase read it.
-private fun GameState.knownWorlds(nav: GalaxyNavigation, now: Instant): List<World> {
-    val known = galaxy.surveyed.mapNotNull { worldAt(galaxy.seed, it) }
-    return known
-        .filter { world -> nav.filters.all { matches(it, world, now) } }
-        .filter { matchesQuery(it, nav.query) }
-        .sortedWith(nav.sort.comparator(this, now))
-}
+//
+// Nearest first, and it is a *fact about the list* now rather than one of four orders you could pick:
+// the sort control went at 0.12 because "where next" is not a one-axis question, but a list of places
+// you already hold still has one obvious reading, which is which of them you can reach soonest.
+private fun GameState.knownWorlds(nav: GalaxyNavigation, now: Instant): List<World> = galaxy.surveyed
+    .mapNotNull { worldAt(galaxy.seed, it) }
+    .filter { matchesQuery(it, nav.query) }
+    .sortedBy { FleetBalance.roundTrip(from = galaxy.home, to = it.at) }
 
 // A full name returns one row and a system name returns its worlds — which is what unique names
 // inside a galaxy buy, and the one place in the app where typing beats tapping.
@@ -106,64 +101,19 @@ private fun GameState.matchesQuery(world: World, query: String): Boolean {
         name.contains(trimmed, ignoreCase = true)
 }
 
-private fun GameState.matches(filter: LedgerFilter, world: World, now: Instant): Boolean = when (filter) {
-    is LedgerFilter.ReachableWithin ->
-        FleetBalance.roundTrip(from = galaxy.home, to = world.at).inWholeMinutes <= filter.hours * 60
-    is LedgerFilter.Verdict -> toWorldRow(world, now, withTrailing = false).verdict == filter.verdict
-    is LedgerFilter.OneLevelAway -> world.isOneLevelAway(filter.technology, this)
-    LedgerFilter.StillHolding -> ResourceKind.entries
-        .filter { it != ResourceKind.DEUTERIUM }
-        .any { galaxy.remaining(world.at, it, now) > 0 }
-    // **The galaxy travels with the chip.** It used to be compared against home, so a player
-    // browsing G2 tapped a chip labelled with a G2 region name and got home-galaxy worlds of the
-    // same index back — a filter naming one place and meaning another.
-    is LedgerFilter.Region -> regionOf(world.at.system) == filter.region &&
-        world.at.galaxy == filter.galaxy
-}
-
-// A world one level of ONE ladder away from being tolerable — the chip that turns the research tab
-// into a shopping list from the other direction.
-private fun World.isOneLevelAway(technology: AdaptationTechnology, state: GameState): Boolean {
-    val current = state.research.adaptationLevels()
-    val axis = HostilityAxis.entries.first { it.adaptation == technology }
-    val next = when (technology) {
-        AdaptationTechnology.THERMAL -> current.copy(thermal = current.thermal + 1)
-        AdaptationTechnology.GRAVITIC -> current.copy(gravitic = current.gravitic + 1)
-        AdaptationTechnology.ATMOSPHERIC -> current.copy(atmospheric = current.atmospheric + 1)
-    }
-    val value = traits.axisValue(axis)
-    return value !in GalaxyBalance.tolerance(current).bandOf(axis) &&
-        value in GalaxyBalance.tolerance(next).bandOf(axis)
-}
-
-// **Never a dead end, always the next number** — the `time-until-affordable` pattern applied to a
-// query. It names the filter that is doing the excluding and what dropping it would return, which is
-// the difference between a screen that has failed and one that is still answering.
-private fun GameState.emptinessFor(nav: GalaxyNavigation, now: Instant): LedgerEmptinessUiState {
-    if (nav.filters.isEmpty() && nav.query.isBlank()) {
-        return LedgerEmptinessUiState(
-            headline = "Every world a probe reaches lands here.",
-            detail = "You have surveyed nothing yet.",
-        )
-    }
-    if (nav.query.isNotBlank()) {
-        return LedgerEmptinessUiState(
-            headline = "No world you know is called that.",
-            detail = "Names are unique in a galaxy, so a full name finds one place.",
-        )
-    }
-    // Which single chip, dropped, would give the most back. Stated as a count rather than as advice,
-    // because the count is what the player is actually deciding against.
-    val without = nav.filters.map { dropped ->
-        dropped to knownWorlds(nav.copy(filters = nav.filters - dropped), now).size
-    }.maxByOrNull { it.second }
-    val detail = without
-        ?.takeIf { it.second > 0 }
-        ?.let { (dropped, count) -> "${count.worldCount()} match without ${dropped.label().lowercase()}." }
-        ?: "Nothing you have surveyed matches."
-    return LedgerEmptinessUiState(
-        headline = "No world matches all ${nav.filters.size}.",
-        detail = detail,
+// **Two cases where there were three**, and the third left with the chips: there is no longer a
+// filter that can be doing the excluding, so the only ways to an empty list are having surveyed
+// nothing and having typed a name nothing answers to. Both still end on the next thing to do rather
+// than on an apology.
+private fun emptinessFor(nav: GalaxyNavigation): LedgerEmptinessUiState = if (nav.query.isBlank()) {
+    LedgerEmptinessUiState(
+        headline = "Every world a probe reaches lands here.",
+        detail = "You have surveyed nothing yet.",
+    )
+} else {
+    LedgerEmptinessUiState(
+        headline = "No world you know is called that.",
+        detail = "Names are unique in a galaxy, so a full name finds one place.",
     )
 }
 
@@ -230,49 +180,8 @@ private fun dev.fardavide.oltre.core.WorldVerdict.discoveryNote(): String = when
     dev.fardavide.oltre.core.WorldVerdict.Unsurveyed -> "Surveyed."
 }
 
-private fun LedgerSort.comparator(state: GameState, now: Instant): Comparator<World> = when (this) {
-    LedgerSort.NEAREST -> compareBy { FleetBalance.roundTrip(from = state.galaxy.home, to = it.at) }
-    LedgerSort.RICHEST -> compareByDescending { GalaxyBalance.yieldScore(it.traits).perMillion }
-    LedgerSort.MOST_LEFT -> compareByDescending {
-        state.galaxy.remaining(it.at, ResourceKind.METAL, now) +
-            state.galaxy.remaining(it.at, ResourceKind.CRYSTAL, now)
-    }
-    // Nothing records *when* a world was surveyed, so the closest honest reading is coordinate
-    // order reversed — the newest thing a probe reached is the furthest one it was sent to. Flagged
-    // rather than faked: a real "newest" wants the survey instant, which is a schema hop.
-    LedgerSort.NEWEST -> compareByDescending {
-        (it.at.galaxy * 1_000_000L) + (it.at.system * 100L) + it.at.slot
-    }
-}
-
-private fun GalaxyNavigation.chips(): List<LedgerChipUiState> = availableFilters.map { filter ->
-    LedgerChipUiState(filter = filter, label = filter.label(), on = filter in filters)
-}
-
-private fun LedgerFilter.label(): String = when (this) {
-    is LedgerFilter.ReachableWithin -> "reachable ${hours}h"
-    is LedgerFilter.Verdict -> verdict.word?.lowercase() ?: "unsurveyed"
-    is LedgerFilter.OneLevelAway -> "one level away"
-    LedgerFilter.StillHolding -> "still holding"
-    is LedgerFilter.Region -> name.substringBefore(' ')
-}
-
 private fun Int.worldCount(): String = when (this) {
     0 -> "no worlds"
     1 -> "1 world"
     else -> "$this worlds"
 }
-
-// The five the design settles, in its order. The region chip names the region the player is standing
-// in, so it is the one filter whose label moves with where they are.
-internal fun GameState.availableFiltersFor(at: SystemSelection): List<LedgerFilter> = listOf(
-    LedgerFilter.ReachableWithin(hours = 6),
-    LedgerFilter.Verdict(WorldVerdictUiState.SETTLEABLE),
-    LedgerFilter.OneLevelAway(AdaptationTechnology.THERMAL),
-    LedgerFilter.StillHolding,
-    LedgerFilter.Region(
-        galaxy = at.galaxy,
-        region = regionOf(at.system),
-        name = regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system)),
-    ),
-)

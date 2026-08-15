@@ -1,61 +1,36 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
-import dev.fardavide.oltre.core.AdaptationTechnology
-
-// **The Galaxy tab opens on what you know.** Davide's call, 2026-08-14, on Claude Design's
-// recommendation — option (c) of three, and the direct answer to *"finding a planet feels like
-// searching a phone number on pagine gialle in the 90s"*.
+// **The worlds list keeps the two jobs a list is better at than a map, and lost the three it was
+// never able to do.** Davide, 2026-08-15, having played 0.11.0: *"the filters and search are
+// useless"*. Claude Design diagnosed it before replacing it, and found a floor under our own
+// reading: **the ledger's rows are worlds and the outbound question is about systems.** A probe is
+// aimed at a star. So the ledger could not answer "where next" filtered, sorted or neither — wrong
+// unit, before you ever reach a control.
 //
-// The argument for the default, in one line: **the map is where you spend probes and the ledger is
-// where you spend ships.** Runs go out several times a day and probes once or twice, so before this
-// the rarer errand was sitting in the commoner one's chair — and reaching a world you already had a
-// reading on cost four taps of paging.
+// What went, and why each:
 //
-// The map is never more than one tap away, no tab was added, and nothing else on the tab moved.
+// - **The filter chips.** They narrowed a list that is fourteen rows long on a day-21 save, and
+//   every axis they filtered on — distance, verdict, region — is now something you can *see* on the
+//   fold rather than something you request.
+// - **The sort.** A sort ranks on one axis, and "where next" is distance against class against
+//   region against what is still unknown. The map holds all four at once, which is the one thing a
+//   drawing does that an ordering cannot.
+//
+// What stayed: the search, because it matches names you have learned, which is the definition of a
+// list job — it was useless on the old landing screen for a reason that was never about search, in
+// that you were being asked to type the name of a place you had not been to yet. And the pins, which
+// gained a second job: the system holding a pinned world is the one the map writes a name against.
 data class LedgerHeadUiState(
     val mode: LedgerMode,
     // **Always visible, never a mode.** Names are unique inside a galaxy, so a full name returns one
     // row and a system name returns its worlds — the only place in the app where typing beats
     // tapping, and the literal answer to "two pages before".
     val query: String,
-    // Unselected by default, so the tab opens with no filter to undo. Empty in `MAP` mode.
-    val chips: List<LedgerChipUiState>,
-    // Null in `MAP` mode: it is the count of what the query and the chips left, and the map is not a
-    // query. It gates the sort control with it, because a sort of nothing is not a control.
+    // Null on the orbit page, which is a reading of one system rather than a list with a length.
     val count: String?,
-    val sort: LedgerSort,
 )
 
 enum class LedgerMode { WORLDS, MAP }
-
-// One accent string at the right of the count line — a target, so the accent is legitimate. No
-// glyph: the only two non-letter marks the design system permits anywhere are `→` and `·`, and a
-// chevron is neither.
-enum class LedgerSort(val label: String) {
-    NEAREST("nearest first"),
-    RICHEST("richest"),
-    MOST_LEFT("most left"),
-    NEWEST("newest"),
-}
-
-data class LedgerChipUiState(val filter: LedgerFilter, val label: String, val on: Boolean)
-
-// **Typed at the boundary, never a string the row has to parse.** The tap is keyed by the filter
-// rather than by the label it prints, so a copy change cannot silently stop a chip working.
-sealed interface LedgerFilter {
-
-    data class ReachableWithin(val hours: Int) : LedgerFilter
-
-    data class Verdict(val verdict: WorldVerdictUiState) : LedgerFilter
-
-    // "one level away" — the chip that turns the research tab into a shopping list from the other
-    // direction.
-    data class OneLevelAway(val technology: AdaptationTechnology) : LedgerFilter
-
-    data object StillHolding : LedgerFilter
-
-    data class Region(val galaxy: Int, val region: Int, val name: String) : LedgerFilter
-}
 
 // **Nothing here persists except pins**, and pins live on `GalaxyState` rather than in this model.
 // Claude Design's rule, 2026-08-14: *"a filter that outlives the check-in that set it is a screen

@@ -25,29 +25,80 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class GalaxyScreenshotTest {
 
-    // ── The ledger, which is what the tab opens on ───────────────────────────────────────────
+    // ── The fold, which is what the tab opens on since 0.12 ─────────────────────────────────
+    //
+    // **The map is 852dp tall in every one of these and never 1,400**, unlike the list frames below
+    // it: the fold does not scroll, so a taller window would photograph a screen no device can
+    // produce. That is the whole claim being photographed — the galaxy fits.
+
+    @Test
+    fun `the map as the tab opens at phone width`() {
+        capture(width = 393, height = 852, uiState = frame(state = pinnedState), name = "galaxy_map")
+    }
+
+    // 98% unsurveyed is the state the map is in nearly always, so it is the frame that had to be good
+    // first — and it is the one the old ledger was worst at, being five rows and a header.
+    @Test
+    fun `the map on day one with nothing surveyed`() {
+        capture(width = 393, height = 852, uiState = frame(), name = "galaxy_map_genesis")
+    }
+
+    // Scrubbed off home, which is the map's own second state: a different band lit, a different name
+    // beside a different star, and a caption offering a probe rather than quoting a round trip.
+    @Test
+    fun `the map with a star selected away from home`() {
+        capture(
+            width = 393,
+            height = 852,
+            uiState = frame(state = pinnedState, at = pinnedState.homeSelection().copy(system = 195)),
+            name = "galaxy_map_selected",
+        )
+    }
+
+    // The amber ring, which is the fleet strip's amber meaning what it means there.
+    @Test
+    fun `the map with a probe in flight`() {
+        capture(width = 393, height = 852, uiState = probeInFlightMapUiState, name = "galaxy_map_in_flight")
+    }
+
+    @Test
+    fun `the four galaxies at phone width`() {
+        capture(
+            width = 393,
+            height = 852,
+            uiState = frame(state = pinnedState, view = GalaxyView.UNIVERSE),
+            name = "galaxy_universe",
+        )
+    }
+
+    // ── The worlds list, one tap away ────────────────────────────────────────────────────────
 
     @Test
     fun `the ledger as the tab opens at phone width`() {
-        capture(width = 393, height = 1400, uiState = frame(state = pinnedState), name = "galaxy_ledger")
+        capture(
+            width = 393,
+            height = 1400,
+            uiState = frame(state = pinnedState, view = GalaxyView.WORLDS),
+            name = "galaxy_ledger",
+        )
     }
 
     // Five rows and an invitation. The design spends the empty half on the region rather than on an
     // apology, and this is the frame that has to earn that.
     @Test
     fun `the ledger at genesis`() {
-        capture(width = 393, height = 900, uiState = frame(), name = "galaxy_ledger_genesis")
-    }
-
-    @Test
-    fun `the ledger with three filters and nothing left`() {
         capture(
             width = 393,
-            height = 700,
-            uiState = frame(state = wellTravelledState, filters = excludingFilters),
-            name = "galaxy_ledger_empty",
+            height = 900,
+            uiState = frame(view = GalaxyView.WORLDS),
+            name = "galaxy_ledger_genesis",
         )
     }
+
+    // `galaxy_ledger_empty` was retired here rather than re-recorded. It photographed *"no world
+    // matches all three"* — the state three filter chips could put the list in — and with the chips
+    // gone the only remaining emptiness is the genesis one above and a query nothing answers to,
+    // which the search frame already carries.
 
     // The survey moment: a section of the ledger rather than a layer over it, so it is photographed
     // in place rather than as a card of its own.
@@ -56,7 +107,7 @@ class GalaxyScreenshotTest {
         capture(
             width = 393,
             height = 1400,
-            uiState = frame(state = justSurveyedState, seenAt = JUST_SURVEYED_SINCE),
+            uiState = frame(state = justSurveyedState, view = GalaxyView.WORLDS, seenAt = JUST_SURVEYED_SINCE),
             name = "galaxy_ledger_discovery",
         )
     }
@@ -73,12 +124,12 @@ class GalaxyScreenshotTest {
         capture(
             width = 393,
             height = 900,
-            uiState = frame(state = wellTravelledState, query = name.take(6)),
+            uiState = frame(state = wellTravelledState, view = GalaxyView.WORLDS, query = name.take(6)),
             name = "galaxy_ledger_search",
         )
     }
 
-    // ── The map, which is where you go to acquire a reading you do not have ──────────────────
+    // ── The orbit page, which is where you go to acquire a reading you do not have ───────────
 
     @Test
     fun `the home system at phone width`() {
@@ -90,6 +141,19 @@ class GalaxyScreenshotTest {
             height = 1800,
             uiState = frame(view = GalaxyView.SYSTEM),
             name = "galaxy_home_system",
+        )
+    }
+
+    // The arc, and the only frame that has one: a flight leaves from where it was launched, and every
+    // probe in this game is launched from home. Without this the curve, its gradient and the label at
+    // its faint end are drawn by nothing and asserted by nothing.
+    @Test
+    fun `the home system with a probe away`() {
+        capture(
+            width = 393,
+            height = 1800,
+            uiState = probeOutFromHomeUiState,
+            name = "galaxy_home_system_probe_out",
         )
     }
 
@@ -117,23 +181,45 @@ class GalaxyScreenshotTest {
         )
     }
 
-    // ── The region index, ten rows against a thousand pages ──────────────────────────────────
+    // The region index's two baselines — `galaxy_regions` and `galaxy_regions_slide_over` — are
+    // deleted rather than re-recorded. Ten names did not fit on 393dp *of one dimension*, which is
+    // the measurement that justified a screen of ten rows; they fit trivially on ten bands, so the
+    // measurement stands and its conclusion has expired.
+
+    // ── 320dp, where nothing drops and the lines wrap instead ────────────────────────────────
+    //
+    // **The map is the same 531dp drawing here as at 393dp**, which is the one measurement this pair
+    // of frames exists to keep: the content area is 587dp at 393 and 570dp at 320, so one geometry
+    // fits both and there is no compact variant to drift.
 
     @Test
-    fun `the ten regions of a galaxy`() {
+    fun `the map in a Slide Over window`() {
         capture(
-            width = 393,
-            height = 1500,
-            uiState = frame(state = wellTravelledState, view = GalaxyView.REGIONS),
-            name = "galaxy_regions",
+            width = 320,
+            height = 852,
+            uiState = frame(state = pinnedState),
+            name = "galaxy_map_slide_over",
         )
     }
 
-    // ── 320dp, where nothing drops and the lines wrap instead ────────────────────────────────
+    @Test
+    fun `the four galaxies in a Slide Over window`() {
+        capture(
+            width = 320,
+            height = 852,
+            uiState = frame(state = pinnedState, view = GalaxyView.UNIVERSE),
+            name = "galaxy_universe_slide_over",
+        )
+    }
 
     @Test
     fun `the ledger in a Slide Over window`() {
-        capture(width = 320, height = 1600, uiState = frame(state = pinnedState), name = "galaxy_ledger_slide_over")
+        capture(
+            width = 320,
+            height = 1600,
+            uiState = frame(state = pinnedState, view = GalaxyView.WORLDS),
+            name = "galaxy_ledger_slide_over",
+        )
     }
 
     @Test
@@ -143,16 +229,6 @@ class GalaxyScreenshotTest {
             height = 1700,
             uiState = frame(view = GalaxyView.SYSTEM),
             name = "galaxy_home_system_slide_over",
-        )
-    }
-
-    @Test
-    fun `the ten regions in a Slide Over window`() {
-        capture(
-            width = 320,
-            height = 1700,
-            uiState = frame(state = wellTravelledState, view = GalaxyView.REGIONS),
-            name = "galaxy_regions_slide_over",
         )
     }
 
@@ -281,13 +357,12 @@ class GalaxyScreenshotTest {
         GalaxyPage(
             uiState = uiState,
             onSelectMode = {},
+            onToggleScale = {},
             onQueryChange = {},
-            onToggleChip = {},
-            onCycleSort = {},
             onSelectGalaxy = {},
             onSelectSystem = {},
-            onOpenRegionIndex = {},
-            onOpenRegion = {},
+            onOpenSelected = {},
+            onOpenMap = {},
             onGoHome = {},
             onOpenResearch = {},
             onDispatchProbe = {},

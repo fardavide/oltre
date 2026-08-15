@@ -7,6 +7,8 @@ import java.util.Locale
 // lands in the platform's conventional per-app data directory rather than beside the jar.
 actual fun defaultSaveFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(), SAVE_FILE_NAME))
 
+actual fun defaultPreferencesFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(), PREFERENCES_FILE_NAME))
+
 private fun desktopDataDirectory(): File {
     val operatingSystem = System.getProperty("os.name").orEmpty().lowercase(Locale.ROOT)
     val home = File(System.getProperty("user.home").orEmpty())

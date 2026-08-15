@@ -34,8 +34,13 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 //
 // **The region is the only accent string in the header, and that is the entire affordance.** No
 // chevron, no underline, no button chrome: accent means *go tap this* everywhere else in the app, so
-// one accent word in a block of grey already reads as the way into the region index. It is also why
-// nothing else here may take the colour, however much a coordinate would like to.
+// one accent word in a block of grey already reads as a way out. It is also why nothing else here
+// may take the colour, however much a coordinate would like to.
+//
+// **What it is a way out to moved at 0.12 and the pixels did not.** It opened the ten-row region
+// index; it now opens the fold, framed on the system you were reading — which is the same
+// destination stated better, because a band of the drawn galaxy *is* a region and the index existed
+// only because ten names would not fit on one dimension.
 //
 // The component has no background, no border and no card — it sits on the window with the Starfield
 // showing through — and no fixed height. 104dp is the budget the design frames it at, not a size:

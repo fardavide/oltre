@@ -333,10 +333,16 @@ class DispatchSheetBehaviourTest {
     // Which world has its sheet up is `GalaxyScreen`'s own state, so these two are the only
     // assertions in the file that cannot be made against a mapped frame: everything above is handed
     // a sheet that is already up.
+    //
+    // **All three land on the worlds list rather than tapping their way to it**, and that is a
+    // statement about the subject rather than a shortcut: a run is raised from a *row*, the tab has
+    // landed on the drawn map since 0.12, and which of the two the tab opens on is a preference the
+    // screen is handed. Walking the switch first would make these tests about the switch, which
+    // `LedgerBehaviourTest` already owns.
 
     @Test
     fun `tapping a world raises the sheet on the screen itself`() {
-        galaxyScreen(state = testGameState) {
+        galaxyScreen(state = testGameState, landing = GalaxyLanding.WORLDS) {
             assertNoSheet()
 
             tapTheWorld(RUNNABLE)
@@ -354,6 +360,7 @@ class DispatchSheetBehaviourTest {
 
         galaxyScreen(
             state = testGameState,
+            landing = GalaxyLanding.WORLDS,
             onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
         ) {
             tapTheWorld(RUNNABLE)
@@ -379,9 +386,10 @@ class DispatchSheetBehaviourTest {
         // **The defect 0.11 shipped, and the reason a row carries its whole address.** The ledger
         // lists worlds from six systems at once and a tap used to hand the sheet a slot alone, so the
         // other two thirds of the target were filled in from whatever system the *map* was parked on
-        // — home, on the screen the tab opens on. A row reading `crystal full` raised a sheet reading
+        // — home, which is where it starts. A row reading `crystal full` raised a sheet reading
         // `deposit empty`, about a world in another system entirely, and the verb would have sent the
-        // run there too.
+        // run there too. The defect is if anything easier to reach since 0.12, because the map is now
+        // the screen the tab lands on and the selection on it moves under a thumb.
         //
         // Asserted on the stateful screen because that is where the address used to be lost: every
         // frame in this file is handed a sheet that is already up.
@@ -389,6 +397,7 @@ class DispatchSheetBehaviourTest {
 
         galaxyScreen(
             state = wellTravelledState,
+            landing = GalaxyLanding.WORLDS,
             onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
         ) {
             tapTheWorld(elsewhere)

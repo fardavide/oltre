@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.worldAt
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
 import org.junit.Test
@@ -28,19 +29,131 @@ import org.junit.Test
 //
 // Every state here is built from the seed rather than described, for the reason the unit tests give:
 // the screen exists to read what the generator produced, and a fixture would let the two drift.
-// **Every block opens with `openTheMap()` since 0.11**, and it is not ceremony: the Galaxy tab now
-// opens on the ledger of what you know, so a test about the *system* view has to go there the way a
-// player does. That one tap is also the only coverage the switch itself has.
+//
+// **Since 0.12 nothing is tapped to reach the map** — the tab lands on the fold, so the ceremony
+// every block used to open with is gone. What replaces it is a *route*: scrub the fold to a system
+// and tap the caption under it, which is the two gestures a player makes and the only way to the
+// orbit page. The three blocks under "the route" assert that route itself; every block after them
+// walks it to reach the page it is really about, which is what makes this file — the one that drives
+// the stateful screen — the only place the route can be asserted at all.
 class GalaxyFromStateBehaviourTest {
+
+    // ── The route ────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `scrubbing the fold and tapping the caption opens the system the scrub selected`() {
+        galaxyScreen(state = testGameState) {
+            // **The map opens with home selected**, so scrubbing to home would prove nothing: this
+            // block is about the neighbour precisely because the tab was already showing 3:171, and
+            // an assertion that passed either way is an assertion about the landing rather than about
+            // the scrub.
+            scrubTo(home.system - 1)
+            assertTheCaptionReads("[${home.galaxy}:${home.system - 1}]")
+
+            openTheSelectedSystem()
+            assertTheSystemIsDrawn()
+            // The address under the system name, which is where every way of going somewhere ends —
+            // and the one reading that would catch a push carrying the *selection at landing* rather
+            // than the selection the thumb left behind.
+            assertTheHeaderNames("${home.galaxy}:${home.system - 1}")
+            // A push and not a swap: the fold is gone rather than behind it. That is the whole
+            // difference between this gesture and the scale chip below.
+            assertNoGalaxyIsDrawn()
+        }
+    }
+
+    @Test
+    fun `the caption sends its probe to the star the map is selecting and not to home`() {
+        // **The map's only write, and the class of defect 0.11.1 shipped.** A tap that filled in two
+        // thirds of an address from wherever the screen was parked is exactly how a ledger row came
+        // to price the wrong world, and the fold makes that easier to reach rather than harder: the
+        // selection moves under a thumb, and home is where it starts. So this is asserted on the
+        // stateful screen, where the address is actually assembled, rather than on a frame that was
+        // handed one.
+        val aimed = mutableListOf<SystemAddress>()
+
+        galaxyScreen(state = testGameState, onDispatchProbe = { aimed += it }) {
+            scrubTo(elsewhere)
+            assertTheCaptionReads("[${home.galaxy}:$elsewhere]")
+
+            dispatchAProbeFromTheMap()
+        }
+
+        assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = elsewhere)), aimed)
+    }
+
+    @Test
+    fun `choosing a disc describes that galaxy and entering it draws that galaxy`() {
+        // **A disc is chosen and then entered, in two gestures rather than one**, and the split is
+        // the design: the caption is the map's one readout at both scales, so tapping a disc has to
+        // put something *in* it before the tap that acts on it means anything. Selecting and
+        // committing in one gesture would be a grid of four buttons rather than a map with a bar.
+        galaxyScreen(state = testGameState) {
+            toggleTheScale()
+
+            chooseGalaxy(other)
+            // The caption follows the disc without leaving the four of them: still the universe, now
+            // describing somewhere you have never been.
+            assertTheCaptionReads("Galaxy $other")
+            assertTheDiscReads(other, "run")
+            assertTheUniverseIsUp()
+
+            openTheSelectedSystem()
+            // And *now* it steps down, into the galaxy the caption was describing rather than into a
+            // system — because the thing selected one scale up is a galaxy.
+            assertTheUniverseIsAway()
+            assertTheGalaxyIsDrawn()
+        }
+    }
+
+    @Test
+    fun `the scale chip swaps the universe into the map's own frame and back`() {
+        galaxyScreen(state = testGameState) {
+            toggleTheScale()
+            assertTheUniverseIsUp()
+            assertNoGalaxyIsDrawn()
+            // **The caption stays**, which is what "the map's own frame" means and the only thing that
+            // separates a swap from a second screen: the bar at the foot is the same bar, in the same
+            // place, describing the galaxy instead of the star.
+            assertTheCaptionReads("Galaxy ${home.galaxy}")
+
+            toggleTheScale()
+            assertTheUniverseIsAway()
+            assertTheGalaxyIsDrawn()
+
+            // Neither gesture went anywhere. The universe is a state of this surface rather than a
+            // level you pass through, so there is nothing to come back from — and an orbit page
+            // reached by a chip would put the tab bar's one push behind a control that is not one.
+            assertNoSystemIsDrawn()
+        }
+    }
+
+    @Test
+    fun `the region name in the system header goes back out to the fold`() {
+        galaxyScreen(state = testGameState) {
+            openTheSelectedSystem()
+            assertTheSystemIsDrawn()
+
+            // The only accent string in the header, and until 0.12 it opened a region index — a screen
+            // that listed the region's systems as rows. The fold draws that region as a band with the
+            // rest of the galaxy around it, so the same pixels now answer the same question by going
+            // back rather than by going deeper.
+            openTheMapFromTheHeader()
+            assertTheGalaxyIsDrawn()
+            assertNoSystemIsDrawn()
+        }
+    }
+
+    // ── The page the route arrives at ────────────────────────────────────────────────────────
 
     @Test
     fun `the home system draws its worlds, its ruler and its probe footer`() {
         galaxyScreen(state = testGameState) {
-            openTheMap()
+            openTheSelectedSystem()
             // The astronomy line, which is the one reading on the page that is a fact about the
             // *system* rather than about a world — and on your own doorstep it says so.
             assertTheAstronomyReads("Your own system")
-            assertTheMapIsDrawn()
+            assertTheSystemIsDrawn()
             // Home was surveyed at genesis, so the footer is a receipt rather than an offer.
             assertTheFooterReads("Surveyed at genesis")
         }
@@ -49,8 +162,8 @@ class GalaxyFromStateBehaviourTest {
     @Test
     fun `a neighbour that has never been looked at is offered a probe at its real price`() {
         galaxyScreen(state = testGameState) {
-            openTheMap()
-            openSystem(home.system - 1)
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
             // The price is `SurveyBalance`'s and the flight is the real distance: an unsurveyed
             // system is the one place the footer is a purchase.
             assertTheFooterReads("${SurveyBalance.COST_METAL}")
@@ -65,8 +178,8 @@ class GalaxyFromStateBehaviourTest {
         ).state
 
         galaxyScreen(state = launched) {
-            openTheMap()
-            openSystem(target.system)
+            scrubTo(target.system)
+            openTheSelectedSystem()
             // Three parts, exactly as a running build draws them, and no cancel — nothing in this
             // game cancels.
             assertTheFooterReads("lands")
@@ -78,7 +191,7 @@ class GalaxyFromStateBehaviourTest {
         val state = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 2))
 
         galaxyScreen(state = state) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             assertTheSheetIsUp()
             // The coordinate the row printed, because the sheet is a second reading of a world the
@@ -98,7 +211,7 @@ class GalaxyFromStateBehaviourTest {
         val bigFleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 8))
 
         galaxyScreen(state = bigFleet) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             homeIn(FleetBalance.WINDOWS.last())
             assertTheSheetIsUp()
@@ -118,7 +231,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = emptied) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.METAL)
             assertTheSheetIsUp()
@@ -133,7 +246,7 @@ class GalaxyFromStateBehaviourTest {
         val fleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 2))
 
         galaxyScreen(state = fleet) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             sendOneMore()
             assertTheSheetIsUp()
@@ -154,8 +267,8 @@ class GalaxyFromStateBehaviourTest {
         )
 
         galaxyScreen(state = rich) {
-            openTheMap()
-            openSystem(home.system - 1)
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
             tapTheWorld(firstWorldOfNeighbour())
             assertTheSheetIsUp()
             assertTheSheetReads("unsurveyed")
@@ -186,7 +299,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = surveyed) {
-            openTheMap()
+            openTheSelectedSystem()
             openGalaxy(far.galaxy)
             tapTheWorld(target)
             assertTheSheetIsUp()
@@ -210,7 +323,7 @@ class GalaxyFromStateBehaviourTest {
         }
 
         galaxyScreen(state = dry) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.METAL)
             homeIn(FleetBalance.WINDOWS.last())
@@ -226,7 +339,7 @@ class GalaxyFromStateBehaviourTest {
         val fleet = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 3))
 
         galaxyScreen(state = fleet) {
-            openTheMap()
+            openTheSelectedSystem()
             tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.CRYSTAL)
             assertTheSheetIsUp()
@@ -237,7 +350,7 @@ class GalaxyFromStateBehaviourTest {
     @Test
     fun `the ruler prices another galaxy as a galaxy away rather than as more systems`() {
         galaxyScreen(state = testGameState) {
-            openTheMap()
+            openTheSelectedSystem()
             openGalaxy(home.galaxy % GalaxyBalance.GALAXIES + 1)
             // The lens re-centres on the same *index* rather than on your star, because a hop is
             // priced as a whole galaxy plus the difference of the two system numbers — so the
@@ -254,6 +367,16 @@ class GalaxyFromStateBehaviourTest {
         SystemAddress(galaxy = home.galaxy, system = home.system - 1)
 
     private companion object {
+
+        // A galaxy that is not home, so the disc really is somewhere else and its card really is
+        // priced. Which one hardly matters — two of the three are one hop away — so it is derived
+        // from home rather than written down, and it moves if the seed's home galaxy ever does.
+        val other: Int = if (testGameState.galaxy.home.galaxy == 1) 2 else 1
+
+        // A system in another band that nobody has surveyed, so the caption offers a probe rather
+        // than quoting a round trip. Two bands down from home and clamped, which keeps it on the map
+        // whichever end of the galaxy a seed puts you at.
+        val elsewhere: Int = (testGameState.galaxy.home.system + 50).coerceAtMost(250)
         val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
         val home: GalaxyCoordinate = testGameState.galaxy.home
     }

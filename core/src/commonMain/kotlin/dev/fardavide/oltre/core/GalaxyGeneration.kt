@@ -67,6 +67,11 @@ internal enum class GenerationAxis(val tag: Long) {
 
     // Whether a world wears a ring. The only generated quantity in the game that no rule reads.
     RING(0xC6EF372FE94F82BEuL.toLong()),
+
+    // Where a system is *drawn* — its drift inside its band's lane and the wobble on its star's
+    // radius. Appended like every tag before it, so a map somebody has been playing for a fortnight
+    // is the same map the first time it is drawn: the drawing is new, the galaxy is not.
+    LAYOUT(0xD1B54A32D192ED03uL.toLong()),
 }
 
 // The galaxy's own seed, shared by every system in it. Extracted from `systemSeed` rather than
@@ -127,6 +132,59 @@ fun starClassAt(seed: GalaxySeed, galaxy: Int, system: Int): StarClass = GalaxyB
     temperament = temperamentAt(seed, galaxy, system),
     percent = percentFrom(streamOf(systemSeed(seed, galaxy, system), GenerationAxis.STAR_CLASS)),
 )
+
+// ±half the band pitch. Claude Design's `looks-near-is-near` settled both halves of that: *"half the
+// pitch, so it can never reorder two stars; enough that the band reads as sky"*. The cap is the
+// safety argument in a number — path order is index order and the map's whole claim is that a
+// distance on the drawing is a distance in the game, so a star that wandered into its neighbour's
+// lane would make the drawing contradict the thing it draws.
+private const val DRIFT_LIMIT: Int = 500
+
+// In thousandths of the star class's own radius. Wide enough that two standards in one band are
+// siblings rather than clones, and stopped short of the next class's radius so the wobble can never
+// read as a promotion: size *is* class on this map, and a star drawn bigger than its class allows
+// would be the map's one measurement telling a lie.
+//
+// **Claude Design's `0.82 + u * 0.36` did not hold that second promise, and a test that executed the
+// drawing is what found it.** The drawn radii are 1.3, 1.9 and 2.6dp, so at 820…1180 the widest
+// standard is 2.24dp against the narrowest bright at 2.13 — a standard genuinely drawn larger than a
+// bright, on a map whose whole legend is that size is class. 870…1130 is the widest band that keeps
+// both gaps open: the widest dim is 1.47 against a narrowest standard of 1.65, and the widest
+// standard is 2.15 against a narrowest bright of 2.26. The wobble is 4% narrower than drawn and the
+// promise is true.
+private const val SIZE_FLOOR: Int = 870
+private const val SIZE_CEILING: Int = 1_130
+
+// Where a system sits on the drawn map, how big its star is drawn, and which halo a bright one
+// wears. Position *along* a band is arithmetic the map does for itself — twenty-five systems a band,
+// `(n - 1) % 25` over 24 — so these three are all the drawing has to ask the seed for, and it has to
+// ask: an even pitch on a straight line reads as a table, and every player on one seed has to be
+// looking at the same sky.
+//
+// **Permille rather than dp, and integers rather than a Float or a Double.** `core` compiles for the
+// JVM and for Kotlin/Native, and a galaxy that differs by a unit between two platforms is a
+// different galaxy — the one promise this whole file exists to keep. Thousandths of a *pitch* and of
+// a *class radius* also keep the numbers out of the drawing's business: the map decides what a pitch
+// is at 393dp and again at 320dp, and this answers the same either way.
+data class SystemLayout(val driftPermille: Int, val sizePermille: Int, val haloPermille: Int)
+
+fun layoutAt(seed: GalaxySeed, galaxy: Int, system: Int): SystemLayout {
+    // The *system's* stream, like the star class above it: a star is drawn once for the system it
+    // is, and its fifteen slots have nothing to say about where that system sits. Both quantities
+    // come off the one LAYOUT tag by index, which is what `draw` is for — a second tag would spend a
+    // save-format constant on what is one thing, and a shared sequential stream would be the hazard
+    // the note at the top of this file names.
+    val stream = streamOf(systemSeed(seed, galaxy, system), GenerationAxis.LAYOUT)
+    return SystemLayout(
+        driftPermille = draw(stream, 0).boundedBy(2 * DRIFT_LIMIT + 1) - DRIFT_LIMIT,
+        sizePermille = draw(stream, 1).boundedBy(SIZE_CEILING - SIZE_FLOOR + 1) + SIZE_FLOOR,
+        // A third draw off the same tag, and it is *not* a displacement: it is which of the two halo
+        // hues a bright star wears, thresholded by the drawing. Generated rather than picked by the
+        // renderer for the reason the other two are — two players on one seed have to be looking at
+        // the same sky, and "every third bright" chosen at draw time would depend on iteration order.
+        haloPermille = draw(stream, 2).boundedBy(1_000),
+    )
+}
 
 // The entry point. Null when the slot is empty, which is most of them.
 fun worldAt(seed: GalaxySeed, at: GalaxyCoordinate): World? {
