@@ -63,11 +63,22 @@ class GalaxyPageBehaviourTest {
 
     @Test
     fun `the fold and the bar under it are on one screen at both widths`() {
-        // 531dp of drawing fits the content area at 393dp and at 320dp alike, which is why
-        // `MapGeometry` carries one set of numbers rather than two — and why neither map scrolls. What
-        // a display assertion can say about *that* is the half worth having: the drawing and the bar
-        // at the foot are on the glass together, so nothing on this screen is reached by scrolling to
-        // it. A fold that outgrew one screen would take the caption off the bottom of this assertion.
+        // The drawing and the bar at the foot are on the glass together, so nothing on this screen is
+        // reached by scrolling to it — which is what makes the fold a map you read at a glance rather
+        // than a page you walk down.
+        //
+        // **This assertion was already here when 0.12.0 shipped the defect it describes, and it
+        // passed.** The harness handed the page the whole 852dp window, where a phone leaves a
+        // destination about 650 once the resource rail, the tab bar and two safe-area insets are paid
+        // for — and 531 of fixed-height map plus 22 of gap plus 58 of caption does not fit in 650. So
+        // the caption went off the bottom of a real screen while every frame in the suite had room to
+        // spare, and the tab became one that selects a star and can do nothing with it: Davide, on the
+        // TestFlight build, *"I'm tapping on the systems, but nothing happens."*
+        //
+        // Nothing was wrong with the assertion. **The harness was describing a device that does not
+        // exist**, which is the more dangerous of the two failures, because it makes every frame in
+        // the suite agree with it. `DESTINATION_HEIGHT` is the measured figure now, and the fold folds
+        // into whatever height it is handed.
         listOf(PHONE_WIDTH, SLIDE_OVER_WIDTH).forEach { width ->
             galaxyPage(uiState = homeFold, width = width) {
                 assertTheGalaxyIsDrawn()

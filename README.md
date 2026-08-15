@@ -206,6 +206,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.12.1 — 2026-08-16
+
+- **The bar under the map is back on the screen.** On a phone the galaxy was drawn at its full height
+  and the bar that names the star you picked — and offers the probe — was pushed off the bottom, so
+  tapping a star selected it and there was nothing you could then do. The map now folds into whatever
+  room the screen has left after the bar, rather than taking the room first.
+- **The stars keep out of the region names.** With a shorter map the bands are shorter too, so how far
+  a star drifts from its lane now shrinks with them instead of wandering up into the name above.
+
 ### 0.12.0 — 2026-08-15
 
 - **The Galaxy tab opens on a map you can actually look at.** Two hundred and fifty stars, drawn, in

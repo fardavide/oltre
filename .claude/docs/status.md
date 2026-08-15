@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-15 (0.12.0)
+Updated: 2026-08-16 (0.12.1)
 
 ## Landed
 
@@ -870,6 +870,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending, from 0.12.0
 
+- **0.12.1 put the caption back on the screen, and the way it was lost is the finding.** The fold
+  claimed a fixed 531dp; a phone leaves a destination about 650 once the 55dp resource rail, the 52dp
+  tab bar and two safe-area insets are paid for; and 531 + 22 + 58 does not fit in 650. So the bar
+  that is the map's *only* control went off the bottom — Davide, on the TestFlight build: *"I'm
+  tapping on the systems, but nothing happens."*
+  **The suite already asserted the thing that broke.** `the fold and the bar under it are on one
+  screen at both widths` was written with the slice and passed all the way through review, because
+  the harness handed the page the whole 852dp window. Nothing was wrong with the assertion; the
+  *harness was describing a device that does not exist*, which is worse, because it makes every frame
+  in the suite agree with it. `DESTINATION_HEIGHT` is a measured figure now and the fold folds into
+  whatever height it is given. **The general lesson: a screenshot taken without the chrome the screen
+  actually lives inside is not a photograph of that screen.**
 - **Nobody has seen the fold on a device.** It is measured at both widths and it is inside the
   geometry by construction, which is not the same as being readable: the pitch is 14.0dp at 393dp and
   11.0dp at 320dp, and a star is 2.6–5.2dp across. The test the design set is whether a player can say

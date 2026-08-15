@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -63,11 +64,15 @@ internal fun GalaxyMap(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .height(MapGeometry.height)
+            .heightIn(max = MapGeometry.height)
             .testTag(GalaxyTestTags.GALAXY_MAP),
     ) {
-        val fold = Fold.full(width = maxWidth.value)
+        // **The height it was given, not the height it would like.** A fixed 531dp here is what put
+        // the caption off the bottom of a real phone: the map is the only thing on this screen that
+        // can afford to give, because the caption is the map's one control and the head is type.
+        val fold = Fold.full(width = maxWidth.value, height = maxHeight.value)
         val widthPx = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        val heightDp = maxHeight.value
         // **A tap snaps the selection to the nearest star and a drag scrubs it**, which is what makes
         // 250 targets smaller than a fingertip cost nothing to miss. There is no zoom and no pan: a
         // pinch would buy names for unpinned systems and nothing else, and the caption already gives
@@ -77,6 +82,7 @@ internal fun GalaxyMap(
                 x = offset.x / density.density,
                 y = offset.y / density.density,
                 width = maxWidth.value,
+                height = heightDp,
             )
         }
         Box(
@@ -93,7 +99,7 @@ internal fun GalaxyMap(
             Canvas(modifier = Modifier.fillMaxSize()) { drawFold(uiState = uiState, fold = fold) }
         }
         uiState.bands.forEachIndexed { index, band ->
-            RegionLabel(band = band, band0 = index, inset = MapGeometry.inset)
+            RegionLabel(band = band, band0 = index, fold = fold, inset = MapGeometry.inset)
         }
         uiState.hours.forEach { hour -> HourLabel(hour = hour, fold = fold) }
         uiState.names.forEach { name -> NameLabel(name = name, fold = fold) }
@@ -117,11 +123,12 @@ internal fun GalaxyDisc(uiState: GalaxyMapUiState, lane: Dp, modifier: Modifier 
 // star — the idiom `SystemMap` established for exactly that reason.
 internal data class Fold(
     val width: Float,
+    // What the fold was actually handed. Never more than the design's 531dp — a roomy window draws
+    // what the sheet drew — and as much less as the screen demands.
+    val height: Float,
     val inset: Float,
     val labelRow: Float,
-    val lane: Float,
     val gap: Float,
-    val amplitude: Float,
     val dim: Float,
     val standard: Float,
     val bright: Float,
@@ -130,11 +137,27 @@ internal data class Fold(
 
     val span: Float get() = width - inset * 2f
     val pitch: Float get() = MapGeometry.pitchOf(span)
-    val bandHeight: Float get() = labelRow + lane + gap
-    val height: Float get() = bandHeight * MapGeometry.BANDS - gap
+    val bandHeight: Float get() = (height + gap) / MapGeometry.BANDS
+
+    // **The lane is what gives.** The label row is type at the 9.5sp floor and cannot shrink, and the
+    // gap between bands is the one signal that vertical neighbours are 25 systems apart — so what a
+    // tight screen takes is the room the stars drift in, which is the only part of a band that is
+    // drawing rather than reading.
+    val lane: Float get() = bandHeight - labelRow - gap
+
+    // The wave rides the lane rather than a constant, for the same reason the drift is capped by it:
+    // at the design's 32dp lane this is the 5.5dp Claude Design drew, and it narrows with the lane
+    // instead of filling a shorter one.
+    val amplitude: Float get() = if (mini) lane * MINI_WAVE_OF_LANE else lane * FULL_WAVE_OF_LANE
 
     fun x(system: Int): Float = MapGeometry.xOf(system = system, span = span, inset = inset)
 
+    // **Two caps, and the second one only bites on a squeezed screen.** The drift is half a pitch,
+    // which is the ordering promise — a star may never cross the midpoint between itself and its
+    // neighbour. But half a pitch is a *horizontal* figure and the room a star has is *vertical*, so
+    // on a phone that folds the map into 26dp lanes instead of 32 the same 7dp of wander walks the
+    // stars up into the region name above them. The lane is what gives, so what the lane can hold has
+    // to give with it.
     fun y(system: Int, driftPermille: Int): Float {
         val band = MapGeometry.bandOf(system)
         val laneMid = MapGeometry.laneMidOf(band = band, labelRow = labelRow, lane = lane, gap = gap)
@@ -143,7 +166,9 @@ internal data class Fold(
             fraction = MapGeometry.pathFractionOf(system),
             amplitude = amplitude,
         )
-        return laneMid + wave + MapGeometry.driftOf(permille = driftPermille, pitch = pitch)
+        val room = lane * LANE_DRIFT_SHARE
+        val drift = MapGeometry.driftOf(permille = driftPermille, pitch = pitch).coerceIn(-room, room)
+        return laneMid + wave + drift
     }
 
     fun laneTopOf(band: Int): Float = band * bandHeight + labelRow
@@ -159,13 +184,12 @@ internal data class Fold(
 
     companion object {
 
-        fun full(width: Float): Fold = Fold(
+        fun full(width: Float, height: Float = MapGeometry.HEIGHT_DP): Fold = Fold(
             width = width,
+            height = height.coerceAtMost(MapGeometry.HEIGHT_DP),
             inset = MapGeometry.INSET_DP,
             labelRow = MapGeometry.LABEL_ROW_DP,
-            lane = MapGeometry.LANE_DP,
             gap = MapGeometry.BAND_GAP_DP,
-            amplitude = FULL_WAVE_DP,
             dim = 1.3f,
             standard = 1.9f,
             bright = 2.6f,
@@ -176,11 +200,10 @@ internal data class Fold(
         // them fill whatever grid the universe view gives them. Everything else scales off it.
         fun mini(width: Float, lane: Float): Fold = Fold(
             width = width,
+            height = lane * MapGeometry.BANDS,
             inset = MINI_INSET_DP,
             labelRow = 0f,
-            lane = lane,
             gap = 0f,
-            amplitude = lane * MINI_WAVE_OF_LANE,
             dim = 0.8f,
             standard = 1.15f,
             bright = 1.6f,
@@ -404,8 +427,8 @@ private fun DrawScope.drawRing(centre: Offset, radiusDp: Float, colour: Color, w
 // Ten names, all legible at once, which is the whole thing the second dimension was bought for. They
 // alternate sides, and that alternation states the reading direction without an arrow.
 @Composable
-private fun RegionLabel(band: MapBandUiState, band0: Int, inset: Dp) {
-    Box(modifier = Modifier.fillMaxWidth().offset(y = (band0 * MapGeometry.BAND_DP).dp)) {
+private fun RegionLabel(band: MapBandUiState, band0: Int, fold: Fold, inset: Dp) {
+    Box(modifier = Modifier.fillMaxWidth().offset(y = (band0 * fold.bandHeight).dp)) {
         Text(
             text = band.name.uppercase(),
             color = if (band.lit) OltreColors.text else OltreColors.textTertiary,
@@ -477,8 +500,11 @@ private fun NameLabel(name: MapNameUiState, fold: Fold) {
 }
 
 private val HAIRLINE = 1.dp
-private const val FULL_WAVE_DP = 5.5f
+// 5.5dp of wave in the design's 32dp lane, and 22% of the lane for the drift — which is the 7dp
+// Claude Design drew at the full size, arrived at as a share so it survives a shorter one.
+private const val FULL_WAVE_OF_LANE = 5.5f / 32f
 private const val MINI_WAVE_OF_LANE = 0.20f
+private const val LANE_DRIFT_SHARE = 0.22f
 private const val MINI_INSET_DP = 3f
 private const val TURN_BULGE_DP = 1.5f
 

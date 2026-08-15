@@ -11,6 +11,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.galaxy.ui.DESTINATION_HEIGHT
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
@@ -27,20 +28,26 @@ class GalaxyScreenshotTest {
 
     // ── The fold, which is what the tab opens on since 0.12 ─────────────────────────────────
     //
-    // **The map is 852dp tall in every one of these and never 1,400**, unlike the list frames below
-    // it: the fold does not scroll, so a taller window would photograph a screen no device can
-    // produce. That is the whole claim being photographed — the galaxy fits.
+    // **The map frames are 650dp tall and the list frames are not**, and the difference is the whole
+    // reason this section exists. A list scrolls, so photographing it in a tall window shows more of
+    // one screen; the fold does not, so its window *is* the screen and a generous one photographs a
+    // device that does not exist.
+    //
+    // 650 is what a phone leaves a destination — 852 less a 55dp resource rail, a 52dp tab bar and
+    // two safe-area insets — and it is the figure 0.12.0 shipped without. Every map frame was 852
+    // then, every one of them had room to spare, and the caption was off the bottom of a real screen
+    // the whole time.
 
     @Test
     fun `the map as the tab opens at phone width`() {
-        capture(width = 393, height = 852, uiState = frame(state = pinnedState), name = "galaxy_map")
+        capture(width = 393, height = DESTINATION_HEIGHT, uiState = frame(state = pinnedState), name = "galaxy_map")
     }
 
     // 98% unsurveyed is the state the map is in nearly always, so it is the frame that had to be good
     // first — and it is the one the old ledger was worst at, being five rows and a header.
     @Test
     fun `the map on day one with nothing surveyed`() {
-        capture(width = 393, height = 852, uiState = frame(), name = "galaxy_map_genesis")
+        capture(width = 393, height = DESTINATION_HEIGHT, uiState = frame(), name = "galaxy_map_genesis")
     }
 
     // Scrubbed off home, which is the map's own second state: a different band lit, a different name
@@ -49,7 +56,7 @@ class GalaxyScreenshotTest {
     fun `the map with a star selected away from home`() {
         capture(
             width = 393,
-            height = 852,
+            height = DESTINATION_HEIGHT,
             uiState = frame(state = pinnedState, at = pinnedState.homeSelection().copy(system = 195)),
             name = "galaxy_map_selected",
         )
@@ -58,14 +65,14 @@ class GalaxyScreenshotTest {
     // The amber ring, which is the fleet strip's amber meaning what it means there.
     @Test
     fun `the map with a probe in flight`() {
-        capture(width = 393, height = 852, uiState = probeInFlightMapUiState, name = "galaxy_map_in_flight")
+        capture(width = 393, height = DESTINATION_HEIGHT, uiState = probeInFlightMapUiState, name = "galaxy_map_in_flight")
     }
 
     @Test
     fun `the four galaxies at phone width`() {
         capture(
             width = 393,
-            height = 852,
+            height = DESTINATION_HEIGHT,
             uiState = frame(state = pinnedState, view = GalaxyView.UNIVERSE),
             name = "galaxy_universe",
         )
@@ -196,7 +203,7 @@ class GalaxyScreenshotTest {
     fun `the map in a Slide Over window`() {
         capture(
             width = 320,
-            height = 852,
+            height = DESTINATION_HEIGHT,
             uiState = frame(state = pinnedState),
             name = "galaxy_map_slide_over",
         )
@@ -206,7 +213,7 @@ class GalaxyScreenshotTest {
     fun `the four galaxies in a Slide Over window`() {
         capture(
             width = 320,
-            height = 852,
+            height = DESTINATION_HEIGHT,
             uiState = frame(state = pinnedState, view = GalaxyView.UNIVERSE),
             name = "galaxy_universe_slide_over",
         )
