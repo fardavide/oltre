@@ -96,14 +96,15 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
     val groupBy = groups.associateBy { it.last() as FutureEvent }
     val absorbed = groups.flatMap { it.dropLast(1) }.toSet()
 
-    // **Three kinds are now unbounded, not two.** Six facilities, one research slot and one watch are
-    // bounded by the model — eight at the ceiling, and none of them can ever be the thing that
-    // overflows. Probes were the only kind that ran in parallel with no cap; fleet runs are the
-    // second and the yard queue is the third, so the partition has to name all three or
-    // `bounded.size` stops describing the protected set and the trim arithmetic quietly under-counts.
+    // **Three kinds are now unbounded, not two.** Six facilities, two research slots and one watch
+    // are bounded by the model — **nine** at the ceiling since 0.12.2 gave the adaptation branch a
+    // slot of its own, and none of them can ever be the thing that overflows. Probes were the only
+    // kind that ran in parallel with no cap; fleet runs are the second and the yard queue is the
+    // third, so the partition has to name all three or `bounded.size` stops describing the protected
+    // set and the trim arithmetic quietly under-counts.
     //
     // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
-    // one: protect the model-bounded seven, then returns, then probe landings, then hulls — because a
+    // one: protect the model-bounded nine, then returns, then probe landings, then hulls — because a
     // return carries resources that a full store can void, a probe carries information that does not
     // spoil, and a hull on the slipway loses nothing at all by being announced late. It is last for
     // that reason and not because it matters least; it is the only one of the three whose news keeps
@@ -172,17 +173,24 @@ private fun List<FutureEvent.Completion>.toNotification(): LocalNotification = L
     at = last().at,
 )
 
-// Two through seven, which is every group this game can produce: six facilities build in parallel
-// and the research slot holds one project, so eight is unreachable. Spelled rather than printed as
-// a digit — the game prints digits for levels, because a level is a number read off a row, and this
-// is a count in a sentence.
+// Two through **eight**, which is every group this game can produce: six facilities build in
+// parallel, one slot holds an applied project and — since 0.12.2 — a second holds a ladder beside
+// it. Nine is unreachable. Spelled rather than printed as a digit — the game prints digits for
+// levels, because a level is a number read off a row, and this is a count in a sentence.
+//
+// **The `else` is where the split would have gone wrong quietly.** Seven was the ceiling while the
+// two research branches shared a slot, so seven lived in the fall-through; an eighth completion
+// would have been announced as "Seven upgrades are done" with eight names listed under it, and
+// nothing would have failed. Both counts have a branch now, and the `else` is unreachable rather
+// than load-bearing.
 private fun Int.spelled(): String = when (this) {
     2 -> "Two"
     3 -> "Three"
     4 -> "Four"
     5 -> "Five"
     6 -> "Six"
-    else -> "Seven"
+    7 -> "Seven"
+    else -> "Eight"
 }
 
 // "Metal Mine, Solar Plant and Extraction" — commas between, "and" before the last, and no Oxford

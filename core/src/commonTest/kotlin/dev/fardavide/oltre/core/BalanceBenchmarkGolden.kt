@@ -23,13 +23,13 @@ internal object BalanceBenchmarkGolden {
         robotics factory 1                                hour 3 (day 0)
         robotics factory 2                                hour 7 (day 0)
         robotics factory 4                                hour 40 (day 1)
-        robotics factory 9                                hour 252 (day 10)
-        robotics factory 10                               hour 284 (day 11)
+        robotics factory 9                                hour 298 (day 12)
+        robotics factory 10                               not within the run
         mines past the opening discount (level 9)         hour 39 (day 1)
         first applied technology finished                 hour 5 (day 0)
         first adaptation level finished                   hour 10 (day 0)
         first skiff affordable                            hour 34 (day 1)
-        metal mine when the nanite unlocks                level 17 (ramp starts at 18)
+        metal mine when the nanite unlocks                level 0 (ramp starts at 18)
 
         [session] completions a player is present for, minute by minute
         first completion                                  minute 2
@@ -44,29 +44,29 @@ internal object BalanceBenchmarkGolden {
 
         [progression] where the colony stands, day by day
         day                                               levels   income/h        metal    crystal      deut
-          day 1                                              30        828          401        216        33
-          day 2                                              38       1414          986        609       310
-          day 3                                              42       1901         3257         81       344
-          day 7                                              59       5267        46355       3127       360
-          day 14                                             79      12785       274291      14182      3536
+          day 1                                              30        828          401        187        33
+          day 2                                              38       1414          986        580       310
+          day 3                                              42       1901         3257         52       344
+          day 7                                              56       4361        54673       2893       693
+          day 14                                             71      11696       302878       3950      1952
         the tree at day 14
-          metal mine                                      18
-          crystal mine                                    17
-          deuterium synthesizer                           14
+          metal mine                                      17
+          crystal mine                                    16
+          deuterium synthesizer                           13
           solar plant                                     16
-          robotics factory                                10
-          nanite factory                                  4
+          robotics factory                                9
+          nanite factory                                  0
 
         [pressure] over 14 days, which resource blocks the cheapest unbuilt row
-        hours opening with the cheapest row unaffordable  46.29%
-          of which short of metal                         12.17%
-          of which short of crystal                       40.38%
-          of which short of deuterium                     67.30%
-        hours with nothing building and no research       14.54%
+        hours opening with the cheapest row unaffordable  32.93%
+          of which short of metal                         18.91%
+          of which short of crystal                       35.13%
+          of which short of deuterium                     65.76%
+        hours with nothing building and no research       16.91%
         over the fortnight, per resource                  earned       spent     placed
-          metal                                              991428      717637     72.00%
-          crystal                                            313257      299375     95.00%
-          deuterium                                           76667       73131     95.00%
+          metal                                              906240      603862     66.00%
+          crystal                                            275343      271693     98.00%
+          deuterium                                           70420       68468     97.00%
 
         [economy] cost, wait and payback per level, at robotics factory 4
         building / level                                  priced    build     +income/h   payback
@@ -176,13 +176,13 @@ internal object BalanceBenchmarkGolden {
 
         [horizon] the same fixed player, out to 90 days
         day                                               levels     mine   income/h         metal     placed
-          day 7                                              59       15       5267         46355     78.00%
-          day 14                                             79       18      12785        274291     72.00%
-          day 30                                            105       23      52815       1869758     72.00%
-          day 60                                            129       26     195492      10000000     76.00%
-          day 90                                            147       29     474761       7148311     93.00%
-        hours resting on the metal storage cap            369 of 2161
-          first reached                                   hour 1179 (day 49)
+          day 7                                              56       14       4361         54673     73.00%
+          day 14                                             71       17      11696        302878     66.00%
+          day 30                                             98       21      42396       2190698     64.00%
+          day 60                                            126       26     187020      10000000     73.00%
+          day 90                                            146       29     474761       9440573     91.00%
+        hours resting on the metal storage cap            323 of 2161
+          first reached                                   hour 1238 (day 51)
 
         [late game] metal mine wait at robotics 15, by nanite level
         level                                             nanite 0   nanite 2   nanite 4   nanite 6     0 -> 6  vs income

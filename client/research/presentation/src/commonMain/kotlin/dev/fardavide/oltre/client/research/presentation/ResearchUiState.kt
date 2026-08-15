@@ -140,7 +140,7 @@ private fun GameState.toTechnologyRow(
             timeZone = timeZone,
         )
         !requirement.isMetBy(this) -> ResearchActionUiState.Locked(requirement.label())
-        else -> startOrWait(cost = cost, now = now)
+        else -> startOrWait(cost = cost, slotFreesAt = activeResearch?.completesAt, now = now)
     }
     val verdict = purpose.toVerdictUiState(throttled = throttled())
     return TechnologyRowUiState(
@@ -178,10 +178,11 @@ private fun GameState.toTechnologyRow(
     )
 }
 
-// The applied mapper with three things swapped: `AdaptationBalance` for `ResearchBalance`, the
-// other half of the shared slot for `activeResearch`, and a band line for a percentage line. The
-// order of the checks is the same because the two branches differ in what they buy, not in how
-// they are bought — and the ghost's contract in `startOrWait` is shared outright.
+// The applied mapper with three things swapped: `AdaptationBalance` for `ResearchBalance`, this
+// branch's own slot for `activeResearch`, and a band line for a percentage line. The order of the
+// checks is the same because the two branches differ in what they buy, not in how they are bought —
+// and the ghost's contract in `startOrWait` is shared outright, which since 0.12.2 means it is
+// *handed* the slot rather than reading one.
 private fun GameState.toAdaptationRow(
     technology: AdaptationTechnology,
     shortlist: LadderShortlist,
@@ -220,7 +221,7 @@ private fun GameState.toAdaptationRow(
             timeZone = timeZone,
         )
         !requirement.isMetBy(this) -> ResearchActionUiState.Locked(requirement.label())
-        else -> startOrWait(cost = cost, now = now)
+        else -> startOrWait(cost = cost, slotFreesAt = activeAdaptation?.completesAt, now = now)
     }
     val ladderShortlist = shortlist.toUiState()
     return AdaptationRowUiState(
@@ -293,12 +294,16 @@ private fun GameState.watchOn(
 // The ghost carries a time, never a dead button. The wait is the later of the two reasons a
 // project cannot start, so a row that is both unaffordable and blocked by the slot shows the one
 // that actually governs.
-private fun GameState.startOrWait(cost: Resources, now: Instant): ResearchActionUiState {
+//
+// **`slotFreesAt` is the caller's to supply, and it is the row's own branch's.** It used to read
+// `researchSlotFreesAt` off the state, because one slot served both branches and a ladder held it
+// exactly as hard as a technology did. Two slots since 0.12.2, so a shared read would go wrong in
+// the direction that shows: it would ghost out every applied row while a ladder climbed, and the
+// model would have accepted the tap. The rule on both sides is the same as it always was — the
+// screen must offer exactly what `startResearch` and `startAdaptation` will accept.
+private fun GameState.startOrWait(cost: Resources, slotFreesAt: Instant?, now: Instant): ResearchActionUiState {
     val untilAffordable = timeUntilAffordable(resources, cost, buildings, research)
-    // `researchSlotFreesAt`, not `activeResearch.completesAt`: the slot is empire-wide and shared
-    // with the adaptation branch, so a ladder holds it exactly as hard as a technology does.
-    // Reading one field would offer a Research button the model then refuses as `SlotBusy`.
-    val untilSlotFrees = researchSlotFreesAt
+    val untilSlotFrees = slotFreesAt
         ?.let { it - now }
         ?.coerceAtLeast(Duration.ZERO)
         ?: Duration.ZERO

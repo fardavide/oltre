@@ -34,6 +34,7 @@ internal val idleReport = DebugReport(
     buildsInFlight = 0,
     surveysInFlight = 0,
     researchSlotBusy = false,
+    adaptationSlotBusy = false,
     fleetInbound = false,
     nextEvent = null,
 )

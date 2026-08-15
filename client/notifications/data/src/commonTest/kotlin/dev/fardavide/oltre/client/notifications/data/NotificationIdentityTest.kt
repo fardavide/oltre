@@ -236,7 +236,10 @@ private fun crowdedColony(): GameState {
         }
     }
 
-    // One empire-wide slot, so at most one of these lands however many are attempted.
+    // One empire-wide slot per branch, so at most one of these lands however many are attempted.
+    // The adaptation branch's own slot is left empty here: what this fixture is about is ids
+    // crowding each other, and a ladder would add one more bounded id to a set already at its
+    // ceiling rather than test anything the applied branch does not.
     for (technology in Technology.entries) {
         (startResearch(state, technology, at = EPOCH) as? StartResearchResult.Started)?.let {
             state = toggleAlert(it.state, WatchTarget.Project(technology))

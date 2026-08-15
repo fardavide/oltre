@@ -55,7 +55,7 @@ class ProgressionBalanceTest {
     @Test
     fun `the colony is rarely left with nothing running`() {
         val states = fortnight()
-        val idle = states.count { it.builds.isEmpty() && it.researchSlotFreesAt == null }
+        val idle = states.count { it.builds.isEmpty() && it.activeResearch == null && it.activeAdaptation == null }
 
         assertTrue(
             idle * 100 / states.size <= 45,
@@ -119,7 +119,7 @@ class ProgressionBalanceTest {
                         if (!state.resources.covers(cost)) continue
                         (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
                     }
-                    if (state.researchSlotFreesAt == null) {
+                    if (state.activeResearch == null) {
                         for (technology in Technology.entries) {
                             val started = (startResearch(state, technology, at = now) as? StartResearchResult.Started)?.state
                             if (started != null) {

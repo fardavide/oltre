@@ -3439,3 +3439,67 @@ empty, which is the option Davide declined on paper and can take back after a de
 
 The reading to bring back: whether a real player buys a hull nearer hour 4 or nearer hour 34. Nothing
 in this repository can measure that.
+
+---
+
+## Round 29 — a queue each (0.12.2, 2026-08-15)
+
+Davide, 2026-08-15: *"Technologies and Adaptations run on the same queue, making the game too slow. I
+want to have a queue each."*
+
+**No balance constant moves.** Not a cost, not a duration, not the gate. What changes is a rule: the
+`require` in `GameState.init` that kept `activeResearch` and `activeAdaptation` from both being set
+is gone, each branch checks only its own slot, and each is still serial on its own. The adaptation
+sheet's §2 is overruled outright — it argued the sharing *was* the scarcity, and that argument is
+kept whole in the sheet rather than deleted, because it is what the ruling answers.
+
+**Retuning was declined on purpose, and it was Davide's call**: measure first, so the unblocking and
+any repricing can be told apart. Everything in §4 of the sheet was priced against a trade that no
+longer exists, and the numbers below are the case for looking at it rather than for acting yet.
+
+### What the fixed player did — 28 readings moved on `BalanceBenchmark`
+
+The same greedy player, on the same seed, with one difference: it may now start one applied project
+**and** one ladder per visit instead of one of either.
+
+| Reading | Was | Now |
+|---|---|---|
+| day 7 — building levels | 59 | **56** |
+| day 7 — income/h | 46,355 | **54,673** |
+| day 14 — building levels | 79 | **71** |
+| day 14 — income/h | 274,291 | **302,878** |
+| day 30 — income/h | 1,869,758 | **2,190,698** |
+| metal mine at day 14 | 18 | **17** |
+| robotics factory at day 14 | 10 | **9** |
+| nanite factory at day 14 | 4 | **0** |
+| hours opening with the cheapest row unaffordable | 46.29% | **32.93%** |
+| hours with nothing building and no research | 14.54% | **16.91%** |
+
+**Fewer levels and more income, which is not a contradiction.** Money that the shared slot used to
+leave in the colony now goes into ladders, so the facility count falls; and the applied branch stops
+queueing behind a ladder, so the multipliers that scale every mine arrive sooner. The second effect
+is larger than the first at every horizon measured, out to day 90.
+
+**The nanite factory is the reading to argue about.** The fortnight reached level 4 and now reaches
+0 — the greedy player never gets there, because there is always a ladder it can afford instead. That
+is one strategy on one seed rather than a verdict, and a real player who ignores adaptation for a
+week is unaffected. But it is the sharpest form of the thing the sheet warned about: **with no
+production level to lose, a ladder is now the cheapest thing on the screen that is never obviously
+wrong to buy.**
+
+**Idleness went up rather than down**, 14.54% → 16.91%, which reads backwards for a change that
+removes a wait. Same cause: two slots drain the stores faster, so the colony spends more of its time
+unable to afford the next thing. The wait moved from a rule to a price.
+
+### What it should feel like, so round 30 can tell
+
+- **A check-in should now have two decisions in it rather than one.** That is the whole ruling. If it
+  instead feels like one decision and one automatic purchase, the ladder is too cheap and the base
+  cost in §4 is the dial — not the curve and not the widening, which is what §4 said when the trade
+  still existed and is still right without it.
+- **Reading a `BLOCKED` world and buying the ladder that fixes it should cost you nothing you were
+  already doing.** It used to cost the mine upgrade you were mid-way through. That is the sentence to
+  check on a device.
+- **Watch the Nanite Factory.** If a fortnight of real play also never reaches it, the branch is
+  eating the late opening rather than running beside it, and the first thing to try is raising the
+  adaptation base — not restoring the shared slot, which Davide has ruled on.

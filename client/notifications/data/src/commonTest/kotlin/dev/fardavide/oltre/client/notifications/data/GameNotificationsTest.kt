@@ -279,12 +279,62 @@ class GameNotificationsTest {
         assertEquals(2, scheduler.scheduled.size)
     }
 
-    // The ceiling, and the worst sentence the game can send: six facilities and the one research
-    // slot is every completion a colony can hold, so seven is the largest group there is and this is
-    // the longest body a lock screen will ever be handed.
+    // **The ceiling, and it moved at 0.12.2**: six facilities, one applied project and one ladder is
+    // every completion a colony can hold, so eight is the largest group there is and this is the
+    // longest body a lock screen will ever be handed. It was seven while the two research branches
+    // shared a slot — which is precisely the kind of ceiling that goes wrong quietly, because
+    // `spelled()` had an `else` branch on it and an eighth member would have been announced as seven.
     @Test
-    fun `the whole colony landing together is one alert of seven`() = runTest {
-        // given every facility building and a project in the slot, all inside one window
+    fun `the whole colony landing together is one alert of eight`() = runTest {
+        // given every facility building, a project in one slot and a ladder in the other, all inside
+        // one window
+        val scheduler = FakeNotificationScheduler()
+        val state = subscribedBuilds(
+            *BuildingType.entries.mapIndexed { index, building ->
+                building to EPOCH + 30.minutes + (index * 30).seconds
+            }.toTypedArray(),
+        ).let { colony ->
+            colony.copy(
+                activeResearch = ResearchJob(
+                    technology = Technology.EXTRACTION,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 33.minutes,
+                ),
+                activeAdaptation = AdaptationJob(
+                    technology = AdaptationTechnology.THERMAL,
+                    toLevel = TechLevel(1),
+                    startedAt = EPOCH,
+                    completesAt = EPOCH + 33.minutes + 30.seconds,
+                ),
+                subscribed = colony.subscribed +
+                    WatchTarget.Project(Technology.EXTRACTION) +
+                    WatchTarget.Ladder(AdaptationTechnology.THERMAL),
+            )
+        }
+
+        // when
+        GameNotifications(scheduler).sync(state, now = EPOCH)
+
+        // then — spelled to the end of the count the model allows, and every name listed: a group
+        // that said "and 4 more" would be an alert you have to open the app to understand
+        // The names are in the order the things actually land, which is core's ordering and not this
+        // file's: both slots free after the last facility here, applied before adaptation.
+        val notification = scheduler.scheduled.single()
+        assertEquals("Eight upgrades are done", notification.title)
+        assertEquals(
+            // "Thermal Adaptation" rather than the Research screen's "Thermal": an alert is read
+            // with the app closed and has no heading above it to borrow the noun from.
+            "Metal Mine, Crystal Mine, Deuterium Synthesizer, Solar Plant, Robotics Factory, " +
+                "Nanite Factory, Extraction and Thermal Adaptation — pick what your colony builds next.",
+            notification.body,
+        )
+    }
+
+    // The seventh, which now has a branch of its own to be spelled by rather than falling through an
+    // `else`. Six facilities and one project: the shape the test above had before the split.
+    @Test
+    fun `seven is spelled out rather than reached by falling off the end`() = runTest {
         val scheduler = FakeNotificationScheduler()
         val state = subscribedBuilds(
             *BuildingType.entries.mapIndexed { index, building ->
@@ -302,20 +352,9 @@ class GameNotificationsTest {
             )
         }
 
-        // when
         GameNotifications(scheduler).sync(state, now = EPOCH)
 
-        // then — spelled to the end of the count the model allows, and every name listed: a group
-        // that said "and 4 more" would be an alert you have to open the app to understand
-        // The names are in the order the things actually land, which is core's ordering and not this
-        // file's: the research slot frees after the last facility here, so it reads last.
-        val notification = scheduler.scheduled.single()
-        assertEquals("Seven upgrades are done", notification.title)
-        assertEquals(
-            "Metal Mine, Crystal Mine, Deuterium Synthesizer, Solar Plant, Robotics Factory, " +
-                "Nanite Factory and Extraction — pick what your colony builds next.",
-            notification.body,
-        )
+        assertEquals("Seven upgrades are done", scheduler.scheduled.single().title)
     }
 
     // The counts between the pair and the ceiling, so the whole spelled table is exercised rather
@@ -342,7 +381,7 @@ class GameNotificationsTest {
 
     @Test
     fun `a finished ladder joins the group under its full name`() = runTest {
-        // given a ladder holding the shared slot and landing beside a facility. The group's naming is
+        // given a ladder holding its branch's slot and landing beside a facility. The group's naming is
         // its own branch, so without this the ladder arm is held up by the compiler alone — which is
         // exactly the state the singleton alerts were in before their own test.
         val scheduler = FakeNotificationScheduler()

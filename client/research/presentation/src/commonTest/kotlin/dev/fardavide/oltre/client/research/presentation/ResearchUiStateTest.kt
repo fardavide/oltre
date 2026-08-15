@@ -211,7 +211,7 @@ class ResearchUiStateTest {
     }
 
     @Test
-    fun `a row waits on the slot when the other branch is the one holding it`() {
+    fun `a row does not wait on the other branch's slot`() {
         // given everything paid for and an adaptation ladder two hours from done
         val row = colony(
             buildings = gated(),
@@ -219,9 +219,27 @@ class ResearchUiStateTest {
             activeAdaptation = ladder(completesAt = EPOCH + 2.hours),
         ).rowFor(Technology.PHOTOVOLTAICS)
 
-        // then - one slot, shared: a ladder holds it exactly as hard as a technology does, and a
-        // row that read only `activeResearch` would offer to start a project the model refuses.
-        assertEquals(ResearchActionUiState.AvailableIn("in 2h 00m"), row.action)
+        // then — a slot each since 0.12.2, so the row offers what `startResearch` will accept. This
+        // test used to assert the exact opposite, on the exact same fixture: while the branches
+        // shared a slot, ghosting the row was what kept the screen honest. The rule it is holding to
+        // never changed — offer precisely what the model accepts — only the model did.
+        assertEquals(ResearchActionUiState.Start, row.action)
+    }
+
+    @Test
+    fun `a row still waits on its own branch's slot`() {
+        // The other side of the same rule, so the two are read together: what a running project
+        // ghosts out is the three rows beside it and nothing on the ladder half of the screen.
+        val state = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 300, crystal = 150, deuterium = 100),
+            activeResearch = project(completesAt = EPOCH + 2.hours),
+        )
+
+        assertEquals(
+            ResearchActionUiState.AvailableIn("in 2h 00m"),
+            state.rowFor(Technology.PHOTOVOLTAICS).action,
+        )
     }
 
     @Test
@@ -411,12 +429,24 @@ class ResearchUiStateTest {
     // stops a ladder starting, and the ghost says so with the same number the countdown four rows
     // up is reading.
     @Test
-    fun `a ladder waits on the slot while a technology holds it`() {
+    fun `a ladder does not wait on the slot a technology holds`() {
         // given
         val row = adaptable(activeResearch = project(completesAt = EPOCH + 2.hours))
             .adaptationRowFor(AdaptationTechnology.GRAVITIC)
 
-        // then
+        // then — the ladder half of the same reversal the applied rows got at 0.12.2. This is the
+        // side a player will notice first: reading a `BLOCKED` world and then finding the ladder that
+        // fixes it ghosted behind a mine upgrade is the wait Davide called the game too slow for.
+        assertEquals(ResearchActionUiState.Start, row.action)
+    }
+
+    @Test
+    fun `a ladder still waits while another ladder is climbing`() {
+        // One ladder at a time is untouched: which axis to widen next is still a choice, and the
+        // screen has to keep saying so or it offers a tap `startAdaptation` refuses as `SlotBusy`.
+        val row = adaptable(activeAdaptation = ladder(completesAt = EPOCH + 2.hours))
+            .adaptationRowFor(AdaptationTechnology.THERMAL)
+
         assertEquals(ResearchActionUiState.AvailableIn("in 2h 00m"), row.action)
     }
 
@@ -1316,19 +1346,20 @@ class ResearchUiStateTest {
         builds = emptyMap(),
         research = research,
         activeResearch = activeResearch,
-        // The other half of the same slot, and never set alongside `activeResearch` — `GameState`
-        // refuses that pair. What the rows have to answer for is a slot held by either branch.
+        // The other branch's slot, which since 0.12.2 *can* be set alongside `activeResearch` —
+        // `GameState` used to refuse that pair and no longer does. What each row has to answer for
+        // is its own branch's slot and never the other's.
         activeAdaptation = activeAdaptation,
         galaxy = freshState().galaxy,
-        // Probes hold no research slot and never will: the scarcity a ladder competes for is the
-        // one slot, and the scarcity a probe competes for is metal.
+        // Probes hold no research slot and never will: the scarcity a ladder competes for is its
+        // branch's slot, and the scarcity a probe competes for is metal.
         surveys = emptyList(),
         // The same holds for the fleet, and one line further: an idle hull and a run in flight both
         // compete for metal, and neither can hold the slot this screen is entirely about.
         ships = Ships.NONE,
         runs = emptyList(),
         // The slipway, which this screen draws none of: a hull competes for metal and crystal and
-        // never for the one research slot.
+        // never for either research slot.
         yard = emptyList(),
         // The one slot the watch holds, which this screen shares with the colony's — a parameter,
         // because `watch` on a row is derived from it.
@@ -1345,8 +1376,8 @@ class ResearchUiStateTest {
     private fun gated(robotics: Int = 1): Buildings =
         Buildings.initial().withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(robotics))
 
-    // The slot is empire-wide, so "the slot is busy" means busy with *something else* — the
-    // default is deliberately not the technology these tests then ask about.
+    // The applied slot is empire-wide within its branch, so "the slot is busy" means busy with
+    // *another technology* — the default is deliberately not the one these tests then ask about.
     private fun project(
         completesAt: Instant,
         technology: Technology = Technology.EXTRACTION,
@@ -1357,7 +1388,7 @@ class ResearchUiStateTest {
         completesAt = completesAt,
     )
 
-    // The same slot, held by the branch this screen does not render.
+    // The other branch's slot, which this screen renders below the applied rows.
     private fun ladder(completesAt: Instant): AdaptationJob = AdaptationJob(
         technology = AdaptationTechnology.GRAVITIC,
         toLevel = TechLevel(1),

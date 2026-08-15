@@ -14,7 +14,8 @@ sealed interface FutureEvent {
     // The three kinds a player now has to ask about, named as a set so that asking is one
     // `filterIsInstance` rather than three branches that could drift apart. A marker and nothing
     // else: what the three share is that each is a job the player started, that the model caps them
-    // at seven, and that several landing together are one piece of news.
+    // at eight — six facilities, one applied project and one ladder since the branches stopped
+    // sharing a slot — and that several landing together are one piece of news.
     //
     // It lives in `core` although only the notification layer reads it, for the reason the rest of
     // this file does: what "an upgrade completing" *is* belongs with the simulation, and a client
@@ -70,7 +71,7 @@ sealed interface FutureEvent {
 
     // A hull leaving the slipway. **Deliberately not a `Completion`**, although it is unmistakably a
     // job the player started — that marker means three specific things, and this fails the second of
-    // them: the model caps completions at seven, and a serial yard queue has no cap at all. It is
+    // them: the model caps completions at eight, and a serial yard queue has no cap at all. It is
     // therefore an unbounded kind, like a probe landing and a fleet return, and the notification
     // layer's budget has to name it as one.
     //
@@ -113,9 +114,10 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
     val project = state.activeResearch?.let { job ->
         FutureEvent.ResearchCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
     }
-    // The other half of the same slot. Only one of the two can be set, so at most one of these two
-    // lines ever contributes — but both are read, because a derivation that assumed which branch
-    // holds the slot would silently stop predicting the day that assumption changed.
+    // The other branch, now with a slot of its own — so both of these lines contribute at once, which
+    // they could not before 0.12.2. Both were always read anyway, *"because a derivation that assumed
+    // which branch holds the slot would silently stop predicting the day that assumption changed"*,
+    // and that day arrived: this file needed no change for it.
     val ladder = state.activeAdaptation?.let { job ->
         FutureEvent.AdaptationCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
     }

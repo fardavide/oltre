@@ -136,7 +136,9 @@ class ResearchScreenBehaviourTest {
         researchScreen(uiState = oneProjectInFlightUiState, width = SLIDE_OVER_WIDTH) {
             assertRowReads(Technology.ENRICHMENT, "+6/h deuterium")
             assertRowDoesNotRead(Technology.ENRICHMENT, "back in")
-            assertReads("one at a time")
+            // Twice, once per branch: both section rules shorten to the same three words at this
+            // width, which since 0.12.2 is two rules that happen to read alike rather than one.
+            assertReadsTimes("one at a time", times = 2)
             assertNothingReads("one project at a time")
         }
     }
@@ -281,11 +283,14 @@ class ResearchScreenBehaviourTest {
         assertEquals(listOf(AdaptationTechnology.THERMAL), started.toList())
     }
 
-    // The whole argument for one screen, driven: a technology in flight is what stops all three
-    // ladders, and the number every one of them shows is the number the countdown four rows up is
-    // counting. Nothing on the screen explains that, and nothing has to.
+    // **The seam, driven from the screen — and it moved at 0.12.2.** A technology in flight used to
+    // stop all three ladders too, and this test asserted that both halves refused. Two slots means
+    // the refusal stops at the heading: every applied row is still dead while the countdown runs, and
+    // every ladder is live. The two assertions below are the same two lines they always were, saying
+    // the opposite thing about the second one — which is what makes this the test to read first when
+    // asking what the split actually did to the player.
     @Test
-    fun `a project in flight stops both branches with the same number on every row`() {
+    fun `a project in flight stops its own branch and leaves the ladders live`() {
         // given
         val applied = mutableListOf<Technology>()
         val ladders = mutableListOf<AdaptationTechnology>()
@@ -297,16 +302,46 @@ class ResearchScreenBehaviourTest {
             onStartAdaptation = { ladders += it },
         ) {
             assertCountsDown(Technology.PHOTOVOLTAICS, "01:12:44")
-            AdaptationTechnology.entries.forEach {
-                assertWaits(it, "in 1h 13m")
-                startResearching(it)
-            }
+            AdaptationTechnology.entries.forEach { startResearching(it) }
             Technology.entries.forEach { startResearching(it) }
         }
 
-        // then — one slot, shared, and the screen refuses on both sides of the seam
+        // then
         assertEquals(emptyList<Technology>(), applied.toList())
+        assertEquals(AdaptationTechnology.entries.toList(), ladders.toList())
+    }
+
+    // **The same seam from the other side**, and the state that could not be drawn before 0.12.2: a
+    // ladder climbing while the applied branch is entirely free. It is the half of the split a player
+    // meets after reading a `BLOCKED` world — buy the ladder the row named, and the colony's own
+    // research is untouched by it.
+    @Test
+    fun `a ladder in flight stops its own branch and leaves the technologies live`() {
+        // given
+        val applied = mutableListOf<Technology>()
+        val ladders = mutableListOf<AdaptationTechnology>()
+
+        // when every row of both branches is tapped
+        researchScreen(
+            uiState = oneLadderInFlightUiState,
+            onStartResearch = { applied += it },
+            onStartAdaptation = { ladders += it },
+        ) {
+            assertCountsDown(AdaptationTechnology.THERMAL, "02:30:00")
+            // The two it does stop read the countdown above them, which is the property the applied
+            // branch has always had and the ladders now have on their own: the number verifies itself.
+            assertWaits(AdaptationTechnology.GRAVITIC, "in 2h 30m")
+            assertWaits(AdaptationTechnology.ATMOSPHERIC, "in 2h 30m")
+            // Technologies first, and it is not cosmetic: scrolling from the last ladder back to the
+            // first technology and clicking in one step drops that click, so a run that taps the
+            // bottom of the list and then the top loses its first tap. Screen order avoids it.
+            Technology.entries.forEach { startResearching(it) }
+            AdaptationTechnology.entries.forEach { startResearching(it) }
+        }
+
+        // then
         assertEquals(emptyList<AdaptationTechnology>(), ladders.toList())
+        assertEquals(Technology.entries.toList(), applied.toList())
     }
 
     @Test
@@ -322,7 +357,7 @@ class ResearchScreenBehaviourTest {
                 assertRowReads(it, "Requires Robotics 2")
             }
             assertReads("ADAPTATION")
-            assertReads("the same slot")
+            assertReads("one ladder at a time")
         }
     }
 
@@ -350,7 +385,11 @@ class ResearchScreenBehaviourTest {
         researchScreen(uiState = gateOpenUiState, width = SLIDE_OVER_WIDTH) {
             assertRowReads(AdaptationTechnology.GRAVITIC, "5 worlds, 1 worth taking")
             assertNothingReads("Unlocks 5 worlds")
-            assertReads("the same slot")
+            // The section rule shortens at this width now, where "the same slot" used to be short
+            // enough to survive it. Asserted as an absence because at 320dp both headings read the
+            // same three words — which is the correct reading, each section stating its own rule,
+            // and is exactly why the long form is what a test can point at unambiguously.
+            assertNothingReads("one ladder at a time")
         }
     }
 }

@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.Research
+import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -47,7 +48,7 @@ class AdaptationBehaviourTest {
 
             // and the tab that opens is already showing the ladder, with no scrolling to do
             assertReads("ADAPTATION")
-            assertReads("the same slot")
+            assertReads("one ladder at a time")
             // The band the empire already holds used to be the thing asserted here; since the
             // verdict took that line it is the first sentence of the sheet the row opens, which is
             // a claim about the Research screen and is made there.
@@ -84,21 +85,58 @@ class AdaptationBehaviourTest {
         }
     }
 
-    // The other half of the shared slot, from the other screen: with a ladder running, the applied
-    // branch cannot start either, and the Galaxy tab is still readable while it runs.
+    // **The split, end to end, and the test this replaces was passing for the wrong reason.** It read
+    // "a running ladder holds the slot against the applied branch" and asserted that nothing offered
+    // Research once the ladder was running — which was true at 0.11 because of the slot, and stayed
+    // true after 0.12.2 removed the slot, because `onePressureBandShort` funds *precisely one
+    // project* and the ladder spends it. A green assertion about a rule that no longer exists.
+    //
+    // Funded properly, the two branches come apart: the ladder runs, an applied technology is still
+    // offered, and starting it leaves both in flight at once. Nothing here is stubbed but the clock —
+    // `startAdaptation`, `startResearch` and `advance` are core's, on one real colony.
     @Test
-    fun `a running ladder holds the slot against the applied branch`() {
-        val game = TestGame(initial = onePressureBandShort(), start = EPOCH)
+    fun `a running ladder leaves the applied branch free to start`() {
+        val game = TestGame(initial = onePressureBandShort().richEnoughForAnything(), start = EPOCH)
 
         game(game) {
             open(OltreTab.RESEARCH)
             startTheAtmosphericLadder()
 
-            // the countdown is the row's, and no row on either side of the seam offers to start
+            // the ladder's own row carries the countdown
             assertReads("→ LV 3")
+
+            // and the applied branch is untouched by it — which is the whole ruling, and the thing
+            // that would have been false one version ago. Enrichment by name rather than "the first
+            // one offered": what is being asserted is that a *particular* row the ladder used to
+            // block is live, so the row has to be identified rather than discovered.
+            startTheEnrichmentProject()
+
+            // both in flight at once: two rows counting down, and the branch that changes the map
+            // cost nothing the colony was already doing
+            assertReads("→ LV 3")
+            assertReads("→ LV 5")
+
+            // each branch is still one deep, so with both slots full nothing on either side offers
             assertNothingOffersResearch()
+
+            // and both land, on their own clocks, out of one `advance`
+            letTimePass(by = 7.hours)
+            open(OltreTab.GALAXY)
+            assertNothingReads(REMEDY)
         }
     }
+
+    // **The stock `onePressureBandShort` holds is exactly one ladder level**, which was the point
+    // while the slot was shared: it arranged the sting so a test could name it, and "nothing else is
+    // offered" meant the slot. With two slots that same arrangement *hides* what is under test —
+    // price and rule become indistinguishable again, which is exactly how the test this replaces
+    // stayed green through a change that deleted the rule it was named after.
+    //
+    // Funded past every price on the screen, the assertions can only be about rules. Every remaining
+    // row is affordable, so a row that offers nothing is a row its branch's slot is holding.
+    private fun GameState.richEnoughForAnything(): GameState = copy(
+        resources = Resources.of(metal = 5_000_000, crystal = 5_000_000, deuterium = 5_000_000),
+    )
 
     // Seed 20,260,807's home system, which the galaxy suite already reads. **The levels and the
     // funding are derived from the target world rather than written out**, because 0.5.1 moved

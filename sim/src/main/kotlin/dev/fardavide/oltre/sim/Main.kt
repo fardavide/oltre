@@ -892,17 +892,46 @@ private fun optionsFor(state: GameState, plan: List<BuildingType>, withProjects:
     val buildings = plan
         .map { it to PlaceholderBalance.upgradeCost(it, BuildingLevel(state.buildings.levelOf(it).value + 1)) }
         .sortedBy { (_, cost) -> cost.metal + cost.crystal }
-    if (!withProjects || state.researchSlotFreesAt != null) return Options(buildings, emptyList())
+    if (!withProjects) return Options(buildings, emptyList())
 
-    // Both branches compete for the one slot, so they are one list sorted by one key. Cheapest
-    // first, the same rule the buildings follow — a rule, not a judgement about which is better.
-    val applied = Technology.entries
-        .filter { ResearchBalance.requirementFor(it).isMetBy(state) }
-        .map { it as Any to ResearchBalance.researchCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
-    val ladders = AdaptationTechnology.entries
-        .filter { AdaptationBalance.requirementFor(it).isMetBy(state) }
-        .map { it as Any to AdaptationBalance.adaptationCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
+    // Still one list sorted by one key — cheapest first, the same rule the buildings follow, a rule
+    // rather than a judgement about which branch is better. What changed at 0.12.2 is that a branch
+    // is emptied out **on its own slot** rather than both on one: a project in flight says nothing
+    // about whether a ladder can start, and a filter that asked one question for both would leave
+    // whichever branch happened to be idle permanently unbought.
+    val applied = if (state.activeResearch != null) {
+        emptyList()
+    } else {
+        Technology.entries
+            .filter { ResearchBalance.requirementFor(it).isMetBy(state) }
+            .map { it as Any to ResearchBalance.researchCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
+    }
+    val ladders = if (state.activeAdaptation != null) {
+        emptyList()
+    } else {
+        AdaptationTechnology.entries
+            .filter { AdaptationBalance.requirementFor(it).isMetBy(state) }
+            .map { it as Any to AdaptationBalance.adaptationCost(it, TechLevel(state.research.levelOf(it).value + 1)) }
+    }
     return Options(buildings, (applied + ladders).sortedBy { (_, cost) -> priced(cost) })
+}
+
+// Whether the branch this project belongs to is already busy. Asked per project rather than once per
+// visit because a loop that starts one project has filled one slot and left the other open — which
+// is the whole of what two queues changed for every runner below.
+private fun GameState.slotBusyFor(project: Any): Boolean = when (project) {
+    is Technology -> activeResearch != null
+    is AdaptationTechnology -> activeAdaptation != null
+    else -> true
+}
+
+// When the slot this project takes frees, read *after* the start — so it is the job just booked and
+// never whatever the other branch happens to be holding. Null when the start was refused, which is
+// what the callers below use to tell a purchase from a skip.
+private fun GameState.slotFreesAfter(project: Any): Instant? = when (project) {
+    is Technology -> activeResearch?.completesAt
+    is AdaptationTechnology -> activeAdaptation?.completesAt
+    else -> null
 }
 
 // One hour-stepped run of one strategy. Shared by both reports below so the two differ in what they
@@ -929,7 +958,7 @@ private fun run(days: Int, plan: List<BuildingType>, withProjects: Boolean): Pai
             }
         }
         for ((project, cost) in options.projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state; ledger.spend(cost) }
@@ -1160,14 +1189,14 @@ private fun openingReport(withProbes: Boolean) {
             }
         }
         for ((project, cost) in options.projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state }
                 is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
                     ?.let { state = it.state }
             }
-            state.researchSlotFreesAt?.let { freesAt ->
+            state.slotFreesAfter(project)?.let { freesAt ->
                 bought += "$project"
                 colonyBusy += now to freesAt
             }
@@ -1765,7 +1794,7 @@ private fun fleetRun(
                 }
             }
             for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
-                if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+                if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
                 when (project) {
                     is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                         ?.let { state = it.state; ledger.spend(cost) }
@@ -1773,7 +1802,7 @@ private fun fleetRun(
                         (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)
                             ?.let { state = it.state; ledger.spend(cost) }
                 }
-                state.researchSlotFreesAt?.let { freesAt ->
+                state.slotFreesAfter(project)?.let { freesAt ->
                     colonyBusy += now to freesAt
                     colonyCover.add(now, freesAt, genesis)
                 }
@@ -2149,7 +2178,7 @@ private fun printSkiffAgainstColony() {
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
         for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state }
@@ -2612,15 +2641,17 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
         })
     }
 
-    // Both branches share one empire-wide slot, so at most one of these six can ever be OFFERED at
-    // once however many are affordable. That ceiling is the single most important thing this census
-    // says about the mid game, and no count of rows would show it.
-    val slotBusy = state.researchSlotFreesAt != null
+    // **A slot each since 0.12.2, so the ceiling this reports is two rather than one.** The old note
+    // here said at most one of the six could ever be OFFERED at once however many were affordable,
+    // and called that the single most important thing the census said about the mid game. It is now
+    // one applied row and one ladder — a smaller claim, and still one no count of rows would show.
+    val projectBusy = state.activeResearch != null
+    val ladderBusy = state.activeAdaptation != null
     for (technology in Technology.entries) {
         val cost = ResearchBalance.researchCost(technology, TechLevel(state.research.levelOf(technology).value + 1))
         census.add("research", when {
             !ResearchBalance.requirementFor(technology).isMetBy(state) -> Barrier.GATE
-            slotBusy -> Barrier.SLOT
+            projectBusy -> Barrier.SLOT
             state.resources.covers(cost) -> Barrier.OFFERED
             else -> Barrier.PRICE
         })
@@ -2629,7 +2660,7 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
         val cost = AdaptationBalance.adaptationCost(ladder, TechLevel(state.research.levelOf(ladder).value + 1))
         census.add("adapt", when {
             !AdaptationBalance.requirementFor(ladder).isMetBy(state) -> Barrier.GATE
-            slotBusy -> Barrier.SLOT
+            ladderBusy -> Barrier.SLOT
             state.resources.covers(cost) -> Barrier.OFFERED
             else -> Barrier.PRICE
         })
@@ -2723,7 +2754,7 @@ private fun interactionCensus(days: Int, showTable: Boolean) {
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state; acted++ }
         }
         for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state; acted++ }
@@ -2847,7 +2878,7 @@ private fun printGateClock() {
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
         for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state }
@@ -2934,7 +2965,7 @@ private fun printProgressionMilestones() {
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
         for ((project, cost) in optionsFor(state, plan, withProjects = true).projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state }
@@ -3266,7 +3297,7 @@ private fun depositRun(
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
         for ((project, cost) in optionsFor(state, FULL_PLAN, withProjects = true).projects) {
-            if (state.researchSlotFreesAt != null || !state.resources.covers(cost)) continue
+            if (state.slotBusyFor(project) || !state.resources.covers(cost)) continue
             when (project) {
                 is Technology -> (startResearch(state, project, at = now) as? StartResearchResult.Started)
                     ?.let { state = it.state }

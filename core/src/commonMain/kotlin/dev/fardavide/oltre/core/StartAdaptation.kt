@@ -5,10 +5,11 @@ import kotlin.time.Instant
 sealed interface StartAdaptationResult {
     data class Started(val state: GameState) : StartAdaptationResult
 
-    // Not "already adapting" and not "already researching": the slot is empire-wide and shared with
-    // the applied branch, so a busy slot refuses every project of either kind. A player who is two
-    // hours into Extraction 4 cannot start Gravitic 1, and that is the mechanic rather than a
-    // limitation of it.
+    // "Already adapting", and only that. The branch's slot is empire-wide — one ladder at a time,
+    // whichever ladder — so the choice of which axis to widen next is still a choice. It has not
+    // meant "already researching" since 0.12.2: a player two hours into Extraction 4 can start
+    // Gravitic 1, which is exactly what Davide asked for and exactly what the adaptation sheet's §2
+    // argued against.
     data object SlotBusy : StartAdaptationResult
     data object InsufficientResources : StartAdaptationResult
     data object RequirementsNotMet : StartAdaptationResult
@@ -22,7 +23,7 @@ sealed interface StartAdaptationResult {
 // `Research`; the map re-reads it through `Research.adaptationLevels()` and worlds that were
 // `Blocked` stop being blocked, without anything here knowing a world exists.
 fun startAdaptation(state: GameState, technology: AdaptationTechnology, at: Instant): StartAdaptationResult {
-    if (state.researchSlotFreesAt != null) return StartAdaptationResult.SlotBusy
+    if (state.activeAdaptation != null) return StartAdaptationResult.SlotBusy
     if (!AdaptationBalance.requirementFor(technology).isMetBy(state)) return StartAdaptationResult.RequirementsNotMet
     val toLevel = TechLevel(state.research.levelOf(technology).value + 1)
     val cost = AdaptationBalance.adaptationCost(technology, toLevel)

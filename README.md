@@ -206,6 +206,17 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.12.2 — 2026-08-16
+
+- **Adaptation and technologies no longer take turns.** Each branch has its own queue, so a Gravitic
+  ladder and an Extraction level run side by side instead of one waiting for the other. Reading a
+  blocked world and buying the ladder that fixes it no longer costs you the mine upgrade you were
+  in the middle of.
+- Each branch is still one at a time on its own: one project, one ladder. Picking which is still the
+  decision — you just get to make it twice.
+- The Research screen says so. The ADAPTATION heading carries its own rule instead of pointing at
+  the one above it, and a ladder stops greying out because a technology is running.
+
 ### 0.12.1 — 2026-08-16
 
 - **The bar under the map is back on the screen.** On a phone the galaxy was drawn at its full height

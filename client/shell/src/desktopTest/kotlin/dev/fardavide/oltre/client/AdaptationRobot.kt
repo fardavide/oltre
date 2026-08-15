@@ -30,8 +30,11 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StartAdaptationResult
+import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startAdaptation
+import dev.fardavide.oltre.core.startResearch
 import kotlin.time.Duration
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
@@ -55,6 +58,19 @@ internal class TestGame(initial: GameState, start: Instant) {
     fun start(technology: AdaptationTechnology) {
         val result = startAdaptation(state, technology, at = now)
         state = (result as StartAdaptationResult.Started).state
+    }
+
+    // **The applied branch, driven for real since 0.12.2.** The harness used to wire `onStartResearch`
+    // to nothing, which was right while this file's one journey was a ladder: an unwired callback is a
+    // screen whose taps cannot change the colony. It stopped being right when the two branches came
+    // apart, because the seam under test is now precisely whether starting one leaves the other free —
+    // a question no harness that can only start ladders can ask.
+    //
+    // The cast is the assertion: a refused start fails here, by name, rather than as a missing row
+    // three lines later.
+    fun start(technology: Technology) {
+        val result = startResearch(state, technology, at = now)
+        state = (result as StartResearchResult.Started).state
     }
 
     fun letTimePass(by: Duration) {
@@ -84,7 +100,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                     now = game.now,
                                     timeZone = TimeZone.UTC,
                                 ),
-                                onStartResearch = {},
+                                onStartResearch = { game.start(it) },
                                 onStartAdaptation = { game.start(it) },
                                 onToggleTechnologyWatch = {},
                                 onToggleAdaptationWatch = {},
@@ -177,6 +193,14 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
         test.onNode(hasTestTag(ATMOSPHERIC_ACTION)).performScrollTo().performClick()
     }
 
+    // The applied counterpart, by tag for the same reason and named for the same need: the test that
+    // uses it is about *which* row started, so "the first one offered" would not identify it — and
+    // after 0.12.2 a ladder no longer holds the applied branch, so which rows are offered while one
+    // is running is exactly the thing under test rather than a fact the fixture can assume.
+    fun startTheEnrichmentProject() = apply {
+        test.onNode(hasTestTag(ENRICHMENT_ACTION)).performScrollTo().performClick()
+    }
+
     fun assertNothingOffersResearch() = apply {
         test.onNode(researchButton).assertDoesNotExist()
     }
@@ -210,5 +234,8 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
         // Mirrors `ResearchTestTags.action(AdaptationTechnology.ATMOSPHERIC)`, which is internal to
         // another module. See `startTheAtmosphericLadder`.
         const val ATMOSPHERIC_ACTION = "research-action-atmospheric"
+
+        // And `ResearchTestTags.action(Technology.ENRICHMENT)`, mirrored for the same reason.
+        const val ENRICHMENT_ACTION = "research-action-enrichment"
     }
 }

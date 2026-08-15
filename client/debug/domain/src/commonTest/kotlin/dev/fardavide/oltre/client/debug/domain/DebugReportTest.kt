@@ -23,6 +23,7 @@ class DebugReportTest {
         assertEquals(0, report.buildsInFlight)
         assertEquals(0, report.surveysInFlight)
         assertFalse(report.researchSlotBusy)
+        assertFalse(report.adaptationSlotBusy)
         assertFalse(report.fleetInbound)
         assertFalse(report.debugUsed)
         assertNull(report.nextEvent)
@@ -99,6 +100,7 @@ class DebugReportTest {
                 buildsInFlight = 0,
                 surveysInFlight = 0,
                 researchSlotBusy = false,
+                adaptationSlotBusy = false,
                 fleetInbound = false,
                 nextEvent = null,
             ),

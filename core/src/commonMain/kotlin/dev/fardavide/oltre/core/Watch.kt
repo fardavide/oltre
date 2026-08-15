@@ -25,7 +25,8 @@ sealed interface WatchTarget {
     data class Project(val technology: Technology) : WatchTarget
 
     // Its own member rather than a widened `Project`, for the reason `AdaptationCompleted` is its
-    // own event: the two branches share one slot and are still not the same kind of thing.
+    // own event: the two branches are not the same kind of thing. That was true while they shared a
+    // slot and it is what made splitting them at 0.12.2 cost nothing here.
     @Serializable
     @SerialName("Ladder")
     data class Ladder(val technology: AdaptationTechnology) : WatchTarget
@@ -68,7 +69,7 @@ sealed interface WatchedPurchase {
 //
 // The two halves count differently. **One affordability watch in the whole game**, shared by the
 // facilities, the technologies and the ladders, so pointing it at another row moves it; **any number
-// of subscriptions**, because each is a job the player started and the model caps those at seven.
+// of subscriptions**, because each is a job the player started and the model caps those at eight.
 // Either way the undo is the same tap, which is why neither asks for confirmation.
 fun toggleAlert(state: GameState, target: WatchTarget): GameState = when {
     state.isRunning(target) -> state.copy(
@@ -86,8 +87,8 @@ fun FutureEvent.Completion.target(): WatchTarget = when (this) {
     is FutureEvent.AdaptationCompletes -> WatchTarget.Ladder(technology)
 }
 
-// Whether the thing this target points at is in flight right now. The research slot is shared by
-// two branches, so a technology is running only when *that* technology holds it.
+// Whether the thing this target points at is in flight right now. Each branch has a slot and each
+// slot holds one job, so a technology is running only when *that* technology holds its branch's.
 fun GameState.isRunning(target: WatchTarget): Boolean = when (target) {
     is WatchTarget.Facility -> target.building in builds
     is WatchTarget.Project -> activeResearch?.technology == target.technology

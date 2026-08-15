@@ -3253,3 +3253,63 @@ reads as extra dim systems. But `Starfield` is drawn by `MainScaffold` *inside* 
 under every screen, and a feature cannot reach up and turn it off. Hoisting a flag through
 `MainScaffold` for one substate of one tab was rejected in favour of the map painting one opaque rect
 over it. The worlds list keeps the sky.
+
+## Technologies and adaptations get a queue each (2026-08-15, 0.12.2)
+
+Davide, on having played it: *"Technologies and Adaptations run on the same queue, making the game
+too slow. I want to have a queue each."*
+
+This **overrules `adaptation-sheet.md` §2**, which had settled the opposite at 0.3 and argued it at
+length. The sheet keeps the argument in full with the ruling above it, because a decision sheet that
+quietly rewrites itself loses the reason the call was ever close.
+
+### What changed, in the model
+
+`activeResearch` and `activeAdaptation` were always two fields; what went is the `require` in
+`GameState.init` that kept at most one of them set. Each branch is **still serial on its own** —
+`startResearch` refuses on `activeResearch` alone, `startAdaptation` on `activeAdaptation` alone, and
+both still answer `SlotBusy` with the word now meaning *this branch's slot*. Picking which project
+and which ladder are two decisions; picking one no longer forecloses the other.
+
+**No save version.** The two fields have been on disk since schema 5 and the rule about which of them
+could be set was never written there — only `GameState.init` knew it, so relaxing it is invisible to
+the format. A save carrying both now decodes as an ordinary colony; `GameSaveTest` keeps the same
+hand-edited fixture and asserts the reversal rather than deleting the case.
+
+### The one place the change could have gone silently wrong
+
+`advance` picks the next boundary from a list of instants, and that list carried **one** term for
+both branches (`researchSlotFreesAt`, which read the applied job first). Left alone, a ladder due
+*earlier* than the project beside it would never be offered a boundary: `advance` would accrue
+straight past it forever, the level would never land, nothing would be logged, and no existing test
+would fail. The file already said so in as many words — *"a job kind missing from this expression
+never completes"* — and the property is now two terms with a test that arranges the losing order on
+purpose.
+
+The tie-break between the two branches needed no change at all, which is the return on `Advance.kt`
+having written it down while only one of them could ever be due: *"a tie-break that depends on which
+case happens to be reachable is one a later slice breaks."* This was that slice, and nothing moved.
+
+### `core`'s one checked-rather-than-unrepresentable rule about research is gone
+
+§2 called the `require` *"the one place in `core` where a rule is checked rather than made
+unrepresentable"* and booked a revisit for the day the Research screen rendered both branches. The
+revisit never happened and no longer can: two independent slots have no invariant to state, so the
+sealed `ActiveProject` that would have made it unrepresentable would now be actively wrong.
+
+### The prices did not move, deliberately
+
+Everything the adaptation sheet's §4 priced was priced against a trade — a ladder level cost you a
+production level — that no longer exists. Davide's call was to land the rule and measure before
+touching a number, so the two changes can be told apart. `balance-log.md` round 29 is that
+measurement: 28 readings moved, the fortnight lost seven building levels and stopped reaching the
+Nanite Factory, and income at day 14 rose by 10%. The dial, if one is wanted, is the adaptation base
+cost.
+
+### The screen says it, and one string changed
+
+The ADAPTATION heading read `"the same slot"` for eleven versions — copy that existed specifically to
+stop a player reading the two headings as one rule each. That reading is now correct, so the heading
+carries its own rule in the same shape as TECHNOLOGIES (`"one ladder at a time"`, `"one at a time"`
+compact). Placeholder copy like every other string on that screen: the shape is the decision, the
+wording is Davide's.

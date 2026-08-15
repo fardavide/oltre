@@ -173,27 +173,35 @@ class CheckInBalanceTest {
         }
     }
 
-    // How many research projects the colony could start, both branches, counting only what the one
-    // shared slot could actually take.
+    // How many research projects the colony could start, both branches, counting only what each
+    // branch's own slot could actually take — two slots since 0.12.2, so a running project no longer
+    // zeroes the ladders as well.
     private fun offeredProjects(state: GameState): Int {
-        if (state.researchSlotFreesAt != null) return 0
-        val applied = Technology.entries.count { technology ->
-            ResearchBalance.requirementFor(technology).isMetBy(state) &&
-                state.resources.covers(
-                    ResearchBalance.researchCost(
-                        technology,
-                        TechLevel(state.research.levelOf(technology).value + 1),
-                    ),
-                )
+        val applied = if (state.activeResearch != null) {
+            0
+        } else {
+            Technology.entries.count { technology ->
+                ResearchBalance.requirementFor(technology).isMetBy(state) &&
+                    state.resources.covers(
+                        ResearchBalance.researchCost(
+                            technology,
+                            TechLevel(state.research.levelOf(technology).value + 1),
+                        ),
+                    )
+            }
         }
-        val ladders = AdaptationTechnology.entries.count { ladder ->
-            AdaptationBalance.requirementFor(ladder).isMetBy(state) &&
-                state.resources.covers(
-                    AdaptationBalance.adaptationCost(
-                        ladder,
-                        TechLevel(state.research.levelOf(ladder).value + 1),
-                    ),
-                )
+        val ladders = if (state.activeAdaptation != null) {
+            0
+        } else {
+            AdaptationTechnology.entries.count { ladder ->
+                AdaptationBalance.requirementFor(ladder).isMetBy(state) &&
+                    state.resources.covers(
+                        AdaptationBalance.adaptationCost(
+                            ladder,
+                            TechLevel(state.research.levelOf(ladder).value + 1),
+                        ),
+                    )
+            }
         }
         return applied + ladders
     }

@@ -200,6 +200,24 @@ class GameSaveTest {
     }
 
     @Test
+    fun `a colony running both branches at once survives a round trip`() {
+        // The save format did not move for this and did not need to: both fields have been on disk
+        // since schema 5 and the only thing that changed is that `GameState.init` no longer refuses
+        // to build a state holding both. So there is no hop — but a decode is a construction, which
+        // is exactly where the old rule was checked, and this is what proves it has actually gone.
+        val state = GameState.initial()
+            .researching(Technology.EXTRACTION, at = EPOCH)
+            .adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
+        val snapshot = GameSnapshot(lastUpdatedAt = EPOCH, state = state)
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        assertEquals(snapshot, decoded)
+        assertEquals(state.activeResearch, decoded.state.activeResearch)
+        assertEquals(state.activeAdaptation, decoded.state.activeAdaptation)
+    }
+
+    @Test
     fun `research queued before the app closed completes while it is closed`() {
         // given
         val started = GameState.initial().researching(Technology.EXTRACTION, at = EPOCH)
@@ -747,16 +765,15 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a version 4 save whose slot was busy still holds one project after the hop`() {
-        // The invariant the 4 -> 5 hop could break if it invented an adaptation job: version 4 has
-        // an applied project running, so the migrated state must leave the other field empty or
-        // `GameState.init` refuses to build it at all.
+    fun `a version 4 save whose slot was busy invents no ladder for the branch it predates`() {
+        // The 4 -> 5 hop's own rule, and it outlives the invariant that used to enforce it: version 4
+        // has an applied project running and knows nothing about adaptation, so the migrated state
+        // must leave the other slot empty. Until 0.12.2 `GameState.init` would have refused a hop
+        // that invented one; now nothing would, which is why this asserts it directly.
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
 
-        assertEquals(
-            checkNotNull(decoded.state.activeResearch).completesAt,
-            decoded.state.researchSlotFreesAt,
-        )
+        assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
+        assertEquals(null, decoded.state.activeAdaptation)
     }
 
     @Test
@@ -889,9 +906,12 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a save claiming both projects at once is refused rather than half-read`() {
-        // A hand-edited file, and the one shape `GameState.init` exists to reject. The failure has
-        // to be a Failure and not an exception escaping `decode`.
+    fun `a save claiming both projects at once is an ordinary colony now`() {
+        // **The one shape `GameState.init` used to exist to reject**, kept as the same hand-edited
+        // file so the reversal is legible rather than merely absent. Until 0.12.2 a save carrying
+        // both slots was refused as a broken one; two independent slots make it a colony halfway
+        // through a fortnight, and a decode that rejected it would be refusing a save the game itself
+        // writes. The other tampered saves next door still fail, so this is not `decode` going soft.
         val both = GameSave.encode(
             GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial().researching(Technology.EXTRACTION, EPOCH)),
         ).replace(
@@ -900,7 +920,10 @@ class GameSaveTest {
                 """"startedAt":"1970-01-01T00:00:00Z","completesAt":"1970-01-01T03:00:00Z"}""",
         )
 
-        assertIs<DecodeResult.Failure>(GameSave.decode(both))
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(both)).snapshot
+
+        assertEquals(Technology.EXTRACTION, checkNotNull(decoded.state.activeResearch).technology)
+        assertEquals(AdaptationTechnology.THERMAL, checkNotNull(decoded.state.activeAdaptation).technology)
     }
 
     @Test

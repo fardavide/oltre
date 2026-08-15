@@ -5,17 +5,22 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
-// **The one research slot, and whether both branches are still worth putting in it.**
+// **The two research slots, and whether both branches are still worth filling.**
 //
-// Six ladders — three applied technologies and three adaptation ladders — compete for a single
-// empire-wide slot. `ResearchBalanceTest` and `AdaptationBalanceTest` pin both published tables
-// value by value, which records what a level costs and asserts nothing about whether anyone would
-// ever buy it. That is the gap this file is for.
+// `ResearchBalanceTest` and `AdaptationBalanceTest` pin both published tables value by value, which
+// records what a level costs and asserts nothing about whether anyone would ever buy it. That is the
+// gap this file is for.
 //
-// It matters because the slot is the whole design. `AdaptationBalance`'s own header: the branches
-// *"compete for the same empire-wide slot the applied branch uses — so every adaptation level is
-// paid for in production levels you did not buy."* A choice between two things is only a choice
-// while both are live, and there are two ways for one to stop being live:
+// **What it is about changed at 0.12.2 and the tests did not**, which is worth stating rather than
+// quietly leaving. The file was written when the branches shared one slot and every adaptation level
+// was *"paid for in production levels you did not buy"* — so the ratio between the two tables was the
+// exchange rate of a real trade. There is no trade now: each branch has a slot of its own and a
+// ladder costs resources and a clock. The ratio still has to hold, for a weaker but sufficient
+// reason — the two branches spend the same three stores, so a discount reaching one and not the
+// other still makes the untouched branch the one nobody starts. Same assertion, smaller claim.
+//
+// A choice between two things is only a choice while both are live, and there are two ways for one
+// to stop being live:
 //
 // - **it stops paying back** — an exponential cost against a compounding effect has a depth past
 //   which no level is worth its own wait, and `ResearchBalance` says so in as many words: *"with a
@@ -138,7 +143,7 @@ class ResearchSlotBalanceTest {
                 if (!state.resources.covers(cost)) continue
                 (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
             }
-            if (state.researchSlotFreesAt != null) continue
+            if (state.activeResearch != null) continue
             for (technology in Technology.entries.sortedBy { priced(ResearchBalance.researchCost(it, nextTech(state, it))) }) {
                 val started = (startResearch(state, technology, at = now) as? StartResearchResult.Started)?.state
                 if (started != null) {

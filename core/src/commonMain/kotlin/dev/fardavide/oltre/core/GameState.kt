@@ -11,15 +11,21 @@ data class GameState(
     // rule. Ordering never matters here: `advance` picks the next completion by instant.
     val builds: Map<BuildingType, BuildJob>,
     val research: Research,
-    // One project at a time, empire-wide — the deliberate opposite of `builds`. The colony is
+    // One applied project at a time, empire-wide — the deliberate opposite of `builds`. The colony is
     // limited by resources and research is limited by time, which is what gives the two screens
     // different characters.
     val activeResearch: ResearchJob?,
-    // **The same slot**, held by the other branch. At most one of these two is ever set; the rule
-    // is in `init` below. Two fields rather than one sealed project because the branches carry
-    // different subjects and a sum type here would make every existing reader of `activeResearch`
-    // answer for a project it does not render — the 0.3 adaptation sheet's §2 says so, and says
-    // the reason has a shelf life.
+    // **A slot of its own since 0.12.2**, and this is the one field on `GameState` whose comment is a
+    // record of a design being overruled rather than of one being made. The two branches shared this
+    // slot from 0.0.17 — the adaptation sheet's §2 argued that the sharing *was* the scarcity, that
+    // every adaptation level should be paid for in production levels the player did not buy. Davide
+    // played it and called it: *"Technologies and Adaptations run on the same queue, making the game
+    // too slow. I want to have a queue each."*
+    //
+    // So the branches are independent and each is still serial on its own. What that costs is exactly
+    // what §2 said it would — a ladder is no longer weighed against a mine — and what it buys is that
+    // a five-minute check-in has two things to decide instead of one. The two fields were always two
+    // fields, so nothing about the save moved; what went is the `require` that used to sit below.
     val activeAdaptation: AdaptationJob?,
     // The seed and what the player has changed about the map — never the worlds themselves. See
     // `GalaxyState`.
@@ -59,8 +65,8 @@ data class GameState(
     // The jobs the player has asked to be told the *completion* of. **A set rather than a second
     // single slot, and that asymmetry is the design's** — an affordability watch is a guess about
     // what to do next and there is one thing you are waiting for, where a completion is something
-    // you already started and the model caps those at seven: six facilities and the one research
-    // slot. So any number is safe and none of them can overflow the platform's ceiling.
+    // you already started and the model caps those at eight: six facilities, one applied project and
+    // one ladder. So any number is safe and none of them can overflow the platform's ceiling.
     //
     // Emptied entry by entry as the jobs land — see `withoutSpentWatch`. A subscription is about the
     // job the player started, not a standing preference about the row.
@@ -68,14 +74,12 @@ data class GameState(
     val eventLog: List<Event>,
 ) {
     init {
-        // The single slot is research's only scarcity — 0.1 wrote it down in as many words — so a
-        // second branch that ran alongside it would mean the answer is always "run both" and the
-        // ladder that changes the map would cost nothing to push. This is the one place in `core`
-        // where a rule is checked rather than made unrepresentable; it is checked on every
-        // construction, which includes every decode, so a hand-edited save fails here.
-        require(activeResearch == null || activeAdaptation == null) {
-            "the research slot holds one project: was $activeResearch and $activeAdaptation"
-        }
+        // **There is no rule about the two research fields here any more**, and the absence is worth
+        // a line: from 0.0.17 to 0.11.3 this block opened with a `require` that at most one of them
+        // was set, and it was the one place in `core` where a rule was checked rather than made
+        // unrepresentable. Two independent slots need no check at all, so the shape that was going to
+        // be revisited the day the Research screen rendered both branches is simply gone instead.
+        //
         // The rule `builds` gets from its map key, stated here because the save format cannot hold
         // the map that would state it. Checked on every construction, which includes every decode.
         require(surveys.distinctBy { it.target }.size == surveys.size) {
@@ -90,10 +94,6 @@ data class GameState(
             "the yard serves one hull at a time: was ${yard.map { it.startedAt to it.completesAt }}"
         }
     }
-
-    // What is holding the slot, whichever branch it belongs to. Null means it is free now.
-    val researchSlotFreesAt: Instant?
-        get() = activeResearch?.completesAt ?: activeAdaptation?.completesAt
 
     companion object {
 
