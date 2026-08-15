@@ -98,22 +98,43 @@ class MapGeometryTest {
     // A ten-band map is 531dp tall at 393dp and at 320dp alike, which is what lets there be one
     // geometry rather than two.
     @Test
-    fun `the map is five hundred and thirty-one dp tall`() {
+    fun `the map is five hundred and thirty-one dp tall where there is room for it`() {
         assertEquals(531f, MapGeometry.HEIGHT_DP)
+        assertEquals(MapGeometry.BAND_DP, MapGeometry.bandHeightOf(MapGeometry.HEIGHT_DP))
+        // A window with room to spare draws what the sheet drew rather than ten stretched lanes.
+        assertEquals(MapGeometry.BAND_DP, MapGeometry.bandHeightOf(2_000f))
+    }
+
+    // **The defect 0.12.0 shipped, as arithmetic.** A fixed 531dp map on a phone that has 55dp of
+    // resource rail, 52dp of tab bar and two safe-area insets to pay for first pushed the caption off
+    // the bottom of the screen — and the caption is the map's only control, so the fold selected a
+    // star and could do nothing with it. The bands scale now, and a touch has to scale with them or
+    // every tap below the first band lands on the wrong system.
+    @Test
+    fun `a shorter map folds into shorter bands and the hit test follows`() {
+        val squeezed = 460f
+        val band = MapGeometry.bandHeightOf(squeezed)
+
+        assertTrue(band < MapGeometry.BAND_DP, "$band did not shrink")
+        assertEquals(squeezed, band * MapGeometry.BANDS - MapGeometry.BAND_GAP_DP, absoluteTolerance = 0.01f)
+        // The seventh band's own lane, at the squeezed pitch: a hit test still reading the design's
+        // 54dp band would land three bands out by the bottom of the map.
+        val seventh = MapGeometry.systemAt(x = 12f, y = band * 6 + band / 2f, width = 361f, height = squeezed)
+        assertEquals(7, MapGeometry.bandOf(seventh) + 1)
     }
 
     @Test
     fun `the nearest system to a touch is the one whose cell holds it`() {
         val width = 361f
-        assertEquals(1, MapGeometry.systemAt(x = 0f, y = 0f, width = width))
+        assertEquals(1, MapGeometry.systemAt(x = 0f, y = 0f, width = width, height = MapGeometry.HEIGHT_DP))
         val band6 = MapGeometry.laneMidOf(band = 6)
-        assertEquals(151, MapGeometry.systemAt(x = inset, y = band6, width = width))
-        assertEquals(175, MapGeometry.systemAt(x = inset + span, y = band6, width = width))
+        assertEquals(151, MapGeometry.systemAt(x = inset, y = band6, width = width, height = MapGeometry.HEIGHT_DP))
+        assertEquals(175, MapGeometry.systemAt(x = inset + span, y = band6, width = width, height = MapGeometry.HEIGHT_DP))
     }
 
     @Test
     fun `a touch below the last band still lands on the map`() {
         val width = 361f
-        assertTrue(MapGeometry.systemAt(x = 10f, y = 10_000f, width = width) in 226..250)
+        assertTrue(MapGeometry.systemAt(x = 10f, y = 10_000f, width = width, height = MapGeometry.HEIGHT_DP) in 226..250)
     }
 }

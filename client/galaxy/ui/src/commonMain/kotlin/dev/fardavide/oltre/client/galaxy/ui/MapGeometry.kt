@@ -28,9 +28,20 @@ object MapGeometry {
     // The twenty-four gaps between twenty-five stars, which is what a pitch is measured over.
     private const val GAPS_PER_BAND: Int = PER_BAND - 1
 
-    // 13 of label, 32 of lane, 9 of gap. Ten of those less the last gap is 531dp, and 531 fits the
-    // content area at 393dp (587) and at 320dp (570) alike — **so there is one geometry rather than
-    // two**, and one measurement to keep when either moves.
+    // 13 of label, 32 of lane, 9 of gap. Ten of those less the last gap is 531dp — the height Claude
+    // Design drew the fold at, and the height it is drawn at wherever there is room for it.
+    //
+    // **It is a ceiling now rather than a fixed size, and a device is what changed that.** The sheet
+    // put the content area at 587dp on a 393dp phone; the shipped 0.12.0 got less — a 55dp resource
+    // rail, a 52dp tab bar and two safe-area insets come off the window before a destination sees any
+    // of it — so 531 of map plus 22 of gap plus 58 of caption did not fit, and **the caption was
+    // squeezed off the bottom of the screen.** The map is the map's only control, so that is a screen
+    // that selects and cannot act: Davide, on the TestFlight build, *"I'm tapping on the systems, but
+    // nothing happens."*
+    //
+    // The label row and the band gap are held and the **lane** is what gives, because a lane is the
+    // one part of a band that is drawing rather than type: a name set at the 9.5sp floor cannot
+    // shrink and a 32dp lane can.
     const val LABEL_ROW_DP: Float = 13f
     const val LANE_DP: Float = 32f
     const val BAND_GAP_DP: Float = 9f
@@ -79,6 +90,10 @@ object MapGeometry {
 
     fun laneMidOf(band: Int): Float = laneMidOf(band = band, labelRow = LABEL_ROW_DP, lane = LANE_DP, gap = BAND_GAP_DP)
 
+    // Ten bands and nine gaps into whatever height the fold was handed. Never taller than the design,
+    // so a roomy window draws what the sheet drew rather than ten stretched lanes.
+    fun bandHeightOf(height: Float): Float = (height.coerceAtMost(HEIGHT_DP) + BAND_GAP_DP) / BANDS
+
     // Parameterised because the universe view draws the same fold at a fifth of the size with no
     // label row and no gap between bands. **Same arithmetic, different numbers** — which is the
     // reason a disc is the real galaxy rather than a picture of one.
@@ -106,8 +121,8 @@ object MapGeometry {
     //
     // Both axes are clamped rather than rejected, so a drag that leaves the map keeps scrubbing along
     // its last edge instead of stopping dead under the thumb.
-    fun systemAt(x: Float, y: Float, width: Float): Int {
-        val band = (y / BAND_DP).toInt().coerceIn(0, BANDS - 1)
+    fun systemAt(x: Float, y: Float, width: Float, height: Float): Int {
+        val band = (y / bandHeightOf(height)).toInt().coerceIn(0, BANDS - 1)
         val span = (width - INSET_DP * 2f).coerceAtLeast(1f)
         val fromLeft = ((x - INSET_DP) / span).coerceIn(0f, 1f)
         val fraction = if (band % 2 == 0) fromLeft else 1f - fromLeft

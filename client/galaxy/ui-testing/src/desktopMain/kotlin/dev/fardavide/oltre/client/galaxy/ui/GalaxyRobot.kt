@@ -33,12 +33,23 @@ import kotlin.time.Duration
 const val PHONE_WIDTH = 393
 const val SLIDE_OVER_WIDTH = 320
 
+// Measured off the shipped 0.12.0 screenshot rather than computed: an iPhone at 852dp leaves a
+// destination about 650dp once the rail, the tab bar and the safe areas are paid for. Every frame and
+// every behaviour test that does not say otherwise gets that, because a screen the device cannot
+// produce is a screen no test should be asserting about.
+const val DESTINATION_HEIGHT = 650
+
 // The harness and the Robot, copying `ResearchRobot` — the worked example the taxonomy points at.
 // A behaviour test drives the screen through this and never queries a node in its own body.
 @OptIn(ExperimentalTestApi::class)
 fun galaxyPage(
     uiState: GalaxyUiState,
     width: Int = PHONE_WIDTH,
+    // **What the shell actually leaves a destination**, not what the window is. A 393x852 phone pays
+    // 55dp of resource rail, 52dp of tab bar and two safe-area insets before a screen sees any of it,
+    // and a harness that hands the page the whole window asserts a layout no device can produce. That
+    // is how 0.12.0 shipped a map whose caption was off the bottom of the screen.
+    height: Int = DESTINATION_HEIGHT,
     // Hoisted into the harness for one assertion: what the page's scroll position does while a sheet
     // is up over it. Nothing else in these tests looks at it.
     scrollState: ScrollState? = null,
@@ -60,7 +71,7 @@ fun galaxyPage(
     onDispatchRun: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
-    runDesktopComposeUiTest(width = width, height = 852) {
+    runDesktopComposeUiTest(width = width, height = height) {
         setContent {
             OltreTheme {
                 Surface {
@@ -104,10 +115,16 @@ class GalaxyRobot(private val test: ComposeUiTest) {
     // drawn — and `MapGeometry` is what turns the index into the place.
     fun scrubTo(system: Int) = apply {
         val node = test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).fetchSemanticsNode()
-        val width = node.size.width.toFloat()
-        val height = node.size.height.toFloat()
+        val scale = test.density.density
         test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).performTouchInput {
-            click(mapPointOf(system = system, width = width, height = height))
+            click(
+                mapPointOf(
+                    system = system,
+                    widthDp = node.size.width / scale,
+                    heightDp = node.size.height / scale,
+                    scale = scale,
+                ),
+            )
         }
     }
 
@@ -387,12 +404,22 @@ private fun containing(text: String): SemanticsMatcher =
 // Where a system is drawn, in the map node's own pixels. The robot has to do this arithmetic because
 // the drawing does: `MapGeometry` places a star from its index, and a test that guessed at a
 // coordinate would be asserting against a guess rather than against the fold.
-private fun mapPointOf(system: Int, width: Float, height: Float): Offset {
-    val scale = height / MapGeometry.HEIGHT_DP
-    val widthDp = width / scale
+//
+// **The band height comes off the node rather than off the constant**, for the reason the fold itself
+// scales: a map given less than 531dp folds into shorter bands, and a robot still reading the design
+// figure would tap three bands out at the bottom of a squeezed screen — which is exactly the class of
+// error the scaling was introduced to fix.
+private fun mapPointOf(system: Int, widthDp: Float, heightDp: Float, scale: Float): Offset {
+    val band = MapGeometry.bandHeightOf(heightDp)
     val span = widthDp - MapGeometry.INSET_DP * 2f
+    val laneMid = MapGeometry.laneMidOf(
+        band = MapGeometry.bandOf(system),
+        labelRow = MapGeometry.LABEL_ROW_DP,
+        lane = band - MapGeometry.LABEL_ROW_DP - MapGeometry.BAND_GAP_DP,
+        gap = MapGeometry.BAND_GAP_DP,
+    )
     return Offset(
         x = MapGeometry.xOf(system = system, span = span, inset = MapGeometry.INSET_DP) * scale,
-        y = MapGeometry.laneMidOf(MapGeometry.bandOf(system)) * scale,
+        y = laneMid * scale,
     )
 }

@@ -184,19 +184,23 @@ private fun MapBody(
     onDispatchProbe: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // **The map is the weighted child and the caption is not**, which is the whole of the fix for the
+    // defect 0.12.0 shipped. A Column measures its unweighted children first and hands the remainder
+    // to the weighted ones, so the caption takes the 58dp it needs and the fold draws in what is
+    // left — where a fixed-height map took 531dp off the top and pushed the caption past the bottom
+    // of the screen. The caption is the map's only control; it is the last thing that may give.
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        GalaxyMap(uiState = body.map, onSelectSystem = onSelectSystem)
-        Column(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            verticalArrangement = Arrangement.Bottom,
-        ) {
-            MapCaption(
-                uiState = body.caption,
-                compact = compact,
-                onOpen = onOpenSelected,
-                onDispatchProbe = onDispatchProbe,
-            )
-        }
+        GalaxyMap(
+            uiState = body.map,
+            onSelectSystem = onSelectSystem,
+            modifier = Modifier.weight(1f),
+        )
+        MapCaption(
+            uiState = body.caption,
+            compact = compact,
+            onOpen = onOpenSelected,
+            onDispatchProbe = onDispatchProbe,
+        )
     }
 }
 
@@ -210,19 +214,17 @@ private fun UniverseBody(
     onOpenSelected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Same rule as the fold: the caption is measured first and the discs take what is left.
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
-        UniverseGrid(uiState = body.universe, onSelectGalaxy = onSelectGalaxy)
-        Column(
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            verticalArrangement = Arrangement.Bottom,
-        ) {
-            MapCaption(
-                uiState = body.caption,
-                compact = compact,
-                onOpen = onOpenSelected,
-                onDispatchProbe = {},
-            )
+        Column(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            UniverseGrid(uiState = body.universe, onSelectGalaxy = onSelectGalaxy)
         }
+        MapCaption(
+            uiState = body.caption,
+            compact = compact,
+            onOpen = onOpenSelected,
+            onDispatchProbe = {},
+        )
     }
 }
 
