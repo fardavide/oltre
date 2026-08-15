@@ -117,9 +117,11 @@ class GalaxyMapUiStateTest {
         // itself and its neighbour — without that cap the drawing could put system 100 to the right
         // of system 101, which is the one lie this map exists not to tell.
         //
-        // Size runs 0.82 to 1.18 of the class radius and stops well short of the next class, because
-        // size *is* class here: a wobble that read as a promotion would be the map's only
-        // measurement saying something false.
+        // Size runs 0.87 to 1.13 of the class radius and stops short of the next class, because size
+        // *is* class here: a wobble that read as a promotion would be the map's only measurement
+        // saying something false. **The band was Claude Design's 0.82 to 1.18 until a test executed
+        // the drawing** and found the widest standard outgrowing the narrowest bright — see
+        // `GalaxyMapDrawingTest`, which is the only place that could have caught it.
         val state = fresh()
 
         val stars = state.mapAt(state.homeSelection()).map.stars
@@ -363,8 +365,47 @@ class GalaxyMapUiStateTest {
             assertTrue(caption.system.isNotBlank(), "3:$system is nameless")
             assertEquals("[$HOME_GALAXY:$system]", caption.coordinate)
             assertTrue(caption.meta.isNotBlank(), "3:$system reads blank")
-            assertFalse(caption.trailing is MapCaptionTrailingUiState.None, "3:$system trails nothing")
+            // **The trailing type has no empty case at all any more**, which is a stronger statement
+            // than the one this line used to make: `None` was a state the mapper could not produce
+            // and the drawing still had to handle, so it went. What survives is the claim that every
+            // one of the 250 has a label rather than an empty corner.
+            assertTrue(caption.trailing.trailingLabel().isNotBlank(), "3:$system trails nothing")
         }
+    }
+
+    @Test
+    fun `a galaxy nobody has charted says so and prices the probe that would change it`() {
+        // **The universe's caption is a summary of a galaxy rather than a selection inside one**, so
+        // it takes the plain card and has nothing to aim: Claude Design's frame put a `probe 4h 40m`
+        // *button* here, and a probe is aimed at a star — `SurveyBalance.duration` takes a
+        // `SystemAddress` and a galaxy is not one. What the figure is instead is the price of the
+        // cheapest possible probe into that galaxy, which is a reading.
+        val state = fresh()
+
+        // when — one hop sideways, which is the state the disc grid puts you in before you enter
+        val caption = state.universeAt(SystemSelection(galaxy = 2, system = state.galaxy.home.system)).caption
+
+        // then — 250 systems of galaxy hop plus the flat half hour, at a minute a unit, from a home
+        // system that is the same index in both: 30 + 250 = 280 minutes.
+        assertEquals("Galaxy 2", caption.system)
+        assertEquals("250 systems · nothing charted", caption.meta)
+        assertEquals(MapCaptionTrailingUiState.Note("probe 4h 40m"), caption.trailing)
+        // Not `own`, which is the accent edge: accent means "go tap this" and what it would be
+        // pointing at here is a galaxy you have not chosen yet.
+        assertFalse(caption.own)
+    }
+
+    @Test
+    fun `a probe you cannot afford is quoted and never offered`() {
+        // The same rule the orbit page's footer already keeps: a screen that never offers a dispatch
+        // it would refuse is a screen the model and the drawing agree about. The flight is still
+        // printed, because the figure is what makes the metal worth saving for.
+        val broke = fresh().copy(resources = Resources.of(metal = 0))
+
+        val caption = broke.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 1)).caption
+
+        assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
+        assertEquals("probe 3h 20m", (caption.trailing as MapCaptionTrailingUiState.Note).label)
     }
 
     @Test
@@ -506,7 +547,17 @@ class GalaxyMapUiStateTest {
         // of the contract, and a test that read the constant it is checking would pass whatever the
         // generator was changed to.
         const val HALF_PITCH_PERMILLE: Int = 500
-        const val SIZE_FLOOR_PERMILLE: Int = 820
-        const val SIZE_CEILING_PERMILLE: Int = 1_180
+        // Narrowed from Claude Design's 820…1180 after a test that executed the drawing found that
+        // the wider band let a standard star be drawn larger than a bright one — on a map whose whole
+        // legend is that size is class. See `GalaxyGeneration.SIZE_FLOOR`.
+        const val SIZE_FLOOR_PERMILLE: Int = 870
+        const val SIZE_CEILING_PERMILLE: Int = 1_130
     }
+}
+
+// The trailing element says something whichever of its two shapes it is in — a control on a star you
+// could probe, a reading on one you could not.
+private fun MapCaptionTrailingUiState.trailingLabel(): String = when (this) {
+    is MapCaptionTrailingUiState.Dispatch -> label
+    is MapCaptionTrailingUiState.Note -> label
 }

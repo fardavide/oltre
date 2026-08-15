@@ -139,9 +139,11 @@ sealed interface MapCaptionTrailingUiState {
 
     // The clock, in plain text, when there is nothing to aim: the run's round trip on a system you
     // already know, the probe's remaining flight on one you are already looking at.
+    //
+    // **There is no third case and deliberately no `None`.** Every system the caption can name has
+    // something true to say about its clock — even an empty one, which says so — and a nullable
+    // trailing would be a state the mapper cannot produce and the drawing would still have to handle.
     data class Note(val label: String) : MapCaptionTrailingUiState
-
-    data object None : MapCaptionTrailingUiState
 }
 
 // **The universe is one gesture up, not a screen.** Four galaxies swap into the map's own frame from

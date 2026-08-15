@@ -82,6 +82,17 @@ class AppBehaviourTest {
             // arrived. It went to `NEAREST FIRST` when the ledger became the landing screen, and
             // that string does not exist any more — the sort left with the filters.
             assertReads("250 SYSTEMS")
+            // **The switch, and it is the one control on this tab that writes to disk.** Davide's
+            // amendment to Claude Design's landing call: the tab opens on the map the first time and
+            // on whichever list you last used after that. The write goes through the composition
+            // root — the file stores the *name* of the landing, because a `data` module may not see
+            // the `presentation` one that owns the enum — so this is the only place it can be driven
+            // end to end.
+            openTheWorldsList()
+            // Asserted as the map's *absence* rather than as the list's presence: the word "worlds"
+            // is on the switch itself either way, so the reading that separates the two screens is
+            // the galaxy's scale line, which only the map has.
+            assertDoesNotRead("250 SYSTEMS")
             open(OltreTab.SHIPYARD)
             assertReads("Shipyard")
             open(OltreTab.COLONY)

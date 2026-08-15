@@ -53,7 +53,7 @@ class GalaxyLayoutTest {
             for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
                 val size = layoutAt(TEST_GALAXY_SEED, galaxy, system).sizePermille
 
-                assertTrue(size in 820..1180, "$galaxy:$system was drawn at $size permille of its class radius")
+                assertTrue(size in 870..1130, "$galaxy:$system was drawn at $size permille of its class radius")
             }
         }
     }

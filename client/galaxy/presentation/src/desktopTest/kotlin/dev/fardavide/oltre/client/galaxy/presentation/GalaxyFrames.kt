@@ -131,3 +131,24 @@ internal val probeInFlightMapUiState: GalaxyUiState = frameState
         ).state
         frame(state = dispatched, view = GalaxyView.MAP, at = dispatched.homeSelection())
     }
+
+// **The home system while a probe is away, which is the only place the trajectory arc is ever
+// drawn.** `toSystemMapUiState` gives a map its arc when the page is home *and* a survey is out, so
+// every other frame of the orbit page — the target's, the relay's, the unsurveyed neighbour's — is a
+// map with no arc on it.
+//
+// It is here because 0.12 nearly lost it. Until this slice the arc was covered incidentally: the
+// behaviour suite dispatched a probe from the home system's own footer and stayed there to watch the
+// countdown. The map is where a probe is aimed from now, so nobody was standing on that page any
+// more, and thirty-four lines of `SystemMap` stopped being executed by anything at all — which the
+// coverage table caught and no test failure would have.
+internal val probeOutFromHomeUiState: GalaxyUiState = frameState
+    .copy(resources = Resources.of(metal = 40_000, crystal = 9_000))
+    .let { wealthy ->
+        val target = wealthy.neighbourSelection()
+            .let { SystemAddress(galaxy = it.galaxy, system = it.system) }
+        val dispatched = assertIs<StartSurveyResult.Started>(
+            startSurvey(wealthy, target, at = FIXTURE_NOW),
+        ).state
+        frame(state = dispatched, view = GalaxyView.SYSTEM, at = dispatched.homeSelection())
+    }

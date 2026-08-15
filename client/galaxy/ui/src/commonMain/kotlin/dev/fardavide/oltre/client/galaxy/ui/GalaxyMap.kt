@@ -189,7 +189,11 @@ internal data class Fold(
     }
 }
 
-private fun DrawScope.drawFold(uiState: GalaxyMapUiState, fold: Fold) {
+// Internal rather than private, for the reason `drawWorldPortrait` is: the drawing is separable from
+// the composable that hosts it, and separating it is what lets a test *execute* it against a
+// `CanvasDrawScope` over an `ImageBitmap` and read back where a star landed. A recorded frame says
+// the fold looks like something; only this says it agrees with `MapGeometry`.
+internal fun DrawScope.drawFold(uiState: GalaxyMapUiState, fold: Fold) {
     uiState.bands.forEachIndexed { index, band -> drawRegionField(band = band, band0 = index, fold = fold) }
     drawSpines(fold)
     drawTurns(fold)

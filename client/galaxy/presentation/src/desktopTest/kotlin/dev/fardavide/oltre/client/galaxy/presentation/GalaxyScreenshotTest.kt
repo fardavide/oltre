@@ -107,7 +107,7 @@ class GalaxyScreenshotTest {
         capture(
             width = 393,
             height = 1400,
-            uiState = frame(state = justSurveyedState, seenAt = JUST_SURVEYED_SINCE),
+            uiState = frame(state = justSurveyedState, view = GalaxyView.WORLDS, seenAt = JUST_SURVEYED_SINCE),
             name = "galaxy_ledger_discovery",
         )
     }
@@ -124,7 +124,7 @@ class GalaxyScreenshotTest {
         capture(
             width = 393,
             height = 900,
-            uiState = frame(state = wellTravelledState, query = name.take(6)),
+            uiState = frame(state = wellTravelledState, view = GalaxyView.WORLDS, query = name.take(6)),
             name = "galaxy_ledger_search",
         )
     }
@@ -141,6 +141,19 @@ class GalaxyScreenshotTest {
             height = 1800,
             uiState = frame(view = GalaxyView.SYSTEM),
             name = "galaxy_home_system",
+        )
+    }
+
+    // The arc, and the only frame that has one: a flight leaves from where it was launched, and every
+    // probe in this game is launched from home. Without this the curve, its gradient and the label at
+    // its faint end are drawn by nothing and asserted by nothing.
+    @Test
+    fun `the home system with a probe away`() {
+        capture(
+            width = 393,
+            height = 1800,
+            uiState = probeOutFromHomeUiState,
+            name = "galaxy_home_system_probe_out",
         )
     }
 

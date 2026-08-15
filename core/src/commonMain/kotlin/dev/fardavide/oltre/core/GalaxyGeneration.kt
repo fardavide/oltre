@@ -140,12 +140,20 @@ fun starClassAt(seed: GalaxySeed, galaxy: Int, system: Int): StarClass = GalaxyB
 // lane would make the drawing contradict the thing it draws.
 private const val DRIFT_LIMIT: Int = 500
 
-// The design's `0.82 + u * 0.36`, in thousandths of the star class's own radius. Wide enough that
-// two standards in one band are siblings rather than clones, and stopped well short of the next
-// class's radius so the wobble can never read as a promotion: size *is* class on this map, and a
-// star drawn bigger than its class allows would be the map's one measurement telling a lie.
-private const val SIZE_FLOOR: Int = 820
-private const val SIZE_CEILING: Int = 1_180
+// In thousandths of the star class's own radius. Wide enough that two standards in one band are
+// siblings rather than clones, and stopped short of the next class's radius so the wobble can never
+// read as a promotion: size *is* class on this map, and a star drawn bigger than its class allows
+// would be the map's one measurement telling a lie.
+//
+// **Claude Design's `0.82 + u * 0.36` did not hold that second promise, and a test that executed the
+// drawing is what found it.** The drawn radii are 1.3, 1.9 and 2.6dp, so at 820…1180 the widest
+// standard is 2.24dp against the narrowest bright at 2.13 — a standard genuinely drawn larger than a
+// bright, on a map whose whole legend is that size is class. 870…1130 is the widest band that keeps
+// both gaps open: the widest dim is 1.47 against a narrowest standard of 1.65, and the widest
+// standard is 2.15 against a narrowest bright of 2.26. The wobble is 4% narrower than drawn and the
+// promise is true.
+private const val SIZE_FLOOR: Int = 870
+private const val SIZE_CEILING: Int = 1_130
 
 // Where a system sits on the drawn map, how big its star is drawn, and which halo a bright one
 // wears. Position *along* a band is arithmetic the map does for itself — twenty-five systems a band,

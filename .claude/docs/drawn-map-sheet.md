@@ -295,6 +295,26 @@ camera does.
 
 ---
 
+## 7b. Two numbers the drawing got wrong, and what found them
+
+Both were caught by tests that **execute the drawing** rather than photograph it —
+`GalaxyMapDrawingTest`, which hands `drawFold` a `CanvasDrawScope` over an `ImageBitmap` and reads
+back where a star landed. A recorded frame of 250 dots cannot tell a correct one from a wrong one.
+
+- **The drift was half what the design asked for.** The permille is already a signed fraction of the
+  cap, and halving it again put every star at a quarter pitch of travel where the design asked for a
+  half — 3.5dp of wander instead of 7 at 393dp, which is a band that reads as a ruled line with a
+  wobble rather than as sky.
+- **The size wobble could promote a star.** At Claude Design's 820…1180 the widest standard is 2.24dp
+  against a narrowest bright of 2.13 — a standard genuinely drawn larger than a bright, on a map
+  whose entire legend is that size is class. `core` now draws 870…1130, the widest band that keeps
+  both gaps open.
+
+And a third, from the coverage table rather than from a test: **thirty-four lines of `SystemMap`
+stopped being executed by anything.** The probe arc on the home orbit page was covered incidentally,
+because the behaviour suite used to dispatch a probe from that page's own footer and stay there to
+watch the countdown — and the map is where a probe is aimed from now. It has a frame of its own since.
+
 ## 8. What it should feel like, so the next round can tell
 
 Opening the tab should feel like unfolding a chart, not opening a database. The test Design set, and

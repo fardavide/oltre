@@ -18,7 +18,10 @@ import dev.fardavide.oltre.client.debug.data.ShakeDetector
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
+import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.SaveFile
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardTestTags
 import dev.fardavide.oltre.core.BuildingType
@@ -56,6 +59,18 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         // to compose. Needed only with the clock stopped; harmless while it is running.
         repeat(2) { test.mainClock.advanceTimeByFrame() }
         test.waitForIdle()
+    }
+
+    // The Galaxy tab's own switch, reached from the shell rather than from the feature: what this
+    // adds over `LedgerBehaviourTest`'s version of it is the composition root's half — the lambda
+    // that turns a tap into a line in a preferences file.
+    fun openTheWorldsList() = apply {
+        test.onNodeWithTag(GalaxyTestTags.mode(LedgerMode.WORLDS)).performClick()
+        test.waitForIdle()
+    }
+
+    fun assertDoesNotRead(text: String) = apply {
+        test.onNodeWithText(text, substring = true).assertDoesNotExist()
     }
 
     fun assertReads(text: String) = apply {
@@ -139,6 +154,13 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
         setContent {
             App(
                 store = GameStore(file),
+                // **In memory, and this is not tidiness.** `App`'s default reaches
+                // `defaultPreferencesFile()`, which is a real file in the machine's own application
+                // directory — so without this every test that opens the Galaxy tab would read the
+                // developer's own landing preference and *write* to it on the first tap of the
+                // switch. A behaviour test whose result depends on the machine it runs on is the one
+                // failure mode the whole `SaveFile` seam exists to prevent.
+                preferences = PreferencesStore(InMemorySaveFile()),
                 notifications = GameNotifications(booked),
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.

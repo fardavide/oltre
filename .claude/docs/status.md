@@ -864,6 +864,12 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   under a surface you scrub with a thumb. Davide's call whether it wants a confirmation.
 - **The worlds list is nearest-first and has no other order.** Right for a list of places you already
   hold; possibly wrong at forty worlds, which is the size the ledger was designed for.
+- **The coverage table is what caught the two worst defects in this slice, and neither was a test
+  failure.** Thirty-four lines of `SystemMap` stopped being executed by anything at all — the probe
+  arc on the home orbit page was covered *incidentally*, because the behaviour suite used to dispatch
+  from that page's own footer and stay there, and the map is where a probe is aimed from now. And two
+  ledger frames were silently photographing the map, because `frame(...)`'s default view changed
+  under them. Both are now frames of their own. **A green suite said nothing about either.**
 - **`galaxy_ledger_empty` was retired rather than re-recorded.** It was built from a filter set that
   no longer exists, and the emptiness it photographed — *"no world matches all three"* — is a state
   the screen can no longer reach.

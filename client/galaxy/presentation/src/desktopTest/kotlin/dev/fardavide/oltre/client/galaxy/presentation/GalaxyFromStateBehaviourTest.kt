@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.worldAt
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.time.Instant
 import org.junit.Test
@@ -58,6 +59,50 @@ class GalaxyFromStateBehaviourTest {
             // A push and not a swap: the fold is gone rather than behind it. That is the whole
             // difference between this gesture and the scale chip below.
             assertNoGalaxyIsDrawn()
+        }
+    }
+
+    @Test
+    fun `the caption sends its probe to the star the map is selecting and not to home`() {
+        // **The map's only write, and the class of defect 0.11.1 shipped.** A tap that filled in two
+        // thirds of an address from wherever the screen was parked is exactly how a ledger row came
+        // to price the wrong world, and the fold makes that easier to reach rather than harder: the
+        // selection moves under a thumb, and home is where it starts. So this is asserted on the
+        // stateful screen, where the address is actually assembled, rather than on a frame that was
+        // handed one.
+        val aimed = mutableListOf<SystemAddress>()
+
+        galaxyScreen(state = testGameState, onDispatchProbe = { aimed += it }) {
+            scrubTo(elsewhere)
+            assertTheCaptionReads("[${home.galaxy}:$elsewhere]")
+
+            dispatchAProbeFromTheMap()
+        }
+
+        assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = elsewhere)), aimed)
+    }
+
+    @Test
+    fun `choosing a disc describes that galaxy and entering it draws that galaxy`() {
+        // **A disc is chosen and then entered, in two gestures rather than one**, and the split is
+        // the design: the caption is the map's one readout at both scales, so tapping a disc has to
+        // put something *in* it before the tap that acts on it means anything. Selecting and
+        // committing in one gesture would be a grid of four buttons rather than a map with a bar.
+        galaxyScreen(state = testGameState) {
+            toggleTheScale()
+
+            chooseGalaxy(other)
+            // The caption follows the disc without leaving the four of them: still the universe, now
+            // describing somewhere you have never been.
+            assertTheCaptionReads("Galaxy $other")
+            assertTheDiscReads(other, "run")
+            assertTheUniverseIsUp()
+
+            openTheSelectedSystem()
+            // And *now* it steps down, into the galaxy the caption was describing rather than into a
+            // system — because the thing selected one scale up is a galaxy.
+            assertTheUniverseIsAway()
+            assertTheGalaxyIsDrawn()
         }
     }
 
@@ -322,6 +367,16 @@ class GalaxyFromStateBehaviourTest {
         SystemAddress(galaxy = home.galaxy, system = home.system - 1)
 
     private companion object {
+
+        // A galaxy that is not home, so the disc really is somewhere else and its card really is
+        // priced. Which one hardly matters — two of the three are one hop away — so it is derived
+        // from home rather than written down, and it moves if the seed's home galaxy ever does.
+        val other: Int = if (testGameState.galaxy.home.galaxy == 1) 2 else 1
+
+        // A system in another band that nobody has surveyed, so the caption offers a probe rather
+        // than quoting a round trip. Two bands down from home and clamped, which keeps it on the map
+        // whichever end of the galaxy a seed puts you at.
+        val elsewhere: Int = (testGameState.galaxy.home.system + 50).coerceAtMost(250)
         val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
         val home: GalaxyCoordinate = testGameState.galaxy.home
     }

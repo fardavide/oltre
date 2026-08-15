@@ -134,7 +134,6 @@ internal fun MapCaption(
                 softWrap = false,
             )
 
-            MapCaptionTrailingUiState.None -> Unit
         }
     }
 }

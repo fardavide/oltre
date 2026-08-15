@@ -44,13 +44,15 @@ internal fun UniverseGrid(
     ) {
         uiState.discs.chunked(2).forEach { pair ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                // **No filler for a ragged last row, and that is a decision rather than an
+                // oversight.** `GalaxyBalance.GALAXIES` is four, the mapper always builds four discs
+                // and a test pins that, so a half-row is a state this grid cannot reach — and an
+                // empty weighted column guarding against it is a branch nothing can execute and
+                // nothing can photograph. A fifth galaxy is a design change, and it can bring its
+                // own layout.
                 pair.forEach { disc ->
                     Disc(disc = disc, onSelectGalaxy = onSelectGalaxy, modifier = Modifier.weight(1f))
                 }
-                // A galaxy count that is not a multiple of two would leave a ragged row rather than
-                // a stretched card. `GalaxyBalance.GALAXIES` is four and has been since the sheet,
-                // but the grid should not be the thing that breaks if it is ever five.
-                repeat(2 - pair.size) { Column(modifier = Modifier.weight(1f)) {} }
             }
         }
     }
