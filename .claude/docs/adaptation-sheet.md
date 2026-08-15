@@ -15,10 +15,10 @@ is already in the code; what was missing was any way to buy one.
 
 ## The one-sentence version
 
-**The map is a shopping list and this is the shop.** Three ladders, one shared research slot, each
-priced in the resource its own axis will make you rich in — so the ladder you can afford first is
-the one your colony is already good at, and the one that would fix your problem is the one you
-cannot yet pay for.
+**The map is a shopping list and this is the shop.** Three ladders, ~~one shared research slot~~
+**a research slot of their own** (§2, overruled at 0.12.1), each priced in the resource its own axis
+will make you rich in — so the ladder you can afford first is the one your colony is already good
+at, and the one that would fix your problem is the one you cannot yet pay for.
 
 ---
 
@@ -45,7 +45,37 @@ drawing one for three; **folding the three ladders into one "Habitability" techn
 §1 of the galaxy sheet arrived at from the other side, and it deletes the choice the three axes
 exist to create.
 
-## 2. One research slot, shared between the branches
+## 2. ~~One research slot, shared between the branches~~ **A slot each**
+
+> **OVERRULED BY DAVIDE, 2026-08-15, at 0.12.1**, on having played it: *"Technologies and
+> Adaptations run on the same queue, making the game too slow. I want to have a queue each."*
+>
+> The section below is kept whole rather than rewritten, because it is the argument the ruling
+> answers and reading only the answer would lose it. **What is true now**, in three lines:
+>
+> - `activeResearch` and `activeAdaptation` are two fields and **both may be set at once**. The
+>   `require` in `GameState.init` is gone; there is no invariant here to check any more, so `core`'s
+>   one checked-rather-than-unrepresentable rule about research has simply stopped existing.
+> - Each branch is still **serial on its own**: one applied project, one ladder. `startResearch`
+>   refuses on `activeResearch`, `startAdaptation` on `activeAdaptation`, and both still answer
+>   `SlotBusy` — the word now means *this branch's slot*.
+> - **The prices did not move with it.** Everything in §4 was priced against a trade that no longer
+>   exists, and the first round after this lands is what says whether it should. That was Davide's
+>   call too — measure before retuning, so the two changes can be told apart.
+>
+> **What the ruling costs, stated plainly rather than sanded off.** The section below is right that
+> the sharing *was* the scarcity, and losing it is a real loss: an adaptation level is no longer
+> paid for in production levels you did not buy, so the branch that changes the map is now cheap to
+> push in the only currency that was ever making it expensive. `BalanceBenchmark` measured exactly
+> that on the same fixed player — 28 readings moved, the fortnight lost seven building levels and
+> never reached the Nanite Factory, because money the shared slot used to keep in mines now goes
+> into ladders. What it bought is on the same page: income at day 14 rose from 274,291 to 302,878,
+> because the applied branch stopped queueing behind a ladder, and the hours opening with nothing
+> affordable fell from 46.3% to 32.9%. **Slower colony, richer colony, and two decisions a session
+> instead of one.**
+>
+> The two *Left open* items below both close as a side effect: there is no shared slot left to turn
+> into a sealed `ActiveProject`, and the Research screen renders both branches already.
 
 `activeResearch` and `activeAdaptation` are two fields, and **at most one of them is ever set**.
 The invariant is checked in `GameState.init`, so it holds on every construction including every
@@ -69,6 +99,13 @@ Research screen learns to render both — see *Left open*.
 
 Rejected: a second slot (no decision left); running in parallel at a duration penalty (a multiplier
 nobody can hold in their head — the galaxy sheet's §2 argument, and the energy round's lesson).
+
+> **Postscript on the rejection, because it is the part that aged worst.** "A second slot — no
+> decision left" was wrong in a way worth naming: it treated *fewer waits* as *fewer decisions*.
+> With a slot each the player picks a project **and** a ladder, which is two decisions rather than
+> none; what disappeared is the wait between them. The lesson generalises past this sheet — scarcity
+> that produces a queue is not the same thing as scarcity that produces a choice, and this sheet
+> spent eleven versions assuming it was.
 
 ## 3. The gate: Robotics Factory ~~4~~ **2**, the same for all three
 
@@ -204,10 +241,14 @@ number to invent, nothing to rescale.
   wall.
 - **The first ladder should pick itself, and the second should hurt.** A metal-heavy colony buys
   Gravitic 1 almost without noticing and then finds that the world it actually wants is cold.
-- **Losing a production level to an adaptation level should sting**, and should still be worth it.
+- ~~**Losing a production level to an adaptation level should sting**, and should still be worth it.
   If it never stings, the shared slot is not doing its job and the branch is too cheap; if it always
   loses, the base cost is too high. That is the number to move first — not the curve, and not the
-  widening.
+  widening.~~ **Answered, and then deleted by §2's overruling.** It stung — that is what "making the
+  game too slow" was — and the ruling was that the sting was the wrong instrument rather than the
+  wrong size. **The replacement question for the next round: with the trade gone, is a ladder still
+  a purchase you have to think about, or is it now just something you always buy?** The base cost is
+  still the number to move first if the answer is the second one.
 - **Nothing settles yet.** A world going from `BLOCKED` to `Barren` or `Settleable` is the whole
   payoff in 0.0.17, because colonisation is slice #10. The verdict changing on a screen the player
   is looking at is a real reward; it is not the pillar landing, and the next round should not read
@@ -215,12 +256,14 @@ number to invent, nothing to rescale.
 
 ## Left open, deliberately
 
-- **Whether the two branches share one screen or get two.** This sheet settles the *model*; the
-  Research screen is a local session's work and a design call before it. A second section on the
-  Research tab, a segmented control, and a separate tab are all live. The model does not care.
-- **Whether the shared slot should become one sealed `ActiveProject`.** §2 says why it is two
-  fields today and that the reason is about not breaking readers mid-slice, which is an argument
-  with a shelf life. The day the Research screen renders both branches, it should be revisited.
+- ~~**Whether the two branches share one screen or get two.**~~ **Closed:** one screen, two
+  sections, shipped at 0.6.0. Each heading now carries its own rule, which is the 0.12.1 change
+  showing on the surface.
+- ~~**Whether the shared slot should become one sealed `ActiveProject`.**~~ **Closed by there being
+  no shared slot.** The revisit was booked for "the day the Research screen renders both branches",
+  and that day came and went without the shape mattering; what settled it instead was §2 being
+  overruled. Two independent slots are two independent fields, and a sum type over them would now be
+  actively wrong rather than merely unnecessary.
 - **Whether a saturated ladder should be capped or labelled.** §4 declines to add a cap. Showing
   Thermal 18 as buyable when it changes nothing is the small lie a later slice may want to fix,
   probably by labelling rather than by capping.

@@ -47,7 +47,7 @@ class AdaptationBehaviourTest {
 
             // and the tab that opens is already showing the ladder, with no scrolling to do
             assertReads("ADAPTATION")
-            assertReads("the same slot")
+            assertReads("one ladder at a time")
             // The band the empire already holds used to be the thing asserted here; since the
             // verdict took that line it is the first sentence of the sheet the row opens, which is
             // a claim about the Research screen and is made there.

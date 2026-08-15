@@ -53,7 +53,7 @@ class StartResearchTest {
     }
 
     @Test
-    fun `the slot is empire-wide so a busy slot refuses a different technology`() {
+    fun `the slot is branch-wide so a busy slot refuses a different technology`() {
         // given a colony already researching Extraction and able to pay for Photovoltaics
         val busy = GameState.initial().researching(Technology.EXTRACTION, at = EPOCH)
         val funded = busy.readyToResearch(Technology.PHOTOVOLTAICS)
@@ -61,7 +61,9 @@ class StartResearchTest {
         // when
         val result = startResearch(funded, Technology.PHOTOVOLTAICS, at = EPOCH)
 
-        // then - this is research's only scarcity, and the whole reason the branch is a decision
+        // then - one project at a time is still the applied branch's only scarcity, and the whole
+        // reason picking the next one is a decision. What 0.12.1 split off is the adaptation branch,
+        // which now runs beside this rather than in it - see `StartAdaptationTest`.
         assertEquals(StartResearchResult.SlotBusy, result)
     }
 

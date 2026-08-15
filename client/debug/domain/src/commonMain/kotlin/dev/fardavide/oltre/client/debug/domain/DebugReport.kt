@@ -25,10 +25,14 @@ data class DebugReport(
     // this colony — and, since a save is the log, roughly how big the file on disk is.
     val eventLogSize: Int,
     // What is in flight, split the way the model splits it: builds run one per facility, probes run
-    // in parallel with no cap, and research is the single empire-wide slot either branch may hold.
+    // in parallel with no cap, and research is **two** empire-wide slots — one per branch since
+    // 0.12.1. Two booleans rather than one, because one would collapse two independent slots into a
+    // reading that is true for the wrong reason, and an inspector that rounds is an inspector that
+    // has to be double-checked against the save it exists to replace.
     val buildsInFlight: Int,
     val surveysInFlight: Int,
     val researchSlotBusy: Boolean,
+    val adaptationSlotBusy: Boolean,
     val fleetInbound: Boolean,
     // Where the next skip would land, and what it would land on. Null when nothing is in flight,
     // which is exactly when `skipAhead` falls back to a flat hour.
@@ -57,7 +61,8 @@ fun debugReport(
     eventLogSize = state.eventLog.size,
     buildsInFlight = state.builds.size,
     surveysInFlight = state.surveys.size,
-    researchSlotBusy = state.researchSlotFreesAt != null,
+    researchSlotBusy = state.activeResearch != null,
+    adaptationSlotBusy = state.activeAdaptation != null,
     fleetInbound = state.runs.isNotEmpty(),
     nextEvent = (skipAhead(state, gameTime) as? SkipAhead.ToEvent)?.event,
 )

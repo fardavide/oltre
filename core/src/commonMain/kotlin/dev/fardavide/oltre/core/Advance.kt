@@ -36,14 +36,19 @@ private tailrec fun advanced(state: GameState, from: Instant, to: Instant): Game
     // are in flight at once and each one changes what the following span accrues. Take the
     // earliest due event, apply it, and recurse.
     // **There is no registry here, and a job kind missing from this expression never completes** —
-    // `advance` accrues straight past it forever and no test fails. Six terms, and the sixth is the
-    // yard. Only the head of that queue can be due, since the list is chained — but every entry is
+    // `advance` accrues straight past it forever and no test fails. Seven terms, and the seventh is
+    // the yard. Only the head of that queue can be due, since the list is chained — but every entry is
     // offered anyway rather than just `firstOrNull()`, because "only the head can be due" is a
     // property of the invariant in `GameState.init` and this expression is the one place in the game
     // where being wrong about that is silent.
+    //
+    // The two research branches are **two terms and were one until 0.12.1**, when they stopped
+    // sharing a slot. That is the same silence in its sharpest form: a single term reading the
+    // applied job first would leave a ladder due *earlier* than the project beside it with no
+    // boundary of its own, so the level would never land and the log would never mention it.
     val nextEventAt = (
         state.builds.values.map { it.completesAt } +
-            listOfNotNull(state.researchSlotFreesAt) +
+            listOfNotNull(state.activeResearch?.completesAt, state.activeAdaptation?.completesAt) +
             state.surveys.map { it.completesAt } +
             state.runs.map { it.returnsAt } +
             state.yard.map { it.completesAt }
@@ -63,10 +68,12 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     // fixed here and mirrored by `futureEvents`: build completions in building order, then the
     // research completion, then the adaptation completion, then the yard's deliveries, then survey
     // landings in target order, then the fleet arrival. Colony first, then the empire, then what the
-    // colony finished making, then what arrives from outside it. The
-    // two research branches share one slot
-    // so only one of them can ever be due, but the order between them is still written down —
-    // a tie-break that depends on which case happens to be reachable is one a later slice breaks.
+    // colony finished making, then what arrives from outside it.
+    //
+    // The order between the two research branches was written down while only one of them could ever
+    // be due — *"a tie-break that depends on which case happens to be reachable is one a later slice
+    // breaks"* — and 0.12.1 is that slice. Two slots means the tie is ordinary, and nothing about the
+    // log moved when it became reachable, which is the whole return on having written it down.
     val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
     for (job in completed) {
         next = next.copy(

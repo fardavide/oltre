@@ -281,6 +281,7 @@ private fun Readings(report: DebugReport) {
     Reading("builds", report.buildsInFlight.toString())
     Reading("probes", report.surveysInFlight.toString())
     Reading("research slot", if (report.researchSlotBusy) "busy" else "free")
+    Reading("adaptation slot", if (report.adaptationSlotBusy) "busy" else "free")
     Reading("fleet", if (report.fleetInbound) "inbound" else "none")
 }
 

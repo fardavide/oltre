@@ -99,11 +99,17 @@ fun ResearchScreen(
                 Spacer(modifier = Modifier.height(22.dp))
                 SectionLabel(
                     text = "ADAPTATION",
-                    // A pointer rather than a rule of its own, and unchanged at 320dp because
-                    // "slot" is the shortest true noun and has nothing to cut. Repeating "one
-                    // project at a time" here would read as one of each — the exact
-                    // misunderstanding the rule above exists to prevent.
-                    rule = "the same slot",
+                    // **A rule of its own since 0.12.1, where it used to be a pointer at the one
+                    // above.** This read "the same slot" for eleven versions and the sentence was
+                    // load-bearing: it existed to prevent a player reading the two headings as one
+                    // of each. That reading is now the correct one, so the label says what this
+                    // branch's own rule is, in the same words and the same shape as TECHNOLOGIES —
+                    // which is what makes the pair legible as two rules rather than one repeated.
+                    //
+                    // PLACEHOLDER copy, like every other string this screen says: what the game says
+                    // to a player is Davide's. The shape is not placeholder — a section whose rule
+                    // is silently wrong is worse than one whose wording is provisional.
+                    rule = if (compact) "one at a time" else "one ladder at a time",
                 )
                 AdaptationList(
                     ladders = uiState.adaptation,

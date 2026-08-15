@@ -6,10 +6,12 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -239,5 +241,15 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
 
     fun assertNothingReads(text: String) = apply {
         test.onNodeWithText(text, substring = true, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // **Several nodes can legitimately carry one string**, and since 0.12.1 the screen has a pair
+    // that does: at 320dp both section rules shorten to "one at a time", one per branch, which is
+    // the correct reading rather than a duplicate. `onNodeWithText` fails outright on two matches,
+    // so asserting the short form through `assertReads` would report the design as a defect. A count
+    // is the only claim that can be made about it, and it is the stronger one anyway — it says the
+    // rule is on *both* headings rather than that it is somewhere on the screen.
+    fun assertReadsTimes(text: String, times: Int) = apply {
+        test.onAllNodesWithText(text, substring = true, useUnmergedTree = true).assertCountEquals(times)
     }
 }

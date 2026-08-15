@@ -39,7 +39,6 @@ class AdvanceAdaptationTest {
         val after = advance(started, from = EPOCH, to = completesAt + 1.minutes)
 
         assertNull(after.activeAdaptation)
-        assertNull(after.researchSlotFreesAt)
         assertEquals(
             Event.AdaptationCompleted(
                 technology = AdaptationTechnology.GRAVITIC,
@@ -107,9 +106,71 @@ class AdvanceAdaptationTest {
     }
 
     @Test
+    fun `a project and a ladder in flight both complete when the ladder lands first`() {
+        // **The failure this exists to catch is silent and total.** `advance` picks the next boundary
+        // out of a list of instants, and while the two branches shared a slot that list carried one
+        // instant for both of them. Now that they run side by side, a ladder due *before* the project
+        // beside it would never be offered a boundary at all — `advance` would accrue straight past it
+        // forever, the level would never land, and nothing else in this suite would notice.
+        val both = GameState.initial()
+            .researching(Technology.EXTRACTION, at = EPOCH)
+            .adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
+        // The applied branch is the shorter of the two by design — a ladder is the longest project in
+        // the game — so the order this test is about has to be arranged rather than waited for.
+        val ladderFirst = both.copy(
+            activeAdaptation = both.ladder().copy(completesAt = both.project().completesAt - 1.minutes),
+        )
+
+        val after = advance(ladderFirst, from = EPOCH, to = both.project().completesAt)
+
+        assertEquals(TechLevel(1), after.research.gravitic)
+        assertEquals(TechLevel(1), after.research.extraction)
+        assertNull(after.activeAdaptation)
+        assertNull(after.activeResearch)
+    }
+
+    @Test
+    fun `a project and a ladder due at one instant are applied in a fixed order`() {
+        // Since 0.12.1 this is reachable rather than hypothetical — two slots means two completions
+        // can genuinely tie — and the order was written down before it was, so nothing about the log
+        // moves now that it can happen. Applied first then adaptation: the same order `futureEvents`
+        // predicts, which is the only thing making the prediction and the log agree.
+        val both = GameState.initial()
+            .researching(Technology.EXTRACTION, at = EPOCH)
+            .adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
+        val together = both.copy(activeAdaptation = both.ladder().copy(completesAt = both.project().completesAt))
+
+        val after = advance(together, from = EPOCH, to = both.project().completesAt)
+
+        assertIs<Event.ResearchCompleted>(after.eventLog[after.eventLog.size - 2])
+        assertIs<Event.AdaptationCompleted>(after.eventLog.last())
+    }
+
+    @Test
+    fun `futureEvents predicts both branches in the order the log will carry them`() {
+        val both = GameState.initial()
+            .researching(Technology.EXTRACTION, at = EPOCH)
+            .adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
+        val at = both.project().completesAt
+        val together = both.copy(activeAdaptation = both.ladder().copy(completesAt = at))
+
+        assertEquals(
+            listOf(
+                FutureEvent.ResearchCompletes(technology = Technology.EXTRACTION, toLevel = TechLevel(1), at = at),
+                FutureEvent.AdaptationCompletes(
+                    technology = AdaptationTechnology.GRAVITIC,
+                    toLevel = TechLevel(1),
+                    at = at,
+                ),
+            ),
+            futureEvents(together, now = EPOCH),
+        )
+    }
+
+    @Test
     fun `a build and a ladder landing on the same instant are applied in a fixed order`() {
-        // Only one of the two research branches can be due at once, but a build can land beside
-        // either — and the log has to be reproducible, so the colony is applied before the empire.
+        // A build can land beside either branch — and the log has to be reproducible, so the colony
+        // is applied before the empire.
         val started = GameState.initial().adapting(AdaptationTechnology.THERMAL, at = EPOCH)
         val completesAt = started.ladder().completesAt
         val withBuild = started.copy(

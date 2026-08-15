@@ -177,7 +177,9 @@ internal object BalanceBenchmark {
         }
         // Idleness is the opposite: it is a property of what the colony was *left* holding, so it is
         // read after the spend. Round 16 called this the biggest open item in the balance log.
-        val idle = run.states.count { it.builds.isEmpty() && it.researchSlotFreesAt == null }
+        val idle = run.states.count {
+            it.builds.isEmpty() && it.activeResearch == null && it.activeAdaptation == null
+        }
         add("[pressure] over $LONG_HORIZON_DAYS days, which resource blocks the cheapest unbuilt row")
         add(row("hours opening with the cheapest row unaffordable", percent(blocked, run.arrivals.size)))
         for (kind in listOf("metal", "crystal", "deuterium")) {
@@ -593,10 +595,14 @@ internal object BalanceBenchmark {
             if (!state.resources.covers(cost)) continue
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
         }
-        if (state.researchSlotFreesAt != null) return state
         // Both branches, cheapest first, so the ladder is bought when it is the better buy rather
         // than because a policy preferred it. A benchmark that always pushed the applied branch
         // would never notice the adaptation branch drifting out of reach.
+        //
+        // **Up to two starts a visit since 0.12.1**, one per branch, because the slots are
+        // independent. Still one pass in one order: the cheaper project is offered first whichever
+        // branch it belongs to, and the loop ends the moment both slots are full rather than after
+        // the first success.
         val applied = Technology.entries.filter { nextTech(state, it).value <= TechLevel.MAX }
             .map { it to priced(ResearchBalance.researchCost(it, nextTech(state, it))) }
         val ladders = AdaptationTechnology.entries.filter { nextTech(state, it).value <= TechLevel.MAX }
@@ -607,7 +613,8 @@ internal object BalanceBenchmark {
                 is AdaptationTechnology -> (startAdaptation(state, project, at = now) as? StartAdaptationResult.Started)?.state
                 else -> null
             }
-            if (started != null) return started
+            if (started != null) state = started
+            if (state.activeResearch != null && state.activeAdaptation != null) return state
         }
         return state
     }
@@ -661,15 +668,24 @@ internal object BalanceBenchmark {
         }
     }
 
+    // Counted per branch, because the slots are independent: a project running refuses the other
+    // three applied rows and says nothing at all about the three ladders.
     private fun offeredProjects(state: GameState): Int {
-        if (state.researchSlotFreesAt != null) return 0
-        val applied = Technology.entries.count {
-            ResearchBalance.requirementFor(it).isMetBy(state) &&
-                state.resources.covers(ResearchBalance.researchCost(it, nextTech(state, it)))
+        val applied = if (state.activeResearch != null) {
+            0
+        } else {
+            Technology.entries.count {
+                ResearchBalance.requirementFor(it).isMetBy(state) &&
+                    state.resources.covers(ResearchBalance.researchCost(it, nextTech(state, it)))
+            }
         }
-        val ladders = AdaptationTechnology.entries.count {
-            AdaptationBalance.requirementFor(it).isMetBy(state) &&
-                state.resources.covers(AdaptationBalance.adaptationCost(it, nextTech(state, it)))
+        val ladders = if (state.activeAdaptation != null) {
+            0
+        } else {
+            AdaptationTechnology.entries.count {
+                AdaptationBalance.requirementFor(it).isMetBy(state) &&
+                    state.resources.covers(AdaptationBalance.adaptationCost(it, nextTech(state, it)))
+            }
         }
         return applied + ladders
     }

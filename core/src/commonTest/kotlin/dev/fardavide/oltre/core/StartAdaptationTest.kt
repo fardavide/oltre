@@ -61,25 +61,47 @@ class StartAdaptationTest {
     }
 
     @Test
-    fun `climbing costs a production level — a running technology refuses a ladder`() {
-        // The single slot is shared with the applied branch, and that sharing *is* the mechanic:
-        // every adaptation level is paid for in production levels the player did not buy. Give the
-        // branch its own slot and the answer is always "run both".
+    fun `a running technology no longer refuses a ladder`() {
+        // **The shared slot is gone** — Davide's call at 0.12.1, on having played it: two branches
+        // taking turns in one slot made the whole game wait on itself. Each branch now has a slot of
+        // its own, and what an adaptation level costs is resources and a clock rather than a
+        // production level the player did not buy. The adaptation sheet's §2 is overruled by this.
         val busy = GameState.initial().researching(Technology.EXTRACTION, at = EPOCH)
         val funded = busy.readyToAdapt(AdaptationTechnology.GRAVITIC)
 
-        assertEquals(
-            StartAdaptationResult.SlotBusy,
+        val started = assertIs<StartAdaptationResult.Started>(
             startAdaptation(funded, AdaptationTechnology.GRAVITIC, at = EPOCH),
-        )
+        ).state
+
+        assertEquals(AdaptationTechnology.GRAVITIC, started.ladder().technology)
+        assertEquals(Technology.EXTRACTION, started.project().technology)
     }
 
     @Test
-    fun `and the other way round — a running ladder refuses a technology`() {
+    fun `and the other way round — a running ladder no longer refuses a technology`() {
         val busy = GameState.initial().adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
         val funded = busy.readyToResearch(Technology.EXTRACTION)
 
-        assertEquals(StartResearchResult.SlotBusy, startResearch(funded, Technology.EXTRACTION, at = EPOCH))
+        val started = assertIs<StartResearchResult.Started>(
+            startResearch(funded, Technology.EXTRACTION, at = EPOCH),
+        ).state
+
+        assertEquals(Technology.EXTRACTION, started.project().technology)
+        assertEquals(AdaptationTechnology.GRAVITIC, started.ladder().technology)
+    }
+
+    @Test
+    fun `the adaptation slot is still one deep so a climbing ladder refuses another`() {
+        // What split is the two branches and nothing else: each is serial on its own, so the choice
+        // of *which* ladder to climb next is still a choice. Give the branch a parallel slot per
+        // ladder and there is nothing left to decide.
+        val busy = GameState.initial().adapting(AdaptationTechnology.GRAVITIC, at = EPOCH)
+        val funded = busy.readyToAdapt(AdaptationTechnology.THERMAL)
+
+        assertEquals(
+            StartAdaptationResult.SlotBusy,
+            startAdaptation(funded, AdaptationTechnology.THERMAL, at = EPOCH),
+        )
     }
 
     @Test
