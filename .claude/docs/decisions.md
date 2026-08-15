@@ -3124,3 +3124,50 @@ The fix is that `GameSession` carries `resumedFrom` — the instant `resume` adv
 shell hands it down. The general lesson is the one `advance` has taught before: **a span has two
 ends, and a screen that is about what happened while you were away cannot derive the far one from
 the near one.**
+
+## The drawn map moves the layout, not the metric (2026-08-15, issue #69)
+
+Davide asked for "a real map" — the galaxy and the universe drawn, not indexed — and the first thing
+that had to be established before Claude Design could be asked anything is that **the galaxy has no
+geometry to draw**. A system is an index in 1…250. Both travel metrics read the difference of two
+indices and nothing else: `SurveyBalance.distanceUnits` prices a probe hop at `|Δsystem|`, and
+`FleetBalance.distanceUnits` prices a run at `95 + 5·|Δsystem|`.
+
+So a drawn galaxy is a choice between two things, and they are not symmetrical:
+
+- **The layout agrees with the metric.** Any shape whose path order is the index order — spiral, arc,
+  ribbon, serpentine — so that "looks near" and "is near" agree. Costs Design freedom of layout.
+- **The metric agrees with the layout.** A free 2-D scatter, distance re-derived from drawn position.
+  Costs a re-quote of every new dispatch, the reach ruler's hour marks, and the leg split of runs
+  already in flight — `Run.inboundBeginsAt` recomputes `FleetBalance.flight`, so a run dispatched
+  before the change would report a different outbound/inbound boundary after it. Stored arrival
+  instants survive (`Run.returnsAt` and `SurveyJob.completesAt` are both persisted), so nothing in
+  flight lands at a different time; what moves is every number the screens quote about it.
+
+**Davide's call: the layout moves.** The rejected alternative is worth keeping in view because its
+price is a balance round rather than a bug — it would not break anything, it would re-open numbers
+that three rounds of the balance log have already settled.
+
+Two things fall out of the call that are worth having said in advance rather than discovered. A
+region is a contiguous run of 25 indices, so on any index-monotone layout a region is automatically a
+connected stretch — regions become places for free rather than needing a boundary algorithm. And the
+hour ruler the reach strip already draws is a monotone function of position along the path, so
+distance-from-home can become a field on the map instead of a separate instrument.
+
+### What a galaxy draw costs, measured
+
+Taken on this machine against `:core:jvmTest`, one galaxy, per pass, with a throwaway harness that
+was deleted in the same session — a wall-clock reading has no business in the suite:
+
+| pass | cost |
+|---|---|
+| star class for all 250 systems | 55 µs |
+| generated name for all 250 systems | 144 µs |
+| every world in the galaxy — 250 × 15 `worldAt` | 777 µs |
+
+The reading that matters is the ratio rather than the absolutes, which are desktop JVM and will be
+larger on a phone: **the entire charted tier is free to redraw every frame, and "how many worlds does
+this system hold" is fourteen times the cost of it.** Which is convenient, because the charted tier
+is also exactly what the knowledge tiers permit a galaxy view to show. A system glyph carrying star
+class, region and name needs no cache at all; one carrying a world count needs one, and the design
+should say which it wants rather than have the build guess.
