@@ -71,14 +71,17 @@ internal fun GameState.toGalaxyUiState(
                 rows = toSystemRows(at = at, now = now),
             )
         },
-        dispatch = dispatch?.let {
+        dispatch = dispatch?.let { selection ->
+            // **The sheet's own system, which is not necessarily the page's.** A ledger row belongs
+            // to whatever system it came from, so the probe the refusal may hand back has to be
+            // priced for the target's star rather than for the one the map is parked on.
+            val its = SystemSelection(galaxy = selection.at.galaxy, system = selection.at.system)
             toDispatchUiState(
-                at = at,
-                selection = it,
+                selection = selection,
                 // Hoisted rather than restated: the card's footer already decides whether a probe
                 // can be sent, and a second copy of that decision inside the sheet is a second place
                 // for the two to disagree about one flight.
-                probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
+                probe = toProbeActionUiState(at = its, worlds = worldsOf(its), now = now, timeZone = timeZone),
                 now = now,
             )
         },
@@ -101,7 +104,7 @@ private fun GameState.toSystemRows(at: SystemSelection, now: Instant): List<Gala
         when {
             world != null -> toWorldRow(world = world, now = now, withTrailing = false)
             coordinate == relay -> GalaxyRowUiState.Relay(
-                slot = slot,
+                at = coordinate,
                 coordinate = coordinate.label(),
                 effect = RELAY_EFFECT,
             )

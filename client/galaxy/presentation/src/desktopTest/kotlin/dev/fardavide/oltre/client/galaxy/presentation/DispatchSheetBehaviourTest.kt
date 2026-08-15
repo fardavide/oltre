@@ -31,20 +31,20 @@ class DispatchSheetBehaviourTest {
         // The whole point of the mechanic in one assertion. Hostility gates *settling* and never
         // gathering, so the commonest verdict on the map — a world a colonist is locked out of — is
         // an ordinary target for a hold. That is what stops 98% of the galaxy being a wall.
-        val opened = mutableListOf<Int>()
+        val opened = mutableListOf<GalaxyCoordinate>()
 
         galaxyPage(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
         }
 
-        assertEquals(listOf(RUNNABLE_SLOT), opened.toList())
+        assertEquals(listOf(RUNNABLE), opened.toList())
     }
 
     @Test
     fun `the sheet names the world it was raised from`() {
         val coordinate = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
             .filterIsInstance<GalaxyRowUiState.World>()
-            .first { it.slot == RUNNABLE_SLOT }
+            .first { it.at == RUNNABLE }
             .coordinate
 
         galaxyPage(uiState = dispatchOfferUiState) {
@@ -202,14 +202,14 @@ class DispatchSheetBehaviourTest {
         // `startRun` refuses your own world outright, so the row must not offer a sheet that would
         // be refused the moment it was used. The screen and the model agree about this rather than
         // the screen finding out afterwards.
-        val opened = mutableListOf<Int>()
-        val homeSlot = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
+        val opened = mutableListOf<GalaxyCoordinate>()
+        val ownWorld = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
             .filterIsInstance<GalaxyRowUiState.World>()
             .first { it.verdict == WorldVerdictUiState.HOME }
-            .slot
+            .at
 
         galaxyPage(uiState = homeSystemUiState, onOpenWorld = { opened += it }) {
-            tapTheWorld(homeSlot)
+            tapTheWorld(ownWorld)
         }
 
         assertTrue(opened.isEmpty(), "a run cannot be sent to the world it is sent from")
@@ -220,10 +220,10 @@ class DispatchSheetBehaviourTest {
         // The galaxy sheet says it in as many words — the screen may label a relay, it may not be
         // tappable — and no holding mechanic exists until multiplayer. Nothing about the fleet
         // changes that; a relay is not a world and has no hold to fill.
-        val opened = mutableListOf<Int>()
+        val opened = mutableListOf<GalaxyCoordinate>()
 
         galaxyPage(uiState = relaySystemUiState, onOpenWorld = { opened += it }) {
-            tapTheWorld(relaySlot)
+            tapTheWorld(relayCoordinate)
         }
 
         assertTrue(opened.isEmpty())
@@ -339,7 +339,7 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(state = testGameState) {
             assertNoSheet()
 
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
 
             assertTheSheetIsUp()
         }
@@ -356,7 +356,7 @@ class DispatchSheetBehaviourTest {
             state = testGameState,
             onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
         ) {
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.CRYSTAL)
             send()
 
@@ -367,7 +367,7 @@ class DispatchSheetBehaviourTest {
         }
 
         val run = sent.single()
-        assertEquals(RUNNABLE_SLOT, run.at.slot)
+        assertEquals(RUNNABLE, run.at)
         assertEquals(ResourceKind.CRYSTAL, run.gathering)
         // The whole idle pool by default, which at genesis is the one granted skiff.
         assertEquals(Ships.of(ShipType.SKIFF, 1), run.ships)
@@ -375,8 +375,45 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
+    fun `a ledger row raises the sheet on its own world and sends the run there`() {
+        // **The defect 0.11 shipped, and the reason a row carries its whole address.** The ledger
+        // lists worlds from six systems at once and a tap used to hand the sheet a slot alone, so the
+        // other two thirds of the target were filled in from whatever system the *map* was parked on
+        // — home, on the screen the tab opens on. A row reading `crystal full` raised a sheet reading
+        // `deposit empty`, about a world in another system entirely, and the verb would have sent the
+        // run there too.
+        //
+        // Asserted on the stateful screen because that is where the address used to be lost: every
+        // frame in this file is handed a sheet that is already up.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = wellTravelledState,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(elsewhere)
+            assertTheSheetReads(elsewhere.label())
+            send()
+        }
+
+        assertEquals(elsewhere, sent.single().at)
+    }
+
+    @Test
     fun `the sheet is not on the screen until a world is tapped`() {
         galaxyPage(uiState = homeSystemUiState) { assertNoSheet() }
+    }
+
+    private companion object {
+
+        // A surveyed world outside the home system — the nearest one, so the ledger's own ordering
+        // puts it near the top and the ladder is a full five rungs. Found rather than written down:
+        // which systems a fortnight of probes reached is `wellTravelledState`'s business.
+        val elsewhere: GalaxyCoordinate = wellTravelledState.galaxy.let { galaxy ->
+            galaxy.surveyed
+                .filter { it.system != galaxy.home.system }
+                .minBy { FleetBalance.roundTrip(from = galaxy.home, to = it) }
+        }
     }
 }
 

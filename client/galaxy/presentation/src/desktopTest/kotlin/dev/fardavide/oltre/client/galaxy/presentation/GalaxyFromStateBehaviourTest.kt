@@ -79,11 +79,11 @@ class GalaxyFromStateBehaviourTest {
 
         galaxyScreen(state = state) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             assertTheSheetIsUp()
             // The coordinate the row printed, because the sheet is a second reading of a world the
             // player has already chosen rather than a second way of choosing one.
-            assertTheSheetReads("[${home.galaxy}:${home.system}:$RUNNABLE_SLOT]")
+            assertTheSheetReads("[${home.galaxy}:${home.system}:${RUNNABLE.slot}]")
             // And the figure the run would actually bring home, which is the only number on the
             // sheet that moves when a control is touched.
             assertTheSheetReads("metal")
@@ -99,7 +99,7 @@ class GalaxyFromStateBehaviourTest {
 
         galaxyScreen(state = bigFleet) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             homeIn(FleetBalance.WINDOWS.last())
             assertTheSheetIsUp()
             // "the whole deposit" is the one token the clamped state needs — the headline figure
@@ -112,15 +112,14 @@ class GalaxyFromStateBehaviourTest {
     fun `a worked-out world states a wait rather than a figure`() {
         // The dry world: the sheet keeps its chips, its stepper and its ladder and loses only the
         // figure, because the wait is a function of the ask and shrinking the ask is the remedy.
-        val target = GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = RUNNABLE_SLOT)
         val emptied = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 4)).let { colony ->
-            val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
-            colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH))
+            val cap = colony.galaxy.depositCap(RUNNABLE, ResourceKind.METAL) ?: 0
+            colony.copy(galaxy = colony.galaxy.withTaken(RUNNABLE, ResourceKind.METAL, cap, at = EPOCH))
         }
 
         galaxyScreen(state = emptied) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.METAL)
             assertTheSheetIsUp()
             assertTheSheetReads("empty")
@@ -135,7 +134,7 @@ class GalaxyFromStateBehaviourTest {
 
         galaxyScreen(state = fleet) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             sendOneMore()
             assertTheSheetIsUp()
             // Two hulls lift twice as much, unless the vein says otherwise — either way the figure
@@ -157,7 +156,7 @@ class GalaxyFromStateBehaviourTest {
         galaxyScreen(state = rich) {
             openTheMap()
             openSystem(home.system - 1)
-            tapTheWorld(firstWorldSlotOfNeighbour())
+            tapTheWorld(firstWorldOfNeighbour())
             assertTheSheetIsUp()
             assertTheSheetReads("unsurveyed")
         }
@@ -167,10 +166,15 @@ class GalaxyFromStateBehaviourTest {
     fun `a target in the next galaxy narrows the window ladder rather than greying it out`() {
         // The frontier: the next galaxy is hours each way, so the short rungs are simply not on the
         // sheet. That narrowing is what teaches distance before any copy does.
-        val far = SystemAddress(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
-        val slot = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first {
-            worldAt(testGameState.galaxy.seed, GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = it)) != null
-        }
+        //
+        // **The system index is the home one**, because a galaxy tab re-centres on the same index
+        // rather than on that galaxy's first star — this used to survey system 1, navigate somewhere
+        // else entirely and assert an absent rung against a sheet that was refusing an unsurveyed
+        // world, where every rung is absent. The long rung below is what keeps that from returning.
+        val far = SystemAddress(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = home.system)
+        val target = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+            .map { GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = it) }
+            .first { worldAt(testGameState.galaxy.seed, it) != null }
         val surveyed = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 2)).let { colony ->
             colony.copy(
                 galaxy = colony.galaxy.copy(
@@ -184,8 +188,11 @@ class GalaxyFromStateBehaviourTest {
         galaxyScreen(state = surveyed) {
             openTheMap()
             openGalaxy(far.galaxy)
-            tapTheWorld(slot)
+            tapTheWorld(target)
             assertTheSheetIsUp()
+            // There is a ladder at all, first: every `assertNoRungFor` passes against a sheet with
+            // no rungs on it whatever.
+            homeIn(FleetBalance.WINDOWS.last())
             // The rung that vanished is the copy: a player who never saw the full ladder still
             // learns why it is short.
             assertNoRungFor(FleetBalance.WINDOWS.first())
@@ -197,15 +204,14 @@ class GalaxyFromStateBehaviourTest {
         // The vein and the rate carry one multiplier, so a full fleet at a long window wants several
         // times what a world of this size holds. The sheet says that plainly, and the remedy is the
         // stepper above it rather than a date nobody can act on.
-        val target = GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = RUNNABLE_SLOT)
         val dry = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 8)).let { colony ->
-            val cap = colony.galaxy.depositCap(target, ResourceKind.METAL) ?: 0
-            colony.copy(galaxy = colony.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH))
+            val cap = colony.galaxy.depositCap(RUNNABLE, ResourceKind.METAL) ?: 0
+            colony.copy(galaxy = colony.galaxy.withTaken(RUNNABLE, ResourceKind.METAL, cap, at = EPOCH))
         }
 
         galaxyScreen(state = dry) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.METAL)
             homeIn(FleetBalance.WINDOWS.last())
             assertTheSheetIsUp()
@@ -221,7 +227,7 @@ class GalaxyFromStateBehaviourTest {
 
         galaxyScreen(state = fleet) {
             openTheMap()
-            tapTheWorld(RUNNABLE_SLOT)
+            tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.CRYSTAL)
             assertTheSheetIsUp()
             assertTheSheetReads("crystal")
@@ -240,12 +246,9 @@ class GalaxyFromStateBehaviourTest {
         }
     }
 
-    private fun firstWorldSlotOfNeighbour(): Int = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first {
-        worldAt(
-            testGameState.galaxy.seed,
-            GalaxyCoordinate(galaxy = home.galaxy, system = home.system - 1, slot = it),
-        ) != null
-    }
+    private fun firstWorldOfNeighbour(): GalaxyCoordinate = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+        .map { GalaxyCoordinate(galaxy = home.galaxy, system = home.system - 1, slot = it) }
+        .first { worldAt(testGameState.galaxy.seed, it) != null }
 
     private fun neighbour(): SystemAddress =
         SystemAddress(galaxy = home.galaxy, system = home.system - 1)
