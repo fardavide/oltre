@@ -3332,3 +3332,110 @@ that is what the complaint was actually about, no cap in this round's grid was e
 One visible consequence, flagged rather than designed: the dispatch sheet's `working` segment now
 reads in hours where it read in minutes, so the legs line wraps to two rows on a full-fleet ask. It
 is legible and nothing clips, but it is a design-owned line and Davide may want it looked at.
+
+---
+
+## Round 28 — genesis stops granting a skiff (0.11.3, 2026-08-15)
+
+Davide, 2026-08-12 (issue #55): *"We should remove the default ship also, and allow the user to build
+them instead."*
+
+`GameState.initial` goes from `Ships.of(SKIFF, 1)` to `Ships.NONE`. **No balance constant moves** —
+not the hull price, not the opening stock, not the extraction rate, not the deposit cap round 27 just
+set. The only change is what a new colony is handed.
+
+### The issue's own safety argument was two releases stale, and that is the first finding
+
+#55 argued the grant could go because the opening stock buys a hull outright: *"`shipCost(SKIFF,
+alreadyOwned = 0)` is 80 metal / 20 crystal… affordable in the first sitting with 420 metal to
+spare, so 'a new colony opens on a decision, not on a wait' survives intact — the decision becomes
+buy, then send instead of send."*
+
+That arithmetic was written on 2026-08-12. **Round 23 raised the hull base tenfold on 2026-08-13**,
+on Davide's *"ships are WAY too cheap"*. A skiff is 800 metal / 200 crystal against a genesis stock
+of 500 / 300, so the first hull is not affordable at hour zero and the promised *buy, then send* is
+not available in the first sitting. The premise inverted between the issue being written and being
+picked up, and nothing in the issue could have known.
+
+**Davide's call, 2026-08-15, on being shown the arithmetic: land it as-is, the hull is earned.** The
+alternative — raise the opening stock past 800 so the first sitting keeps a hull in it — was declined
+because it would undo round 23 at the one place round 23 was aimed.
+
+So the sentence *"a new colony opens on a decision, not on a wait"* still holds of the colony and no
+longer holds of the fleet, and that is deliberate rather than overlooked.
+
+### What the opening costs now, measured
+
+| reading | before | after |
+|---|---|---|
+| hulls at hour 0 | 1 | **0** |
+| first hull affordable, colony that buys nothing else | — | **hour 4** (3h 20m of metal) |
+| …in hand, after the yard at Robotics 0 | — | **~5h 25m** |
+| first hull affordable, benchmark's greedy fixed player | — | **hour 34** |
+
+The spread between the last two rows is the whole of the design question and it is not one this
+round can answer: **wanting a hull is now a thing a player does instead of something else**, and how
+early they do it is a preference no bot has. `hour 34` is what happens if it is never a priority.
+
+### The fleet in the first 48 hours stops existing, and that is the price
+
+`printFleetReport`'s 48h pair, whose colony buys buildings first and hulls out of what is left:
+
+| Reading, over 48h | before | **after** |
+|---|---|---|
+| Dispatches | 8 | **0** |
+| Hulls owned at 48h | 1 | **0** |
+| Fleet duty cycle | 75.0% | **—** |
+| Fleet metal delivered | 2,352 | **0** |
+| Fleet metal / colony metal | 17.0% | **0.0%** |
+| Building levels at 48h | 34 | **32** |
+
+**Zero, not fewer.** A colony that puts every spare unit into facilities never has 800 metal spare in
+two days, so the fleet-second player meets no fleet at all in their first two days — where before
+they met a granted hull doing 75% duty and delivering a sixth of their metal income. Note the last
+row: those two building levels are the fleet's cost, and the colony gets them back.
+
+The fortnight is a much smaller move, because by then hulls are bought in bulk either way:
+
+| Reading, over 14 days | before | **after** |
+|---|---|---|
+| Dispatches | 56 | **46** |
+| Hulls owned | 400 | **350** |
+| Fleet duty cycle | 71.1% | **71.1%** |
+| Fleet metal / colony metal | 6.0% | **6.0%** |
+| Building levels at 14d | 70 | **69** |
+
+So the change is **entirely an opening change**. §9's fleet-income veto reads identically at a
+fortnight; round 27's 29.1% is untouched.
+
+### The benchmark could not see it, which is an instrument note worth keeping
+
+`BalanceBenchmarkGolden` moved by **one word**: `second skiff affordable` → `first skiff affordable`,
+same hour 34. #55 expected the `[opening]` and `[session]` sections to move and neither did, because
+the page's fixed player buys facilities and research and **never a hull** — so what that row reads is
+when the stores first cover the price, which the grant never affected.
+
+**A photograph is only as wide as its policy.** The page is blind to every change that lives in the
+fleet, and the two instruments that saw this one both have a player who buys hulls: `:sim`'s fleet
+report and the new band in `OpeningBalanceTest`. Worth remembering the next time a fleet number moves
+and the golden stays still — that is not evidence.
+
+### The migration hop does not move, and its comment did
+
+`GameSave`'s 7 → 8 hop grants a skiff, and it is now the only place in the game that does. Both
+halves of the argument that put it there have expired — `buildShips` landed at 0.8.0 and genesis
+stopped granting at 0.11.3 — and it stays anyway, because a migration records what a save was
+carried through rather than what the build believes. Every colony opened by a build at schema 8 or
+later already holds that hull and no later hop takes an asset back; rewriting it would confiscate one
+from all of them to make a comment tidy. `fleet-sheet.md` §9's open call is closed on that reading.
+
+### What it should feel like, so round 29 can tell
+
+The Shipyard should be the **first** tab a new colony has a reason to open, and the first hull should
+feel like something bought rather than something found. **If the opening instead reads as three hours
+of nothing to do before the fleet exists, the dial is the opening stock and not the hull price** —
+raising the stock keeps round 23's ratio intact everywhere except the one sitting this round made
+empty, which is the option Davide declined on paper and can take back after a device says so.
+
+The reading to bring back: whether a real player buys a hull nearer hour 4 or nearer hour 34. Nothing
+in this repository can measure that.

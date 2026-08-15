@@ -1376,9 +1376,14 @@ the first thing to add if the arrival turns out to feel like nothing.**
   on-disk identifiers on the first merge. The four constants are free to rename **today and once**,
   because nothing has ever written one to disk; after the first hull a real player owns, a rename is a
   schema break exactly as `Fleet.kt:6-8` warns.
-- **Whether an existing save gets the granted skiff.** The sheet says yes, on the argument the 500 metal
-  is granted. The alternative — an empty pool and buy your way in — is honest and means an existing
-  player meets the slice at a purchase rather than at a dispatch.
+- ~~**Whether an existing save gets the granted skiff.**~~ **Closed at 0.11.3, and it split in two.**
+  The alternative this line called *"honest"* — an empty pool and buy your way in — is what a **new**
+  colony gets now, on Davide's call of 2026-08-12: *"We should remove the default ship also, and allow
+  the user to build them instead."* The **migration** keeps the grant, which is the opposite answer to
+  the same question and is deliberate: the 7 → 8 hop is a record of what a save was carried through,
+  every colony already opened at schema 8 or later holds that hull, and no later hop takes an asset
+  back. So the sheet's *"yes"* stands for saves and its rejected alternative stands for genesis. See
+  `GameSave.kt`'s hop-8 comment and `balance-log.md` round 28 for what it cost the opening.
 - **Whether permanent hull loss ships at all before slice #8.** The sheet defers it and says why. If it
   is wanted sooner it needs a rule, and it must be signposted before dispatch rather than hidden.
 - **The notification trim order.** Two multi-instance kinds now compete for iOS's 64 pending requests.

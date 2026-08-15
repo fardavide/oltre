@@ -850,6 +850,24 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   0.10.1. `:sim:run` grew `printStandingTable` for the deciding reading. See `deposit-sheet.md` §2.5.1
   and `balance-log.md` round 27.
 
+- **0.11.3 genesis stops granting a skiff** — Davide, 2026-08-12 (issue #55): *"We should remove the
+  default ship also, and allow the user to build them instead."* `GameState.initial` goes
+  `Ships.of(SKIFF, 1)` -> `Ships.NONE`, and **no balance constant moves.** **The issue's own safety
+  argument was two releases stale and that is the finding**: it priced the first hull at 80 metal /
+  20 crystal and concluded the opening stock buys it *"with 420 metal to spare"*, but 0.9.0 raised
+  the base tenfold the day after the issue was written — 800 metal against a genesis 500 — so the
+  promised *buy, then send* is not available in the first sitting. Davide's call on being shown the
+  arithmetic, 2026-08-15: **land it as-is, the hull is earned**, rather than raise the opening stock
+  and undo 0.9.0 at the one place 0.9.0 was aimed. The cost, measured: the fleet-second player's
+  first 48 hours go from 8 dispatches, 75% duty cycle and 17.0% of metal income to **zero of all
+  three** — a colony that buys facilities first never has 800 spare in two days — and they get two
+  building levels back for it. The fortnight barely moves (56 -> 46 dispatches, duty cycle and income
+  share identical), so this is **entirely an opening change**. The 7 -> 8 migration hop still grants
+  a skiff and is now the only place in the game that does, deliberately: it records what a save was
+  carried through, and rewriting it would confiscate a hull from every colony already migrated past
+  8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
+  28.
+
 ## Pending, from 0.12.0
 
 - **Nobody has seen the fold on a device.** It is measured at both widths and it is inside the
@@ -873,6 +891,20 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **`galaxy_ledger_empty` was retired rather than re-recorded.** It was built from a filter set that
   no longer exists, and the emptiness it photographed — *"no world matches all three"* — is a state
   the screen can no longer reach.
+
+## Pending, from 0.11.3
+
+- **Nobody has held this opening.** The whole change is a first-sitting change and the two readings
+  that bracket it are 30 hours apart: a colony that saves for a hull can order one at **hour 4**, and
+  the benchmark's greedy player does not afford one until **hour 34**. Which end a real player lands
+  on is a preference no bot in this repository has, and it decides whether the opening reads as a
+  decision or as three hours of nothing. **The dial if it reads wrong is the opening stock, not the
+  hull price** — raising the stock keeps 0.9.0's ratio everywhere except the sitting this release
+  emptied, and it is the option Davide declined on paper and can take back after a device says so.
+- **The Fleets tab now opens on `0 of 0 away` and the Shipyard on `0 hulls`.** Both fall out of rules
+  that already existed and neither needed new copy, but they are states no player could reach before
+  and no design was drawn for them. If the empty Shipyard wants more than a price list, that is a
+  Claude Design prompt.
 
 ## Pending, from 0.11.2
 

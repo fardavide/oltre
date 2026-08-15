@@ -31,7 +31,7 @@ class ShipyardAppBehaviourTest {
     fun `buying a hull on the Shipyard tab reaches core and comes back to the screen`() {
         app(saved = snapshot(rich())) {
             open(OltreTab.SHIPYARD)
-            // The granted skiff, and the price of the second.
+            // The hull this colony already bought, and the price of the next.
             assertReads("1 owned · 1 idle")
 
             buyAHull()
@@ -125,11 +125,17 @@ class ShipyardAppBehaviourTest {
         }
     }
 
+    // **A colony that can pay *and* already owns one hull**, and the hull is stated here rather than
+    // inherited from genesis, which stopped granting one at 0.11.3. Every test in this class is about
+    // the loop between the two tabs — buy, queue, land, dispatch — and each of them needs a fleet
+    // that is already non-zero to be able to see it change: "the fleet has not grown" and "the hull
+    // is out, so the Shipyard says so" are both readings against a pool, not against nothing. The
+    // *opening* state, with no hull at all, is `ShipyardFromStateBehaviourTest`'s subject.
     private fun rich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
-        .copy(resources = Resources.of(metal = 10_000, crystal = 10_000))
+        .copy(resources = Resources.of(metal = 10_000, crystal = 10_000), ships = Ships.of(ShipType.SKIFF, 1))
 
     private fun veryRich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
-        .copy(resources = Resources.of(metal = 100_000, crystal = 100_000))
+        .copy(resources = Resources.of(metal = 100_000, crystal = 100_000), ships = Ships.of(ShipType.SKIFF, 1))
 
     private fun snapshot(state: GameState): GameSnapshot =
         GameSnapshot(lastUpdatedAt = Clock.System.now(), state = state)

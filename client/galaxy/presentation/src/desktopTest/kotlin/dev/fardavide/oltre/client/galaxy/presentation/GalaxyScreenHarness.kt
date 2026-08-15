@@ -10,6 +10,7 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
 import kotlin.time.Duration
@@ -65,4 +66,12 @@ internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 // The colony every frame in `TestGalaxyUiState` describes, for the tests that drive the stateful
 // screen rather than a mapped frame: which world has its sheet up is `GalaxyScreen`'s own state, so
 // a tap that raises one is only a tap that raises one from here.
-internal val testGameState: GameState = GameState.initial(GalaxySeed(20_260_807))
+//
+// **The skiff is put here rather than inherited, since 0.11.3.** Genesis used to grant one and this
+// was `GameState.initial` alone; a colony now buys its first hull, and a fixture with an empty pool
+// would raise the dispatch sheet in its *refusal* state — so every frame on this tab, and every
+// baseline recorded from one, would have quietly become a picture of a screen that cannot send a
+// run. One hull is what these frames have always described, so this states it instead of receiving
+// it, and no baseline moves.
+internal val testGameState: GameState =
+    GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SKIFF, 1))

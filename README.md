@@ -234,6 +234,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 - **The tab remembers which of the two you last used** and opens there next time. The reach strip
   under the orbit page and the ten-row region index are both gone; the map does what they did.
 
+### 0.11.3 — 2026-08-15
+
+- **A new colony no longer starts with a ship.** Genesis hands you the stock, the mines and a
+  surveyed home system, and nothing to fly. The first hull is the first thing you buy from the
+  Shipyard — so the fleet is something you decide to have rather than something you were issued.
+- **Which makes the first hull a real purchase.** It costs 800 metal against an opening stock of
+  500, so it is a few hours of saving away if you want it now, and further if you would rather put
+  the metal into the mines. That is the trade: the fleet and the colony are asking for the same
+  metal from the first minute, and until now the game answered the question for you.
+- **Nothing is taken from a colony you have already opened.** The skiff a save was granted when it
+  migrated stays exactly where it is; this changes what a *new* colony receives and nothing else.
+
 ### 0.11.2 — 2026-08-15
 
 - **Worlds hold four times as much.** A plain doorstep world now carries 5,800 metal, or 2,900

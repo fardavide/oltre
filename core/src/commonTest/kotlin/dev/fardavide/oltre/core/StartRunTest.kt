@@ -43,8 +43,8 @@ class StartRunTest {
 
     @Test
     fun `sending the last hull leaves an empty pool rather than a zero`() {
-        // given the granted skiff and nothing else
-        val state = GameState.initial()
+        // given a colony that has bought exactly one hull and holds nothing else
+        val state = fleetOf(1)
 
         // when
         val started = dispatch(state, neighbourOfHome(state), ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1))
@@ -55,10 +55,18 @@ class StartRunTest {
     }
 
     @Test
-    fun `a new colony can send its skiff at hour zero`() {
+    fun `a new colony can send its first skiff at hour zero`() {
         // The verb that exists to fix an empty opening cannot sit behind a building — `startSurvey`'s
         // argument, with more force.
-        val state = GameState.initial()
+        //
+        // **The hull is now bought rather than granted, and the assertion is unchanged on purpose.**
+        // What this pins is that *dispatch* has no requirement in front of it, which was true when
+        // genesis handed a colony a skiff and has to stay true now that it earns one: a player whose
+        // first hull leaves the slipway at hour zero must be able to send it at hour zero. The wait
+        // that removing the grant added belongs to the yard and to the price, and `OpeningBalanceTest`
+        // is where it is measured — putting it here would turn a test about a gate into a test about
+        // a clock.
+        val state = fleetOf(1)
         assertIs<StartRunResult.Started>(
             startRun(
                 state = state,

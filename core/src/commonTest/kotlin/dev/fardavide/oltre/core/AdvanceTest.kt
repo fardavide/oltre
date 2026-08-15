@@ -223,14 +223,15 @@ class AdvanceTest {
         ).state
         val due = ordered.yard.single().completesAt
 
-        // a millisecond short of the instant, the hull is still being made
+        // a millisecond short of the instant, the hull is still being made — and since genesis grants
+        // none, "still being made" is a fleet of nothing rather than a count that has not moved
         val before = advance(ordered, from = t0, to = due - 1.milliseconds)
-        assertEquals(Ships.of(ShipType.SKIFF, 1), before.ships)
+        assertEquals(Ships.NONE, before.ships)
         assertEquals(1, before.yard.size)
 
         // and on it, it exists
         val after = advance(ordered, from = t0, to = due)
-        assertEquals(Ships.of(ShipType.SKIFF, 2), after.ships)
+        assertEquals(Ships.of(ShipType.SKIFF, 1), after.ships)
         assertTrue(after.yard.isEmpty())
         assertEquals(Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = due), after.eventLog.last())
     }
@@ -250,7 +251,7 @@ class AdvanceTest {
 
         val landed = advance(ordered, from = t0, to = ordered.yard.last().completesAt)
 
-        assertEquals(Ships.of(ShipType.SKIFF, 4), landed.ships)
+        assertEquals(Ships.of(ShipType.SKIFF, 3), landed.ships)
         assertTrue(landed.yard.isEmpty())
         val deliveries = landed.eventLog.filterIsInstance<Event.ShipsBuilt>()
         assertEquals(ordered.yard.map { it.completesAt }, deliveries.map { it.at })
@@ -271,7 +272,7 @@ class AdvanceTest {
 
         val later = advance(ordered, from = t0, to = ordered.yard.single().completesAt + 1.hours)
 
-        assertEquals(Ships.of(ShipType.SKIFF, 2), later.ownedShips())
+        assertEquals(Ships.of(ShipType.SKIFF, 1), later.ownedShips())
         assertEquals(later.ships, later.ownedShips())
     }
 }
