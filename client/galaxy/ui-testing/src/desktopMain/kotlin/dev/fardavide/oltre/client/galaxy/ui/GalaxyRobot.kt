@@ -24,6 +24,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipeUp
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
@@ -50,7 +51,7 @@ fun galaxyPage(
     onOpenRegion: (Int) -> Unit = {},
     onOpenResearch: () -> Unit = {},
     onDispatchProbe: () -> Unit = {},
-    onOpenWorld: (Int) -> Unit = {},
+    onOpenWorld: (GalaxyCoordinate) -> Unit = {},
     onCloseDispatch: () -> Unit = {},
     onSelectGathering: (ResourceKind) -> Unit = {},
     onSelectShips: (Int) -> Unit = {},
@@ -211,8 +212,7 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 
     // **Reading order, which is all a sort or a pin ever does to a player**: this world is now above
     // that one. Asked as a comparison rather than as an index because the ledger has no positional
-    // handle — its rows are tagged by slot and rows from six systems share the fifteen slot numbers,
-    // so `row(7)` names as many nodes as there are systems in the list.
+    // handle — a row's tag names the world it draws and says nothing about where in the list it sits.
     fun assertListedAbove(name: String, other: String) = apply {
         val above = test.onNodeWithText(name, substring = true).fetchSemanticsNode().positionInRoot.y
         val below = test.onNodeWithText(other, substring = true).fetchSemanticsNode().positionInRoot.y
@@ -227,55 +227,55 @@ class GalaxyRobot(private val test: ComposeUiTest) {
     }
 
     // The blocked row's remedy, which is a tap target again now that Research can sell it.
-    fun tapTheRemedy(slot: Int, technology: AdaptationTechnology) = apply {
-        test.onNodeWithTag(GalaxyTestTags.adaptation(slot, technology)).performScrollTo().performClick()
+    fun tapTheRemedy(at: GalaxyCoordinate, technology: AdaptationTechnology) = apply {
+        test.onNodeWithTag(GalaxyTestTags.adaptation(at, technology)).performScrollTo().performClick()
     }
 
     // The rest of the card, which is not one: the row belongs to the world.
-    fun tapTheWorld(slot: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).performScrollTo().performClick()
+    fun tapTheWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).performScrollTo().performClick()
     }
 
     // Scrolls first, and that is the "assume it scrolls" budget the reach band and the card footer
     // spent: the map card grew 40dp and the band added 97dp above it, so two of the home system's
     // four world rows now start below the fold at 393x852 where all four used to be on screen.
     // The rows are still there and still reachable — which is what this asserts.
-    fun assertShowsWorld(slot: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).performScrollTo().assertIsDisplayed()
+    fun assertShowsWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).performScrollTo().assertIsDisplayed()
     }
 
-    fun assertShowsNoWorld(slot: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).assertDoesNotExist()
+    fun assertShowsNoWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).assertDoesNotExist()
     }
 
     // Scoped to the row, because a verdict word appears on several of them at once — an unscoped
     // query for "BLOCKED" on the home system would match three nodes and fail on the ambiguity
     // rather than on the assertion.
-    fun assertRowReads(slot: Int, text: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).assert(containing(text))
+    fun assertRowReads(at: GalaxyCoordinate, text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).assert(containing(text))
     }
 
     // The mirror of `assertRowReads`, and the only way to pin a *subtraction* to one row: an unscoped
     // `assertNothingReads` is also satisfied by a screen that moved the string one card up.
-    fun assertTheRowDoesNotRead(slot: Int, text: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.row(slot)).assert(containing(text).not())
+    fun assertTheRowDoesNotRead(at: GalaxyCoordinate, text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).assert(containing(text).not())
     }
 
     // **The row's own strings in the order they are painted**, which is what turns "leads with the
     // name" from a wish into an assertion: a row is a merged node, and merging keeps its children's
     // text in draw order. A ladder is not in this list — each one is a tap target and therefore a
     // node of its own, which is why a remedy is asserted with `assertRowReads` instead.
-    fun assertTheRowReadsInOrder(slot: Int, vararg texts: String) = apply {
-        val painted = test.onNodeWithTag(GalaxyTestTags.row(slot))
+    fun assertTheRowReadsInOrder(at: GalaxyCoordinate, vararg texts: String) = apply {
+        val painted = test.onNodeWithTag(GalaxyTestTags.row(at))
             .fetchSemanticsNode()
             .config.getOrNull(SemanticsProperties.Text)
             .orEmpty()
             .map { it.text }
         var from = 0
         for (text in texts) {
-            val at = painted.drop(from).indexOfFirst { text in it }
-            check(at >= 0) { "row $slot reads $painted, which has no '$text' after the line before it" }
-            from += at + 1
+            val found = painted.drop(from).indexOfFirst { text in it }
+            check(found >= 0) { "row $at reads $painted, which has no '$text' after the line before it" }
+            from += found + 1
         }
     }
 

@@ -26,6 +26,7 @@ import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
@@ -55,7 +56,7 @@ fun GalaxyPage(
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
-    onOpenWorld: (Int) -> Unit,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
     onCloseDispatch: () -> Unit,
     onSelectGathering: (ResourceKind) -> Unit,
     onSelectShips: (Int) -> Unit,
@@ -148,7 +149,7 @@ private fun SystemBody(
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
-    onOpenWorld: (Int) -> Unit,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
         SystemHead(
@@ -183,7 +184,7 @@ private fun SystemBody(
 private fun LedgerBody(
     body: LedgerBodyUiState,
     onOpenResearch: () -> Unit,
-    onOpenWorld: (Int) -> Unit,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
         if (body.discoveries.isNotEmpty()) {
@@ -245,7 +246,7 @@ private fun LedgerBody(
 private fun WorldRows(
     rows: List<GalaxyRowUiState>,
     onOpenResearch: () -> Unit,
-    onOpenWorld: (Int) -> Unit,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         rows.forEach { row ->

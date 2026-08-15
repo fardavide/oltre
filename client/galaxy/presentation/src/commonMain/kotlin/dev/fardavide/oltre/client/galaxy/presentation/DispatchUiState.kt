@@ -27,29 +27,32 @@ import kotlin.time.Instant
 // real world, a real fleet and a real deposit. The shapes it fills in are `:client:galaxy:ui`'s.
 
 
-// **What the player has touched, and nothing else.** Every field but the slot is null until they
+// **What the player has touched, and nothing else.** Every field but the target is null until they
 // change it, and the mapper below fills the blanks — which is why opening the sheet needs no read of
 // the game state at all, and why a default that moves (the richer resource, the whole idle pool) is
 // stated once in the mapper rather than copied into the screen that opens the sheet.
 //
-// The slot rather than a whole coordinate: the page *is* a system, exactly as it is for the probe.
+// **The whole coordinate rather than a slot**, and the correction is the whole of this file's bug
+// history: the page is a system only in the *map* view, and the ledger — the view the tab opens on —
+// lists rows from everywhere. A selection carrying a slot alone was completed from the map's own
+// system, so tapping a ledger row priced the same slot of wherever the map was parked, and a row
+// reading `crystal full` raised a sheet reading `deposit empty` about a different world.
 data class DispatchSelection(
-    val slot: Int,
+    val at: GalaxyCoordinate,
     val gathering: ResourceKind?,
     val ships: Int?,
     val window: Duration?,
 )
 
-// Null when the slot is not a target at all, which is the screen agreeing with `startRun` rather
+// Null when the target is not a target at all, which is the screen agreeing with `startRun` rather
 // than finding out afterwards: your own world, a world somebody holds, an empty slot and a relay all
 // refuse outright, so the row never offers a sheet the verb would throw away.
 internal fun GameState.toDispatchUiState(
-    at: SystemSelection,
     selection: DispatchSelection,
     probe: ProbeActionUiState,
     now: Instant,
 ): DispatchUiState? {
-    val target = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = selection.slot)
+    val target = selection.at
     if (target == galaxy.home) return null
     if (galaxy.holderOf(target) != null) return null
     val world = worldAt(galaxy.seed, target) ?: return null
@@ -61,7 +64,7 @@ internal fun GameState.toDispatchUiState(
             head = UNSURVEYED_HEAD,
             compactHead = UNSURVEYED_HEAD,
             title = "A hold cannot be priced from a world nobody has looked at.",
-            note = unsurveyedNote(at = at, probe = probe),
+            note = unsurveyedNote(at = SystemSelection(galaxy = target.galaxy, system = target.system), probe = probe),
             // Only when the card above would honour it. The footer of the map card already decides
             // whether a probe can be sent — it is in flight, it is unaffordable, it has landed — and
             // a second copy of that decision here is a second place for the two to disagree.
@@ -134,7 +137,7 @@ internal fun GameState.toDispatchUiState(
             coordinate = coordinate,
             head = head,
             compactHead = compactHead,
-            slot = selection.slot,
+            at = target,
             window = window,
             gathering = gathering,
             metalRichness = world.traits.metalRichness.perMillion.perMillion(),
@@ -162,7 +165,7 @@ internal fun GameState.toDispatchUiState(
         coordinate = coordinate,
         head = head,
         compactHead = compactHead,
-        slot = selection.slot,
+        at = target,
         window = window,
         gathering = gathering,
         metalRichness = world.traits.metalRichness.perMillion.perMillion(),

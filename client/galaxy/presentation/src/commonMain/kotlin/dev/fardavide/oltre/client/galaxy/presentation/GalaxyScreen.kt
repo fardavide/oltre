@@ -74,9 +74,10 @@ fun GalaxyScreen(
     // navigation exactly as `at` is — a world selector names only the galaxy, so nothing outside this
     // module has an opinion about it.
     //
-    // Keyed on the system as well as the seed: a sheet is raised on a *slot*, and carrying that slot
-    // across a change of system would leave it open on a different world than the one it was raised
-    // from. Going somewhere else closes it, which is also what a player means by going somewhere else.
+    // Keyed on the system as well as the seed, which is no longer a correctness need — the selection
+    // carries a whole coordinate, so nothing about it can be misread against another system — but
+    // going somewhere else still closes the sheet, which is what a player means by going somewhere
+    // else.
     var open by remember(state.galaxy.seed, at) { mutableStateOf<DispatchSelection?>(null) }
     val nav = GalaxyNavigation(
         view = view,
@@ -120,12 +121,16 @@ fun GalaxyScreen(
         // The system on screen *is* the target — a probe is aimed at the star the page is about,
         // which is why the footer needs no target picker and the world rows carry no button.
         onDispatchProbe = { onDispatchProbe(SystemAddress(galaxy = at.galaxy, system = at.system)) },
-        // Nothing is read off the state here, deliberately: every field but the slot is null until
+        // Nothing is read off the state here, deliberately: every field but the target is null until
         // the player touches a control, and the defaults — the richer resource, the whole idle pool,
         // the 3h rung — are the mapper's to fill in. So opening a sheet cannot disagree with the
         // sheet it opened.
-        onOpenWorld = { slot ->
-            open = DispatchSelection(slot = slot, gathering = null, ships = null, window = null)
+        //
+        // **The row's own coordinate, never this screen's `at`.** A ledger row belongs to whatever
+        // system it came from, and completing its address from the map's selection is what made a
+        // tap price the wrong world.
+        onOpenWorld = { world ->
+            open = DispatchSelection(at = world, gathering = null, ships = null, window = null)
         },
         onCloseDispatch = { open = null },
         onSelectGathering = { kind -> open = open?.copy(gathering = kind) },
@@ -138,7 +143,7 @@ fun GalaxyScreen(
             // a run the sheet never described.
             (uiState.dispatch as? DispatchUiState.Offer)?.let { offer ->
                 onDispatchRun(
-                    GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = offer.slot),
+                    offer.at,
                     offer.gathering,
                     Ships.of(ShipType.SKIFF, offer.shipCount),
                     offer.window,

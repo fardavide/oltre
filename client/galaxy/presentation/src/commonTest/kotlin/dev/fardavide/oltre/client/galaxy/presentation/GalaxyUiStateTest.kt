@@ -266,7 +266,7 @@ class GalaxyUiStateTest {
         val state = fresh()
         val system = state.systemAt(state.homeSelection())
 
-        assertEquals(system.rows.map { it.slot }, system.map.bodies.map { it.slot })
+        assertEquals(system.rows.map { it.at.slot }, system.map.bodies.map { it.slot })
         assertEquals(0, system.map.bodies.count { it.mark == MapMark.EMPTY })
         assertEquals(1, system.map.bodies.count { it.mark == MapMark.HOME })
     }
@@ -299,7 +299,7 @@ class GalaxyUiStateTest {
         systemAt(at).rows.filterIsInstance<GalaxyRowUiState.World>()
 
     private fun GameState.rowAt(at: GalaxyCoordinate): GalaxyRowUiState.World =
-        worldRowsAt(SystemSelection(galaxy = at.galaxy, system = at.system)).first { it.slot == at.slot }
+        worldRowsAt(SystemSelection(galaxy = at.galaxy, system = at.system)).first { it.at == at }
 
     // Everything the tab remembers, in one place: seven fields is more than a call site wants
     // repeating, and only the first two ever vary here. The rest are what the screen opens on.

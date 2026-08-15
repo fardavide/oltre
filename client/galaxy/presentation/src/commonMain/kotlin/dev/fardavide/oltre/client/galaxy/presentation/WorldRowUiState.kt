@@ -41,7 +41,7 @@ internal fun GameState.toWorldRow(
     val traits = world.traits
 
     return GalaxyRowUiState.World(
-        slot = world.at.slot,
+        at = world.at,
         name = worldNameAt(galaxy.seed, world.at),
         coordinate = world.at.label(),
         // **The one gate, and it is the survey set rather than the verdict.** The disc and the

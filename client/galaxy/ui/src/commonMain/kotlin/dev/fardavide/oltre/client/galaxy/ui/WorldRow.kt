@@ -26,6 +26,7 @@ import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 
 // **One card, six verdicts, two screens.** The system view and the ledger draw this row and nothing
@@ -53,7 +54,7 @@ import dev.fardavide.oltre.core.ResourceKind
 internal fun WorldRow(
     row: GalaxyRowUiState.World,
     onOpenResearch: () -> Unit,
-    onOpenWorld: (Int) -> Unit,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val home = row.verdict == WorldVerdictUiState.HOME
@@ -66,8 +67,8 @@ internal fun WorldRow(
                 oltreCardShape,
             )
             .background(oltreCardSurface, oltreCardShape)
-            .testTag(GalaxyTestTags.row(row.slot))
-            .clickable(enabled = row.verdict.isRunnable()) { onOpenWorld(row.slot) }
+            .testTag(GalaxyTestTags.row(row.at))
+            .clickable(enabled = row.verdict.isRunnable()) { onOpenWorld(row.at) }
             .padding(11.dp),
         // The one gap between every top-level block: header, deposits, requirements, note. A block
         // with nothing to say is omitted and nothing takes its place, so this spacing is also what
@@ -82,7 +83,7 @@ internal fun WorldRow(
         if (row.requirements.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
                 row.requirements.forEach { requirement ->
-                    RequirementLine(slot = row.slot, requirement = requirement, onOpenResearch = onOpenResearch)
+                    RequirementLine(at = row.at, requirement = requirement, onOpenResearch = onOpenResearch)
                 }
             }
         }
@@ -108,7 +109,7 @@ internal fun RelayRow(row: GalaxyRowUiState.Relay, modifier: Modifier = Modifier
         modifier = modifier
             .fillMaxWidth()
             .border(1.dp, Color.White.copy(alpha = 0.09f), oltreCardShape)
-            .testTag(GalaxyTestTags.row(row.slot))
+            .testTag(GalaxyTestTags.row(row.at))
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
@@ -321,7 +322,7 @@ private fun DepositItem(item: DepositItemUiState) {
 // turns the galaxy screen into a reason to research, and the only thing connecting two tabs that
 // otherwise never speak. So the technology is a target, and the accent is legitimate for once.
 @Composable
-private fun RequirementLine(slot: Int, requirement: BlockedAxisUiState, onOpenResearch: () -> Unit) {
+private fun RequirementLine(at: GalaxyCoordinate, requirement: BlockedAxisUiState, onOpenResearch: () -> Unit) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Top, modifier = Modifier.fillMaxWidth()) {
         Text(
@@ -352,7 +353,7 @@ private fun RequirementLine(slot: Int, requirement: BlockedAxisUiState, onOpenRe
             // clear each other by the 5dp above rather than visibly loosening.
             modifier = Modifier
                 .clickable(onClick = onOpenResearch)
-                .testTag(GalaxyTestTags.adaptation(slot, requirement.technology))
+                .testTag(GalaxyTestTags.adaptation(at, requirement.technology))
                 .padding(start = 10.dp, top = 6.dp, bottom = 6.dp),
         )
     }

@@ -85,8 +85,8 @@ class GalaxyPageBehaviourTest {
         // The occupied set is read off the *seed* rather than off the frame: the claim is that the
         // page draws what the generator put there, and a list taken from the same frame it is
         // asserted against could only ever agree with itself.
-        val occupied = frameState.worldsOf(frameState.homeSelection()).map { it.at.slot }
-        val empty = (1..GalaxyBalance.SLOTS_PER_SYSTEM) - occupied.toSet()
+        val occupied = frameState.worldsOf(frameState.homeSelection()).map { it.at }
+        val empty = (1..GalaxyBalance.SLOTS_PER_SYSTEM).map { homeAt(it) } - occupied.toSet()
         // Both halves are really in the sample, or the loops below prove nothing.
         assertTrue(occupied.isNotEmpty(), "genesis puts the colony in a system with worlds in it")
         assertTrue(empty.isNotEmpty(), "no system fills all ${GalaxyBalance.SLOTS_PER_SYSTEM} slots")
@@ -104,14 +104,14 @@ class GalaxyPageBehaviourTest {
         // and the design rejected that outright — *"a list is scanned down its first column"*, and an
         // index is not a place. The order asserted here is the whole header block: the name, then the
         // verdict word, then the epithet and the address demoted onto the line under it.
-        val name = worldNameAt(frameState.galaxy.seed, homeAt(blocked.slot))
+        val name = worldNameAt(frameState.galaxy.seed, blocked.at)
 
         galaxyPage(uiState = homeSystemUiState) {
             assertTheRowReadsInOrder(
-                blocked.slot,
+                blocked.at,
                 name,
                 WorldVerdictUiState.BLOCKED.word.orEmpty().uppercase(),
-                epithetFor(homeWorld(blocked.slot).traits).toString(),
+                epithetFor(world(blocked.at).traits).toString(),
                 blocked.coordinate,
             )
         }
@@ -119,8 +119,8 @@ class GalaxyPageBehaviourTest {
         // position: there is no epithet to demote the address, so it trails the name instead.
         galaxyPage(uiState = unsurveyedSystemUiState) {
             assertTheRowReadsInOrder(
-                unsurveyed.slot,
-                worldNameAt(frameState.galaxy.seed, neighbourAt(unsurveyed.slot)),
+                unsurveyed.at,
+                worldNameAt(frameState.galaxy.seed, unsurveyed.at),
                 unsurveyed.coordinate,
             )
         }
@@ -133,8 +133,8 @@ class GalaxyPageBehaviourTest {
         // promise about a purchase that does not exist yet.
         galaxyPage(uiState = homeSystemUiState) {
             blocked.requirements.forEach { requirement ->
-                assertRowReads(blocked.slot, requirement.clause())
-                assertRowReads(blocked.slot, requirement.label)
+                assertRowReads(blocked.at, requirement.clause())
+                assertRowReads(blocked.at, requirement.label)
             }
         }
     }
@@ -150,7 +150,7 @@ class GalaxyPageBehaviourTest {
         }
 
         galaxyPage(uiState = homeSystemUiState) {
-            assertTheRowReadsInOrder(threeAxis.slot, *inAxisOrder.toTypedArray())
+            assertTheRowReadsInOrder(threeAxis.at, *inAxisOrder.toTypedArray())
         }
     }
 
@@ -160,7 +160,7 @@ class GalaxyPageBehaviourTest {
         // word, so it carries nothing and costs eleven characters this row does not have. Asserted
         // across the whole screen, because the row is not the only place a ladder could be named.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(blocked.slot, blocked.requirements.first().label)
+            assertRowReads(blocked.at, blocked.requirements.first().label)
             assertNothingReads("Adaptation")
         }
     }
@@ -172,7 +172,7 @@ class GalaxyPageBehaviourTest {
         var opened = 0
 
         galaxyPage(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
-            tapTheRemedy(slot = blocked.slot, technology = blocked.requirements.first().technology)
+            tapTheRemedy(at = blocked.at, technology = blocked.requirements.first().technology)
         }
 
         assertEquals(1, opened)
@@ -186,7 +186,7 @@ class GalaxyPageBehaviourTest {
         var opened = 0
 
         galaxyPage(uiState = homeSystemUiState, onOpenResearch = { opened++ }) {
-            tapTheWorld(blocked.slot)
+            tapTheWorld(blocked.at)
         }
 
         assertEquals(0, opened)
@@ -199,11 +199,11 @@ class GalaxyPageBehaviourTest {
         // player never bought. The name and the address are not among them — both are the seed's and
         // free from the first launch, which is what makes a probe a purchase rather than a paywall.
         galaxyPage(uiState = unsurveyedSystemUiState) {
-            assertRowReads(unsurveyed.slot, worldNameAt(frameState.galaxy.seed, neighbourAt(unsurveyed.slot)))
-            assertRowReads(unsurveyed.slot, unsurveyed.coordinate)
-            assertTheRowDoesNotRead(unsurveyed.slot, "you tolerate")
-            assertTheRowDoesNotRead(unsurveyed.slot, "full")
-            assertTheRowDoesNotRead(unsurveyed.slot, "Yield")
+            assertRowReads(unsurveyed.at, worldNameAt(frameState.galaxy.seed, unsurveyed.at))
+            assertRowReads(unsurveyed.at, unsurveyed.coordinate)
+            assertTheRowDoesNotRead(unsurveyed.at, "you tolerate")
+            assertTheRowDoesNotRead(unsurveyed.at, "full")
+            assertTheRowDoesNotRead(unsurveyed.at, "Yield")
         }
     }
 
@@ -217,12 +217,12 @@ class GalaxyPageBehaviourTest {
         // Derived from `core` rather than read off the frame, so what has to reach the screen is the
         // generator's epithet rather than whatever the mapper felt like putting there.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(blocked.slot, epithetFor(homeWorld(blocked.slot).traits).toString())
+            assertRowReads(blocked.at, epithetFor(world(blocked.at).traits).toString())
         }
         galaxyPage(uiState = unsurveyedSystemUiState) {
             // The row is really on the screen, or the absence below is the absence of a row.
-            assertRowReads(unsurveyed.slot, unsurveyed.coordinate)
-            assertNothingReads(epithetFor(neighbourWorld(unsurveyed.slot).traits).toString())
+            assertRowReads(unsurveyed.at, unsurveyed.coordinate)
+            assertNothingReads(epithetFor(world(unsurveyed.at).traits).toString())
         }
     }
 
@@ -237,7 +237,7 @@ class GalaxyPageBehaviourTest {
         // Asserted on the system where *every* row is in that state, and with a row asserted present
         // first, because an empty screen would satisfy all three of these.
         galaxyPage(uiState = unsurveyedSystemUiState) {
-            assertShowsWorld(unsurveyed.slot)
+            assertShowsWorld(unsurveyed.at)
             assertNothingReads("UNSURVEYED")
             assertNothingReads("Unsurveyed")
             assertNothingReads("unsurveyed")
@@ -250,9 +250,9 @@ class GalaxyPageBehaviourTest {
         // makes a run of them read as calibration rather than as bad luck. The verdict is said once —
         // the badge carries it — so the line underneath opens on the yield rather than on the word.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(barren.slot, "BARREN")
-            assertRowReads(barren.slot, WORTH_IT_AT)
-            assertTheRowDoesNotRead(barren.slot, "Barren ")
+            assertRowReads(barren.at, "BARREN")
+            assertRowReads(barren.at, WORTH_IT_AT)
+            assertTheRowDoesNotRead(barren.at, "Barren ")
         }
     }
 
@@ -263,9 +263,9 @@ class GalaxyPageBehaviourTest {
         // carries no deposit reading either — a relay has no hold for a fleet to fill. That it also
         // raises no sheet is `DispatchSheetBehaviourTest`'s assertion.
         galaxyPage(uiState = relaySystemUiState) {
-            assertRowReads(relaySlot, "RELAY")
-            assertRowReads(relaySlot, RELAY_EFFECT)
-            assertTheRowDoesNotRead(relaySlot, "metal")
+            assertRowReads(relayCoordinate, "RELAY")
+            assertRowReads(relayCoordinate, RELAY_EFFECT)
+            assertTheRowDoesNotRead(relayCoordinate, "metal")
         }
     }
 
@@ -277,12 +277,12 @@ class GalaxyPageBehaviourTest {
         // asserts nothing about who took what, which is what lets "full" be honest on the ~98% of
         // worlds nobody has ever worked.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(blocked.slot, "metal full")
-            assertRowReads(barren.slot, "metal full")
-            assertTheRowDoesNotRead(ownWorld.slot, "metal")
+            assertRowReads(blocked.at, "metal full")
+            assertRowReads(barren.at, "metal full")
+            assertTheRowDoesNotRead(ownWorld.at, "metal")
         }
         galaxyPage(uiState = unsurveyedSystemUiState) {
-            assertTheRowDoesNotRead(unsurveyed.slot, "metal")
+            assertTheRowDoesNotRead(unsurveyed.at, "metal")
         }
     }
 
@@ -300,10 +300,10 @@ class GalaxyPageBehaviourTest {
 
         listOf(SLIDE_OVER_WIDTH, PHONE_WIDTH).forEach { width ->
             galaxyPage(uiState = homeSystemUiState, width = width) {
-                assertRowReads(blocked.slot, requirement.clause())
-                assertRowReads(blocked.slot, requirement.label)
-                assertRowReads(blocked.slot, "metal full")
-                assertRowReads(blocked.slot, "crystal full")
+                assertRowReads(blocked.at, requirement.clause())
+                assertRowReads(blocked.at, requirement.label)
+                assertRowReads(blocked.at, "metal full")
+                assertRowReads(blocked.at, "crystal full")
                 assertReads(detail)
             }
         }
@@ -318,13 +318,9 @@ class GalaxyPageBehaviourTest {
     private fun homeAt(slot: Int): GalaxyCoordinate =
         GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot)
 
-    private fun neighbourAt(slot: Int): GalaxyCoordinate = frameState.neighbourSelection()
-        .let { GalaxyCoordinate(galaxy = it.galaxy, system = it.system, slot = slot) }
-
-    private fun homeWorld(slot: Int): World = checkNotNull(worldAt(frameState.galaxy.seed, homeAt(slot)))
-
-    private fun neighbourWorld(slot: Int): World =
-        checkNotNull(worldAt(frameState.galaxy.seed, neighbourAt(slot)))
+    // One helper for both systems since a row carries its whole address: what a test needs from the
+    // seed is the world at a coordinate, and which system that coordinate is in is the row's business.
+    private fun world(at: GalaxyCoordinate): World = checkNotNull(worldAt(frameState.galaxy.seed, at))
 
     // What one requirement line prints. Composed from the parts rather than typed out, because the
     // space before each unit is U+00A0 — invisible in a diff, and a typed expectation would read as

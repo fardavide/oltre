@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
@@ -29,7 +30,11 @@ sealed interface DispatchUiState {
         // the mapper is what filled in the three defaults and what clamped the hull count to the
         // idle pool, so the selection and the offer can differ — and the offer is what the player
         // was shown. Dispatching anything else would send a run the sheet never described.
-        val slot: Int,
+        //
+        // **The target is the whole coordinate and never a slot.** The ledger raises this sheet from
+        // rows belonging to six systems at once, so a slot would leave two thirds of the address to
+        // be guessed from whatever the map was last parked on.
+        val at: GalaxyCoordinate,
         val window: Duration,
         // Bring back, send, home in — in that order, because it is the order of decreasing
         // permanence. What your colony is short of changes over days, how many hulls you have
@@ -96,7 +101,7 @@ sealed interface DispatchUiState {
         override val coordinate: String,
         override val head: String,
         override val compactHead: String,
-        val slot: Int,
+        val at: GalaxyCoordinate,
         val window: Duration,
         val gathering: ResourceKind,
         val metalRichness: String,

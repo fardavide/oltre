@@ -41,15 +41,15 @@ class DispatchUiStateTest {
         // The default that saves a tap on the commonest case: you came here because the row said
         // this world was good for something. Compared in the generator's own units rather than in
         // the priced basket — the player is choosing between two columns of the same number.
-        val slot = runnableSlot()
-        val world = worldAt(seed, homeSystemAt(slot))!!
+        val target = runnable()
+        val world = worldAt(seed, target)!!
         val richer = if (world.metalPerMillion >= world.crystalPerMillion) {
             ResourceKind.METAL
         } else {
             ResourceKind.CRYSTAL
         }
 
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target))
 
         assertEquals(richer, offer.gathering)
         // ...and the head line puts that same one first, so the eye lands on it before the control
@@ -59,10 +59,13 @@ class DispatchUiStateTest {
 
     @Test
     fun `what the player touched is what the offer carries`() {
-        val slot = runnableSlot()
+        val target = runnable()
 
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, selection = selection(slot).copy(gathering = ResourceKind.CRYSTAL, window = 24.hours)),
+            dispatchAt(
+                target,
+                selection = selection(target).copy(gathering = ResourceKind.CRYSTAL, window = 24.hours),
+            ),
         )
 
         assertEquals(ResourceKind.CRYSTAL, offer.gathering)
@@ -74,11 +77,11 @@ class DispatchUiStateTest {
     fun `the hull count is clamped to the pool rather than refused`() {
         // The pool shrinks on its own every time a run leaves, so a selection can outlive the fleet
         // that justified it. Clamping is what keeps the offer something `startRun` would honour.
-        val slot = runnableSlot()
+        val target = runnable()
         val state = withSkiffs(3)
 
-        val many = assertIs<DispatchUiState.Offer>(dispatchAt(slot, state, selection(slot).copy(ships = 99)))
-        val none = assertIs<DispatchUiState.Offer>(dispatchAt(slot, state, selection(slot).copy(ships = 0)))
+        val many = assertIs<DispatchUiState.Offer>(dispatchAt(target, state, selection(target).copy(ships = 99)))
+        val none = assertIs<DispatchUiState.Offer>(dispatchAt(target, state, selection(target).copy(ships = 0)))
 
         assertEquals(3, many.shipCount)
         assertTrue(many.atMost)
@@ -89,7 +92,7 @@ class DispatchUiStateTest {
 
     @Test
     fun `a run defaults to the whole idle pool`() {
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot(), withSkiffs(4)))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), withSkiffs(4)))
 
         assertEquals(4, offer.shipCount)
         assertEquals("4 skiffs", offer.ships)
@@ -98,10 +101,10 @@ class DispatchUiStateTest {
 
     @Test
     fun `the each line appears only when there is more than one hull to divide by`() {
-        val slot = runnableSlot()
+        val target = runnable()
 
-        val one = assertIs<DispatchUiState.Offer>(dispatchAt(slot, withSkiffs(1)))
-        val several = assertIs<DispatchUiState.Offer>(dispatchAt(slot, withSkiffs(4)))
+        val one = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(1)))
+        val several = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(4)))
 
         // "132 each" beside "132 metal" is the same number printed twice.
         assertNull(one.perShip)
@@ -113,7 +116,7 @@ class DispatchUiStateTest {
     fun `the ladder opens on three hours wherever three hours is offered`() {
         // 3h is the rhythm the measured cadence names. A default of the longest would send the first
         // skiff of a new colony away for a day on a tap nobody had thought about yet.
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
 
         assertEquals(3.hours, offer.window)
         assertEquals(FleetBalance.WINDOWS, offer.windows.map { it.window })
@@ -125,12 +128,9 @@ class DispatchUiStateTest {
         // The only way to show "too far" without a control that refuses its own tap — and the rung
         // that vanishes is the copy: a ladder narrowing teaches distance before any sentence does.
         val far = SystemSelection(galaxy = home.galaxy + 1, system = home.system)
-        val slot = firstWorldSlot(far)
-        val target = GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = slot)
+        val target = firstWorld(far)
 
-        val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, surveying(target), selection(slot), at = far),
-        )
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, surveying(target)))
 
         assertTrue(offer.windows.size < FleetBalance.WINDOWS.size, offer.windows.toString())
         assertTrue(offer.ladderNote.orEmpty().endsWith("minutes on the surface."), offer.ladderNote.orEmpty())
@@ -142,9 +142,8 @@ class DispatchUiStateTest {
     @Test
     fun `a world nobody has looked at cannot be priced and hands back the flight that would fix it`() {
         val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
-        val slot = firstWorldSlot(elsewhere)
 
-        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, at = elsewhere))
+        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere)))
 
         assertTrue(refusal.title.endsWith("nobody has looked at."), refusal.title)
         // The one refusal in the app that hands back a verb — and only when the card above would
@@ -154,10 +153,10 @@ class DispatchUiStateTest {
 
     @Test
     fun `a fleet that is entirely away refuses and counts the first hull home`() {
-        val slot = runnableSlot()
-        val away = state.copy(ships = Ships.NONE, runs = listOf(runReturningIn(3.hours, slot)))
+        val target = runnable()
+        val away = state.copy(ships = Ships.NONE, runs = listOf(runReturningIn(3.hours, target)))
 
-        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, away))
+        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(target, away))
 
         assertEquals("Every skiff is away.", refusal.title)
         // A countdown rather than a dead button — the idiom the unaffordable probe already spends.
@@ -166,24 +165,38 @@ class DispatchUiStateTest {
 
     @Test
     fun `a fleet that is away with nothing on its way back says so and offers nothing`() {
-        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(runnableSlot(), state.copy(ships = Ships.NONE)))
+        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(runnable(), state.copy(ships = Ships.NONE)))
 
         assertEquals("Every skiff is away.", refusal.title)
         assertNull(refusal.action)
     }
 
     @Test
+    fun `a sheet is priced for the world the row named rather than for the system on screen`() {
+        // **The ledger lists worlds from everywhere**, so which system the map happens to be parked
+        // on says nothing about which world a row is. A selection that carried a slot alone read the
+        // page's system for the other two thirds of the address and priced a different world — the
+        // same slot of wherever the player last looked, which on the ledger's own screen is home.
+        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val target = firstWorld(elsewhere)
+
+        val sheet = assertNotNull(dispatchAt(target, state = surveying(target)))
+
+        assertEquals(target.label(), sheet.coordinate)
+    }
+
+    @Test
     fun `the world you are standing on is not a target`() {
         // `startRun` refuses your own world outright, so a row must never raise a sheet the verb
         // would throw away. The screen and the model agree rather than finding out afterwards.
-        assertNull(dispatchAt(home.slot))
+        assertNull(dispatchAt(home))
     }
 
     @Test
     fun `an empty slot is not a target`() {
         val empty = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { worldAt(seed, homeSystemAt(it)) == null }
 
-        assertNull(dispatchAt(empty))
+        assertNull(dispatchAt(homeSystemAt(empty)))
     }
 
     // ── The fixture ──────────────────────────────────────────────────────────────────────────
@@ -198,7 +211,7 @@ class DispatchUiStateTest {
 
     @Test
     fun `a chip carries the richness and what is left of it`() {
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
 
         // Two strings rather than one: the card owns the word "richness" and prints it above this,
         // so a chip string that carried the word too rendered "richness richness 1.15".
@@ -209,14 +222,13 @@ class DispatchUiStateTest {
 
     @Test
     fun `a worked world states what is left on the chip rather than the word`() {
-        val slot = runnableSlot()
-        val target = homeSystemAt(slot)
+        val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
         val worked = withSkiffs(1).let {
             it.copy(galaxy = it.galaxy.withTaken(target, ResourceKind.METAL, cap / 4, at = EPOCH))
         }
 
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot, state = worked))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, state = worked))
 
         assertTrue(offer.metalDeposit.contains("/"), offer.metalDeposit)
         assertEquals("deposit full", offer.crystalDeposit)
@@ -226,7 +238,7 @@ class DispatchUiStateTest {
     fun `the legs line says how long the fleet is actually working`() {
         // The invariant made visible with no copy at all — `working` reads the same everywhere on the
         // map, because the vein and the rate carry one multiplier.
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnableSlot()))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
 
         assertTrue(offer.legs.contains("· working "), offer.legs)
         assertTrue(offer.compactLegs.contains("· working "), offer.compactLegs)
@@ -234,9 +246,9 @@ class DispatchUiStateTest {
 
     @Test
     fun `a clamped run says the whole deposit rather than printing the figure twice`() {
-        val slot = runnableSlot()
+        val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
         )
 
         assertEquals("the whole deposit", offer.perShip)
@@ -246,9 +258,9 @@ class DispatchUiStateTest {
 
     @Test
     fun `a clamped run names the hulls that bring nothing`() {
-        val slot = runnableSlot()
+        val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
         )
 
         val note = assertNotNull(offer.clampNote)
@@ -261,21 +273,21 @@ class DispatchUiStateTest {
         // Earned rather than standing. One hull has no smaller fleet to send, so the clause would be
         // an instruction with no verb — and a note on every dispatch is furniture, which is what stops
         // the other two being read as instructions.
-        val slot = runnableSlot()
-        val unclamped = assertIs<DispatchUiState.Offer>(dispatchAt(slot))
+        val target = runnable()
+        val unclamped = assertIs<DispatchUiState.Offer>(dispatchAt(target))
         assertNull(unclamped.clampNote)
 
         val oneHull = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = withSkiffs(1), selection = selection(slot).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(1), selection = selection(target).copy(window = 24.hours)),
         )
         assertNull(oneHull.clampNote)
     }
 
     @Test
     fun `a window with hours to spare names the rung that brings the same`() {
-        val slot = runnableSlot()
+        val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
         )
 
         val note = assertNotNull(offer.rungNote)
@@ -286,8 +298,7 @@ class DispatchUiStateTest {
     fun `an emptied world keeps its whole sheet and counts down to the ask`() {
         // Design's mode rather than a refusal: the controls stay live because the wait is a function
         // of the ask, so shrinking the ask is the remedy.
-        val slot = runnableSlot()
-        val target = homeSystemAt(slot)
+        val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
         val stripped = withSkiffs(1).let {
             it.copy(galaxy = it.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH))
@@ -296,7 +307,7 @@ class DispatchUiStateTest {
         // The currency is named rather than defaulted: the sheet opens on whichever resource the
         // world is richer in, and this test is about the one that was emptied.
         val waiting = assertIs<DispatchUiState.Waiting>(
-            dispatchAt(slot, state = stripped, selection = selection(slot).copy(gathering = ResourceKind.METAL)),
+            dispatchAt(target, state = stripped, selection = selection(target).copy(gathering = ResourceKind.METAL)),
         )
 
         assertEquals("This deposit is empty.", waiting.title)
@@ -309,8 +320,7 @@ class DispatchUiStateTest {
     fun `the countdown moves when the ask does`() {
         // The finding the waiting state exists for: a big ask is often one no world can ever hold, so
         // the same world reads "never" to a fleet and a date to a single hull.
-        val slot = runnableSlot()
-        val target = homeSystemAt(slot)
+        val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
         val stripped = state.copy(
             ships = Ships.of(ShipType.SKIFF, 8),
@@ -319,16 +329,16 @@ class DispatchUiStateTest {
 
         val big = assertIs<DispatchUiState.Waiting>(
             dispatchAt(
-                slot,
+                target,
                 state = stripped,
-                selection = selection(slot).copy(gathering = ResourceKind.METAL, window = 24.hours),
+                selection = selection(target).copy(gathering = ResourceKind.METAL, window = 24.hours),
             ),
         )
         val small = assertIs<DispatchUiState.Waiting>(
             dispatchAt(
-                slot,
+                target,
                 state = stripped,
-                selection = selection(slot).copy(gathering = ResourceKind.METAL, ships = 1, window = 3.hours),
+                selection = selection(target).copy(gathering = ResourceKind.METAL, ships = 1, window = 3.hours),
             ),
         )
 
@@ -341,8 +351,7 @@ class DispatchUiStateTest {
         // The one-idle-hull case is Design's own copy — "The 4th brings nothing." — and it is the
         // only branch where an ordinal is printed at all, so it is the only one that can get the
         // suffix wrong. Two hulls at a world one can empty is the smallest state that reaches it.
-        val slot = runnableSlot()
-        val target = homeSystemAt(slot)
+        val target = runnable()
         val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
         // A world holding just over what one hull lifts on this window, so the second is the spare.
         val nearlyEmptied = state.copy(
@@ -352,9 +361,9 @@ class DispatchUiStateTest {
 
         val offer = assertIs<DispatchUiState.Offer>(
             dispatchAt(
-                slot,
+                target,
                 state = nearlyEmptied,
-                selection = selection(slot).copy(gathering = ResourceKind.METAL, ships = 2, window = 24.hours),
+                selection = selection(target).copy(gathering = ResourceKind.METAL, ships = 2, window = 24.hours),
             ),
         )
 
@@ -365,8 +374,7 @@ class DispatchUiStateTest {
     fun `a world stripped of both resources says so in the plural`() {
         // The other half of the waiting title, and the state a player reaches by working one world
         // twice in a check-in rather than by anything exotic.
-        val slot = runnableSlot()
-        val target = homeSystemAt(slot)
+        val target = runnable()
         val stripped = state.copy(
             ships = Ships.of(ShipType.SKIFF, 1),
             galaxy = state.galaxy
@@ -380,7 +388,7 @@ class DispatchUiStateTest {
         )
 
         val waiting = assertIs<DispatchUiState.Waiting>(
-            dispatchAt(slot, state = stripped, selection = selection(slot).copy(gathering = ResourceKind.METAL)),
+            dispatchAt(target, state = stripped, selection = selection(target).copy(gathering = ResourceKind.METAL)),
         )
 
         assertEquals("Both deposits are empty.", waiting.title)
@@ -391,14 +399,11 @@ class DispatchUiStateTest {
     fun `a rung that is already the shortest that empties the vein says nothing`() {
         // Earned rather than standing, the same rule the clamp clause follows: on the shortest rung
         // there is no shorter one to name, and a note on every dispatch would be furniture.
-        val slot = runnableSlot()
-        val shortest = FleetBalance.windowsFor(
-            from = state.galaxy.home,
-            to = homeSystemAt(slot),
-        ).first()
+        val target = runnable()
+        val shortest = FleetBalance.windowsFor(from = state.galaxy.home, to = target).first()
 
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = withSkiffs(8), selection = selection(slot).copy(window = shortest)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = shortest)),
         )
 
         assertNull(offer.rungNote)
@@ -415,12 +420,9 @@ class DispatchUiStateTest {
     @Test
     fun `a target in another galaxy is priced as a whole galaxy away`() {
         val far = SystemSelection(galaxy = home.galaxy % GalaxyBalance.GALAXIES + 1, system = 1)
-        val slot = firstWorldSlot(far)
-        val target = GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = slot)
+        val target = firstWorld(far)
 
-        val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(slot, state = surveying(target), at = far),
-        )
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, state = surveying(target)))
 
         // The danger line names the crossing rather than a number of systems: from here, "how far"
         // stops being a count and becomes a different galaxy.
@@ -433,9 +435,10 @@ class DispatchUiStateTest {
 
     @Test
     fun `the sheet says how much of the fleet is already out in the singular and the plural`() {
-        val slot = runnableSlot()
+        val target = runnable()
         val other = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
-            .first { it != slot && it != home.slot && worldAt(seed, homeSystemAt(it)) != null }
+            .map { homeSystemAt(it) }
+            .first { it != target && it != home && worldAt(seed, it) != null }
 
         // Every hull away, because the note only exists where the pool is empty: with something
         // idle the sheet prices a run instead of explaining why it cannot.
@@ -447,8 +450,8 @@ class DispatchUiStateTest {
 
         // A refusal rather than an offer, and the refusal is the subject: with nothing idle the
         // sheet explains where the fleet is instead of pricing a run it cannot send.
-        val withOne = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, state = one))
-        val withSeveral = assertIs<DispatchUiState.Refuse>(dispatchAt(slot, state = several))
+        val withOne = assertIs<DispatchUiState.Refuse>(dispatchAt(target, state = one))
+        val withSeveral = assertIs<DispatchUiState.Refuse>(dispatchAt(target, state = several))
 
         // One run is a sentence about a run; two is a sentence about a queue, and the second one
         // has to say how much is behind the first or the count reads as the whole fleet.
@@ -467,7 +470,7 @@ class DispatchUiStateTest {
             candidate != home.slot && world != null && world.crystalPerMillion > world.metalPerMillion
         }
 
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(slot))
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(slot)))
 
         assertEquals(ResourceKind.CRYSTAL, offer.gathering)
         assertTrue(offer.head.startsWith("crystal"), offer.head)
@@ -488,12 +491,12 @@ class DispatchUiStateTest {
         }
 
         // A hazard is named in words, because it is memorable that way and a count is not.
-        val risky = assertIs<DispatchUiState.Offer>(dispatchAt(hazardous))
+        val risky = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(hazardous)))
         assertTrue(risky.danger.isNotEmpty())
         // "no hazards" is a fact worth printing rather than an absence worth hiding: a clean world
         // is the one you want to find, and silence would read as missing information.
         clean?.let {
-            val safe = assertIs<DispatchUiState.Offer>(dispatchAt(it))
+            val safe = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(it)))
             assertTrue("no hazards" in safe.danger, safe.danger)
         }
     }
@@ -506,21 +509,21 @@ class DispatchUiStateTest {
     private fun homeSystemAt(slot: Int): GalaxyCoordinate =
         GalaxyCoordinate(galaxy = home.galaxy, system = home.system, slot = slot)
 
-    private fun selection(slot: Int): DispatchSelection =
-        DispatchSelection(slot = slot, gathering = null, ships = null, window = null)
+    private fun selection(at: GalaxyCoordinate): DispatchSelection =
+        DispatchSelection(at = at, gathering = null, ships = null, window = null)
 
-    // The home system's first slot that holds a world the colony is not standing on. Read off the
-    // seed rather than written down: the generator owns which slots hold something.
-    private fun runnableSlot(): Int = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first {
-        it != home.slot && worldAt(seed, homeSystemAt(it)) != null
-    }
+    // The home system's first world the colony is not standing on. Read off the seed rather than
+    // written down: the generator owns which slots hold something.
+    private fun runnable(): GalaxyCoordinate = homeSystemAt(
+        (1..GalaxyBalance.SLOTS_PER_SYSTEM).first { it != home.slot && worldAt(seed, homeSystemAt(it)) != null },
+    )
 
-    private fun firstWorldSlot(at: SystemSelection): Int = (1..GalaxyBalance.SLOTS_PER_SYSTEM).first {
-        worldAt(seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it)) != null
-    }
+    private fun firstWorld(at: SystemSelection): GalaxyCoordinate = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+        .map { GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it) }
+        .first { worldAt(seed, it) != null }
 
-    private fun runReturningIn(duration: kotlin.time.Duration, slot: Int): FleetRun = FleetRun(
-        target = homeSystemAt(slot),
+    private fun runReturningIn(duration: kotlin.time.Duration, at: GalaxyCoordinate): FleetRun = FleetRun(
+        target = at,
         ships = Ships.of(ShipType.SKIFF, 1),
         gathering = ResourceKind.METAL,
         cargo = Resources.of(),
@@ -532,19 +535,22 @@ class DispatchUiStateTest {
         .mapNotNull { worldAt(seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = it)) }
 
     private fun dispatchAt(
-        slot: Int,
+        target: GalaxyCoordinate,
         state: GameState = withSkiffs(1),
-        selection: DispatchSelection = selection(slot),
-        at: SystemSelection = homeSelection,
-    ): DispatchUiState? = state.toDispatchUiState(
-        at = at,
-        selection = selection,
-        // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only
-        // when the card above it would honour one, and a hand-made state here would be a second
-        // copy of exactly the decision that pairing exists to keep single.
-        probe = state.toProbeActionUiState(at = at, worlds = worldsIn(at), now = EPOCH, timeZone = TimeZone.UTC),
-        now = EPOCH,
-    )
+        selection: DispatchSelection = selection(target),
+    ): DispatchUiState? {
+        // The target's own system, which is the only one the sheet knows about: a ledger row belongs
+        // to wherever it came from, and nothing here may stand in for the page's.
+        val its = SystemSelection(galaxy = target.galaxy, system = target.system)
+        return state.toDispatchUiState(
+            selection = selection,
+            // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only
+            // when the card above it would honour one, and a hand-made state here would be a second
+            // copy of exactly the decision that pairing exists to keep single.
+            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC),
+            now = EPOCH,
+        )
+    }
 
     private val World.metalPerMillion: Int get() = traits.metalRichness.perMillion
 

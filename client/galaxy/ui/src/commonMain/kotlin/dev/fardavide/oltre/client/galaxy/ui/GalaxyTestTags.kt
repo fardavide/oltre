@@ -1,9 +1,10 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 
-// Keyed by the slot number rather than by a label, for the reason `ResearchTestTags` is keyed by the
+// Keyed by the coordinate rather than by a label, for the reason `ResearchTestTags` is keyed by the
 // technology: renaming what a world reads cannot then silently retarget an assertion.
 // **Public rather than internal since the layer split**, on `ColonyTestTags`' precedent: the
 // robot that reads these lives in `:client:galaxy:ui-testing` now, because two modules' tests
@@ -80,7 +81,10 @@ object GalaxyTestTags {
     // different window depending on how far away the world is.
     fun window(minutes: Long): String = "galaxy-dispatch-window-$minutes"
 
-    fun row(slot: Int): String = "galaxy-row-$slot"
+    // **The whole address, because the ledger lists six systems at once** and a tag keyed by the slot
+    // named one node per system in the list — an ambiguity a test could only work around by staying
+    // in the system view, which is not the screen the tab opens on.
+    fun row(at: GalaxyCoordinate): String = "galaxy-row-${at.galaxy}-${at.system}-${at.slot}"
 
     fun mode(mode: LedgerMode): String = "galaxy-mode-${mode.name.lowercase()}"
 
@@ -93,11 +97,11 @@ object GalaxyTestTags {
 
     fun galaxy(galaxy: Int): String = "galaxy-tab-$galaxy"
 
-    // Keyed by the slot *and* the ladder rather than by the string it renders. The enum rather than
+    // Keyed by the world *and* the ladder rather than by the string it renders. The enum rather than
     // the label because "Gravitic 9" is a level away from "Gravitic 8", and a tag that moved with
-    // the level would retarget itself every time the empire climbed. The slot because a system
+    // the level would retarget itself every time the empire climbed. The world because a system
     // routinely holds several worlds wanting the same ladder — the seed's own home system holds
     // three — so the ladder alone would name three targets rather than one.
-    fun adaptation(slot: Int, technology: AdaptationTechnology): String =
-        "galaxy-adaptation-$slot-${technology.name.lowercase()}"
+    fun adaptation(at: GalaxyCoordinate, technology: AdaptationTechnology): String =
+        "galaxy-adaptation-${at.galaxy}-${at.system}-${at.slot}-${technology.name.lowercase()}"
 }

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 
 // **One row shape, six verdicts, two screens.** The system view and the ledger draw the same card —
@@ -27,10 +28,16 @@ import dev.fardavide.oltre.core.ResourceKind
 // Net: a surveyed row is the height it was at 0.9, and an unsurveyed row — 98% of them — is shorter.
 sealed interface GalaxyRowUiState {
 
-    val slot: Int
+    // **The whole address rather than the slot, and that is a bug fix rather than a tidy-up.** The
+    // ledger draws rows from every system at once, so a slot names as many worlds as there are
+    // systems in the list — and a row that handed a tap nothing but its slot left the sheet to fill
+    // in the other two thirds from whichever system the *map* was parked on. It priced the same slot
+    // of that system instead, which on the screen the tab opens on is home: a full deposit on the
+    // card and an empty one in the sheet, about two different worlds.
+    val at: GalaxyCoordinate
 
     data class World(
-        override val slot: Int,
+        override val at: GalaxyCoordinate,
         // The headline, and the whole point of the slice. `Calianova VIII`.
         val name: String,
         // **Rendered once, in one of two positions**, and which one is decided by the epithet alone:
@@ -61,7 +68,7 @@ sealed interface GalaxyRowUiState {
     // stops — no holding mechanic exists until multiplayer, and a relay has no hold for a fleet to
     // fill either.
     data class Relay(
-        override val slot: Int,
+        override val at: GalaxyCoordinate,
         val coordinate: String,
         val effect: String,
     ) : GalaxyRowUiState
