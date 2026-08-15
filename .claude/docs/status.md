@@ -823,6 +823,33 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   wrong, and one asserted an absent rung against a sheet that was refusing outright, where every rung
   is absent. Issue #74, PR #73.
 
+- **0.11.2 the vein was sized for one ship** — Davide, having played 0.11.0: *"I'm so much out of
+  planets to gather resources from, I think we set the resource limit way too low!"*
+  `DepositBalance.BASE_PRICED` goes **1,450 → 5,800**; refill stays at 5%/day; nothing else moves.
+  **The defect is a composition of two earlier calls and neither was wrong on its own.** Round 24
+  derived the cap exactly from a rule about *one basic ship*, and 0.10.1 then deleted the only ceiling
+  on hull count — so the constant kept a premise the game no longer had. Davide's ruling was dial 1 of
+  three: re-derive against a fleet, *"a typical fleet takes about two runs"*, band 4–6×, and sweep
+  before shipping a number. 5,800 is the same arithmetic with a four-hull manifest substituted for the
+  ship — 1.02 days, 2.07 runs at the 12h window — so `workingTime` for four hulls is still 1,450
+  minutes everywhere and a lone skiff now takes four days. **4× rather than 6× because the decided
+  reading saturates and a second veto does not**: worth-it worlds standing at hour 48 hits 6 of 6 by
+  3×, while the share of dispatches the *vein* stops falls 48.8% → 12.1% at 4× and 7.7% at 6× — and a
+  cap that drives that to zero deletes 0.10.0's mechanic rather than tuning it. It also lifted fleet
+  income from **15.3% to 29.1%** of colony metal, clearing a §9 veto that had been failing unread since
+  0.10.1. `:sim:run` grew `printStandingTable` for the deciding reading. See `deposit-sheet.md` §2.5.1
+  and `balance-log.md` round 27.
+
+## Pending, from 0.11.2
+
+- **Reach is untouched and is the next complaint if this one was really about the map.** A player on
+  the 3h rung still reaches **six worlds** at every cap in the swept grid; a deeper vein multiplies
+  what those six hold (480 → 1,955 metal a day) and cannot make a seventh exist. That is the drive
+  technology, issue #71, named as dial 3 in issue #68 and unbuilt.
+- **The dispatch sheet's legs line now wraps on a full-fleet ask**, because `working` reads in hours
+  where it read in minutes. Nothing clips and it is legible, but it is a design-owned line that a
+  balance change moved — Davide's or Claude Design's call whether to leave it.
+
 ## Pending, from 0.11.1
 
 - **The dispatch sheet throws on a world three galaxies out** — issue #75, found while reviewing this

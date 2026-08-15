@@ -285,9 +285,11 @@ class DispatchUiStateTest {
 
     @Test
     fun `a window with hours to spare names the rung that brings the same`() {
+        // Thirty-two hulls rather than eight: issue #68 made a vein four times as deep, so eight is
+        // now the manifest a 24h rung is *right* for and the note it would print is no note at all.
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(32), selection = selection(target).copy(window = 24.hours)),
         )
 
         val note = assertNotNull(offer.rungNote)

@@ -16,18 +16,33 @@ object DepositBalance {
 
     // ── The cap ──────────────────────────────────────────────────────────────────────────────
     //
-    // **Derived from a rule rather than chosen.** Davide, 2026-08-13, asked for a number and gave a
-    // rule instead: *"I would expect a regular ship to take two rounds or a whole day to deplete a
-    // planet, the ship capacity (a basic one) is never more than the planet resources."* One skiff on
-    // a 24h run spends 1,418 minutes on the surface and lifts exactly 1,418 priced units, so the
-    // smallest cap that never lets a basic hull overflow a world is 1,418 — and at 1,450 the doorstep
-    // takes 0.99 days, or 2.0 runs at the 12h window. Both halves of the rule, to two decimals.
+    // **Derived from a rule rather than chosen, and the rule's subject changed once.** Davide,
+    // 2026-08-13, asked for a number and gave a rule instead: *"I would expect a regular ship to take
+    // two rounds or a whole day to deplete a planet, the ship capacity (a basic one) is never more
+    // than the planet resources."* One skiff on a 24h run spends 1,418 minutes on the surface and
+    // lifts exactly 1,418 priced units, so 1,450 was the smallest tidy cap that never lets a basic
+    // hull overflow a world — 0.99 days, or 2.0 runs at the 12h window, both halves to two decimals.
     //
-    // **1,000 was his first answer and the sweep rejected it.** Below a single skiff's day the
-    // deposit binds on essentially every dispatch, and when the deposit binds nothing else does: at
-    // 1,000 a four-skiff fleet brings home the identical figure at 6h, 12h and 24h, which makes the
-    // window ladder and the hull stepper ornamental. The sheet's 2.5 has the grid.
-    const val BASE_PRICED: Long = 1_450
+    // **Then 0.10.1 deleted the bound on fleet size and the rule's premise went with it.** The flat
+    // hull price removed the only ceiling on hull count, so *"a regular ship"* stopped describing what
+    // arrives at a world: the measured manifest is nine hulls by hour 48. Davide's re-derivation,
+    // 2026-08-15, on *"I'm so much out of planets to gather resources from"* — **a typical fleet takes
+    // about two runs**, where it used to read a typical ship.
+    //
+    // **So the constant is the same arithmetic with the manifest substituted, and four is the
+    // manifest.** Four skiffs on a 24h run lift 5,672 priced units, and at 5,800 the doorstep takes
+    // 1.02 days or 2.07 runs at the 12h window — the identical two decimals, one order of magnitude
+    // of fleet along. The invariant that pays for everything else is untouched and merely renamed:
+    // `workingTime` for four hulls is still 1,450 minutes at every richness and every danger, and a
+    // lone skiff now takes four days rather than one.
+    //
+    // **The floor and the ceiling are both measured, and they are close together.** Round 24 rejected
+    // 1,000 from below: under a single skiff's day the deposit binds on essentially every dispatch,
+    // and when the deposit binds nothing else does. Issue #68's sweep found the mirror above — the
+    // share of dispatches the vein stops falls 48.8% → 5.6% at 4×, and 2.5% at 5×, so a cap much past
+    // this one deletes the mechanic 0.10.0 was asked for rather than tuning it. 4× is the bottom of
+    // the band Davide named (4–6×) for that reason. The sheet's 2.5 has both grids.
+    const val BASE_PRICED: Long = 5_800
 
     // Priced at the game's own 1 : 2 : 3, the convention `FleetBalance.cargo` already spends — so a
     // world's metal and crystal deposits are worth the same and differ only by richness.

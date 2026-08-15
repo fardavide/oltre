@@ -3237,3 +3237,98 @@ changed and that it will not change again.
 - Whether *"settle close in"* is a lesson players actually reach, or whether it needs the map to say it.
 - The doorstep median moved 13 → 14 levels for the third neighbour. It is one map's reading of a
   statistic this round has just finished warning about, so it is a thing to watch rather than to act on.
+
+## Round 27 — the vein was sized for one ship (0.11.2, 2026-08-15)
+
+Davide, having played 0.11.0: *"I'm so much out of planets to gather resources from, I think we set
+the resource limit way too low!"*
+
+`DepositBalance.BASE_PRICED` goes **1,450 → 5,800**. Refill stays at 5%/day. Nothing else moves.
+
+### The defect was a composition of two of his own calls, and neither was wrong
+
+Round 24 derived the cap from a rule about **one basic ship** — *"a regular ship takes two rounds or
+a whole day to deplete a planet"* — and derived it exactly: 1,450 is 0.99 days and 2.0 runs at the
+12h window. Round 25 then took the hull price flat, which **deleted the game's only ceiling on hull
+count**, and said so in the option Davide chose. What nobody did was re-derive the cap against the
+thing that now arrives at a world. The measured manifest is nine hulls by hour 48; at seven, a
+richness-1.0 doorstep world is stripped in 3h 27m and its daily refill is ten minutes of fleet time.
+
+**The lesson is the composition rather than either half.** A constant derived from a rule carries the
+rule's premise, and a later round can invalidate the premise without touching the constant. Round 25's
+own write-up names the ceiling it was deleting and stops there — the sentence it did not write is
+*"and the deposit cap was sized against that ceiling."*
+
+### The reading that decided it, and the one that had to break the tie
+
+Davide's call was dial 1 — re-derive against a fleet — with the successor rule *"a typical fleet takes
+about two runs"*, a band of 4–6×, and a named reading: **worth-it worlds standing at hour 48 for a
+3h-rung player**. `:sim:run` grew that reading; it is `printStandingTable`, six check-ins a day, hulls
+bought before the buildings because that is the complainant's purchase order.
+
+| cap | | hulls | reachable | worth it | hulls fed | priced standing |
+|---|---|---|---|---|---|---|
+| 1,450 | 1× | 9 | 6 | **3** | 19 | 2,841 |
+| 2,900 | 2× | 9 | 6 | **5** | 69 | 10,281 |
+| 4,350 | 3× | 9 | 6 | **6** | 123 | 18,315 |
+| **5,800** | **4×** | 9 | 6 | **6** | **172** | **26,203** |
+| 7,250 | 5× | 9 | 6 | **6** | 224 | 34,214 |
+| 8,700 | 6× | 9 | 6 | **6** | 275 | 42,236 |
+
+Three worlds standing against nine hulls in dock is the complaint as a number. **But the reading
+saturates at 3×, because reach bounds it at six worlds** — every rung of Davide's band passes it
+identically, so it names the floor and cannot pick the number. That is worth recording as an
+instrument note: a count with a ceiling in it stops discriminating exactly where the interesting
+range begins, and the fix was a second column (`hulls fed`, the standing stock over one hull's lift)
+plus the counterweight below.
+
+**The counterweight is round 24's own veto, applied from the other side.** The share of dispatches
+the vein stops rather than the fleet, over a fortnight at four check-ins a day:
+
+| cap | clamped | veins held | fleet metal / colony metal |
+|---|---|---|---|
+| 1,450 | 48.8% | 136 | **15.3%** |
+| 2,900 | 29.0% | 116 | — |
+| 4,350 | 17.3% | 131 | — |
+| **5,800** | **12.1%** | **126** | **29.1%** |
+| 7,250 | 8.6% | 24 | — |
+| 8,700 | 7.7% | 24 | — |
+
+Round 24 rejected 1,000 because the vein bound on everything; this is the same veto above the band.
+A cap that drives `clamped` to zero has not tuned 0.10.0's mechanic, it has removed it — §9's fourth
+reading, *"the wall never arrives for an engaged player"*. **4× is the bottom of Davide's band and
+the only rung in it where the vein still binds on one dispatch in eight.**
+
+### It cleared a veto nobody was reading
+
+§9's first reading is fleet income at or above ~25% of colony income. It read **15.3%** at the
+shipped cap and reads **29.1%** now. The fleet had already fallen through that floor and the report
+had been printing it since 0.10.1 — the complaint arrived as *"out of planets"* rather than as
+*"the fleet is pointless"*, and they are the same defect seen from the two ends. **A veto that fires
+and is not read is a veto that did not fire.**
+
+### What did not move, and must not be re-measured next round
+
+**Reach.** The 3h-rung player reaches **six worlds** at every cap in the grid, and the 6h player still
+clamps 58.6% of dispatches at the shipped one. Depth multiplies what those six hold — their metal a
+day goes 480 → 1,955 — and cannot make a seventh exist. Round 24 said this, §11 said it before that,
+and it is issue #71's drive technology rather than anything a cap can reach.
+
+**Refill.** Held at 5%/day on Davide's instruction, and the sweep gives no reason to argue: the 10%
+rows move income and barely touch `clamped`, and raising it works against the stated intent that
+going back to the same world soon is never the answer.
+
+**The trap.** Spreading is still worth 2.1× concentrating (59,194 against 28,684 metal a day at
+fourteen days), so Design's clamp copy is still the thing closing it.
+
+### What it should feel like, so round 28 can tell
+
+The doorstep should carry the first week rather than the first two days, and a check-in should end
+with hulls dispatched rather than hulls in dock. **If the map now never runs dry for a player who
+looks four times a day, the cap went too far and the dial back is the same one** — `clamped` at 12.1%
+is the number to re-read, not the income. And the frequent player's map is still six worlds wide: if
+that is what the complaint was actually about, no cap in this round's grid was ever going to fix it.
+
+One visible consequence, flagged rather than designed: the dispatch sheet's `working` segment now
+reads in hours where it read in minutes, so the legs line wraps to two rows on a full-fleet ask. It
+is legible and nothing clips, but it is a design-owned line and Davide may want it looked at.

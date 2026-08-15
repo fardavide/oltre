@@ -206,6 +206,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.11.2 — 2026-08-15
+
+- **Worlds hold four times as much.** A plain doorstep world now carries 5,800 metal, or 2,900
+  crystal, and a hazardous one in another galaxy carries up to 15,950. The deposit was sized for a
+  single skiff back when a single skiff was a fleet; since hulls went flat-priced there is no ceiling
+  on how many you own, and a real manifest was stripping a world in under four hours and then sitting
+  in dock. A check-in should now end with your hulls dispatched rather than with nowhere to send them.
+- **A fleet still empties a world in a day — it just takes four hulls to do it.** That was always the
+  rule the deposit was built around, and it now describes a fleet instead of a ship. One skiff on its
+  own takes four days. Refill is unchanged at five percent of the deposit a day.
+- **This does not make your map bigger.** If you check in every few hours you still reach the same six
+  worlds; each of them is simply worth four times as much now. Reaching further is what the drive
+  technology is for, and it is not built yet.
+
 ### 0.11.1 — 2026-08-15
 
 - **Tapping a world in the ledger opens that world.** It opened the same slot number of whichever

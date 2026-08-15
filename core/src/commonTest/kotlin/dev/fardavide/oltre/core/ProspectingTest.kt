@@ -91,7 +91,7 @@ class ProspectingTest {
             research = researched,
         )
 
-        assertEquals(1_450.minutes, plain)
+        assertEquals(5_800.minutes, plain)
         assertTrue(faster < plain, "$faster against $plain")
     }
 
