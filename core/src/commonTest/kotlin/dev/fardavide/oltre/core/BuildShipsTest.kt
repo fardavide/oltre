@@ -16,7 +16,7 @@ class BuildShipsTest {
 
     @Test
     fun `a purchase lays the hull down in the yard rather than handing it over`() {
-        // given the granted skiff and enough metal for the second
+        // given an empty pool and enough metal for the first hull
         val state = wealthy(GameState.initial())
 
         // when
@@ -99,9 +99,12 @@ class BuildShipsTest {
 
     @Test
     fun `a skiff costs the base whatever the fleet already is`() {
-        // **Davide's call, 2026-08-14: flat.** The state here already owns the granted skiff, and the
-        // charge is the published base rather than a second rung.
-        val state = wealthy(GameState.initial())
+        // **Davide's call, 2026-08-14: flat.** The state here already owns a skiff — bought, since
+        // genesis grants none — and the charge is the published base rather than a second rung. The
+        // hull is put there explicitly rather than inherited from `initial`, which is what the test
+        // was doing until the grant went: a premise a fixture happens to supply is a premise that
+        // disappears silently.
+        val state = wealthy(GameState.initial()).copy(ships = Ships.of(ShipType.SKIFF, 1))
         assertEquals(1, state.ownedShips().total)
 
         val built = build(state, Ships.of(ShipType.SKIFF, 1))
@@ -175,7 +178,7 @@ class BuildShipsTest {
         // `state.ships` — which used to be a price bug waiting to happen and is now simply not an
         // input. Kept as a test because the day a hull is priced against the fleet again, this is the
         // case that will be got wrong.
-        val state = wealthy(GameState.initial())
+        val state = wealthy(GameState.initial()).copy(ships = Ships.of(ShipType.SKIFF, 1))
         val target = state.galaxy.surveyed.first { it != state.galaxy.home }
         val away = assertIs<StartRunResult.Started>(
             startRun(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, t0),

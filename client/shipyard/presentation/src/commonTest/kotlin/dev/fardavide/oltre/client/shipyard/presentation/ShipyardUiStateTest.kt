@@ -45,7 +45,16 @@ class ShipyardUiStateTest {
 
     @Test
     fun `one hull is a hull rather than one hulls`() {
-        assertEquals("1 hull", GameState.initial(SEED).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+        assertEquals("1 hull", fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+    }
+
+    // **What the screen says to the player it is now written for.** Until 0.11.3 genesis granted a
+    // skiff, so nobody could open this tab owning nothing and the zero was an unreachable branch of
+    // the same rule the test above pins. It is the *opening* state now — the first thing a new colony
+    // reads here — so it gets an assertion of its own rather than being left to the plural default.
+    @Test
+    fun `a colony that has not bought a hull yet reads zero rather than an empty header`() {
+        assertEquals("0 hulls", GameState.initial(SEED).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     @Test

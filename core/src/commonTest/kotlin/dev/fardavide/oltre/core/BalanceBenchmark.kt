@@ -78,7 +78,14 @@ internal object BalanceBenchmark {
         add(row("mines past the opening discount (level 9)", hourText(run.firstHourWhere { it.buildings.metalMine.value >= 9 })))
         add(row("first applied technology finished", hourText(run.firstHourWhere { state -> Technology.entries.any { state.research.levelOf(it).value >= 1 } })))
         add(row("first adaptation level finished", hourText(run.firstHourWhere { state -> AdaptationTechnology.entries.any { state.research.levelOf(it).value >= 1 } })))
-        add(row("second skiff affordable", hourText(run.firstHourWhere { it.resources.covers(FleetBalance.shipCost(ShipType.SKIFF)) })))
+        // **"second skiff" until 0.11.3, and the rename is the whole of what this page saw of that
+        // change.** Genesis stopped granting a hull, so the row the fixed player reaches here is the
+        // *first* one — and the hour did not move, because this player buys buildings and never a
+        // hull, so what it reads is when the stores first cover the price rather than when a fleet
+        // appears. Worth knowing that this page is blind to the change: the reading that moved is in
+        // `OpeningBalanceTest` and in the sim's fleet report, both of which have a player who buys
+        // hulls. A benchmark is only as wide as its policy.
+        add(row("first skiff affordable", hourText(run.firstHourWhere { it.resources.covers(FleetBalance.shipCost(ShipType.SKIFF)) })))
         // What `LATE_GAME_FIRST_LEVEL` is measured against: the ramp is supposed to begin where the
         // Nanite Factory becomes buildable, so if this row and that constant ever disagree, the
         // constant is wrong and this page is where it shows.

@@ -86,6 +86,50 @@ class OpeningBalanceTest {
         )
     }
 
+    // **The first hull is the first purchase** — Davide, 2026-08-12: *"We should remove the default
+    // ship also, and allow the user to build them instead."* Genesis grants stock, mine levels and a
+    // surveyed home system; it does not grant a hull.
+    //
+    // The exact assertion, and the one exact reading in the file. A band would be the wrong
+    // instrument: the pool is not a quantity being tuned toward a target — it is zero or it is a
+    // gift, and there is no third value a round of tuning would want.
+    @Test
+    fun `a new colony owns no hull`() {
+        assertTrue(GameState.initial(TEST_GALAXY_SEED).ships.isEmpty, "genesis granted a hull")
+    }
+
+    // **And the first hull is a wait, which is the half of this change that has to stay measured.**
+    //
+    // The issue that asked for it argued the grant could go because the opening stock buys a hull
+    // outright, with 420 metal to spare. **That arithmetic was two releases stale** — it priced the
+    // skiff at 80 metal / 20 crystal, and 0.9.0 raised the base tenfold on Davide's own call. Against
+    // a genesis stock of 500 metal the 800-metal hull is *not* affordable at hour zero, so the first
+    // sitting has no ship in it and *"a new colony opens on a decision, not on a wait"* is no longer
+    // the whole truth about the fleet.
+    //
+    // Davide's call, 2026-08-15, was to land it that way rather than raise the stock to rescue the
+    // sentence: **a hull is earned.** That is coherent with the 0.9.0 reasoning — *"ships are a single
+    // investment that pays back forever"* — and it is a real cost, so this test exists to keep the
+    // cost visible rather than to bless it. What it pins is the wait for a colony that wants a hull
+    // and buys nothing else: the *soonest* the fleet can open, which is the reading a player who has
+    // just been told about the Shipyard will experience.
+    //
+    // A band, because unlike the row above this is a number tuning would move — the hull price, the
+    // opening stock and the metal rate all land here. The ceiling is one waking gap: past that the
+    // first hull stops being something you can decide on in a session and becomes something you find
+    // waiting, which is the failure this reading exists to catch.
+    @Test
+    fun `a colony that saves for it can order its first hull in the first few hours`() {
+        val cost = FleetBalance.shipCost(ShipType.SKIFF)
+        var state = GameState.initial(TEST_GALAXY_SEED)
+        val affordable = (0..24).firstOrNull { hour ->
+            state = advance(state, from = EPOCH + (hour - 1).coerceAtLeast(0).hours, to = EPOCH + hour.hours)
+            state.resources.covers(cost)
+        }
+
+        assertTrue(affordable != null && affordable <= 8, "the first hull was affordable at hour $affordable, was 4")
+    }
+
     // ── What the opening costs in time ───────────────────────────────────────────────────────
 
     // The other half of Davide's 0.5.1 report was a clock — *"I needed 2 day to get robotics to

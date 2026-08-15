@@ -109,11 +109,21 @@ data class GameState(
             activeAdaptation = null,
             galaxy = GalaxyState.initial(galaxySeed),
             surveys = emptyList(),
-            // One skiff, granted, on the same argument the 500 metal is granted and the mines start
-            // at level 1 — `BalanceCurveTest`'s own words, *"a new colony opens on a decision, not on
-            // a wait."* One and not two, so the second hull is the first fleet purchase and the
-            // player learns the shop exists by wanting something from it.
-            ships = Ships.of(ShipType.SKIFF, 1),
+            // **No hull. The first one is the first purchase** — Davide, 2026-08-12: *"We should
+            // remove the default ship also, and allow the user to build them instead."*
+            //
+            // This used to be one granted skiff, on the argument the 500 metal is granted and the
+            // mines start at level 1 — `BalanceCurveTest`'s own words, *"a new colony opens on a
+            // decision, not on a wait."* **That sentence still holds and is the reason this is safe
+            // rather than the reason the grant existed**: the opening stock covers a hull outright,
+            // so the first sitting's verb goes from *send* to *buy, then send*, which is one more
+            // decision rather than one more wait. `OpeningBalanceTest` pins both halves.
+            //
+            // What made the grant defensible was that there was nowhere to buy one; `buildShips`
+            // landed at 0.8.0 and the Shipyard at 0.8.x, so the shop the grant was teaching the
+            // player to want is now the thing they meet first. Note what does **not** follow: the
+            // 7 -> 8 migration hop still grants one, deliberately — see `GameSave.kt`.
+            ships = Ships.NONE,
             runs = emptyList(),
             yard = emptyList(),
             watching = null,

@@ -28,7 +28,7 @@ internal object BalanceBenchmarkGolden {
         mines past the opening discount (level 9)         hour 39 (day 1)
         first applied technology finished                 hour 5 (day 0)
         first adaptation level finished                   hour 10 (day 0)
-        second skiff affordable                           hour 34 (day 1)
+        first skiff affordable                            hour 34 (day 1)
         metal mine when the nanite unlocks                level 17 (ramp starts at 18)
 
         [session] completions a player is present for, minute by minute

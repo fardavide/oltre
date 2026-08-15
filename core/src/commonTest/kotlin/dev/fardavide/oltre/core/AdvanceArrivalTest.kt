@@ -35,7 +35,7 @@ class AdvanceArrivalTest {
     // cargo. A version that credited only the cargo would quietly eat the fleet.
     @Test
     fun `a returning fleet hands its hulls back to the idle pool`() {
-        // given a colony whose one skiff is still at home and a run of fifteen more hulls inbound
+        // given a colony with an empty pool — genesis grants no hull — and a run of fifteen inbound
         val t0 = Instant.fromEpochMilliseconds(0)
         val state = GameState.initial().copy(
             runs = listOf(fleetRun(cargo = Resources.of(metal = 500), returnsAt = t0 + 1.hours)),
@@ -44,8 +44,8 @@ class AdvanceArrivalTest {
         // when
         val result = advance(state, from = t0, to = t0 + 2.hours)
 
-        // then
-        assertEquals(Ships(mapOf(ShipType.SKIFF to 15, ShipType.HAULER to 1)), result.ships)
+        // then — every hull the run carried, and nothing else, because there was nothing else
+        assertEquals(Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)), result.ships)
     }
 
     @Test

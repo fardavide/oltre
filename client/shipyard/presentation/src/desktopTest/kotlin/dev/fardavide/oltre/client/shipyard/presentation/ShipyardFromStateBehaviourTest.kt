@@ -33,20 +33,25 @@ import org.junit.Test
 class ShipyardFromStateBehaviourTest {
 
     @Test
-    fun `a new colony is shown the second skiff and has to earn it`() {
-        // given the granted skiff and genesis stocks — 500 metal, against a hull that costs 800
-        // since the 0.9.0 base raise. **This test asserted `assertOffersToBuild` until then**, and
-        // the change is the point rather than a casualty: a hull is no longer something a colony
-        // opens holding the price of, which is what "ships are WAY too cheap" was about. 0.10.1 made
-        // the price flat and this is the rung it landed on — still out of reach at hour zero, which
-        // is what the test is here for.
+    fun `a new colony is shown the first skiff and has to earn it`() {
+        // given genesis stocks — 500 metal, against a hull that costs 800 since the 0.9.0 base
+        // raise. **This test asserted `assertOffersToBuild` until then**, and the change is the
+        // point rather than a casualty: a hull is no longer something a colony opens holding the
+        // price of, which is what "ships are WAY too cheap" was about. 0.10.1 made the price flat
+        // and this is the rung it landed on — still out of reach at hour zero, which is what the
+        // test is here for.
+        //
+        // **And since 0.11.3 the pool it is out of reach *from* is empty**, because genesis stopped
+        // granting a hull. So this is now the literal opening screen of the tab: no fleet, one price,
+        // and a wait rather than a verb. It is the strongest form of what the test always said — the
+        // colony has to earn the hull it is being shown, and now that is the *only* hull it has.
         val state = GameState.initial(SEED)
-        val second = FleetBalance.shipCost(ShipType.SKIFF)
+        val first = FleetBalance.shipCost(ShipType.SKIFF)
 
         shipyard(uiState = state.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
-            assertReads("1 hull")
-            assertCardReads(ShipType.SKIFF, "1 owned · 1 idle")
-            assertCardReads(ShipType.SKIFF, second.metal.groupedByThousands())
+            assertReads("0 hulls")
+            assertCardReads(ShipType.SKIFF, "0 owned · 0 idle")
+            assertCardReads(ShipType.SKIFF, first.metal.groupedByThousands())
             assertCardDoesNotRead(ShipType.SKIFF, "Build")
         }
     }
@@ -70,7 +75,7 @@ class ShipyardFromStateBehaviourTest {
         ).state
 
         shipyard(uiState = ordered.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
-            assertCardReads(ShipType.SKIFF, "1 owned · 1 idle · 2 building")
+            assertCardReads(ShipType.SKIFF, "0 owned · 0 idle · 2 building")
             assertCardReads(ShipType.SKIFF, "1 queued")
             assertOffersToBuild(ShipType.SKIFF)
         }
@@ -90,8 +95,8 @@ class ShipyardFromStateBehaviourTest {
         shipyard(uiState = after.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
             // The fleet has not grown — the hull is on the slipway — and the price is where it was,
             // because `buildShips` charges the same thing every time.
-            assertReads("1 hull")
-            assertCardReads(ShipType.SKIFF, "1 owned · 1 idle · 1 building")
+            assertReads("0 hulls")
+            assertCardReads(ShipType.SKIFF, "0 owned · 0 idle · 1 building")
             assertCardReads(ShipType.SKIFF, next.metal.groupedByThousands())
         }
     }
@@ -154,7 +159,14 @@ class ShipyardFromStateBehaviourTest {
         // `shipyard(…)` and taps through `buy`. The state is still recomputed by the callback and
         // still asserted below — what went is a second copy of the harness, and with it this
         // module's last reason to apply the Compose compiler.
-        val rich = GameState.initial(SEED).copy(resources = Resources.of(metal = 10_000, crystal = 10_000))
+        // **The hull already in the pool is what makes the last assertion mean anything.** It used to
+        // come from genesis; with an empty opening pool, "the purchase did not touch the pool" would
+        // be an empty fleet compared against an empty fleet, which passes whatever `buildShips` does
+        // with it. One owned hull is a fleet the verb could visibly get wrong.
+        val rich = GameState.initial(SEED).copy(
+            resources = Resources.of(metal = 10_000, crystal = 10_000),
+            ships = Ships.of(ShipType.SKIFF, 1),
+        )
         var state = rich
 
         shipyard(
