@@ -3254,7 +3254,7 @@ under every screen, and a feature cannot reach up and turn it off. Hoisting a fl
 `MainScaffold` for one substate of one tab was rejected in favour of the map painting one opaque rect
 over it. The worlds list keeps the sky.
 
-## Technologies and adaptations get a queue each (2026-08-15, 0.12.1)
+## Technologies and adaptations get a queue each (2026-08-15, 0.12.2)
 
 Davide, on having played it: *"Technologies and Adaptations run on the same queue, making the game
 too slow. I want to have a queue each."*

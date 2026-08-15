@@ -141,7 +141,7 @@ internal val nothingRunningUiState = ResearchUiState(
 
 // Day 9, Robotics 4, and the frame the whole decision is for: the gate has just opened, six rows
 // fit without a scroll, and four of them can be started right now. Starting one now stops the rest
-// of *its branch* rather than all five — 0.12.1's change, and the reason this frame is a harder
+// of *its branch* rather than all five — 0.12.2's change, and the reason this frame is a harder
 // decision than it used to be rather than an easier one: the player picks twice. The metal-heavy
 // colony can afford Thermal and Atmospheric outright; Gravitic wants 2,400 metal it does not have,
 // which is the sheet's design showing through — the ladder you can afford first is the one your
@@ -240,7 +240,7 @@ internal val gateOpenUiState = ResearchUiState(
 // the countdown and the bar. The other two carry the time until they can start: Extraction waits
 // on deuterium, Enrichment waits on the slot — and the player never has to know which.
 //
-// **The three ladders are live, and until 0.12.1 they were not.** This frame's whole point used to
+// **The three ladders are live, and until 0.12.2 they were not.** This frame's whole point used to
 // be that all three read the same "in 1h 13m" the countdown four rows up is counting — one screen
 // making the shared slot verify itself with nothing added to carry it. The slot is not shared any
 // more, so the frame now shows the thing that replaced it: a project in flight and a branch below it
@@ -339,7 +339,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
     ),
 )
 
-// **The mirror of the frame above, and the one 0.12.1 created.** A ladder is climbing, the other two
+// **The mirror of the frame above, and the one 0.12.2 created.** A ladder is climbing, the other two
 // carry the time until its slot frees — and every applied row is live, because a ladder no longer
 // holds anything on that half of the screen. Before the split this state could not be drawn at all:
 // a running ladder ghosted the technologies too, so the screen had exactly one "something is

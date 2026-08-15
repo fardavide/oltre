@@ -9,7 +9,7 @@ import kotlin.time.Duration.Companion.minutes
 //
 // The shape of the branch, in one paragraph: three ladders that widen the three tolerance bands and
 // do nothing else, behind one shared gate, one at a time in **a slot of their own**. That last part
-// is 0.12.1's and it is the sheet's §2 overruled: the branch competed for the applied branch's slot
+// is 0.12.2's and it is the sheet's §2 overruled: the branch competed for the applied branch's slot
 // until then, so *"every adaptation level is paid for in production levels you did not buy"* — the
 // sentence this header carried for eleven versions, and the one Davide's *"a queue each"* deletes.
 // The numbers below have not moved with it; what a ladder costs is still the sheet's, measured

@@ -60,7 +60,7 @@ internal class TestGame(initial: GameState, start: Instant) {
         state = (result as StartAdaptationResult.Started).state
     }
 
-    // **The applied branch, driven for real since 0.12.1.** The harness used to wire `onStartResearch`
+    // **The applied branch, driven for real since 0.12.2.** The harness used to wire `onStartResearch`
     // to nothing, which was right while this file's one journey was a ladder: an unwired callback is a
     // screen whose taps cannot change the colony. It stopped being right when the two branches came
     // apart, because the seam under test is now precisely whether starting one leaves the other free —
@@ -195,7 +195,7 @@ internal class AdaptationRobot(private val test: ComposeUiTest, private val game
 
     // The applied counterpart, by tag for the same reason and named for the same need: the test that
     // uses it is about *which* row started, so "the first one offered" would not identify it — and
-    // after 0.12.1 a ladder no longer holds the applied branch, so which rows are offered while one
+    // after 0.12.2 a ladder no longer holds the applied branch, so which rows are offered while one
     // is running is exactly the thing under test rather than a fact the fixture can assume.
     fun startTheEnrichmentProject() = apply {
         test.onNode(hasTestTag(ENRICHMENT_ACTION)).performScrollTo().performClick()

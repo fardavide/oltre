@@ -219,7 +219,7 @@ class ResearchUiStateTest {
             activeAdaptation = ladder(completesAt = EPOCH + 2.hours),
         ).rowFor(Technology.PHOTOVOLTAICS)
 
-        // then — a slot each since 0.12.1, so the row offers what `startResearch` will accept. This
+        // then — a slot each since 0.12.2, so the row offers what `startResearch` will accept. This
         // test used to assert the exact opposite, on the exact same fixture: while the branches
         // shared a slot, ghosting the row was what kept the screen honest. The rule it is holding to
         // never changed — offer precisely what the model accepts — only the model did.
@@ -434,7 +434,7 @@ class ResearchUiStateTest {
         val row = adaptable(activeResearch = project(completesAt = EPOCH + 2.hours))
             .adaptationRowFor(AdaptationTechnology.GRAVITIC)
 
-        // then — the ladder half of the same reversal the applied rows got at 0.12.1. This is the
+        // then — the ladder half of the same reversal the applied rows got at 0.12.2. This is the
         // side a player will notice first: reading a `BLOCKED` world and then finding the ladder that
         // fixes it ghosted behind a mine upgrade is the wait Davide called the game too slow for.
         assertEquals(ResearchActionUiState.Start, row.action)
@@ -1346,7 +1346,7 @@ class ResearchUiStateTest {
         builds = emptyMap(),
         research = research,
         activeResearch = activeResearch,
-        // The other branch's slot, which since 0.12.1 *can* be set alongside `activeResearch` —
+        // The other branch's slot, which since 0.12.2 *can* be set alongside `activeResearch` —
         // `GameState` used to refuse that pair and no longer does. What each row has to answer for
         // is its own branch's slot and never the other's.
         activeAdaptation = activeAdaptation,

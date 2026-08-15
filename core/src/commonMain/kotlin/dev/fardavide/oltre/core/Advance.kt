@@ -42,7 +42,7 @@ private tailrec fun advanced(state: GameState, from: Instant, to: Instant): Game
     // property of the invariant in `GameState.init` and this expression is the one place in the game
     // where being wrong about that is silent.
     //
-    // The two research branches are **two terms and were one until 0.12.1**, when they stopped
+    // The two research branches are **two terms and were one until 0.12.2**, when they stopped
     // sharing a slot. That is the same silence in its sharpest form: a single term reading the
     // applied job first would leave a ladder due *earlier* than the project beside it with no
     // boundary of its own, so the level would never land and the log would never mention it.
@@ -72,7 +72,7 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     //
     // The order between the two research branches was written down while only one of them could ever
     // be due — *"a tie-break that depends on which case happens to be reachable is one a later slice
-    // breaks"* — and 0.12.1 is that slice. Two slots means the tie is ordinary, and nothing about the
+    // breaks"* — and 0.12.2 is that slice. Two slots means the tie is ordinary, and nothing about the
     // log moved when it became reachable, which is the whole return on having written it down.
     val completed = builds.values.filter { it.completesAt == instant }.sortedBy { it.building.ordinal }
     for (job in completed) {

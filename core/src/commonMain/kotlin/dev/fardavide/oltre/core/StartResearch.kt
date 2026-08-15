@@ -7,7 +7,7 @@ sealed interface StartResearchResult {
 
     // Not "already researching this" — the slot is empire-wide, so a busy slot refuses every
     // technology, including the ones the player is not looking at. **It stops at the branch**: an
-    // adaptation ladder has held a slot of its own since 0.12.1 and no longer refuses anything here.
+    // adaptation ladder has held a slot of its own since 0.12.2 and no longer refuses anything here.
     data object SlotBusy : StartResearchResult
     data object InsufficientResources : StartResearchResult
     data object RequirementsNotMet : StartResearchResult
@@ -19,7 +19,7 @@ sealed interface StartResearchResult {
 // era, so without it the answer would always be "start all three".
 fun startResearch(state: GameState, technology: Technology, at: Instant): StartResearchResult {
     // This branch's own slot and nothing else. A ladder climbing beside it is not this function's
-    // business — see `GameState.activeAdaptation` for why that stopped being true at 0.12.1.
+    // business — see `GameState.activeAdaptation` for why that stopped being true at 0.12.2.
     if (state.activeResearch != null) return StartResearchResult.SlotBusy
     if (!ResearchBalance.requirementFor(technology).isMetBy(state)) return StartResearchResult.RequirementsNotMet
     val toLevel = TechLevel(state.research.levelOf(technology).value + 1)

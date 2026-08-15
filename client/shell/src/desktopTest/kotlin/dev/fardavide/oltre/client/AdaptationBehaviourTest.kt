@@ -88,7 +88,7 @@ class AdaptationBehaviourTest {
     // **The split, end to end, and the test this replaces was passing for the wrong reason.** It read
     // "a running ladder holds the slot against the applied branch" and asserted that nothing offered
     // Research once the ladder was running — which was true at 0.11 because of the slot, and stayed
-    // true after 0.12.1 removed the slot, because `onePressureBandShort` funds *precisely one
+    // true after 0.12.2 removed the slot, because `onePressureBandShort` funds *precisely one
     // project* and the ladder spends it. A green assertion about a rule that no longer exists.
     //
     // Funded properly, the two branches come apart: the ladder runs, an applied technology is still

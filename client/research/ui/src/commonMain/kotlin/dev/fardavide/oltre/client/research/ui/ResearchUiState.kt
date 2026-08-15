@@ -46,7 +46,7 @@ data class ResearchUiState(
 )
 
 // Which project landed between the instant the save was written and the instant the app came back.
-// One or the other, never both — and since 0.12.1 that is a rule about the *announcement* rather
+// One or the other, never both — and since 0.12.2 that is a rule about the *announcement* rather
 // than about the colony. Both branches can now land while the app is closed, exactly as several
 // facilities always could; `arrivalOf` takes the last completion of any kind for the reason it
 // always did, that four bands crossing four cards at once is a light show.

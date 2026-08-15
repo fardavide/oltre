@@ -768,7 +768,7 @@ class GameSaveTest {
     fun `a version 4 save whose slot was busy invents no ladder for the branch it predates`() {
         // The 4 -> 5 hop's own rule, and it outlives the invariant that used to enforce it: version 4
         // has an applied project running and knows nothing about adaptation, so the migrated state
-        // must leave the other slot empty. Until 0.12.1 `GameState.init` would have refused a hop
+        // must leave the other slot empty. Until 0.12.2 `GameState.init` would have refused a hop
         // that invented one; now nothing would, which is why this asserts it directly.
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_4_FULL)).snapshot
 
@@ -908,7 +908,7 @@ class GameSaveTest {
     @Test
     fun `a save claiming both projects at once is an ordinary colony now`() {
         // **The one shape `GameState.init` used to exist to reject**, kept as the same hand-edited
-        // file so the reversal is legible rather than merely absent. Until 0.12.1 a save carrying
+        // file so the reversal is legible rather than merely absent. Until 0.12.2 a save carrying
         // both slots was refused as a broken one; two independent slots make it a colony halfway
         // through a fortnight, and a decode that rejected it would be refusing a save the game itself
         // writes. The other tampered saves next door still fail, so this is not `decode` going soft.

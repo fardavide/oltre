@@ -115,7 +115,7 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
         FutureEvent.ResearchCompletes(technology = job.technology, toLevel = job.toLevel, at = job.completesAt)
     }
     // The other branch, now with a slot of its own — so both of these lines contribute at once, which
-    // they could not before 0.12.1. Both were always read anyway, *"because a derivation that assumed
+    // they could not before 0.12.2. Both were always read anyway, *"because a derivation that assumed
     // which branch holds the slot would silently stop predicting the day that assumption changed"*,
     // and that day arrived: this file needed no change for it.
     val ladder = state.activeAdaptation?.let { job ->

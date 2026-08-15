@@ -26,7 +26,7 @@ data class DebugReport(
     val eventLogSize: Int,
     // What is in flight, split the way the model splits it: builds run one per facility, probes run
     // in parallel with no cap, and research is **two** empire-wide slots — one per branch since
-    // 0.12.1. Two booleans rather than one, because one would collapse two independent slots into a
+    // 0.12.2. Two booleans rather than one, because one would collapse two independent slots into a
     // reading that is true for the wrong reason, and an inspector that rounds is an inspector that
     // has to be double-checked against the save it exists to replace.
     val buildsInFlight: Int,

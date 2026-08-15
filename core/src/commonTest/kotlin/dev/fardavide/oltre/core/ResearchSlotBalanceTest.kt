@@ -11,7 +11,7 @@ import kotlin.time.Instant
 // records what a level costs and asserts nothing about whether anyone would ever buy it. That is the
 // gap this file is for.
 //
-// **What it is about changed at 0.12.1 and the tests did not**, which is worth stating rather than
+// **What it is about changed at 0.12.2 and the tests did not**, which is worth stating rather than
 // quietly leaving. The file was written when the branches shared one slot and every adaptation level
 // was *"paid for in production levels you did not buy"* — so the ratio between the two tables was the
 // exchange rate of a real trade. There is no trade now: each branch has a slot of its own and a

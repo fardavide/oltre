@@ -3442,7 +3442,7 @@ in this repository can measure that.
 
 ---
 
-## Round 29 — a queue each (0.12.1, 2026-08-15)
+## Round 29 — a queue each (0.12.2, 2026-08-15)
 
 Davide, 2026-08-15: *"Technologies and Adaptations run on the same queue, making the game too slow. I
 want to have a queue each."*

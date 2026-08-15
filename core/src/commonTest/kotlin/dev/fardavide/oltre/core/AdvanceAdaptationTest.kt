@@ -131,7 +131,7 @@ class AdvanceAdaptationTest {
 
     @Test
     fun `a project and a ladder due at one instant are applied in a fixed order`() {
-        // Since 0.12.1 this is reachable rather than hypothetical — two slots means two completions
+        // Since 0.12.2 this is reachable rather than hypothetical — two slots means two completions
         // can genuinely tie — and the order was written down before it was, so nothing about the log
         // moves now that it can happen. Applied first then adaptation: the same order `futureEvents`
         // predicts, which is the only thing making the prediction and the log agree.

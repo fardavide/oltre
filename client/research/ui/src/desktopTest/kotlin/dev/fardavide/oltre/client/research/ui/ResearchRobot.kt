@@ -248,7 +248,7 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
         test.onNodeWithText(text, substring = true, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    // **Several nodes can legitimately carry one string**, and since 0.12.1 the screen has a pair
+    // **Several nodes can legitimately carry one string**, and since 0.12.2 the screen has a pair
     // that does: at 320dp both section rules shorten to "one at a time", one per branch, which is
     // the correct reading rather than a duplicate. `onNodeWithText` fails outright on two matches,
     // so asserting the short form through `assertReads` would report the design as a defect. A count

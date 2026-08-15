@@ -26,7 +26,7 @@ sealed interface WatchTarget {
 
     // Its own member rather than a widened `Project`, for the reason `AdaptationCompleted` is its
     // own event: the two branches are not the same kind of thing. That was true while they shared a
-    // slot and it is what made splitting them at 0.12.1 cost nothing here.
+    // slot and it is what made splitting them at 0.12.2 cost nothing here.
     @Serializable
     @SerialName("Ladder")
     data class Ladder(val technology: AdaptationTechnology) : WatchTarget

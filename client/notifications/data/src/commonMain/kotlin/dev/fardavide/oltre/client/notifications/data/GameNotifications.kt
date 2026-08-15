@@ -97,7 +97,7 @@ internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotific
     val absorbed = groups.flatMap { it.dropLast(1) }.toSet()
 
     // **Three kinds are now unbounded, not two.** Six facilities, two research slots and one watch
-    // are bounded by the model — **nine** at the ceiling since 0.12.1 gave the adaptation branch a
+    // are bounded by the model — **nine** at the ceiling since 0.12.2 gave the adaptation branch a
     // slot of its own, and none of them can ever be the thing that overflows. Probes were the only
     // kind that ran in parallel with no cap; fleet runs are the second and the yard queue is the
     // third, so the partition has to name all three or `bounded.size` stops describing the protected
@@ -174,7 +174,7 @@ private fun List<FutureEvent.Completion>.toNotification(): LocalNotification = L
 )
 
 // Two through **eight**, which is every group this game can produce: six facilities build in
-// parallel, one slot holds an applied project and — since 0.12.1 — a second holds a ladder beside
+// parallel, one slot holds an applied project and — since 0.12.2 — a second holds a ladder beside
 // it. Nine is unreachable. Spelled rather than printed as a digit — the game prints digits for
 // levels, because a level is a number read off a row, and this is a count in a sentence.
 //

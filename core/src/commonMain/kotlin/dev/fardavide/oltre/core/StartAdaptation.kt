@@ -7,7 +7,7 @@ sealed interface StartAdaptationResult {
 
     // "Already adapting", and only that. The branch's slot is empire-wide — one ladder at a time,
     // whichever ladder — so the choice of which axis to widen next is still a choice. It has not
-    // meant "already researching" since 0.12.1: a player two hours into Extraction 4 can start
+    // meant "already researching" since 0.12.2: a player two hours into Extraction 4 can start
     // Gravitic 1, which is exactly what Davide asked for and exactly what the adaptation sheet's §2
     // argued against.
     data object SlotBusy : StartAdaptationResult

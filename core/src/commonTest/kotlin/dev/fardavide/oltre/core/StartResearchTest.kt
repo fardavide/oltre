@@ -62,7 +62,7 @@ class StartResearchTest {
         val result = startResearch(funded, Technology.PHOTOVOLTAICS, at = EPOCH)
 
         // then - one project at a time is still the applied branch's only scarcity, and the whole
-        // reason picking the next one is a decision. What 0.12.1 split off is the adaptation branch,
+        // reason picking the next one is a decision. What 0.12.2 split off is the adaptation branch,
         // which now runs beside this rather than in it - see `StartAdaptationTest`.
         assertEquals(StartResearchResult.SlotBusy, result)
     }

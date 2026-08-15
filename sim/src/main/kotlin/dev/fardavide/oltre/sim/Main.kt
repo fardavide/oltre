@@ -895,7 +895,7 @@ private fun optionsFor(state: GameState, plan: List<BuildingType>, withProjects:
     if (!withProjects) return Options(buildings, emptyList())
 
     // Still one list sorted by one key — cheapest first, the same rule the buildings follow, a rule
-    // rather than a judgement about which branch is better. What changed at 0.12.1 is that a branch
+    // rather than a judgement about which branch is better. What changed at 0.12.2 is that a branch
     // is emptied out **on its own slot** rather than both on one: a project in flight says nothing
     // about whether a ladder can start, and a filter that asked one question for both would leave
     // whichever branch happened to be idle permanently unbought.
@@ -2641,7 +2641,7 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
         })
     }
 
-    // **A slot each since 0.12.1, so the ceiling this reports is two rather than one.** The old note
+    // **A slot each since 0.12.2, so the ceiling this reports is two rather than one.** The old note
     // here said at most one of the six could ever be OFFERED at once however many were affordable,
     // and called that the single most important thing the census said about the mid game. It is now
     // one applied row and one ladder — a smaller claim, and still one no count of rows would show.

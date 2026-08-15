@@ -137,7 +137,7 @@ class ResearchScreenBehaviourTest {
             assertRowReads(Technology.ENRICHMENT, "+6/h deuterium")
             assertRowDoesNotRead(Technology.ENRICHMENT, "back in")
             // Twice, once per branch: both section rules shorten to the same three words at this
-            // width, which since 0.12.1 is two rules that happen to read alike rather than one.
+            // width, which since 0.12.2 is two rules that happen to read alike rather than one.
             assertReadsTimes("one at a time", times = 2)
             assertNothingReads("one project at a time")
         }
@@ -283,7 +283,7 @@ class ResearchScreenBehaviourTest {
         assertEquals(listOf(AdaptationTechnology.THERMAL), started.toList())
     }
 
-    // **The seam, driven from the screen — and it moved at 0.12.1.** A technology in flight used to
+    // **The seam, driven from the screen — and it moved at 0.12.2.** A technology in flight used to
     // stop all three ladders too, and this test asserted that both halves refused. Two slots means
     // the refusal stops at the heading: every applied row is still dead while the countdown runs, and
     // every ladder is live. The two assertions below are the same two lines they always were, saying
@@ -311,7 +311,7 @@ class ResearchScreenBehaviourTest {
         assertEquals(AdaptationTechnology.entries.toList(), ladders.toList())
     }
 
-    // **The same seam from the other side**, and the state that could not be drawn before 0.12.1: a
+    // **The same seam from the other side**, and the state that could not be drawn before 0.12.2: a
     // ladder climbing while the applied branch is entirely free. It is the half of the split a player
     // meets after reading a `BLOCKED` world — buy the ladder the row named, and the colony's own
     // research is untouched by it.

@@ -15,7 +15,7 @@ data class GameState(
     // limited by resources and research is limited by time, which is what gives the two screens
     // different characters.
     val activeResearch: ResearchJob?,
-    // **A slot of its own since 0.12.1**, and this is the one field on `GameState` whose comment is a
+    // **A slot of its own since 0.12.2**, and this is the one field on `GameState` whose comment is a
     // record of a design being overruled rather than of one being made. The two branches shared this
     // slot from 0.0.17 — the adaptation sheet's §2 argued that the sharing *was* the scarcity, that
     // every adaptation level should be paid for in production levels the player did not buy. Davide

@@ -62,7 +62,7 @@ class StartAdaptationTest {
 
     @Test
     fun `a running technology no longer refuses a ladder`() {
-        // **The shared slot is gone** — Davide's call at 0.12.1, on having played it: two branches
+        // **The shared slot is gone** — Davide's call at 0.12.2, on having played it: two branches
         // taking turns in one slot made the whole game wait on itself. Each branch now has a slot of
         // its own, and what an adaptation level costs is resources and a clock rather than a
         // production level the player did not buy. The adaptation sheet's §2 is overruled by this.

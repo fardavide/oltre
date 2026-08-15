@@ -174,7 +174,7 @@ class CheckInBalanceTest {
     }
 
     // How many research projects the colony could start, both branches, counting only what each
-    // branch's own slot could actually take — two slots since 0.12.1, so a running project no longer
+    // branch's own slot could actually take — two slots since 0.12.2, so a running project no longer
     // zeroes the ladders as well.
     private fun offeredProjects(state: GameState): Int {
         val applied = if (state.activeResearch != null) {

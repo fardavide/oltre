@@ -599,7 +599,7 @@ internal object BalanceBenchmark {
         // than because a policy preferred it. A benchmark that always pushed the applied branch
         // would never notice the adaptation branch drifting out of reach.
         //
-        // **Up to two starts a visit since 0.12.1**, one per branch, because the slots are
+        // **Up to two starts a visit since 0.12.2**, one per branch, because the slots are
         // independent. Still one pass in one order: the cheaper project is offered first whichever
         // branch it belongs to, and the loop ends the moment both slots are full rather than after
         // the first success.

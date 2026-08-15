@@ -279,7 +279,7 @@ class GameNotificationsTest {
         assertEquals(2, scheduler.scheduled.size)
     }
 
-    // **The ceiling, and it moved at 0.12.1**: six facilities, one applied project and one ladder is
+    // **The ceiling, and it moved at 0.12.2**: six facilities, one applied project and one ladder is
     // every completion a colony can hold, so eight is the largest group there is and this is the
     // longest body a lock screen will ever be handed. It was seven while the two research branches
     // shared a slot — which is precisely the kind of ceiling that goes wrong quietly, because

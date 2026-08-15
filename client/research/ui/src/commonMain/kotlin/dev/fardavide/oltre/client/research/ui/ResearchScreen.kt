@@ -99,7 +99,7 @@ fun ResearchScreen(
                 Spacer(modifier = Modifier.height(22.dp))
                 SectionLabel(
                     text = "ADAPTATION",
-                    // **A rule of its own since 0.12.1, where it used to be a pointer at the one
+                    // **A rule of its own since 0.12.2, where it used to be a pointer at the one
                     // above.** This read "the same slot" for eleven versions and the sentence was
                     // load-bearing: it existed to prevent a player reading the two headings as one
                     // of each. That reading is now the correct one, so the label says what this

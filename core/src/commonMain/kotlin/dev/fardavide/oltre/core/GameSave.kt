@@ -80,7 +80,7 @@ object GameSave {
     //     existed since 4, so the hop adds the verb and not the record it fills.
     // 5 — the adaptation branch: three more levels on `research`, and `activeAdaptation` — which at
     //     the time was the same empire-wide slot `activeResearch` uses, held by the other branch.
-    //     **0.12.1 gave it a slot of its own and needed no version for it**, which is the useful part
+    //     **0.12.2 gave it a slot of its own and needed no version for it**, which is the useful part
     //     of this line now: the two fields were always two fields, so a rule about which of them may
     //     be set was never on disk. Only `GameState.init` knew, and it has stopped knowing.
     // 4 — the galaxy: a seed, the home coordinate, the surveyed set and who holds what. Never the

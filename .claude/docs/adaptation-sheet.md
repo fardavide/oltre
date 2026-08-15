@@ -16,7 +16,7 @@ is already in the code; what was missing was any way to buy one.
 ## The one-sentence version
 
 **The map is a shopping list and this is the shop.** Three ladders, ~~one shared research slot~~
-**a research slot of their own** (§2, overruled at 0.12.1), each priced in the resource its own axis
+**a research slot of their own** (§2, overruled at 0.12.2), each priced in the resource its own axis
 will make you rich in — so the ladder you can afford first is the one your colony is already good
 at, and the one that would fix your problem is the one you cannot yet pay for.
 
@@ -47,7 +47,7 @@ exist to create.
 
 ## 2. ~~One research slot, shared between the branches~~ **A slot each**
 
-> **OVERRULED BY DAVIDE, 2026-08-15, at 0.12.1**, on having played it: *"Technologies and
+> **OVERRULED BY DAVIDE, 2026-08-15, at 0.12.2**, on having played it: *"Technologies and
 > Adaptations run on the same queue, making the game too slow. I want to have a queue each."*
 >
 > The section below is kept whole rather than rewritten, because it is the argument the ruling
@@ -257,7 +257,7 @@ number to invent, nothing to rescale.
 ## Left open, deliberately
 
 - ~~**Whether the two branches share one screen or get two.**~~ **Closed:** one screen, two
-  sections, shipped at 0.6.0. Each heading now carries its own rule, which is the 0.12.1 change
+  sections, shipped at 0.6.0. Each heading now carries its own rule, which is the 0.12.2 change
   showing on the surface.
 - ~~**Whether the shared slot should become one sealed `ActiveProject`.**~~ **Closed by there being
   no shared slot.** The revisit was booked for "the day the Research screen renders both branches",

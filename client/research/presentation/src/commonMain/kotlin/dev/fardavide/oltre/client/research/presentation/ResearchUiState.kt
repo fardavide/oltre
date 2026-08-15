@@ -181,7 +181,7 @@ private fun GameState.toTechnologyRow(
 // The applied mapper with three things swapped: `AdaptationBalance` for `ResearchBalance`, this
 // branch's own slot for `activeResearch`, and a band line for a percentage line. The order of the
 // checks is the same because the two branches differ in what they buy, not in how they are bought —
-// and the ghost's contract in `startOrWait` is shared outright, which since 0.12.1 means it is
+// and the ghost's contract in `startOrWait` is shared outright, which since 0.12.2 means it is
 // *handed* the slot rather than reading one.
 private fun GameState.toAdaptationRow(
     technology: AdaptationTechnology,
@@ -297,7 +297,7 @@ private fun GameState.watchOn(
 //
 // **`slotFreesAt` is the caller's to supply, and it is the row's own branch's.** It used to read
 // `researchSlotFreesAt` off the state, because one slot served both branches and a ladder held it
-// exactly as hard as a technology did. Two slots since 0.12.1, so a shared read would go wrong in
+// exactly as hard as a technology did. Two slots since 0.12.2, so a shared read would go wrong in
 // the direction that shows: it would ghost out every applied row while a ladder climbed, and the
 // model would have accepted the tap. The rule on both sides is the same as it always was — the
 // screen must offer exactly what `startResearch` and `startAdaptation` will accept.

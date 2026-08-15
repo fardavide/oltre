@@ -56,7 +56,7 @@ value class TechLevel(val value: Int) {
 //
 // **Two branches, one record.** The three applied technologies multiply a per-hour rate; the three
 // adaptation ladders widen a tolerance band and change nothing about production at all. They are
-// separate enums, separate balance objects and — since 0.12.1 — separate slots on `GameState`, but
+// separate enums, separate balance objects and — since 0.12.2 — separate slots on `GameState`, but
 // they share this record, because what the empire knows is one thing however it was learned. That
 // is the half of the sharing that survived: the levels are one fact, the queues are two.
 @Serializable
@@ -120,7 +120,7 @@ data class Research(
 // One at a time, empire-wide — so unlike `builds` this is a single nullable record rather than a
 // map. The slot is the applied branch's only scarcity: its resource costs are small next to a mine
 // of the same era, so without it the answer would always be "start all four" and no decision is
-// left. That argument is untouched by 0.12.1, which split the *branches* apart and neither branch
+// left. That argument is untouched by 0.12.2, which split the *branches* apart and neither branch
 // within itself.
 @Serializable
 data class ResearchJob(
@@ -133,7 +133,7 @@ data class ResearchJob(
 // The adaptation branch's job, and deliberately a separate type rather than a `ResearchJob` with a
 // wider subject: the two branches are bought against different things — a colony you can watch,
 // and a map you cannot — and a sealed subject would make every existing reader of `activeResearch`
-// answer for a project it does not render. Two types for two slots since 0.12.1, which is the
+// answer for a project it does not render. Two types for two slots since 0.12.2, which is the
 // shape this always had; what it no longer needs is the `require` on `GameState` that used to make
 // the second slot a fiction. See the 0.3 adaptation sheet, §2, and what overruled it.
 @Serializable
