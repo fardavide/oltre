@@ -311,6 +311,39 @@ class ResearchScreenBehaviourTest {
         assertEquals(AdaptationTechnology.entries.toList(), ladders.toList())
     }
 
+    // **The same seam from the other side**, and the state that could not be drawn before 0.12.1: a
+    // ladder climbing while the applied branch is entirely free. It is the half of the split a player
+    // meets after reading a `BLOCKED` world — buy the ladder the row named, and the colony's own
+    // research is untouched by it.
+    @Test
+    fun `a ladder in flight stops its own branch and leaves the technologies live`() {
+        // given
+        val applied = mutableListOf<Technology>()
+        val ladders = mutableListOf<AdaptationTechnology>()
+
+        // when every row of both branches is tapped
+        researchScreen(
+            uiState = oneLadderInFlightUiState,
+            onStartResearch = { applied += it },
+            onStartAdaptation = { ladders += it },
+        ) {
+            assertCountsDown(AdaptationTechnology.THERMAL, "02:30:00")
+            // The two it does stop read the countdown above them, which is the property the applied
+            // branch has always had and the ladders now have on their own: the number verifies itself.
+            assertWaits(AdaptationTechnology.GRAVITIC, "in 2h 30m")
+            assertWaits(AdaptationTechnology.ATMOSPHERIC, "in 2h 30m")
+            // Technologies first, and it is not cosmetic: scrolling from the last ladder back to the
+            // first technology and clicking in one step drops that click, so a run that taps the
+            // bottom of the list and then the top loses its first tap. Screen order avoids it.
+            Technology.entries.forEach { startResearching(it) }
+            AdaptationTechnology.entries.forEach { startResearching(it) }
+        }
+
+        // then
+        assertEquals(emptyList<AdaptationTechnology>(), ladders.toList())
+        assertEquals(Technology.entries.toList(), applied.toList())
+    }
+
     @Test
     fun `both branches are on screen before either gate opens`() {
         // Four of six rows dimmed is what a new player meets, and the second block is the branch

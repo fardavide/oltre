@@ -120,6 +120,11 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertTextEquals(label)
     }
 
+    fun assertCountsDown(technology: AdaptationTechnology, countdown: String) = apply {
+        scrollTo(ResearchTestTags.row(technology))
+        test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertTextEquals(countdown)
+    }
+
     fun assertOffersNothing(technology: AdaptationTechnology) = apply {
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertDoesNotExist()
     }

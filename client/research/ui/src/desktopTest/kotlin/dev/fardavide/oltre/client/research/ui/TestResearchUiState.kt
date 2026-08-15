@@ -339,6 +339,45 @@ internal val oneProjectInFlightUiState = ResearchUiState(
     ),
 )
 
+// **The mirror of the frame above, and the one 0.12.1 created.** A ladder is climbing, the other two
+// carry the time until its slot frees — and every applied row is live, because a ladder no longer
+// holds anything on that half of the screen. Before the split this state could not be drawn at all:
+// a running ladder ghosted the technologies too, so the screen had exactly one "something is
+// running" shape and this is the second.
+//
+// **Behaviour-only, with no baseline of its own.** What it is for is the seam — which rows a running
+// ladder does and does not stop — and that is a question about what the screen *offers* rather than
+// about how it looks. `oneProjectInFlightUiState` already puts a running row, a ghosted row and a
+// live row on a baseline; a second frame of the same three shapes would be a picture nobody reads
+// and one more thing to re-record.
+//
+// Derived rather than written out, for `watchedUiState`'s reason: what it asserts is a *difference*.
+internal val oneLadderInFlightUiState = gateOpenUiState.copy(
+    adaptation = gateOpenUiState.adaptation.map { row ->
+        if (row.technology == AdaptationTechnology.THERMAL) {
+            row.copy(
+                // No verdict, exactly as a running technology drops its own: the decision was made
+                // when the player tapped Research, and the row now belongs to the finish line.
+                verdict = null,
+                action = ResearchActionUiState.Running(
+                    toLevel = TechLevel(1),
+                    countdown = "02:30:00",
+                    progressPercent = 18,
+                    doneAt = "done 14:05",
+                ),
+                watch = WatchUiState.Offered,
+            )
+        } else {
+            row.copy(action = ResearchActionUiState.AvailableIn("in 2h 30m"), watch = null)
+        }
+    },
+    // Every applied row affordable, which is what makes the assertion about the seam a clean one:
+    // a row that stays dead here would be dead on its own price rather than on the ladder's slot.
+    technologies = gateOpenUiState.technologies.map { row ->
+        row.copy(action = ResearchActionUiState.Start, watch = null)
+    },
+)
+
 // The gate-open frame with the watch on the one ladder the colony is short of metal for. Three
 // things are different from the frame above and they are the whole slice: the heading has given its
 // trailing slot up to name the watched row, the square is lit, and the card says the instant.
