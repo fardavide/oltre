@@ -120,8 +120,8 @@ passing unchanged is the evidence that it was. Three draws off the one tag:
 
 - **drift**, ±500 permille of a pitch. Capped at half a pitch so it can never reorder two stars,
   which is the safety argument for the whole drawing in one number.
-- **size wobble**, 820–1180 permille of the class radius, so two standards are siblings rather than
-  clones and never a promotion.
+- **size wobble**, 870–1130 permille of the class radius, so two standards are siblings rather than
+  clones and never a promotion. Design drew 820–1180; §7b has why that number moved.
 - **halo**, which of the two hues a bright star wears — generated rather than picked at draw time,
   because "every third bright" chosen by the renderer would depend on iteration order and two players
   on one seed have to be looking at the same sky.
