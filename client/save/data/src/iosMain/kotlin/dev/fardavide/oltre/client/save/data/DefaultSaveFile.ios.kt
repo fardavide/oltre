@@ -20,6 +20,8 @@ import platform.Foundation.writeToFile
 // enable file sharing, so the save stays invisible to the user and inside the iCloud backup.
 actual fun defaultSaveFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$SAVE_FILE_NAME")
 
+actual fun defaultPreferencesFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$PREFERENCES_FILE_NAME")
+
 private fun documentsDirectory(): String =
     NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true).first() as String
 

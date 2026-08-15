@@ -4,6 +4,9 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.MapCaptionUiState
+import dev.fardavide.oltre.client.galaxy.ui.MapGeometry
 import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.galaxy.ui.SLIDE_OVER_WIDTH
 import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
@@ -13,6 +16,7 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.epithetFor
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.assertEquals
@@ -20,9 +24,11 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.junit.Test
 
-// **The system view, which is where a player goes to acquire a reading they do not have.** The tab
-// opens on the ledger since 0.11 and this is the other half of the switch: one system filling the
-// screen, its strip, its map and one row per occupied slot.
+// **The two screens the Galaxy tab is made of, in one file because a frame is all either of them
+// needs.** The fold the tab lands on since 0.12 — the drawn galaxy, ten banded regions folded so that
+// path order is index order — and the system view a tap on the bar under it pushes to, which is where
+// a player goes to acquire a reading they do not have: one system filling the screen, its map and one
+// row per occupied slot.
 //
 // Driven through the Robot, never through a raw node query — the shape `ResearchRobot` set.
 //
@@ -34,6 +40,12 @@ import org.junit.Test
 // astronomy line says it once). A test for any of those would be a test that the redesign had not
 // happened. The fourth is the word `Unsurveyed`, and that one is asserted *as an absence* below.
 //
+// **Two more went at 0.12 with the reach strip they were about**: that the strip drew at both widths,
+// and that the cell beside the lit one was where a step would land. The strip's own figure was
+// already printed one line above it in the astronomy line, and *where could I go* is the fold's
+// question now — so the first of those two claims is made about the drawing instead, at the top of
+// the class, and the second is the fold's route rather than a stepper's neighbour.
+//
 // Nothing here states a figure the seed produced. Names, epithets, tolerances and ladders are all
 // read back out of `core` or off the frame, because the mapper's arithmetic already has a unit test
 // and what this file is for is the seam after it: that what the mapper decided is what a player is
@@ -41,29 +53,99 @@ import org.junit.Test
 @OptIn(ExperimentalTestApi::class)
 class GalaxyPageBehaviourTest {
 
-    @Test
-    fun `the strip is drawn at both widths`() {
-        // 250 ticks, an hour ruler and a row of named cells, drawn once per selection change. It is
-        // the only thing on the screen that draws the *galaxy* rather than a system, and at 320dp it
-        // trades two cells for the names rather than going away.
-        galaxyPage(uiState = homeSystemUiState) { assertTheBandIsDrawn() }
-        galaxyPage(uiState = homeSystemUiState, width = SLIDE_OVER_WIDTH) { assertTheBandIsDrawn() }
-    }
+    // ── The fold ─────────────────────────────────────────────────────────────────────────────
+    //
+    // The *route* through it — scrub, then tap the bar — is `GalaxyFromStateBehaviourTest`'s, because
+    // a route is a sequence of states and this file hands the screen one at a time. What is asserted
+    // here is what has to hold of the drawing in any single frame: that all of it is on the glass at
+    // once, that a thumb landing on a star selects that star rather than its mirror image, and that
+    // the bar underneath offers a flight exactly where one would be honoured.
 
     @Test
-    fun `the cell beside the lit one is what the stepper was`() {
-        // Asserted on the stateful screen rather than on a handed frame, because what a *step* is is
-        // that the page is somewhere else afterwards — a callback only says the tap was heard. The
-        // cell says where it goes before you go there, which is what the ±1 stepper never did.
-        galaxyScreen(state = testGameState) {
-            openTheMap()
-            assertTheHeaderNames("${home.galaxy}:${home.system}")
-
-            openSystem(home.system + 1)
-
-            assertTheHeaderNames("${home.galaxy}:${home.system + 1}")
+    fun `the fold and the bar under it are on one screen at both widths`() {
+        // 531dp of drawing fits the content area at 393dp and at 320dp alike, which is why
+        // `MapGeometry` carries one set of numbers rather than two — and why neither map scrolls. What
+        // a display assertion can say about *that* is the half worth having: the drawing and the bar
+        // at the foot are on the glass together, so nothing on this screen is reached by scrolling to
+        // it. A fold that outgrew one screen would take the caption off the bottom of this assertion.
+        listOf(PHONE_WIDTH, SLIDE_OVER_WIDTH).forEach { width ->
+            galaxyPage(uiState = homeFold, width = width) {
+                assertTheGalaxyIsDrawn()
+                assertReads(homeFoldCaption.coordinate)
+            }
         }
     }
+
+    @Test
+    fun `a tap on the drawing selects the star under the thumb`() {
+        // Asserted on the stateful screen rather than on a handed frame, because what a selection *is*
+        // is that the bar says something else afterwards — a callback only says the tap was heard.
+        //
+        // **The target is on an odd band**, which is where the two halves of `MapGeometry` are able to
+        // disagree. Bands 0, 2 and 4 run left to right like any grid, so a place-a-star function and a
+        // which-star-is-here function that had *both* forgotten the serpentine would still agree on
+        // one of those; on a right-to-left band they agree only if both remember it. That the drawing
+        // folds the way the index does at all is `MapGeometryTest`'s claim and is asserted with no
+        // screen; what this block adds is that the path from a thumb to a caption preserves it.
+        galaxyScreen(state = testGameState) {
+            // The map opens with home selected and a tap can only move that, so the reading below is
+            // a move rather than a state the screen was already in.
+            assertTheCaptionReads("[${home.galaxy}:${home.system}]")
+
+            scrubTo(onAnOddBand)
+
+            assertTheCaptionReads("[${home.galaxy}:$onAnOddBand]")
+            // The name as well as the address, and out of `core` rather than off the frame: what has
+            // to reach the bar is the generator's own name for that star.
+            assertTheCaptionReads(systemNameAt(frameState.galaxy.seed, home.galaxy, onAnOddBand))
+        }
+    }
+
+    @Test
+    fun `the bar offers a probe where nothing is known and a clock where everything is`() {
+        // **Stars are probe targets; worlds are run targets**, and the bar is where that rule is
+        // visible. On a star nobody has looked at it carries the same verb at the same price the orbit
+        // page's footer does — and it dispatches rather than opening something, because there is no
+        // probe sheet in this game and never has been.
+        var launched = 0
+
+        galaxyPage(uiState = unknownFold, onDispatchProbe = { launched++ }) {
+            dispatchAProbeFromTheMap()
+        }
+
+        assertEquals(1, launched)
+
+        // On your own doorstep a survey has nothing left to buy, so the trailing element is the run's
+        // round trip in plain text and the caption's own tap is what takes you there. Asserted as the
+        // note *and* as the absence, because an empty corner would satisfy the absence on its own.
+        galaxyPage(uiState = homeFold) {
+            assertTheCaptionOffersNoProbe()
+            assertTheCaptionReads("out and back")
+        }
+    }
+
+    @Test
+    fun `the scale chip brings up one disc per galaxy and puts them away again`() {
+        // That the chip *swaps* rather than pushes is `GalaxyFromStateBehaviourTest`'s claim; what is
+        // asserted here is what arrives when it does. Four cards, one per galaxy, each naming the
+        // galaxy it draws — four because the coordinate space is fixed, which is what makes this a
+        // grid rather than a list — and the galaxy you live in is the one card with nothing to price,
+        // so it says "home" where the other three quote a round trip.
+        galaxyScreen(state = testGameState) {
+            toggleTheScale()
+
+            assertTheUniverseIsUp()
+            (1..GalaxyBalance.GALAXIES).forEach { galaxy -> assertTheDiscReads(galaxy, "G$galaxy") }
+            assertTheDiscReads(home.galaxy, "home")
+
+            toggleTheScale()
+
+            assertTheUniverseIsAway()
+            assertTheGalaxyIsDrawn()
+        }
+    }
+
+    // ── The system view ──────────────────────────────────────────────────────────────────────
 
     @Test
     fun `tapping a galaxy asks for that galaxy`() {
@@ -92,7 +174,7 @@ class GalaxyPageBehaviourTest {
         assertTrue(empty.isNotEmpty(), "no system fills all ${GalaxyBalance.SLOTS_PER_SYSTEM} slots")
 
         galaxyPage(uiState = homeSystemUiState) {
-            assertTheMapIsDrawn()
+            assertTheSystemIsDrawn()
             occupied.forEach { assertShowsWorld(it) }
             empty.forEach { assertShowsNoWorld(it) }
         }
@@ -345,5 +427,20 @@ class GalaxyPageBehaviourTest {
         val unsurveyed: GalaxyRowUiState.World =
             assertIs<GalaxyBodyUiState.System>(unsurveyedSystemUiState.body)
                 .rows.filterIsInstance<GalaxyRowUiState.World>().first()
+
+        // The fold as the tab actually opens it: the whole galaxy drawn, with the colony's own star
+        // selected. It is the first screen a new player ever sees and it takes no gesture to reach.
+        val homeFold: GalaxyUiState = frame()
+
+        // The same drawing with the untouched neighbour under the thumb, which is where the bar has
+        // something to sell. Both frames are `frame()`'s default view, because that default *is* the
+        // landing since 0.12.
+        val unknownFold: GalaxyUiState = frame(at = frameState.neighbourSelection())
+
+        val homeFoldCaption: MapCaptionUiState = assertIs<GalaxyBodyUiState.Map>(homeFold.body).caption
+
+        // A star on band 3, which runs right to left. Seven along rather than at either end, because
+        // both ends of a band are also where the scrub's own clamp could hide a mistake.
+        val onAnOddBand: Int = MapGeometry.firstSystemOf(band = 3) + 7
     }
 }

@@ -2,7 +2,6 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
@@ -190,7 +189,7 @@ class ProbeActionUiStateTest {
         target: SystemAddress,
         now: Instant = EPOCH,
         // The footer is the *system* view's furniture, so the frame has to be asked for that view:
-        // the ledger and the region index do not price a flight, and building one for them would be
+        // neither map scale nor the worlds list prices a flight, and building one for them would be
         // paying for a footer nothing draws.
     ): ProbeActionUiState = assertIs<GalaxyBodyUiState.System>(
         toGalaxyUiState(
@@ -200,14 +199,15 @@ class ProbeActionUiStateTest {
         ).body,
     ).probe
 
-    private fun GameState.navigationAt(at: SystemSelection): GalaxyNavigation = GalaxyNavigation(
+    // Everything a navigation still carries is furniture for the *other* three views — the query and
+    // the discovery boundary belong to the worlds list — so the footer's frame is the selection and
+    // three inert fields. It stopped needing a `GameState` at 0.12, when the chips it used to derive
+    // from one went.
+    private fun navigationAt(at: SystemSelection): GalaxyNavigation = GalaxyNavigation(
         view = GalaxyView.SYSTEM,
         at = at,
         query = "",
-        filters = emptySet(),
-        sort = LedgerSort.NEAREST,
         seenAt = EPOCH,
-        availableFilters = availableFiltersFor(at),
     )
 
     private fun offerAt(state: GameState, systemsAway: Int): ProbeOfferUiState =

@@ -3,9 +3,13 @@ package dev.fardavide.oltre.client.galaxy.presentation
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyScale
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTabUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
+import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.galaxy.ui.MapBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapMark
 import dev.fardavide.oltre.client.galaxy.ui.MapTrajectoryUiState
@@ -45,26 +49,31 @@ internal fun GameState.toGalaxyUiState(
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState {
     val at = nav.at
-    // Filtered and sorted once, then handed to both halves: the head prints the count of exactly
-    // what the body lists, so deriving it twice is one list walked twice to agree with itself.
+    // Searched once, then handed to both halves: the head prints the count of exactly what the body
+    // lists, so deriving it twice is one list walked twice to agree with itself.
     val matching = knownWorldsFor(nav, now)
     return GalaxyUiState(
-        head = toLedgerHeadUiState(nav = nav, matching = matching),
+        head = when (nav.view) {
+            GalaxyView.MAP, GalaxyView.UNIVERSE -> GalaxyHeadsUiState.Map(toGalaxyHeadUiState(nav = nav))
+            GalaxyView.WORLDS, GalaxyView.SYSTEM ->
+                GalaxyHeadsUiState.Worlds(toLedgerHeadUiState(nav = nav, matching = matching))
+        },
         body = when (nav.view) {
-            GalaxyView.LEDGER -> GalaxyBodyUiState.Ledger(
+            GalaxyView.MAP -> GalaxyBodyUiState.Map(
+                map = toGalaxyMapUiState(at = at),
+                caption = toMapCaptionUiState(at = at, now = now),
+            )
+            GalaxyView.UNIVERSE -> GalaxyBodyUiState.Universe(
+                universe = toUniverseUiState(at = at),
+                caption = toUniverseCaptionUiState(at = at),
+            )
+            GalaxyView.WORLDS -> GalaxyBodyUiState.Ledger(
                 toLedgerBodyUiState(nav = nav, matching = matching, now = now),
             )
-            GalaxyView.REGIONS -> GalaxyBodyUiState.Regions(
-                galaxy = "Galaxy ${at.galaxy}",
-                scope = "${GalaxyBalance.REGIONS_PER_GALAXY} regions · " +
-                    "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
-                rows = toRegionRows(galaxy = at.galaxy),
-            )
             // The probe footer is built here rather than above because it is the system view's
-            // own furniture: it walks all fifteen slots and prices a flight, and the ledger and the
-            // region index would have paid for that and thrown it away.
+            // own furniture: it walks all fifteen slots and prices a flight, and the other three
+            // views would have paid for that and thrown it away.
             GalaxyView.SYSTEM -> GalaxyBodyUiState.System(
-                strip = toRegionStripUiState(at = at),
                 header = toSystemHeadUiState(at = at),
                 map = toSystemMapUiState(at = at, now = now),
                 probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
@@ -85,6 +94,35 @@ internal fun GameState.toGalaxyUiState(
                 now = now,
             )
         },
+    )
+}
+
+// The head above the two map scales. **The count is the same idiom the worlds list uses one scale
+// down** — a length and what you know of it — which is what makes the two heads read as two states of
+// one tab rather than as two screens.
+private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiState {
+    val universe = nav.view == GalaxyView.UNIVERSE
+    val known = galaxy.surveyed
+        .filter { universe || it.galaxy == nav.at.galaxy }
+        .distinctBy { it.galaxy to it.system }
+        .size
+    val pinned = galaxy.pinned.count { universe || it.galaxy == nav.at.galaxy }
+    val systems = if (universe) {
+        GalaxyBalance.GALAXIES * GalaxyBalance.SYSTEMS_PER_GALAXY
+    } else {
+        GalaxyBalance.SYSTEMS_PER_GALAXY
+    }
+    return GalaxyHeadUiState(
+        mode = LedgerMode.MAP,
+        scale = if (universe) GalaxyScale.UNIVERSE else GalaxyScale.GALAXY,
+        chip = if (universe) "${GalaxyBalance.GALAXIES} galaxies" else "G${nav.at.galaxy}",
+        count = listOfNotNull(
+            "${systems.toLong().groupedByThousands()} systems",
+            "$known surveyed",
+            // Absent rather than zero, so a save with nothing pinned does not print a control it
+            // does not have. The same rule the ledger's own emptiness follows.
+            "$pinned pinned".takeIf { pinned > 0 },
+        ).joinToString(SEPARATOR),
     )
 }
 

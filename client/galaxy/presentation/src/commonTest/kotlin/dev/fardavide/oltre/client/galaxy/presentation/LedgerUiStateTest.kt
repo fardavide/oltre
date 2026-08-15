@@ -1,42 +1,37 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerFilter
 import dev.fardavide.oltre.client.galaxy.ui.LedgerHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
-import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
-import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
-import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
-import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.SystemAddress
-import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.World
-import dev.fardavide.oltre.core.WorldVerdict
-import dev.fardavide.oltre.core.regionNameAt
-import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.systemNameAt
-import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
+import kotlinx.datetime.TimeZone
 
-// **The screen the Galaxy tab opens on**, and the half of the slice with the most arithmetic in it:
-// `surveyed` filtered by five chips and a query, ordered four ways, split into pins and the rest,
-// with a discovery section derived from the event log and a sentence for when it all comes back
-// empty.
+// **The worlds list**, which stopped being the screen the Galaxy tab opens on at 0.12 and lost its
+// five filter chips and its four orders with the move. Both went for one reason: they narrowed and
+// ordered a list of *worlds* when the question they were reached for is about *systems*, and a probe
+// is aimed at a star. So the tests below are about the two jobs a list does better than a drawing —
+// finding a place you have already been by name, and keeping the ones you marked at the top — plus
+// the discovery section and the sentence for when it all comes back empty.
 //
-// Nothing here is stored except the pins — the query, the chips and the sort live on
+// Nothing here is stored except the pins — the query and the discovery boundary live on
 // `GalaxyNavigation` and die with the check-in — so every test below hands the mapper a navigation
 // rather than a saved screen.
 //
@@ -120,216 +115,28 @@ class LedgerUiStateTest {
     }
 
     @Test
-    fun `the reachable chip drops what a ship cannot get to inside the window`() {
-        // given a world in the next galaxy in the ledger. A galaxy hop is 2,700 units against a
-        // system hop's 95, so it is the one distance that overruns every rung of the ladder — but
-        // the fixture asserts that rather than assuming it, because the metric is `FleetBalance`'s
-        // to change.
-        val genesis = fresh()
-        val far = genesis.firstWorldWhere(
-            inGalaxy = genesis.galaxy.home.galaxy % GalaxyBalance.GALAXIES + 1,
-        ) { true }
-        val state = genesis.surveying(listOf(far))
-        assertTrue(
-            FleetBalance.roundTrip(from = state.galaxy.home, to = far.at) > 6.hours,
-            "the fixture has to be outside the window it is filtered by",
-        )
-
-        // when
-        val body = state.ledgerBody(
-            nav = state.nav(filters = setOf(LedgerFilter.ReachableWithin(hours = 6))),
-            now = EPOCH,
-        )
-
-        // then everything that fits stays and the one that does not is gone
-        assertEquals(
-            genesis.galaxy.surveyed.map { it.label() }.toSet(),
-            body.rows.map { it.coordinate }.toSet(),
-        )
-    }
-
-    @Test
-    fun `the settleable chip leaves only the verdict it names`() {
-        // given the rarest verdict in the game. Nothing produces one outside the home system until a
-        // probe lands, so the coordinate goes into the survey set the way a landing puts it there.
-        val (state, settleable) = fresh().withFirstSurveyedWorldWhere { it is WorldVerdict.Settleable }
-
-        // when
-        val body = state.ledgerBody(
-            nav = state.nav(filters = setOf(LedgerFilter.Verdict(WorldVerdictUiState.SETTLEABLE))),
-            now = EPOCH,
-        )
-
-        // then — the chip is matched against the *rendered* verdict, so what it filters by is what
-        // the row prints and the two cannot drift
-        assertTrue(settleable.at.label() in body.rows.map { it.coordinate })
-        assertTrue(
-            body.rows.all { it.verdict == WorldVerdictUiState.SETTLEABLE },
-            "was ${body.rows.map { it.verdict }}",
-        )
-    }
-
-    @Test
-    fun `the still-holding chip drops a world that has been stripped`() {
-        // given a world with nothing left in the ground. Both liftable resources have to go: a world
-        // with crystal left is still worth a run, and deuterium is never consulted at all because a
-        // run cannot lift it.
-        val genesis = fresh()
-        val stripped = genesis.galaxy.surveyed.first { it != genesis.galaxy.home }
-        val emptied = genesis.galaxy
-            .withTaken(
-                target = stripped,
-                gathering = ResourceKind.METAL,
-                taken = genesis.galaxy.remaining(stripped, ResourceKind.METAL, EPOCH),
-                at = EPOCH,
-            )
-            .let {
-                it.withTaken(
-                    target = stripped,
-                    gathering = ResourceKind.CRYSTAL,
-                    taken = it.remaining(stripped, ResourceKind.CRYSTAL, EPOCH),
-                    at = EPOCH,
-                )
-            }
-        val state = genesis.copy(galaxy = emptied)
-
-        // when
-        val body = state.ledgerBody(
-            nav = state.nav(filters = setOf(LedgerFilter.StillHolding)),
-            now = EPOCH,
-        )
-
-        // then
-        assertTrue(body.rows.none { it.coordinate == stripped.label() })
-        assertEquals(genesis.galaxy.surveyed.size - 1, body.rows.size)
-    }
-
-    @Test
-    fun `the region chip keeps the region the player is standing in`() {
-        // given a ledger holding a world from another region
-        val genesis = fresh()
-        val home = genesis.galaxy.home
-        val elsewhere = genesis.firstWorldWhere { regionOf(it.at.system) != regionOf(home.system) }
-        val state = genesis.surveying(listOf(elsewhere))
-        // The chip as the head actually offers it. It is the one filter whose label and subject move
-        // with where the player is standing, so building one by hand here would be a different chip.
-        val region = state.availableFiltersFor(SystemSelection(galaxy = home.galaxy, system = home.system))
-            .filterIsInstance<LedgerFilter.Region>()
-            .single()
-
-        // when
-        val body = state.ledgerBody(nav = state.nav(filters = setOf(region)), now = EPOCH)
-
-        // then
-        assertEquals(
-            genesis.galaxy.surveyed.map { it.label() }.toSet(),
-            body.rows.map { it.coordinate }.toSet(),
-        )
-        assertTrue(elsewhere.at.label() !in body.rows.map { it.coordinate })
-    }
-
-    @Test
-    fun `the one-level-away chip names the worlds the next level of a ladder would land`() {
-        // given an empire three levels up Thermal. The level matters: a filter that read the base
-        // band instead of the empire's own would answer for a ladder nobody is on — the same defect
-        // 0.0.17 shipped on the world row — and at level 0 the two readings are identical.
-        val climbed = fresh().let {
-            it.copy(research = it.research.withLevel(AdaptationTechnology.THERMAL, TechLevel(3)))
-        }
-        val levels = climbed.research.adaptationLevels()
-        val here = GalaxyBalance.tolerance(levels).temperature
-        val next = GalaxyBalance.tolerance(levels.copy(thermal = levels.thermal + 1)).temperature
-        val world = climbed.firstWorldWhere {
-            it.traits.temperature.celsius !in here && it.traits.temperature.celsius in next
-        }
-        val state = climbed.surveying(listOf(world))
-
-        // when
-        val body = state.ledgerBody(
-            nav = state.nav(filters = setOf(LedgerFilter.OneLevelAway(AdaptationTechnology.THERMAL))),
-            now = EPOCH,
-        )
-
-        // then exactly the worlds the fourth level of Thermal would open and none the third already
-        // has — the chip that turns the research tab into a shopping list from the other direction
-        val expected = state.galaxy.surveyed
-            .mapNotNull { worldAt(state.galaxy.seed, it) }
-            .filter { it.traits.temperature.celsius !in here && it.traits.temperature.celsius in next }
-            .map { it.at.label() }
-        assertTrue(world.at.label() in expected, "the derived world is one the chip should name")
-        assertEquals(expected.toSet(), body.rows.map { it.coordinate }.toSet())
-    }
-
-    @Test
-    fun `nearest first puts the shortest round trip at the top`() {
-        // given
+    fun `the worlds list is nearest first without being asked`() {
+        // given a ledger spanning three systems and two galaxies. Inside one system all fifteen slots
+        // sit within a few minutes of each other, so an order over them would agree with any other
+        // by accident.
         val state = spread()
         val worlds = state.surveyedWorldsByLabel()
 
-        // when
-        val rows = state.ledgerBody(nav = state.nav(sort = LedgerSort.NEAREST), now = EPOCH).rows
+        // when — there is nothing to ask with. The sort control went at 0.12 because "where next" is
+        // distance against class against region against what is still unknown, which is four axes and
+        // a map's job; what is left is a list of places you *already hold*, and that has one obvious
+        // reading rather than four.
+        val rows = state.ledgerBody(nav = state.nav(), now = EPOCH).rows
 
-        // then — the round trip rather than the distance, because the trip is what the player is
+        // then the round trip rather than the distance, because the trip is what the player is
         // spending and it is the figure the row itself prints
         val trips = rows.map { FleetBalance.roundTrip(from = state.galaxy.home, to = worlds.getValue(it.coordinate).at) }
+        // Stated rather than trusted: an ordering assertion over a list that holds one figure is
+        // green whichever way the mapper sorts, so the fixture has to be checked for the spread it
+        // claims to have before the order below means anything.
+        assertTrue(trips.distinct().size > 1, "the fixture has to hold worlds at different distances")
         assertEquals(trips.min(), trips.first())
         assertEquals(trips.sorted(), trips)
-    }
-
-    @Test
-    fun `richest puts the highest yield at the top`() {
-        // given
-        val state = spread()
-        val worlds = state.surveyedWorldsByLabel()
-
-        // when
-        val rows = state.ledgerBody(nav = state.nav(sort = LedgerSort.RICHEST), now = EPOCH).rows
-
-        // then the yield score core decides a verdict by, not a richness of its own: the ledger's
-        // order and the row's `worth it at 0.92` have to be reading the same number.
-        val scores = rows.map { GalaxyBalance.yieldScore(worlds.getValue(it.coordinate).traits).perMillion }
-        assertEquals(scores.max(), scores.first())
-        assertEquals(scores.sortedDescending(), scores)
-    }
-
-    @Test
-    fun `most left puts the deepest remaining deposits at the top`() {
-        // given
-        val state = spread()
-        val worlds = state.surveyedWorldsByLabel()
-
-        // when
-        val rows = state.ledgerBody(nav = state.nav(sort = LedgerSort.MOST_LEFT), now = EPOCH).rows
-
-        // then metal plus crystal and never deuterium — a run cannot lift it, so counting it would
-        // sort the list by an amount no ship can come back with
-        val left = rows.map { row ->
-            val at = worlds.getValue(row.coordinate).at
-            state.galaxy.remaining(at, ResourceKind.METAL, EPOCH) +
-                state.galaxy.remaining(at, ResourceKind.CRYSTAL, EPOCH)
-        }
-        assertEquals(left.max(), left.first())
-        assertEquals(left.sortedDescending(), left)
-    }
-
-    @Test
-    fun `newest is stable because nothing records when a world was surveyed`() {
-        // **A known weak proxy and flagged as one.** No instant is stored against a world's survey —
-        // the event log carries the *system* — so the mapper falls back to coordinate order reversed
-        // and the only thing worth pinning is that two renders of one state agree. A real "newest"
-        // wants a survey instant on the save, which is a schema hop rather than a mapper change, so
-        // asserting which row lands first here would pin the workaround as if it were the design.
-        val state = spread()
-
-        // when
-        val once = state.ledgerBody(nav = state.nav(sort = LedgerSort.NEWEST), now = EPOCH).rows
-        val twice = state.ledgerBody(nav = state.nav(sort = LedgerSort.NEWEST), now = EPOCH).rows
-
-        // then
-        assertEquals(once.map { it.coordinate }, twice.map { it.coordinate })
-        // ...and it is a sort rather than a filter: the order moves and the rows do not.
-        val nearest = state.ledgerBody(nav = state.nav(sort = LedgerSort.NEAREST), now = EPOCH).rows
-        assertEquals(nearest.map { it.coordinate }.toSet(), once.map { it.coordinate }.toSet())
     }
 
     @Test
@@ -350,33 +157,23 @@ class LedgerUiStateTest {
     }
 
     @Test
-    fun `an empty ledger names the chip doing the excluding and what dropping it returns`() {
-        // given two chips of which one excludes everything: every world the player knows is in the
-        // home system, so a region chip raised somewhere else empties the list and the reach chip is
-        // what gives them all back.
-        val state = fresh()
-        val elsewhere = state.firstWorldWhere { regionOf(it.at.system) != regionOf(state.galaxy.home.system) }
-        val otherRegion = state
-            .availableFiltersFor(SystemSelection(galaxy = elsewhere.at.galaxy, system = elsewhere.at.system))
-            .filterIsInstance<LedgerFilter.Region>()
-            .single()
+    fun `an empty list is either nothing surveyed or a name nothing answers to`() {
+        // given a save with no reading on anything. **Two shapes where there were three**: the third
+        // was *this chip is excluding everything and dropping it returns this many*, and it left with
+        // the chips at 0.12 — with no filter in the head there is nothing that can narrow the list
+        // except what was typed into it.
+        val state = fresh().let { it.copy(galaxy = it.galaxy.copy(surveyed = emptySet())) }
 
         // when
-        val body = state.ledgerBody(
-            nav = state.nav(filters = setOf(LedgerFilter.ReachableWithin(hours = 6), otherRegion)),
-            now = EPOCH,
-        )
+        val unsurveyed = state.ledgerBody(nav = state.nav(), now = EPOCH)
+        val unmatched = state.ledgerBody(nav = state.nav(query = "Zzz"), now = EPOCH)
 
-        // then the `time-until-affordable` pattern applied to a query — never a dead end, always the
-        // next number. Which single chip gives the most back, stated as a count rather than as
-        // advice, because the count is what the player is deciding against.
-        assertTrue(body.rows.isEmpty())
-        val emptiness = checkNotNull(body.emptiness)
-        assertEquals("No world matches all 2.", emptiness.headline)
-        assertEquals(
-            "${state.galaxy.surveyed.size} worlds match without ${otherRegion.name.substringBefore(' ').lowercase()}.",
-            emptiness.detail,
-        )
+        // then both end on the next thing to do rather than on an apology, and the query alone is
+        // what tells them apart — an empty ledger with an empty field is a player who has flown
+        // nothing yet, and the sentence says what would change that
+        assertEquals("Every world a probe reaches lands here.", checkNotNull(unsurveyed.emptiness).headline)
+        assertEquals("You have surveyed nothing yet.", checkNotNull(unsurveyed.emptiness).detail)
+        assertEquals("No world you know is called that.", checkNotNull(unmatched.emptiness).headline)
     }
 
     @Test
@@ -435,27 +232,34 @@ class LedgerUiStateTest {
     }
 
     @Test
-    fun `the head is a map with no query controls when the view is not the ledger`() {
+    fun `the head is a map with no query controls when the view is not the worlds list`() {
         // given
         val state = fresh()
 
-        for (view in listOf(GalaxyView.SYSTEM, GalaxyView.REGIONS)) {
+        for (view in listOf(GalaxyView.MAP, GalaxyView.UNIVERSE)) {
             // when
-            val head = state.ledgerHead(nav = state.nav(view = view, query = "Cal"), now = EPOCH)
+            val head = state
+                .toGalaxyUiState(nav = state.nav(view = view, query = "Cal"), now = EPOCH, timeZone = TimeZone.UTC)
+                .head
 
-            // then — a filter row over a map is a control with nothing to act on and the count is a
-            // count of what a query left, so both are absent rather than stale
-            assertEquals(LedgerMode.MAP, head.mode, "$view")
-            assertTrue(head.chips.isEmpty(), "$view")
-            assertEquals(null, head.count, "$view")
-            // The search field is always visible and never a mode, so what was typed survives the
-            // switch and going back is not retyping.
-            assertEquals("Cal", head.query, "$view")
+            // then — **a stronger claim than the one it replaces.** Until 0.12 the map views were
+            // handed the list's own head with its chip row empty and its count null, which is a
+            // control the screen was trusted to leave blank; since the heads split in two there is no
+            // query field on this side of the sealed type at all, so a search box over 250 stars is
+            // not something the map can be given by mistake.
+            assertIs<GalaxyHeadsUiState.Map>(head, "$view")
         }
+
+        // and the orbit page, which is the one map that does keep the list's head: the search field
+        // is always visible and never a mode, so what was typed survives the switch and going back is
+        // not retyping.
+        val system = state.ledgerHead(nav = state.nav(view = GalaxyView.SYSTEM, query = "Cal"), now = EPOCH)
+        assertEquals(LedgerMode.MAP, system.mode)
+        assertEquals("Cal", system.query)
     }
 
     @Test
-    fun `the head counts what the query and the chips left`() {
+    fun `the head counts what the query left`() {
         // given
         val state = fresh()
 
@@ -463,61 +267,31 @@ class LedgerUiStateTest {
         val all = state.ledgerHead(nav = state.nav(), now = EPOCH)
         val one = state.ledgerHead(nav = state.nav(query = state.unmistakableName()), now = EPOCH)
 
-        // then — it gates the sort control with it, because a sort of nothing is not a control
+        // then — the head prints the count of exactly what the body lists, which is why the mapper is
+        // handed the matched list rather than searching the surveyed set a second time to agree with
+        // itself. Since 0.12 the query is the only thing that can make the two numbers differ.
         assertEquals(LedgerMode.WORLDS, all.mode)
         assertEquals("${state.galaxy.surveyed.size} worlds", all.count)
         // Never "1 worlds": the count sits under the search field and is read as a sentence.
         assertEquals("1 world", one.count)
     }
 
-    @Test
-    fun `every chip the ledger offers is drawn with the ones that are on marked`() {
-        // given
-        val state = fresh()
-        val home = state.galaxy.home
-        val region = regionNameAt(state.galaxy.seed, home.galaxy, regionOf(home.system)).substringBefore(' ')
-
-        // when
-        val head = state.ledgerHead(
-            nav = state.nav(filters = setOf(LedgerFilter.StillHolding)),
-            now = EPOCH,
-        )
-
-        // then the five the design settles, in its order, unselected except the one that was tapped
-        // — the tab opens with no filter to undo
-        assertEquals(
-            listOf("reachable 6h", "settleable", "one level away", "still holding", region),
-            head.chips.map { it.label },
-        )
-        assertEquals(listOf(false, false, false, true, false), head.chips.map { it.on })
-        // The tap is keyed by the filter rather than by the label it prints, so a copy change cannot
-        // silently stop a chip working.
-        assertEquals(LedgerFilter.StillHolding, head.chips[3].filter)
-    }
-
     // ── fixtures ────────────────────────────────────────────────────────────────────────────
 
     private fun fresh(): GameState = GameState.initial(GalaxySeed(20_260_807))
 
-    // The seven fields the tab carries and none of which reach the save. A helper rather than seven
-    // arguments at each call site, so what a test is about is the one field it names — and the chip
-    // set is asked of the state rather than fixed here, because one of the five names the region the
-    // player is standing in.
+    // The four fields the tab carries, and not one of them reaches the save. A helper rather than
+    // four arguments at each call site, so what a test is about is the one field it names.
     private fun GameState.nav(
-        view: GalaxyView = GalaxyView.LEDGER,
+        view: GalaxyView = GalaxyView.WORLDS,
         query: String = "",
-        filters: Set<LedgerFilter> = emptySet(),
-        sort: LedgerSort = LedgerSort.NEAREST,
         seenAt: Instant = EPOCH,
         at: SystemSelection = SystemSelection(galaxy = galaxy.home.galaxy, system = galaxy.home.system),
     ): GalaxyNavigation = GalaxyNavigation(
         view = view,
         at = at,
         query = query,
-        filters = filters,
-        sort = sort,
         seenAt = seenAt,
-        availableFilters = availableFiltersFor(at),
     )
 
     // What a landing does, without flying anything: surveying is a fleet action, so a reading on a
@@ -525,7 +299,7 @@ class LedgerUiStateTest {
     private fun GameState.surveying(worlds: Iterable<World>): GameState =
         copy(galaxy = galaxy.copy(surveyed = galaxy.surveyed + worlds.map { it.at }))
 
-    // A ledger spanning three systems and two galaxies. Without it a sort would be ordering the rows
+    // A ledger spanning three systems and two galaxies. Without it the order would be over the rows
     // of one system, where all fifteen slots are within a few minutes of each other and the order
     // says nothing.
     private fun spread(): GameState {
@@ -553,23 +327,8 @@ class LedgerUiStateTest {
         error("galaxy $inGalaxy held no world matching")
     }
 
-    // A verdict is a function of the survey set as well as of the seed, so the candidate has to be
-    // surveyed before it can be asked about — which is why this hands back the state it built rather
-    // than only the world.
-    private fun GameState.withFirstSurveyedWorldWhere(match: (WorldVerdict) -> Boolean): Pair<GameState, World> {
-        for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
-            for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
-                val at = GalaxyCoordinate(galaxy = galaxy.home.galaxy, system = system, slot = slot)
-                val world = worldAt(galaxy.seed, at) ?: continue
-                val surveyed = copy(galaxy = galaxy.copy(surveyed = galaxy.surveyed + at))
-                if (match(verdictFor(world, surveyed))) return surveyed to world
-            }
-        }
-        error("galaxy ${galaxy.home.galaxy} held no world with the wanted verdict")
-    }
-
-    // The rows print a coordinate rather than carrying the world they came from, so the sort tests
-    // read the metric back off the seed through this.
+    // The rows print a coordinate rather than carrying the world they came from, so the order test
+    // reads the metric back off the seed through this.
     private fun GameState.surveyedWorldsByLabel(): Map<String, World> = galaxy.surveyed
         .mapNotNull { worldAt(galaxy.seed, it) }
         .associateBy { it.at.label() }
@@ -590,9 +349,9 @@ class LedgerUiStateTest {
         val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
     }
 
-    // The mapper filters and sorts once and hands the same list to both halves — the head prints the
-    // count of exactly what the body lists. These two put that wiring in one place so a test can ask
-    // for either half on its own.
+    // The mapper searches once and hands the same list to both halves — the head prints the count of
+    // exactly what the body lists. These two put that wiring in one place so a test can ask for
+    // either half on its own.
     private fun GameState.ledgerBody(nav: GalaxyNavigation, now: Instant): LedgerBodyUiState =
         toLedgerBodyUiState(nav = nav, matching = knownWorldsFor(nav, now), now = now)
 

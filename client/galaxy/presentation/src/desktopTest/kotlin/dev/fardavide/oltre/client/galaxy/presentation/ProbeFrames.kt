@@ -1,21 +1,22 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
-import dev.fardavide.oltre.core.GalaxyBalance
-import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
-import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.minutes
 
 // The system card's footer in the two states that are a *job* rather than an offer, and a system
-// holding one of each verdict. All three carried baselines before 0.11 and keep them: the footer and
-// the verdicts are unchanged by this slice, so a moved pixel in either is a regression.
+// holding one of each verdict. All three carried baselines before 0.11 and keep them.
+//
+// **0.12 moves all three, and the move is the slice rather than a regression.** Nothing here maps
+// differently — the footer's two job states and the six verdicts are untouched by the redesign — but
+// the orbit page they are photographed on lost the reach strip, so the layout around them shifts.
+// What the re-record has to show is the footer and the verdicts arriving intact on the shorter page;
+// a word or a mark that changed in either is exactly what these three still exist to catch.
 
 private val probeTarget: SystemAddress = frameState.neighbourSelection()
     .let { SystemAddress(galaxy = it.galaxy, system = it.system) }

@@ -4,7 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
@@ -33,38 +31,38 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
-// **The head of the Galaxy tab, above all three of its views.** The switch, the search and the
-// filters — everything that says *which worlds*, where the body under it says *this world*.
+// **The head above the tab's two lists** — the worlds ledger and the orbit page. The switch and the
+// search: everything that says *which worlds*, where the body under it says *this world*. The two
+// map scales get `GalaxyHead` instead, which trades the search field for a galaxy chip.
 //
-// Three rows, and **the last two are gated by data rather than by the mode**: the switch-and-search
-// row is unconditional, the chips row appears when there are chips, the count-and-sort line appears
-// when there is a count. `MAP` reads as a bare switch only because a map has nothing to count and
-// nothing to filter — the field itself never goes away. It is the literal answer to *"finding a
-// planet feels like searching a phone number on pagine gialle in the 90s"*, and a `mode == WORLDS`
-// wrapped around it would take the answer back.
+// Two rows since 0.12, and **the second is gated by data rather than by the mode**: the
+// switch-and-search row is unconditional, the count line appears when there is a count. The orbit
+// page reads as a bare switch only because one system is not a list with a length — the field itself
+// never goes away. It is the literal answer to *"finding a planet feels like searching a phone number
+// on pagine gialle in the 90s"*, and a `mode == WORLDS` wrapped around it would take the answer back.
+//
+// **What left at 0.12 was the chips row and the sort**, and the argument is in `LedgerUiState`: they
+// filtered and ordered a list of *worlds* when the question they were reached for — where do I go
+// next — is about *systems*. Wrong unit, before you get to the control.
 //
 // The 9dp gap belongs to the pair of rows either side of it, which is what `spacedBy` over an `if`
 // already gives: a row that does not render takes its gap with it, and a one-row head has none.
 //
-// **Nothing here is tagged.** `GalaxyTestTags` has no constant for the switch, the field, a chip or
-// the sort, and this file does not invent one — naming the four targets is the integrator's call.
+// Tabular figures are asked for on the count and are not set below: JetBrains Mono is monospaced in
+// all three weights, so `41 worlds` and `5 worlds` already advance alike.
 //
-// Tabular figures are asked for on the count and the chips and are not set anywhere below: JetBrains
-// Mono is monospaced in all three weights, so `41 worlds` and `5 worlds` already advance alike.
-//
-// **Everything tappable here paints well under the 44pt minimum** — a pill is ~20dp, a chip ~24dp,
-// the sort string ~14dp — and all three heights are pinned by the design, so growing them is not on
-// offer. That is deliberate rather than unfinished: Compose expands the *hit* area of a pointer-input
-// node to the platform minimum on a touch that lands near but outside it, and prefers any node the
-// touch actually landed in, so the targets are a finger wide and the paint has not moved. The reflex
-// that breaks it is wrapping a target in a taller Box, which would push the 28dp row to 44dp.
+// **Everything tappable here paints well under the 44pt minimum** — a pill is ~20dp — and that height
+// is pinned by the design, so growing it is not on offer. That is deliberate rather than unfinished:
+// Compose expands the *hit* area of a pointer-input node to the platform minimum on a touch that
+// lands near but outside it, and prefers any node the touch actually landed in, so the targets are a
+// finger wide and the paint has not moved. The reflex that breaks it is wrapping a target in a taller
+// Box, which would push the 28dp row to 44dp — and it is why `GalaxyHead` reuses `ModeSwitch` from
+// here rather than drawing its own.
 @Composable
 internal fun LedgerHead(
     uiState: LedgerHeadUiState,
     onSelectMode: (LedgerMode) -> Unit,
     onQueryChange: (String) -> Unit,
-    onToggleChip: (LedgerFilter) -> Unit,
-    onCycleSort: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -79,21 +77,7 @@ internal fun LedgerHead(
             ModeSwitch(mode = uiState.mode, onSelectMode = onSelectMode)
             SearchField(query = uiState.query, onQueryChange = onQueryChange, modifier = Modifier.weight(1f))
         }
-        if (uiState.chips.isNotEmpty()) {
-            // One scrolling row rather than a wrapping block: a second line of chips would push the
-            // first world row off a 393dp screen, and the filters are worth less than the list.
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            ) {
-                uiState.chips.forEach { chip ->
-                    // Keyed by the filter rather than by the label it prints, so a copy change
-                    // cannot silently stop a chip working.
-                    FilterChip(chip = chip, onToggle = { onToggleChip(chip.filter) })
-                }
-            }
-        }
-        uiState.count?.let { count -> Meta(count = count, sort = uiState.sort, onCycleSort = onCycleSort) }
+        uiState.count?.let { count -> Meta(count = count) }
     }
 }
 
@@ -101,7 +85,7 @@ internal fun LedgerHead(
 // three weights, so dropping bold onto the selected half cannot change either pill's width. Nothing
 // animates the flip for the same reason nothing else in the app does.
 @Composable
-private fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
+internal fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         modifier = Modifier.background(GROUP_FILL, BADGE_SHAPE).padding(2.dp),
@@ -220,76 +204,28 @@ private fun SearchGlyph(ink: Color) {
     }
 }
 
-// **The one text in the head that keeps its case**, and the only one with no tracking: a filter is a
-// phrase the player reads — "reachable 6h", "one level away" — where a pill and the count line are
-// labels. An unset chip paints nothing at all, so a row of them reads as an offer rather than as a
-// set of controls already spent.
+// **One string where there were two.** The sort left with the filters at 0.12 and took the accent
+// with it — what remains is the length of the list, which is a reading rather than a control, so
+// nothing on this line is tappable and nothing on it is accented.
 @Composable
-private fun FilterChip(chip: LedgerChipUiState, onToggle: () -> Unit) {
+private fun Meta(count: String) {
     Text(
-        text = chip.label,
-        color = if (chip.on) OltreColors.accent else OltreColors.textSecondary,
+        text = count.uppercase(),
+        color = OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
+        letterSpacing = 1.4.sp,
         maxLines = 1,
-        softWrap = false,
-        modifier = Modifier
-            .testTag(GalaxyTestTags.chip(chip.label))
-            .border(1.dp, if (chip.on) ON_EDGE else EDGE, BADGE_SHAPE)
-            .background(if (chip.on) ON_FILL else Color.Transparent, BADGE_SHAPE)
-            .clickable(onClick = onToggle)
-            .padding(horizontal = 7.dp, vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth(),
     )
 }
 
-// **The count is the gate on the whole line** — a sort of nothing is not a control, so the order can
-// never be shown without the number it orders. Bottom rather than the design's baseline alignment
-// because the two strings are one size in one family, which puts them on the same line for free and
-// costs no per-child modifier.
-@Composable
-private fun Meta(count: String, sort: LedgerSort, onCycleSort: () -> Unit) {
-    val mono = oltreMono()
-    Row(
-        verticalAlignment = Alignment.Bottom,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Text(
-            text = count.uppercase(),
-            color = OltreColors.textTertiary,
-            fontFamily = mono,
-            fontSize = 10.5.sp,
-            letterSpacing = 1.4.sp,
-            maxLines = 1,
-            // Takes the whole line so the sort is pushed to the far end and stays there whatever
-            // either string says.
-            modifier = Modifier.weight(1f),
-        )
-        // Accent on a string that is not selected and not a state, and it earns it by being a
-        // target: a tap cycles the order. No chevron and no glyph — `→` and `·` are the only
-        // non-letter marks the system allows anywhere, and a chevron is neither.
-        Text(
-            text = sort.label.uppercase(),
-            color = OltreColors.accent,
-            fontFamily = mono,
-            fontSize = 10.5.sp,
-            letterSpacing = 1.4.sp,
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.testTag(GalaxyTestTags.LEDGER_SORT).clickable(onClick = onCycleSort),
-        )
-    }
-}
-
-// Accent at 45% and accent at 10%, the pair `DispatchSheet` already spends on the one lit control on
-// a screen. Here it is a chip that is on — and the border alone on a field with something in it,
-// which is the same claim made by an edge with nothing behind it.
+// Accent at 45%, the edge `DispatchSheet` already spends on the one lit control on a screen. Here it
+// is the border alone on a field with something typed in it.
 private val ON_EDGE = OltreColors.accent.copy(alpha = 0.45f)
-private val ON_FILL = OltreColors.accent.copy(alpha = 0.10f)
 
-// A third accent alpha, and not interchangeable with the other two: a chip is one of several filters
-// that can be on at once, where the selected pill is one of exactly two and always the only one — so
-// it is a fill that reads as a position rather than as a state.
+// A second accent alpha, and not interchangeable with the first: the selected pill is one of exactly
+// two and always the only one, so it is a fill that reads as a position rather than as a state.
 private val PILL_FILL = OltreColors.accent.copy(alpha = 0.22f)
 
 private val GROUP_FILL = Color.White.copy(alpha = 0.09f)

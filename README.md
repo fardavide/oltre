@@ -206,6 +206,34 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.12.0 — 2026-08-15
+
+- **The Galaxy tab opens on a map you can actually look at.** Two hundred and fifty stars, drawn, in
+  ten named bands — one band per region — so a Deep really is a dark stretch and a Blaze really is a
+  bright one, and you can see which is which without reading a word. Your own star, the places you
+  pinned and anywhere a probe is heading are all marked. On day one, before you have surveyed
+  anything, you can already tell that you live in a dark region and that the bright places are three
+  bands away.
+- **Near on the map is near in the game.** The bands fold left to right and back again in the order
+  the systems run, so two stars drawn close together really are a short flight apart. Four hairlines
+  across the map mark where a probe's flight crosses each hour — and from your own star you will see
+  three of them to one side and one to the other, which is the map telling you that you live near an
+  edge.
+- **Drag to pick a star, and the bar at the bottom tells you what it is.** Its name, its class, its
+  region and how many worlds it has, plus a probe you can send from there. Nothing zooms and nothing
+  scrolls: the whole galaxy is on one screen at every size the app runs at.
+- **One tap up shows all four galaxies**, each drawn the same way, with what a run to it costs out
+  and back. It is nine hours and twenty minutes to a neighbour and eighteen hours and twenty to the
+  far one, against three and a half to cross your own galaxy — so a hop is a decision rather than a
+  journey.
+- **The filters and the sort are gone from your worlds list.** They narrowed and reordered a list of
+  worlds when the question you were asking was about where to go next, which is a question about
+  systems — the map answers it now. Search stays, because finding a place you have already been by
+  name is what a list is for, and your pinned worlds stay at the top. A pinned world's system is also
+  what gets a name printed beside it on the map.
+- **The tab remembers which of the two you last used** and opens there next time. The reach strip
+  under the orbit page and the ten-row region index are both gone; the map does what they did.
+
 ### 0.11.2 — 2026-08-15
 
 - **Worlds hold four times as much.** A plain doorstep world now carries 5,800 metal, or 2,900

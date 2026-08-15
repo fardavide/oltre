@@ -20,6 +20,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
+import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
@@ -96,6 +97,13 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 now = game.now,
                                 timeZone = TimeZone.UTC,
                                 onOpenResearch = openResearch,
+                                // The worlds list rather than the map, because the journey under
+                                // test starts on a blocked world's row and a row only exists on a
+                                // list. Which of the two the tab lands on is a preference the screen
+                                // is handed, so saying so here is cheaper and clearer than tapping
+                                // the switch on the way past.
+                                landing = GalaxyLanding.WORLDS,
+                                onLandingChange = {},
                                 // This harness is about the adaptation deep link — the Galaxy row
                                 // that reaches Research — so the fourth and fifth verbs are wired to
                                 // nothing and the assertions stay about the one journey under test.

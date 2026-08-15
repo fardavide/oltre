@@ -32,27 +32,32 @@ import kotlin.time.Duration
 
 // The Galaxy tab as one frame, and the whole of what this module draws.
 //
-// **Since 0.11 the tab opens on what you know.** One head sits above three bodies — the ledger, one
-// system, and the ten regions of a galaxy — and the head's own switch is what moves between the
-// first two. Davide's call on Claude Design's recommendation: the map is where you spend probes and
-// the ledger is where you spend ships, and runs go out several times a day where probes go once or
-// twice, so before this the rarer errand was sitting in the commoner one's chair.
+// **Since 0.12 the tab opens on the map.** Four bodies under two heads: the drawn galaxy, the four
+// discs of the universe, one system, and the worlds you know. Claude Design overruled its own 0.11.0
+// call to land here — *"the galaxy exists nowhere else in the app; your held worlds are on Colony and
+// on Fleets"* — and Davide added that the tab should then open on whichever of the two lists he last
+// used, which is the one thing about this screen that reaches the save.
+//
+// **The map and the universe do not scroll and do not draw the starfield.** Both are deliberate.
+// The fold is 531dp and fits the content area at 393dp and at 320dp alike, so a scroll would only
+// ever move a map that was already whole; and decorative stars behind a drawing made of real ones is
+// noise that cannot be told from data — at 320dp the shell's third parallax plane reads as extra dim
+// systems. The worlds list keeps both.
 //
 // **Stateless, which is what makes it the ui half.** Which view is showing, what has been typed,
-// which chips are lit and which world has its sheet up are the feature's own navigation, and they
-// live one layer up in `GalaxyScreen` — with the mapper, because deciding to look somewhere else and
-// re-deriving the page from a `GameState` are the same act.
+// which system is selected and which world has its sheet up are the feature's own navigation, and
+// they live one layer up in `GalaxyScreen` — with the mapper, because deciding to look somewhere else
+// and re-deriving the page from a `GameState` are the same act.
 @Composable
 fun GalaxyPage(
     uiState: GalaxyUiState,
     onSelectMode: (LedgerMode) -> Unit,
+    onToggleScale: () -> Unit,
     onQueryChange: (String) -> Unit,
-    onToggleChip: (LedgerFilter) -> Unit,
-    onCycleSort: () -> Unit,
     onSelectGalaxy: (Int) -> Unit,
     onSelectSystem: (Int) -> Unit,
-    onOpenRegionIndex: () -> Unit,
-    onOpenRegion: (Int) -> Unit,
+    onOpenSelected: () -> Unit,
+    onOpenMap: () -> Unit,
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
@@ -69,8 +74,16 @@ fun GalaxyPage(
         // Measured on the window rather than on the capped column, because it is the window that is
         // a Slide Over pane.
         val compact = maxWidth < OltreLayout.compactWidth
+        val drawn = uiState.body is GalaxyBodyUiState.Map || uiState.body is GalaxyBodyUiState.Universe
         Column(
-            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
+            modifier = Modifier
+                .fillMaxSize()
+                // The map's own opaque ground, and the cheapest honest way to keep the shell's sky
+                // off it: the starfield is drawn first inside the destination box, under every
+                // screen, and a feature cannot reach up and switch it off. Painting over it is one
+                // rect and needs nothing hoisted.
+                .then(if (drawn) Modifier.background(OltreColors.background) else Modifier)
+                .then(if (drawn) Modifier else Modifier.verticalScroll(scrollState)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Column(
@@ -80,23 +93,54 @@ fun GalaxyPage(
                     // Ahead of the padding, so the bounds a layout test reads are the column's own
                     // rather than its padded interior.
                     .testTag(GalaxyTestTags.CONTENT)
+                    // Same reason as the body below: an unweighted child of a Column is measured
+                    // against an unbounded height, so `fillMaxSize` here would wrap instead of
+                    // claiming the screen and the weight inside it would have nothing to divide.
+                    .then(if (drawn) Modifier.weight(1f) else Modifier)
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(13.dp),
             ) {
-                LedgerHead(
-                    uiState = uiState.head,
-                    onSelectMode = onSelectMode,
-                    onQueryChange = onQueryChange,
-                    onToggleChip = onToggleChip,
-                    onCycleSort = onCycleSort,
-                )
+                when (val head = uiState.head) {
+                    is GalaxyHeadsUiState.Map -> GalaxyHead(
+                        uiState = head.head,
+                        onSelectMode = onSelectMode,
+                        onToggleScale = onToggleScale,
+                    )
+
+                    is GalaxyHeadsUiState.Worlds -> LedgerHead(
+                        uiState = head.head,
+                        onSelectMode = onSelectMode,
+                        onQueryChange = onQueryChange,
+                    )
+                }
                 when (val body = uiState.body) {
+                    // **`weight` and not `fillMaxSize`**, and the difference is the caption's place on
+                    // the screen: a Column measures an unweighted child against an *unbounded* height,
+                    // so `fillMaxSize` there silently degrades to wrap-content and the bar rides up
+                    // under the fold instead of sitting at the foot. The weight is what turns the
+                    // leftover space into the gap the design puts between them.
+                    is GalaxyBodyUiState.Map -> MapBody(
+                        body = body,
+                        compact = compact,
+                        onSelectSystem = onSelectSystem,
+                        onOpenSelected = onOpenSelected,
+                        onDispatchProbe = onDispatchProbe,
+                        modifier = Modifier.weight(1f),
+                    )
+
+                    is GalaxyBodyUiState.Universe -> UniverseBody(
+                        body = body,
+                        compact = compact,
+                        onSelectGalaxy = onSelectGalaxy,
+                        onOpenSelected = onOpenSelected,
+                        modifier = Modifier.weight(1f),
+                    )
+
                     is GalaxyBodyUiState.System -> SystemBody(
                         body = body,
                         compact = compact,
                         onSelectGalaxy = onSelectGalaxy,
-                        onSelectSystem = onSelectSystem,
-                        onOpenRegionIndex = onOpenRegionIndex,
+                        onOpenMap = onOpenMap,
                         onGoHome = onGoHome,
                         onOpenResearch = onOpenResearch,
                         onDispatchProbe = onDispatchProbe,
@@ -107,14 +151,6 @@ fun GalaxyPage(
                         body = body.body,
                         onOpenResearch = onOpenResearch,
                         onOpenWorld = onOpenWorld,
-                    )
-
-                    is GalaxyBodyUiState.Regions -> RegionIndex(
-                        galaxy = body.galaxy,
-                        scope = body.scope,
-                        rows = body.rows,
-                        onOpenRegion = onOpenRegion,
-                        modifier = Modifier.testTag(GalaxyTestTags.REGION_INDEX),
                     )
                 }
             }
@@ -136,16 +172,71 @@ fun GalaxyPage(
     }
 }
 
-// Where you go to acquire a reading you do not have. Reading order down the screen is place, reach,
-// contents — the header answers "where am I", the strip answers "where could I go", and the map and
-// the list answer "what is here".
+// **The tab's landing screen since 0.12.** The fold fills what the head leaves, the caption is pushed
+// to the foot by the space between them, and nothing scrolls — so the whole galaxy is on one screen
+// and the one place your thumb has to land is 44dp tall and always in the same spot.
+@Composable
+private fun MapBody(
+    body: GalaxyBodyUiState.Map,
+    compact: Boolean,
+    onSelectSystem: (Int) -> Unit,
+    onOpenSelected: () -> Unit,
+    onDispatchProbe: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        GalaxyMap(uiState = body.map, onSelectSystem = onSelectSystem)
+        Column(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            MapCaption(
+                uiState = body.caption,
+                compact = compact,
+                onOpen = onOpenSelected,
+                onDispatchProbe = onDispatchProbe,
+            )
+        }
+    }
+}
+
+// One gesture up, in the map's own frame. The caption keeps its place at the foot so the two scales
+// read as two states of one surface rather than as two screens.
+@Composable
+private fun UniverseBody(
+    body: GalaxyBodyUiState.Universe,
+    compact: Boolean,
+    onSelectGalaxy: (Int) -> Unit,
+    onOpenSelected: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(22.dp)) {
+        UniverseGrid(uiState = body.universe, onSelectGalaxy = onSelectGalaxy)
+        Column(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            verticalArrangement = Arrangement.Bottom,
+        ) {
+            MapCaption(
+                uiState = body.caption,
+                compact = compact,
+                onOpen = onOpenSelected,
+                onDispatchProbe = {},
+            )
+        }
+    }
+}
+
+// Where you go to acquire a reading you do not have, and the one real push in the tab. Reading order
+// down the screen is place, contents — the header answers "where am I" and the map and the list
+// answer "what is here". **"Where could I go" left with the reach strip at 0.12**: it is the fold's
+// question now, and the strip's own figure was already printed one line above it in the astronomy
+// line, which is a duplicate 0.11.0 found and did not act on.
 @Composable
 private fun SystemBody(
     body: GalaxyBodyUiState.System,
     compact: Boolean,
     onSelectGalaxy: (Int) -> Unit,
-    onSelectSystem: (Int) -> Unit,
-    onOpenRegionIndex: () -> Unit,
+    onOpenMap: () -> Unit,
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
@@ -155,10 +246,9 @@ private fun SystemBody(
         SystemHead(
             uiState = body.header,
             onSelectGalaxy = onSelectGalaxy,
-            onOpenRegion = onOpenRegionIndex,
+            onOpenRegion = onOpenMap,
             onGoHome = onGoHome,
         )
-        RegionStrip(uiState = body.strip, compact = compact, onSelectSystem = onSelectSystem)
         // The map sits on the same card surface every row does, so the screen reads as one stack
         // rather than as a picture with a list under it — and the card carries the probe in its
         // footer, because everything a verb says lands in the card that owns the thing it describes.
@@ -167,7 +257,7 @@ private fun SystemBody(
                 .fillMaxWidth()
                 .border(1.dp, Color.White.copy(alpha = 0.09f), RoundedCornerShape(14.dp))
                 .background(oltreCardSurface, RoundedCornerShape(14.dp))
-                .testTag(GalaxyTestTags.MAP)
+                .testTag(GalaxyTestTags.SYSTEM_MAP)
                 .padding(11.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {

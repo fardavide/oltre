@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <meta name="design_doc_mode" content="canvas">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/fonts.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/colors.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/typography.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/spacing.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/surfaces.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/tokens/layout.css">
+  <link rel="stylesheet" href="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/styles.css">
+  <script src="_ds/oltre-design-system-22b3a64d-f866-48a4-bce1-4d9e4c5ef164/_ds_bundle.js"></script>
+  <style>
+    html,body{margin:0;padding:0;background:#05070D}
+    a{color:var(--status-active);text-decoration:none}
+    a:hover{color:var(--text-body)}
+  </style>
+</helmet>
+
+<section style="width:2080px;box-sizing:border-box;padding:56px 56px 96px;background:var(--bg-window);font-family:var(--font-mono);color:var(--text-body);display:flex;flex-direction:column;gap:56px">
+
+  <div style="display:flex;flex-direction:column;gap:var(--space-8);max-width:860px">
+    <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--text-faint)">0.11.3 · the galaxy at three scales · design round trip</div>
+    <div style="font-size:20px;font-weight:var(--weight-bold);line-height:1.25">Looks near, is near</div>
+    <div style="font-size:12px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">The galaxy is one-dimensional and the drawing has to agree, so the whole design is one move: <span style="color:var(--text-body)">fold the line into ten bands and let each band be a region</span>. Path order stays index order, so a distance on the drawing is a distance in the game. The second dimension is bought for exactly one thing, which is the thing 0.11.0 measured and could not afford — <span style="color:var(--text-body)">ten region names, all legible at once</span>. Everything else follows: a region is a place because it is a labelled stretch you can point at, the probe's hour ruler becomes four tick marks laid along the path instead of a component under it, and the whole galaxy fits on one 393dp screen with no scroll, no pan and no pinch.</div>
+    <div style="font-size:11.5px;line-height:1.7;color:var(--text-faint);text-wrap:pretty">Frames are seed 20260807, day 21, one probe out. Home is <span style="color:var(--text-muted)">Calianova</span>, 3:165, in <span style="color:var(--text-muted)">Almiaren Deep</span>, the seventh of ten regions. Star classes are drawn from <span style="color:var(--text-muted)">GalaxyBalance.starMix</span> as committed — DEEP 60/30/10, SETTLED 20/60/20, BURNING 10/30/60 — which is <em style="font-style:normal;color:var(--text-muted)">not</em> the bias table <span style="color:var(--text-muted)">RegionStrip.dc.html</span> shipped with, so a few 0.11.0 details move: Calianova is standard with six worlds here, not dim with five. Clocks are read out of <span style="color:var(--text-muted)">SurveyBalance</span> and <span style="color:var(--text-muted)">FleetBalance</span> at main rather than assumed. Frames exclude the status bar and home indicator.</div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;gap:32px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);width:366px">
+      <div style="font-size:13.5px;font-weight:var(--weight-semibold);line-height:1.4">1 · The galaxy — ten bands, folded, one region each.</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">A serpentine whose path order is index order. Twenty-five stars a band at a 14dp pitch, a drawn turn at each end so the ten read as one folded line rather than a grid, and a deterministic perpendicular drift so it reads as sky rather than as a table. Class is size, brightness and the portrait ramp’s cold-violet lean, which makes each region's bias visible as texture: <span style="color:var(--text-body)">Nerimira Deep is 16 dim to 1 bright, Vokith Blaze is 2 to 16</span>.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);width:366px">
+      <div style="font-size:13.5px;font-weight:var(--weight-semibold);line-height:1.4">2 · The universe — one gesture up, not a screen.</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Four galaxies swap into the same frame from the header chip; nothing pushes and there is nothing to come back from. Each disc is the same drawing at 1/5 scale — real texture, because star class is free — carrying the one fact that is true today: <span style="color:var(--text-body)">what it costs to get there</span>. G2 and G4 are a 4h 40m probe; G1 is 8h 50m. Empires later tint a disc; they do not need a new surface.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);width:366px">
+      <div style="font-size:13.5px;font-weight:var(--weight-semibold);line-height:1.4">3 · Navigation — two stops and one push. No free zoom.</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Universe and galaxy are two states of one surface. Galaxy to system is a real push, because a system is a different kind of object and it is where you act. In between there is no zoom and no pan: a <span style="color:var(--text-body)">tap snaps the selection to the nearest star</span> and a drag scrubs it, so 250 targets smaller than a fingertip cost nothing to miss. The caption is the 44dp target.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);width:366px">
+      <div style="font-size:13.5px;font-weight:var(--weight-semibold);line-height:1.4">4 · The ledger — the filters and the sort go. Search stays.</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Your reading of why they are useless is right and there is a floor under it: <span style="color:var(--text-body)">the ledger's rows are worlds and the outbound question is about systems</span>. A probe is aimed at a star. So the ledger could not answer "where next" filtered, sorted or neither — wrong unit, before you reach the controls. It keeps what a list is for: finding a world you already know, by name.</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);width:366px">
+      <div style="font-size:13.5px;font-weight:var(--weight-semibold);line-height:1.4">5 · The tab lands on the map — and I am overruling myself.</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">0.11.0 argued the ledger, on the grounds that <em style="font-style:normal;color:var(--text-body)">"five honest rows beat 250 dots of which one is yours"</em>. That argument was against a dot field and it still defeats one. It does not survive a map that is named, banded, and prints the places you marked. The galaxy exists nowhere else in the app; your held worlds are on Colony and on Fleets. The tab is called Galaxy and should open on it.</div>
+    </div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:34px">
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);max-width:900px">
+      <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">1 · The galaxy view</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Three frames, one geometry. The map is 531dp tall at both 393 and 320, so it is the same drawing on a phone and in a Slide Over pane and there is one measurement to keep. The header loses the search field; the strip is gone; nothing scrolls.</div>
+    </div>
+
+    <div style="display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap">
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · what the tab opens on</div>
+        <div data-screen-label="map 393 landing" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+          <dc-import name="ResourceRailV2" metal="9,410" metal-rate="+310/h" crystal="2,166" crystal-rate="+148/h" deuterium="619" deuterium-rate="+52/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:var(--space-10)">
+            <div style="width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-11)">
+              <dc-import name="GalaxyHead" mode="map" galaxy="3" count="250 systems · 11 surveyed · 3 pinned" hint-size="100%,44px"></dc-import>
+              <dc-import name="GalaxyBands" w="361" home="165" sel="165" surveyed="96,163,164,165,166,167,168,171,172,205,231" inflight="205" labels="[{&quot;n&quot;:165,&quot;name&quot;:&quot;Calianova&quot;,&quot;home&quot;:true},{&quot;n&quot;:172,&quot;name&quot;:&quot;Sorelis&quot;},{&quot;n&quot;:96,&quot;name&quot;:&quot;Ashkur&quot;},{&quot;n&quot;:231,&quot;name&quot;:&quot;Zephon&quot;}]" hint-size="361px,531px"></dc-import>
+              <div style="margin-top:auto">
+                <dc-import name="MapCaption" system="Calianova" coord="[3:165]" meta="standard · Almiaren Deep · 6 worlds" trail="20m out and back" hint-size="100%,58px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · scrubbed onto the 1h mark</div>
+        <div data-screen-label="map 393 selected" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+          <dc-import name="ResourceRailV2" metal="9,410" metal-rate="+310/h" crystal="2,166" crystal-rate="+148/h" deuterium="619" deuterium-rate="+52/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:var(--space-10)">
+            <div style="width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-11)">
+              <dc-import name="GalaxyHead" mode="map" galaxy="3" count="250 systems · 11 surveyed · 3 pinned" hint-size="100%,44px"></dc-import>
+              <dc-import name="GalaxyBands" w="361" home="165" sel="195" surveyed="96,163,164,165,166,167,168,171,172,205,231" inflight="205" labels="[{&quot;n&quot;:165,&quot;name&quot;:&quot;Calianova&quot;,&quot;home&quot;:true},{&quot;n&quot;:172,&quot;name&quot;:&quot;Sorelis&quot;},{&quot;n&quot;:96,&quot;name&quot;:&quot;Ashkur&quot;},{&quot;n&quot;:231,&quot;name&quot;:&quot;Zephon&quot;},{&quot;n&quot;:195,&quot;name&quot;:&quot;Tarelmar&quot;,&quot;sel&quot;:true}]" hint-size="361px,531px"></dc-import>
+              <div style="margin-top:auto">
+                <dc-import name="MapCaption" system="Tarelmar" coord="[3:195]" meta="bright · Ostimar Reach · 5 worlds" action="probe 1h 00m" hint-size="100%,58px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:320px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">320dp · Slide Over · same 531dp map</div>
+        <div data-screen-label="map 320" style="width:320px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+          <dc-import name="ResourceRailV2" narrow="true" metal="9,410" metal-rate="+310/h" crystal="2,166" crystal-rate="+148/h" deuterium="619" deuterium-rate="+52/h" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,72px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:var(--space-10)">
+            <div style="width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="GalaxyHead" mode="map" galaxy="3" count="11 surveyed · 3 pinned" hint-size="100%,44px"></dc-import>
+              <dc-import name="GalaxyBands" w="288" home="165" sel="96" surveyed="96,163,164,165,166,167,168,171,172,205,231" inflight="205" labels="[{&quot;n&quot;:165,&quot;name&quot;:&quot;Calianova&quot;,&quot;home&quot;:true},{&quot;n&quot;:96,&quot;name&quot;:&quot;Ashkur&quot;,&quot;sel&quot;:true},{&quot;n&quot;:231,&quot;name&quot;:&quot;Zephon&quot;}]" hint-size="288px,531px"></dc-import>
+              <div style="margin-top:auto">
+                <dc-import name="MapCaption" system="Ashkur" coord="[3:96]" meta="bright · Kragith Blaze · 8 worlds" action="probe 1h 39m" hint-size="100%,58px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:26px;width:560px">
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Measured at 393dp and 320dp</div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the band</span><span style="color:var(--text-muted)">13dp of label, a 32dp lane, 9dp of gap. Ten of them is <span style="color:var(--text-body)">531dp</span>, and the content area is 587dp at 393 and 570 at 320 — the same map fits both, so there is one geometry rather than two.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the pitch</span><span style="color:var(--text-muted)">25 stars across 337dp is a <span style="color:var(--text-body)">14.0dp</span> pitch at 393, and 11.0dp at 320. A star is 2.6–5.2dp across. Neither is a tap target and neither has to be — see the selection model.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the names</span><span style="color:var(--text-muted)">The longest of the ten, <span style="color:var(--text-body)">Bramuvell Reach</span>, is 100dp at the 9.5sp floor. It has 337dp of band to sit on. This is the measurement 0.11.0 lost by 2.5× and the second dimension is what buys it.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the drift</span><span style="color:var(--text-muted)">±7dp perpendicular, from one more hash of the same system index. Half the pitch, so it can never reorder two stars; enough that the band reads as sky. Generated, never stored — which the brief permits and which rerolls nobody's galaxy.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">nothing cached</span><span style="color:var(--text-muted)">A glyph carries class, region and position, which is 55 µs for all 250. It deliberately does <span style="color:var(--text-body)">not</span> carry a world count — that is the 777 µs figure and a fourth channel on a 3dp dot. The caption carries it, for one system, on demand.</span></div>
+        </div>
+        <div style="height:1px;background:var(--line-hairline)"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">The fold, and the one lie it tells</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">Two stars stacked vertically across a band gap are 25 systems apart, drawn 22dp apart. Horizontally, 25 systems is 337dp. That is a <span style="color:var(--text-body)">15× understatement in one direction only</span>, and it is the price of folding — a straight 250-star line at true pitch is 3,500dp and does not fit on anything. Three things pay it down: the turn is <span style="color:var(--text-body)">drawn</span>, so the eye is given the path rather than left to infer a grid; the labels alternate sides, which states the reading direction without an arrow; and vertical neighbours are always in <span style="color:var(--text-body)">different named regions</span>, which is the strongest "not next door" signal the map has. If it still reads as a grid on a device, the next lever is band gap, not layout.</div>
+        </div>
+        <div style="height:1px;background:var(--line-hairline)"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Where the hour marks went</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The reach strip's ruler is <span style="color:var(--text-muted)">SurveyBalance</span>: 30 minutes plus one a system, so the hours land at Δ30, Δ90, Δ150, Δ210. On an index-monotone path those are four hairlines <em style="font-style:normal;color:var(--text-body)">on the map</em>, and the strip stops being a component. They also say something the strip never did: home at 165 has <span style="color:var(--text-body)">three marks to its left and one to its right</span>. Everything past you is inside 1h 55m; the far side of the galaxy is 3h 14m. You live near the edge, and the map tells you so without a word.</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:var(--space-6)">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">2× · Bramuvell Reach, Nerimira Deep, Kragith Blaze · the bias is the texture</div>
+        <div style="width:722px;height:316px;overflow:hidden;position:relative;background:var(--bg-window);border:1px solid var(--line-hairline);border-radius:var(--radius-card)">
+          <div style="position:absolute;left:0;top:0;transform:scale(2) translate(0px,-54px);transform-origin:0 0">
+            <dc-import name="GalaxyBands" w="361" home="0" hours="false" hint-size="361px,531px"></dc-import>
+          </div>
+        </div>
+        <div style="width:722px;font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">Three adjacent bands, untouched, at twice size. Reach is an even field of standards; Deep is dark with one bright in it; Blaze is more than half bright. Nobody has to be told what a Deep is — <span style="color:var(--text-body)">the name and the texture arrive together</span>, ten times, on one screen. This is the whole identity argument and it costs 55 µs.</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · day one · 0 surveyed · the default case</div>
+        <div data-screen-label="map 393 genesis" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+          <dc-import name="ResourceRailV2" metal="620" metal-rate="+60/h" crystal="310" crystal-rate="+30/h" deuterium="0" deuterium-rate="+0/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:var(--space-10)">
+            <div style="width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-11)">
+              <dc-import name="GalaxyHead" mode="map" galaxy="3" count="250 systems · 0 surveyed" hint-size="100%,44px"></dc-import>
+              <dc-import name="GalaxyBands" w="361" home="165" sel="165" labels="[{&quot;n&quot;:165,&quot;name&quot;:&quot;Calianova&quot;,&quot;home&quot;:true}]" hint-size="361px,531px"></dc-import>
+              <div style="margin-top:auto">
+                <dc-import name="MapCaption" system="Calianova" coord="[3:165]" meta="standard · Almiaren Deep · 6 worlds" trail="20m out and back" hint-size="100%,58px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">98% unsurveyed is the state the map is in nearly always, so it is the frame that had to be good first. It is also the frame the old ledger was worst at: five rows and a header. Here, on day one, you can already see that you are in a dark region, that the two brightest places in the galaxy are three bands up and three bands down, and how far each is.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:34px">
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);max-width:900px">
+      <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">2 · What the map knows about you</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Four overlays and no more, each on its own channel, none of them leaking anything a survey has not paid for. A glyph may say how bright a star is, which region it is in and whether you have been there. It may never say what is orbiting it.</div>
+    </div>
+
+    <div style="display:flex;gap:40px;align-items:flex-start;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:var(--space-7);width:600px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">The glyph, at 4×</div>
+        <div style="display:flex;gap:0;background:var(--surface-card);border:var(--border-card);border-radius:var(--radius-card);padding:var(--space-8) 0">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="11" fill="rgba(169,139,250,.10)"></circle><circle cx="30" cy="26" r="5.2" fill="rgba(186,164,240,.60)"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">dim</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="18" fill="rgba(228,234,245,.07)"></circle><circle cx="30" cy="26" r="7.6" fill="rgba(226,232,245,.75)"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">standard</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="26" fill="rgba(240,246,255,.09)"></circle><circle cx="30" cy="26" r="17" fill="rgba(245,250,255,.10)"></circle><path d="M8,26 L52,26 M30,4 L30,48" stroke="rgba(240,246,255,.22)" stroke-width="1"></path><circle cx="30" cy="26" r="10.4" fill="#F5FAFF"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">bright</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="7.6" fill="rgba(226,232,245,.75)"></circle><circle cx="30" cy="26" r="18" fill="none" stroke="rgba(233,237,245,.30)" stroke-width="4"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">surveyed</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="5.2" fill="rgba(186,164,240,.60)"></circle><circle cx="30" cy="26" r="21.6" fill="none" stroke="#FFB454" stroke-width="5.2"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--status-warn)">in flight</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="7.6" fill="rgba(226,232,245,.75)"></circle><circle cx="30" cy="26" r="25.6" fill="none" stroke="rgba(233,237,245,.55)" stroke-width="4.8"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint)">home</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:var(--space-5)">
+            <svg width="60" height="52" viewBox="0 0 60 52"><circle cx="30" cy="26" r="10.4" fill="#F5FAFF"></circle><circle cx="30" cy="26" r="24" fill="none" stroke="#4C8DFF" stroke-width="5.6"></circle></svg>
+            <div style="font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--status-active)">selected</div>
+          </div>
+        </div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">Colour obeys the portrait call: no status hue ever lands on a celestial body — heat is brightness, the cold end leans the deuterium violet, a third of the brights carry a crystal-leaning halo, and each band sits in a 5–10% tinted field of its temperament. Halos and fields are radial gradients, legal here because a star is the one thing the system lets glow. Size and luminance are class, so knowledge cannot be confused with astronomy: a surveyed dim star and an unsurveyed bright one are never the same mark. Amber is the fleet strip's amber and means the same thing it means there. Accent is the selection, and the selection is what the caption acts on, which keeps accent meaning "go tap this".</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:26px;width:560px">
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">A pin becomes a label, and that is the whole of search</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">You cannot print 250 names — 144 µs says the drawing could, and the screen says it cannot. You can print the four or five you have marked. So on the map a pin does not sort anything: <span style="color:var(--text-body)">a pin is what makes a name appear</span>. It is still exactly the state 0.11.0 stored — a list of world coordinates — and a system is labelled when it holds a pinned world, which is a derivation and not a new field. This is why the search box is not missed on the map. Search asks "where is the place I named"; the map has already written the answer next to the star.</div>
+        </div>
+        <div style="height:1px;background:var(--line-hairline)"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">Aiming, and the line the map will not cross</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">A probe is aimed at a star, so the caption's ghost aims one: <span style="color:var(--text-body)">probe 1h 00m</span>, opening the dispatch sheet already pointed. A run is aimed at a <em style="font-style:normal;color:var(--text-body)">world</em>, and worlds are what a survey pays for, so the map cannot aim one and must not pretend to. On a system you already know, the ghost is replaced by the round trip in plain text and the caption pushes the orbit page, where the run has always been dispatched from. Stars are probe targets; worlds are run targets. One rule, and it falls straight out of the knowledge tiers.</div>
+        </div>
+        <div style="height:1px;background:var(--line-hairline)"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">The caption is never empty</div>
+          <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The map opens with home selected, and a tap can only move the selection, never clear it. There is no "nothing selected" state to design, no placeholder copy, and no empty 58dp bar at the bottom of the screen. It also means the first thing the tab ever shows a new player is their own star, named, with its own clock on it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:34px">
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);max-width:900px">
+      <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">3 · The universe, and what the ledger keeps</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">The universe is the header chip, not a destination — the four discs swap into the map's own frame. The ledger keeps the two jobs a list is better at than a map, and loses the three it was never able to do.</div>
+    </div>
+
+    <div style="display:flex;gap:36px;align-items:flex-start;flex-wrap:wrap">
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · one gesture up</div>
+        <div data-screen-label="universe 393" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column">
+          <dc-import name="ResourceRailV2" metal="9,410" metal-rate="+310/h" crystal="2,166" crystal-rate="+148/h" deuterium="619" deuterium-rate="+52/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;display:flex;justify-content:center;padding:var(--space-10)">
+            <div style="width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-11)">
+              <dc-import name="GalaxyHead" mode="map" scale="universe" count="1,000 systems · 11 surveyed" hint-size="100%,44px"></dc-import>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5)">
+                <div style="box-sizing:border-box;border-radius:var(--radius-card);border:var(--border-card);background:var(--surface-card);padding:var(--pad-card);display:flex;flex-direction:column;gap:var(--space-5)">
+                  <dc-import name="GalaxyBands" mini="true" w="148" lane="19" galaxy="1" hint-size="148px,190px"></dc-import>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+                    <span style="flex:0 0 auto;font-size:var(--text-row);font-weight:var(--weight-bold);color:var(--text-body)">G1</span>
+                    <span style="flex:1;min-width:0;font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">0 surveyed</span>
+                    <span style="flex:0 0 auto;font-size:var(--text-meta);color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">run 18h 20m</span>
+                  </div>
+                </div>
+                <div style="box-sizing:border-box;border-radius:var(--radius-card);border:var(--border-card);background:var(--surface-card);padding:var(--pad-card);display:flex;flex-direction:column;gap:var(--space-5)">
+                  <dc-import name="GalaxyBands" mini="true" w="148" lane="19" galaxy="2" hint-size="148px,190px"></dc-import>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+                    <span style="flex:0 0 auto;font-size:var(--text-row);font-weight:var(--weight-bold);color:var(--text-body)">G2</span>
+                    <span style="flex:1;min-width:0;font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">0 surveyed</span>
+                    <span style="flex:0 0 auto;font-size:var(--text-meta);color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">run 9h 20m</span>
+                  </div>
+                </div>
+                <div style="box-sizing:border-box;border-radius:var(--radius-card);border:var(--border-card-active);background:rgba(76,141,255,.10);padding:var(--pad-card);display:flex;flex-direction:column;gap:var(--space-5)">
+                  <dc-import name="GalaxyBands" mini="true" w="148" lane="19" galaxy="3" home="165" hint-size="148px,190px"></dc-import>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+                    <span style="flex:0 0 auto;font-size:var(--text-row);font-weight:var(--weight-bold);color:var(--text-body)">G3</span>
+                    <span style="flex:1;min-width:0;font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">11 surveyed</span>
+                    <span style="flex:0 0 auto;font-size:var(--text-meta);color:var(--status-active);font-variant-numeric:tabular-nums;letter-spacing:var(--track-caption);text-transform:uppercase;white-space:nowrap">home</span>
+                  </div>
+                </div>
+                <div style="box-sizing:border-box;border-radius:var(--radius-card);border:var(--border-card);background:var(--surface-card);padding:var(--pad-card);display:flex;flex-direction:column;gap:var(--space-5)">
+                  <dc-import name="GalaxyBands" mini="true" w="148" lane="19" galaxy="4" hint-size="148px,190px"></dc-import>
+                  <div style="display:flex;align-items:baseline;gap:var(--space-4)">
+                    <span style="flex:0 0 auto;font-size:var(--text-row);font-weight:var(--weight-bold);color:var(--text-body)">G4</span>
+                    <span style="flex:1;min-width:0;font-size:var(--text-caption);letter-spacing:var(--track-caption);text-transform:uppercase;color:var(--text-faint);font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">0 surveyed</span>
+                    <span style="flex:0 0 auto;font-size:var(--text-meta);color:var(--text-muted);font-variant-numeric:tabular-nums;white-space:nowrap">run 9h 20m</span>
+                  </div>
+                </div>
+              </div>
+              <div style="margin-top:auto">
+                <dc-import name="MapCaption" flat="true" system="Galaxy 2" coord="" meta="250 systems · nothing charted" action="probe 4h 40m" hint-size="100%,58px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:393px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">393dp · the ledger, one tap away, with three controls gone</div>
+        <div data-screen-label="ledger 393 after" style="width:393px;height:852px;box-sizing:border-box;background:var(--bg-window);border:1px solid var(--line-strong);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;position:relative">
+          <dc-import name="ResourceRailV2" metal="9,410" metal-rate="+310/h" crystal="2,166" crystal-rate="+148/h" deuterium="619" deuterium-rate="+52/h" dividers="true" style="border-bottom:1px solid var(--line-hairline)" hint-size="100%,55px"></dc-import>
+          <div style="flex:1;min-height:0;overflow:hidden;position:relative;display:flex;justify-content:center;padding:var(--space-10)">
+            <dc-import name="Starfield" style="position:absolute;inset:0" hint-size="100%,100%"></dc-import>
+            <div style="position:relative;width:100%;max-width:var(--content-max);display:flex;flex-direction:column;gap:var(--space-9)">
+              <dc-import name="LedgerHead" mode="worlds" count="14 worlds" sort=" " hint-size="100%,44px"></dc-import>
+              <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+                <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" hint-size="100%,16px">Pinned</x-import>
+                <dc-import name="WorldRowV5" world="Sorelis IV" epithet="temperate world" coord="[3:172:4]" verdict="settleable" temp="-14" gravity="0.89" pressure="1.32" metal-left="full" crystal-left="908/1,102" note="Nothing here blocks a colony." hint-size="100%,96px"></dc-import>
+                <dc-import name="WorldRowV5" world="Ashkur III" epithet="temperate world" coord="[3:96:3]" verdict="settleable" temp="4" gravity="1.11" pressure="0.94" metal-left="full" crystal-left="full" note="Nothing here blocks a colony." hint-size="100%,96px"></dc-import>
+                <dc-import name="WorldRowV5" world="Zephon II" epithet="iron giant" coord="[3:231:2]" verdict="blocked" temp="22" gravity="1.66" pressure="0.51" metal-left="full" crystal-left="full" blocks="[{&quot;axis&quot;:&quot;gravity&quot;,&quot;reading&quot;:&quot;1.66 g&quot;,&quot;band&quot;:&quot;1.40 g&quot;,&quot;tech&quot;:&quot;Gravitic Adaptation 3&quot;}]" hint-size="100%,116px"></dc-import>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:var(--space-5)">
+                <x-import component-from-global-scope="OltreDesignSystem_22b3a6.SectionLabel" hint-size="100%,16px">Surveyed</x-import>
+                <dc-import name="WorldRowV5" world="Calianova VI" epithet="temperate world" coord="[3:165:6]" verdict="home" temp="-21" gravity="0.96" pressure="0.77" note="Your colony." hint-size="100%,80px"></dc-import>
+                <dc-import name="WorldRowV5" world="Miraren V" epithet="deep frost" coord="[3:167:5]" verdict="blocked" temp="-88" gravity="1.04" pressure="2.10" metal-left="412/1,276" crystal-left="full" blocks="[{&quot;axis&quot;:&quot;temperature&quot;,&quot;reading&quot;:&quot;-88 °C&quot;,&quot;band&quot;:&quot;-30 °C&quot;,&quot;tech&quot;:&quot;Thermal Adaptation 5&quot;}]" hint-size="100%,116px"></dc-import>
+                <dc-import name="WorldRowV5" world="Calianova II" epithet="temperate world" coord="[3:165:2]" verdict="settleable" temp="-6" gravity="1.02" pressure="1.10" metal-left="640/1,276" crystal-left="full" note="Nothing here blocks a colony." hint-size="100%,96px"></dc-import>
+              </div>
+            </div>
+          </div>
+          <x-import component-from-global-scope="OltreDesignSystem_22b3a6.TabBar" selected="galaxy" hint-size="100%,52px"></x-import>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:26px;width:540px">
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">What four discs can mean today</div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">cost, honestly</span><span style="color:var(--text-muted)">The four are not equidistant and that is the only real content the view has: G2 and G4 are one hop, G1 is two. A probe reaches a neighbour in 4h 40m and G1 in 8h 50m; a run is 9h 20m and 18h 20m <span style="color:var(--text-body)">out and back</span>. Crossing your own galaxy end to end is 3h 22m, so a hop is 2.8× the longest journey you can make at home.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">texture, free</span><span style="color:var(--text-muted)">Each disc is the same ten bands at 0.4 scale, drawn from that galaxy's own temperament permutation. It is real, not decorative — G1 genuinely has its Blaze regions where the picture puts them — and it costs four times 55 µs.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">what it leaves</span><span style="color:var(--text-muted)">Three empires arrive as three tinted discs and a holdings count on the line that reads <span style="color:var(--text-body)">0 surveyed</span> today. Multiplayer arrives as the same line with a population. Neither needs a new surface, and neither is drawn here, because a frame that shows an empire you cannot meet is the thing this brief calls identity-only.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">not a screen</span><span style="color:var(--text-muted)">It has no back button because it is not pushed. The chip in the header is a toggle between two states of the map, the way <span style="color:var(--text-body)">worlds · map</span> is a toggle between two states of the tab. Two toggles, no stack, and the tab bar never changes under you.</span></div>
+        </div>
+        <div style="height:1px;background:var(--line-hairline)"></div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+          <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">The ledger, itemised</div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">filter chips</span><span style="color:var(--text-muted)"><span style="color:var(--text-body)">Gone.</span> They filtered a list that is fourteen rows long on a day-21 save. A control that narrows fourteen to nine is work with no reward, and every axis they filtered on — distance, verdict, region — is now a thing you can see rather than a thing you request.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the sort</span><span style="color:var(--text-muted)"><span style="color:var(--text-body)">Gone.</span> A sort ranks on one axis, and "where next" is distance against class against region against what is still unknown. The map holds all four at once, which is the one thing a drawing does that an ordering cannot.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">search</span><span style="color:var(--text-muted)"><span style="color:var(--text-body)">Stays, on the worlds list only.</span> It matches names you have learned, which is the definition of a list job. It was useless on the old landing screen for a reason that was never about search: you were asked to type the name of a place you had not been to yet.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">pinned</span><span style="color:var(--text-muted)"><span style="color:var(--text-body)">Stays, and gains a second job.</span> A pinned world still sorts to the top here; the system that holds it is now the one the map writes a name against. One state, two surfaces, no new field.</span></div>
+          <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 122px;color:var(--text-faint)">the count</span><span style="color:var(--text-muted)">Stays, loses its trailing sort control, and the header's second row is now just <span style="color:var(--text-body)">14 worlds</span>. The map's own header carries the same idiom one scale up: <span style="color:var(--text-body)">250 systems · 11 surveyed · 3 pinned</span>.</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;flex-direction:column;gap:34px">
+    <div style="display:flex;flex-direction:column;gap:var(--space-7);max-width:900px">
+      <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">4 · Four layouts I did not take</div>
+      <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">All four are index-honest except the first, which is the one you already declined. Red marks the defect.</div>
+    </div>
+    <div style="display:flex;gap:32px;flex-wrap:wrap">
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:244px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">free 2-D scatter</div>
+        <div style="border:var(--border-card);border-radius:var(--radius-card);background:var(--surface-card);overflow:hidden"><dc-import name="RejectPlot" kind="scatter" hint-size="244px,152px"></dc-import></div>
+        <div style="font-size:11.5px;line-height:1.65;color:var(--text-muted);text-wrap:pretty">Declined on 2026-08-15 and the drawing shows why without the balance argument: two stars a thumb apart, 155 systems and 2h 35m between them. It is the only layout here that would need the metric to move.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:244px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">archimedean spiral</div>
+        <div style="border:var(--border-card);border-radius:var(--radius-card);background:var(--surface-card);overflow:hidden"><dc-import name="RejectPlot" kind="spiral" hint-size="244px,152px"></dc-import></div>
+        <div style="font-size:11.5px;line-height:1.65;color:var(--text-muted);text-wrap:pretty">Index-honest and the best-looking of the four. It fails on the one thing the second dimension was bought for: a region is a curved arc with no straight run to set a 100dp name on, and the inner turns are 40dp long at 393. It also puts the densest ink where the screen is narrowest.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:244px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">ten cells in a ring</div>
+        <div style="border:var(--border-card);border-radius:var(--radius-card);background:var(--surface-card);overflow:hidden"><dc-import name="RejectPlot" kind="ring" hint-size="244px,152px"></dc-import></div>
+        <div style="font-size:11.5px;line-height:1.65;color:var(--text-muted);text-wrap:pretty">Ten named cells, plenty of room for the labels, and it closes — which is the defect. System 250 sits against system 1, four hours and thirty-nine minutes apart, at the one place on the drawing where the eye insists they are neighbours. A galaxy with two ends should be drawn with two ends.</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-6);width:244px">
+        <div style="font-size:var(--text-meta);font-weight:var(--weight-bold);letter-spacing:var(--track-label);text-transform:uppercase;color:var(--text-faint)">the strip we ship</div>
+        <div style="border:var(--border-card);border-radius:var(--radius-card);background:var(--surface-card);overflow:hidden"><dc-import name="RejectPlot" kind="strip" hint-size="244px,152px"></dc-import></div>
+        <div style="font-size:11.5px;line-height:1.65;color:var(--text-muted);text-wrap:pretty">Perfectly honest, and it is drawn here to be measured rather than mocked: it is the same 250 stars with the same class bias, in one dimension. A region is 33dp; its name is 100dp. Nothing else about it is wrong, which is why the fold keeps everything it does and adds a second axis.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="height:1px;background:var(--line-hairline)"></div>
+
+  <div style="display:flex;gap:40px;flex-wrap:wrap">
+    <div style="display:flex;flex-direction:column;gap:26px;width:640px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+        <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">5 · Premises that did not survive the screen</div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 150px;color:var(--text-faint)">the strip is an hour ruler</span><span style="color:var(--text-muted)">There are <span style="color:var(--text-body)">two clocks in the tab and nothing labels either</span>. The strip's marks are <span style="color:var(--text-muted)">SurveyBalance</span> — 30m plus one a system — and the system header's "20m out and back" is <span style="color:var(--text-muted)">FleetBalance</span>, which is a different function of the same Δ and disagrees with it by about 6× near home. Today they sit two components apart on one screen. On the map they would be two rulers over one drawing, which is not survivable, so the map's marks are the probe's and the caption prints the run's figure beside the name. Worth deciding whether that is the right way round.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 150px;color:var(--text-faint)">regions bias the stars</span><span style="color:var(--text-muted)">They do in <span style="color:var(--text-muted)">GalaxyBalance</span>, but <span style="color:var(--text-muted)">RegionStrip.dc.html</span> — the thing that drew them at 0.11.0 — shipped with a different table: 60/25/15, 34/46/20, 15/25/60 against the committed 60/30/10, 20/60/20, 10/30/60. The mock understated a Reach by 14 points of standard and overstated a Deep's brights by half. The frames here use the committed mix, which is <span style="color:var(--text-body)">why the three textures read further apart than 0.11.0 suggested they would</span>.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 150px;color:var(--text-faint)">the region index is a level</span><span style="color:var(--text-muted)">0.11.0's measurement was right and its conclusion has expired. Ten names do not fit on 393dp <em style="font-style:normal;color:var(--text-body)">of one dimension</em>; they fit trivially on ten bands. So the chooser that measurement justified has no job left — <span style="color:var(--text-body)">the map is the region index</span>, and a screen of ten rows behind a header tap is a tap the player pays for nothing.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 150px;color:var(--text-faint)">the starfield sits behind</span><span style="color:var(--text-muted)">Every Galaxy screen draws <span style="color:var(--text-muted)">Starfield</span> under the content column. Under a map made of stars it is noise that cannot be told from data, and at 320dp it reads as extra dim systems. <span style="color:var(--text-body)">The map frames drop it</span>; the worlds list keeps it. Decorative stars and real ones cannot share a screen.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 150px;color:var(--text-faint)">250 dots need a pinch</span><span style="color:var(--text-muted)">Mine, and it did not survive the frame. A pinch buys names for unpinned systems and nothing else, because class, region and position are already legible at 14dp pitch. The caption gives you those names one at a time under your thumb, for free, without a camera, a pan, or a zoom state to restore on foreground. <span style="color:var(--text-body)">No zoom is a feature of a five-minute check-in.</span> Reverse it if a device session says otherwise; the geometry does not change, only the camera.</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:26px;width:620px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+        <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">6 · The baselines I expect to kill</div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">By class rather than by filename, because I do not have the inventory of the 24. Check it against the list before you start re-recording, and tell me the delta.</div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 44px;color:var(--status-danger);font-variant-numeric:tabular-nums">dies</span><span style="color:var(--text-muted)">Every ledger-header state carrying filter chips or the sort control. Every reach-strip state, at both widths — the component goes, from the ledger and from the orbit page. The region index screen and its row. Any frame where the ledger is the landing screen.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 44px;color:var(--text-muted);font-variant-numeric:tabular-nums">holds</span><span style="color:var(--text-muted)">All 7 of the world portrait. The world rows in every verdict. The dispatch sheet. The system header, whose region name now opens the map framed on that system instead of the index — same pixels, different target.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 44px;color:var(--status-ok);font-variant-numeric:tabular-nums">new</span><span style="color:var(--text-muted)">Map at 393 and 320, in four states: genesis, home-selected, a scrubbed selection, a run in flight. Universe at both widths. Caption in its two forms. That is ten, and every one of them is a single Canvas plus one card.</span></div>
+        <div style="font-size:11.5px;line-height:1.7;color:var(--text-muted);text-wrap:pretty">The orbit page itself is untouched, with one exception I owe you: it loses the reach strip. That costs nothing, because the strip's figure is already printed one line above it in the astronomy line, which is the duplicate 0.11.0 found and did not act on.</div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:26px;width:620px">
+      <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+        <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">7 · What it should feel like</div>
+        <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">Opening the tab should feel like unfolding a chart, not opening a database — and the test is whether a player who has never read a word of this can say four things out loud after five seconds on the genesis frame. <span style="color:var(--text-body)">I live in a dark region.</span> <span style="color:var(--text-body)">The bright places are three bands up and three bands down.</span> <span style="color:var(--text-body)">I am near one end.</span> <span style="color:var(--text-body)">That one is an hour away.</span> If the next round hears any of those in Davide's own words unprompted, the fold worked. If instead the report is that it looks like a spreadsheet of dots, the fold failed and the answer is a bigger band gap before it is a different shape.</div>
+        <div style="font-size:11.5px;line-height:1.75;color:var(--text-muted);text-wrap:pretty">The check-in test is separate and stricter: <span style="color:var(--text-body)">finding a place to send the next probe should take one drag and one tap</span>, and the map should be a worse place to loiter than the ledger ever was. Nothing on it rewards being looked at twice.</div>
+      </div>
+      <div style="height:1px;background:var(--line-hairline)"></div>
+      <div style="display:flex;flex-direction:column;gap:var(--space-7)">
+        <div style="font-size:var(--text-action);font-weight:var(--weight-bold);letter-spacing:var(--track-screen);text-transform:uppercase;color:var(--status-active)">8 · Back to you</div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 24px;color:var(--text-faint);font-variant-numeric:tabular-nums">1</span><span style="color:var(--text-muted)">Which clock owns the map's hour marks — the probe's, as drawn, or the run's? Two rulers is not an option and I may have picked the less useful one.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 24px;color:var(--text-faint);font-variant-numeric:tabular-nums">2</span><span style="color:var(--text-muted)">Landing on the map is my call against your stated preference. If the frequent action really is dispatching a run to a world you already hold, the switch makes it a one-line change and you should take it.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 24px;color:var(--text-faint);font-variant-numeric:tabular-nums">3</span><span style="color:var(--text-muted)">The baseline inventory for the 24 Galaxy frames, so the kill list above stops being a guess.</span></div>
+        <div style="display:flex;gap:var(--space-7);font-size:11.5px;line-height:1.65"><span style="flex:0 0 24px;color:var(--text-faint);font-variant-numeric:tabular-nums">4</span><span style="color:var(--text-muted)">Does a survey chart the system or the world? The map draws a survey ring per system and the ledger lists worlds; if a probe surveys one world at a time, the ring means "you have been here" rather than "you know this", and the caption needs a fraction.</span></div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+</x-dc>
+</body>
+</html>

@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.geometry.Offset
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -44,11 +46,10 @@ fun galaxyPage(
     onSelectSystem: (Int) -> Unit = {},
     onGoHome: () -> Unit = {},
     onSelectMode: (LedgerMode) -> Unit = {},
+    onToggleScale: () -> Unit = {},
     onQueryChange: (String) -> Unit = {},
-    onToggleChip: (LedgerFilter) -> Unit = {},
-    onCycleSort: () -> Unit = {},
-    onOpenRegionIndex: () -> Unit = {},
-    onOpenRegion: (Int) -> Unit = {},
+    onOpenSelected: () -> Unit = {},
+    onOpenMap: () -> Unit = {},
     onOpenResearch: () -> Unit = {},
     onDispatchProbe: () -> Unit = {},
     onOpenWorld: (GalaxyCoordinate) -> Unit = {},
@@ -67,11 +68,10 @@ fun galaxyPage(
                         uiState = uiState,
                         scrollState = scrollState ?: rememberScrollState(),
                         onSelectMode = onSelectMode,
+                        onToggleScale = onToggleScale,
                         onQueryChange = onQueryChange,
-                        onToggleChip = onToggleChip,
-                        onCycleSort = onCycleSort,
-                        onOpenRegionIndex = onOpenRegionIndex,
-                        onOpenRegion = onOpenRegion,
+                        onOpenSelected = onOpenSelected,
+                        onOpenMap = onOpenMap,
                         onSelectGalaxy = onSelectGalaxy,
                         onSelectSystem = onSelectSystem,
                         onGoHome = onGoHome,
@@ -98,10 +98,36 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(GalaxyTestTags.galaxy(galaxy)).performClick()
     }
 
-    // The lens cell beside the lit one is what the ±1 stepper was, and it says what it is before
-    // you tap it.
-    fun openSystem(system: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.reachCell(system)).performScrollTo().performClick()
+    // **A star is not a tap target and is not meant to be**, which is the whole selection model: the
+    // fold is one 44dp-tall scrub surface and the caption under it is what a finger acts on. So a
+    // robot picks a system the way a thumb does — by landing on the drawing where that system is
+    // drawn — and `MapGeometry` is what turns the index into the place.
+    fun scrubTo(system: Int) = apply {
+        val node = test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).fetchSemanticsNode()
+        val width = node.size.width.toFloat()
+        val height = node.size.height.toFloat()
+        test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).performTouchInput {
+            click(mapPointOf(system = system, width = width, height = height))
+        }
+    }
+
+    // The bar under the fold: the map's one readout, and the tab's one real push.
+    fun openTheSelectedSystem() = apply {
+        test.onNodeWithTag(GalaxyTestTags.CAPTION).performClick()
+    }
+
+    fun assertTheCaptionReads(text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.CAPTION).assert(containing(text))
+    }
+
+    // Present exactly when a probe would be honoured, which is the same claim `assertOffersNoFlight`
+    // makes for the orbit page's footer.
+    fun dispatchAProbeFromTheMap() = apply {
+        test.onNodeWithTag(GalaxyTestTags.CAPTION_ACTION).performClick()
+    }
+
+    fun assertTheCaptionOffersNoProbe() = apply {
+        test.onNodeWithTag(GalaxyTestTags.CAPTION_ACTION).assertDoesNotExist()
     }
 
     // The one verb on this screen. Present only in the two states that would actually be honoured.
@@ -118,11 +144,37 @@ class GalaxyRobot(private val test: ComposeUiTest) {
             .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
-    fun assertTheBandIsDrawn() = apply {
-        test.onNodeWithTag(GalaxyTestTags.REACH_STRIP).assertIsDisplayed()
+    // ── The fold, which is what the tab opens on since 0.12 ─────────────────────────────────
+
+    fun assertTheGalaxyIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).assertIsDisplayed()
     }
 
-    // ── The ledger, which is what the tab opens on since 0.11 ───────────────────────────────
+    fun assertNoGalaxyIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.GALAXY_MAP).assertDoesNotExist()
+    }
+
+    // The chip at the right of the map's head — one gesture up, one back down, no stack.
+    fun toggleTheScale() = apply {
+        test.onNodeWithTag(GalaxyTestTags.SCALE_CHIP).performClick()
+    }
+
+    fun assertTheUniverseIsUp() = apply {
+        test.onNodeWithTag(GalaxyTestTags.UNIVERSE).assertIsDisplayed()
+    }
+
+    fun assertTheUniverseIsAway() = apply {
+        test.onNodeWithTag(GalaxyTestTags.UNIVERSE).assertDoesNotExist()
+    }
+
+    fun chooseGalaxy(galaxy: Int) = apply {
+        test.onNodeWithTag(GalaxyTestTags.disc(galaxy)).performClick()
+    }
+
+    fun assertTheDiscReads(galaxy: Int, text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.disc(galaxy)).assert(containing(text))
+    }
+
 
     fun openTheMap() = apply {
         test.onNodeWithTag(GalaxyTestTags.mode(LedgerMode.MAP)).performClick()
@@ -143,54 +195,11 @@ class GalaxyRobot(private val test: ComposeUiTest) {
     // chip's label is what a player reads and what a robot looks for"*. It is the exact string rather
     // than a substring so that a chip reading `settleable` is not also matched by a row's
     // `SETTLEABLE`, which differs only in case.
-    fun toggle(chip: String) = apply {
-        // **The head first, and it is not belt and braces.** A chip's own scroll parent is the
-        // horizontal strip it sits in, so scrolling to a chip moves the strip and never the page —
-        // and a test that has already walked down a long ledger is looking at a screen with the whole
-        // head above it, where a click lands on nothing and fails as a wrong answer rather than as a
-        // missed tap. The search field is the head's one tagged anchor and its scroll parent is the
-        // page.
-        test.onNodeWithTag(GalaxyTestTags.LEDGER_SEARCH).performScrollTo()
-        test.onNodeWithText(chip).performScrollTo().performClick()
-    }
-
-    fun changeTheSort() = apply {
-        test.onNodeWithTag(GalaxyTestTags.LEDGER_SORT).performScrollTo().performClick()
-    }
-
     // The region name in the system header is the only accent string there, which is exactly what
-    // makes it read as the way into the index.
-    fun openTheRegionIndex() = apply {
+    // makes it read as the way back out to the fold — framed on the system you were reading, which is
+    // where it used to open the region index.
+    fun openTheMapFromTheHeader() = apply {
         test.onNodeWithTag(GalaxyTestTags.REGION).performScrollTo().performClick()
-    }
-
-    fun openRegion(region: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).performScrollTo().performClick()
-    }
-
-    fun assertTheIndexIsUp() = apply {
-        test.onNodeWithTag(GalaxyTestTags.REGION_INDEX).assertIsDisplayed()
-    }
-
-    // **The index is a chooser rather than a level you pass through**, so its absence is as much a
-    // claim as its presence: choosing a region has to leave it, and nothing else on the tab may be
-    // reached through it.
-    fun assertTheIndexIsAway() = apply {
-        test.onNodeWithTag(GalaxyTestTags.REGION_INDEX).assertDoesNotExist()
-    }
-
-    // Scrolls first, for `assertShowsWorld`'s reason and more of it: ten cards carrying a histogram
-    // and four lines each are three screens at 393x852, so only the first two are ever above the
-    // fold. A region nobody drew a card for still throws here.
-    fun assertTheIndexOffers(region: Int) = apply {
-        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).performScrollTo().assertIsDisplayed()
-    }
-
-    // Scoped to the card, for `assertRowReads`' reason: a galaxy's ten regions are a permutation of
-    // one fixed list, so "even mix" is on two cards at once and every strategy fact is on four — an
-    // unscoped query for one would fail on the ambiguity rather than on the claim.
-    fun assertTheRegionReads(region: Int, text: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.regionRow(region)).assert(containing(text))
     }
 
     // **Scrolls first**, and that is the same budget `assertShowsWorld` already spends: a ledger of
@@ -206,8 +215,8 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 
     // The system view, absent — which is the whole of what "the tab opens on what you know" claims.
     // Its inverse is `assertTheMapIsDrawn`, and between them they are the switch.
-    fun assertNoMapIsDrawn() = apply {
-        test.onNodeWithTag(GalaxyTestTags.MAP).assertDoesNotExist()
+    fun assertNoSystemIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.SYSTEM_MAP).assertDoesNotExist()
     }
 
     // **Reading order, which is all a sort or a pin ever does to a player**: this world is now above
@@ -294,8 +303,8 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithText(text, substring = true).assertDoesNotExist()
     }
 
-    fun assertTheMapIsDrawn() = apply {
-        test.onNodeWithTag(GalaxyTestTags.MAP).assertIsDisplayed()
+    fun assertTheSystemIsDrawn() = apply {
+        test.onNodeWithTag(GalaxyTestTags.SYSTEM_MAP).assertIsDisplayed()
     }
 
     // ── The dispatch sheet ───────────────────────────────────────────────────────────────────
@@ -374,3 +383,16 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 // go on being right for the two nodes that are not one, which is the worst shape a helper can have.
 private fun containing(text: String): SemanticsMatcher =
     hasText(text, substring = true).or(hasAnyDescendant(hasText(text, substring = true)))
+
+// Where a system is drawn, in the map node's own pixels. The robot has to do this arithmetic because
+// the drawing does: `MapGeometry` places a star from its index, and a test that guessed at a
+// coordinate would be asserting against a guess rather than against the fold.
+private fun mapPointOf(system: Int, width: Float, height: Float): Offset {
+    val scale = height / MapGeometry.HEIGHT_DP
+    val widthDp = width / scale
+    val span = widthDp - MapGeometry.INSET_DP * 2f
+    return Offset(
+        x = MapGeometry.xOf(system = system, span = span, inset = MapGeometry.INSET_DP) * scale,
+        y = MapGeometry.laneMidOf(MapGeometry.bandOf(system)) * scale,
+    )
+}

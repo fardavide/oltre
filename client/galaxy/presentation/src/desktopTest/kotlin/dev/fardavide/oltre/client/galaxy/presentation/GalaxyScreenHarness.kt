@@ -27,6 +27,10 @@ import kotlinx.datetime.TimeZone
 @OptIn(ExperimentalTestApi::class)
 fun galaxyScreen(
     state: GameState,
+    // The tab lands on the map unless a preferences file says otherwise, and a test that wants the
+    // worlds list may either say so here or tap the switch — which is the same choice a player has.
+    landing: GalaxyLanding = GalaxyLanding.MAP,
+    onLandingChange: (GalaxyLanding) -> Unit = {},
     onOpenResearch: () -> Unit = {},
     onDispatchProbe: (SystemAddress) -> Unit = {},
     onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit = { _, _, _, _ -> },
@@ -40,6 +44,8 @@ fun galaxyScreen(
                         state = state,
                         now = FIXTURE_NOW,
                         timeZone = TimeZone.UTC,
+                        landing = landing,
+                        onLandingChange = onLandingChange,
                         onOpenResearch = onOpenResearch,
                         onDispatchProbe = onDispatchProbe,
                         onDispatchRun = onDispatchRun,

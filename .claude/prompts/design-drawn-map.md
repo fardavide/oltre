@@ -163,6 +163,24 @@ not survive contact with a real screen, say so — every sheet so far has had at
 that did not, and finding them early is most of the value.
 ```
 
+## Closed, 2026-08-15 — the sheet came back and shipped as 0.12.0
+
+Claude Design answered with **Looks Near Is Near**, archived at
+[`../docs/design/looks-near-is-near.dc.html`](../docs/design/looks-near-is-near.dc.html) and recorded
+in the repository's own voice at [`../docs/drawn-map-sheet.md`](../docs/drawn-map-sheet.md). The
+answer to the metric question was a serpentine fold: ten bands of twenty-five, each band one region,
+path order the index order — so the layout moved and the metric did not, exactly as the call asked.
+
+**Three of the prompt's premises did not survive**, which is what the last paragraph asks for and
+what the round trip was worth:
+
+1. **"Adding a generated quantity is free" was true, and it was needed three times rather than
+   never.** The drift, the size wobble and the halo hue are all seeded now.
+2. **The measured draw cost changed the design rather than confirming it.** 55 µs against 777 µs is
+   why a system glyph carries class, region and position and deliberately not a world count.
+3. **The strip's own retired measurement turned out to be the whole argument for the shape.** Ten
+   names not fitting on 393dp *of one dimension* is what the second dimension was bought for.
+
 ## What the build must do when the sheet lands
 
 - Write `.claude/docs/drawn-map-sheet.md` — the prose record of every call, in the repo's own voice,

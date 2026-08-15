@@ -1,15 +1,16 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
-import dev.fardavide.oltre.client.galaxy.ui.LedgerFilter
-import dev.fardavide.oltre.client.galaxy.ui.LedgerSort
-import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.worldAt
+import kotlin.test.assertIs
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
 
@@ -36,26 +37,18 @@ internal val frameState: GameState = testGameState
 
 internal fun frame(
     state: GameState = frameState,
-    view: GalaxyView = GalaxyView.LEDGER,
+    // The map, because that is what the tab lands on since 0.12 — a default that is the screen a
+    // player actually opens on is the one worth having in every frame that does not say otherwise.
+    view: GalaxyView = GalaxyView.MAP,
     at: SystemSelection = state.homeSelection(),
     query: String = "",
-    filters: Set<LedgerFilter> = emptySet(),
-    sort: LedgerSort = LedgerSort.NEAREST,
     // Where the frame's "what happened while you were away" span begins. Every frame but the
     // discovery one starts it at the frame's own instant — an empty span, so nothing is new and a
     // card cannot appear in a baseline that is not about one.
     seenAt: Instant = FIXTURE_NOW,
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState = state.toGalaxyUiState(
-    nav = GalaxyNavigation(
-        view = view,
-        at = at,
-        query = query,
-        filters = filters,
-        sort = sort,
-        seenAt = seenAt,
-        availableFilters = state.availableFiltersFor(at),
-    ),
+    nav = GalaxyNavigation(view = view, at = at, query = query, seenAt = seenAt),
     now = FIXTURE_NOW,
     timeZone = TimeZone.UTC,
     dispatch = dispatch,
@@ -124,10 +117,17 @@ private fun GameState.surveying(systems: List<Int>): GameState {
     return copy(galaxy = galaxy.copy(surveyed = galaxy.surveyed + added))
 }
 
-// The three filters of the design's "nothing left" frame — chosen so that together they really do
-// exclude everything, which is the state the empty copy exists for.
-internal val excludingFilters: Set<LedgerFilter> = setOf(
-    LedgerFilter.ReachableWithin(hours = 2),
-    LedgerFilter.StillHolding,
-    LedgerFilter.Verdict(WorldVerdictUiState.SETTLEABLE),
-)
+// The fold with a probe out, which is the one overlay no other map frame carries. It lives here
+// rather than in `ProbeFrames` because it is a frame of the *map* — that file is the orbit page's
+// footer in the two states that are a job rather than an offer, and a baseline belongs beside the
+// screen it photographs.
+internal val probeInFlightMapUiState: GalaxyUiState = frameState
+    .copy(resources = Resources.of(metal = 40_000, crystal = 9_000))
+    .let { wealthy ->
+        val target = wealthy.neighbourSelection()
+            .let { SystemAddress(galaxy = it.galaxy, system = it.system) }
+        val dispatched = assertIs<StartSurveyResult.Started>(
+            startSurvey(wealthy, target, at = FIXTURE_NOW),
+        ).state
+        frame(state = dispatched, view = GalaxyView.MAP, at = dispatched.homeSelection())
+    }
