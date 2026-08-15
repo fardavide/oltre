@@ -206,6 +206,12 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.11.1 — 2026-08-15
+
+- **Tapping a world in the ledger opens that world.** It opened the same slot number of whichever
+  system the map was last on instead — usually your own — so a row reading `crystal full` raised a
+  sheet reading `deposit empty`, about somewhere else entirely, and the run would have gone there.
+
 ### 0.11.0 — 2026-08-14
 
 - **The map has places instead of addresses.** Every system and every world has a name now —
