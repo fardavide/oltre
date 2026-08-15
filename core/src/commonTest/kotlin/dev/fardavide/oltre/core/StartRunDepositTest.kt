@@ -83,14 +83,17 @@ class StartRunDepositTest {
 
     @Test
     fun `the second run of a check-in is clamped by what the first one left`() {
-        // A day's run by one hull takes all but a sliver of a full vein — the sizing rule, in a test
-        // — so the run behind it is clamped to the sliver rather than to what its hulls could lift.
-        val state = fleetOf(2)
+        // A day's run by the four-hull manifest takes all but a sliver of a full vein — the sizing
+        // rule, in a test — so the run behind it is clamped to the sliver rather than to what its
+        // hulls could lift. **Four hulls, because issue #68 re-derived the rule against a fleet**:
+        // at 5,800 a lone skiff leaves three quarters of the world standing and this would be
+        // measuring the fleet rather than the vein.
+        val state = fleetOf(5)
         val target = neighbourOfHome(state)
 
-        val first = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 24.hours)
+        val first = dispatch(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 4), window = 24.hours)
         val leftOver = first.galaxy.remaining(target, ResourceKind.METAL, t0)
-        assertTrue(leftOver > 0, "a single hull cannot quite strip a full world in a day")
+        assertTrue(leftOver > 0, "four hulls cannot quite strip a full world in a day")
 
         val second = dispatch(first, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1))
 

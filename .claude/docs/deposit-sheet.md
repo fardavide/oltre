@@ -128,12 +128,14 @@ gate. A stock nothing can draw from would be a field that exists to look symmetr
 
 ```
 cap(kind) = BASE_PRICED × richness(kind) × (1 + 0.35 × danger) / price(kind)
-BASE_PRICED = 1,450        price: metal 1, crystal 2        danger = hazards + distanceBand
+BASE_PRICED = 5,800        price: metal 1, crystal 2        danger = hazards + distanceBand
 ```
 
-so a plain doorstep world holds **1,450 metal** or **725 crystal** — equal in the game's own 1 : 2 : 3
-basket, exactly as `FleetBalance.cargo` already prices a hold — climbing to 3,988 metal on a
-two-hazard world in another galaxy at maximum richness.
+so a plain doorstep world holds **5,800 metal** or **2,900 crystal** — equal in the game's own
+1 : 2 : 3 basket, exactly as `FleetBalance.cargo` already prices a hold — climbing to 15,950 metal on
+a two-hazard world in another galaxy at maximum richness. (`BASE_PRICED` was 1,450 from 0.10.0 to
+0.11.1; §2.5.1 has the re-derivation, and every figure quoted in this sheet outside that section is
+the 1,450 one unless it says otherwise.)
 
 **This reverses a correction the build made and Davide accepted, and the reversal is the load-bearing
 argument of the sheet.** His first answer was richness × danger; the build talked him out of it on two
@@ -203,7 +205,11 @@ worlds are stripped, your fleet earns five percent of everything you have ever s
 Which is the point — exploration stops being an errand and becomes an income stat — and it is also the
 thing most likely to be wrong, which is why §9 exists.
 
-### 2.5 Sizing: `BASE_PRICED = 1,450`, derived rather than chosen
+### 2.5 Sizing: `BASE_PRICED = 5,800`, derived rather than chosen — and re-derived once
+
+> **Superseded at 0.11.2 (issue #68).** The constant was 1,450 from 0.10.0 to 0.11.1 and the
+> derivation below is kept in full, because what changed is not the arithmetic but **its subject**.
+> Read 2.5.1 for the substitution and the sweep that sized it.
 
 Davide, asked for a number, gave a rule instead: *"I would expect a regular ship to take two rounds or
 a whole day to deplete a planet, the ship capacity (a basic one) is never more than the planet
@@ -241,6 +247,85 @@ What §9 must still watch: a single hull needs **20 metal deposits — about fou
 run indefinitely**. Four hulls need roughly sixteen systems. That is affordable (a probe is 150 metal,
 flat, and probes fly in parallel), but it is a lot of *taps*, and the 5–10 minute check-in rule is
 what it would be spent against.
+
+### 2.5.1 The re-derivation: the rule's subject was a ship, and the fleet outgrew it
+
+Davide, 2026-08-15, having played 0.11.0: *"I'm so much out of planets to gather resources from, I
+think we set the resource limit way too low!"*
+
+**Two of his own calls composed into it, and the second one changed the first one's premise.** The
+constant above is a statement about *one basic ship*, and it was true when one ship was the fleet.
+Then 0.10.1 made the hull price flat — his call, on *"Why is skiff pricing increasing at every buy?
+This is wrong"* — which deleted the game's only ceiling on hull count. Nothing re-derived the cap
+against what now arrives at a world, and the measured manifest is **nine hulls by hour 48**. At seven
+hulls a richness-1.0 doorstep world is stripped in 3h 27m and its daily refill is ten minutes of
+fleet time. That is "out of planets", to the unit.
+
+**His ruling: re-derive the cap against a fleet.** *"The successor rule ('a typical fleet takes about
+two runs') puts `BASE_PRICED` around 4–6× the current 1,450; sweep before any number ships, reading
+'worth-it worlds standing at hour 48 for a 3h-rung player'. Refill stays at 5%/day unless the sweep
+says otherwise."*
+
+**The substitution is the whole change.** Four skiffs on a 24h run lift 4 × 1,418 = 5,672 priced
+units, so at 5,800 the doorstep takes **1.02 days**, or **2.07 runs at the 12h window** — the same two
+decimals the original derivation landed, one manifest along. And the invariant §2.2 pays for is
+untouched and merely renamed: `workingTime` for the four-hull manifest is still **1,450 minutes** at
+every richness and every danger. What moved is the lone hull, which now takes four days rather than
+one.
+
+#### The sweep, and why 4× rather than 6×
+
+The decided reading, `:sim:run`, hour 48, six check-ins a day, hulls bought before buildings — which
+is the complainant's purchase order rather than the fortnight table's:
+
+| cap | | hulls | reachable | worth it | hulls fed | priced standing |
+|---|---|---|---|---|---|---|
+| 1,450 | 1× | 9 | 6 | **3** | 19 | 2,841 |
+| 2,900 | 2× | 9 | 6 | **5** | 69 | 10,281 |
+| 4,350 | 3× | 9 | 6 | **6** | 123 | 18,315 |
+| **5,800** | **4×** | 9 | 6 | **6** | **172** | **26,203** |
+| 7,250 | 5× | 9 | 6 | **6** | 224 | 34,214 |
+| 8,700 | 6× | 9 | 6 | **6** | 275 | 42,236 |
+
+Three of six worlds standing at the shipped cap, against nine hulls in dock, is the complaint as a
+number. **The reading saturates at 3×, because reach bounds it at six worlds** — which is why the
+table carries `hulls fed` beside it, the standing stock over one hull's lift, summed: that column
+keeps moving after the count has stopped.
+
+So the decided reading does not distinguish 4× from 6×, and the counterweight does. The share of
+dispatches the *vein* stops rather than the fleet, over a fortnight:
+
+| cap | clamped | veins held in the save | fleet metal as a share of colony metal |
+|---|---|---|---|
+| 1,450 | 48.8% | 136 | 15.3% |
+| 2,900 | 29.0% | 116 | — |
+| 4,350 | 17.3% | 131 | — |
+| **5,800** | **12.1%** | **126** | **29.1%** |
+| 7,250 | 8.6% | 24 | — |
+| 8,700 | 7.7% | 24 | — |
+
+**Round 24 rejected 1,000 from below; this is the same veto from above.** A cap deep enough to drive
+`clamped` toward zero has not tuned the mechanic Davide asked for in 0.10.0, it has deleted it — §9's
+fourth veto, *"the wall never arrives for an engaged player"*, is exactly this failure. 4× is the
+bottom of the band he named, and it is the only rung in that band where the vein still binds on one
+dispatch in eight.
+
+**It also clears a veto the shipped cap was failing.** §9's first reading — fleet income at or above
+~25% of colony income — read **15.3%** at 1,450 and reads **29.1%** at 5,800. The fleet had quietly
+stopped being worth owning, and nobody was reading that row because the complaint arrived as
+*"out of planets"* rather than as *"the fleet is pointless"*. They are the same defect.
+
+**Refill stays at 5%/day**, per his instruction and because the sweep gives no reason to move it: the
+10% rows change income and barely touch `clamped`, and raising it works directly against the stated
+intent that going back to the same world soon is never the answer.
+
+#### What this does not fix, stated so the next round does not re-measure it
+
+**Reach.** The 3h-rung player still reaches **six worlds** at every cap in the grid, and the 6h player
+still clamps 58.6% of their dispatches at the shipped one. A deeper vein multiplies what those six
+hold — their metal-a-day goes 480 → 1,955 — and it cannot make a seventh exist. That is dial 3, the
+drive technology, tracked as issue #71 and named in §11 since 0.10.0. **Anyone reading this section
+as evidence that the cap fixed the frequent player's map has misread it.**
 
 ---
 

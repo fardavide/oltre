@@ -24,8 +24,8 @@ class DepositBalanceTest {
         val world = world(at = at(2, 125, 8), hazards = emptySet())
 
         // then — priced at the game's own 1 : 2 basket, so the two deposits are worth the same
-        assertEquals(1_450, DepositBalance.cap(world, ResourceKind.METAL, danger = 0))
-        assertEquals(725, DepositBalance.cap(world, ResourceKind.CRYSTAL, danger = 0))
+        assertEquals(5_800, DepositBalance.cap(world, ResourceKind.METAL, danger = 0))
+        assertEquals(2_900, DepositBalance.cap(world, ResourceKind.CRYSTAL, danger = 0))
     }
 
     @Test
@@ -33,8 +33,8 @@ class DepositBalanceTest {
         val rich = world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 1_600_000)
         val poor = world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 600_000)
 
-        assertEquals(2_320, DepositBalance.cap(rich, ResourceKind.METAL, danger = 0))
-        assertEquals(870, DepositBalance.cap(poor, ResourceKind.METAL, danger = 0))
+        assertEquals(9_280, DepositBalance.cap(rich, ResourceKind.METAL, danger = 0))
+        assertEquals(3_480, DepositBalance.cap(poor, ResourceKind.METAL, danger = 0))
     }
 
     @Test
@@ -42,9 +42,9 @@ class DepositBalanceTest {
         val world = world(at = at(1, 125, 8), hazards = emptySet())
 
         // then — the whole point of the sheet's 2.2: the cap carries the multiplier the rate carries.
-        assertEquals(1_450, DepositBalance.cap(world, ResourceKind.METAL, danger = 0))
-        assertEquals(1_957, DepositBalance.cap(world, ResourceKind.METAL, danger = 1))
-        assertEquals(3_987, DepositBalance.cap(world, ResourceKind.METAL, danger = 5))
+        assertEquals(5_800, DepositBalance.cap(world, ResourceKind.METAL, danger = 0))
+        assertEquals(7_830, DepositBalance.cap(world, ResourceKind.METAL, danger = 1))
+        assertEquals(15_950, DepositBalance.cap(world, ResourceKind.METAL, danger = 5))
     }
 
     @Test
@@ -68,10 +68,11 @@ class DepositBalanceTest {
     // ── The invariant the whole design leans on ──────────────────────────────────────────────
 
     @Test
-    fun `one skiff strips any world in the same time wherever it is`() {
-        // Davide's rule as a test — "a regular ship takes two rounds or a whole day to deplete a
-        // planet" — and Design's reason for putting `working` on the legs line: the cap and the rate
-        // carry one multiplier, so this holds at every richness and every danger.
+    fun `a four skiff fleet strips any world in the same time wherever it is`() {
+        // Davide's rule as a test, with its subject re-derived at issue #68 — *"a typical fleet takes
+        // about two runs"*, where it used to read *"a regular ship"*. Four hulls is the manifest that
+        // fixes the constant, and the invariant is untouched by the change: the cap and the rate carry
+        // one multiplier, so this holds at every richness and every danger.
         val cases = listOf(
             world(at = at(2, 125, 8), hazards = emptySet()) to 0,
             world(at = at(2, 125, 8), hazards = emptySet(), metalPerMillion = 1_600_000) to 0,
@@ -79,7 +80,7 @@ class DepositBalanceTest {
             world(at = at(2, 200, 8), hazards = setOf(Hazard.ION_STORMS)) to 2,
             world(at = at(1, 125, 8), hazards = setOf(Hazard.ION_STORMS, Hazard.THIN_CRUST)) to 5,
         )
-        val one = Ships.of(ShipType.SKIFF, 1)
+        val fleet = Ships.of(ShipType.SKIFF, 4)
 
         for ((world, danger) in cases) {
             val cap = DepositBalance.cap(world, ResourceKind.METAL, danger = danger)
@@ -88,7 +89,7 @@ class DepositBalanceTest {
                 DepositBalance.workingTime(
                     world = world,
                     gathering = ResourceKind.METAL,
-                    ships = one,
+                    ships = fleet,
                     danger = danger,
                     research = Research.initial(),
                     remaining = cap,
@@ -99,20 +100,40 @@ class DepositBalanceTest {
     }
 
     @Test
-    fun `four skiffs strip a full world in a quarter of the time`() {
+    fun `a lone skiff now needs four days rather than one`() {
+        // The cost of re-deriving the rule against a fleet, stated rather than discovered: the hull
+        // that used to empty a doorstep world in a day is a quarter of the manifest the cap is now
+        // sized for, so on its own it takes four times as long.
         val world = world(at = at(2, 125, 8), hazards = emptySet())
         val cap = DepositBalance.cap(world, ResourceKind.METAL, danger = 0)
 
-        // 1,450 / 4 = 362.5 minutes, and a partial minute still has to be worked
         assertEquals(
-            363.minutes,
+            5_800.minutes,
             DepositBalance.workingTime(
                 world = world,
                 gathering = ResourceKind.METAL,
-                ships = Ships.of(ShipType.SKIFF, 4),
+                ships = Ships.of(ShipType.SKIFF, 1),
                 danger = 0,
                 research = Research.initial(),
                 remaining = cap,
+            ),
+        )
+    }
+
+    @Test
+    fun `a partial minute of work is still a minute on the surface`() {
+        val world = world(at = at(2, 125, 8), hazards = emptySet())
+
+        // 1,000 priced units at three hulls is 333.3 minutes, and the third of a minute is worked
+        assertEquals(
+            334.minutes,
+            DepositBalance.workingTime(
+                world = world,
+                gathering = ResourceKind.METAL,
+                ships = Ships.of(ShipType.SKIFF, 3),
+                danger = 0,
+                research = Research.initial(),
+                remaining = 1_000,
             ),
         )
     }
@@ -162,17 +183,16 @@ class DepositBalanceTest {
 
     @Test
     fun `a world puts back five percent of its cap a day`() {
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        // 5% of 1,450 is 72.5 units, which is exact in fine units and would not be in whole ones —
-        // the reason a deposit is stored the way a stock is.
-        assertEquals(261_000_000, DepositBalance.regenerated(0, capFine, 1.days))
-        assertEquals(1_305_000_000, DepositBalance.regenerated(0, capFine, 5.days))
+        // 5% of 5,800 is 290 units a day, and twenty of those days is the whole vein.
+        assertEquals(1_044_000_000, DepositBalance.regenerated(0, capFine, 1.days))
+        assertEquals(5_220_000_000, DepositBalance.regenerated(0, capFine, 5.days))
     }
 
     @Test
     fun `a world is full again after twenty days and never more than full`() {
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
         assertEquals(capFine, DepositBalance.regenerated(0, capFine, 20.days))
         assertEquals(capFine, DepositBalance.regenerated(0, capFine, 200.days))
@@ -184,7 +204,7 @@ class DepositBalanceTest {
         // The deposit moves only when a run is dispatched — `advance` never writes it — so refill is
         // always one division from a single anchor to now. That is what keeps it exact: floors do not
         // telescope and a chained version would drift a fine unit per span.
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
         assertEquals(
             DepositBalance.regenerated(0, capFine, 11.hours),
@@ -196,14 +216,14 @@ class DepositBalanceTest {
     fun `a stored stock above its cap is clamped rather than carried`() {
         // What keeps BASE_PRICED a number Davide can still move: lower the cap and every save is
         // consistent on the next read instead of needing a migration.
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
         assertEquals(capFine, DepositBalance.regenerated(capFine * 3, capFine, 0.hours))
     }
 
     @Test
     fun `a century of absence fills a world and overflows nothing`() {
-        val capFine = 3_987L * Resources.FINE_PER_UNIT
+        val capFine = 15_950L * Resources.FINE_PER_UNIT
 
         assertEquals(capFine, DepositBalance.regenerated(0, capFine, (365 * 100).days))
         assertEquals(0, DepositBalance.regenerated(0, capFine, 0.minutes))
@@ -213,34 +233,34 @@ class DepositBalanceTest {
 
     @Test
     fun `a world already holding what was asked for is worth visiting now`() {
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
         assertEquals(Duration.ZERO, DepositBalance.timeUntil(capFine, capFine, wanted = 900))
-        assertEquals(Duration.ZERO, DepositBalance.timeUntil(capFine, capFine, wanted = 1_450))
+        assertEquals(Duration.ZERO, DepositBalance.timeUntil(capFine, capFine, wanted = 5_800))
     }
 
     @Test
     fun `an emptied world names when it will hold the ask again`() {
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        // 5% of 1,450 is 72.5 a day, so 725 units is ten days and 1,450 is twenty.
-        assertEquals(10.days, DepositBalance.timeUntil(0, capFine, wanted = 725))
-        assertEquals(20.days, DepositBalance.timeUntil(0, capFine, wanted = 1_450))
+        // 5% of 5,800 is 290 a day, so 2,900 units is ten days and 5,800 is twenty.
+        assertEquals(10.days, DepositBalance.timeUntil(0, capFine, wanted = 2_900))
+        assertEquals(20.days, DepositBalance.timeUntil(0, capFine, wanted = 5_800))
     }
 
     @Test
     fun `an ask no world could ever hold is never`() {
         // Design's finding, and the reason the dispatch sheet's controls stay live in the waiting
         // state: a full fleet's lift is about the size of a vein, so the ask has to be able to shrink.
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
-        assertNull(DepositBalance.timeUntil(0, capFine, wanted = 1_451))
+        assertNull(DepositBalance.timeUntil(0, capFine, wanted = 5_801))
     }
 
     @Test
     fun `a small ask of a nearly empty world is minutes rather than days`() {
-        // The tier this state usually sits in: a whole unit comes back every twenty minutes.
-        val capFine = 1_450L * Resources.FINE_PER_UNIT
+        // The tier this state usually sits in: a whole unit comes back every five minutes.
+        val capFine = 5_800L * Resources.FINE_PER_UNIT
 
         val wait = DepositBalance.timeUntil(0, capFine, wanted = 1)
         assertEquals(true, wait!! < 1.hours, "$wait")

@@ -3109,7 +3109,13 @@ private class DepositTuning(val basePriced: Long, val refillPercent: Long) {
     val label: String get() = "$basePriced · ${refillPercent}%/day"
 }
 
-private val DEPOSIT_CANDIDATES: List<Long> = listOf(1_000L, 1_200L, 1_450L, 2_000L, 2_500L).also {
+// **The ladder is Davide's multiple rather than a geometric series**, and it moved once. Round 24
+// swept {1,000 … 2,500} around a cap derived for *one ship*; issue #68 re-derived the rule against a
+// *fleet* — *"a typical fleet takes about two runs"* — which puts the answer at 4–6× of 1,450. So the
+// grid runs the incumbent and then 2× through 6×, and the two rows below 1,450 are gone: round 24
+// measured 1,000 and rejected it, and re-printing a settled rejection every run is a row nobody reads.
+// The floor it established still binds and is stated in the sheet's 2.5.
+private val DEPOSIT_CANDIDATES: List<Long> = listOf(1_450L, 2_900L, 4_350L, 5_800L, 7_250L, 8_700L).also {
     check(DepositBalance.BASE_PRICED in it) {
         "the sweep must contain the shipped cap ${DepositBalance.BASE_PRICED}"
     }
@@ -3165,6 +3171,31 @@ private class Veins(private val tuning: DepositTuning, private val state: GameSt
 
 private class DepositDay(var metal: Long = 0, var crystal: Long = 0, var dispatches: Int = 0, var clamped: Int = 0)
 
+// **The reading issue #68 decides on, and it is a count of worlds rather than an income.** Davide's
+// complaint was *"I'm so much out of planets to gather resources from"*, which no income row can
+// answer: a fleet that strips six worlds in an hour and then idles for twenty-three earns a
+// respectable daily figure and still leaves the player with nothing to tap. What says it is the
+// standing count — how many of the worlds within the player's reach still hold a hull's worth.
+//
+// **`worthIt` is one hull's lift at the player's own rung**, which is the smallest unit of dispatch
+// the spread strategy ever sends, and it needs no new constant: a world holding less than that sends
+// a hull out for a whole window to come home part-empty. `reachable` is the denominator — every
+// surveyed world the rung can actually get to — so the pair reads as *how much of my map is still
+// worth flying to*, and `hulls` beside it is what the answer has to feed.
+//
+// **`hullsFed` is there because `worthIt` saturates and the complaint does not.** Reach bounds the
+// count at six worlds on this rung, so every cap deep enough to keep the doorstep standing reads an
+// identical 6 — and a column that stops moving stops deciding. What still moves is how many hulls
+// those six can fill: `floor(remaining / one hull's lift)`, summed. Read the two together as *how
+// many worlds are worth a visit* and *how much of my fleet can go on it*.
+private class Standing(
+    val hulls: Int,
+    val reachable: Int,
+    val worthIt: Int,
+    val hullsFed: Int,
+    val pricedStanding: Long,
+)
+
 private class DepositOutcome(
     val days: List<DepositDay>,
     val entriesHeld: Int,
@@ -3172,6 +3203,7 @@ private class DepositOutcome(
     val targetsReached: Int,
     val colonyMetalPerDay: Long,
     val colonyCrystalPerDay: Long,
+    val standing: Standing?,
 )
 
 // One player, fourteen days, spreading one hull per world — which is the strategy the sheet's §4.1
@@ -3188,6 +3220,17 @@ private fun depositRun(
     // gathers metal for almost the whole fortnight. `printFleetReport` needed the same escape hatch
     // for the same reason and for the same currency.
     forceGathering: ResourceKind? = null,
+    // The hour to photograph the map at, or null for none. Taken at that hour's check-in **after the
+    // hulls are bought and before this visit's dispatches**, which is the instant the player is
+    // actually looking at the screen and asking where to send them.
+    standingAtHour: Int? = null,
+    // **The complainant's purchase order.** The default here is *hulls from what is left*, which is
+    // what every fortnight row below has always measured; but the player who reported being out of
+    // planets is by construction the one who buys hulls, and round 25's bracket says which rule that
+    // player follows — **one hull before the buildings, at most one a check-in**. `fleetRun` states
+    // the reasoning: buying first is the pessimistic ordering, so what the fleet costs the colony
+    // shows up in the level count rather than hiding behind a full queue.
+    hullsFirst: Boolean = false,
 ): DepositOutcome {
     var state = GameState.initial(GalaxySeed(SIM_GALAXY_SEED))
     val genesis = Instant.fromEpochMilliseconds(0)
@@ -3199,6 +3242,7 @@ private fun depositRun(
     val checkIns = offsets.toSet()
     var shortOfCrystal = false
     val targets = mutableSetOf<GalaxyCoordinate>()
+    var standing: Standing? = null
 
     for (hour in 0 until days * 24) {
         val at = genesis + hour.hours
@@ -3216,6 +3260,7 @@ private fun depositRun(
         probeTargetFor(state, gapMinutes)?.let { target ->
             (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
         }
+        if (hullsFirst) state = buyOneHull(state, fleet, at = now) ?: state
         for ((building, cost) in optionsFor(state, FULL_PLAN, withProjects = true).buildings) {
             if (!state.resources.covers(cost)) continue
             (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
@@ -3230,12 +3275,17 @@ private fun depositRun(
                         ?.let { state = it.state }
             }
         }
-        while (true) {
-            state = buyOneHull(state, fleet, at = now) ?: break
+        if (!hullsFirst) {
+            while (true) {
+                state = buyOneHull(state, fleet, at = now) ?: break
+            }
         }
 
         val gathering = forceGathering ?: if (shortOfCrystal) ResourceKind.CRYSTAL else ResourceKind.METAL
         val window = windowFor(WindowPolicy.HOME_WHEN_I_LOOK, gapMinutes)
+        if (hour == standingAtHour) {
+            standing = standingAt(state, window, gathering, fleet, veins, hour)
+        }
         val idle = state.ships.countOf(ShipType.SKIFF)
         val manifests = if (spread) List(idle) { 1 } else listOf(idle)
         for (hulls in manifests) {
@@ -3270,6 +3320,57 @@ private fun depositRun(
         colonyMetalPerDay = PlaceholderBalance.effectiveMetalProductionPerHour(state.buildings, state.research) * 24,
         colonyCrystalPerDay =
             PlaceholderBalance.effectiveCrystalProductionPerHour(state.buildings, state.research) * 24,
+        standing = standing,
+    )
+}
+
+// The map as the player meets it at one check-in: every surveyed world the chosen rung can reach, and
+// how many of them still hold what a single hull would lift there.
+//
+// **It asks `bestVein`'s own questions in `bestVein`'s own order** — the same reachability filter, the
+// same `cargoAt`, the same `veins.remaining` — because a standing count derived from a second reading
+// of the map would be measuring the harness rather than the game.
+private fun standingAt(
+    state: GameState,
+    window: Duration,
+    gathering: ResourceKind,
+    fleet: FleetTuning,
+    veins: Veins,
+    hour: Int,
+): Standing {
+    val home = state.galaxy.home
+    val one = Ships.of(ShipType.SKIFF, 1)
+    var reachable = 0
+    var worthIt = 0
+    var hullsFed = 0
+    var pricedStanding = 0L
+    for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
+        if (target == home || state.galaxy.holderOf(target) != null) continue
+        val world = worldAt(state.galaxy.seed, target) ?: continue
+        if (window !in FleetBalance.windowsFor(home, target)) continue
+        reachable++
+        val station = FleetBalance.stationFor(home, target, window)
+        val lift = cargoAt(
+            fleet,
+            world,
+            gathering,
+            one,
+            station,
+            FleetBalance.danger(home, world),
+            state.research,
+        ).of(gathering)
+        val inTheGround = veins.remaining(target, gathering, hour, home)
+        pricedStanding += inTheGround * if (gathering == ResourceKind.METAL) 1L else 2L
+        if (lift <= 0) continue
+        if (inTheGround >= lift) worthIt++
+        hullsFed += (inTheGround / lift).toInt()
+    }
+    return Standing(
+        hulls = ownedSkiffs(state),
+        reachable = reachable,
+        worthIt = worthIt,
+        hullsFed = hullsFed,
+        pricedStanding = pricedStanding,
     )
 }
 
@@ -3328,6 +3429,46 @@ private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.DEUTERIUM -> deuterium
 }
 
+// **The reading issue #68 says decides the cap**, printed first because it is the one the decision
+// turns on: *"how many worth-it worlds a 3h-rung player has standing at hour 48, not total income."*
+//
+// Hour 48 because that is where the fleet first outgrows the map — the manifest is already several
+// hulls by then — and the 3h rung because that player is the one the complaint came from: the window
+// decides reach, and a three-hour absence reaches the doorstep and nothing else.
+private fun printStandingTable() {
+    println("### Worth-it worlds standing at hour 48, on the 3h rung — **the reading that decides**")
+    println()
+    println("Every surveyed world the 3h rung can reach, and how many of them still hold what one hull")
+    println("would lift there. `hulls` is what that has to feed: a fleet larger than the standing count")
+    println("is a check-in with idle hulls and nowhere to send them, which is the complaint verbatim.")
+    println()
+    println("| cap | ×1,450 | hulls | reachable | worth it | hulls fed | priced standing | clamped |")
+    println("|---|---|---|---|---|---|---|---|")
+    for (base in DEPOSIT_CANDIDATES) {
+        val tuning = DepositTuning(basePriced = base, refillPercent = DepositBalance.REFILL_PERCENT_PER_DAY)
+        val out = depositRun(
+            tuning,
+            days = 3,
+            checkInHours = FREQUENT_CHECK_IN_HOURS,
+            standingAtHour = 48,
+            hullsFirst = true,
+        )
+        val row = out.standing ?: continue
+        val mark = if (tuning.isShipped) " **" else ""
+        println(
+            "| ${base.grouped()}$mark | ${base / 1_450}× | ${row.hulls} | ${row.reachable} | " +
+                "**${row.worthIt}** | ${row.hullsFed} | ${row.pricedStanding.grouped()} | " +
+                "${share(out.days.sumOf { it.clamped }.toLong(), out.days.sumOf { it.dispatches }.toLong())} |",
+        )
+    }
+    println()
+    println("`hulls fed` is the standing stock divided by one hull's lift, summed — so it is a *stock*")
+    println("against a demand of `hulls` × six check-ins a day, and it keeps moving after `worth it`")
+    println("has saturated at reach. `clamped` here is only these three days and reads near zero for")
+    println("any deep cap because the fleet is still small; **the counterweight to read is the")
+    println("fortnight's `clamped` below**, which is what says whether the vein still binds at all.")
+}
+
 // The report §9 asks for, and the four readings that would veto the numbers. Each names the dial to
 // move, because a veto that only says "wrong" sends the next round back to the same grid.
 private fun printDepositReport() {
@@ -3342,6 +3483,10 @@ private fun printDepositReport() {
     println("zero because the bot gathers crystal only while the colony is short of it, and at four")
     println("check-ins a day this colony rarely is.** A crystal reading wants a forced-currency row the")
     println("way §4's binding row did; until then, read the crystal column as absent rather than as low.")
+    println()
+    printStandingTable()
+    println()
+    println("### The fortnight, for what the cap does to income")
     println()
     println("| cap · refill | d1 metal | d7 metal | d14 metal | d14 crystal | clamped | veins held | systems |")
     println("|---|---|---|---|---|---|---|---|")
