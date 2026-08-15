@@ -99,10 +99,11 @@ class GameSaveTest {
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
-                // The fleet, in the two keys schema 8 traded `returningFleet` for: the idle pool,
-                // which opens holding the one granted skiff, and the runs in flight, which at
-                // genesis are none.
-                """"ships":{"counts":{"SKIFF":1}},"runs":[],""" +
+                // The fleet, in the two keys schema 8 traded `returningFleet` for: the idle pool and
+                // the runs in flight, both empty at genesis. The pool held one skiff until 0.11.3 —
+                // a colony now buys its first hull, so what a fresh save records about the fleet is
+                // that there is not one.
+                """"ships":{"counts":{}},"runs":[],""" +
                 // The slipway, which schema 10 added as one hop. Empty at genesis and on every
                 // colony saved before hulls took time to make — every one of those was handed its
                 // hull in the same call it paid for it, so there is nothing on disk to fold in.
@@ -163,7 +164,8 @@ class GameSaveTest {
 
         assertEquals(snapshot, decoded)
         assertEquals(listOf(ShipType.SKIFF, ShipType.SKIFF), decoded.state.yard.map { it.ship })
-        assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
+        // The pool is still empty on the far side: an ordered hull is on the slipway, not in hand.
+        assertEquals(Ships.NONE, decoded.state.ships)
     }
 
     @Test
@@ -355,11 +357,12 @@ class GameSaveTest {
         ).snapshot
         val resumed = advance(reloaded.state, from = reloaded.lastUpdatedAt, to = returnsAt + 1.minutes)
 
-        // then — the hold is credited and the hulls are back in the pool
+        // then — the hold is credited and the hulls are back in the pool, which was empty before the
+        // run landed because genesis grants none
         assertEquals(emptyList(), resumed.runs)
         assertTrue(resumed.eventLog.any { it is Event.FleetReturned })
         assertTrue(resumed.resources.metal >= CARGO_METAL)
-        assertEquals(Ships(mapOf(ShipType.SKIFF to 15, ShipType.HAULER to 1)), resumed.ships)
+        assertEquals(Ships(mapOf(ShipType.SKIFF to 14, ShipType.HAULER to 1)), resumed.ships)
     }
 
     @Test
@@ -848,7 +851,11 @@ class GameSaveTest {
         // 0.11.0**, which landed pins — and note what keeps this honest: the version this subtracts
         // *from* has to move with `SCHEMA_VERSION`, or the replace silently stops matching and the
         // fixture is a current save claiming to be old.
-        val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        // The hull is put in the pool explicitly. It used to arrive with `initial`, and once genesis
+        // stopped granting one the assertion at the bottom would have read an empty pool against an
+        // empty pool and passed without touching the thing it is about.
+        val owned = GameState.initial().copy(ships = Ships.of(ShipType.SKIFF, 1))
+        val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = owned))
             .replace(""""schemaVersion":12""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
             .replace(""","deposits":[]""", "")

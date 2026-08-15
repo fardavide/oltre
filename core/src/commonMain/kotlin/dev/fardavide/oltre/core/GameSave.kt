@@ -158,18 +158,26 @@ object GameSave {
         // 7 -> 8: the fleet. Two keys added, one removed, and one rewrite inside the event log —
         // the deepest hop in the table, and the first that is not purely additive.
         //
-        // **The granted skiff is a deliberate gift, and it settles a call the sheet left in two
-        // places.** Every other hop writes the truthful zero for a thing that did not exist, and by
-        // that standard this should write an empty pool. It does not, because when this hop was
-        // written there was no way to *buy* a hull — so a zero pool would have handed an existing
-        // colony a verb it cannot use and a Galaxy tab that still does nothing. One skiff is what a
-        // colony founded a moment later gets, so this is the migration handing back the colony the
-        // player would have had rather than inventing an asset.
+        // **The granted skiff is a deliberate gift, it is the only one in the table, and it stays.**
+        // Every other hop writes the truthful zero for a thing that did not exist, and by that
+        // standard this should write an empty pool. It does not, because when this hop was written
+        // there was no way to *buy* a hull — so a zero pool would have handed an existing colony a
+        // verb it cannot use and a Galaxy tab that still does nothing. One skiff was what a colony
+        // founded a moment later got, so this was the migration handing back the colony the player
+        // would have had rather than inventing an asset.
         //
-        // `buildShips` landed at 0.8.0 and **the hop does not move**, which is worth stating rather
-        // than leaving to be noticed. A migration is a record of what a save was carried through,
-        // not a statement about the build reading it: rewriting this to an empty pool now would
-        // silently confiscate a skiff from every colony that has already been migrated past 8.
+        // **Both halves of that argument have now expired and the hop still does not move.** The
+        // first went at 0.8.0, when `buildShips` gave the pool a way to fill itself; the second went
+        // at 0.11.3, when genesis stopped granting a hull at all — so this line no longer matches
+        // what a new colony receives, and it is the one hop in the table that is out of step with
+        // `GameState.initial` on purpose.
+        //
+        // The reason is that a migration is a record of what a save was carried through, not a
+        // statement about the build reading it. Every colony that has already been opened by a build
+        // at schema 8 or later holds this skiff, and no later hop takes an asset back; rewriting
+        // this to an empty pool would confiscate a hull from all of them to make a comment tidy. The
+        // only saves it still reaches are ones written before 0.7.2 and not opened since, and
+        // granting those a hull is a smaller wrong than the alternative — see `fleet-sheet.md` §9.
         //
         // **`returningFleet` is dropped and its cargo credited, not folded into a run.** The
         // temptation is to turn it into a `FleetRun`, and it is wrong: the old `origin` is an

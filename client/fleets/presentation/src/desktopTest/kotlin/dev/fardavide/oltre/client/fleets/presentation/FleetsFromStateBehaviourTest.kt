@@ -51,12 +51,16 @@ class FleetsFromStateBehaviourTest {
 
     @Test
     fun `a colony with nothing out says so through the real mapper`() {
+        // **The genesis reading, and since 0.11.3 it is "0 of 0" rather than "0 of 1"** — the colony
+        // has bought no hull yet, so the tab's counter is honest about a fleet that does not exist
+        // rather than about one that is merely at home. The empty-state copy is unchanged and does
+        // the work either way: what is out is nothing, whatever is owned.
         val fresh = GameState.initial(SEED)
 
         fleets(uiState = fresh.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC)) {
             assertHasNoRun(0)
             assertReads("Nothing is out.")
-            assertReads("0 of 1 away")
+            assertReads("0 of 0 away")
         }
     }
 
