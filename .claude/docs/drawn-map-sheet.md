@@ -332,6 +332,32 @@ The check-in test is separate and stricter: **finding a place to send the next p
 drag and one tap**, and the map should be a worse place to loiter than the ledger ever was. Nothing on
 it rewards being looked at twice.
 
+### It came back unprompted on 2026-08-16, and on a different axis than this section predicted
+
+Davide, on the TestFlight build, with nobody asking:
+
+> The last map rework is working great by the way! I really feel like a sense of progression, and the
+> named system is also very nice! I don't remember their names but:
+> - I can see *"oh, this is the area I unlocked with my own actions"*
+> - *"ah yes, [system A] is the last one I gathered resources from! Let me go there again and see
+>   whether it still has resources"*
+
+**Neither sentence is one of the four**, and no report has yet read a *distance* off the fold — so the
+four-things test above is **unproven rather than passed**, and the band gap is untested as a lever.
+What arrived instead is **ownership and memory**: the map as a record of what the player did, and as a
+prompt to return. That is the identity layer of `galaxy-identity-sheet.md` — names, regions, a
+surveyed set that reads as territory — being *surfaced* by the fold rather than the fold's own
+legibility claim paying off.
+
+Two things follow, and the second is why this is recorded here rather than only in `status.md`:
+
+1. **The second quote is the deposit loop closing.** *"Let me go there again and see whether it still
+   has resources"* is 0.10.0's refill designed and felt — a world you remember, whose state you want
+   to check. Nothing needs building for it; it is working.
+2. **A later slice that hides part of the map is judged on ownership, not legibility.** Fog was read
+   as a threat to this section on the assumption that the win was seeing where things are. It is not.
+   More of the map becoming *something you unlocked* runs with the grain of what actually landed.
+
 ---
 
 ## 9. Open, and Davide's

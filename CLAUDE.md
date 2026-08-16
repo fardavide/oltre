@@ -6,8 +6,10 @@ is the dev loop, multiplayer is the destination. v1 is local single-player vs sc
 
 ## Read first
 
-- `.claude/docs/brief.md` — distilled brief; links the Notion design page (**source of truth**;
-  agents read *and* write it — record what the build learned, never overwrite Davide's calls).
+- `.claude/docs/brief.md` — distilled brief; links the Notion design page. **Notion is the origin,
+  not the authority** (Davide, 2026-08-16: *"Notion stuff is now very ancient"*) — the decision
+  sheets in `.claude/docs/` and his live calls govern, and **no Notion number is a ceiling**. Never
+  block work on one; if Notion is the only source for something, it is unanswered, so ask.
 - `.claude/docs/architecture.md` + `.claude/docs/decisions.md` — before any non-trivial change.
 - `.claude/docs/balance-log.md` — before touching any balance number: what was already tried,
   what playing it felt like, what is still open. Add a round there whenever tuning lands.
@@ -82,6 +84,13 @@ Work that comes from an issue starts by **assigning that issue to `fardavide`** 
 taken. The assignee means *picked up*, never work handed to Davide. Already assigned is nothing to
 do; see the global `github-workflow` skill for the rest, including what to do when `gh` cannot
 reach it.
+
+**A ticket never buries a question** (Davide, 2026-08-15). When writing or updating an issue that
+ends on something only Davide can answer, either **ask him in the session** (preferred when he is
+present) or add the **`Needs info`** label, with the question stated plainly in the ticket. A ticket
+blocked on a Claude Design round trip carries **`Needs Design`** instead, with the ready-to-paste
+prompt in a `## Design prompt` section. The labels are the tracker's version of the reply rule that
+anything needing Davide's action must be impossible to miss.
 
 **Start from an up-to-date `main`, always** — `git fetch origin main` and branch from that, before
 the first edit. A branch cut from a stale local `main` rebases later at the worst moment, and on a

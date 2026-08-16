@@ -2,6 +2,22 @@
 
 ## Source of truth
 
+> **SUPERSEDED 2026-08-16 — Davide: *"Notion stuff is now very ancient."*** Read what follows as the
+> project's origin rather than as its authority. What governs now, in order: **his live calls**, the
+> **decision sheets in this folder** (`galaxy-sheet`, `adaptation-sheet`, `fleet-sheet`,
+> `exploration-rewards-sheet`, `deposit-sheet`, `galaxy-identity-sheet`, `drawn-map-sheet`), and the
+> records in `decisions.md` / `status.md` / `balance-log.md`. Those have overruled Notion repeatedly
+> and by design — that is what a sheet is for.
+>
+> **The practical rule, and the reason this note exists: never block work on a Notion lock.** A
+> planning session flagged a fifth `ShipType` as violating Notion's *"4 ship types"*, and the flag was
+> wrong — that list is a year-zero scope note, not a constraint anybody is still holding. If Notion
+> and a decision sheet disagree, the sheet wins and the Notion line is history. If Notion is the
+> *only* source for something, treat it as unanswered and **ask** rather than as decided.
+>
+> What survives unchanged: **design calls are still Davide's**, and inventing one is still forbidden.
+> That was never Notion's authority — it is his.
+
 The design lives in Notion: **👾 Game Projects → "Oltre"**
 `https://app.notion.com/p/3b383937c1be81af9036dce2ecaf7d57`
 
@@ -26,6 +42,9 @@ single-player against 3 scripted AI empires).
 
 v1 feature set (scoped on Notion): 3 resources, 6 buildings, 4 ship types, one research branch,
 large procedurally generated galaxy, 3 AI empires, local notifications, JSON snapshot save.
+
+**None of those counts is a ceiling** — see the supersession above. *4 ship types* in particular is
+already outgrown: a fifth, survey-only hull was called on 2026-08-16.
 
 ## Architecture invariants (decisions, not preferences)
 
