@@ -83,6 +83,13 @@ taken. The assignee means *picked up*, never work handed to Davide. Already assi
 do; see the global `github-workflow` skill for the rest, including what to do when `gh` cannot
 reach it.
 
+**A ticket never buries a question** (Davide, 2026-08-15). When writing or updating an issue that
+ends on something only Davide can answer, either **ask him in the session** (preferred when he is
+present) or add the **`Needs info`** label, with the question stated plainly in the ticket. A ticket
+blocked on a Claude Design round trip carries **`Needs Design`** instead, with the ready-to-paste
+prompt in a `## Design prompt` section. The labels are the tracker's version of the reply rule that
+anything needing Davide's action must be impossible to miss.
+
 **Start from an up-to-date `main`, always** — `git fetch origin main` and branch from that, before
 the first edit. A branch cut from a stale local `main` rebases later at the worst moment, and on a
 repo that squash-merges it is the difference between a clean diff and a PR that re-litigates commits

@@ -882,13 +882,29 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   in the suite agree with it. `DESTINATION_HEIGHT` is a measured figure now and the fold folds into
   whatever height it is given. **The general lesson: a screenshot taken without the chrome the screen
   actually lives inside is not a photograph of that screen.**
-- **Nobody has seen the fold on a device.** It is measured at both widths and it is inside the
-  geometry by construction, which is not the same as being readable: the pitch is 14.0dp at 393dp and
-  11.0dp at 320dp, and a star is 2.6–5.2dp across. The test the design set is whether a player can say
-  four things out loud after five seconds on the day-one frame — *I live in a dark region; the bright
-  places are three bands up and three bands down; I am near one end; that one is an hour away.* If
-  what comes back instead is "it looks like a spreadsheet of dots", **the lever is the band gap before
-  it is a different shape.**
+- ~~**Nobody has seen the fold on a device.**~~ — **held, 2026-08-16, and it works.** It is measured
+  at both widths and it is inside the geometry by construction, which is not the same as being
+  readable: the pitch is 14.0dp at 393dp and 11.0dp at 320dp, and a star is 2.6–5.2dp across. The test
+  the design set is whether a player can say four things out loud after five seconds on the day-one
+  frame — *I live in a dark region; the bright places are three bands up and three bands down; I am
+  near one end; that one is an hour away.* If what comes back instead is "it looks like a spreadsheet
+  of dots", **the lever is the band gap before it is a different shape.**
+  It did not come back as a spreadsheet of dots. Davide, unprompted, on the TestFlight build:
+  *"The last map rework is working great by the way! I really feel like a sense of progression, and
+  the named system is also very nice!"* — and, as the two things he could say about it: *"I can see
+  'oh, this is the area I unlocked with my own actions'"* and *"'ah yes, [system A] is the last one I
+  gathered resources from! Let me go there again and see whether it still has resources'."*
+  **What came back is not the axis the test was written on, and that is the finding.** §8 predicted
+  the win would be *spatial legibility* — where the bright places are, how far away one is. What
+  actually arrived is **ownership and memory**: the map as a record of what he did, and as a prompt to
+  go back. Neither of his sentences is one of the four. So the fold succeeded by carrying **0.11.0's
+  identity layer** — names, regions, a surveyed set that reads as territory — rather than by the
+  legibility claim the drawing was argued on. The band gap is not the lever it was expected to be, and
+  §8's four-things test should be read as unproven rather than as passed: nobody has yet reported
+  reading a *distance* off the fold.
+  Recorded because it points a live decision: **#84 (hide unexplored space) is judged against
+  ownership-and-memory, not against legibility.** Fog serves the axis that actually landed — more of
+  the map becomes something you unlocked — where it would have threatened the one §8 predicted.
 - **The caption's ghost dispatches a probe on one tap, for 150 metal.** That is the same verb the
   orbit page's footer has always had, but the footer is reached deliberately where the caption sits
   under a surface you scrub with a thumb. Davide's call whether it wants a confirmation.
