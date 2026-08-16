@@ -1,14 +1,13 @@
-package dev.fardavide.oltre.client.galaxy.presentation
+package dev.fardavide.oltre.client.dispatch.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toWaitLabel
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
-import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.RefuseActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.WindowRungUiState
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
+import dev.fardavide.oltre.client.dispatch.ui.WindowRungUiState
 import dev.fardavide.oltre.core.DepositBalance
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -24,7 +23,7 @@ import kotlin.time.Duration
 import kotlin.time.Instant
 
 // What the dispatch sheet offers, refuses and prices — everything on it that is a function of a
-// real world, a real fleet and a real deposit. The shapes it fills in are `:client:galaxy:ui`'s.
+// real world, a real fleet and a real deposit. The shapes it fills in are `:client:dispatch:ui`'s.
 
 
 // **What the player has touched, and nothing else.** Every field but the target is null until they
@@ -44,12 +43,23 @@ data class DispatchSelection(
     val window: Duration?,
 )
 
+// **The probe the unsurveyed refusal may hand back, priced by whoever knows how.** Three strings and
+// no verb: this module cannot price a survey and must not learn to, because the map card's footer
+// already decides whether a flight would be honoured — it is in flight, it is unaffordable, it has
+// landed — and a second copy of that decision here is a second place for the two to disagree about
+// one flight.
+//
+// So the caller passes what its own footer resolved, or null. **Null is the ordinary case from a
+// landing**: a world a fleet has already been sent to was surveyed in order to be dispatched to, and
+// `surveyed` is never removed — so the refusal this feeds is unreachable from the Fleets ledger.
+data class DispatchProbeOffer(val label: String, val cost: String, val flight: String)
+
 // Null when the target is not a target at all, which is the screen agreeing with `startRun` rather
 // than finding out afterwards: your own world, a world somebody holds, an empty slot and a relay all
 // refuse outright, so the row never offers a sheet the verb would throw away.
-internal fun GameState.toDispatchUiState(
+fun GameState.toDispatchUiState(
     selection: DispatchSelection,
-    probe: ProbeActionUiState,
+    probe: DispatchProbeOffer?,
     now: Instant,
 ): DispatchUiState? {
     val target = selection.at
@@ -64,11 +74,9 @@ internal fun GameState.toDispatchUiState(
             head = UNSURVEYED_HEAD,
             compactHead = UNSURVEYED_HEAD,
             title = "A hold cannot be priced from a world nobody has looked at.",
-            note = unsurveyedNote(at = SystemSelection(galaxy = target.galaxy, system = target.system), probe = probe),
-            // Only when the card above would honour it. The footer of the map card already decides
-            // whether a probe can be sent — it is in flight, it is unaffordable, it has landed — and
-            // a second copy of that decision here is a second place for the two to disagree.
-            action = (probe as? ProbeActionUiState.Dispatch)?.let { RefuseActionUiState.Probe(it.label) },
+            note = unsurveyedNote(at = target, probe = probe),
+            // Only when the caller's own footer would honour it — see `DispatchProbeOffer`.
+            action = probe?.let { RefuseActionUiState.Probe(it.label) },
         )
     }
 
@@ -391,16 +399,17 @@ private fun GameState.nextReturn(now: Instant): Long? {
     return (remainingMs + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND
 }
 
-// Reuses the probe footer's own count rather than recomputing it: the two sentences describe one
+// Reuses the probe footer's own price rather than recomputing it: the two sentences describe one
 // flight, and a system that holds five worlds must not be described as holding four here.
-private fun GameState.unsurveyedNote(at: SystemSelection, probe: ProbeActionUiState): String {
+//
+// **The target's own system, never the page's.** A survey covers all fifteen slots of the star the
+// world orbits, and the sheet is raised from rows belonging to six systems at once.
+private fun GameState.unsurveyedNote(at: GalaxyCoordinate, probe: DispatchProbeOffer?): String {
     val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM).count { slot ->
         worldAt(galaxy.seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)) != null
     }
     val plural = if (worlds == 1) "world" else "worlds"
-    val offer = (probe as? ProbeActionUiState.Dispatch)?.let { dispatch ->
-        " ${dispatch.offer.cost.amount} metal · ${dispatch.offer.flight}."
-    } ?: ""
+    val offer = probe?.let { " ${it.cost} metal · ${it.flight}." } ?: ""
     return "Richness and hazards need a survey. A probe surveys all " +
         "${GalaxyBalance.SLOTS_PER_SYSTEM} slots at once, and this system holds $worlds $plural.$offer"
 }
@@ -408,6 +417,17 @@ private fun GameState.unsurveyedNote(at: SystemSelection, probe: ProbeActionUiSt
 // "1h", "24h" — the rung is a window rather than a duration to be read, so it is written the short
 // way the ladder is spoken in.
 private fun Duration.rungLabel(): String = "${inWholeHours}h"
+
+// **A second copy of the one in `:client:galaxy:presentation`, and it has to be.** The sheet heads
+// itself with the address the row that raised it prints, and rule 5 stops two presentation modules
+// seeing each other — so what a shared home would cost is a feature module every feature depends on
+// for one line of string building. The two are pinned together by the frames rather than by an
+// import: a sheet raised from a row asserts the row's own coordinate.
+private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
+
+// Between the facts on a line, everywhere in the app. Duplicated for the reason above and cheap for
+// the same one.
+private const val SEPARATOR = " · "
 
 private fun ResourceKind.label(): String = when (this) {
     ResourceKind.METAL -> "metal"

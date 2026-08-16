@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.galaxy.ui
+package dev.fardavide.oltre.client.dispatch.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -32,6 +32,11 @@ import kotlin.time.Duration
 // Oltre is a list you scroll: a sheet exists here because a run is the one action with three inputs,
 // and three controls inside a 106dp row would be the row becoming a screen anyway.
 //
+// **It belongs to no tab, which is why it lives in a module of its own.** Galaxy raises it from a
+// world row; Fleets raises it from a landing, because the ledger of what came back is where a player
+// remembers which world was worth going to. Neither feature may see the other, so the sheet is
+// public here rather than internal to whichever tab happened to draw it first.
+//
 // Bring back, send, home in — in that order, because it is the order of decreasing permanence. What
 // your colony is short of changes over days, how many hulls you have changes over hours, and how
 // long you will be away changes every check-in. The figure sits under a rule and above the verb, and
@@ -44,7 +49,7 @@ import kotlin.time.Duration
 // and Research have had since the row sheet landed; the sheet in `DebugSheet` made and fixed the
 // same mistake at 0.2.6, which is why the shared component exists rather than a fourth copy.
 @Composable
-internal fun DispatchSheet(
+fun DispatchSheet(
     uiState: DispatchUiState,
     compact: Boolean,
     onDismiss: () -> Unit,
@@ -70,7 +75,7 @@ internal fun DispatchSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .testTag(GalaxyTestTags.SHEET)
+                .testTag(DispatchTestTags.SHEET)
                 // No top padding: the sheet's own drag handle is the space above the coordinate.
                 .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp),
@@ -171,7 +176,7 @@ private fun Offer(
             Stepper(
                 glyph = "−",
                 enabled = !uiState.atFewest,
-                tag = GalaxyTestTags.SHIPS_FEWER,
+                tag = DispatchTestTags.SHIPS_FEWER,
                 onClick = { onSelectShips(uiState.shipCount - 1) },
             )
             Text(
@@ -186,7 +191,7 @@ private fun Offer(
             Stepper(
                 glyph = "+",
                 enabled = !uiState.atMost,
-                tag = GalaxyTestTags.SHIPS_MORE,
+                tag = DispatchTestTags.SHIPS_MORE,
                 onClick = { onSelectShips(uiState.shipCount + 1) },
             )
         }
@@ -242,7 +247,7 @@ private fun Offer(
         Detail(text = if (compact) uiState.compactLegs else uiState.legs)
         Detail(text = if (compact) uiState.compactDanger else uiState.danger)
     }
-    Verb(label = "Dispatch", tag = GalaxyTestTags.SEND, primary = true, onClick = onDispatch)
+    Verb(label = "Dispatch", tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
 }
 
 @Composable
@@ -266,11 +271,11 @@ private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit)
     when (val action = uiState.action) {
         // The one refusal in the app that hands back a verb rather than a wait.
         is RefuseActionUiState.Probe ->
-            Verb(label = action.label, tag = GalaxyTestTags.SHEET_ACTION, primary = true, onClick = onDispatchProbe)
+            Verb(label = action.label, tag = DispatchTestTags.SHEET_ACTION, primary = true, onClick = onDispatchProbe)
         // A reading, not a control — the idiom the unaffordable probe already spends. It carries the
         // test tag anyway, so a test can tap it and assert that tapping it does nothing.
         is RefuseActionUiState.Waiting ->
-            Verb(label = action.label, tag = GalaxyTestTags.SHEET_ACTION, primary = false, onClick = {})
+            Verb(label = action.label, tag = DispatchTestTags.SHEET_ACTION, primary = false, onClick = {})
         null -> Unit
     }
 }
@@ -321,7 +326,7 @@ private fun Waiting(
             Stepper(
                 glyph = "−",
                 enabled = !uiState.atFewest,
-                tag = GalaxyTestTags.SHIPS_FEWER,
+                tag = DispatchTestTags.SHIPS_FEWER,
                 onClick = { onSelectShips(uiState.shipCount - 1) },
             )
             Text(
@@ -336,7 +341,7 @@ private fun Waiting(
             Stepper(
                 glyph = "+",
                 enabled = !uiState.atMost,
-                tag = GalaxyTestTags.SHIPS_MORE,
+                tag = DispatchTestTags.SHIPS_MORE,
                 onClick = { onSelectShips(uiState.shipCount + 1) },
             )
         }
@@ -369,7 +374,7 @@ private fun Waiting(
     // when no amount of waiting covers this ask, because a ghost carrying "never" would be worse than
     // the sentence above it, which says to ask for less.
     uiState.wait?.let { label ->
-        Verb(label = label, tag = GalaxyTestTags.SHEET_ACTION, primary = false, onClick = {})
+        Verb(label = label, tag = DispatchTestTags.SHEET_ACTION, primary = false, onClick = {})
     }
     Legs(legs = if (compact) uiState.compactLegs else uiState.legs)
     Legs(legs = if (compact) uiState.compactDanger else uiState.danger)
@@ -443,7 +448,7 @@ private fun GatherCard(
         modifier = modifier
             .border(1.dp, if (selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f), CONTROL_SHAPE)
             .background(if (selected) SELECTED_FILL else Color.Transparent, CONTROL_SHAPE)
-            .testTag(GalaxyTestTags.gather(kind))
+            .testTag(DispatchTestTags.gather(kind))
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -505,7 +510,7 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
             .height(32.dp)
             .border(1.dp, if (rung.selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f), CONTROL_SHAPE)
             .background(if (rung.selected) SELECTED_FILL else Color.Transparent, CONTROL_SHAPE)
-            .testTag(GalaxyTestTags.window(rung.window.inWholeMinutes))
+            .testTag(DispatchTestTags.window(rung.window.inWholeMinutes))
             .clickable(onClick = onClick),
     ) {
         Text(

@@ -55,6 +55,14 @@ include(":client:design:core")
 include(":client:design:format")
 include(":client:design:icon")
 include(":client:design:screenshot-testing")
+// The dispatch sheet, which belongs to no tab: Galaxy raises it from a world row and Fleets raises
+// it from a landing. Davide's call, 2026-08-13 — *"We absolutely do not put code in shell! I'd
+// suggest `client/dispatch/ui` with its UI state."* — so it is a directory of layer modules like a
+// feature, and `featureOf` in the root build script excludes it by name for `design`'s reason: it is
+// shared vocabulary every feature is meant to reach, and left in it would fire the cross-feature
+// warning on every clean build.
+include(":client:dispatch:presentation")
+include(":client:dispatch:ui")
 // The two tabs that stopped saying "nothing here yet" at 0.8.0. They ship together on purpose: a
 // shipyard that builds hulls with nowhere to send them is worse than the empty tab it replaces, and
 // a fleets tab is a list that can never have two rows until hulls go on sale.

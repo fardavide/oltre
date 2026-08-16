@@ -8,7 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.core.GalaxyBalance

@@ -1,10 +1,11 @@
-package dev.fardavide.oltre.client.galaxy.ui
+package dev.fardavide.oltre.client.dispatch.ui
 
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
-// Raised from a world row. Three controls, one figure — and **no cost line and no affordability
+// Raised from a world row on Galaxy, and from a landing on Fleets. Three controls, one figure — and
+// **no cost line and no affordability
 // state**, which is Design's fourth call and a subtraction rather than an omission: `FleetBalance`
 // charges nothing per run, so the sheet has nothing to be short of. The hull was the price and it is
 // paid at the Shipyard, where "cannot afford" is drawn in the idiom the probe and the facility rows

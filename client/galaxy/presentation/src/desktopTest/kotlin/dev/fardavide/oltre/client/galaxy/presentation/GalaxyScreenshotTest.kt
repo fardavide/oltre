@@ -11,9 +11,9 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.client.galaxy.ui.DESTINATION_HEIGHT
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -338,7 +338,7 @@ class GalaxyScreenshotTest {
             mainClock.autoAdvance = false
             setContent { OltreTheme { Surface { Page(uiState) } } }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
-            onNode(isRoot() and hasAnyDescendant(hasTestTag(GalaxyTestTags.SHEET))).captureRoboImage(
+            onNode(isRoot() and hasAnyDescendant(hasTestTag(DispatchTestTags.SHEET))).captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )

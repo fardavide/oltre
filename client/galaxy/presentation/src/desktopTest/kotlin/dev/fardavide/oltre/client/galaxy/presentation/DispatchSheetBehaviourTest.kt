@@ -2,7 +2,7 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState

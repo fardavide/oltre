@@ -1,9 +1,11 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.RefuseActionUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -548,8 +550,12 @@ class DispatchUiStateTest {
             selection = selection,
             // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only
             // when the card above it would honour one, and a hand-made state here would be a second
-            // copy of exactly the decision that pairing exists to keep single.
-            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC),
+            // copy of exactly the decision that pairing exists to keep single. **That pairing is why
+            // this test stayed in this module when the mapper left it** — `:client:dispatch` cannot
+            // see `toProbeActionUiState` and should not, because a sheet raised from a landing has no
+            // probe footer above it at all.
+            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC)
+                .asDispatchProbeOffer(),
             now = EPOCH,
         )
     }
