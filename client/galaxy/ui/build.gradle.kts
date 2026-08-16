@@ -41,6 +41,10 @@ kotlin {
             // handed a frame has to be able to name what is on it. The sheet stopped belonging
             // to this tab at 0.13 — Fleets raises the same one from a landing.
             api(projects.client.dispatch.ui)
+            // `api` for the same reason: `GalaxyRowUiState.World.portrait` is a
+            // `WorldPortraitUiState`, so a consumer handed a row has to be able to name its face.
+            // The disc left this module at 0.13, when the Fleets worked list started drawing it.
+            api(projects.client.world.ui)
             // No `:client:design:icon` — the galaxy draws its own map, and a star and fifteen
             // orbit dots are this screen's geometry rather than a glyph any other screen wants.
             implementation(projects.client.design.component)

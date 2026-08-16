@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.world.ui.drawWorldPortrait
 import dev.fardavide.oltre.core.RegionTemperament
 import dev.fardavide.oltre.core.StarClass
 

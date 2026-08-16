@@ -12,18 +12,28 @@ import kotlin.time.Duration
 // already spend.
 sealed interface DispatchUiState {
 
-    val coordinate: String
+    // **The world's name, and the coordinate went to the head line under it** — Claude Design,
+    // 2026-08-16. The change is one string swapped for another and it is not cosmetic: the Fleets
+    // worked list leads every row with a name, so a tap that landed on a sheet headed `[3:185:4]`
+    // would look like it had opened something else. Galaxy's world rows lead with the name too, so
+    // this is the same fix on both doors rather than a concession to the new one.
+    //
+    // `name` rather than `title`, because both refusals already have a title and it is a sentence:
+    // *"Every skiff is away."* Two fields called title on one sheet is one of them being read wrong.
+    val name: String
 
-    // "metal 1.24 · crystal 0.74 · no hazards", richer resource first — the head is the world in one
-    // line, so the sheet answers "which world is this" before it answers anything else.
+    // "[3:185:4] · metal 1.24 · crystal 0.74 · no hazards", richer resource first after the address
+    // — the head is the world in one line, so the sheet answers "which world is this" before it
+    // answers anything else.
     val head: String
 
     // 320dp drops the lesser resource rather than ellipsising the pair. A width decision, not a
-    // change of voice: what goes is the number you were not going to pick.
+    // change of voice: what goes is the number you were not going to pick. **The address stays**,
+    // because it is now the only thing on the sheet that says where this world is.
     val compactHead: String
 
     data class Offer(
-        override val coordinate: String,
+        override val name: String,
         override val head: String,
         override val compactHead: String,
         // **The three subjects of the run, resolved.** These are what `startRun` is actually called
@@ -99,7 +109,7 @@ sealed interface DispatchUiState {
     // same world is worth visiting in 2d 04h. The countdown is only honest because the controls above
     // it still move.
     data class Waiting(
-        override val coordinate: String,
+        override val name: String,
         override val head: String,
         override val compactHead: String,
         val at: GalaxyCoordinate,
@@ -130,7 +140,7 @@ sealed interface DispatchUiState {
     // shape `ProbeActionUiState.NothingToSurvey` already has. Both refusals are reachable on a first
     // check-in, and neither is an error state.
     data class Refuse(
-        override val coordinate: String,
+        override val name: String,
         override val head: String,
         override val compactHead: String,
         val title: String,

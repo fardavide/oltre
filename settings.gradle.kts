@@ -89,6 +89,11 @@ include(":client:shipyard:ui-testing")
 // belongs where it can be tested without a phone in somebody's hand.
 include(":client:tilt:data")
 include(":client:tilt:domain")
+// What a world looks like, and the third shared surface after `:client:design` and
+// `:client:dispatch`. Two features draw the same disc now — the Galaxy row and the Fleets worked
+// list — and Davide ruled out the design system as its home (2026-08-16): "Design system should
+// not contain such full-ui components."
+include(":client:world:ui")
 // The Android packaging of `:client:shell`, and the only thing in the build that depends on it
 // — AGP 9 will not let a Kotlin Multiplatform module apply `com.android.application`, so the
 // shell cannot be the Android app the way it already is the desktop one. Rule 7 names it by

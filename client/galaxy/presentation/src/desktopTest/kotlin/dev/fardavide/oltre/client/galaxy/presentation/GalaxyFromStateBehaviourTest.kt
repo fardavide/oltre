@@ -198,8 +198,11 @@ class GalaxyFromStateBehaviourTest {
             // player has already chosen rather than a second way of choosing one.
             assertTheSheetReads("[${home.galaxy}:${home.system}:${RUNNABLE.slot}]")
             // And the figure the run would actually bring home, which is the only number on the
-            // sheet that moves when a control is touched.
-            assertTheSheetReads("metal")
+            // sheet that moves when a control is touched. **In the resource this world is richer in**
+            // — read off the seed rather than written down, which is 0.13's correction: this said
+            // `"metal"` and passed against the head's `metal 1.15` while the figure said crystal, so
+            // it was asserting the wrong half of the sheet and would have gone on doing so.
+            assertTheSheetReads(richerAtRunnable)
         }
     }
 
@@ -252,7 +255,7 @@ class GalaxyFromStateBehaviourTest {
             assertTheSheetIsUp()
             // Two hulls lift twice as much, unless the vein says otherwise — either way the figure
             // under the rule is the one the run would actually be dispatched with.
-            assertTheSheetReads("metal")
+            assertTheSheetReads(richerAtRunnable)
         }
     }
 
@@ -367,6 +370,13 @@ class GalaxyFromStateBehaviourTest {
         SystemAddress(galaxy = home.galaxy, system = home.system - 1)
 
     private companion object {
+
+        // What the sheet defaults to at `RUNNABLE`, and therefore the word its figure is printed in.
+        // Read off the generator, because which of the two a world is richer in is the seed's
+        // business and a hardcoded answer is this test asserting the map.
+        val richerAtRunnable: String = worldAt(testGameState.galaxy.seed, RUNNABLE)!!.traits.let { traits ->
+            if (traits.metalRichness.perMillion >= traits.crystalRichness.perMillion) "metal" else "crystal"
+        }
 
         // A galaxy that is not home, so the disc really is somewhere else and its card really is
         // priced. Which one hardly matters — two of the three are one hop away — so it is derived

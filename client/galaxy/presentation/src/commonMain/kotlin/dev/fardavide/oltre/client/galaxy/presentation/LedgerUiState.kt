@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.format.milli
+import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.galaxy.ui.DiscoveryCardUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
@@ -7,9 +9,7 @@ import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerEmptinessUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
-import dev.fardavide.oltre.client.galaxy.ui.WorldPortraitUiState
-import dev.fardavide.oltre.client.design.format.milli
-import dev.fardavide.oltre.client.design.format.signed
+import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance

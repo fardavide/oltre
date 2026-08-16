@@ -19,6 +19,7 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.worldAt
+import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -54,9 +55,11 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target))
 
         assertEquals(richer, offer.gathering)
-        // ...and the head line puts that same one first, so the eye lands on it before the control
-        // below repeats it.
-        assertTrue(offer.head.startsWith(if (richer == ResourceKind.METAL) "metal" else "crystal"), offer.head)
+        // **The head stopped carrying the richness at 0.13** and the chips carry it alone — the head
+        // is the address and the hazards now, because the address had to go somewhere when the name
+        // took the title slot and the chips were already printing both readings. So what the head
+        // still has to lead with is the world's address.
+        assertTrue(offer.head.startsWith(target.label()), offer.head)
     }
 
     @Test
@@ -184,7 +187,10 @@ class DispatchUiStateTest {
 
         val sheet = assertNotNull(dispatchAt(target, state = surveying(target)))
 
-        assertEquals(target.label(), sheet.coordinate)
+        // **The name leads and the address is in the head** since 0.13 — Claude Design, so that a
+        // tap from a list of named worlds lands on a sheet that looks like the row it came from.
+        assertEquals(worldNameAt(seed, target), sheet.name)
+        assertTrue(sheet.head.startsWith(target.label()), sheet.head)
     }
 
     @Test
@@ -465,7 +471,7 @@ class DispatchUiStateTest {
     }
 
     @Test
-    fun `a world richer in crystal opens on crystal and leads its head line with it`() {
+    fun `a world richer in crystal opens on crystal and says so on the chip rather than the head`() {
         // Searched rather than written down, for the reason every other figure here is read off the
         // generator: which slot happens to be crystal-heavy is the seed's business, and a hardcoded
         // one would be this test asserting the map.
@@ -477,10 +483,13 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(slot)))
 
         assertEquals(ResourceKind.CRYSTAL, offer.gathering)
-        assertTrue(offer.head.startsWith("crystal"), offer.head)
-        // The compact head drops the lesser resource rather than ellipsising the pair, so what goes
-        // at 320dp is the number you were not going to pick.
-        assertTrue("metal" !in offer.compactHead, offer.compactHead)
+        // The chip is where both readings live, and it is the one place they sit together — which is
+        // what makes the currency choice a comparison rather than a memory test.
+        assertTrue(offer.crystalRichness.first().isDigit(), offer.crystalRichness)
+        // **Neither richness is in the head at either width.** The head is the address and the
+        // hazards, so there is nothing left for 320dp to drop.
+        assertTrue("metal" !in offer.head, offer.head)
+        assertEquals(offer.head, offer.compactHead)
     }
 
     @Test

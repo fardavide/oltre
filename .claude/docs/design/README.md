@@ -9,10 +9,24 @@ be looked at rather than remembered.
 | `fleet-screens.dc.html` | the fleet slice — world row (1a/1b/1c), dispatch sheet, Fleets, Shipyard, the Colony strip | [`../fleet-sheet.md`](../fleet-sheet.md) §12 |
 | `looks-near-is-near.dc.html` | the drawn map — the folded galaxy, the universe, the caption, what the ledger keeps | [`../drawn-map-sheet.md`](../drawn-map-sheet.md) |
 
+
 `looks-near-is-near.dc.html` is argument **and** drawing in one canvas, unlike the fleet pair, so it is
 archived whole. Its four component definitions are not — they are logic rather than frames, and the
 sheet carries every constant they encode. Re-fetch them from the Claude Design project if the original
 JavaScript is ever needed:
+
+`A Door Back.dc.html` — the Fleets landed section becoming a list of worlds, 2026-08-16, issue #62 —
+is **not copied yet**, and that is a gap rather than a decision: its six calls, its three rejected
+options and its two open items are in `decisions.md` under *The landed ledger becomes a list of
+worlds*, which is the durable half, but the frames themselves are only in the Claude Design project.
+Copy them down when convenient:
+
+```
+project aea4cd09-c111-4e9a-8b7d-c25cea371fd4
+  A Door Back.dc.html   1a/1b/1c, the six row states, and the four screens
+  WorkedRow.dc.html     the 45dp row: the disc, the two lines, the compact form, the foot line
+  WorkedList.dc.html    the section: the label, its trailing count, and Design's own day 21
+```
 
 ```
 project aea4cd09-c111-4e9a-8b7d-c25cea371fd4

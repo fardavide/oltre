@@ -33,6 +33,10 @@ kotlin {
             // `ResourceKind` alone, to tint a landing by what came back. The rest of `core` went up
             // to `presentation` with the fold that reads it.
             implementation(projects.core)
+            // `api`, because `FleetsUiState` names both: the sheet a row raises, and the face
+            // that makes the row a door.
+            api(projects.client.dispatch.ui)
+            api(projects.client.world.ui)
             // No `:client:design:icon` — a run card draws no glyph. The three-phase bar is this
             // feature's own geometry rather than a mark any other screen wants.
             implementation(projects.client.design.component)

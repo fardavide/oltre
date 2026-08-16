@@ -21,7 +21,7 @@ import dev.fardavide.oltre.client.debug.ui.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
-import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
+import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
@@ -465,16 +465,47 @@ fun App(
                                 },
                             )
                         },
-                        // Read-only, and the only destination in the app that is. There is no cancel
-                        // and no recall anywhere in this game, and the cargo is fixed at dispatch —
-                        // so a run in flight is something to watch rather than something to change.
+                        // **It stopped being read-only at 0.13**, which is issue #62. A run in flight
+                        // is still something to watch rather than something to change — there is no
+                        // cancel and no recall anywhere in this game, and the cargo is fixed at
+                        // dispatch — but the list of worlds you have worked is a door back to one,
+                        // and it raises the same sheet the Galaxy tab raises.
                         fleets = { scroll ->
                             FleetsScreen(
                                 scrollState = scroll,
-                                uiState = current.state.toFleetsUiState(
-                                    now = current.lastUpdatedAt,
-                                    timeZone = TimeZone.currentSystemDefault(),
-                                ),
+                                state = current.state,
+                                now = current.lastUpdatedAt,
+                                // What the landing clock is measured from, exactly as it is on the
+                                // Galaxy tab: a world that came home while the app was closed says
+                                // so, and one that came home before that has nothing new to report.
+                                since = current.resumedFrom,
+                                timeZone = TimeZone.currentSystemDefault(),
+                                // The same four lines the Galaxy tab spends, and deliberately not
+                                // hoisted into one: `startRun`'s refusals are the sheet's own
+                                // subject, and a shared lambda would put the two tabs' error
+                                // handling in a place neither of them owns.
+                                onDispatchRun = { target, gathering, ships, window ->
+                                    act { state, at ->
+                                        when (
+                                            val result = startRun(
+                                                state = state,
+                                                target = target,
+                                                gathering = gathering,
+                                                ships = ships,
+                                                window = window,
+                                                at = at,
+                                            )
+                                        ) {
+                                            is StartRunResult.Started -> result.state
+                                            StartRunResult.Unsurveyed,
+                                            StartRunResult.NotAValidTarget,
+                                            StartRunResult.NoSuchShips,
+                                            StartRunResult.WindowTooShort,
+                                            StartRunResult.Depleted,
+                                            -> state
+                                        }
+                                    }
+                                },
                             )
                         },
                     )

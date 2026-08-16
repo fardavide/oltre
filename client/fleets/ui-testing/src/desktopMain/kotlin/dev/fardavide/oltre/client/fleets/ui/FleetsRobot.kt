@@ -9,23 +9,45 @@ import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
+import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.ResourceKind
+import kotlin.time.Duration
 
-// A behaviour test says what the player sees; the Robot owns how it is looked for. There is nothing
-// to press on this screen — no cancel and no recall anywhere in the app — so every method here is an
-// assertion, which is itself the honest shape of a read-only destination.
+// A behaviour test says what the player sees; the Robot owns how it is looked for.
+//
+// **It stopped being all assertions at 0.13.** The header here used to say there was nothing to press
+// on this screen — "the honest shape of a read-only destination" — and issue #62 is exactly the
+// change that made that false: a worked row is a door back to a world, and the sheet behind it is
+// the one the Galaxy tab raises.
 @OptIn(ExperimentalTestApi::class)
 fun fleets(
     uiState: FleetsUiState,
     width: Int = PHONE_WIDTH,
+    onOpenWorld: (GalaxyCoordinate) -> Unit = {},
+    onCloseDispatch: () -> Unit = {},
+    onSelectGathering: (ResourceKind) -> Unit = {},
+    onSelectShips: (Int) -> Unit = {},
+    onSelectWindow: (Duration) -> Unit = {},
+    onDispatchRun: () -> Unit = {},
     block: FleetsRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
         setContent {
             OltreTheme {
                 Surface {
-                    FleetsScreen(uiState = uiState)
+                    FleetsPage(
+                        uiState = uiState,
+                        onOpenWorld = onOpenWorld,
+                        onCloseDispatch = onCloseDispatch,
+                        onSelectGathering = onSelectGathering,
+                        onSelectShips = onSelectShips,
+                        onSelectWindow = onSelectWindow,
+                        onDispatchRun = onDispatchRun,
+                    )
                 }
             }
         }
@@ -59,13 +81,67 @@ class FleetsRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(FleetsTestTags.card(index), useUnmergedTree = true).assertDoesNotExist()
     }
 
-    fun assertLandingReads(index: Int, text: String) = apply {
-        test.onNodeWithTag(FleetsTestTags.landing(index), useUnmergedTree = true)
+    // ── Worlds worked ───────────────────────────────────────────────────────────────────────
+    //
+    // Scoped to a world rather than to a position, which is the fold stated as an assertion: the
+    // section is a list of worlds now, and an index would name whichever run happened to be fifth.
+
+    fun assertWorkedReads(at: GalaxyCoordinate, text: String) = apply {
+        test.onNodeWithTag(FleetsTestTags.world(at), useUnmergedTree = true)
             .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
-    fun assertHasNoLanding(index: Int) = apply {
-        test.onNodeWithTag(FleetsTestTags.landing(index), useUnmergedTree = true).assertDoesNotExist()
+    fun assertTheWorkedRowDoesNotRead(at: GalaxyCoordinate, text: String) = apply {
+        test.onNodeWithTag(FleetsTestTags.world(at), useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(text, substring = true)).not())
+    }
+
+    fun assertHasNoWorked(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(FleetsTestTags.world(at), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    fun tapTheWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(FleetsTestTags.world(at)).performClick()
+    }
+
+    // The line with no disc. Tapping it is the assertion rather than a step — a landing with no
+    // target is not a world, so in a list of worlds it is not a door.
+    fun tapTheUnrecordedLine() = apply {
+        test.onNodeWithTag(FleetsTestTags.UNRECORDED).performClick()
+    }
+
+    fun assertTheUnrecordedLineReads(text: String) = apply {
+        test.onNodeWithTag(FleetsTestTags.UNRECORDED, useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(text, substring = true)).or(hasText(text, substring = true)))
+    }
+
+    // ── The sheet a row raises ──────────────────────────────────────────────────────────────
+
+    fun assertTheSheetIsUp() = apply {
+        test.onNodeWithTag(DispatchTestTags.SHEET).assertIsDisplayed()
+    }
+
+    fun assertNoSheet() = apply {
+        test.onNodeWithTag(DispatchTestTags.SHEET).assertDoesNotExist()
+    }
+
+    // Scoped to the sheet, because it is drawn *over* the list: an unscoped query for a world's name
+    // would match the row underneath it as well.
+    fun assertTheSheetReads(text: String) = apply {
+        test.onNodeWithTag(DispatchTestTags.SHEET)
+            .assert(hasText(text, substring = true).or(hasAnyDescendant(hasText(text, substring = true))))
+    }
+
+    fun send() = apply {
+        test.onNodeWithTag(DispatchTestTags.SEND).performClick()
+    }
+
+    fun assertOffersNoRun() = apply {
+        test.onNodeWithTag(DispatchTestTags.SEND).assertDoesNotExist()
+    }
+
+    fun bringBack(kind: ResourceKind) = apply {
+        test.onNodeWithTag(DispatchTestTags.gather(kind)).performClick()
     }
 
     // Substring, because a line the screen composes from several Texts is still one line to the

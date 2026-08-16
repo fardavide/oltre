@@ -26,7 +26,11 @@ import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.dispatch.ui.DispatchSheet
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import kotlin.time.Duration
 
 // **The door the Colony strip has been pointing at since 0.7.0.** The strip names the next event and
 // then says `2 more away`; this is the list those two are in.
@@ -35,8 +39,14 @@ import dev.fardavide.oltre.core.ResourceKind
 // is out, and what came back. No cancel and no recall — there is none anywhere in this app, and the
 // cargo is fixed at dispatch, so a recall would have to re-derive from a commitment already made.
 @Composable
-fun FleetsScreen(
+fun FleetsPage(
     uiState: FleetsUiState,
+    onOpenWorld: (GalaxyCoordinate) -> Unit,
+    onCloseDispatch: () -> Unit,
+    onSelectGathering: (ResourceKind) -> Unit,
+    onSelectShips: (Int) -> Unit,
+    onSelectWindow: (Duration) -> Unit,
+    onDispatchRun: () -> Unit,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -87,60 +97,30 @@ fun FleetsScreen(
                 }
                 // Absent rather than empty on a colony nothing has ever come back to: a heading over
                 // nothing is a section claiming there is a history when there is not.
-                if (uiState.landed.isNotEmpty()) {
+                uiState.worked?.let { worked ->
                     Spacer(modifier = Modifier.height(22.dp))
-                    SectionLabel(text = "LANDED")
-                    LandedLedger(landings = uiState.landed)
+                    WorkedList(uiState = worked, compact = compact, onOpenWorld = onOpenWorld)
                 }
             }
-            }
-    }
-}
-
-// A fold over `Event.FleetReturned` and the first player-facing use the log has ever had. It costs
-// no state at all — which is the argument for the append-only log restated as a feature rather than
-// as an invariant.
-@Composable
-private fun LandedLedger(landings: List<LandingUiState>) {
-    val mono = oltreMono()
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        landings.forEachIndexed { index, landing ->
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth().testTag(FleetsTestTags.landing(index)),
-            ) {
-                Text(
-                    text = landing.stamp,
-                    color = OltreColors.textTertiary,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    modifier = Modifier.width(52.dp),
-                )
-                Text(
-                    text = landing.coordinate,
-                    color = OltreColors.textSecondary,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                // The resource's own colour, which is the same channel the cost chips spend and the
-                // rail spends — a number in crystal blue is a crystal number wherever it appears.
-                Text(
-                    text = landing.amount,
-                    color = landing.kind.tint(),
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                    modifier = Modifier.padding(start = 8.dp),
-                )
-            }
+        }
+        // A popup rather than a layer of this box, for `GalaxyPage`'s reason: a panel drawn inside
+        // the destination stops where the destination stops — above the tab bar — and lets a drag
+        // through to the list behind it.
+        uiState.dispatch?.let { dispatch ->
+            DispatchSheet(
+                uiState = dispatch,
+                compact = compact,
+                onDismiss = onCloseDispatch,
+                onSelectGathering = onSelectGathering,
+                onSelectShips = onSelectShips,
+                onSelectWindow = onSelectWindow,
+                onDispatch = onDispatchRun,
+                // **Unreachable from here, and that is a fact rather than a stub.** The refusal that
+                // hands back a probe only occurs on an unsurveyed world, and a world this list holds
+                // is one a fleet has already been sent to — so it was surveyed, and `surveyed` is
+                // never removed. `toFleetsUiState` passes no probe offer for the same reason.
+                onDispatchProbe = {},
+            )
         }
     }
-}
-
-private fun ResourceKind.tint() = when (this) {
-    ResourceKind.METAL -> OltreColors.metal
-    ResourceKind.CRYSTAL -> OltreColors.crystal
-    ResourceKind.DEUTERIUM -> OltreColors.deuterium
 }

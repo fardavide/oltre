@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.fleets.ui
 
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.core.GalaxyCoordinate
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.junit.Test
 
 // What the tab shows, driven rather than photographed. The screen has no controls, so what these
@@ -43,13 +46,54 @@ class FleetsScreenBehaviourTest {
     }
 
     @Test
-    fun `what has landed is listed under its own heading`() {
+    fun `where you have been is a list of worlds under its own heading`() {
+        // **The fold, at the screen.** Eleven runs are five rows, each naming a world and totalling
+        // what it has paid — which is the claim the per-run ledger could not make.
         fleets(uiState = threeRunsUiState) {
-            assertReads("LANDED")
-            assertLandingReads(0, "+588 crystal")
-            assertLandingReads(3, "+132 metal")
-            assertHasNoLanding(4)
+            assertReads("WORLDS WORKED")
+            assertReads("11 runs · newest first")
+            assertWorkedReads(tashkir, "Tashkir IV")
+            assertWorkedReads(tashkir, "1,176 crystal")
+            assertWorkedReads(tashkir, "2 runs")
         }
+    }
+
+    @Test
+    fun `a finished vein is the one reading that says a door leads nowhere`() {
+        fleets(uiState = threeRunsUiState) {
+            assertWorkedReads(finished, "empty")
+        }
+    }
+
+    @Test
+    fun `a landing with no world is a line at the foot and not a row`() {
+        fleets(uiState = threeRunsUiState) {
+            assertTheUnrecordedLineReads("3 earlier runs · 402 metal · no target recorded")
+        }
+    }
+
+    @Test
+    fun `tapping a world asks for that world and nothing else`() {
+        val opened = mutableListOf<GalaxyCoordinate>()
+
+        fleets(uiState = threeRunsUiState, onOpenWorld = { opened += it }) {
+            tapTheWorld(tashkir)
+        }
+
+        assertEquals(listOf(tashkir), opened.toList())
+    }
+
+    @Test
+    fun `the line with no world opens nothing`() {
+        // A landing with no target is not a world, so in a list of worlds it is not a door — and the
+        // missing disc is what says so.
+        val opened = mutableListOf<GalaxyCoordinate>()
+
+        fleets(uiState = threeRunsUiState, onOpenWorld = { opened += it }) {
+            tapTheUnrecordedLine()
+        }
+
+        assertTrue(opened.isEmpty())
     }
 
     @Test
@@ -57,7 +101,7 @@ class FleetsScreenBehaviourTest {
         // A heading over nothing is a section claiming there is a history when there is not.
         fleets(uiState = firstRunUiState) {
             assertShowsRun(0)
-            assertNothingReads("LANDED")
+            assertNothingReads("WORLDS WORKED")
         }
     }
 
@@ -76,5 +120,12 @@ class FleetsScreenBehaviourTest {
             assertShowsRun(2)
             assertReads("5 of 6 away")
         }
+    }
+
+    private companion object {
+        // The two worlds `day21` is read down to: the one that landed while you were away, and the
+        // one whose crystal is finished. Named off the frame rather than written twice.
+        val tashkir: GalaxyCoordinate = day21.rows.first().at
+        val finished: GalaxyCoordinate = day21.rows.first { it.depositIsEmpty }.at
     }
 }

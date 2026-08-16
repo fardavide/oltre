@@ -130,6 +130,7 @@ dependencies {
     kover(projects.client.shipyard.ui)
     kover(projects.client.tilt.data)
     kover(projects.client.tilt.domain)
+    kover(projects.client.world.ui)
 }
 
 kover {
@@ -378,7 +379,7 @@ fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name
 // makes it safe for `design`: nothing points *out* of it. `:client:dispatch:*` depends on `core` and
 // the design system and on no feature at all, so it cannot become the back door one tab reaches
 // another through. **A third name on this list needs that same property demonstrated, not assumed.**
-private val sharedSurfaces = setOf("design", "dispatch")
+private val sharedSurfaces = setOf("design", "dispatch", "world")
 
 fun featureOf(projectPath: String): String? = projectPath
     .removePrefix(":")

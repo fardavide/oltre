@@ -103,15 +103,16 @@ fun DispatchSheet(
     }
 }
 
-// The coordinate on the left at the size the resource rail spends on a stock, the world on the
-// right in the faintest ink on the sheet. It is the sheet answering "which world is this" before it
-// answers anything else, and it is the same address the row underneath is printing.
+// The name on the left at the size the resource rail spends on a stock, the world on the right in
+// the faintest ink on the sheet. It is the sheet answering "which world is this" before it answers
+// anything else, and it is **the same name the row that raised it is printing** — which is the whole
+// of why the coordinate moved to the right at 0.13.
 @Composable
 private fun Head(uiState: DispatchUiState, compact: Boolean) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = uiState.coordinate,
+            text = uiState.name,
             color = OltreColors.text,
             fontFamily = mono,
             fontSize = 15.sp,

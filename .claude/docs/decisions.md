@@ -3394,3 +3394,95 @@ Landed section at all, and for whether the list should group by world rather tha
 opens at **its own defaults** and never pre-filled from the run that was tapped — Davide,
 2026-08-13 — because pre-filling is "relaunch with last settings" arriving through a side door, and
 `fleet-sheet.md` §8 rejects that by name.
+
+## The landed ledger becomes a list of worlds (2026-08-16, 0.13.0, issue #62)
+
+Davide asked for one thing — *"in the Fleet tabs, under Landed, I want to be able to tap a previous
+dispatch… but we need Design to improve the list of items"* — and Claude Design answered with one
+move that decides everything else: **the list stops being made of runs and starts being made of
+worlds.**
+
+Eleven runs are five worlds. Folded, a row can carry what a single landing never had — how many
+times you went, what the world has paid in total, and whether there is anything left in the ground —
+and the two rows that used to read `[3:165:8]` twice stop asking the player to do the folding. It
+also answers the affordance problem for free: **a row with a face and a name is an object, and
+objects open.** Nothing gained a border, a fill or an accent.
+
+Three options were drawn and two rejected, which is worth keeping:
+
+- **1a, a landing made a target.** The literal reading of the ask: same rows, a rule between them, a
+  44dp height. Honest, and it cannot answer *which world was worth it* — two of the four rows are one
+  world, the amounts are per-run so neither is the total, and there is nowhere to say the crystal is
+  finished. *"It is a receipt you can tap, and a receipt is a poor index."*
+- **1c, a world in the card idiom.** The most consistent answer and wrong here: it costs 33dp a world,
+  five worlds stop fitting under three run cards at 393dp, and it makes history the same weight as a
+  run in flight — so the eye stops telling *happening* from *happened*. The quiet was carrying that
+  distinction.
+
+### What the row says, and what it deliberately does not
+
+Identity is the name and the disc. Beyond identity: the run count, the lifetime total in its
+resource's hue, and the deposit reading. Rejected by Design, each for its own reason — the manifest
+that went (a fact about what was idle that day, and the sheet will not pre-fill it anyway), the time
+on station (a property of the window you picked), and richness and the round trip (both fixed for the
+life of the world, both printed by the sheet one tap later).
+
+**The landing clock is the only conditional element**, and it is the discovery card's own derivation:
+present when the last landing falls inside the span this launch advanced, so no seen-flag and no new
+stored state. It carries the verb — `landed 11:04` — because a bare clock in Oltre is a countdown.
+
+### The five-event cap retired, and it was a data call after all
+
+The old ledger showed the last five landings and called the cap *"a layout decision rather than a
+data one"*. Design spent it: a roll-up is its own cap, so the limit had nothing left to do — and the
+totals **have** to read the whole log or they are wrong. Design flagged this as the one premise to
+check before building, and it holds: `eventLog` is a `List<Event>` in memory, so the fold is a
+`groupBy` and nothing is paged.
+
+### The sheet leads with a name now, on both tabs
+
+The row leads with a name and the sheet led with a coordinate, so the tap landed on a
+different-looking object. `DispatchUiState.coordinate` became `name`, and the address joined the head
+line — *"the same fix the Galaxy tab needs on the same sheet"*.
+
+**One thing Design's frames were right about and its prose was not.** The prose said "two strings
+swapped"; the frames dropped the richness from an offer's head. Implementing the prose clipped the
+hazard clause off the end of a 393dp sheet, which the first recorded baseline showed. The frames are
+right for a reason worth writing down: the two gather cards already print `richness 1.15` and
+`richness 1.47`, so the head was saying it twice. **A refusal keeps its richness**, because a refusal
+has no cards and the richness is the reading a player is being refused for.
+
+### `:client:world:ui`, and the rule that comes with it
+
+A row is identified by the world's drawn face, and `WorldPortrait` was `internal` to
+`:client:galaxy:ui`. Three homes were weighed; Davide took it, 2026-08-16:
+
+> **"I think world:ui. Design system should not contain such full-ui components."**
+
+So the portrait is a third shared surface beside `:client:design` and `:client:dispatch`, and it is
+the first name added under the test the dispatch module set — *nothing points out of it*. The reason
+it is **not** `:client:design:component`, which is where it was first proposed, generalises: a cost
+chip or a section label is vocabulary; a procedural drawing of a planet from its temperature,
+gravity, pressure and hazards is a feature's worth of decisions. **The test for a shared surface is
+two questions, not one**: do two features use it, *and* is it vocabulary or is it a screen.
+
+### Two defects the tests found, both worth the line
+
+- **A deuterium landing crashed the row.** `depositCap` and `remaining` *throw* for deuterium rather
+  than answering null — a world holds no deuterium deposit — and the row's resource is read off what
+  landed, which `Event.FleetReturned` allows to be deuterium even though `startRun` does not. The
+  reading is `empty`, which is true of ground that never held any.
+- **Two Galaxy behaviour assertions were passing for the wrong reason.** `assertTheSheetReads("metal")`
+  claimed to check the figure and was matching the head's `metal 1.15`; the figure said *crystal*,
+  because that world is richer in it. Dropping the richness from the head is what exposed them. They
+  read the richer resource off the generator now.
+
+### What Design raised and this did not build
+
+- **The same tap on an in-flight run card.** Today it would mean *send more ships where I am already
+  working*, which is a refusal on a world you are standing on — one gesture with two meanings on one
+  screen. It becomes a real decision when a hauler exists and a vein can be emptied by two manifests
+  at once. Raised, not designed.
+- **Auto-pinning a world your fleet has worked.** Four runs is a stronger signal than a tap, and it
+  would make the galaxy map label the places you actually use with no new state and no new gesture.
+  It changes the map rather than this list.

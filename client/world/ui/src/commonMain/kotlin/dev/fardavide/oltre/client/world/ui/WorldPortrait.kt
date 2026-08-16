@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.galaxy.ui
+package dev.fardavide.oltre.client.world.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
@@ -89,7 +89,7 @@ internal fun temperatureStep(temperature: Temperature): Color =
     TEMPERATURE_STEPS.first { temperature.celsius <= it.first }.second
 
 @Composable
-internal fun WorldPortrait(uiState: WorldPortraitUiState, box: Dp, modifier: Modifier = Modifier) {
+fun WorldPortrait(uiState: WorldPortraitUiState, box: Dp, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(box)) { drawWorldPortrait(uiState = uiState, box = box) }
 }
 
@@ -97,7 +97,7 @@ internal fun WorldPortrait(uiState: WorldPortraitUiState, box: Dp, modifier: Mod
 // body cannot be reached by anything but a rendered frame, and this is `DrawScope` code, so a test
 // can hand it a `CanvasDrawScope` over an `ImageBitmap` and read the pixels back. That is what turns
 // the three warnings at the top of this file from comments into assertions.
-internal fun DrawScope.drawWorldPortrait(uiState: WorldPortraitUiState, box: Dp) {
+fun DrawScope.drawWorldPortrait(uiState: WorldPortraitUiState, box: Dp) {
     val large = box >= LARGE_FROM
     val centre = Offset(size.width / 2f, size.height / 2f)
     val hairline = HAIRLINE.toPx()

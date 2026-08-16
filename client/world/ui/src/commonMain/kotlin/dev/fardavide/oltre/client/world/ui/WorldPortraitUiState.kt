@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.galaxy.ui
+package dev.fardavide.oltre.client.world.ui
 
 import dev.fardavide.oltre.core.Gravity
 import dev.fardavide.oltre.core.Hazard

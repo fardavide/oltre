@@ -1,4 +1,4 @@
-package dev.fardavide.oltre.client.galaxy.ui
+package dev.fardavide.oltre.client.world.ui
 
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas

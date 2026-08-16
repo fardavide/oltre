@@ -1,17 +1,17 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
-import dev.fardavide.oltre.client.galaxy.ui.DepositItemUiState
-import dev.fardavide.oltre.client.galaxy.ui.DepositReadingUiState
-import dev.fardavide.oltre.client.galaxy.ui.DepositTone
-import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
-import dev.fardavide.oltre.client.galaxy.ui.WorldPortraitUiState
-import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
+import dev.fardavide.oltre.client.galaxy.ui.DepositItemUiState
+import dev.fardavide.oltre.client.galaxy.ui.DepositReadingUiState
+import dev.fardavide.oltre.client.galaxy.ui.DepositTone
+import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
+import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
+import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate

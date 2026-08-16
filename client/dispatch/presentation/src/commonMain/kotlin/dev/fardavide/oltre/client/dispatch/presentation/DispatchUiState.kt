@@ -19,6 +19,7 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.worldAt
+import dev.fardavide.oltre.core.worldNameAt
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -67,12 +68,16 @@ fun GameState.toDispatchUiState(
     if (galaxy.holderOf(target) != null) return null
     val world = worldAt(galaxy.seed, target) ?: return null
 
-    val coordinate = target.label()
+    // **The name in the title and the address in the head**, on both doors — see `DispatchUiState`.
+    // `worldNameAt` is a pure function of the seed, so it names an unsurveyed world too: a name is
+    // astronomy, and it is the traits a survey buys rather than the label.
+    val name = worldNameAt(galaxy.seed, target)
+    val address = target.label()
     if (target !in galaxy.surveyed) {
         return DispatchUiState.Refuse(
-            coordinate = coordinate,
-            head = UNSURVEYED_HEAD,
-            compactHead = UNSURVEYED_HEAD,
+            name = name,
+            head = "$address$SEPARATOR$UNSURVEYED_HEAD",
+            compactHead = "$address$SEPARATOR$UNSURVEYED_HEAD",
             title = "A hold cannot be priced from a world nobody has looked at.",
             note = unsurveyedNote(at = target, probe = probe),
             // Only when the caller's own footer would honour it — see `DispatchProbeOffer`.
@@ -80,14 +85,21 @@ fun GameState.toDispatchUiState(
         )
     }
 
-    val head = world.headLine(compact = false)
-    val compactHead = world.headLine(compact = true)
+    // **The richness left the head when the address arrived**, which is Claude Design's own frame
+    // and a subtraction rather than a trade: the two gather cards below already print `richness 1.15`
+    // and `richness 1.47`, so the head was saying it twice. Measured rather than argued — the first
+    // cut kept both and clipped the hazard clause off the end of a 393dp sheet.
+    val head = "$address$SEPARATOR${world.hazardClause()}"
+    val compactHead = head
     val idle = ships.countOf(ShipType.SKIFF)
     if (idle <= 0) {
         return DispatchUiState.Refuse(
-            coordinate = coordinate,
-            head = head,
-            compactHead = compactHead,
+            name = name,
+            // **A refusal has no gather cards, so the richness has nowhere else to be said** — and
+            // it is the reading a player is being refused *for*. The compact form at both widths:
+            // the address costs the room the lesser resource had.
+            head = "$address$SEPARATOR${world.headLine(compact = true)}",
+            compactHead = "$address$SEPARATOR${world.headLine(compact = true)}",
             title = "Every skiff is away.",
             note = awayNote(),
             action = nextReturn(now)?.let { RefuseActionUiState.Waiting("in ${it.toCountdown()}") },
@@ -142,7 +154,7 @@ fun GameState.toDispatchUiState(
     if (inTheGround <= 0) {
         val wait = galaxy.timeUntil(target, gathering, wanted = lift, now = now)
         return DispatchUiState.Waiting(
-            coordinate = coordinate,
+            name = name,
             head = head,
             compactHead = compactHead,
             at = target,
@@ -170,7 +182,7 @@ fun GameState.toDispatchUiState(
     }
 
     return DispatchUiState.Offer(
-        coordinate = coordinate,
+        name = name,
         head = head,
         compactHead = compactHead,
         at = target,
@@ -323,6 +335,9 @@ private fun ladderNoteFor(offered: List<Duration>, roundTrip: Duration): String?
 // The world in one line, richer resource first, because the first thing the eye lands on should be
 // the one the sheet is about to default to. At 320dp the lesser one goes rather than being
 // ellipsised — it is the number you were not going to pick.
+//
+// **Only the away refusal calls this since 0.13.** An offer's head is the address and the hazards,
+// because its two chips carry the richness — see the head above.
 private fun World.headLine(compact: Boolean): String {
     val metal = "metal ${traits.metalRichness.perMillion.perMillion()}"
     val crystal = "crystal ${traits.crystalRichness.perMillion.perMillion()}"

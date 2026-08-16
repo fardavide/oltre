@@ -61,14 +61,17 @@ class FleetsManifestTest {
             ),
         )
 
-        val landing = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).landed.single()
+        val row = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!.rows.single()
 
-        assertEquals("+7 deuterium", landing.amount)
-        assertEquals(ResourceKind.DEUTERIUM, landing.kind)
+        assertEquals("7 deuterium", row.total)
+        assertEquals(ResourceKind.DEUTERIUM, row.kind)
     }
 
     @Test
     fun `a landing that brought nothing still names a resource rather than crashing`() {
+        // A run with no target and no cargo, which is the emptiest thing the log can hold. It has no
+        // world to be a row of, so what it reaches is the foot line — and that line still has to
+        // name a resource rather than divide by an absence.
         val state = GameState.initial(SEED).copy(
             eventLog = listOf(
                 Event.FleetReturned(
@@ -80,7 +83,9 @@ class FleetsManifestTest {
             ),
         )
 
-        assertEquals("+0 metal", state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).landed.single().amount)
+        val worked = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!
+
+        assertEquals("1 earlier run · 0 metal · no target recorded", worked.unrecorded)
     }
 
     private fun manifestOf(ships: Ships): String {
