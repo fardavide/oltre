@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
+
 // **The worlds list keeps the two jobs a list is better at than a map, and lost the three it was
 // never able to do.** Davide, 2026-08-15, having played 0.11.0: *"the filters and search are
 // useless"*. Claude Design diagnosed it before replacing it, and found a floor under our own

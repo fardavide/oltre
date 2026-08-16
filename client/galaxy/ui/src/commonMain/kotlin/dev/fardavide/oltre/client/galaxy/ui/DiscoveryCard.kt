@@ -21,6 +21,7 @@ import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.world.ui.WorldPortrait
 
 // **The survey moment, and a section of the ledger rather than a layer over it.** A card you must
 // dismiss is a tax on the one thing the app promises, and three of them is that tax three times — so

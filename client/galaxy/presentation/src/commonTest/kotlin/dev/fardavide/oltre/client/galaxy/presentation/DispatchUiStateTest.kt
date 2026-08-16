@@ -1,9 +1,11 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
-import dev.fardavide.oltre.client.galaxy.ui.RefuseActionUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -17,6 +19,7 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.worldAt
+import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -52,9 +55,11 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target))
 
         assertEquals(richer, offer.gathering)
-        // ...and the head line puts that same one first, so the eye lands on it before the control
-        // below repeats it.
-        assertTrue(offer.head.startsWith(if (richer == ResourceKind.METAL) "metal" else "crystal"), offer.head)
+        // **The head stopped carrying the richness at 0.13** and the chips carry it alone — the head
+        // is the address and the hazards now, because the address had to go somewhere when the name
+        // took the title slot and the chips were already printing both readings. So what the head
+        // still has to lead with is the world's address.
+        assertTrue(offer.head.startsWith(target.label()), offer.head)
     }
 
     @Test
@@ -152,6 +157,27 @@ class DispatchUiStateTest {
     }
 
     @Test
+    fun `a refusal with no probe behind it offers nothing and prices nothing`() {
+        // **`DispatchProbeOffer`'s whole contract**, and the state the Fleets tab is always in: it
+        // has no map card above the sheet, so it passes null. The refusal still says why the world
+        // cannot be priced; what it must not do is invent a flight, or quote a cost it was not
+        // given.
+        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val target = firstWorld(elsewhere)
+
+        val refusal = assertIs<DispatchUiState.Refuse>(
+            withSkiffs(1).toDispatchUiState(selection = selection(target), probe = null, now = EPOCH),
+        )
+
+        assertTrue(refusal.title.endsWith("nobody has looked at."), refusal.title)
+        assertNull(refusal.action)
+        // The sentence keeps its own half — how many worlds a probe would survey — and drops the
+        // clause that quotes a price nobody quoted.
+        assertTrue("A probe surveys all" in refusal.note, refusal.note)
+        assertTrue("metal ·" !in refusal.note, refusal.note)
+    }
+
+    @Test
     fun `a fleet that is entirely away refuses and counts the first hull home`() {
         val target = runnable()
         val away = state.copy(ships = Ships.NONE, runs = listOf(runReturningIn(3.hours, target)))
@@ -182,7 +208,10 @@ class DispatchUiStateTest {
 
         val sheet = assertNotNull(dispatchAt(target, state = surveying(target)))
 
-        assertEquals(target.label(), sheet.coordinate)
+        // **The name leads and the address is in the head** since 0.13 — Claude Design, so that a
+        // tap from a list of named worlds lands on a sheet that looks like the row it came from.
+        assertEquals(worldNameAt(seed, target), sheet.name)
+        assertTrue(sheet.head.startsWith(target.label()), sheet.head)
     }
 
     @Test
@@ -463,7 +492,7 @@ class DispatchUiStateTest {
     }
 
     @Test
-    fun `a world richer in crystal opens on crystal and leads its head line with it`() {
+    fun `a world richer in crystal opens on crystal and says so on the chip rather than the head`() {
         // Searched rather than written down, for the reason every other figure here is read off the
         // generator: which slot happens to be crystal-heavy is the seed's business, and a hardcoded
         // one would be this test asserting the map.
@@ -475,10 +504,13 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(slot)))
 
         assertEquals(ResourceKind.CRYSTAL, offer.gathering)
-        assertTrue(offer.head.startsWith("crystal"), offer.head)
-        // The compact head drops the lesser resource rather than ellipsising the pair, so what goes
-        // at 320dp is the number you were not going to pick.
-        assertTrue("metal" !in offer.compactHead, offer.compactHead)
+        // The chip is where both readings live, and it is the one place they sit together — which is
+        // what makes the currency choice a comparison rather than a memory test.
+        assertTrue(offer.crystalRichness.first().isDigit(), offer.crystalRichness)
+        // **Neither richness is in the head at either width.** The head is the address and the
+        // hazards, so there is nothing left for 320dp to drop.
+        assertTrue("metal" !in offer.head, offer.head)
+        assertEquals(offer.head, offer.compactHead)
     }
 
     @Test
@@ -548,8 +580,12 @@ class DispatchUiStateTest {
             selection = selection,
             // The real one, never a stand-in: the refusal on an unsurveyed world offers a probe only
             // when the card above it would honour one, and a hand-made state here would be a second
-            // copy of exactly the decision that pairing exists to keep single.
-            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC),
+            // copy of exactly the decision that pairing exists to keep single. **That pairing is why
+            // this test stayed in this module when the mapper left it** — `:client:dispatch` cannot
+            // see `toProbeActionUiState` and should not, because a sheet raised from a landing has no
+            // probe footer above it at all.
+            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC)
+                .asDispatchProbeOffer(),
             now = EPOCH,
         )
     }

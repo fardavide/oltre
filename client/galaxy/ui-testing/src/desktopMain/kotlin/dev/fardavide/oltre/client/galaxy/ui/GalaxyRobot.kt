@@ -25,6 +25,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.geometry.Offset
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
@@ -327,63 +328,63 @@ class GalaxyRobot(private val test: ComposeUiTest) {
     // ── The dispatch sheet ───────────────────────────────────────────────────────────────────
 
     fun assertTheSheetIsUp() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET).assertIsDisplayed()
+        test.onNodeWithTag(DispatchTestTags.SHEET).assertIsDisplayed()
     }
 
     fun assertNoSheet() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET).assertDoesNotExist()
+        test.onNodeWithTag(DispatchTestTags.SHEET).assertDoesNotExist()
     }
 
     // Scoped to the sheet for `assertRowReads`'s reason and then some: the sheet is drawn *over* the
     // world list, so an unscoped query for a coordinate would match the row underneath it as well.
     fun assertTheSheetReads(text: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET).assert(containing(text))
+        test.onNodeWithTag(DispatchTestTags.SHEET).assert(containing(text))
     }
 
     fun assertTheSheetDoesNotRead(text: String) = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET).assert(containing(text).not())
+        test.onNodeWithTag(DispatchTestTags.SHEET).assert(containing(text).not())
     }
 
     // A drag that starts on the sheet, which is the gesture that told us the sheet was not one: a
     // panel parked in the page's own layout has no pointer input of its own, so the drag fell
     // through to the list behind it and the screen scrolled under the player's thumb.
     fun dragTheSheet() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET).performTouchInput { swipeUp() }
+        test.onNodeWithTag(DispatchTestTags.SHEET).performTouchInput { swipeUp() }
         test.waitForIdle()
     }
 
     fun bringBack(kind: ResourceKind) = apply {
-        test.onNodeWithTag(GalaxyTestTags.gather(kind)).performClick()
+        test.onNodeWithTag(DispatchTestTags.gather(kind)).performClick()
     }
 
     fun sendOneMore() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHIPS_MORE).performClick()
+        test.onNodeWithTag(DispatchTestTags.SHIPS_MORE).performClick()
     }
 
     fun sendOneFewer() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHIPS_FEWER).performClick()
+        test.onNodeWithTag(DispatchTestTags.SHIPS_FEWER).performClick()
     }
 
     fun homeIn(window: Duration) = apply {
-        test.onNodeWithTag(GalaxyTestTags.window(window.inWholeMinutes)).performClick()
+        test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes)).performClick()
     }
 
     fun assertNoRungFor(window: Duration) = apply {
-        test.onNodeWithTag(GalaxyTestTags.window(window.inWholeMinutes)).assertDoesNotExist()
+        test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes)).assertDoesNotExist()
     }
 
     fun send() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SEND).performClick()
+        test.onNodeWithTag(DispatchTestTags.SEND).performClick()
     }
 
     // The offer's verb, absent in both refusals — the same shape `assertOffersNoFlight` has for the
     // probe, and the same assertion: the screen and `startRun` agree about what would be honoured.
     fun assertOffersNoRun() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SEND).assertDoesNotExist()
+        test.onNodeWithTag(DispatchTestTags.SEND).assertDoesNotExist()
     }
 
     fun takeTheRefusalsOffer() = apply {
-        test.onNodeWithTag(GalaxyTestTags.SHEET_ACTION).performClick()
+        test.onNodeWithTag(DispatchTestTags.SHEET_ACTION).performClick()
     }
 
     // Under the system header, and the one place the distance band is stated: it is astronomy, so

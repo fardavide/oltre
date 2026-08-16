@@ -206,6 +206,23 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.13.0 — 2026-08-16
+
+- **The Fleets tab remembers where you have been, and takes you back.** What used to be a receipt of
+  the last five landings is now a list of the worlds your fleet has worked — one row each, newest
+  first, with the world's name, its drawn face, how many runs you have sent, what it has paid you in
+  total, and what is left in the ground.
+- **Tap one to send another run.** The same sheet the Galaxy tab raises, opened on a world you
+  already judged worth going to. It opens at its own defaults rather than repeating your last run:
+  the list is a shortcut to the world, never to the decision.
+- A world whose vein you have finished says `empty` on the row, so a door that leads nowhere says so
+  before you open it.
+- The dispatch sheet leads with the world's name instead of its coordinate, on both tabs — the
+  address moved beside the hazards, and the richness readings live on the two resource cards that
+  were already printing them.
+- Runs from before the app recorded where a fleet had been are collected into one line at the foot
+  of the list. They still count what they brought home; they just have nowhere to send you.
+
 ### 0.12.2 — 2026-08-16
 
 - **Adaptation and technologies no longer take turns.** Each branch has its own queue, so a Gravitic

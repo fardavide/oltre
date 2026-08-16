@@ -4,12 +4,12 @@ import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
-import dev.fardavide.oltre.client.fleets.ui.LandingUiState
 import dev.fardavide.oltre.client.fleets.ui.RunBarUiState
 import dev.fardavide.oltre.client.fleets.ui.RunCardUiState
 import dev.fardavide.oltre.client.fleets.ui.RunPhase
-import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -26,7 +26,18 @@ import kotlinx.datetime.toLocalDateTime
 // knows nothing about `GameState` — this is the one file that reads the fleet and the event log and
 // writes what the cards say.
 
-fun GameState.toFleetsUiState(now: Instant, timeZone: TimeZone): FleetsUiState {
+fun GameState.toFleetsUiState(
+    now: Instant,
+    // The instant this launch advanced *from*. It is what the landing clock is measured against: a
+    // world that came home while the app was closed says so, and one that came home before that has
+    // nothing new to report. Defaults to `now` — an empty span, so nothing is new — which is what a
+    // preview or a test that does not care should get.
+    since: Instant = now,
+    timeZone: TimeZone,
+    // What the player has touched on the sheet a row raised, or null when no sheet is up. The
+    // mapping is `:client:dispatch:presentation`'s; this only knows which world is open.
+    dispatch: DispatchSelection? = null,
+): FleetsUiState {
     val owned = ownedShips().total
     val away = owned - ships.total
     return FleetsUiState(
@@ -38,11 +49,11 @@ fun GameState.toFleetsUiState(now: Instant, timeZone: TimeZone): FleetsUiState {
         runs = runs
             .sortedWith(compareBy({ it.nextEventAt(galaxy.home, now) }, { it.dispatchedAt }, { it.target.slot }))
             .map { it.toCard(home = galaxy.home, now = now, timeZone = timeZone) },
-        landed = eventLog
-            .filterIsInstance<Event.FleetReturned>()
-            .takeLast(LANDINGS_SHOWN)
-            .reversed()
-            .map { it.toLanding(now = now, timeZone = timeZone) },
+        worked = toWorkedListUiState(now = now, since = since, timeZone = timeZone),
+        // **No probe offer, and null is the honest answer rather than a shortcut.** A world a fleet
+        // has already been sent to was surveyed in order to be dispatched to, and `surveyed` is
+        // never removed — so the refusal that offer feeds cannot be reached from this list at all.
+        dispatch = dispatch?.let { toDispatchUiState(selection = it, probe = null, now = now) },
     )
 }
 
@@ -98,35 +109,6 @@ private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant 
     val onStation = flightEndsAt(home)
     return if (now < onStation) onStation else returnsAt
 }
-
-// "11:04" today and "yest." before it, which is what the ledger needs and the whole of what it
-// needs: a landing older than yesterday is not on the list at all, so no third form can occur.
-private fun Event.FleetReturned.toLanding(now: Instant, timeZone: TimeZone): LandingUiState {
-    val local = at.toLocalDateTime(timeZone)
-    val landed = local.date
-    val today = now.toLocalDateTime(timeZone).date
-    // **Read off the cargo rather than assumed from the two kinds a run may gather.** A run's
-    // `gathering` is guarded to metal or crystal, so the obvious version — crystal if there is any,
-    // metal otherwise — is right for every run this game can dispatch and prints `+0 metal` for
-    // anything else. The event is the wider type: nothing stops a `FleetReturned` carrying
-    // deuterium, and a ledger that answered "0 metal" about a landing that brought something would
-    // be lying about the one thing it exists to report.
-    val kind = ResourceKind.entries.firstOrNull { cargo.of(it) > 0 } ?: ResourceKind.METAL
-    return LandingUiState(
-        stamp = if (landed == today) "${local.hour.pad2()}:${local.minute.pad2()}" else "yest.",
-        // Null only on a fleet the schema-8 migration folded forward, which came from a coordinate
-        // no old event ever recorded. "—" is the truthful answer and the one the migration wrote.
-        coordinate = from?.label() ?: "—",
-        amount = "+${cargo.of(kind).groupedByThousands()} ${kind.label()}",
-        kind = kind,
-    )
-}
-
-// **The last five, and the cap is a layout decision rather than a data one.** The log is append-only
-// and unbounded, so a ledger that folded all of it would grow a screen without limit — and what the
-// section is for is *what came back since I last looked*, which is a handful. The whole history is
-// still in the log for the day something wants it.
-private const val LANDINGS_SHOWN = 5
 
 private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
 

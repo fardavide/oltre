@@ -15,6 +15,16 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
     :component     Styled widgets with no single feature owner (cost chip, progress bar, …)
     :format        How numbers and durations are written. No Compose reaches it
     :screenshot-testing  Roborazzi options, shared by every screenshot test; main source set
+  :client:dispatch/  The dispatch sheet, which belongs to no tab: Galaxy raises it from a world
+                     row and Fleets raises it from a landing, and features may not see each
+                     other. Shaped like a feature and excluded from the cross-feature warning by
+                     name, exactly as :client:design is — see below
+    :ui            The sheet and the models it renders
+    :presentation  What a world would give a fleet, what it refuses and why. No Compose
+  :client:world/     What a world looks like: one Canvas drawing a face from four core traits.
+    :ui              Two features draw it — the Galaxy row and the Fleets worked list. NOT in the
+                     design system: "Design system should not contain such full-ui components"
+                     (Davide, 2026-08-16)
   :client:<feature>:<layer>  One directory per feature, holding layer modules (presentation,
                              plus domain / data only where the feature requires them) — never
                              a monolithic feature module
@@ -54,6 +64,28 @@ A feature declares the design layers it uses and no more, so its build file says
 is: Research declares no `:icon` because it draws no glyph, and the shell declares no `:component`
 because it draws chrome rather than rows. `:client:design:component` is the one design module that
 depends on `core`, for `ResourceKind` alone — see [decisions.md](decisions.md).
+
+**Features never depend on each other, and two things are now shaped like a feature and are not
+one.** `:client:dispatch` is the sheet; `:client:world` is the drawn face a row is identified by.
+
+The sheet came first. One verb is raised from two tabs: a run starts from a world row on
+Galaxy and, since #62, from a landing on Fleets. Davide ruled out both places it could otherwise
+have gone — the shell (*"We absolutely do not put code in shell!"*, 2026-08-13) and
+`:client:design:component`, whose one `core` edge is `ResourceKind` and which has no business
+reading a `GameState`. So the sheet is its own directory of layer modules, and `featureOf` in the
+root build script excludes it by name for `design`'s reason: every consumer is a cross-feature edge
+by construction, and a warning that fires on every clean build is a warning nobody reads. **What
+makes that safe is that nothing points out of it** — `:client:dispatch:*` reaches `core` and the
+design system and no feature at all, so it cannot become the back door one tab reaches another
+through. `:client:world:ui` was the first name added under that test and it passes it the same way.
+
+**Why the portrait is not in the design system**, since it is the obvious place and was proposed
+there first: Davide's call, 2026-08-16 — *"Design system should not contain such full-ui
+components."* A cost chip or a section label is vocabulary. A procedural drawing of a planet from its
+temperature, gravity, pressure and hazards is a feature's worth of decisions, and hosting it would
+have widened `:client:design:component`'s single `core` edge — `ResourceKind`, argued for at length
+in its own build file — to four more types on the way past. **The test for a shared surface is not
+"do two features use it", it is that plus "is it vocabulary or is it a screen".**
 
 ## Module rules
 

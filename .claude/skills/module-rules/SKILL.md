@@ -201,6 +201,22 @@ directory of layer modules, structurally identical to a feature, so the path alo
 — but it is the opposite: shared vocabulary every feature is *meant* to depend on. Left in, it
 fired this warning nine times on a clean build, which is how a warning stops being read.
 
+**`dispatch` joined it at 0.13**, and it passes `design`'s test rather than a new one. The dispatch
+sheet is one verb raised from two tabs — a world row on Galaxy, a landing on Fleets — so every
+consumer of it is a cross-feature edge by construction and the warning would fire on each of them
+forever. What makes the exclusion safe is that **nothing points out of it**: `:client:dispatch:*`
+depends on `core` and the design system and on no feature at all, so it cannot become the back door
+one tab reaches another through. That is the property to check before adding a name — the list is
+`sharedSurfaces` in the root build script, and a new entry has to demonstrate it rather than inherit
+it.
+
+**`world` was the first entry added under that test**, at 0.13: `WorldPortrait` draws a world's face
+from four `core` traits, and the Fleets worked list started drawing the same disc the Galaxy row
+does. It went to `:client:world:ui` rather than into the design system, and Davide's reason is the
+rule to keep — *"Design system should not contain such full-ui components"* (2026-08-16). **So the
+test is two questions, not one**: do two features use it, *and* is it vocabulary or is it a screen. A
+cost chip is vocabulary; a procedural drawing of a planet is not.
+
 Davide's call (2026-08-07): the rule is real — it is what sent the tab bar and the resource rail
 into the shell — but it has exceptions worth weighing one at a time, and a hard failure would
 decide them in advance. The warning appears on the build that introduces the edge, because that

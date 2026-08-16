@@ -3313,3 +3313,205 @@ stop a player reading the two headings as one rule each. That reading is now cor
 carries its own rule in the same shape as TECHNOLOGIES (`"one ladder at a time"`, `"one at a time"`
 compact). Placeholder copy like every other string on that screen: the shape is the decision, the
 wording is Davide's.
+
+## The dispatch sheet belongs to no tab (2026-08-16, issue #62)
+
+**Two doors, one verb.** A run is raised from a world row on Galaxy, and issue #62 adds a second
+door: a landing in the Fleets ledger, so the list of what came back becomes a way back to a world
+that was worth going to. Features are meant not to see each other, so a sheet raised from both
+cannot live in either.
+
+Davide settled where it goes on 2026-08-13, in as many words: *"We absolutely do not put code in
+shell! I'd suggest `client/dispatch/ui` with its UI state."* Two homes were refused with it, and
+both are worth recording so they are not re-proposed:
+
+- **`:client:shell`.** The 0.0.12 precedent — where the resource rail moved to the shell because
+  Research needed what Colony owned — and the root build script still describes that as what the
+  cross-feature rule is *for*. **That remedy is now closed.** The shell is the composition root and
+  stays chrome.
+- **`:client:design:component`.** It already depends on `core` for `ResourceKind` and already hosts
+  `OltreBottomSheet`. But `toDispatchUiState` reads `GameState`, `worldAt`, `FleetBalance` and
+  `DepositBalance` — much the deepest `core` edge the design system would carry, and that module's
+  own comment defends its single edge as *"strictly less duplication"* than the alternative. A game
+  verb's ui-state is a different argument entirely.
+
+So `:client:dispatch:{ui,presentation}` — shaped like a feature directory, and the second thing in
+the build that is shaped like one and is not.
+
+### `featureOf` excludes it by name, and the test it passes is `design`'s
+
+Every consumer is a cross-feature edge by construction, so the warning would fire on
+`:client:galaxy:ui`, `:client:galaxy:presentation`, `:client:galaxy:ui-testing` and both Fleets
+modules, on every clean build — which is exactly how `design` earned its own exclusion ("it made the
+cross-feature warning fire nine times on a clean build, which is how a warning stops being read").
+
+**What makes it safe is that nothing points out of it.** `:client:dispatch:*` reaches `core` and the
+design system and no feature at all, so it cannot become the back door one tab reaches another
+through. The two names are `sharedSurfaces` in the root build script now rather than one literal, and
+a third has to demonstrate that property rather than inherit it.
+
+### The mapper stopped knowing what a probe is
+
+`toDispatchUiState` took a `ProbeActionUiState` — Galaxy's map-card footer — because the unsurveyed
+refusal hands back the flight that would lift it. That type cannot follow the sheet: it is the
+*footer's* model, and a sheet raised from a landing has no footer above it at all.
+
+What replaces it is `DispatchProbeOffer`: three strings, resolved by the caller. Galaxy projects its
+footer into one with `asDispatchProbeOffer()`; Fleets will pass null, and null is the ordinary case
+there — a world a fleet has already been sent to was surveyed in order to be dispatched to, and
+`surveyed` is never removed, so that refusal is unreachable from the ledger. **The pairing the
+parameter exists for is unchanged**: the sheet offers a probe exactly when the card above it would
+honour one, because it is handed that decision rather than making it again.
+
+`DispatchSelection` needed no reshaping. #62 predicted it would — the mapper used to split a target
+into a page and a slot — but 0.11 had already fixed that for the Galaxy ledger's own sake, and a
+selection has carried a whole `GalaxyCoordinate` since.
+
+### The tests and the nine baselines stayed in `:client:galaxy:presentation`
+
+#62 says they move, and that instruction is older than the code. Two facts have changed under it:
+
+- **A dispatch baseline is a picture of the sheet *over a page*.** `captureSheet` composes the whole
+  screen and photographs the popup root, so the five frames this file already argued for "carry the
+  scrim, the page dimmed behind it and the real drag handle". Re-recording them against a bare
+  `Surface` would record a screen no device produces, to no end.
+- **`DispatchUiStateTest`'s subject is the probe pairing above**, which needs `toProbeActionUiState`
+  — Galaxy's. A copy of that in the dispatch module would be a second copy of exactly the decision
+  the pairing keeps single.
+
+Kover aggregates by class rather than by module, so the moved code's coverage is measured wherever
+its tests live. **Nothing was re-recorded and no baseline moved by a byte**, which is the check that
+this was a move rather than a change: the nine `galaxy_dispatch*` images verify unchanged against a
+sheet that now lives in another module. The day Fleets raises the same sheet, its own frames join
+Galaxy's rather than replacing them.
+
+### What is left, and it is the half that needs a drawing
+
+This lands the plumbing and nothing a player can see. The Fleets ledger becoming a door is blocked
+on Claude Design: #62 asks for a row that reads as a target without spending the quiet the ledger was
+designed to have, for what a row should say now that it is a door, for the 320dp frame that has no
+Landed section at all, and for whether the list should group by world rather than by run. The sheet
+opens at **its own defaults** and never pre-filled from the run that was tapped — Davide,
+2026-08-13 — because pre-filling is "relaunch with last settings" arriving through a side door, and
+`fleet-sheet.md` §8 rejects that by name.
+
+## The landed ledger becomes a list of worlds (2026-08-16, 0.13.0, issue #62)
+
+Davide asked for one thing — *"in the Fleet tabs, under Landed, I want to be able to tap a previous
+dispatch… but we need Design to improve the list of items"* — and Claude Design answered with one
+move that decides everything else: **the list stops being made of runs and starts being made of
+worlds.**
+
+Eleven runs are five worlds. Folded, a row can carry what a single landing never had — how many
+times you went, what the world has paid in total, and whether there is anything left in the ground —
+and the two rows that used to read `[3:165:8]` twice stop asking the player to do the folding. It
+also answers the affordance problem for free: **a row with a face and a name is an object, and
+objects open.** Nothing gained a border, a fill or an accent.
+
+Three options were drawn and two rejected, which is worth keeping:
+
+- **1a, a landing made a target.** The literal reading of the ask: same rows, a rule between them, a
+  44dp height. Honest, and it cannot answer *which world was worth it* — two of the four rows are one
+  world, the amounts are per-run so neither is the total, and there is nowhere to say the crystal is
+  finished. *"It is a receipt you can tap, and a receipt is a poor index."*
+- **1c, a world in the card idiom.** The most consistent answer and wrong here: it costs 33dp a world,
+  five worlds stop fitting under three run cards at 393dp, and it makes history the same weight as a
+  run in flight — so the eye stops telling *happening* from *happened*. The quiet was carrying that
+  distinction.
+
+### What the row says, and what it deliberately does not
+
+Identity is the name and the disc. Beyond identity: the run count, the lifetime total in its
+resource's hue, and the deposit reading. Rejected by Design, each for its own reason — the manifest
+that went (a fact about what was idle that day, and the sheet will not pre-fill it anyway), the time
+on station (a property of the window you picked), and richness and the round trip (both fixed for the
+life of the world, both printed by the sheet one tap later).
+
+**The landing clock is the only conditional element**, and it is the discovery card's own derivation:
+present when the last landing falls inside the span this launch advanced, so no seen-flag and no new
+stored state. It carries the verb — `landed 11:04` — because a bare clock in Oltre is a countdown.
+
+### The five-event cap retired, and it was a data call after all
+
+The old ledger showed the last five landings and called the cap *"a layout decision rather than a
+data one"*. Design spent it: a roll-up is its own cap, so the limit had nothing left to do — and the
+totals **have** to read the whole log or they are wrong. Design flagged this as the one premise to
+check before building, and it holds: `eventLog` is a `List<Event>` in memory, so the fold is a
+`groupBy` and nothing is paged.
+
+### The sheet leads with a name now, on both tabs
+
+The row leads with a name and the sheet led with a coordinate, so the tap landed on a
+different-looking object. `DispatchUiState.coordinate` became `name`, and the address joined the head
+line — *"the same fix the Galaxy tab needs on the same sheet"*.
+
+**One thing Design's frames were right about and its prose was not.** The prose said "two strings
+swapped"; the frames dropped the richness from an offer's head. Implementing the prose clipped the
+hazard clause off the end of a 393dp sheet, which the first recorded baseline showed. The frames are
+right for a reason worth writing down: the two gather cards already print `richness 1.15` and
+`richness 1.47`, so the head was saying it twice. **A refusal keeps its richness**, because a refusal
+has no cards and the richness is the reading a player is being refused for.
+
+### `:client:world:ui`, and the rule that comes with it
+
+A row is identified by the world's drawn face, and `WorldPortrait` was `internal` to
+`:client:galaxy:ui`. Three homes were weighed; Davide took it, 2026-08-16:
+
+> **"I think world:ui. Design system should not contain such full-ui components."**
+
+So the portrait is a third shared surface beside `:client:design` and `:client:dispatch`, and it is
+the first name added under the test the dispatch module set — *nothing points out of it*. The reason
+it is **not** `:client:design:component`, which is where it was first proposed, generalises: a cost
+chip or a section label is vocabulary; a procedural drawing of a planet from its temperature,
+gravity, pressure and hazards is a feature's worth of decisions. **The test for a shared surface is
+two questions, not one**: do two features use it, *and* is it vocabulary or is it a screen.
+
+### Two defects the tests found, both worth the line
+
+- **A deuterium landing crashed the row.** `depositCap` and `remaining` *throw* for deuterium rather
+  than answering null — a world holds no deuterium deposit — and the row's resource is read off what
+  landed, which `Event.FleetReturned` allows to be deuterium even though `startRun` does not. The
+  reading is `empty`, which is true of ground that never held any.
+- **Two Galaxy behaviour assertions were passing for the wrong reason.** `assertTheSheetReads("metal")`
+  claimed to check the figure and was matching the head's `metal 1.15`; the figure said *crystal*,
+  because that world is richer in it. Dropping the richness from the head is what exposed them. They
+  read the richer resource off the generator now.
+
+### What Design raised and this did not build
+
+- **The same tap on an in-flight run card.** Today it would mean *send more ships where I am already
+  working*, which is a refusal on a world you are standing on — one gesture with two meanings on one
+  screen. It becomes a real decision when a hauler exists and a vein can be emptied by two manifests
+  at once. Raised, not designed.
+- **Auto-pinning a world your fleet has worked.** Four runs is a stronger signal than a tap, and it
+  would make the galaxy map label the places you actually use with no new state and no new gesture.
+  It changes the map rather than this list.
+
+### The coverage gate found a duplicated verb (2026-08-16, 0.13.0)
+
+The merge gate failed 0.13.0's first push on six numbers, and chasing them found one real defect
+rather than a threshold to argue with.
+
+**`App.kt` had `startRun`'s five refusals pasted twice** — once for the Galaxy tab and once for the
+Fleets tab, twenty identical lines that no test in the repository reached. The comment written with
+them claimed the duplication was deliberate (*"a shared lambda would put the two tabs' error handling
+in a place neither of them owns"*), which was rationalising: it is **one verb with two doors**, and
+the refusals are the same five either way. Hoisted to one `dispatchRun` lambda, which is both the
+better code and the thing that recovered the line number.
+
+The rest of the gap was covered rather than excluded, and every test added is one that should have
+existed:
+
+- The Fleets sheet's **stepper had never moved**. The first test clicked `+` on a sheet that opens on
+  the whole idle pool, where `+` is already at its stop — so it asserted a control that did nothing.
+  `sendOneFewer` is the end that moves from a default.
+- **Two sheet states had no 320dp baseline at all**, though 320 is a baselined width: the waiting
+  state's compact legs and danger lines, and the refusal, whose head is the only thing that has to
+  fit.
+- The shared mapper's **`probe = null` contract** — the state the Fleets tab is always in — was
+  asserted nowhere.
+
+**One arm stayed uncovered on purpose.** `FleetsUiState`'s run-card `when` has a deuterium branch
+Kotlin needs for exhaustiveness and `core` makes unreachable: `FleetRun`'s constructor throws *"a run
+never gathers deuterium"*. A test for it would assert against a colony that cannot exist. Written
+down rather than excluded, because the next reader will find it and wonder.

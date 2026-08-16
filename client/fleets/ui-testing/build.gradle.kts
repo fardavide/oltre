@@ -34,6 +34,10 @@ kotlin {
                 // A test module that gets all three from here composes nothing itself, so it needs
                 // no Compose compiler — see `:client:fleets:presentation`, which has none.
                 api(projects.client.fleets.ui)
+                // The sheet's own tags, which a worked row now raises, and the two `core` types the
+                // robot names: a coordinate keys a worked row, and a `ResourceKind` picks a chip.
+                api(projects.client.dispatch.ui)
+                api(projects.core)
                 api(compose.desktop.uiTestJUnit4)
                 api(compose.desktop.currentOs)
 

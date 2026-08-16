@@ -14,7 +14,10 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.core.worldNameAt
+import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlinx.datetime.TimeZone
@@ -65,7 +68,9 @@ class FleetsFromStateBehaviourTest {
     }
 
     @Test
-    fun `a landing in the log reaches the ledger`() {
+    fun `a landing with no world reaches the foot line rather than the list`() {
+        // A schema-8 fold recorded no coordinate, so in a list of worlds it cannot be a row — and the
+        // missing disc is what says so. The metal is still yours and the line says that too.
         val state = GameState.initial(SEED).copy(
             eventLog = listOf(
                 Event.FleetReturned(
@@ -78,28 +83,173 @@ class FleetsFromStateBehaviourTest {
         )
 
         fleets(uiState = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC)) {
-            assertReads("LANDED")
-            assertLandingReads(0, "+52 crystal")
+            assertReads("WORLDS WORKED")
+            assertTheUnrecordedLineReads("1 earlier run · 52 crystal · no target recorded")
         }
     }
 
     @Test
-    fun `a landing keeps its resource's own colour whichever resource it was`() {
-        // Pairs with the fix in `toLanding`: the ledger reads the cargo rather than assuming the two
-        // kinds a run may gather, and this is that reaching the screen. A deuterium landing is not
-        // reachable through `startRun` and is reachable through the event, which is the wider type.
+    fun `runs to one world fold into a row that names it and counts them`() {
+        // The seam this test exists for: the mapper's fold and the screen's row agreeing about one
+        // world. Two landings, one row, and the count is the thing neither half could get right
+        // alone.
         val state = GameState.initial(SEED).copy(
             eventLog = listOf(
-                landing(Resources.of(metal = 132)),
-                landing(Resources.of(crystal = 52)),
-                landing(Resources.of(deuterium = 7)),
+                landing(Resources.of(metal = 132), from = worked),
+                landing(Resources.of(metal = 149), from = worked),
             ),
         )
 
         fleets(uiState = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC)) {
-            assertLandingReads(0, "+7 deuterium")
-            assertLandingReads(1, "+52 crystal")
-            assertLandingReads(2, "+132 metal")
+            assertWorkedReads(worked, worldNameAt(state.galaxy.seed, worked))
+            assertWorkedReads(worked, "2 runs")
+            assertWorkedReads(worked, "281 metal")
+        }
+    }
+
+    @Test
+    fun `tapping a worked row raises the sheet on that world`() {
+        // **Issue #62 in one assertion.** The ledger stops being a receipt and becomes a door back to
+        // a world you liked — and the sheet it opens is the one the Galaxy tab raises, at its own
+        // defaults rather than pre-filled from the run that was tapped.
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.of(ShipType.SKIFF, 1),
+            eventLog = listOf(landing(Resources.of(metal = 132), from = worked)),
+        )
+
+        fleetsScreen(state = state) {
+            assertNoSheet()
+
+            tapTheWorld(worked)
+
+            assertTheSheetIsUp()
+            assertTheSheetReads(worldNameAt(state.galaxy.seed, worked))
+        }
+    }
+
+    @Test
+    fun `touching a control on the sheet changes the run and commits nothing`() {
+        // The same three-controls-one-verb claim the Galaxy side makes, asserted here because the
+        // state behind them is a different screen's: `FleetsScreen` holds its own `DispatchSelection`
+        // and nothing shares one with the Galaxy tab.
+        val state = colonyWithARun()
+        val sent = mutableListOf<GalaxyCoordinate>()
+
+        fleetsScreen(state = state, onDispatchRun = { at, _, _, _ -> sent += at }) {
+            tapTheWorld(worked)
+            bringBack(ResourceKind.METAL)
+            sendOneMore()
+            homeIn(6.hours)
+            assertTrue(sent.isEmpty(), "a control is a choice, not a commitment")
+            assertTheSheetIsUp()
+        }
+    }
+
+    @Test
+    fun `the run that leaves carries every control the player touched`() {
+        // All three, together: the sheet's state is this screen's own, so a hull count and a window
+        // chosen here have to survive to the verb. Two skiffs, so the stepper has somewhere to go.
+        val state = colonyWithARun().copy(ships = Ships.of(ShipType.SKIFF, 2))
+        val sent = mutableListOf<Quadruple>()
+
+        fleetsScreen(
+            state = state,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(worked)
+            bringBack(ResourceKind.CRYSTAL)
+            sendOneFewer()
+            homeIn(6.hours)
+            send()
+        }
+
+        val run = sent.single()
+        assertEquals(ResourceKind.CRYSTAL, run.gathering)
+        assertEquals(6.hours, run.window)
+        // One fewer than the pool, because the sheet opens on the whole of it — so `−` is the only
+        // stepper end that moves from a default, and `+` is already at its stop.
+        assertEquals(Ships.of(ShipType.SKIFF, 1), run.ships)
+    }
+
+    @Test
+    fun `sending from a worked row dispatches the run the sheet described`() {
+        // Read off the *rendered* offer rather than off the selection: the mapper resolved the three
+        // defaults and clamped the hull count, so dispatching the raw selection would send a run the
+        // sheet never described. And the sheet closes, because the state after the tap is its own
+        // receipt — a card appears in In flight above it.
+        val state = colonyWithARun()
+        val sent = mutableListOf<Quadruple>()
+
+        fleetsScreen(
+            state = state,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(worked)
+            bringBack(ResourceKind.METAL)
+            send()
+
+            assertNoSheet()
+        }
+
+        val run = sent.single()
+        assertEquals(worked, run.at)
+        assertEquals(ResourceKind.METAL, run.gathering)
+        // The whole idle pool by default, which here is the one skiff the colony has at home.
+        assertEquals(Ships.of(ShipType.SKIFF, 1), run.ships)
+        assertEquals(3.hours, run.window)
+    }
+
+    @Test
+    fun `a fleet that is entirely away is refused rather than offered a run`() {
+        // **The state a player reading this list is usually in**, which is Design's sixth point and
+        // the strongest argument for the row's quiet: had the row been a button, four times out of
+        // five it would open a countdown.
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.NONE,
+            eventLog = listOf(landing(Resources.of(metal = 132))),
+        )
+
+        fleetsScreen(state = state) {
+            tapTheWorld(worked)
+
+            assertTheSheetIsUp()
+            assertOffersNoRun()
+            assertTheSheetReads("Every skiff is away.")
+        }
+    }
+
+    @Test
+    fun `a deuterium landing keeps its own colour and its own word`() {
+        // Unreachable through `startRun` — a run's `gathering` is guarded to metal and crystal — and
+        // reachable through `Event.FleetReturned`, which is the wider type. The row draws it rather
+        // than crashing on a deposit the world cannot have.
+        val state = GameState.initial(SEED).copy(
+            eventLog = listOf(landing(Resources.of(deuterium = 7))),
+        )
+
+        fleets(uiState = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC)) {
+            assertWorkedReads(worked, "7 deuterium")
+        }
+    }
+
+    @Test
+    fun `the line with no world is not a door`() {
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.of(ShipType.SKIFF, 1),
+            eventLog = listOf(
+                Event.FleetReturned(
+                    from = null,
+                    ships = Ships.of(ShipType.SKIFF, 1),
+                    cargo = Resources.of(metal = 134),
+                    at = EPOCH,
+                ),
+            ),
+        )
+
+        fleetsScreen(state = state) {
+            tapTheUnrecordedLine()
+
+            assertNoSheet()
         }
     }
 
@@ -120,11 +270,17 @@ class FleetsFromStateBehaviourTest {
         }
     }
 
-    private fun landing(cargo: Resources): Event.FleetReturned = Event.FleetReturned(
-        from = GalaxyCoordinate(galaxy = 3, system = 171, slot = 10),
+    // **A real world of the seed rather than an address**, which the per-run ledger did not need and
+    // the fold does: a row is a world, so it has a name, a face and a deposit, and a coordinate the
+    // generator puts nothing at cannot be a row at all.
+    private fun landing(cargo: Resources, from: GalaxyCoordinate = worked): Event.FleetReturned =
+        Event.FleetReturned(from = from, ships = Ships.of(ShipType.SKIFF, 1), cargo = cargo, at = EPOCH)
+
+    // A colony with an idle skiff and one world already worked — the smallest state in which the
+    // section is a door rather than a list.
+    private fun colonyWithARun(): GameState = GameState.initial(SEED).copy(
         ships = Ships.of(ShipType.SKIFF, 1),
-        cargo = cargo,
-        at = EPOCH,
+        eventLog = listOf(landing(Resources.of(metal = 132))),
     )
 
     private fun dispatched(hulls: Int): GameState {
@@ -138,6 +294,21 @@ class FleetsFromStateBehaviourTest {
 
     private companion object {
         val SEED = GalaxySeed(20_260_807L)
+
+        // Genesis surveys the home system, so its other worlds are real targets on turn one — which
+        // is what a worked row needs and what an invented coordinate could not give it.
+        val worked: GalaxyCoordinate = GameState.initial(SEED).galaxy.let { galaxy ->
+            galaxy.surveyed.filter { it != galaxy.home }.minBy { it.slot }
+        }
         val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
     }
 }
+
+// The four subjects of a run, kept together so one assertion can name all four rather than four
+// mutable lists agreeing by luck about which tap they came from.
+private data class Quadruple(
+    val at: GalaxyCoordinate,
+    val gathering: ResourceKind,
+    val ships: Ships,
+    val window: kotlin.time.Duration,
+)

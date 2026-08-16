@@ -17,6 +17,7 @@ import dev.fardavide.oltre.core.startRun
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -136,84 +137,24 @@ class FleetsUiStateTest {
     }
 
     // ── The ledger ──────────────────────────────────────────────────────────────────────────
+    //
+    // **The per-run ledger's assertions left with it at 0.13** — the section is a fold over worlds
+    // now, and every claim that used to live here (newest first, the stamp, the migrated run, the
+    // cap) is either restated or retired in `WorkedWorldsTest`. What stays is the pair that is about
+    // *this* mapper's own shape rather than about the fold.
 
     @Test
-    fun `what has landed is a fold over the event log and costs no state`() {
-        val state = fleetOf(1).copy(
-            eventLog = listOf(
-                landing(cargo = Resources.of(metal = 132), at = EPOCH + 1.hours),
-                landing(cargo = Resources.of(crystal = 52), at = EPOCH + 2.hours),
-            ),
-        )
-
-        val landed = state.toFleetsUiState(now = EPOCH + 3.hours, timeZone = TimeZone.UTC).landed
-
-        // Newest first, because the ledger answers "what came back since I last looked".
-        assertEquals(listOf("+52 crystal", "+132 metal"), landed.map { it.amount })
-        assertEquals(listOf(ResourceKind.CRYSTAL, ResourceKind.METAL), landed.map { it.kind })
-    }
-
-    @Test
-    fun `a landing before today is stamped as yesterday rather than as a time`() {
-        val state = fleetOf(1).copy(
-            eventLog = listOf(landing(cargo = Resources.of(metal = 132), at = EPOCH)),
-        )
-
-        val landed = state.toFleetsUiState(now = EPOCH + 30.hours, timeZone = TimeZone.UTC).landed
-
-        assertEquals("yest.", landed.single().stamp)
-    }
-
-    @Test
-    fun `a landing today is stamped with its wall clock time`() {
-        val state = fleetOf(1).copy(
-            eventLog = listOf(landing(cargo = Resources.of(metal = 132), at = EPOCH + 90.minutes)),
-        )
-
-        val landed = state.toFleetsUiState(now = EPOCH + 3.hours, timeZone = TimeZone.UTC).landed
-
-        assertEquals("01:30", landed.single().stamp)
-    }
-
-    @Test
-    fun `a fleet folded forward by the migration says it does not know where it came from`() {
-        // `Event.FleetReturned.from` is nullable because it is a real value the domain lacks: a
-        // schema-8 fold came from a coordinate no old event ever recorded, and the hop wrote null
-        // rather than inventing one.
-        val state = fleetOf(1).copy(
-            eventLog = listOf(
-                Event.FleetReturned(
-                    from = null,
-                    ships = Ships.of(ShipType.SKIFF, 1),
-                    cargo = Resources.of(metal = 14),
-                    at = EPOCH,
-                ),
-            ),
-        )
-
-        assertEquals("—", state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).landed.single().coordinate)
-    }
-
-    @Test
-    fun `the ledger is capped rather than growing with an append-only log`() {
-        val state = fleetOf(1).copy(
-            eventLog = (1..9).map { landing(cargo = Resources.of(metal = it.toLong()), at = EPOCH + it.hours) },
-        )
-
-        val landed = state.toFleetsUiState(now = EPOCH + 10.hours, timeZone = TimeZone.UTC).landed
-
-        assertEquals(5, landed.size)
-        // The five most recent, newest first.
-        assertEquals("+9 metal", landed.first().amount)
-    }
-
-    @Test
-    fun `a colony with nothing out and nothing landed says so with two empty lists`() {
+    fun `a colony with nothing out and nothing landed says so with an empty list and no section`() {
         val fresh = fleetOf(1).toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         assertTrue(fresh.runs.isEmpty())
-        assertTrue(fresh.landed.isEmpty())
+        assertNull(fresh.worked, "a heading over nothing claims a history that is not there")
         assertEquals("0 of 1 away", fresh.away)
+    }
+
+    @Test
+    fun `no sheet is up until a world is tapped`() {
+        assertNull(fleetOf(1).toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).dispatch)
     }
 
     // ── The fixture ─────────────────────────────────────────────────────────────────────────
