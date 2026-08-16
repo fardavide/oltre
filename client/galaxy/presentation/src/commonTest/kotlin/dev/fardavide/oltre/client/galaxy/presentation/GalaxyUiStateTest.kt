@@ -5,8 +5,8 @@ import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapMark
-import dev.fardavide.oltre.client.galaxy.ui.WorldPortraitUiState
 import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
+import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 import dev.fardavide.oltre.core.EmpireId
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate

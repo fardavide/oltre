@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
+
 // **What the Galaxy tab draws, and nothing about how it is derived.** The mappers that produce these
 // are `:client:galaxy:presentation`, which depends on this module rather than the other way round.
 //

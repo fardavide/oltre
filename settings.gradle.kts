@@ -55,6 +55,14 @@ include(":client:design:core")
 include(":client:design:format")
 include(":client:design:icon")
 include(":client:design:screenshot-testing")
+// The dispatch sheet, which belongs to no tab: Galaxy raises it from a world row and Fleets raises
+// it from a landing. Davide's call, 2026-08-13 — *"We absolutely do not put code in shell! I'd
+// suggest `client/dispatch/ui` with its UI state."* — so it is a directory of layer modules like a
+// feature, and `featureOf` in the root build script excludes it by name for `design`'s reason: it is
+// shared vocabulary every feature is meant to reach, and left in it would fire the cross-feature
+// warning on every clean build.
+include(":client:dispatch:presentation")
+include(":client:dispatch:ui")
 // The two tabs that stopped saying "nothing here yet" at 0.8.0. They ship together on purpose: a
 // shipyard that builds hulls with nowhere to send them is worse than the empty tab it replaces, and
 // a fleets tab is a list that can never have two rows until hulls go on sale.
@@ -81,6 +89,11 @@ include(":client:shipyard:ui-testing")
 // belongs where it can be tested without a phone in somebody's hand.
 include(":client:tilt:data")
 include(":client:tilt:domain")
+// What a world looks like, and the third shared surface after `:client:design` and
+// `:client:dispatch`. Two features draw the same disc now — the Galaxy row and the Fleets worked
+// list — and Davide ruled out the design system as its home (2026-08-16): "Design system should
+// not contain such full-ui components."
+include(":client:world:ui")
 // The Android packaging of `:client:shell`, and the only thing in the build that depends on it
 // — AGP 9 will not let a Kotlin Multiplatform module apply `com.android.application`, so the
 // shell cannot be the Android app the way it already is the desktop one. Rule 7 names it by

@@ -116,6 +116,8 @@ dependencies {
     kover(projects.client.debug.data)
     kover(projects.client.debug.domain)
     kover(projects.client.debug.ui)
+    kover(projects.client.dispatch.presentation)
+    kover(projects.client.dispatch.ui)
     kover(projects.client.fleets.presentation)
     kover(projects.client.fleets.ui)
     kover(projects.client.galaxy.presentation)
@@ -128,6 +130,7 @@ dependencies {
     kover(projects.client.shipyard.ui)
     kover(projects.client.tilt.data)
     kover(projects.client.tilt.domain)
+    kover(projects.client.world.ui)
 }
 
 kover {
@@ -368,12 +371,22 @@ fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name
 // indistinguishable from a feature, so the path alone reads it as one. It is the opposite of a
 // feature: shared vocabulary that every feature is *meant* to depend on. Left in, it made the
 // cross-feature warning fire nine times on a clean build, which is how a warning stops being read.
+//
+// **`dispatch` joins it at 0.13, and the test it passes is `design`'s rather than a new one.** The
+// dispatch sheet is one verb raised from two tabs — a world row on Galaxy, a landing on Fleets — so
+// every consumer of it is a cross-feature edge by construction and the warning would fire on each of
+// them, forever, on a graph nobody should be looking at twice. What makes that safe here is what
+// makes it safe for `design`: nothing points *out* of it. `:client:dispatch:*` depends on `core` and
+// the design system and on no feature at all, so it cannot become the back door one tab reaches
+// another through. **A third name on this list needs that same property demonstrated, not assumed.**
+private val sharedSurfaces = setOf("design", "dispatch", "world")
+
 fun featureOf(projectPath: String): String? = projectPath
     .removePrefix(":")
     .split(':')
     .takeIf { it.size >= 3 && it.first() == "client" }
     ?.get(1)
-    ?.takeIf { it != "design" }
+    ?.takeIf { it !in sharedSurfaces }
 
 gradle.projectsEvaluated {
     // Edge -> the configurations that declare it. A module dependency is usually declared once,

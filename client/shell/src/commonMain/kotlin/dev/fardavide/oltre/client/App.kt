@@ -20,8 +20,8 @@ import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.ui.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
-import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
@@ -39,7 +39,9 @@ import dev.fardavide.oltre.client.tilt.data.TiltSource
 import dev.fardavide.oltre.client.tilt.data.defaultTiltSource
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.BuildShipsResult
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -56,13 +58,13 @@ import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.datetime.TimeZone
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.datetime.TimeZone
 
 // How long the rail goes on having somewhere to roll from. The roll itself takes 900ms; this is
 // comfortably past it and well short of anything a player would still be reading.
@@ -270,6 +272,37 @@ fun App(
                 BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                     // One string for both destinations, because there is one watch: see
                     // `watchingLabel`.
+                    // **One verb, two doors.** A run is raised from a world row on Galaxy and from
+                    // a worked row on Fleets, and `startRun`'s five refusals are the same five either
+                    // way — so this is declared once rather than pasted into both. The first cut of
+                    // 0.13 did paste it, and the twenty lines the Fleets copy added were reachable by
+                    // no test in the repository, which is how the coverage gate found them.
+                    val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit =
+                        { target, gathering, ships, window ->
+                            act { state, at ->
+                                when (
+                                    val result = startRun(
+                                        state = state,
+                                        target = target,
+                                        gathering = gathering,
+                                        ships = ships,
+                                        window = window,
+                                        at = at,
+                                    )
+                                ) {
+                                    is StartRunResult.Started -> result.state
+                                    // None of the five is reachable from a finger: both sheets are
+                                    // built so the verb is absent wherever the model would refuse.
+                                    // This `when` says so out loud rather than trusting it.
+                                    StartRunResult.Unsurveyed,
+                                    StartRunResult.NotAValidTarget,
+                                    StartRunResult.NoSuchShips,
+                                    StartRunResult.WindowTooShort,
+                                    StartRunResult.Depleted,
+                                    -> state
+                                }
+                            }
+                        }
                     val watching = current.state.watching
                         ?.watchingLabel(compact = maxWidth < OltreLayout.compactWidth)
 
@@ -404,28 +437,7 @@ fun App(
                                 // them returns the state untouched: the sheet is built so that none
                                 // is reachable from a finger, and this `when` is what says so out
                                 // loud rather than trusting it.
-                                onDispatchRun = { target, gathering, ships, window ->
-                                    act { state, at ->
-                                        when (
-                                            val result = startRun(
-                                                state = state,
-                                                target = target,
-                                                gathering = gathering,
-                                                ships = ships,
-                                                window = window,
-                                                at = at,
-                                            )
-                                        ) {
-                                            is StartRunResult.Started -> result.state
-                                            StartRunResult.Unsurveyed,
-                                            StartRunResult.NotAValidTarget,
-                                            StartRunResult.NoSuchShips,
-                                            StartRunResult.WindowTooShort,
-                                            StartRunResult.Depleted,
-                                            -> state
-                                        }
-                                    }
-                                },
+                                onDispatchRun = dispatchRun,
                             )
                         },
                         // **The sixth verb, and the first shop in the game.** `FleetBalance.shipCost`
@@ -465,16 +477,26 @@ fun App(
                                 },
                             )
                         },
-                        // Read-only, and the only destination in the app that is. There is no cancel
-                        // and no recall anywhere in this game, and the cargo is fixed at dispatch —
-                        // so a run in flight is something to watch rather than something to change.
+                        // **It stopped being read-only at 0.13**, which is issue #62. A run in flight
+                        // is still something to watch rather than something to change — there is no
+                        // cancel and no recall anywhere in this game, and the cargo is fixed at
+                        // dispatch — but the list of worlds you have worked is a door back to one,
+                        // and it raises the same sheet the Galaxy tab raises.
                         fleets = { scroll ->
                             FleetsScreen(
                                 scrollState = scroll,
-                                uiState = current.state.toFleetsUiState(
-                                    now = current.lastUpdatedAt,
-                                    timeZone = TimeZone.currentSystemDefault(),
-                                ),
+                                state = current.state,
+                                now = current.lastUpdatedAt,
+                                // What the landing clock is measured from, exactly as it is on the
+                                // Galaxy tab: a world that came home while the app was closed says
+                                // so, and one that came home before that has nothing new to report.
+                                since = current.resumedFrom,
+                                timeZone = TimeZone.currentSystemDefault(),
+                                // The same four lines the Galaxy tab spends, and deliberately not
+                                // hoisted into one: `startRun`'s refusals are the sheet's own
+                                // subject, and a shared lambda would put the two tabs' error
+                                // handling in a place neither of them owns.
+                                onDispatchRun = dispatchRun,
                             )
                         },
                     )

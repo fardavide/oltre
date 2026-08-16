@@ -19,7 +19,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
-import dev.fardavide.oltre.client.fleets.ui.FleetsScreen
+import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
@@ -140,7 +140,12 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         fleets = { scroll ->
                             FleetsScreen(
                                 scrollState = scroll,
-                                uiState = game.state.toFleetsUiState(now = game.now, timeZone = TimeZone.UTC),
+                                state = game.state,
+                                now = game.now,
+                                timeZone = TimeZone.UTC,
+                                // This harness is about the adaptation ladder reaching Research from
+                                // a Galaxy row; the Fleets tab is here to exist, not to be driven.
+                                onDispatchRun = { _, _, _, _ -> },
                             )
                         },
                     )

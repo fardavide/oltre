@@ -2,7 +2,7 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
-import dev.fardavide.oltre.client.galaxy.ui.DispatchUiState
+import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
@@ -42,10 +42,12 @@ class DispatchSheetBehaviourTest {
 
     @Test
     fun `the sheet names the world it was raised from`() {
+        // **The row's own name, not its address.** Both lead with the name since 0.13, which is what
+        // makes a tap land on something that looks like what was tapped.
         val coordinate = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).rows
             .filterIsInstance<GalaxyRowUiState.World>()
             .first { it.at == RUNNABLE }
-            .coordinate
+            .name
 
         galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetIsUp()
@@ -117,9 +119,9 @@ class DispatchSheetBehaviourTest {
         val richer = if (offer.metalRichness >= offer.crystalRichness) ResourceKind.METAL else ResourceKind.CRYSTAL
 
         assertEquals(richer, offer.gathering)
-        // ...and the head line puts that same one first, so the eye lands on it before the control
-        // below repeats it.
-        assertTrue(offer.head.startsWith(if (richer == ResourceKind.METAL) "metal" else "crystal"), offer.head)
+        // ...and the chip for that resource is the one drawn as selected, which is where the reading
+        // lives since 0.13. The head is the address and the hazards now — see `DispatchUiState`.
+        assertTrue(offer.head.startsWith(offer.at.label()), offer.head)
     }
 
     @Test
