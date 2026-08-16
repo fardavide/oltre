@@ -1,20 +1,21 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
-import dev.fardavide.oltre.core.StartRunResult
-import dev.fardavide.oltre.core.startRun
-import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.WorldVerdict
+import dev.fardavide.oltre.core.relayAt
+import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.verdictFor
+import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertIs
 import kotlin.time.Duration.Companion.hours
-import dev.fardavide.oltre.core.worldAt
 
 // The dispatch sheet in each of the states it can be raised in — **derived from a real `GameState`
 // through the real mapper**, like every other frame since 0.11. See `GalaxyFrames` and the three

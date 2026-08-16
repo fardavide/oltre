@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind

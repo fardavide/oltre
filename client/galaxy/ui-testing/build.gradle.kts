@@ -32,6 +32,9 @@ kotlin {
                 // names a `GalaxyUiState`, hands back an object built on a `ComposeUiTest`, and
                 // running one needs the desktop Skiko binary.
                 api(projects.client.galaxy.ui)
+            // The sheet's own tags, which left with the sheet — the robot drives both halves of
+            // the screen and the sheet is one of them.
+            implementation(projects.client.dispatch.ui)
                 api(compose.desktop.uiTestJUnit4)
                 api(compose.desktop.currentOs)
 

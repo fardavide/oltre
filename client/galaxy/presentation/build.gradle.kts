@@ -46,6 +46,10 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.core)
+            // The sheet a world row raises, and the mapper that prices it. `implementation`
+            // rather than `api`: `DispatchSelection` is this screen's own state and nothing
+            // outside the module names it — the ui half arrives through `:client:galaxy:ui`.
+            implementation(projects.client.dispatch.presentation)
             // `api`, so the composition root names this feature once — see `:client:colony:presentation`.
             api(projects.client.galaxy.ui)
             implementation(projects.client.design.component)

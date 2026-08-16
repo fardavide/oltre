@@ -2,6 +2,9 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchProbeOffer
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
@@ -13,6 +16,7 @@ import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.galaxy.ui.MapBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapMark
 import dev.fardavide.oltre.client.galaxy.ui.MapTrajectoryUiState
+import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.SystemHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.SystemMapUiState
 import dev.fardavide.oltre.core.FleetBalance
@@ -23,12 +27,12 @@ import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
-import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.regionNameAt
 import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.systemNameAt
+import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -89,8 +93,10 @@ internal fun GameState.toGalaxyUiState(
                 selection = selection,
                 // Hoisted rather than restated: the card's footer already decides whether a probe
                 // can be sent, and a second copy of that decision inside the sheet is a second place
-                // for the two to disagree about one flight.
-                probe = toProbeActionUiState(at = its, worlds = worldsOf(its), now = now, timeZone = timeZone),
+                // for the two to disagree about one flight. The sheet's own module cannot price a
+                // survey and must not learn to — see `DispatchProbeOffer`.
+                probe = toProbeActionUiState(at = its, worlds = worldsOf(its), now = now, timeZone = timeZone)
+                    .asDispatchProbeOffer(),
                 now = now,
             )
         },
@@ -282,6 +288,19 @@ private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): Stri
 // coldest slot in the system, and the map has no second body to say it against.
 private fun orbitOf(index: Int, of: Int): Float =
     if (of <= 1) 0.5f else index.toFloat() / (of - 1).toFloat()
+
+// **The one place the probe footer and the dispatch sheet meet**, and it is a projection rather than
+// a decision: `toProbeActionUiState` has already worked out whether a flight would be honoured, and
+// this hands the three strings the sheet's refusal needs to say so. The five states that are not an
+// offer — unaffordable, in flight, landed, charted, nothing to survey — all become null, which is the
+// sheet showing a refusal with no verb under it.
+//
+// It lives here rather than in `:client:dispatch:presentation` because that module may not see this
+// one and should not: a sheet raised from a landing has no probe footer above it at all.
+internal fun ProbeActionUiState.asDispatchProbeOffer(): DispatchProbeOffer? =
+    (this as? ProbeActionUiState.Dispatch)?.let {
+        DispatchProbeOffer(label = it.label, cost = it.offer.cost.amount, flight = it.offer.flight)
+    }
 
 // Internal since the dispatch sheet: the sheet heads itself with the coordinate the row it was
 // raised from prints, and two copies of this would be two ways of writing one address.

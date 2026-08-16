@@ -61,14 +61,17 @@ class FleetsManifestTest {
             ),
         )
 
-        val landing = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).landed.single()
+        val row = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!.rows.single()
 
-        assertEquals("+7 deuterium", landing.amount)
-        assertEquals(ResourceKind.DEUTERIUM, landing.kind)
+        assertEquals("7 deuterium", row.total)
+        assertEquals(ResourceKind.DEUTERIUM, row.kind)
     }
 
     @Test
     fun `a landing that brought nothing still names a resource rather than crashing`() {
+        // A run with no target and no cargo, which is the emptiest thing the log can hold. It has no
+        // world to be a row of, so what it reaches is the foot line — and that line still has to
+        // name a resource rather than divide by an absence.
         val state = GameState.initial(SEED).copy(
             eventLog = listOf(
                 Event.FleetReturned(
@@ -80,8 +83,38 @@ class FleetsManifestTest {
             ),
         )
 
-        assertEquals("+0 metal", state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).landed.single().amount)
+        val worked = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!
+
+        assertEquals("1 earlier run · 0 metal · no target recorded", worked.unrecorded)
     }
+
+    @Test
+    fun `a run gathering crystal says crystal on its card`() {
+        // The run card's own resource word, which every other test in this file reaches with metal —
+        // so the crystal arm of the `when` was written and never executed.
+        val state = GameState.initial(SEED).copy(
+            runs = listOf(
+                FleetRun(
+                    target = GalaxyCoordinate(galaxy = 3, system = 171, slot = 10),
+                    ships = Ships.of(ShipType.SKIFF, 1),
+                    gathering = ResourceKind.CRYSTAL,
+                    cargo = Resources.of(crystal = 52),
+                    dispatchedAt = EPOCH,
+                    returnsAt = EPOCH + 3.hours,
+                ),
+            ),
+        )
+
+        val card = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs.single()
+
+        assertEquals("1 skiff · 52 crystal", card.manifest)
+    }
+
+    // **No deuterium card test, and the absence is the point.** `FleetRun`'s own constructor throws
+    // — *"a run never gathers deuterium"* — so `core` makes the state unrepresentable and the third
+    // arm of the card's `when` is dead by invariant rather than by omission. Kotlin needs the arm for
+    // exhaustiveness; nothing in the game can reach it, and a test that constructed one would be
+    // asserting against a colony that cannot exist.
 
     private fun manifestOf(ships: Ships): String {
         val state = GameState.initial(SEED).copy(

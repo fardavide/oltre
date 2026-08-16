@@ -63,38 +63,11 @@ object GalaxyTestTags {
     // identical for all fifteen slots of a system — see `FleetBalance.danger`.
     const val ASTRONOMY = "galaxy-astronomy"
 
-    // ── The dispatch sheet ───────────────────────────────────────────────────────────────────
-    //
-    // Distinct from `DISPATCH` above, which is the *probe* button in the map card's footer. Two
-    // verbs now leave this screen and they are aimed at different things — a probe at a star, a run
-    // at a world — so nothing here reuses that tag.
-    // On the *contents* rather than on the chrome, so it names the same thing whether a test is
-    // driving the real sheet or the contents on their own — `ColonyTestTags.SHEET` is the precedent.
-    // There is no tag for the scrim any more: the sheet stopped drawing one when it became an
-    // `OltreBottomSheet`, and Material's scrim is the platform's to test, not ours.
-    const val SHEET = "galaxy-dispatch-sheet"
-
-    // The verb, present only in the offer state. Absent in every refusal, which is the same
-    // assertion `DISPATCH` carries for the probe: a screen that never offers a run the model would
-    // refuse is one where this tag is missing exactly when `startRun` would say no.
-    const val SEND = "galaxy-dispatch-send"
-
-    // The refusal's own action, which is a different verb in each of the two refusals — a probe
-    // where the world is unsurveyed, a countdown where every hull is away. One tag, because what a
-    // test wants to know is *what the refusal offers*, not which refusal produced it.
-    const val SHEET_ACTION = "galaxy-dispatch-sheet-action"
-
-    const val SHIPS_MORE = "galaxy-dispatch-ships-more"
-    const val SHIPS_FEWER = "galaxy-dispatch-ships-fewer"
-
-    // Keyed by the resource rather than by the label for `adaptation`'s reason: "Metal" is a string
-    // the copy owns and `ResourceKind.METAL` is the thing the run actually carries.
-    fun gather(kind: ResourceKind): String = "galaxy-dispatch-gather-${kind.name.lowercase()}"
-
-    // Keyed by the rung's own duration in whole minutes, not by the label it prints: a ladder
-    // *narrows* on a distant target rather than disabling rungs, so the rung at index 0 is a
-    // different window depending on how far away the world is.
-    fun window(minutes: Long): String = "galaxy-dispatch-window-$minutes"
+    // **The dispatch sheet's own tags left with the sheet** — they are `DispatchTestTags` in
+    // `:client:dispatch:ui` now, because the sheet is raised from Fleets as well and a handle
+    // reading `galaxy-` would name the wrong screen half the time. `DISPATCH` above stays: it is the
+    // *probe* button in the map card's footer, which is this tab's and aimed at a star rather than
+    // at a world.
 
     // **The whole address, because the ledger lists six systems at once** and a tag keyed by the slot
     // named one node per system in the list — an ambiguity a test could only work around by staying

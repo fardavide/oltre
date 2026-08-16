@@ -43,16 +43,27 @@ class FleetsScreenScreenshotTest {
     }
 
     // Comfortably taller than the content: 32dp of padding, two 33dp labels, three ~104dp cards,
-    // two 8dp gaps, the 22dp seam and four ~22dp ledger rows come to about 500dp. The screen
-    // scrolls, so a window that is too short clips the last row out of the baseline silently and
-    // asserts the truncation forever — erring tall costs a band of empty background.
+    // two 8dp gaps, the 22dp seam, five 45dp worked rows and the foot line come to about 700dp at
+    // 393dp and more at 320, where the run cards wrap. The screen scrolls,
+    // so a window that is too short clips the last row out of the baseline silently and asserts the
+    // truncation forever — erring tall costs a band of empty background. **It grew at 0.13**: the
+    // fold made every row taller and added a face to it, which is exactly the kind of change a
+    // fixed-height frame hides by cropping.
     private fun capture(width: Int, uiState: FleetsUiState, name: String) {
-        runDesktopComposeUiTest(width = width, height = 620) {
+        runDesktopComposeUiTest(width = width, height = 900) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     Surface {
-                        FleetsScreen(uiState = uiState)
+                        FleetsPage(
+                            uiState = uiState,
+                            onOpenWorld = {},
+                            onCloseDispatch = {},
+                            onSelectGathering = {},
+                            onSelectShips = {},
+                            onSelectWindow = {},
+                            onDispatchRun = {},
+                        )
                     }
                 }
             }
