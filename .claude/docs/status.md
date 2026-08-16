@@ -399,6 +399,8 @@ Updated: 2026-08-16 (0.12.1)
 
 The v1 feature set from Notion is *3 resources, 6 buildings, 4 ship types, one research branch,
 a large procedurally generated galaxy, 3 AI empires, local notifications, JSON snapshot save*.
+**Read as scope, never as a ceiling** — Davide, 2026-08-16: *"Notion stuff is now very ancient."*
+A fifth, survey-only ship type was called that day; see `brief.md`'s supersession note.
 Four of the eight are done. What is left, decomposed into slices that each end playable —
 **sequencing is the agent's (per the Notion hand-off), the content is Davide's**:
 
