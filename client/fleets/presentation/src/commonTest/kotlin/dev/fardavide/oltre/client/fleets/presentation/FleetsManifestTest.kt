@@ -88,6 +88,34 @@ class FleetsManifestTest {
         assertEquals("1 earlier run · 0 metal · no target recorded", worked.unrecorded)
     }
 
+    @Test
+    fun `a run gathering crystal says crystal on its card`() {
+        // The run card's own resource word, which every other test in this file reaches with metal —
+        // so the crystal arm of the `when` was written and never executed.
+        val state = GameState.initial(SEED).copy(
+            runs = listOf(
+                FleetRun(
+                    target = GalaxyCoordinate(galaxy = 3, system = 171, slot = 10),
+                    ships = Ships.of(ShipType.SKIFF, 1),
+                    gathering = ResourceKind.CRYSTAL,
+                    cargo = Resources.of(crystal = 52),
+                    dispatchedAt = EPOCH,
+                    returnsAt = EPOCH + 3.hours,
+                ),
+            ),
+        )
+
+        val card = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs.single()
+
+        assertEquals("1 skiff · 52 crystal", card.manifest)
+    }
+
+    // **No deuterium card test, and the absence is the point.** `FleetRun`'s own constructor throws
+    // — *"a run never gathers deuterium"* — so `core` makes the state unrepresentable and the third
+    // arm of the card's `when` is dead by invariant rather than by omission. Kotlin needs the arm for
+    // exhaustiveness; nothing in the game can reach it, and a test that constructed one would be
+    // asserting against a colony that cannot exist.
+
     private fun manifestOf(ships: Ships): String {
         val state = GameState.initial(SEED).copy(
             runs = listOf(

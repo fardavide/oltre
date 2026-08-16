@@ -303,6 +303,20 @@ class GalaxyScreenshotTest {
         captureSheet(width = 320, uiState = dispatchOfferUiState, name = "galaxy_dispatch_slide_over")
     }
 
+    // **The other two states had no 320dp baseline at all**, and 320 is a width the app is
+    // baselined for. Each carries a compact string the offer's frame cannot reach: the waiting
+    // state's legs and danger lines are the only compact pair drawn under a countdown rather than a
+    // figure, and a refusal is the one layout whose head is the *only* thing that has to fit.
+    @Test
+    fun `a stripped world in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchWaitingUiState, name = "galaxy_dispatch_waiting_slide_over")
+    }
+
+    @Test
+    fun `every hull away in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchNoShipsUiState, name = "galaxy_dispatch_no_ships_slide_over")
+    }
+
     @Test
     fun `a probe in flight counts down in the footer`() {
         capture(

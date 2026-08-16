@@ -3486,3 +3486,32 @@ two questions, not one**: do two features use it, *and* is it vocabulary or is i
 - **Auto-pinning a world your fleet has worked.** Four runs is a stronger signal than a tap, and it
   would make the galaxy map label the places you actually use with no new state and no new gesture.
   It changes the map rather than this list.
+
+### The coverage gate found a duplicated verb (2026-08-16, 0.13.0)
+
+The merge gate failed 0.13.0's first push on six numbers, and chasing them found one real defect
+rather than a threshold to argue with.
+
+**`App.kt` had `startRun`'s five refusals pasted twice** — once for the Galaxy tab and once for the
+Fleets tab, twenty identical lines that no test in the repository reached. The comment written with
+them claimed the duplication was deliberate (*"a shared lambda would put the two tabs' error handling
+in a place neither of them owns"*), which was rationalising: it is **one verb with two doors**, and
+the refusals are the same five either way. Hoisted to one `dispatchRun` lambda, which is both the
+better code and the thing that recovered the line number.
+
+The rest of the gap was covered rather than excluded, and every test added is one that should have
+existed:
+
+- The Fleets sheet's **stepper had never moved**. The first test clicked `+` on a sheet that opens on
+  the whole idle pool, where `+` is already at its stop — so it asserted a control that did nothing.
+  `sendOneFewer` is the end that moves from a default.
+- **Two sheet states had no 320dp baseline at all**, though 320 is a baselined width: the waiting
+  state's compact legs and danger lines, and the refusal, whose head is the only thing that has to
+  fit.
+- The shared mapper's **`probe = null` contract** — the state the Fleets tab is always in — was
+  asserted nowhere.
+
+**One arm stayed uncovered on purpose.** `FleetsUiState`'s run-card `when` has a deuterium branch
+Kotlin needs for exhaustiveness and `core` makes unreachable: `FleetRun`'s constructor throws *"a run
+never gathers deuterium"*. A test for it would assert against a colony that cannot exist. Written
+down rather than excluded, because the next reader will find it and wonder.

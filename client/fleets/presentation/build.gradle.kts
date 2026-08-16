@@ -18,6 +18,11 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    // **The frames with the sheet up live here**, for `:client:galaxy:presentation`'s reason: a
+    // `ui` module cannot see a `GameState`, so a hand-stated `DispatchUiState` would be twenty-five
+    // fields drifting from the mapper that fills them. A frame is `state.toFleetsUiState(dispatch =
+    // …)` — the same call the app makes.
+    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -68,7 +73,9 @@ kotlin {
                 // lives in this module, so its harness has to as well — a ui-layer module may not
                 // depend on a presentation one.
                 implementation(projects.client.design.core)
+                implementation(projects.client.design.screenshotTesting)
                 implementation(libs.compose.material3)
+                implementation(libs.roborazzi.compose.desktop)
             }
         }
     }

@@ -144,6 +144,21 @@ class FleetsRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(DispatchTestTags.gather(kind)).performClick()
     }
 
+    fun sendOneMore() = apply {
+        test.onNodeWithTag(DispatchTestTags.SHIPS_MORE).performClick()
+    }
+
+    // **The one that moves from a default.** The sheet opens on the whole idle pool, so `+` is at
+    // its stop the moment it appears and clicking it does nothing — which is how the first version
+    // of the stepper test passed without ever changing a hull count.
+    fun sendOneFewer() = apply {
+        test.onNodeWithTag(DispatchTestTags.SHIPS_FEWER).performClick()
+    }
+
+    fun homeIn(window: Duration) = apply {
+        test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes)).performClick()
+    }
+
     // Substring, because a line the screen composes from several Texts is still one line to the
     // player: the section rule renders as " · 5 of 6 away" next to its label.
     fun assertReads(text: String) = apply {

@@ -1,14 +1,17 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.fleets.ui.WorkedListUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.worldAt
 import dev.fardavide.oltre.core.worldNameAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -156,6 +159,52 @@ class WorkedWorldsTest {
     }
 
     @Test
+    fun `a landing from an address the seed holds no world at is not a row`() {
+        // **A list of worlds may not invent one.** It cannot happen on a save whose seed is fixed —
+        // the coordinate came from a run that was really dispatched — but a row with no world has no
+        // name, no face and no deposit to print, so the fold drops it rather than guessing.
+        val empty = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+            .map { GalaxyCoordinate(galaxy = near.galaxy, system = near.system, slot = it) }
+            .first { worldAt(GameState.initial(SEED).galaxy.seed, it) == null }
+
+        val state = colony(
+            landing(from = near, cargo = Resources.of(metal = 132), at = EPOCH + 1.hours),
+            landing(from = empty, cargo = Resources.of(metal = 99), at = EPOCH + 2.hours),
+        )
+
+        assertEquals(listOf(near), state.worked().rows.map { it.at })
+    }
+
+    @Test
+    fun `a landing dated after this launch gets no clock`() {
+        // The span is `since..now` and both ends are load-bearing. A landing *after* `now` is a
+        // defective state rather than a reachable one — the log is advanced to `now` before anything
+        // is drawn — but the guard is what stops a screen printing a clock for a thing that has not
+        // happened, which is the rule `advance` follows everywhere else.
+        val state = colony(landing(from = near, cargo = Resources.of(metal = 132), at = EPOCH + 9.hours))
+
+        assertNull(state.worked(since = EPOCH, now = EPOCH + 2.hours).rows.single().landed)
+    }
+
+    @Test
+    fun `the sheet a row raises is priced by the shared mapper`() {
+        // The seam between the two mappers, which every other test here reaches through a screen.
+        // Null until a world is tapped, and a real offer once one is — with no probe offer, because
+        // a world a fleet has been sent to is surveyed and that refusal cannot occur.
+        val state = colony(landing(from = near, cargo = Resources.of(metal = 132), at = EPOCH))
+            .copy(ships = Ships.of(ShipType.SKIFF, 1))
+
+        val open = state.toFleetsUiState(
+            now = EPOCH,
+            since = EPOCH,
+            timeZone = TimeZone.UTC,
+            dispatch = DispatchSelection(at = near, gathering = null, ships = null, window = null),
+        )
+
+        assertEquals(worldNameAt(state.galaxy.seed, near), assertNotNull(open.dispatch).name)
+    }
+
+    @Test
     fun `nothing is said about runs that were all recorded`() {
         val state = colony(landing(from = near, cargo = Resources.of(metal = 132), at = EPOCH))
 
@@ -207,7 +256,7 @@ class WorkedWorldsTest {
         Event.FleetReturned(from = from, ships = one, cargo = cargo, at = at)
 
     private fun traitsOf(state: GameState, at: GalaxyCoordinate) =
-        dev.fardavide.oltre.core.worldAt(state.galaxy.seed, at)!!.traits.hazards
+        worldAt(state.galaxy.seed, at)!!.traits.hazards
 
     private companion object {
         val SEED = GalaxySeed(20_260_807L)

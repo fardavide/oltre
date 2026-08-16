@@ -157,6 +157,27 @@ class DispatchUiStateTest {
     }
 
     @Test
+    fun `a refusal with no probe behind it offers nothing and prices nothing`() {
+        // **`DispatchProbeOffer`'s whole contract**, and the state the Fleets tab is always in: it
+        // has no map card above the sheet, so it passes null. The refusal still says why the world
+        // cannot be priced; what it must not do is invent a flight, or quote a cost it was not
+        // given.
+        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val target = firstWorld(elsewhere)
+
+        val refusal = assertIs<DispatchUiState.Refuse>(
+            withSkiffs(1).toDispatchUiState(selection = selection(target), probe = null, now = EPOCH),
+        )
+
+        assertTrue(refusal.title.endsWith("nobody has looked at."), refusal.title)
+        assertNull(refusal.action)
+        // The sentence keeps its own half — how many worlds a probe would survey — and drops the
+        // clause that quotes a price nobody quoted.
+        assertTrue("A probe surveys all" in refusal.note, refusal.note)
+        assertTrue("metal ·" !in refusal.note, refusal.note)
+    }
+
+    @Test
     fun `a fleet that is entirely away refuses and counts the first hull home`() {
         val target = runnable()
         val away = state.copy(ships = Ships.NONE, runs = listOf(runReturningIn(3.hours, target)))
