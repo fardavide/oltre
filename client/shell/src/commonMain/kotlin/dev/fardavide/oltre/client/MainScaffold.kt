@@ -176,8 +176,8 @@ private fun ColumnScope.Destination(
                 // clipping the pair while it did it.
                 enter togetherWith exit using null
             },
-            // The tag stays on the box rather than moving to the animated child, so a layout test
-            // still finds one node where it found one before.
+            // Names the transition for the Compose animation inspector and for nothing else — it is
+            // not a testTag, and this scaffold has none.
             label = "destination",
         ) { destination ->
             // Exhaustive on purpose, and it is what a sixth destination will have to answer to:

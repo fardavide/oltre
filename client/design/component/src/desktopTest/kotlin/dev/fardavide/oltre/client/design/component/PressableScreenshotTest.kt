@@ -44,7 +44,10 @@ class PressableScreenshotTest {
     // button rather than the size of the claim.
     @Test
     fun `a wide target under a finger`() {
-        pressed(tag = PressBenchTags.FACE, file = "pressable_face")
+        // The claim box rather than the face: that is the node the click is on and the node a finger
+        // lands on, and the face's tag is not in the merged tree at all — a `clickable` folds its
+        // descendants' semantics into itself. See `PressRobot`.
+        pressed(tag = PressBenchTags.FACE_CLAIM, file = "pressable_face")
     }
 
     private fun pressed(tag: String, file: String) {

@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.client.colony.ui
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -97,16 +96,16 @@ private fun FacilityRow(
             // ahead of the fill dims the card and lets the starfield through a locked row; here
             // the card stays solid and only its content recedes.
             .alpha(if (locked) 0.42f else 1f)
-            // **The card grows a line when a watch is booked**, and until 0.13.1 it grew it between
-            // two frames — so the row under it jumped, and on a list scrolled halfway the jump was
-            // the only thing the eye caught. Booking an alert is the one action in the app whose
-            // whole result is that the card changed, which makes it the one that most wants the
-            // change to be legible.
-            //
-            // After the fill and before the padding: it animates the size this node measures, and
-            // the fill has to be the thing that grows rather than something drawn at the old height
-            // while the content moves inside it.
-            .animateContentSize()
+            // **No `animateContentSize` here, and 0.13.2 is where that was tried and taken back
+            // out**, for the reason `oltreCard` no longer settles its colours either. Booking a
+            // watch adds a line to this card and it was worth animating; the trouble is that it is
+            // not the only thing that does. The power `fix` line appears when a plant falls behind
+            // its draw, the action block swaps a price for a countdown when a build starts, and the
+            // verdict comes and goes — all of them re-derived once a second by `App.kt` with nobody
+            // touching the phone. A modifier measuring this node cannot tell a tap from a tick, so
+            // it would animate a colony reporting on itself, which is the one thing this app may
+            // not draw. The ledger's worlds list keeps its own `animateContentSize`, because a
+            // search box is only ever changed by a player.
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

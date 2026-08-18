@@ -176,10 +176,14 @@ fun PressableFace(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
+                    this.shape = shape
+                    clip = true
                 }
                 // Ahead of `faceModifier`, which is where the fill is: an indication draws its
                 // content first and its ripple over the top, so declared here the ripple lands on
-                // the fill rather than under it.
+                // the fill rather than under it. Behind the clip above, which is what keeps it
+                // inside the face's own corners — `PressableBehaviourTest` reads the pixel that
+                // proves it, and read the comment there before trusting this one.
                 .indication(interaction, LocalIndication.current)
                 .then(faceModifier),
             content = { content() },

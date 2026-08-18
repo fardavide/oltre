@@ -55,11 +55,19 @@ internal fun PressBench() {
                 .background(OltreColors.accent, oltreActionShape)
                 .padding(horizontal = 11.dp, vertical = 7.dp),
         )
+        // **Two tags, because this control is two nodes and both of them have something to be wrong
+        // about.** The outer one is the 44dp area the button claims and does not draw, where the
+        // failure is a ripple smeared across the whole claim; the inner one is the button as drawn,
+        // where the failure is the square corner this whole change exists to remove. A probe on the
+        // outer node cannot see the inner node's corners at all — it reads the band above the face —
+        // so tagging only the outer one left `PressableFace`'s clip completely unguarded.
         PressableFace(
             onClick = {},
             shape = oltreActionShape,
-            modifier = Modifier.heightIn(min = 44.dp).testTag(PressBenchTags.FACE),
-            faceModifier = Modifier.background(OltreColors.accent, oltreActionShape),
+            modifier = Modifier.heightIn(min = 44.dp).testTag(PressBenchTags.FACE_CLAIM),
+            faceModifier = Modifier
+                .testTag(PressBenchTags.FACE)
+                .background(OltreColors.accent, oltreActionShape),
         ) {
             Text(
                 text = "Dispatch",
@@ -76,7 +84,13 @@ internal fun PressBench() {
 internal object PressBenchTags {
     const val CARD = "press-bench-card"
     const val BUTTON = "press-bench-button"
+
+    // The button as drawn — 30dp of accent fill with a 9dp radius.
     const val FACE = "press-bench-face"
+
+    // The 44dp of row the same button claims for the finger. Taller than what it draws, which is
+    // the whole reason `PressableFace` exists.
+    const val FACE_CLAIM = "press-bench-face-claim"
 }
 
 // The phone width the rest of the repository's baselines are taken at, so a corner here is the same

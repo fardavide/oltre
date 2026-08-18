@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.design.component
 
+import androidx.compose.material3.Surface
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.ComposeUiTest
@@ -22,9 +23,14 @@ import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 @OptIn(ExperimentalTestApi::class)
 internal class PressRobot(private val test: ComposeUiTest) {
 
+    // **Inside a `Surface`, exactly as `App.kt` puts the whole app.** Without one, `LocalContentColor`
+    // falls back to black and Material derives a *black* ripple from it — so the bench would be
+    // asserting the clipping of an indication the app never draws, and darker-when-pressed rather
+    // than lighter. The screenshot test wraps the same bench for the same reason; a fixture that
+    // differs from the app in the one property under test is a fixture testing something else.
     fun bench(): PressRobot = apply {
         test.mainClock.autoAdvance = false
-        test.setContent { OltreTheme { PressBench() } }
+        test.setContent { OltreTheme { Surface { PressBench() } } }
         settle()
     }
 
@@ -43,8 +49,14 @@ internal class PressRobot(private val test: ComposeUiTest) {
     // wider than the anti-aliasing on it.
     fun cornerOf(tag: String): Color = pixelOf(tag) { _, _ -> 1 to 1 }
 
+    // **The unmerged tree, and it is not a detail.** A `clickable` merges its descendants' semantics
+    // into itself, so a tag on the face *inside* `PressableFace` is not a node of its own in the
+    // merged tree — the finder resolves it to the outer claim box instead, which is a different
+    // rectangle and the reason the face's own corners went unprobed in the first place. Reading
+    // geometry is exactly the case the unmerged tree exists for; `press` below keeps the merged one,
+    // because that is the node a finger actually lands on.
     private fun pixelOf(tag: String, at: (width: Int, height: Int) -> Pair<Int, Int>): Color {
-        val pixels = test.onNodeWithTag(tag).captureToImage().toPixelMap()
+        val pixels = test.onNodeWithTag(tag, useUnmergedTree = true).captureToImage().toPixelMap()
         val (x, y) = at(pixels.width, pixels.height)
         return pixels[x, y]
     }

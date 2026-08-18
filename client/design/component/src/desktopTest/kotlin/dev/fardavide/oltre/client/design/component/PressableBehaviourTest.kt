@@ -55,25 +55,40 @@ class PressableBehaviourTest {
         }
     }
 
-    // The split target, where the corner is not the interesting failure: this node claims 44dp of
-    // height and draws about 30, so the ripple's escape route is the *band* above and below the face
-    // rather than the four corners. `middleOf` is inside the face and `cornerOf` is in the claimed
-    // area that no button was ever drawn in.
+    // **The split target has two ways to be wrong, and it needs both asked about.** It claims 44dp of
+    // height and draws about 30, so one failure is a ripple smeared across the whole claim — and the
+    // other is the same square corner as everywhere else, on the face it actually draws.
+    //
+    // The first version of this file asked only the first question, and that was a real hole rather
+    // than a stylistic one: deleting the clip from `PressableFace` left all six tests green and the
+    // baseline verifying, because the probe read the *claim* box and pixel (1,1) of that lands in the
+    // 3dp band above the face, where no button is drawn and no arc passes. The component this change
+    // introduced — the one carrying the fix to `WatchSquare`, `ProbeAction` and `MapCaption` — was
+    // the one shape whose rounding nothing checked. Hence two tags and four tests.
     @Test
     fun `a pressed wide target lights up its face`() {
         bench {
             val resting = middleOf(PressBenchTags.FACE)
-            press(PressBenchTags.FACE)
+            press(PressBenchTags.FACE_CLAIM)
             assertNotEquals(resting, middleOf(PressBenchTags.FACE))
         }
     }
 
     @Test
-    fun `a pressed wide target leaves the area it claims but does not draw alone`() {
+    fun `a pressed wide target keeps its ripple inside the face it draws`() {
         bench {
             val resting = cornerOf(PressBenchTags.FACE)
-            press(PressBenchTags.FACE)
+            press(PressBenchTags.FACE_CLAIM)
             assertEquals(resting, cornerOf(PressBenchTags.FACE))
+        }
+    }
+
+    @Test
+    fun `a pressed wide target leaves the height it claims but does not draw`() {
+        bench {
+            val resting = cornerOf(PressBenchTags.FACE_CLAIM)
+            press(PressBenchTags.FACE_CLAIM)
+            assertEquals(resting, cornerOf(PressBenchTags.FACE_CLAIM))
         }
     }
 

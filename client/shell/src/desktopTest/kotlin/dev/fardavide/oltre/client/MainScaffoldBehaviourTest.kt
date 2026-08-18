@@ -10,7 +10,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
-import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.tilt.domain.Tilt
@@ -121,33 +120,32 @@ class MainScaffoldBehaviourTest {
     @Test
     fun `the destination being left is still drawn while the one arriving crosses it`() {
         switching {
-            onNodeWithTag(ShellTestTags.tab(OltreTab.RESEARCH)).performClick()
-            mainClock.advanceTimeByFrame()
-            mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS / 2L)
-            onNodeWithText(COLONY_MARKER).assertExists()
-            onNodeWithText(RESEARCH_MARKER).assertExists()
+            tap(OltreTab.RESEARCH)
+            halfwayThrough()
+            assertDrawn(COLONY_MARKER)
+            assertDrawn(RESEARCH_MARKER)
         }
     }
 
     @Test
     fun `the destination being left is gone once the switch is over`() {
         switching {
-            onNodeWithTag(ShellTestTags.tab(OltreTab.RESEARCH)).performClick()
-            mainClock.advanceTimeByFrame()
-            // Past the end rather than exactly on it: the switch starts on the frame after the tap,
-            // so `SWITCH_MILLIS` from here lands a frame short, and a boundary is the one place two
-            // machines round differently.
-            mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS + 100L)
-            onNodeWithText(RESEARCH_MARKER).assertIsDisplayed()
-            onNodeWithText(COLONY_MARKER).assertDoesNotExist()
+            tap(OltreTab.RESEARCH)
+            afterTheSwitch()
+            assertShowing(RESEARCH_MARKER)
+            assertGone(COLONY_MARKER)
         }
     }
 
     // The clock stopped, so the switch can be read frame by frame rather than jumped over. Every
     // other test in this file wants the opposite — it asks what is on screen once everything has
     // settled — which is what the auto-advancing `scaffold` below gives it.
-    private fun switching(assertions: ComposeUiTest.() -> Unit) {
-        scaffold(pauseTheClock = true, assertions = assertions)
+    //
+    // Through a Robot, unlike its neighbours: the test-coverage skill requires one and names this
+    // file as the thing not to copy. The older tests are left as they are — migrating them is worth
+    // doing and is not this change.
+    private fun switching(assertions: ScaffoldRobot.() -> Unit) {
+        scaffold(pauseTheClock = true) { ScaffoldRobot(this).assertions() }
     }
 
     // A phone-sized window: the bar has to fit five destinations at the narrowest width the game

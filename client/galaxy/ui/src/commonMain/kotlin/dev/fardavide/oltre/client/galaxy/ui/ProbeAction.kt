@@ -89,7 +89,7 @@ internal fun ProbeAction(
                         maxLines = 1,
                         softWrap = false,
                         modifier = Modifier
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                             .testTag(GalaxyTestTags.DISPATCH)
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )

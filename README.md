@@ -216,12 +216,12 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   bar says it is on and the one you left goes the other way. The Galaxy tab's four views — the fold,
   the universe, a system, your worlds — cross-fade into each other instead of replacing each other
   between frames.
-- **Controls turn over instead of snapping.** A selected pill, a booked alert, a card that has just
-  started building, the highlighted galaxy: anything that changes colour because you tapped it now
-  takes the length of the tap to do it.
-- **Cards grow rather than jump.** Booking an alert adds a line to a row, and the row takes the
-  height smoothly instead of shoving everything below it down a step. The worlds list does the same
-  as you type in the search box.
+- **Controls turn over instead of snapping.** A selected pill, a booked alert, the highlighted
+  galaxy, the resource you picked for a run: anything that changes colour *because you tapped it*
+  now takes the length of the tap to do it. A facility card is deliberately not one of them — its
+  colour tracks your stocks and your builds, so it would change while you sat and watched, and this
+  game does not draw itself happening.
+- **The worlds list settles rather than jumping** as you type in the search box.
 - Nothing here loops or repeats, and nothing runs on its own: every one of these is a single
   response to something you did, and the game is as still as it was when you are not touching it.
 

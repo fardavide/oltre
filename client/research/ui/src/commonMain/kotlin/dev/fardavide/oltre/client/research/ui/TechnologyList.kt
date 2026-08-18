@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.client.research.ui
 
-import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -165,10 +164,10 @@ private fun ProjectRow(
             // the exact effect the opaque fills exist to prevent. Here the card stays solid and
             // only what is written on it recedes.
             .alpha(if (locked) 0.42f else 1f)
-            // The colony's argument, and the same booking: a watched row gains its `→ affordable`
-            // line, and the card takes the extra height over the length of a tap rather than
-            // between two frames. See `FacilityList`.
-            .animateContentSize()
+            // No `animateContentSize`, for the reason the colony's row does not have one either: a
+            // research card's height moves on the tick as well as on the tap — the ghost time
+            // becomes a countdown, the verdict changes — and animating it would be the screen
+            // drawing the simulation. See `FacilityList`.
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
