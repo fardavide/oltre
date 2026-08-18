@@ -1,32 +1,19 @@
 package dev.fardavide.oltre.client.design.component
 
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.indication
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreColors
-import dev.fardavide.oltre.client.design.core.OltreMotion
+import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.icon.WatchBell
 
 // What the square on a row says, and whether the row has one at all. Null means no square: an
@@ -77,52 +64,40 @@ sealed interface WatchUiState {
 // thing in the action column and every pixel of it is a pixel of row. Stacked at 44dp the column is
 // 28 + 7 + 44 = 79dp against a 56dp content column, which grows the row to 101dp where the design
 // drew 88. At 29dp it is 64dp and the row lands where it was drawn.
+// `PressableFace` rather than `pressable`, because the tap area is taller than the thing it presses:
+// a ripple filling 29x44 beside a 29dp square reads as a smear. This file argued that first and
+// wired it by hand; since 0.13.1 the wiring is the design system's, and two more call sites that had
+// copied it — the probe's Dispatch and the caption's — call the same component.
 @Composable
 fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifier: Modifier = Modifier) {
-    val interaction = remember { MutableInteractionSource() }
-    val pressed by interaction.collectIsPressedAsState()
-    // `pressable`'s spring, restated rather than called: that modifier puts the click and the
-    // indication on one node, and here they are deliberately on two — the tap area is taller than
-    // the thing it presses, and a ripple filling 29x44 beside a 29dp square reads as a smear.
-    val scale by animateFloatAsState(
-        targetValue = if (pressed) OltreMotion.PRESS_SCALE else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
-    )
-    Box(
-        modifier = modifier
-            .size(width = SQUARE, height = if (stacked) SQUARE else HIT_TARGET)
-            .clickable(interactionSource = interaction, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                // Ahead of the fill and the border, so the press scales what is drawn inside it —
-                // the same ordering the Upgrade button's own comment insists on.
-                .graphicsLayer { scaleX = scale; scaleY = scale }
-                .size(SQUARE)
-                .clip(RoundedCornerShape(RADIUS))
-                .indication(interaction, LocalIndication.current)
-                .background(
-                    // The same 12% accent fill an actionable card carries, and nothing at all when
-                    // the square is merely offered: an unwatched row has no state to announce.
-                    color = if (watched) OltreColors.accent.copy(alpha = 0.12f) else Color.Transparent,
-                    shape = RoundedCornerShape(RADIUS),
-                )
-                .border(
-                    width = 1.dp,
-                    // 45% accent watched — the same border an active card wears — against the 16%
-                    // white the ghost button beside it already uses.
-                    color = if (watched) {
-                        OltreColors.accent.copy(alpha = 0.45f)
-                    } else {
-                        Color.White.copy(alpha = 0.16f)
-                    },
-                    shape = RoundedCornerShape(RADIUS),
+    PressableFace(
+        onClick = onClick,
+        shape = RoundedCornerShape(RADIUS),
+        modifier = modifier.size(width = SQUARE, height = if (stacked) SQUARE else HIT_TARGET),
+        faceModifier = Modifier
+            .size(SQUARE)
+            .background(
+                // The same 12% accent fill an actionable card carries, and nothing at all when
+                // the square is merely offered: an unwatched row has no state to announce.
+                color = settlingColor(
+                    if (watched) OltreColors.accent.copy(alpha = 0.12f) else Color.Transparent,
                 ),
-            contentAlignment = Alignment.Center,
-        ) {
-            WatchBell(color = if (watched) OltreColors.accent else OltreColors.textTertiary)
-        }
+                shape = RoundedCornerShape(RADIUS),
+            )
+            .border(
+                width = 1.dp,
+                // 45% accent watched — the same border an active card wears — against the 16%
+                // white the ghost button beside it already uses.
+                color = settlingColor(
+                    if (watched) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.16f),
+                ),
+                shape = RoundedCornerShape(RADIUS),
+            ),
+    ) {
+        // The bell lights with the square rather than after it. Booking an alert is the one action
+        // in the app whose whole result is that a control changed colour — there is no row to move
+        // and no number to update — so it is the one that most wants to be seen happening.
+        WatchBell(color = settlingColor(if (watched) OltreColors.accent else OltreColors.textTertiary))
     }
 }
 

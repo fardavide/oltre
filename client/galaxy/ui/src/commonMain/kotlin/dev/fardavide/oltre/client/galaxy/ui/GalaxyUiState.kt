@@ -55,6 +55,20 @@ sealed interface GalaxyBodyUiState {
     data class Ledger(val body: LedgerBodyUiState) : GalaxyBodyUiState
 }
 
+// Which of the four a body is, and nothing about what is in it. It exists for the crossfade in
+// `GalaxyPage`: a transition keyed on the body itself would replay every time a countdown ticked,
+// because the body is a data class and every second gives it a new value. Keyed on this, the fade
+// runs when the player changes view and at no other time.
+internal val GalaxyBodyUiState.view: GalaxyView
+    get() = when (this) {
+        is GalaxyBodyUiState.Map -> GalaxyView.MAP
+        is GalaxyBodyUiState.Universe -> GalaxyView.UNIVERSE
+        is GalaxyBodyUiState.System -> GalaxyView.SYSTEM
+        is GalaxyBodyUiState.Ledger -> GalaxyView.LEDGER
+    }
+
+internal enum class GalaxyView { MAP, UNIVERSE, SYSTEM, LEDGER }
+
 // The system header. **The name is the headline and the coordinate is its subtitle** — the address
 // survives, demoted, and the region is the only accent string here, which is what makes it read as
 // the target it is.

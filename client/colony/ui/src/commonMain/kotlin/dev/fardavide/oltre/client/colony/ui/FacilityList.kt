@@ -30,7 +30,9 @@ import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
+import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -85,7 +87,7 @@ private fun FacilityRow(
             //
             // Ahead of the fill, as everywhere else: `pressable` scales what is drawn inside it, and
             // a background declared first is drawn outside.
-            .pressable { onOpenDetail(row.building) }
+            .pressable(shape = oltreCardShape) { onOpenDetail(row.building) }
             .oltreCard(row.action.cardState())
             // Over the fill and over the content, which is what makes it read as light falling on
             // the card rather than as a shape drawn on it.
@@ -94,6 +96,16 @@ private fun FacilityRow(
             // ahead of the fill dims the card and lets the starfield through a locked row; here
             // the card stays solid and only its content recedes.
             .alpha(if (locked) 0.42f else 1f)
+            // **No `animateContentSize` here, and 0.13.2 is where that was tried and taken back
+            // out**, for the reason `oltreCard` no longer settles its colours either. Booking a
+            // watch adds a line to this card and it was worth animating; the trouble is that it is
+            // not the only thing that does. The power `fix` line appears when a plant falls behind
+            // its draw, the action block swaps a price for a countdown when a build starts, and the
+            // verdict comes and goes — all of them re-derived once a second by `App.kt` with nobody
+            // touching the phone. A modifier measuring this node cannot tell a tap from a tick, so
+            // it would animate a colony reporting on itself, which is the one thing this app may
+            // not draw. The ledger's worlds list keeps its own `animateContentSize`, because a
+            // search box is only ever changed by a player.
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -213,8 +225,8 @@ private fun FacilityRow(
                     // inside it, and a background declared first is drawn outside, which would
                     // shrink the word and leave the blue behind.
                     modifier = Modifier
-                        .pressable { onUpgrade(row.building) }
-                        .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                        .pressable(shape = oltreActionShape) { onUpgrade(row.building) }
+                        .background(OltreColors.accent, oltreActionShape)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 // The ghost time, and beside it the square that books an alert for the instant it
@@ -234,7 +246,7 @@ private fun FacilityRow(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )
                 }

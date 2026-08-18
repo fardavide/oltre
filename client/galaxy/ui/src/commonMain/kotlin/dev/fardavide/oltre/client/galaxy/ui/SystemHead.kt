@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 
 // **GalaxyNav with its second row replaced.** The strip and the scope caption survive unchanged; the
 // bordered coordinate field and the accent HOME pill do not — two 32dp controls for facts that were
@@ -101,7 +103,7 @@ private fun GalaxyStrip(galaxies: List<GalaxyTabUiState>, onSelectGalaxy: (Int) 
         galaxies.forEach { galaxy ->
             Text(
                 text = galaxy.label,
-                color = if (galaxy.selected) OltreColors.accent else OltreColors.textTertiary,
+                color = settlingColor(if (galaxy.selected) OltreColors.accent else OltreColors.textTertiary),
                 fontFamily = mono,
                 fontSize = 9.5.sp,
                 fontWeight = if (galaxy.selected) FontWeight.Bold else FontWeight.Normal,
@@ -110,16 +112,21 @@ private fun GalaxyStrip(galaxies: List<GalaxyTabUiState>, onSelectGalaxy: (Int) 
                 maxLines = 1,
                 modifier = Modifier
                     .weight(1f)
-                    // No fill at all when unselected rather than a transparent one: the track's own
-                    // 0.09 is what an inactive cell shows, and a second layer over it is a chance
-                    // for the two to disagree.
-                    .then(
-                        if (galaxy.selected) {
-                            Modifier.background(OltreColors.accent.copy(alpha = 0.22f), RoundedCornerShape(3.dp))
-                        } else {
-                            Modifier
-                        },
+                    // A transparent fill rather than no fill, which is the one thing this cell had
+                    // to give up to be able to turn: the branch used to add the `background`
+                    // modifier only when selected, and a modifier that appears and disappears has
+                    // nothing to interpolate between. Transparent composites to exactly the track's
+                    // own 0.09 underneath, so what the eye gets is unchanged and what the animation
+                    // gets is two colours instead of a modifier and a hole.
+                    .background(
+                        settlingColor(
+                            if (galaxy.selected) OltreColors.accent.copy(alpha = 0.22f) else Color.Transparent,
+                        ),
+                        CELL_SHAPE,
                     )
+                    // The cell's own 3dp, so the ripple is the cell rather than a square drawn
+                    // across the track's rounded end.
+                    .clip(CELL_SHAPE)
                     .clickable { onSelectGalaxy(galaxy.galaxy) }
                     .testTag(GalaxyTestTags.galaxy(galaxy.galaxy))
                     // Inside the click, so the tap area is the cell rather than the two characters
@@ -231,6 +238,11 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
         )
     }
 }
+
+// One cell of the galaxy track: the shape its selected fill is drawn with, and the shape its press is
+// clipped to. Named rather than written twice because those two must never be able to disagree —
+// which is the whole lesson of the 0.13.1 press fix.
+private val CELL_SHAPE = RoundedCornerShape(3.dp)
 
 // Tabular numerals are declared on the coordinate and the astronomy line in the design and are not
 // declared anywhere here, for the reason nothing else in the app declares them: the family is

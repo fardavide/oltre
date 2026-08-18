@@ -109,10 +109,50 @@ class MainScaffoldBehaviourTest {
         }
     }
 
+    // **The two halves of a switch, and the second one is the one worth having.** A transition that
+    // brings the new screen in is easy to see and easy to get right; a transition that forgets to
+    // take the old one away leaves two destinations composed on top of each other for the rest of the
+    // session, which reads as a rendering bug rather than as a missing animation and is exactly what
+    // `assertDoesNotExist` in the tests above would start failing on.
+    //
+    // Mid-crossing is asserted first because it is what makes the second assertion mean something:
+    // without it, "the colony is gone" is satisfied by a switch that never drew the colony at all.
+    @Test
+    fun `the destination being left is still drawn while the one arriving crosses it`() {
+        switching {
+            tap(OltreTab.RESEARCH)
+            halfwayThrough()
+            assertDrawn(COLONY_MARKER)
+            assertDrawn(RESEARCH_MARKER)
+        }
+    }
+
+    @Test
+    fun `the destination being left is gone once the switch is over`() {
+        switching {
+            tap(OltreTab.RESEARCH)
+            afterTheSwitch()
+            assertShowing(RESEARCH_MARKER)
+            assertGone(COLONY_MARKER)
+        }
+    }
+
+    // The clock stopped, so the switch can be read frame by frame rather than jumped over. Every
+    // other test in this file wants the opposite — it asks what is on screen once everything has
+    // settled — which is what the auto-advancing `scaffold` below gives it.
+    //
+    // Through a Robot, unlike its neighbours: the test-coverage skill requires one and names this
+    // file as the thing not to copy. The older tests are left as they are — migrating them is worth
+    // doing and is not this change.
+    private fun switching(assertions: ScaffoldRobot.() -> Unit) {
+        scaffold(pauseTheClock = true) { ScaffoldRobot(this).assertions() }
+    }
+
     // A phone-sized window: the bar has to fit five destinations at the narrowest width the game
     // actually ships at.
-    private fun scaffold(assertions: ComposeUiTest.() -> Unit) {
+    private fun scaffold(pauseTheClock: Boolean = false, assertions: ComposeUiTest.() -> Unit) {
         runDesktopComposeUiTest(width = 393, height = 852) {
+            if (pauseTheClock) mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     MainScaffold(

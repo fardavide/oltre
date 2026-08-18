@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 
 // **The universe, which is one gesture up rather than a screen.** Four cards in a two-by-two grid,
 // each carrying that galaxy's own ten bands at a fifth of the size and the one fact that is true
@@ -63,16 +64,19 @@ private fun Disc(disc: UniverseDiscUiState, onSelectGalaxy: (Int) -> Unit, modif
     Column(
         verticalArrangement = Arrangement.spacedBy(5.dp),
         modifier = modifier
+            // Ahead of the border and the fill, which is where every other card in the app puts it
+            // and where this one did not until 0.13.1: declared after them, the press scaled the
+            // disc's contents and left its own edge standing still.
+            .pressable(shape = SHAPE, onClick = { onSelectGalaxy(disc.galaxy) })
             .border(
                 width = 1.dp,
-                color = if (disc.selected) OltreColors.accent.copy(alpha = 0.45f) else EDGE,
+                color = settlingColor(if (disc.selected) OltreColors.accent.copy(alpha = 0.45f) else EDGE),
                 shape = SHAPE,
             )
             .background(
-                color = if (disc.selected) OltreColors.accent.copy(alpha = 0.10f) else CARD_FILL,
+                color = settlingColor(if (disc.selected) OltreColors.accent.copy(alpha = 0.10f) else CARD_FILL),
                 shape = SHAPE,
             )
-            .pressable(onClick = { onSelectGalaxy(disc.galaxy) })
             .testTag(GalaxyTestTags.disc(disc.galaxy))
             .padding(11.dp),
     ) {

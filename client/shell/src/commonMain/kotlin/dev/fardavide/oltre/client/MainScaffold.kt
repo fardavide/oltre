@@ -1,5 +1,12 @@
 package dev.fardavide.oltre.client
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -16,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntOffset
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 
 // The app's frame: the selected destination over the tab bar. Which destination is showing is the
@@ -138,15 +147,52 @@ private fun ColumnScope.Destination(
         // Both go in as lambdas so that a drag or a lean is a redraw rather than a recomposition of
         // the whole destination.
         Starfield(scrollOffset = { scroll.value.toFloat() }, tilt = tilt)
-        // Exhaustive on purpose, and it is what a sixth destination will have to answer to: every
-        // branch names a screen now, so a tab added without one cannot compile rather than falling
-        // through to an apology.
-        when (selected) {
-            OltreTab.COLONY -> colony(colonyScroll)
-            OltreTab.RESEARCH -> research(researchScroll)
-            OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
-            OltreTab.SHIPYARD -> shipyard(shipyardScroll)
-            OltreTab.FLEETS -> fleets(fleetsScroll)
+        // **The one place the app navigates, so the one place a navigation can be drawn.** Until
+        // 0.13.1 this was a bare `when` and a tab change was a hard cut: five screens swapped between
+        // two frames with nothing between them, which is the single thing that made the app read as
+        // a set of screens rather than as one.
+        //
+        // It travels in the direction the bar does. Tapping Galaxy from Colony moves left-to-right in
+        // the tab bar, so the arriving screen enters from the right and the leaving one goes left —
+        // the destinations keep the order the player can see at the bottom of the window, and a tab
+        // two along does not travel twice as far for it.
+        //
+        // The starfield above is deliberately outside this: it is the frame's, not a destination's,
+        // and a sky that slid with the content would be a sky attached to the screen instead of
+        // behind it.
+        AnimatedContent(
+            targetState = selected,
+            transitionSpec = {
+                val forward = targetState.ordinal > initialState.ordinal
+                val travel = { width: Int -> (width * OltreMotion.SWITCH_TRAVEL).toInt() }
+                val spec = tween<IntOffset>(OltreMotion.SWITCH_MILLIS, easing = OltreMotion.Settle)
+                val fade = tween<Float>(OltreMotion.SWITCH_MILLIS, easing = OltreMotion.Settle)
+                val enter = slideInHorizontally(spec) { if (forward) travel(it) else -travel(it) } +
+                    fadeIn(fade)
+                val exit = slideOutHorizontally(spec) { if (forward) -travel(it) else travel(it) } +
+                    fadeOut(fade)
+                // No size animation between the two: every destination fills the same box, so the
+                // default `SizeTransform` would be animating a measurement that never changes and
+                // clipping the pair while it did it.
+                enter togetherWith exit using null
+            },
+            // Names the transition for the Compose animation inspector and for nothing else — it is
+            // not a testTag, and this scaffold has none.
+            label = "destination",
+        ) { destination ->
+            // Exhaustive on purpose, and it is what a sixth destination will have to answer to:
+            // every branch names a screen now, so a tab added without one cannot compile rather
+            // than falling through to an apology.
+            //
+            // Driven by the animation's own state rather than by `selected`, which is what keeps the
+            // outgoing screen showing the screen it *is* for the 210ms it spends leaving.
+            when (destination) {
+                OltreTab.COLONY -> colony(colonyScroll)
+                OltreTab.RESEARCH -> research(researchScroll)
+                OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
+                OltreTab.SHIPYARD -> shipyard(shipyardScroll)
+                OltreTab.FLEETS -> fleets(fleetsScroll)
+            }
         }
     }
 }
