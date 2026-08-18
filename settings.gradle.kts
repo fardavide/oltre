@@ -61,6 +61,10 @@ include(":client:design:screenshot-testing")
 // feature, and `featureOf` in the root build script excludes it by name for `design`'s reason: it is
 // shared vocabulary every feature is meant to reach, and left in it would fire the cross-feature
 // warning on every clean build.
+// `domain` arrived at 0.13.1 for the reason the debug menu's did: what a held stepper *does* is a
+// cadence, and a cadence is arithmetic. Four invented motion numbers and a ramp are a claim a test
+// can check; the same four at the foot of `DispatchSheet.kt` are a comment nobody can run.
+include(":client:dispatch:domain")
 include(":client:dispatch:presentation")
 include(":client:dispatch:ui")
 // The two tabs that stopped saying "nothing here yet" at 0.8.0. They ship together on purpose: a

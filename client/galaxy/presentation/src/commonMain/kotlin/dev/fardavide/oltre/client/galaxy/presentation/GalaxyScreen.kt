@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.bringingBack
+import dev.fardavide.oltre.client.dispatch.presentation.homingIn
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
@@ -140,9 +142,12 @@ fun GalaxyScreen(
             open = DispatchSelection(at = world, gathering = null, ships = null, window = null)
         },
         onCloseDispatch = { open = null },
-        onSelectGathering = { kind -> open = open?.copy(gathering = kind) },
+        // **Both of these drop the manifest**, so the sheet re-derives the fleet that empties the
+        // vein — see `homingIn`, which is where the rule lives so that this door and Fleets' cannot
+        // disagree about it. The stepper is the one control that keeps what it was given.
+        onSelectGathering = { kind -> open = open?.bringingBack(kind) },
         onSelectShips = { count -> open = open?.copy(ships = count) },
-        onSelectWindow = { window -> open = open?.copy(window = window) },
+        onSelectWindow = { window -> open = open?.homingIn(window) },
         onDispatchRun = {
             // Read off the *rendered* offer rather than off the selection, because the offer is what
             // the player was actually shown: the mapper is what resolved the three defaults and what

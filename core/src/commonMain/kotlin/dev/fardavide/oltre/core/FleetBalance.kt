@@ -300,6 +300,46 @@ object FleetBalance {
         return gathered.holding(numerator / denominator)
     }
 
+    // **The smallest fleet that takes everything there is, and null when no fleet would.** The
+    // dispatch sheet opens on this number rather than on the whole idle pool — Davide, 2026-08-17,
+    // having counted the taps: *"going from 55 to 3 is a lot of taps"*. A hull past this one is
+    // locked away for the whole window and brings back exactly zero, which the sheet has said out
+    // loud in a note since 0.10 and now says by defaulting to the number instead.
+    //
+    // **Derived from `cargo`'s own expression rather than from a second rate**, for the reason
+    // `DepositBalance.workingTime` states one file over: `cargo(n)` is `floor(n x K)`, so
+    // `cargo(n) >= remaining` for an integer `remaining` is exactly `n >= remaining / K` — one
+    // ceiling division, and the two can never disagree about a hull. A second copy of the rate here
+    // would be a second rounding convention.
+    //
+    // Null is *no fleet size lifts this in this window*, which is the honest answer when the window
+    // leaves nothing on the surface: `cargo` is zero at every fleet size there, so any figure would
+    // be a wrong answer wearing a plausible face. One is the floor, because a fleet of nothing is
+    // not an offer — a vein with nothing left in it takes one hull to take nothing.
+    fun hullsToLift(
+        world: World,
+        gathering: ResourceKind,
+        remaining: Long,
+        station: Duration,
+        danger: Int,
+        research: Research,
+    ): Int? {
+        val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
+        require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
+        val stationMinutes = station.inWholeMinutes
+        if (stationMinutes <= 0) return null
+        if (remaining == 0L) return 1
+        val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
+        var numerator = checkedTimes(remaining, MINUTES_PER_HOUR * GalaxyBalance.RICHNESS_BASIS) { "hulls remaining" }
+        numerator = checkedTimes(numerator, PERCENT * gathered.pricePerUnit) { "hulls price" }
+        var denominator = checkedTimes(extractionPerHour(research), stationMinutes) { "hulls station" }
+        denominator = checkedTimes(denominator, gathered.richnessOf(world).perMillion.toLong()) { "hulls richness" }
+        denominator = checkedTimes(denominator, paid) { "hulls danger" }
+        // Ceiled: a fleet that lifts a fraction less than the vein holds has not emptied it.
+        val hulls = (numerator + denominator - 1) / denominator
+        return hulls.coerceIn(1, Int.MAX_VALUE.toLong()).toInt()
+    }
+
     // ── The hull ─────────────────────────────────────────────────────────────────────────────
     //
     // **FLAT — DAVIDE'S CALL, 2026-08-14, AND IT REPLACES THE ONE CEILING THIS DESIGN HAD.** *"Why is

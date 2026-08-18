@@ -40,6 +40,11 @@ kotlin {
             // `DepositBalance` — is `:client:dispatch:presentation`'s, which is where reaching for
             // one belongs.
             implementation(projects.core)
+            // The one thing on this sheet that is a *rule* rather than a drawing: the cadence a held
+            // stepper repeats at. Rule 4 allows `ui -> domain` and the `module-rules` skill names
+            // this exact shape — a ui module may take its own feature's domain. What it buys is that
+            // four invented motion numbers are tested arithmetic rather than a comment.
+            implementation(projects.client.dispatch.domain)
             // `OltreBottomSheet`, which is the chrome every sheet in the app has swiped away with
             // since 0.7.1.
             implementation(projects.client.design.component)

@@ -3515,3 +3515,144 @@ existed:
 Kotlin needs for exhaustiveness and `core` makes unreachable: `FleetRun`'s constructor throws *"a run
 never gathers deuterium"*. A test for it would assert against a colony that cannot exist. Written
 down rather than excluded, because the next reader will find it and wonder.
+
+## The dispatch sheet suggests a manifest (2026-08-17, 0.13.1)
+
+Davide, on a screenshot of the sheet reading *"3 skiffs empty it. The other 52 bring nothing."* above
+a stepper parked at 55:
+
+> **"Going from 55 to 3 is a lot of taps 😅"**
+
+Three changes, and the first is the one that matters.
+
+### The default is the fleet that empties the vein, not the pool
+
+`hulls = selection.ships ?: idle` had been the rule since the sheet landed, and the clamp note has
+been telling the player it was wrong since 0.10 — *this many empty it, the rest bring nothing*. The
+note was right and the default was the thing being explained. Now `FleetBalance.hullsToLift` answers
+the same question the note asks and the sheet opens on the answer.
+
+**It is a suggestion, never a cap.** `of 55 idle` still sits beside the label, `+` still reaches every
+hull, and a deep vein still opens on the whole fleet — which is the same rule rather than an
+exception, because there nothing is wasted. What the change deletes is the walk, not the choice.
+
+**The note's disappearance is the point rather than a loss.** `clampNote` is earned rather than
+standing: at the suggestion there are no wasted hulls to name, so it now appears only when the player
+has deliberately asked for more. It stopped being furniture and became a live warning.
+
+**`hullsToLift` is derived from `cargo`'s own expression**, for the reason `DepositBalance.workingTime`
+states: `cargo(n)` is `floor(n × K)`, so *n hulls empty it* is one ceiling division, and a second copy
+of the rate here would be a second rounding convention. Null is *no fleet size lifts this in this
+window*, which only a window with no surface time reaches and the ladder never offers.
+
+### A rung and a currency both re-derive it — Davide's call, asked as an option
+
+He asked for the window; the currency was offered beside it and he took both. The argument is the
+same on either axis: a longer stay means a smaller fleet takes the same vein, and the two deposits
+are different sizes, so a count chosen against the old ask is arithmetic about a run that no longer
+exists. The **stepper is the one control that keeps what it was given** — a number a thumb put there
+is the one thing on the sheet nothing should overrule.
+
+The rule lives in `homingIn` / `bringingBack` on `DispatchSelection` rather than in the two screens,
+because Galaxy and Fleets both raise this sheet and rule 5 stops either seeing the other: a `copy`
+written twice is two doors that can start disagreeing about what a tap means.
+
+### And the stepper repeats while it is held
+
+The suggestion makes the walk short in the common case; the hold is what stops the uncommon one being
+fifty taps. Three things it has to get right, each a defect if it does not: the step reads the count
+that is **on screen now** (`rememberUpdatedState`, or a hold asks for one number fifty times); a hold
+**does not add a step on the release**, since `clickable` fires on the up whatever the press was; and
+a **disabled stepper stays disabled**, because `enabled` is read inside the loop rather than captured.
+
+**The four timings are invented and marked as such** — 350ms before it starts, 120ms ramping to 25ms —
+under the motion-tuning precedent in `session-roles.md`: nobody knows how long a thumb should rest
+before a control starts running until they are holding a phone. The ramp walks 55 down to 3 in about
+two seconds, which is the trip that was counted. Expect them to move on the first install.
+
+### What the frames had to say out loud
+
+Two screenshot fixtures were leaving the manifest blank and relying on it resolving to the pool:
+`dispatchWholeDepositUiState` would have become a picture of the plain offer, and
+`dispatchWaitingForeverUiState` — the one frame whose subject is *"no world this size ever holds that
+much"* — would have opened on a single skiff and offered a date. Both state their count now. The same
+edit was needed in four mapper tests, and it is the same lesson `dispatchClampedUiState` recorded at
+0.9: **a fixture that leaves a default blank is a fixture that stops being about its own subject the
+day the default moves.**
+
+### The coverage gate asked what tests the gesture, and the answer was a module (2026-08-17, 0.13.1)
+
+The gate blocked 0.13.1's first push on three numbers — unit line 87.4 → 87.3, screenshot line
+87.1 → 86.9, screenshot branch 50.9 → 50.8 — and chasing them found the same thing 0.13.0's round
+did: a real structural fault rather than a threshold to argue with.
+
+**Every failing number was the hold-to-repeat gesture**, and the diagnosis is the interesting part.
+Measured line by line off the two failing passes:
+
+| what | unit pass | screenshot pass |
+|---|---|---|
+| `hullsToLift` in `core` | covered by `FleetBalanceTest` | excluded (`core.**`) |
+| the mapper's suggestion | covered by `DispatchUiStateTest` | excluded (`*.presentation`) |
+| `homingIn` / `bringingBack` | **uncovered — no test existed** | excluded |
+| four invented timing constants | **uncovered** | covered (static init) |
+| the gesture body | excluded (inside a `@Composable`) | **uncovered, permanently** |
+
+Two of those three are things that should have been done anyway, and one is a genuine limit.
+
+**`homingIn` / `bringingBack` had no unit test at all.** They are pure functions holding the one rule
+Galaxy and Fleets share, and they were asserted only through two Compose screens. `DispatchSelectionTest`
+is what the gate asked for and what should have been written with them.
+
+**The four timing constants became `:client:dispatch:domain`.** What a held stepper *does* is a
+cadence — a rest, a first repeat, a ramp to a floor — and that is arithmetic. `StepperHold.waits()`
+is a lazy sequence of the waits, and the gesture reads `wait, step, wait, step` with no arithmetic
+of its own. The module earns itself the way `:client:tilt:domain` did: *"push the logic of a feature
+down into a module it can test, and leave the Compose layer as thin as it will go."*
+
+**And the first test written there failed.** The changelog claimed the ramp walked 55 hulls down to
+3 in about two seconds; at `GAIN = 10ms` it bought 47 steps against the 52 that trip needs — a fifth
+short of the thing the number was chosen for. `GAIN` is 15ms because a test said so. **That is the
+whole argument for the module in one line: the claim was in a comment, and the comment was wrong.**
+A motion constant a session invents has to be flagged as invented; this one was, and it was still
+wrong in a way only arithmetic could catch. The device session will still move all four, and
+`StepperHoldTest` pins the *shape* — a rest, a ramp that only accelerates, a floor — so a tuning
+pass may move every constant and leave every assertion standing.
+
+**What is left is a real limit, and it is Davide's call.** Fourteen lines and six branches of pointer
+handling — `awaitFirstDown`, the repeat `launch`, `waitForUpOrCancellation`, the tap's suppression
+check — sit in a `*.ui` package and **cannot be reached by a screenshot test by construction**: a
+screenshot renders, it does not press. Three behaviour tests cover them and the behaviour row went
+up. Measured on one machine against `origin/main`:
+
+| | main | branch |
+|---|---|---|
+| unit line | 84.26% | **84.29%** |
+| screenshot line | 84.14% | 83.92% |
+| screenshot branch | 50.88% | 50.74% |
+
+The unit row is recovered and better than it was. The two screenshot rows are the gesture and
+nothing else, and no test of that kind can move them.
+
+**Davide's call, put to him with those numbers: widen the screenshot filter.** The filter's own
+principle — *"what survives is what draws"* — reads on a gesture handler exactly as it reads on a
+mapper; what it lacked was a layer boundary to express it with. So the gesture became
+`StepperGesture.kt`, one `Modifier` extension and nothing that emits, and the screenshot pass names
+that file beside the mappers and `core`.
+
+**The measurement is the argument that it is narrow enough.** With the entry in place the screenshot
+pass reads `4139/4919` lines and `1067/2097` branches — *identical to `main` in every digit*. The
+excluded file holds exactly the lines this branch added to that pass and not one line that existed
+before it, which is what "narrow" has to mean if it is to mean anything. The unit row ends at 84.32%
+against main's 84.26%, and the behaviour row — the one that actually proves the gesture works — went
+up.
+
+**Two things rejected on the way.** A `…ScreenshotTest` that presses and holds before it captures
+would execute the lines, and is a test written to move a number rather than to assert a drawing. A
+global `excludes` entry, beside `MainActivity` and `AndroidShakeDetector`, would hide the gesture
+from *every* pass including the behaviour one that covers it — which is the property those three
+entries have (no seam any test can reach) and this one does not.
+
+**What the next entry has to do.** Not "is it small" and not "is it hard to test", but: *is there a
+kind of test that could reach this, and does the file contain anything that kind could catch.* A
+pointer handler in a file with no drawing in it answers no and no. A composable that emits anything
+does not, and belongs back in `DispatchSheet.kt`.

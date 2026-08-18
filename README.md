@@ -206,6 +206,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.13.1 — 2026-08-17
+
+- **The dispatch sheet opens on the fleet that will actually fill up**, not on every hull you own. A
+  world only holds so much: past a certain size every extra skiff flies out, sits on the surface,
+  and comes home empty. The sheet now starts at the last one that brings something back — and the
+  pool is still stated beside it, so `+` still reaches the whole fleet whenever you want it.
+- **Choosing a different window, or the other resource, moves that number with it.** A longer stay
+  means fewer skiffs take the same vein, and the two deposits are different sizes — so the count
+  follows what you just asked for instead of describing the run you were looking at before.
+- **Hold `−` or `+` to run the count.** It picks up speed the longer you hold it, so crossing a big
+  pool is one gesture rather than fifty taps.
+- On a world you have already stripped, the sheet now opens on a single skiff — which is the
+  soonest date it can offer you rather than one no world will ever reach.
+
 ### 0.13.0 — 2026-08-16
 
 - **The Fleets tab remembers where you have been, and takes you back.** What used to be a receipt of

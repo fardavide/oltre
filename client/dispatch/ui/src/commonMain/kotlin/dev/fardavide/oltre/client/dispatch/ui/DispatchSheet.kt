@@ -484,6 +484,11 @@ private fun GatherCard(
 
 // 32dp square, which is the size the colony's own steppers are and the size every target in this app
 // that is not a full-width button is. Below that is the 44pt iOS minimum failing on contact.
+//
+// **A finger left on it keeps stepping** — Davide, 2026-08-17: *"going from 55 to 3 is a lot of
+// taps"*. The suggested manifest is the other half of that call and makes the walk short in the
+// common case; `steppingWhileHeld` is what stops the uncommon one being fifty taps, and it is a file
+// of its own because nothing in it draws.
 @Composable
 private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
     Box(
@@ -492,7 +497,7 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
             .size(32.dp)
             .border(1.dp, Color.White.copy(alpha = 0.17f), CONTROL_SHAPE)
             .testTag(tag)
-            .clickable(enabled = enabled, onClick = onClick),
+            .steppingWhileHeld(enabled = enabled, onStep = onClick),
     ) {
         Text(
             text = glyph,

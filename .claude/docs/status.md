@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-16 (0.12.1)
+Updated: 2026-08-17 (0.13.1)
 
 ## Landed
 
@@ -869,6 +869,30 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.13.1
+
+- **The four hold-to-repeat timings on the dispatch stepper are invented and marked as such** —
+  350ms before a held stepper starts running, then 120ms ramping by 15 to 25, in
+  `:client:dispatch:domain`'s `StepperHold`. They are arithmetic and not measurement, and the
+  motion-tuning precedent in `session-roles.md` says plainly that a hand is what decides them.
+  **The first install is the test.** If the rest is too long the control feels dead under a thumb; if
+  the ramp is too eager the number runs past what you were aiming at, which is the failure mode that
+  costs a tap back. `StepperHoldTest` pins the *shape* rather than the values, so a tuning pass may
+  move all four and leave every assertion standing.
+  **The ramp is 15 rather than 10 because a test said so**: at 10 it bought 47 steps in two seconds
+  against the 52 that 55-down-to-3 needs. That is what the module is for — see `decisions.md`.
+- ~~**The dispatch stepper's gesture is covered by behaviour tests and by nothing else.**~~ —
+  **closed 2026-08-17.** A screenshot renders, it does not press, so the gesture cannot be reached by
+  that kind of test at all. Davide widened the screenshot pass's filter to name `StepperGesture.kt`,
+  which exists as a file for that reason: one `Modifier` extension and nothing that draws. With the
+  entry in place the screenshot pass reads identically to `main` in every digit, which is the
+  evidence that it excludes what this branch added and nothing else. See `decisions.md` for what the
+  next entry has to demonstrate.
+- **Nothing has yet felt the suggested manifest on a device.** The arithmetic is pinned to the hull
+  and the frames agree, but what nobody can check from here is whether opening on *3 skiffs* out of
+  55 reads as the app being helpful or as the app having lost your fleet. The pool line beside the
+  label — `of 55 idle` — is the whole of the answer to that, and it is one small grey string.
 
 ## Pending, from 0.12.0
 
