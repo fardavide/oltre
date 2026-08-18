@@ -36,6 +36,7 @@ kotlin {
             // rule `:client:colony:presentation` follows for its own ui layer.
             api(projects.client.dispatch.ui)
             implementation(projects.client.design.format)
+            implementation(projects.client.design.text)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

@@ -26,6 +26,9 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.world.ui.WorldPortrait
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -120,7 +123,7 @@ internal fun RelayRow(row: GalaxyRowUiState.Relay, modifier: Modifier = Modifier
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = row.coordinate,
+                text = row.coordinate.resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 13.5.sp,
@@ -130,7 +133,7 @@ internal fun RelayRow(row: GalaxyRowUiState.Relay, modifier: Modifier = Modifier
                 modifier = Modifier.weight(1f).alignByBaseline(),
             )
             Text(
-                text = "RELAY",
+                text = Strings.relayLabel().resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -142,7 +145,7 @@ internal fun RelayRow(row: GalaxyRowUiState.Relay, modifier: Modifier = Modifier
             )
         }
         Text(
-            text = row.effect,
+            text = row.effect.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -185,7 +188,7 @@ private fun Headline(row: GalaxyRowUiState.World) {
     // 13.5sp with 10.5sp. Bottom-aligned, the small type sits visibly under the name.
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = row.name,
+            text = row.name.resolve(),
             color = OltreColors.text,
             fontFamily = mono,
             fontSize = 13.5.sp,
@@ -202,7 +205,7 @@ private fun Headline(row: GalaxyRowUiState.World) {
         // beside a drawn disc is the state, and it buys back the right end of 98% of rows.
         row.verdict.word?.let { word ->
             Text(
-                text = word.uppercase(),
+                text = word.resolve().uppercase(),
                 color = row.verdict.hue(),
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -219,7 +222,7 @@ private fun Headline(row: GalaxyRowUiState.World) {
         // else that can print it twice, because the subtitle only exists when the epithet does.
         if (row.epithet == null) {
             Text(
-                text = row.coordinate,
+                text = row.coordinate.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -234,7 +237,7 @@ private fun Headline(row: GalaxyRowUiState.World) {
 // Epithet, address, and the round trip flush right. Every child is 10.5sp, so `Alignment.Bottom` and
 // the baseline are the same line here and the cheaper of the two is enough.
 @Composable
-private fun Subtitle(epithet: String, coordinate: String, trailing: String?) {
+private fun Subtitle(epithet: TextRes, coordinate: TextRes, trailing: TextRes?) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
         // The pair is grouped and the group takes the width, which is what pushes the trailing figure
@@ -246,7 +249,7 @@ private fun Subtitle(epithet: String, coordinate: String, trailing: String?) {
             modifier = Modifier.weight(1f),
         ) {
             Text(
-                text = epithet,
+                text = epithet.resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -258,7 +261,7 @@ private fun Subtitle(epithet: String, coordinate: String, trailing: String?) {
                 modifier = Modifier.weight(1f, fill = false),
             )
             Text(
-                text = coordinate,
+                text = coordinate.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -271,7 +274,7 @@ private fun Subtitle(epithet: String, coordinate: String, trailing: String?) {
         // the round trip once, under its header, because it is identical for all fifteen slots.
         trailing?.let {
             Text(
-                text = it,
+                text = it.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -310,8 +313,10 @@ private fun DepositLine(deposits: DepositReadingUiState) {
 private fun DepositItem(item: DepositItemUiState) {
     Text(
         text = buildAnnotatedString {
-            withStyle(SpanStyle(color = item.resource.hue())) { append(item.resource.word()) }
-            withStyle(SpanStyle(color = item.tone.hue())) { append(" ${item.reading}") }
+            withStyle(SpanStyle(color = item.resource.hue())) {
+                append(Strings.resourceName(item.resource).resolve())
+            }
+            withStyle(SpanStyle(color = item.tone.hue())) { append(" " + item.reading.resolve()) }
         },
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -333,7 +338,7 @@ private fun RequirementLine(at: GalaxyCoordinate, requirement: BlockedAxisUiStat
         Text(
             // The unit is written once, on the tolerance: both figures are the same axis and so the
             // same unit, and the four characters that saves are what keep the ladder on the line.
-            text = "${requirement.axis} ${requirement.reading}, you tolerate ${requirement.tolerated}",
+            text = requirement.clause.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -343,7 +348,7 @@ private fun RequirementLine(at: GalaxyCoordinate, requirement: BlockedAxisUiStat
             modifier = Modifier.weight(1f),
         )
         Text(
-            text = requirement.label,
+            text = requirement.label.resolve(),
             color = OltreColors.accent,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -367,9 +372,9 @@ private fun RequirementLine(at: GalaxyCoordinate, requirement: BlockedAxisUiStat
 // The one block allowed to run to several lines, and the one at 1.5 rather than 1.45: it is a
 // sentence rather than a reading, and a sentence set at a reading's leading reads as a table cell.
 @Composable
-private fun Note(text: String) {
+private fun Note(text: TextRes) {
     Text(
-        text = text,
+        text = text.resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -413,12 +418,6 @@ private fun ResourceKind.hue(): Color = when (this) {
     ResourceKind.METAL -> OltreColors.metal
     ResourceKind.CRYSTAL -> OltreColors.crystal
     ResourceKind.DEUTERIUM -> OltreColors.deuterium
-}
-
-private fun ResourceKind.word(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
 }
 
 // A word at each end and a working fraction between them. **Only `EMPTY` takes a status hue**: a full

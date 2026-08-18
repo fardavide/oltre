@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
@@ -39,7 +40,7 @@ class ResourceRailUiStateTest {
         }
 
         // then
-        assertEquals("+112/h", state.toResourceRailUiState().metal.ratePerHour)
+        assertEquals("+112/h", English.resolve(state.toResourceRailUiState().metal.ratePerHour))
     }
 
     @Test
@@ -54,11 +55,11 @@ class ResourceRailUiStateTest {
 
         // then
         assertEquals(1_000L, uiState.metal.stock)
-        assertEquals("+90/h", uiState.metal.ratePerHour)
+        assertEquals("+90/h", English.resolve(uiState.metal.ratePerHour))
         assertEquals(2_000L, uiState.crystal.stock)
-        assertEquals("+36/h", uiState.crystal.ratePerHour)
+        assertEquals("+36/h", English.resolve(uiState.crystal.ratePerHour))
         assertEquals(3_000L, uiState.deuterium.stock)
-        assertEquals("+15/h", uiState.deuterium.ratePerHour)
+        assertEquals("+15/h", English.resolve(uiState.deuterium.ratePerHour))
     }
 
     @Test
@@ -72,8 +73,8 @@ class ResourceRailUiStateTest {
         val uiState = state.toResourceRailUiState()
 
         // then - what the rail says has to be what advance will actually accrue
-        assertEquals("+104/h", uiState.metal.ratePerHour)
-        assertEquals("+41/h", uiState.crystal.ratePerHour)
+        assertEquals("+104/h", English.resolve(uiState.metal.ratePerHour))
+        assertEquals("+41/h", English.resolve(uiState.crystal.ratePerHour))
     }
 
     @Test
@@ -84,7 +85,7 @@ class ResourceRailUiStateTest {
         }
 
         // then - 531 per hour scaled by 50 produced over 120 consumed, and marked as throttled
-        assertEquals("+221/h", state.toResourceRailUiState().metal.ratePerHour)
+        assertEquals("+221/h", English.resolve(state.toResourceRailUiState().metal.ratePerHour))
         assertTrue(state.toResourceRailUiState().throttled)
     }
 

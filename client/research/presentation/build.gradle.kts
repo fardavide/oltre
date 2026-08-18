@@ -36,6 +36,7 @@ kotlin {
             // and the screen are this module's vocabulary and travel with it.
             api(projects.client.research.ui)
             implementation(projects.client.design.component)
+            implementation(projects.client.design.text)
             implementation(projects.client.design.format)
 
             implementation(libs.kotlinx.datetime)

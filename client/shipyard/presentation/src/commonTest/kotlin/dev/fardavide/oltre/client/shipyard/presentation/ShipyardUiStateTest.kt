@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.design.text.StringId
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
@@ -30,6 +33,12 @@ import kotlin.time.Instant
 
 // The Shipyard is a price list, so what a test has to pin is the price and the three readings around
 // it: what the fleet is, what the hull is for, and when the player can have another one.
+//
+// **Every assertion below names a catalogue entry rather than a string, since #86.** That is not a
+// mechanical consequence of the mapper's return type — it is the property the framework was bought
+// for: `assertEquals(Strings.hullsInFleet(3), …)` goes on passing when Davide rewords the heading and
+// still fails the day the mapper counts the wrong hulls. The words themselves are pinned once, in
+// `EnglishTest`, where changing them is a deliberate act rather than a test repair.
 class ShipyardUiStateTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)
@@ -40,12 +49,12 @@ class ShipyardUiStateTest {
         val state = fleetOf(3).dispatchOne()
 
         // then — three hulls, one of them away, and the heading says three
-        assertEquals("3 hulls", state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+        assertEquals(Strings.hullsInFleet(3), state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     @Test
     fun `one hull is a hull rather than one hulls`() {
-        assertEquals("1 hull", fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+        assertEquals(Strings.hullsInFleet(1), fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     // **What the screen says to the player it is now written for.** Until 0.11.3 genesis granted a
@@ -54,19 +63,28 @@ class ShipyardUiStateTest {
     // reads here — so it gets an assertion of its own rather than being left to the plural default.
     @Test
     fun `a colony that has not bought a hull yet reads zero rather than an empty header`() {
-        assertEquals("0 hulls", GameState.initial(SEED).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+        assertEquals(
+            Strings.hullsInFleet(0),
+            GameState.initial(SEED).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet,
+        )
     }
 
     @Test
     fun `the pool names what is owned and what is idle and what is away`() {
         val state = fleetOf(3).dispatchOne()
 
-        assertEquals("3 owned · 2 idle · 1 away", state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
+        assertEquals(
+            Strings.clauses(listOf(Strings.shipsOwned(3), Strings.shipsIdle(2), Strings.shipsAway(1))),
+            state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool,
+        )
     }
 
     @Test
     fun `nothing away drops the clause rather than printing a zero`() {
-        assertEquals("3 owned · 3 idle", fleetOf(3).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
+        assertEquals(
+            Strings.clauses(listOf(Strings.shipsOwned(3), Strings.shipsIdle(3))),
+            fleetOf(3).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool,
+        )
     }
 
     @Test
@@ -105,7 +123,9 @@ class ShipyardUiStateTest {
         val state = GameState.initial(SEED).copy(resources = Resources.of())
 
         val action = assertIs<BuildActionUiState.AvailableIn>(state.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action)
-        assertTrue(action.label.startsWith("in "), action.label)
+        // The *entry*, not the wording: what this pins is that an unaffordable hull answers "when",
+        // and the wait inside it is a duration the format module already has its own tests for.
+        assertEquals(StringId.AvailableIn, action.label.entry())
     }
 
     @Test
@@ -120,7 +140,7 @@ class ShipyardUiStateTest {
         )
 
         assertEquals(
-            BuildActionUiState.AvailableIn("—"),
+            BuildActionUiState.AvailableIn(Strings.availableNever()),
             stopped.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().action,
         )
     }
@@ -132,7 +152,7 @@ class ShipyardUiStateTest {
         val coming = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).comingHulls
 
         assertEquals(listOf(ShipType.HAULER), coming.map { it.type })
-        assertTrue(coming.single().purpose.isNotEmpty())
+        assertEquals(Strings.haulerPurpose(), coming.single().purpose)
     }
 
     @Test
@@ -141,7 +161,7 @@ class ShipyardUiStateTest {
         // at half the speed" arrives as a bigger number rather than as a trade.
         val skiff = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff()
 
-        assertTrue(skiff.purpose.contains("berth"), skiff.purpose)
+        assertEquals(Strings.skiffPurpose(), skiff.purpose)
     }
 
     // ── The yard ────────────────────────────────────────────────────────────────────────────
@@ -159,7 +179,7 @@ class ShipyardUiStateTest {
         val yard = assertNotNull(ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
 
         assertEquals(0, yard.progressPercent)
-        assertTrue(yard.countdown.isNotEmpty(), yard.countdown)
+        assertEquals(StringId.Countdown, yard.countdown.entry())
         assertEquals(null, yard.queued)
         assertTrue(job.completesAt > t0)
     }
@@ -181,7 +201,7 @@ class ShipyardUiStateTest {
     fun `the hulls waiting behind the one being made are counted`() {
         val yard = assertNotNull(wealthy().order(3).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
 
-        assertEquals("2 queued", yard.queued)
+        assertEquals(Strings.shipsQueued(2), yard.queued)
     }
 
     @Test
@@ -190,14 +210,19 @@ class ShipyardUiStateTest {
         // so it is its own clause rather than folded into either of the other two.
         val ordered = fleetOf(3).copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000)).order(2)
 
-        assertEquals("3 owned · 3 idle · 2 building", ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool)
+        assertEquals(
+            Strings.clauses(
+                listOf(Strings.shipsOwned(3), Strings.shipsIdle(3), Strings.shipsBuilding(2)),
+            ),
+            ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().pool,
+        )
     }
 
     @Test
     fun `the section rule still counts the fleet that exists rather than the one that is paid for`() {
         val ordered = fleetOf(3).copy(resources = Resources.of(metal = 1_000_000, crystal = 1_000_000)).order(2)
 
-        assertEquals("3 hulls", ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
+        assertEquals(Strings.hullsInFleet(3), ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).fleet)
     }
 
     @Test
@@ -247,15 +272,17 @@ class ShipyardUiStateTest {
         val yard = assertNotNull(ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().yard)
 
         val expected = job.completesAt.toLocalDateTime(TimeZone.UTC)
-        assertEquals(
-            "done ${expected.hour.toString().padStart(2, '0')}:${expected.minute.toString().padStart(2, '0')}",
-            yard.doneAt,
-        )
+        assertEquals(Strings.doneAt(hour = expected.hour, minute = expected.minute), yard.doneAt)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
     private fun ShipyardUiState.skiff(): HullUiState = hulls.single { it.type == ShipType.SKIFF }
+
+    // Which catalogue entry a piece of text is, for the two assertions whose *argument* is derived
+    // and therefore not worth restating. Safe because a mapper only ever produces a catalogue entry
+    // here; a `Raw` would be the defect.
+    private fun TextRes.entry(): StringId = assertIs<TextRes.Message>(this).id
 
     private fun GameState.order(hulls: Int): GameState =
         assertIs<BuildShipsResult.Started>(buildShips(this, Ships.of(ShipType.SKIFF, hulls), at = t0)).state

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
@@ -172,7 +173,7 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
                 // switch. A behaviour test whose result depends on the machine it runs on is the one
                 // failure mode the whole `SaveFile` seam exists to prevent.
                 preferences = PreferencesStore(InMemorySaveFile()),
-                notifications = GameNotifications(booked),
+                notifications = GameNotifications(booked, English),
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.
                 shakeDetector = ShakeDetector { emptyFlow<Unit>() as Flow<Unit> },

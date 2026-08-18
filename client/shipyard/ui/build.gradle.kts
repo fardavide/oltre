@@ -38,6 +38,9 @@ kotlin {
             // pictured, which is also what keeps a second hull from needing a second drawing.
             implementation(projects.client.design.component)
             implementation(projects.client.design.core)
+            // `api`, because every string this module's models carry is a `TextRes` — a card's name,
+            // its pool line, its ghost — and `:client:shipyard:presentation` next door builds them.
+            api(projects.client.design.text)
 
             // No `:client:design:format` and no `kotlinx-datetime`: the ghost's wait and the
             // slipway's wall clock are `String`s by the time a card is handed one.

@@ -2,9 +2,10 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
@@ -40,7 +41,7 @@ internal fun GameState.toProbeActionUiState(
     // otherwise claim it had been charted.
     if (worlds.isEmpty()) {
         return ProbeActionUiState.NothingToSurvey(
-            note = "${GalaxyBalance.SLOTS_PER_SYSTEM} empty slots · nothing to survey",
+            note = Strings.nothingToSurvey(GalaxyBalance.SLOTS_PER_SYSTEM),
         )
     }
 
@@ -52,19 +53,19 @@ internal fun GameState.toProbeActionUiState(
         return ProbeActionUiState.InFlight(
             // Ceiled, so a countdown only reads 00:00:00 once the probe has actually landed.
             countdown = ((remaining + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND).toCountdown(),
-            lands = "lands ${lands.hour.pad2()}:${lands.minute.pad2()}",
+            lands = Strings.landsAt(hour = lands.hour, minute = lands.minute),
             progressPercent = (elapsed * 100 / total).toInt(),
         )
     }
 
     if (galaxy.hasSurveyed(target)) {
         val landing = eventLog.filterIsInstance<Event.SurveyCompleted>().lastOrNull { it.target == target }
-            ?: return ProbeActionUiState.Charted("Surveyed at genesis")
+            ?: return ProbeActionUiState.Charted(Strings.surveyedAtGenesis())
         val landedAt = landing.at.toLocalDateTime(timeZone)
         val find = findIn(worlds)
         return ProbeActionUiState.Landed(
-            landedAt = "Probe landed ${landedAt.hour.pad2()}:${landedAt.minute.pad2()}",
-            summary = "${landing.worldsFound} ${if (landing.worldsFound == 1) "world" else "worlds"} surveyed",
+            landedAt = Strings.probeLandedAt(hour = landedAt.hour, minute = landedAt.minute),
+            summary = Strings.worldsSurveyedCount(landing.worldsFound),
             find = find.label,
             findKind = find.kind,
         )
@@ -78,21 +79,25 @@ internal fun GameState.toProbeActionUiState(
             amount = cost.metal.groupedByThousands(),
             short = ResourceKind.METAL in resources.shortfallOf(cost),
         ),
-        costWord = "metal",
-        flight = "flight ${flight.toChipLabel()}",
+        costWord = Strings.resourceName(ResourceKind.METAL),
+        flight = Strings.probeFlightLabel(flight.toChipLabel()),
         compactFlight = flight.toChipLabel(),
     )
     if (resources.covers(cost)) {
         // "Dispatch probe" at 393dp and "Dispatch" at 320dp. Nothing else on the card says the word
         // probe, so at full width the verb carries its object.
-        return ProbeActionUiState.Dispatch(offer = offer, label = "Dispatch probe", compactLabel = "Dispatch")
+        return ProbeActionUiState.Dispatch(
+            offer = offer,
+            label = Strings.dispatchProbe(),
+            compactLabel = Strings.dispatchProbeCompact(),
+        )
     }
     val wait = timeUntilAffordable(resources, cost, buildings, research)
     return ProbeActionUiState.Unaffordable(
         offer = offer,
         // A resource with no production at all never arrives, and "in 2,000,000h" would be a worse
         // lie than saying nothing. The same rule the Research and Colony ghosts follow.
-        availableIn = if (wait.isFinite()) "in ${wait.toChipLabel()}" else "—",
+        availableIn = if (wait.isFinite()) Strings.availableIn(wait.toChipLabel()) else Strings.availableNever(),
     )
 }
 
@@ -106,12 +111,12 @@ internal fun GameState.toProbeActionUiState(
 private fun GameState.findIn(worlds: List<World>): ProbeFind {
     val verdicts = worlds.map { verdictFor(it, this) }
     val settleable = verdicts.count { it is WorldVerdict.Settleable }
-    if (settleable > 0) return ProbeFind("$settleable settleable", ProbeFindKind.SETTLEABLE)
+    if (settleable > 0) return ProbeFind(Strings.findSettleable(settleable), ProbeFindKind.SETTLEABLE)
     val nearMisses = verdicts.count { (it as? WorldVerdict.Blocked)?.failures?.size == 1 }
-    if (nearMisses > 0) return ProbeFind("$nearMisses blocked at one axis", ProbeFindKind.NEAR_MISS)
-    return ProbeFind("none settleable", ProbeFindKind.NONE)
+    if (nearMisses > 0) return ProbeFind(Strings.findNearMiss(nearMisses), ProbeFindKind.NEAR_MISS)
+    return ProbeFind(Strings.findNone(), ProbeFindKind.NONE)
 }
 
-private data class ProbeFind(val label: String, val kind: ProbeFindKind)
+private data class ProbeFind(val label: TextRes, val kind: ProbeFindKind)
 
 private const val MILLIS_PER_SECOND: Long = 1_000

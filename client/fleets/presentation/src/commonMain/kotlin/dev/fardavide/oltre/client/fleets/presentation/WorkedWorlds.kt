@@ -1,7 +1,8 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.pad2
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.fleets.ui.WorkedListUiState
 import dev.fardavide.oltre.client.fleets.ui.WorkedWorldUiState
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
@@ -39,16 +40,19 @@ internal fun GameState.toWorkedListUiState(now: Instant, since: Instant, timeZon
 
     val runs = rows.sumOf { it.runs }
     return WorkedListUiState(
-        trailing = "${runs.runWord()} · newest first",
-        compactTrailing = runs.runWord(),
+        trailing = Strings.clauses(listOf(Strings.runCount(runs), Strings.workedNewestFirst())),
+        compactTrailing = Strings.runCount(runs),
         rows = rows.map { it.row },
         unrecorded = unrecorded.takeIf { it.isNotEmpty() }?.let { earlier ->
             val cargo = earlier.map { it.cargo }
             val kind = cargo.dominantKind()
             // Never "unknown" and never a dash in a column: the metal is still yours and the line
             // says so — it just has nowhere to send you.
-            "${earlier.size} earlier ${if (earlier.size == 1) "run" else "runs"} · " +
-                "${cargo.total(kind).groupedByThousands()} ${kind.label()} · no target recorded"
+            Strings.unrecordedRuns(
+                count = earlier.size,
+                total = cargo.total(kind).groupedByThousands(),
+                kind = kind,
+            )
         },
     )
 }
@@ -81,7 +85,8 @@ private fun GameState.toWorkedWorld(
         lastLandedAt = lastLandedAt,
         row = WorkedWorldUiState(
             at = at,
-            name = worldNameAt(galaxy.seed, at),
+            // A generated name: outside the catalogue by construction — see `TextRes.Raw`.
+            name = TextRes(worldNameAt(galaxy.seed, at)),
             portrait = WorldPortraitUiState.Surveyed(
                 temperature = world.traits.temperature,
                 gravity = world.traits.gravity,
@@ -89,23 +94,24 @@ private fun GameState.toWorkedWorld(
                 hazards = world.traits.hazards,
                 hasRing = world.hasRing,
             ),
-            total = "${cargo.total(kind).groupedByThousands()} ${kind.label()}",
+            total = Strings.amountOfResource(cargo.total(kind).groupedByThousands(), kind),
             kind = kind,
-            prefix = "${at.label()} · ${runs.runWord()}",
-            compactPrefix = runs.runWord(),
+            prefix = Strings.worldRowPrefix(address = at.label(), runs = Strings.runCount(runs)),
+            compactPrefix = Strings.runCount(runs),
             deposit = deposit.reading,
             depositIsEmpty = deposit.isEmpty,
             // **Only inside the span this launch advanced**, which is the same derivation the
             // discovery card makes — so no seen-flag and no new stored state. It carries the verb,
             // because a bare clock in Oltre is a countdown.
-            landed = "landed ${local.hour.pad2()}:${local.minute.pad2()}".takeIf { lastLandedAt in since..now },
+            landed = Strings.landedAt(hour = local.hour, minute = local.minute)
+                .takeIf { lastLandedAt in since..now },
         ),
     )
 }
 
 // What the row says is left, and whether that reading is the one that means *this door leads
 // nowhere*. **Both come off one read**, because two calls could disagree about one vein.
-private class Deposit(val reading: String, val isEmpty: Boolean)
+private class Deposit(val reading: TextRes, val isEmpty: Boolean)
 
 // 0.9's deposit idiom, unchanged: the remaining figure, or a word at each end.
 private fun GameState.depositReading(at: GalaxyCoordinate, kind: ResourceKind, now: Instant): Deposit {
@@ -114,12 +120,12 @@ private fun GameState.depositReading(at: GalaxyCoordinate, kind: ResourceKind, n
     // `Event.FleetReturned` is the wider type, so a log can hold one and this is the row that would
     // have to draw it. "empty" is true of ground that never held any, and it is already the reading
     // that means *nothing here for you*.
-    if (kind == ResourceKind.DEUTERIUM) return Deposit(reading = "empty", isEmpty = true)
+    if (kind == ResourceKind.DEUTERIUM) return Deposit(reading = Strings.depositEmptyWord(), isEmpty = true)
     val cap = galaxy.depositCap(at, kind)
     val remaining = galaxy.remaining(at, kind, now)
     return when {
-        cap == null || remaining <= 0 -> Deposit(reading = "empty", isEmpty = true)
-        remaining >= cap -> Deposit(reading = "full", isEmpty = false)
+        cap == null || remaining <= 0 -> Deposit(reading = Strings.depositEmptyWord(), isEmpty = true)
+        remaining >= cap -> Deposit(reading = Strings.depositFullWord(), isEmpty = false)
         else -> Deposit(reading = remaining.groupedByThousands(), isEmpty = false)
     }
 }
@@ -134,15 +140,7 @@ private fun List<Resources>.dominantKind(): ResourceKind = ResourceKind.entries.
 
 private fun List<Resources>.total(kind: ResourceKind): Long = sumOf { it.of(kind) }
 
-private fun Int.runWord(): String = "$this ${if (this == 1) "run" else "runs"}"
-
-private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
-
-private fun ResourceKind.label(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}
+private fun GalaxyCoordinate.label(): TextRes = Strings.coordinate(galaxy, system, slot)
 
 private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal

@@ -73,6 +73,7 @@ kotlin {
                 // lives in this module, so its harness has to as well — a ui-layer module may not
                 // depend on a presentation one.
                 implementation(projects.client.design.core)
+            implementation(projects.client.design.text)
                 implementation(projects.client.design.screenshotTesting)
                 implementation(libs.compose.material3)
                 implementation(libs.roborazzi.compose.desktop)

@@ -17,11 +17,12 @@ import dev.fardavide.oltre.client.design.component.figure
 import dev.fardavide.oltre.client.design.component.sheetLine
 import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -67,7 +68,7 @@ fun GameState.toColonyUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: BuildingType? = null,
-    watching: String? = null,
+    watching: TextRes? = null,
 ): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
@@ -89,9 +90,15 @@ private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
     val covered = if (balance.isDeficit) balance.produced else balance.consumed
     return EnergyUiState(
         verdict = balance.verdict(headroomLevels = PlaceholderBalance.energyHeadroomLevels(this, research)),
-        terms = "${balance.produced.groupedByThousands()} produced · " +
-            "${balance.consumed.groupedByThousands()} drawn · " +
-            "${abs(balance.surplus).groupedByThousands()} ${if (balance.isDeficit) "short" else "spare"}",
+        terms = Strings.clauses(
+            listOf(
+                Strings.energyProduced(balance.produced.groupedByThousands()),
+                Strings.energyDrawn(balance.consumed.groupedByThousands()),
+                abs(balance.surplus).groupedByThousands().let {
+                    if (balance.isDeficit) Strings.energyShort(it) else Strings.energySpare(it)
+                },
+            ),
+        ),
         // A razed colony spans nothing; every other case has a term to divide by.
         coveredFraction = if (span == 0L) 0f else covered.toFloat() / span.toFloat(),
         deficit = balance.isDeficit,
@@ -101,12 +108,11 @@ private fun Buildings.toEnergyUiState(research: Research): EnergyUiState {
 // Converting the surplus into the unit the player spends is the teaching move: it says the
 // mechanic exists, what it is denominated in, and that it will run out — all while nothing is
 // wrong. When it does run out the same slot becomes the deficit sentence, already familiar.
-private fun EnergyBalance.verdict(headroomLevels: Long): String = when {
-    isDeficit && produced == 0L -> "every mine stopped"
-    isDeficit -> "every mine at $outputPercent%"
-    headroomLevels == 0L -> "break even"
-    headroomLevels == 1L -> "room for 1 mine level"
-    else -> "room for $headroomLevels mine levels"
+private fun EnergyBalance.verdict(headroomLevels: Long): TextRes = when {
+    isDeficit && produced == 0L -> Strings.energyEveryMineStopped()
+    isDeficit -> Strings.energyEveryMineAt(outputPercent)
+    headroomLevels == 0L -> Strings.energyBreakEven()
+    else -> Strings.energyRoomForMineLevels(headroomLevels)
 }
 
 // The strip stays exactly what it was drawn as at 0.0.6 — coordinate, manifest, countdown, in one
@@ -131,15 +137,17 @@ private fun List<FleetRun>.toStrip(home: GalaxyCoordinate, now: Instant): Return
     val at = next.nextEventAt(home, now)
     val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val composition = ShipType.entries
-        .mapNotNull { type -> next.ships.counts[type]?.let { count -> "$count ${type.displayName()}" } }
-        .joinToString(" · ")
+        .mapNotNull { type -> next.ships.counts[type]?.let { count -> Strings.shipsOfType(count, type) } }
     val others = size - 1
-    val trailing = if (others > 0) " · $others more away" else ""
-    val target = "[${next.target.galaxy}:${next.target.system}:${next.target.slot}]"
+    val trailing = Strings.moreAway(others).takeIf { others > 0 }
+    val target = Strings.coordinate(next.target.galaxy, next.target.system, next.target.slot)
     val outbound = at < next.returnsAt
     return ReturningFleetUiState(
-        title = if (outbound) "On station at $target" else "Fleet returning",
-        subtitle = if (outbound) "$composition$trailing" else "from $target · $composition$trailing",
+        title = if (outbound) Strings.onStationAt(target) else Strings.fleetReturning(),
+        subtitle = Strings.clauses(
+            listOfNotNull(Strings.fromTarget(target).takeIf { !outbound }) + composition +
+                listOfNotNull(trailing),
+        ),
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
     )
 }
@@ -150,13 +158,6 @@ private fun List<FleetRun>.toStrip(home: GalaxyCoordinate, now: Instant): Return
 private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant {
     val onStation = flightEndsAt(home)
     return if (now < onStation) onStation else returnsAt
-}
-
-private fun ShipType.displayName(): String = when (this) {
-    ShipType.SKIFF -> "skiff"
-    ShipType.HAULER -> "hauler"
-    ShipType.ESCORT -> "escort"
-    ShipType.SETTLER -> "settler"
 }
 
 private fun GameState.toFacilityRow(
@@ -247,11 +248,11 @@ private fun GameState.toFacilityRow(
         action = when {
             job != null -> job.toUpgradingAction(now = now, timeZone = timeZone)
             locked -> FacilityActionUiState.Locked(
-                "Requires Robotics ${PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT}",
+                Strings.requiresRobotics(PlaceholderBalance.NANITE_ROBOTICS_REQUIREMENT),
             )
             short.isEmpty() -> FacilityActionUiState.Upgrade
             else -> FacilityActionUiState.AffordableIn(
-                untilAffordable?.let { "in ${it.toChipLabel()}" } ?: "—",
+                untilAffordable?.let { Strings.availableIn(it.toChipLabel()) } ?: Strings.availableNever(),
             )
         },
     )
@@ -275,25 +276,29 @@ private fun LevelPurpose.toVerdict(
     level: BuildingLevel,
 ): VerdictUiState? = when (this) {
     is LevelPurpose.Output -> VerdictUiState(
-        label = "${gain()} · back in ${payback.toPaybackLabel()}",
+        label = Strings.clauses(listOf(gain(), Strings.backIn(payback.toPaybackLabel()))),
         compactLabel = gain(),
     )
     // Only ever the plant on this screen: every mine level raises the draw, so a mine that buys
     // nothing is throttled rather than inert.
     is LevelPurpose.Inert -> VerdictUiState(
-        label = "+${suppliesMore.groupedByThousands()} supply · draw already covered",
-        compactLabel = "+${suppliesMore.groupedByThousands()} supply",
+        label = Strings.clauses(
+            listOf(Strings.suppliesMore(suppliesMore.groupedByThousands()), Strings.drawAlreadyCovered()),
+        ),
+        compactLabel = Strings.suppliesMore(suppliesMore.groupedByThousands()),
     )
     // The delta is not small, it is negative — so the first clause is what the level costs the rest
     // of the colony and the second is the plant level that would carry it.
     is LevelPurpose.Throttled -> VerdictUiState(
-        label = "throttles every mine · Solar Plant $coveredAtPlantLevel covers it",
-        compactLabel = "throttles every mine",
+        label = Strings.clauses(
+            listOf(Strings.throttlesEveryMine(), Strings.solarPlantCovers(coveredAtPlantLevel)),
+        ),
+        compactLabel = Strings.throttlesEveryMine(),
     )
     is LevelPurpose.Sooner -> {
-        val saved = "−${(before - after).toChipLabel()} per build"
+        val saved = Strings.savedPerBuild((before - after).toChipLabel())
         VerdictUiState(
-            label = gateClause(building, level)?.let { "$saved · $it" } ?: saved,
+            label = gateClause(building, level)?.let { Strings.clauses(listOf(saved, it)) } ?: saved,
             compactLabel = saved,
         )
     }
@@ -305,21 +310,23 @@ private fun LevelPurpose.toVerdict(
     -> null
 }
 
-private fun LevelPurpose.Output.gain(): String = "+${perHour.groupedByThousands()}/h ${kind.word()}"
+private fun LevelPurpose.Output.gain(): TextRes =
+    Strings.outputGain(perHour = perHour.groupedByThousands(), kind = kind)
 
 // Deliberately *not* about the next level of anything: this has to read while the building is
 // twelve days out and 42% dim, so it states the payoff instead of the saving.
 private fun DeepBuildRelief.toVerdict(): VerdictUiState = VerdictUiState(
-    label = "A ${unaided.toPaybackLabel()} build takes ${helped.toPaybackLabel()} at LV $naniteLevel",
-    compactLabel = "${unaided.toPaybackLabel()} builds take ${helped.toPaybackLabel()} at LV $naniteLevel",
+    label = Strings.naniteReliefLong(
+        unaided = unaided.toPaybackLabel(),
+        helped = helped.toPaybackLabel(),
+        level = naniteLevel,
+    ),
+    compactLabel = Strings.naniteReliefShort(
+        unaided = unaided.toPaybackLabel(),
+        helped = helped.toPaybackLabel(),
+        level = naniteLevel,
+    ),
 )
-
-// Lower case, because it is a word inside a sentence rather than a label on a chip.
-private fun ResourceKind.word(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}
 
 private fun GameState.sheetLines(
     building: BuildingType,
@@ -354,29 +361,29 @@ private fun LevelPurpose.toLines(
 
 private fun LevelPurpose.Output.mineLines(level: BuildingLevel): List<SheetLine> = listOf(
     sheetLine(
-        words("Your colony makes "),
-        figure("${from.groupedByThousands()}/h"),
-        words(" ${kind.word()}. At LV ${level.value + 1} it makes "),
-        figure("${to.groupedByThousands()}/h"),
-        words("."),
+        words(Strings.sheetMineMakes()),
+        figure(Strings.perHour(from.groupedByThousands())),
+        words(Strings.sheetMineAtLevel(kind = kind, level = level.value + 1)),
+        figure(Strings.perHour(to.groupedByThousands())),
+        words(Strings.sheetFullStop()),
     ),
     paybackLine(),
 )
 
 private fun LevelPurpose.Output.plantOutputLines(energy: EnergyBalance): List<SheetLine> = listOf(
     sheetLine(
-        words("Your plants supply "),
+        words(Strings.sheetPlantsSupply()),
         figure(energy.produced.groupedByThousands()),
-        words(" energy. The colony draws "),
+        words(Strings.sheetColonyDraws()),
         figure(energy.consumed.groupedByThousands()),
-        words(", so every mine is running at "),
-        figure("${energy.outputPercent}%"),
-        words("."),
+        words(Strings.sheetSoEveryMineAt()),
+        figure(Strings.percent(energy.outputPercent)),
+        words(Strings.sheetFullStop()),
     ),
     sheetLine(
-        words("This level lifts that, which is why it reads as "),
-        figure("+${perHour.groupedByThousands()}/h"),
-        words(" ${kind.word()} rather than as energy."),
+        words(Strings.sheetThisLevelLifts()),
+        figure(Strings.plusPerHour(perHour.groupedByThousands())),
+        words(Strings.sheetRatherThanEnergy(kind)),
     ),
     paybackLine(),
 )
@@ -384,23 +391,23 @@ private fun LevelPurpose.Output.plantOutputLines(energy: EnergyBalance): List<Sh
 // Against everything the level costs rather than against the resource it hands back, because a mine
 // level is paid for in a basket of three and repaid in one.
 private fun LevelPurpose.Output.paybackLine(): SheetLine = sheetLine(
-    words("Counted against everything the level costs, you are even after "),
+    words(Strings.sheetPaybackPrefix()),
     figure(payback.toPaybackLabel()),
-    words("."),
+    words(Strings.sheetFullStop()),
 )
 
 private fun LevelPurpose.Inert.plantInertLines(energy: EnergyBalance): List<SheetLine> = listOf(
     sheetLine(
-        words("Your plants supply "),
+        words(Strings.sheetPlantsSupply()),
         figure(energy.produced.groupedByThousands()),
-        words(" energy. The colony draws "),
+        words(Strings.sheetColonyDraws()),
         figure(energy.consumed.groupedByThousands()),
-        words("."),
+        words(Strings.sheetFullStop()),
     ),
     sheetLine(
-        words("Supply is not what is limiting you, so a level that adds "),
-        figure("+${suppliesMore.groupedByThousands()}"),
-        words(" changes no rate."),
+        words(Strings.sheetSupplyNotLimiting()),
+        figure(Strings.plusAmount(suppliesMore.groupedByThousands())),
+        words(Strings.sheetChangesNoRate()),
     ),
     crossingLine(),
 )
@@ -409,30 +416,25 @@ private fun LevelPurpose.Inert.plantInertLines(energy: EnergyBalance): List<Shee
 // headroom in. Spelled at one and dropped at none, because "1 more mine levels away" is not a
 // sentence and "0 more mine levels away" is a worse one.
 private fun LevelPurpose.Inert.crossingLine(): SheetLine = when (mineLevelsSpare) {
-    0L -> sheetLine(words("It starts to pay with the next mine level you take."))
+    0L -> sheetLine(words(Strings.sheetPaysNextMineLevel()))
     1L -> sheetLine(
-        words("It starts to pay when draw passes supply — about "),
-        figure("one"),
-        words(" more mine level away."),
+        words(Strings.sheetPaysWhenDrawPasses()),
+        figure(Strings.sheetOneSpelled()),
+        words(Strings.sheetMoreMineLevelAway()),
     )
     else -> sheetLine(
-        words("It starts to pay when draw passes supply — about "),
+        words(Strings.sheetPaysWhenDrawPasses()),
         figure(mineLevelsSpare.groupedByThousands()),
-        words(" more mine levels away."),
+        words(Strings.sheetMoreMineLevelsAway()),
     )
 }
 
 private fun LevelPurpose.Throttled.throttledLines(): List<SheetLine> = listOf(
+    sheetLine(words(Strings.sheetCannotPowerLevel())),
     sheetLine(
-        words(
-            "The colony cannot power this level. Taking it would throttle every mine you have " +
-                "rather than raise anything.",
-        ),
-    ),
-    sheetLine(
-        words("A Solar Plant at LV "),
-        figure("$coveredAtPlantLevel"),
-        words(" carries the new draw. Build that first and this level becomes what it looks like."),
+        words(Strings.sheetPlantCarriesPrefix()),
+        figure(Strings.plainNumber(coveredAtPlantLevel)),
+        words(Strings.sheetPlantCarriesSuffix()),
     ),
 )
 
@@ -442,27 +444,24 @@ private fun LevelPurpose.Sooner.factoryLines(
 ): List<SheetLine> = listOf(
     sheetLine(words(building.shortensWhat())),
     sheetLine(
-        words("Your next ${on.displayName()} takes "),
+        words(Strings.sheetNextBuildTakes(on.displayName())),
         figure(before.toChipLabel()),
-        words(". At ${building.displayName()} ${level.value + 1} it takes "),
+        words(Strings.sheetAtBuildingLevelTakes(building.displayName(), level.value + 1)),
         figure(after.toChipLabel()),
-        words("."),
+        words(Strings.sheetFullStop()),
     ),
 )
 
 // The two rows that raise no rate at all, and they are worth different kinds of thing: one shortens
 // everything a little, and the other is the only answer the game has to a wait measured in days.
-private fun BuildingType.shortensWhat(): String = when (this) {
-    BuildingType.NANITE_FACTORY ->
-        "Takes the late game's waits apart. It is the only thing in the game that shortens a deep build."
+private fun BuildingType.shortensWhat(): TextRes = when (this) {
+    BuildingType.NANITE_FACTORY -> Strings.sheetShortensDeepBuild()
     BuildingType.METAL_MINE,
     BuildingType.CRYSTAL_MINE,
     BuildingType.DEUTERIUM_SYNTHESIZER,
     BuildingType.SOLAR_PLANT,
     BuildingType.ROBOTICS_FACTORY,
-    ->
-        "Shortens every build on this colony and every research in the empire. " +
-            "It raises no output of its own."
+    -> Strings.sheetShortensEveryBuild()
 }
 
 // The one sheet in the game that is about a building the player cannot start, and the reason the row
@@ -474,24 +473,21 @@ private fun GameState.lockedNaniteLines(): List<SheetLine> {
     return listOf(
         sheetLine(words(BuildingType.NANITE_FACTORY.shortensWhat())),
         sheetLine(
-            words("A level-${relief.level} Metal Mine takes "),
+            words(Strings.sheetNaniteMineTakes(relief.level)),
             figure(relief.unaided.toPaybackLabel()),
-            words(" unaided. At ${relief.naniteLevel} Nanite levels it takes "),
+            words(Strings.sheetNaniteUnaidedAt(relief.naniteLevel)),
             figure(relief.helped.toPaybackLabel()),
-            words("."),
+            words(Strings.sheetFullStop()),
         ),
         sheetLine(
-            words("Your Robotics Factory is at "),
-            figure("$robotics"),
-            words(
-                ". ${if (toGo == 1) "One level" else "$toGo levels"} to go, " +
-                    "and the first Nanite level costs ",
-            ),
+            words(Strings.sheetRoboticsIsAt()),
+            figure(Strings.plainNumber(robotics)),
+            words(Strings.sheetLevelsToGo(toGo)),
             figure(
                 PlaceholderBalance.upgradeCost(BuildingType.NANITE_FACTORY, BuildingLevel(1))
                     .metal.groupedByThousands(),
             ),
-            words(" metal."),
+            words(Strings.sheetMetalSuffix()),
         ),
     )
 }
@@ -506,7 +502,7 @@ private fun GameState.lockedNaniteLines(): List<SheetLine> {
 // That is also why **no technology is named here**. What a technology is called belongs to the
 // screen that draws technologies, exactly as `watching` does, and no gate on this screen is a lone
 // project or ladder for it to have to name.
-private data class GateSummary(val short: String, val long: String)
+private data class GateSummary(val short: TextRes, val long: TextRes)
 
 private fun List<GateSubject>.summarised(): GateSummary {
     val facility = singleOrNull() as? GateSubject.Facility
@@ -516,27 +512,38 @@ private fun List<GateSubject>.summarised(): GateSummary {
             // "Robotics Factory": a clause has room for one word here and the row has already
             // spent the rest of its width.
             short = if (facility.building == BuildingType.NANITE_FACTORY) {
-                "Nanite"
+                Strings.gateSummaryNanite()
             } else {
                 facility.building.displayName()
             },
             // The price is what makes a facility on a ladder different from a technology on one: a
             // level that opens a 2,000-metal building has opened something you still have to buy.
-            long = "${facility.building.displayName()} · " + PlaceholderBalance
-                .upgradeCost(facility.building, BuildingLevel(1))
-                .metal.groupedByThousands() + " metal",
+            long = Strings.gateFacilityLong(
+                name = facility.building.displayName(),
+                metal = PlaceholderBalance
+                    .upgradeCost(facility.building, BuildingLevel(1))
+                    .metal.groupedByThousands(),
+            ),
         )
-        all { it is GateSubject.Ladder } ->
-            GateSummary(short = "adaptation", long = "the three adaptation ladders")
-        else -> GateSummary(short = "research", long = "applied research")
+        all { it is GateSubject.Ladder } -> GateSummary(
+            short = Strings.gateSummaryAdaptationShort(),
+            long = Strings.gateSummaryAdaptationLong(),
+        )
+        else -> GateSummary(
+            short = Strings.gateSummaryResearchShort(),
+            long = Strings.gateSummaryResearchLong(),
+        )
     }
 }
 
 // The lowest gate the colony has not passed yet, which is the only one a verdict has room for.
-private fun gateClause(building: BuildingType, level: BuildingLevel): String? {
+private fun gateClause(building: BuildingType, level: BuildingLevel): TextRes? {
     val ahead = gatesOf(building).filter { it.level > level.value }
     val next = ahead.minOfOrNull { it.level } ?: return null
-    return "LV $next → ${ahead.filter { it.level == next }.map { it.opens }.summarised().short}"
+    return Strings.gateClause(
+        level = next,
+        opens = ahead.filter { it.level == next }.map { it.opens }.summarised().short,
+    )
 }
 
 // Every gate the row has, including the ones already passed — greyed, and said out loud, because it
@@ -546,8 +553,8 @@ private fun List<Gate>.toLadder(level: BuildingLevel): List<SheetLadderStep> = g
         val held = gateLevel <= level.value
         val opens = gates.map { it.opens }.summarised().long
         SheetLadderStep(
-            level = "LV $gateLevel",
-            opens = if (held) "$opens · you have this" else opens,
+            level = Strings.levelBadge(gateLevel),
+            opens = if (held) Strings.ladderStepHeld(opens) else opens,
             held = held,
         )
     }
@@ -567,7 +574,7 @@ private fun GameState.gatePointer(): SheetPointer {
     )
     return SheetPointer(
         name = BuildingType.ROBOTICS_FACTORY.displayName(),
-        detail = "LV ${level.value} → ${toLevel.value} · ${wait.toChipLabel()}",
+        detail = Strings.pointerLevelStep(from = level.value, to = toLevel.value, wait = wait.toChipLabel()),
     )
 }
 
@@ -580,8 +587,10 @@ private fun GameState.bestBuyPointer(excluding: BuildingType): SheetPointer? = B
     ?.let { (building, purpose) ->
         SheetPointer(
             name = building.displayName(),
-            detail = "LV ${buildings.levelOf(building).value + 1} · " +
-                "back in ${purpose.payback.toPaybackLabel()}",
+            detail = Strings.pointerBestBuy(
+                level = buildings.levelOf(building).value + 1,
+                payback = purpose.payback.toPaybackLabel(),
+            ),
         )
     }
 
@@ -601,8 +610,8 @@ private fun BuildingType.powerAt(level: BuildingLevel, research: Research): Faci
     val supplied = PlaceholderBalance.energySupply(this, level, research)
     val drawn = PlaceholderBalance.energyConsumption(this, level)
     return when {
-        supplied > 0 -> FacilityPowerUiState(label = "+${supplied.groupedByThousands()}", supply = true)
-        drawn > 0 -> FacilityPowerUiState(label = "−${drawn.groupedByThousands()}", supply = false)
+        supplied > 0 -> FacilityPowerUiState(label = Strings.powerSupply(supplied.groupedByThousands()), supply = true)
+        drawn > 0 -> FacilityPowerUiState(label = Strings.powerDraw(drawn.groupedByThousands()), supply = false)
         else -> null
     }
 }
@@ -613,11 +622,11 @@ private fun EnergyBalance.fixOn(
     building: BuildingType,
     solarPlant: BuildingLevel,
     research: Research,
-): String? {
+): TextRes? {
     if (building != BuildingType.SOLAR_PLANT || !isDeficit) return null
     val nextLevel = BuildingLevel(solarPlant.value + 1)
     if (PlaceholderBalance.energySupply(BuildingType.SOLAR_PLANT, nextLevel, research) < consumed) return null
-    return "→ LV ${nextLevel.value} covers all ${consumed.groupedByThousands()} drawn"
+    return Strings.solarFix(level = nextLevel.value, drawn = consumed.groupedByThousands())
 }
 
 private fun BuildJob.toUpgradingAction(now: Instant, timeZone: TimeZone): FacilityActionUiState.Upgrading {
@@ -630,7 +639,7 @@ private fun BuildJob.toUpgradingAction(now: Instant, timeZone: TimeZone): Facili
         // Ceil the remainder so a countdown only reads 00:00:00 once the build is actually done.
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
         progressPercent = (elapsedMs * 100 / totalMs).toInt(),
-        doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
+        doneAt = Strings.doneAt(hour = completesLocal.hour, minute = completesLocal.minute),
     )
 }
 
@@ -646,14 +655,7 @@ private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostC
 // is a mapping from a `core` enum into words — exactly the kind of decision a presentation module
 // holds — and no composable in `:client:colony:ui` reads it: every name a row prints arrives on the
 // row, already chosen.
-fun BuildingType.displayName(): String = when (this) {
-    BuildingType.METAL_MINE -> "Metal Mine"
-    BuildingType.CRYSTAL_MINE -> "Crystal Mine"
-    BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium Synth."
-    BuildingType.SOLAR_PLANT -> "Solar Plant"
-    BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
-    BuildingType.NANITE_FACTORY -> "Nanite Factory"
-}
+fun BuildingType.displayName(): TextRes = Strings.buildingName(this)
 
 // **One name shortens at 320dp and the other five do not**, which is a measurement rather than a
 // style: with the square stacked under the ghost the name column is back to the width it had before
@@ -662,12 +664,4 @@ fun BuildingType.displayName(): String = when (this) {
 //
 // Public for the same reason `displayName` is: the section label over both lists names the watched
 // row, and at this width it has to call it what the row calls it.
-fun BuildingType.compactName(): String = when (this) {
-    BuildingType.ROBOTICS_FACTORY -> "Robotics"
-    BuildingType.METAL_MINE,
-    BuildingType.CRYSTAL_MINE,
-    BuildingType.DEUTERIUM_SYNTHESIZER,
-    BuildingType.SOLAR_PLANT,
-    BuildingType.NANITE_FACTORY,
-    -> displayName()
-}
+fun BuildingType.compactName(): TextRes = Strings.buildingCompactName(this)

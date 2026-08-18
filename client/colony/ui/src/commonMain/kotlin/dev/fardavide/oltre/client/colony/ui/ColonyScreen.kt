@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.component.RowSheet
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.BuildingType
 
@@ -72,7 +73,7 @@ fun ColonyScreen(
                 // across three ladders legible: it names the watched row even when that row is on
                 // the Research tab, so moving the watch there is never a thing that happened
                 // somewhere the player was not looking.
-                SectionLabel(text = "FACILITIES", rule = uiState.watching)
+                SectionLabel(text = Strings.colonyFacilitiesHeading(), rule = uiState.watching)
                 FacilityList(
                     facilities = uiState.facilities,
                     compact = compact,

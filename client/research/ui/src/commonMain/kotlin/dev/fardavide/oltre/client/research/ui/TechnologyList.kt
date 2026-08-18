@@ -36,6 +36,9 @@ import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -119,14 +122,14 @@ internal fun AdaptationList(
 // slot the band line and the shortlist line used to share, that is now the whole of the difference.
 @Composable
 private fun ProjectRow(
-    name: String,
+    name: TextRes,
     level: TechLevel,
     // The one line of consequence a row carries, and the same line on both branches: an applied
     // level is worth so much an hour, a ladder level is worth so many worlds. Null while the row is
     // in flight, where the accent line below says what the slot is for instead.
     verdict: VerdictUiState?,
     costs: List<CostChipUiState>,
-    duration: String,
+    duration: TextRes,
     action: ResearchActionUiState,
     // Null on every row with no instant to book. See `WatchUiState`.
     watch: WatchUiState?,
@@ -179,7 +182,7 @@ private fun ProjectRow(
                     // Every technology name is one word, so nothing here truncates at 320dp — but
                     // the guard stays, because a future name is not this slice's promise to keep.
                     Text(
-                        text = name,
+                        text = name.resolve(),
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 13.5.sp,
@@ -191,7 +194,8 @@ private fun ProjectRow(
                     Text(
                         // The level the row arrived at, except while a completion band is still
                         // short of the badge — the number changes behind the light.
-                        text = "LV ${if (sweep.settled) level.value else level.value - 1}",
+                        text = Strings.levelBadge(if (sweep.settled) level.value else level.value - 1)
+                            .resolve(),
                         color = OltreColors.textSecondary,
                         fontFamily = mono,
                         fontSize = 10.sp,
@@ -213,7 +217,7 @@ private fun ProjectRow(
                     // is the only question a gate leaves open, and the row now answers it.
                     is ResearchActionUiState.Locked -> {
                         Text(
-                            text = action.reason,
+                            text = action.reason.resolve(),
                             color = OltreColors.textSecondary,
                             fontFamily = mono,
                             fontSize = 10.5.sp,
@@ -225,7 +229,7 @@ private fun ProjectRow(
                     // costs while it builds: what you want mid-project is when, not what — and
                     // "→ LV 4" already says what.
                     is ResearchActionUiState.Running -> Text(
-                        text = "→ LV ${action.toLevel.value} · ${action.doneAt}",
+                        text = action.becomes().resolve(),
                         color = OltreColors.accent,
                         fontFamily = mono,
                         fontSize = 10.5.sp,
@@ -251,7 +255,7 @@ private fun ProjectRow(
                         ) {
                             costs.forEach { chip -> CostChip(chip = chip) }
                             Text(
-                                text = duration,
+                                text = duration.resolve(),
                                 color = OltreColors.textSecondary,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -262,7 +266,7 @@ private fun ProjectRow(
                         // an accent border: the border means in flight, this means booked.
                         (watch as? WatchUiState.Booked)?.let { booked ->
                             Text(
-                                text = booked.affordableAt,
+                                text = booked.affordableAt.resolve(),
                                 color = OltreColors.accent,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -274,7 +278,7 @@ private fun ProjectRow(
             }
             when (action) {
                 ResearchActionUiState.Start -> Text(
-                    text = "Research",
+                    text = Strings.researchVerb().resolve(),
                     color = Color.White,
                     fontFamily = mono,
                     fontSize = 11.sp,
@@ -296,7 +300,7 @@ private fun ProjectRow(
                     watchModifier = Modifier.testTag(watchTag),
                 ) {
                     Text(
-                        text = action.label,
+                        text = action.label.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = mono,
                         fontSize = 11.sp,
@@ -317,7 +321,7 @@ private fun ProjectRow(
                     modifier = Modifier.padding(start = 11.dp),
                 ) {
                     Text(
-                        text = action.countdown,
+                        text = action.countdown.resolve(),
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 14.sp,

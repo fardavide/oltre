@@ -30,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.settlingColor
 
@@ -93,13 +96,13 @@ internal fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
         modifier = Modifier.background(GROUP_FILL, BADGE_SHAPE).padding(2.dp),
     ) {
         ModePill(
-            label = "worlds",
+            label = Strings.ledgerModeWorlds(),
             mode = LedgerMode.WORLDS,
             on = mode == LedgerMode.WORLDS,
             onClick = { onSelectMode(LedgerMode.WORLDS) },
         )
         ModePill(
-            label = "map",
+            label = Strings.ledgerModeMap(),
             mode = LedgerMode.MAP,
             on = mode == LedgerMode.MAP,
             onClick = { onSelectMode(LedgerMode.MAP) },
@@ -110,9 +113,9 @@ internal fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
 // Uppercase is a style and not a spelling — the word is lowercase in the source here as it is in the
 // count and the sort, per the system's casing rule.
 @Composable
-private fun ModePill(label: String, mode: LedgerMode, on: Boolean, onClick: () -> Unit) {
+private fun ModePill(label: TextRes, mode: LedgerMode, on: Boolean, onClick: () -> Unit) {
     Text(
-        text = label.uppercase(),
+        text = label.resolve().uppercase(),
         // Both channels turn together: the ink and the fill are one statement about which mode is
         // showing, and a pill whose fill arrived before its letters did would read as two.
         color = settlingColor(if (on) OltreColors.accent else OltreColors.textTertiary),
@@ -166,7 +169,7 @@ private fun SearchField(query: String, onQueryChange: (String) -> Unit, modifier
                     // is the query in the faint ink, which is why it carries no style of its own.
                     if (!typed) {
                         Text(
-                            text = "name",
+                            text = Strings.searchPlaceholder().resolve(),
                             color = OltreColors.textTertiary,
                             fontFamily = oltreMono(),
                             fontSize = 10.5.sp,
@@ -215,9 +218,9 @@ private fun SearchGlyph(ink: Color) {
 // with it — what remains is the length of the list, which is a reading rather than a control, so
 // nothing on this line is tappable and nothing on it is accented.
 @Composable
-private fun Meta(count: String) {
+private fun Meta(count: TextRes) {
     Text(
-        text = count.uppercase(),
+        text = count.resolve().uppercase(),
         color = OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,

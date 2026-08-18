@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 
@@ -17,28 +18,33 @@ import dev.fardavide.oltre.core.ShipType
 // What none of these do is *invent copy*. A fixture that wrote its own sentences would pin text the
 // app never produces, which is the mistake the galaxy module made and paid for. Every string here
 // was produced by the mapper first.
+//
+// **Since #86 that is enforced rather than promised.** Every field below names the catalogue entry
+// the mapper names, so a fixture *cannot* say something the app does not — the words are `English`'s
+// and are written down in exactly one place. What the frames photograph is unchanged, which is why
+// none of the four baselines moved.
 
 // Declared ahead of the four states that carry it, because a top-level `val` in Kotlin is
 // initialised in file order and a forward reference reads as null.
 private val HAULER = ComingHullUiState(
     type = ShipType.HAULER,
-    name = "Hauler",
-    purpose = "Four berths of hold, at half a skiff's speed.",
+    name = Strings.haulerName(),
+    purpose = Strings.haulerPurpose(),
 )
 
 // The first sitting: one granted skiff, idle, and 500 metal in the store — which buys the second at
 // 120 metal and 30 crystal. The frame Design drew for this slice, at one hull.
 internal val oneHullUiState = ShipyardUiState(
-    fleet = "1 hull",
+    fleet = Strings.hullsInFleet(1),
     hulls = listOf(
         HullUiState(
             type = ShipType.SKIFF,
-            name = "Skiff",
-            pool = "1 owned · 1 idle",
-            purpose = "One berth of hold · 10m + 1m per 10 units, one way",
+            name = Strings.skiffName(),
+            pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))),
+            purpose = Strings.skiffPurpose(),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "120", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "30", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(120), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(30), short = false),
             ),
             action = BuildActionUiState.Build,
             yard = null,
@@ -50,16 +56,16 @@ internal val oneHullUiState = ShipyardUiState(
 // A fleet at depth, five of it away, and the seventh hull priced where the curve has got to. This is
 // the frame Design published — `6 owned · 1 idle · 5 away`, 910 metal and 225 crystal.
 internal val sixHullsUiState = ShipyardUiState(
-    fleet = "6 hulls",
+    fleet = Strings.hullsInFleet(6),
     hulls = listOf(
         HullUiState(
             type = ShipType.SKIFF,
-            name = "Skiff",
-            pool = "6 owned · 1 idle · 5 away",
-            purpose = "One berth of hold · 10m + 1m per 10 units, one way",
+            name = Strings.skiffName(),
+            pool = Strings.clauses(listOf(Strings.shipsOwned(6), Strings.shipsIdle(1), Strings.shipsAway(5))),
+            purpose = Strings.skiffPurpose(),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "910", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "225", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(910), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(225), short = false),
             ),
             action = BuildActionUiState.Build,
             yard = null,
@@ -72,18 +78,18 @@ internal val sixHullsUiState = ShipyardUiState(
 // this is where "cannot afford" is drawn, in the shipped idiom — the metal chip reddens and the verb
 // becomes a ghost carrying the wait.
 internal val cannotAffordUiState = ShipyardUiState(
-    fleet = "6 hulls",
+    fleet = Strings.hullsInFleet(6),
     hulls = listOf(
         HullUiState(
             type = ShipType.SKIFF,
-            name = "Skiff",
-            pool = "6 owned · 1 idle · 5 away",
-            purpose = "One berth of hold · 10m + 1m per 10 units, one way",
+            name = Strings.skiffName(),
+            pool = Strings.clauses(listOf(Strings.shipsOwned(6), Strings.shipsIdle(1), Strings.shipsAway(5))),
+            purpose = Strings.skiffPurpose(),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "910", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "225", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(910), short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(225), short = false),
             ),
-            action = BuildActionUiState.AvailableIn("in 1h 06m"),
+            action = BuildActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(1, 6))),
             yard = null,
         ),
     ),
@@ -118,26 +124,31 @@ internal val cannotAffordUiState = ShipyardUiState(
 internal val buildingUiState: ShipyardUiState = ShipyardUiState(
     // Two owned and three on the slipway: the heading counts the fleet that exists, and the pool
     // line is the only place the order is visible.
-    fleet = "2 hulls",
+    fleet = Strings.hullsInFleet(2),
     hulls = listOf(
         HullUiState(
             type = ShipType.SKIFF,
-            name = "Skiff",
-            pool = "2 owned · 2 idle · 3 building",
-            purpose = "One berth of hold · 10m + 1m per 10 units, one way",
+            name = Strings.skiffName(),
+            pool = Strings.clauses(
+                listOf(Strings.shipsOwned(2), Strings.shipsIdle(2), Strings.shipsBuilding(3)),
+            ),
+            purpose = Strings.skiffPurpose(),
             // The sixth rung, because `buildShips` prices against everything *committed* — two owned
             // plus three on the slipway. Deep enough that the card offers the verb: this frame is
             // about the slipway, and a reddened chip would make it about affordability instead.
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "6,075", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,518", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(6_075), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(1_518), short = false),
             ),
             action = BuildActionUiState.Build,
             yard = YardUiState(
-                countdown = "02:01:00",
+                countdown = Strings.countdown(hours = 2, minutes = 1, seconds = 0),
                 progressPercent = 34,
-                doneAt = "done 14:05",
-                queued = "2 queued",
+                doneAt = Strings.doneAt(hour = 14, minute = 5),
+                queued = Strings.shipsQueued(2),
+                footer = Strings.clauses(
+                    listOf(Strings.doneAt(hour = 14, minute = 5), Strings.shipsQueued(2)),
+                ),
             ),
         ),
     ),

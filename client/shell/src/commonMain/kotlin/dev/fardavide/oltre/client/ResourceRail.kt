@@ -28,6 +28,9 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.client.design.core.rememberOneShotFill
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.icon.PowerMark
@@ -97,21 +100,21 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
             // one component with none to spare.
             val throttled = uiState.throttled
             ResourceCell(
-                name = "METAL",
+                kind = ResourceKind.METAL,
                 stock = uiState.metal,
                 orb = OltreColors.metal,
                 throttled = throttled,
                 compact = compact,
             )
             ResourceCell(
-                name = "CRYSTAL",
+                kind = ResourceKind.CRYSTAL,
                 stock = uiState.crystal,
                 orb = OltreColors.crystal,
                 throttled = throttled,
                 compact = compact,
             )
             ResourceCell(
-                name = "DEUTERIUM",
+                kind = ResourceKind.DEUTERIUM,
                 stock = uiState.deuterium,
                 orb = OltreColors.deuterium,
                 throttled = throttled,
@@ -126,7 +129,7 @@ internal fun ResourceRail(uiState: ResourceRailUiState, modifier: Modifier = Mod
 // loses 12dp, and so does every screen under the rail.
 @Composable
 private fun RowScope.ResourceCell(
-    name: String,
+    kind: ResourceKind,
     stock: ResourceStockUiState,
     orb: Color,
     throttled: Boolean,
@@ -147,19 +150,23 @@ private fun RowScope.ResourceCell(
     // stock and its rate share a wrapping row, so those two characters are enough to throw the rate
     // onto a second line halfway through the roll and pull it back at the end. Trailing spaces in a
     // monospaced face reserve the final width without moving a single digit.
-    val counted = rolled.groupedByThousands().padEnd(stock.stock.groupedByThousands().length)
+    // Padded against the *resolved* target, because how wide a grouped figure is is a fact about
+    // the language that groups it — an Italian "1.400" and an English "1,400" are the same width
+    // and a language that groups in fours would not be.
+    val counted = rolled.groupedByThousands().resolve()
+        .padEnd(stock.stock.groupedByThousands().resolve().length)
     Column(
         modifier = Modifier
             .weight(1f)
             // Ahead of the padding, like every other tagged column in the app: a tag after it
             // marks the padded interior, and what the rate has to fit inside is the cell.
-            .testTag(ShellTestTags.resourceCell(name))
+            .testTag(ShellTestTags.resourceCell(kind.name))
             .padding(horizontal = 11.dp, vertical = 9.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(modifier = Modifier.size(7.dp).background(orb, CircleShape))
             Text(
-                text = name,
+                text = Strings.resourceRailLabel(kind).resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 9.5.sp,
@@ -190,13 +197,13 @@ private fun RowScope.ResourceCell(
         val rate: @Composable (Modifier) -> Unit = { modifier ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = modifier.testTag(ShellTestTags.resourceRate(name)),
+                modifier = modifier.testTag(ShellTestTags.resourceRate(kind.name)),
             ) {
                 if (throttled) {
                     PowerMark(color = OltreColors.warn, width = 7.dp, height = 10.dp)
                 }
                 Text(
-                    text = stock.ratePerHour,
+                    text = stock.ratePerHour.resolve(),
                     color = if (throttled) OltreColors.warn else OltreColors.ok,
                     fontFamily = mono,
                     fontSize = 10.sp,

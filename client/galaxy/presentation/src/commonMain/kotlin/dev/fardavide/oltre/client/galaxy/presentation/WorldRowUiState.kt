@@ -5,6 +5,8 @@ import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
 import dev.fardavide.oltre.client.galaxy.ui.DepositItemUiState
 import dev.fardavide.oltre.client.galaxy.ui.DepositReadingUiState
@@ -42,14 +44,15 @@ internal fun GameState.toWorldRow(
 
     return GalaxyRowUiState.World(
         at = world.at,
-        name = worldNameAt(galaxy.seed, world.at),
+        // Generated from the seed, so `TextRes.Raw` — see `TextRes`.
+        name = TextRes(worldNameAt(galaxy.seed, world.at)),
         coordinate = world.at.label(),
         // **The one gate, and it is the survey set rather than the verdict.** The disc and the
         // epithet are the same permission — both are trait readouts — so deriving them from one
         // condition is what makes it impossible for the picture and the word to disagree about what
         // the player has paid for.
         portrait = world.toPortrait(surveyed),
-        epithet = if (surveyed) epithetFor(traits).toString() else null,
+        epithet = if (surveyed) TextRes(epithetFor(traits).toString()) else null,
         verdict = verdict.toUiState(),
         trailing = if (withTrailing) FleetBalance.roundTrip(from = galaxy.home, to = world.at).toChipLabel() else null,
         deposits = if (verdict.pricesAHold()) toDepositReading(world.at, now) else null,
@@ -81,14 +84,14 @@ private fun WorldVerdict.toUiState(): WorldVerdictUiState = when (this) {
 // The last line, and only where there is something to say that the disc and the epithet have not
 // already said. **`Blocked` has none**: its requirement lines are the sentence, and a note above them
 // would be the row saying the same thing twice in two voices.
-private fun WorldVerdict.toNote(traits: WorldTraits): String? = when (this) {
-    WorldVerdict.Home -> "Your colony."
-    is WorldVerdict.Occupied -> "Held by ${holder.value}."
-    is WorldVerdict.Settleable -> "Nothing here blocks a colony."
+private fun WorldVerdict.toNote(traits: WorldTraits): TextRes? = when (this) {
+    WorldVerdict.Home -> Strings.noteHome()
+    is WorldVerdict.Occupied -> Strings.noteOccupied(TextRes(holder.value))
+    is WorldVerdict.Settleable -> Strings.noteSettleable()
     // Barren fails no band at all — it fails the *bar* — so its one line is the yield against the
     // threshold. Naming the threshold is what makes a run of Barren answers read as calibration
     // rather than as bad luck, and Barren is designed to be a common answer.
-    WorldVerdict.Barren -> "Yield ${traits.yieldLabel()}, $WORTH_IT_AT"
+    WorldVerdict.Barren -> Strings.noteBarren(yield = traits.yieldLabel(), threshold = worthItThreshold())
     WorldVerdict.Unsurveyed, is WorldVerdict.Blocked -> null
 }
 
@@ -124,27 +127,35 @@ private fun GalaxyState.depositItem(
     val cap = depositCap(at, gathering)
     val remaining = if (cap == null) 0 else remaining(at, gathering, now)
     return when {
-        cap == null || remaining <= 0 -> DepositItemUiState(gathering, "empty", DepositTone.EMPTY)
-        remaining >= cap -> DepositItemUiState(gathering, "full", DepositTone.FULL)
+        cap == null || remaining <= 0 ->
+            DepositItemUiState(gathering, Strings.depositEmptyWord(), DepositTone.EMPTY)
+        remaining >= cap -> DepositItemUiState(gathering, Strings.depositFullWord(), DepositTone.FULL)
         else -> DepositItemUiState(
             resource = gathering,
-            reading = "${remaining.groupedByThousands()}/${cap.groupedByThousands()}",
+            reading = Strings.depositFraction(remaining.groupedByThousands(), cap.groupedByThousands()),
             tone = DepositTone.PARTIAL,
         )
     }
 }
 
 internal fun ToleranceFailure.toUiState(): BlockedAxisUiState = BlockedAxisUiState(
-    axis = axis.name.lowercase(),
+    axis = Strings.axisName(axis),
     reading = axis.reading(worldValue),
     tolerated = axis.tolerated(toleratedBound),
+    // The unit is written once, on the tolerance: both figures are the same axis and so the same
+    // unit, and the four characters that saves are what keep the ladder on the line.
+    clause = Strings.blockedAxisLine(
+        axis = Strings.axisName(axis),
+        reading = axis.reading(worldValue),
+        tolerated = axis.tolerated(toleratedBound),
+    ),
     technology = axis.adaptation,
     // "Gravitic 9", not "Gravitic Adaptation 9". All three technologies end in the same word, so it
     // carries nothing and costs eleven characters the row does not have.
-    label = "${axis.adaptation.name.lowercase().replaceFirstChar { it.uppercase() }} $closedAtLevel",
+    label = Strings.namedLevel(Strings.adaptationName(axis.adaptation), closedAtLevel),
 )
 
-private fun HostilityAxis.reading(value: Int): String = when (this) {
+private fun HostilityAxis.reading(value: Int): TextRes = when (this) {
     HostilityAxis.TEMPERATURE -> value.signed()
     HostilityAxis.GRAVITY, HostilityAxis.PRESSURE -> value.milli()
 }
@@ -152,13 +163,14 @@ private fun HostilityAxis.reading(value: Int): String = when (this) {
 // **The space before each unit below is U+00A0, not U+0020** — invisible in a diff, so it is said
 // here. What it must not do is break between a number and its unit, which leaves "atm" alone on a
 // line and reads as a defect rather than as a wrap.
-private fun HostilityAxis.tolerated(value: Int): String = when (this) {
-    HostilityAxis.TEMPERATURE -> "${value.signed()} °C"
-    HostilityAxis.GRAVITY -> "${value.milli()} g"
-    HostilityAxis.PRESSURE -> "${value.milli()} atm"
+private fun HostilityAxis.tolerated(value: Int): TextRes = when (this) {
+    HostilityAxis.TEMPERATURE -> Strings.temperatureReading(value.signed())
+    HostilityAxis.GRAVITY -> Strings.gravityReading(value.milli())
+    HostilityAxis.PRESSURE -> Strings.pressureReading(value.milli())
 }
 
-internal fun WorldTraits.yieldLabel(): String = GalaxyBalance.yieldScore(this).perMillion.perMillion()
+internal fun WorldTraits.yieldLabel(): TextRes = GalaxyBalance.yieldScore(this).perMillion.perMillion()
 
-internal val WORTH_IT_AT: String =
-    "worth it at ${GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()}"
+internal fun worthItThreshold(): TextRes = GalaxyBalance.WORTH_IT_THRESHOLD.perMillion.perMillion()
+
+internal fun worthItAt(): TextRes = Strings.worthItAt(worthItThreshold())

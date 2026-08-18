@@ -39,6 +39,8 @@ import dev.fardavide.oltre.client.debug.domain.DebugReport
 import dev.fardavide.oltre.client.debug.domain.SKIP_FALLBACK
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.format.toChipLabel
@@ -103,14 +105,17 @@ internal fun DebugSheetContent(
             // No top padding: the sheet's own drag handle is the space above the first label.
             .padding(bottom = 16.dp),
     ) {
-        SectionLabel(text = "DEBUG", rule = "hold to act")
+        // **`TextRes(…)` rather than a catalogue entry, everywhere in this file.** A debug panel is
+        // not something a player reads in their own language — it is an instrument, and its labels
+        // are the names of the fields it reports. `Raw` is exactly what that means.
+        SectionLabel(text = TextRes("DEBUG"), rule = TextRes("hold to act"))
 
         SkipAction(report = report, onConfirm = onSkipAhead)
         Spacer(modifier = Modifier.height(8.dp))
         ResetAction(onConfirm = onReset)
 
         Spacer(modifier = Modifier.height(22.dp))
-        SectionLabel(text = "STATE", rule = "read only")
+        SectionLabel(text = TextRes("STATE"), rule = TextRes("read only"))
         Readings(report)
 
         // Kept even though the sheet can now be dragged away or dismissed by its scrim: a drag is
@@ -128,11 +133,11 @@ private fun SkipAction(report: DebugReport, onConfirm: () -> Unit) {
     HoldRow(
         label = "SKIP AHEAD",
         detail = if (next != null) {
-            "${next.describe()} · ${(next.at - report.gameTime).toChipLabel()}"
+            "${next.describe()} · ${English.resolve((next.at - report.gameTime).toChipLabel())}"
         } else {
             // Read off the constant rather than written out, so the sentence cannot drift from the
             // duration it describes.
-            "nothing in flight · +${SKIP_FALLBACK.toChipLabel()}"
+            "nothing in flight · +${English.resolve(SKIP_FALLBACK.toChipLabel())}"
         },
         tint = OltreColors.accent,
         tag = DebugTestTags.SKIP,
@@ -273,7 +278,10 @@ private fun CloseRow(onClick: () -> Unit) {
 private fun Readings(report: DebugReport) {
     Reading("game time", report.gameTime.toString())
     Reading("wall time", report.wallTime.toString())
-    Reading("skipped by", if (report.skippedBy == Duration.ZERO) "—" else report.skippedBy.toChipLabel())
+    Reading(
+        "skipped by",
+        if (report.skippedBy == Duration.ZERO) "—" else English.resolve(report.skippedBy.toChipLabel()),
+    )
     Reading("debug used", if (report.debugUsed) "yes" else "no")
     Reading("schema", report.schemaVersion.toString())
     Reading("galaxy seed", report.galaxySeed.toString())

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -103,8 +104,8 @@ class MainScaffoldBehaviourTest {
         OltreTab.entries.forEach { tab ->
             scaffold {
                 onNodeWithTag(ShellTestTags.tab(tab)).performClick()
-                onNodeWithText(testResourceRailUiState.metal.stock.groupedByThousands()).assertIsDisplayed()
-                onNodeWithText(testResourceRailUiState.deuterium.ratePerHour).assertIsDisplayed()
+                onNodeWithText(English.resolve(testResourceRailUiState.metal.stock.groupedByThousands())).assertIsDisplayed()
+                onNodeWithText(English.resolve(testResourceRailUiState.deuterium.ratePerHour)).assertIsDisplayed()
             }
         }
     }

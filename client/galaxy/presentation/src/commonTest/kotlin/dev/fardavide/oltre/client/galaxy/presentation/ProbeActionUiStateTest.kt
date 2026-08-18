@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
@@ -39,10 +42,10 @@ class ProbeActionUiStateTest {
         // then — the price is the same everywhere and the flight is the only figure that moves,
         // which is why they are drawn in that order and only one of them is worth reading twice
         val dispatch = assertIs<ProbeActionUiState.Dispatch>(action)
-        assertEquals("${SurveyBalance.COST_METAL}", dispatch.offer.cost.amount)
-        assertTrue(dispatch.offer.flight.startsWith("flight "), "was '${dispatch.offer.flight}'")
-        assertEquals("1h 22m", dispatch.offer.compactFlight)
-        assertEquals("flight 1h 22m", dispatch.offer.flight)
+        assertEquals("${SurveyBalance.COST_METAL}", English.resolve(dispatch.offer.cost.amount))
+        assertTrue(English.resolve(dispatch.offer.flight).startsWith("flight "), "was '${dispatch.offer.flight}'")
+        assertEquals("1h 22m", English.resolve(dispatch.offer.compactFlight))
+        assertEquals("flight 1h 22m", English.resolve(dispatch.offer.flight))
     }
 
     @Test
@@ -51,8 +54,8 @@ class ProbeActionUiStateTest {
         val state = wealthy()
 
         // then
-        assertEquals("31m", offerAt(state, systemsAway = 1).compactFlight)
-        assertEquals("1h 00m", offerAt(state, systemsAway = 30).compactFlight)
+        assertEquals("31m", English.resolve(offerAt(state, systemsAway = 1).compactFlight))
+        assertEquals("1h 00m", English.resolve(offerAt(state, systemsAway = 30).compactFlight))
     }
 
     @Test
@@ -68,7 +71,7 @@ class ProbeActionUiStateTest {
         // then — the committed idiom: the chip reddens, the verb becomes a ghost carrying the wait
         val short = assertIs<ProbeActionUiState.Unaffordable>(action)
         assertTrue(short.offer.cost.short, "the one resource you are short of is what reddens")
-        assertTrue(short.availableIn.startsWith("in "), "was '${short.availableIn}'")
+        assertTrue(English.resolve(short.availableIn).startsWith("in "), "was '${short.availableIn}'")
     }
 
     @Test
@@ -80,8 +83,8 @@ class ProbeActionUiStateTest {
             state.probeActionAt(awayFromHome(state, systemsAway = 9)),
         )
 
-        assertTrue("in " !in short.offer.flight, "the flight must not read as a wait")
-        assertTrue(short.availableIn.startsWith("in "))
+        assertTrue("in " !in English.resolve(short.offer.flight), "the flight must not read as a wait")
+        assertTrue(English.resolve(short.availableIn).startsWith("in "))
     }
 
     @Test
@@ -96,9 +99,9 @@ class ProbeActionUiStateTest {
 
         // then the three parts a running build already draws, in that order
         val flight = assertIs<ProbeActionUiState.InFlight>(action)
-        assertEquals("00:35:00", flight.countdown)
+        assertEquals("00:35:00", English.resolve(flight.countdown))
         assertEquals(50, flight.progressPercent)
-        assertTrue(flight.lands.startsWith("lands "), "was '${flight.lands}'")
+        assertTrue(English.resolve(flight.lands).startsWith("lands "), "was '${flight.lands}'")
     }
 
     @Test
@@ -117,9 +120,12 @@ class ProbeActionUiStateTest {
 
         // then
         val receipt = assertIs<ProbeActionUiState.Landed>(action)
-        assertTrue(receipt.landedAt.startsWith("Probe landed "), "was '${receipt.landedAt}'")
-        assertTrue("worlds surveyed" in receipt.summary || "world surveyed" in receipt.summary)
-        assertTrue(receipt.find.isNotEmpty())
+        assertTrue(English.resolve(receipt.landedAt).startsWith("Probe landed "), "was '${receipt.landedAt}'")
+        assertTrue(
+            "worlds surveyed" in English.resolve(receipt.summary) ||
+                "world surveyed" in English.resolve(receipt.summary),
+        )
+        assertTrue(English.resolve(receipt.find).isNotEmpty())
     }
 
     @Test
@@ -129,7 +135,7 @@ class ProbeActionUiStateTest {
         val state = wealthy()
         val landing = firstLandingWhere(state) { it.findKind == ProbeFindKind.NONE }
 
-        assertEquals("none settleable", landing.find)
+        assertEquals("none settleable", English.resolve(landing.find))
     }
 
     @Test
@@ -143,7 +149,7 @@ class ProbeActionUiStateTest {
 
         // then — never "already surveyed", because nothing was
         val note = assertIs<ProbeActionUiState.NothingToSurvey>(action)
-        assertEquals("${GalaxyBalance.SLOTS_PER_SYSTEM} empty slots · nothing to survey", note.note)
+        assertEquals("${GalaxyBalance.SLOTS_PER_SYSTEM} empty slots · nothing to survey", English.resolve(note.note))
     }
 
     @Test
@@ -155,7 +161,7 @@ class ProbeActionUiStateTest {
         val action = state.probeActionAt(SystemAddress.of(state.galaxy.home))
 
         // then — one tertiary line, no receipt, no verb
-        assertEquals(ProbeActionUiState.Charted("Surveyed at genesis"), action)
+        assertEquals(ProbeActionUiState.Charted(Strings.surveyedAtGenesis()), action)
     }
 
     @Test

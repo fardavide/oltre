@@ -51,7 +51,7 @@ Invariants (raise, don't work around — full list in `.claude/docs/brief.md`):
 3. Never run a timer for game state; compute from the last-updated instant on foreground.
 4. `client/` is a directory of modules, never a monolith: `:client:shell` (composition root),
    `:client:design` (a *directory* of design-system layer modules — `:core` tokens, `:icon`,
-   `:component`, `:format`, `:testing`), and one *directory* per feature holding layer modules
+   `:component`, `:format`, `:text`, `:testing`), and one *directory* per feature holding layer modules
    (`:client:<feature>:ui`, plus `:presentation` / `:domain` / `:data` only when the feature needs
    them). **`ui` holds composables and the models they render and decides nothing; `presentation`
    holds the mapping from `core` or domain state into those models. `presentation` depends on `ui`,

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
@@ -35,7 +36,7 @@ class CommitTest {
         val session = GameSession(midBuild(), EPOCH)
 
         // when
-        session.commit(GameStore(file), GameNotifications(scheduler))
+        session.commit(GameStore(file), GameNotifications(scheduler, English))
 
         // then
         assertNotNull(file.content, "the colony was not written")
@@ -52,7 +53,7 @@ class CommitTest {
         val session = GameSession(advance(started, from = EPOCH, to = after), after)
 
         // when
-        session.commit(GameStore(RecordingSaveFile()), GameNotifications(scheduler))
+        session.commit(GameStore(RecordingSaveFile()), GameNotifications(scheduler, English))
 
         // then — the build has been applied, so there is nothing left to announce
         assertEquals(BuildingLevel(2), session.state.buildings.metalMine)
@@ -64,7 +65,7 @@ class CommitTest {
     fun `re-committing replaces the previous schedule rather than adding to it`() = runTest {
         // given
         val scheduler = RecordingScheduler()
-        val notifications = GameNotifications(scheduler)
+        val notifications = GameNotifications(scheduler, English)
         val store = GameStore(RecordingSaveFile())
         val session = GameSession(midBuild(), EPOCH)
 

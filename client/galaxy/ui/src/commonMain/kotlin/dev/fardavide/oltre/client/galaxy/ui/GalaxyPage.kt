@@ -30,6 +30,8 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.oltreMono
@@ -319,9 +321,9 @@ private fun LedgerBody(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionLabel(
                     text = if (body.discoveries.size == 1) {
-                        "SURVEYED"
+                        Strings.discoveriesHeadingOne()
                     } else {
-                        "${body.discoveries.size} WORLDS SURVEYED"
+                        Strings.discoveriesHeadingMany(body.discoveries.size)
                     },
                 )
                 // One gets the ceremony; two or more protect the scroll instead. At three, the thing
@@ -333,7 +335,7 @@ private fun LedgerBody(
         }
         if (body.pinned.isNotEmpty()) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                SectionLabel(text = "PINNED")
+                SectionLabel(text = Strings.pinnedHeading())
                 body.pinned.forEach { row ->
                     WorldRow(row = row, onOpenResearch = onOpenResearch, onOpenWorld = onOpenWorld)
                 }
@@ -361,14 +363,14 @@ private fun LedgerBody(
         body.emptiness?.let { empty ->
             Column(verticalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.padding(top = 4.dp)) {
                 Text(
-                    text = empty.headline,
+                    text = empty.headline.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = oltreMono(),
                     fontSize = 12.sp,
                     lineHeight = 19.2.sp,
                 )
                 Text(
-                    text = empty.detail,
+                    text = empty.detail.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 11.5.sp,

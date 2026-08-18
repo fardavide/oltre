@@ -59,6 +59,10 @@ kotlin {
             // No `:client:design:component` — the shell draws chrome (the rail, the tab bar), and
             // none of the row-level components a screen is built from.
             implementation(projects.client.design.core)
+            // The composition root chooses the language and hands it to the theme and to
+            // `GameNotifications`, and it names the five destinations — so it uses the catalogue
+            // directly rather than only through the design system.
+            implementation(projects.client.design.text)
             implementation(projects.client.design.format)
             implementation(projects.client.design.icon)
             implementation(projects.client.fleets.presentation)

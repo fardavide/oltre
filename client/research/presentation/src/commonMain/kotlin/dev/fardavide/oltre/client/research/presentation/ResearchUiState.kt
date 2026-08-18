@@ -15,12 +15,13 @@ import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.milli
 import dev.fardavide.oltre.client.design.format.milliTrimmed
-import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.research.ui.AdaptationRowUiState
 import dev.fardavide.oltre.client.research.ui.EffectUiState
 import dev.fardavide.oltre.client.research.ui.FinishedWhileAway
@@ -70,7 +71,7 @@ fun GameState.toResearchUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: FinishedWhileAway? = null,
-    watching: String? = null,
+    watching: TextRes? = null,
 ): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
@@ -312,8 +313,8 @@ private fun GameState.startOrWait(cost: Resources, slotFreesAt: Instant?, now: I
         wait == Duration.ZERO -> ResearchActionUiState.Start
         // A resource with no production at all never arrives; saying "in 2,000,000h" would be a
         // worse lie than saying nothing.
-        wait.isFinite() -> ResearchActionUiState.AvailableIn("in ${wait.toChipLabel()}")
-        else -> ResearchActionUiState.AvailableIn("—")
+        wait.isFinite() -> ResearchActionUiState.AvailableIn(Strings.availableIn(wait.toChipLabel()))
+        else -> ResearchActionUiState.AvailableIn(Strings.availableNever())
     }
 }
 
@@ -336,7 +337,7 @@ private fun runningAction(
         // Ceil the remainder so a countdown only reads 00:00:00 once the project is actually done.
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
         progressPercent = (elapsedMs * 100 / totalMs).toInt(),
-        doneAt = "done ${completesLocal.hour.pad2()}:${completesLocal.minute.pad2()}",
+        doneAt = Strings.doneAt(hour = completesLocal.hour, minute = completesLocal.minute),
     )
 }
 
@@ -351,10 +352,15 @@ private fun runningAction(
 // never when the mapper's formatting drifts.
 internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? = when (this) {
     is LevelPurpose.Output -> VerdictUiState(
-        label = "+${perHour.groupedByThousands()}/h ${kind.word()} · back in ${payback.toPaybackLabel()}",
+        label = Strings.clauses(
+            listOf(
+                Strings.outputGain(perHour.groupedByThousands(), kind),
+                Strings.backIn(payback.toPaybackLabel()),
+            ),
+        ),
         // The clause a 320dp pane drops, and it is dropped rather than ellipsised: a payback is
         // recoverable from the sheet the row opens and half a number is not.
-        compactLabel = "+${perHour.groupedByThousands()}/h ${kind.word()}",
+        compactLabel = Strings.outputGain(perHour.groupedByThousands(), kind),
     )
     // **Two ways a project can be worth nothing, and the colony's power tells them apart** — not the
     // technology, which was the first reading and was wrong. Photovoltaics multiplies a supply
@@ -364,11 +370,14 @@ internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? 
     // gain rounds away, and the row has to say so rather than say the opposite.
     is LevelPurpose.Inert -> if (throttled) {
         VerdictUiState(
-            label = "nothing while your mines are throttled",
-            compactLabel = "nothing while throttled",
+            label = Strings.verdictNothingThrottled(),
+            compactLabel = Strings.verdictNothingThrottledCompact(),
         )
     } else {
-        VerdictUiState(label = "nothing while you are in surplus", compactLabel = "nothing while in surplus")
+        VerdictUiState(
+            label = Strings.verdictNothingSurplus(),
+            compactLabel = Strings.verdictNothingSurplusCompact(),
+        )
     }
     // None of the three reaches a project. A technology draws no power and shortens no build, so
     // `purposeOfNextLevel` can only answer with a rate that moved or one that did not; and the level
@@ -379,8 +388,8 @@ internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? 
     // hull lifts while it is standing on someone else's world, and Claude Design left the wording to
     // Davide. The figure is exact and the shape matches its neighbours; only the noun is provisional.
     is LevelPurpose.Haul -> VerdictUiState(
-        label = "+${(to - from).groupedByThousands()} a hull an hour on station",
-        compactLabel = "+${(to - from).groupedByThousands()} a hull an hour",
+        label = Strings.haulGain((to - from).groupedByThousands()),
+        compactLabel = Strings.haulGainCompact((to - from).groupedByThousands()),
     )
     is LevelPurpose.Throttled,
     is LevelPurpose.Sooner,
@@ -394,13 +403,6 @@ internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? 
 internal fun ShortlistUiState.toVerdictUiState(): VerdictUiState =
     VerdictUiState(label = label, compactLabel = compactLabel)
 
-// Lower case, because these are nouns inside a sentence rather than labels on a chip.
-private fun ResourceKind.word(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}
-
 // ── What the card body opens ─────────────────────────────────────────────────────────────────
 //
 // One builder for both branches, for the reason `ProjectRow` takes a row's parts rather than either
@@ -412,7 +414,7 @@ private fun ResourceKind.word(): String = when (this) {
 // so it keeps its first sentence and nothing else — mid-project the question is when, not what.
 // Everything else is the whole sheet.
 private fun GameState.rowSheet(
-    name: String,
+    name: TextRes,
     level: TechLevel,
     verdict: VerdictUiState?,
     action: ResearchActionUiState,
@@ -421,7 +423,7 @@ private fun GameState.rowSheet(
     ladder: List<SheetLadderStep>,
     bestBuy: SheetPointer?,
     costs: List<CostChipUiState>,
-    duration: String,
+    duration: TextRes,
 ): RowSheetUiState = RowSheetUiState(
     name = name,
     level = level.value,
@@ -432,10 +434,13 @@ private fun GameState.rowSheet(
     // `TechLevel` refuses to construct — what a sheet would show there rather than a state it has.
     verdict = when (action) {
         is ResearchActionUiState.Locked -> action.reason
-        is ResearchActionUiState.Running -> "→ LV ${action.toLevel.value} · ${action.doneAt}"
+        is ResearchActionUiState.Running ->
+            Strings.clauses(listOf(Strings.becomesLevel(action.toLevel.value), action.doneAt))
         ResearchActionUiState.Start,
         is ResearchActionUiState.AvailableIn,
-        -> verdict?.let { if (ladder.isEmpty()) it.label else it.compactLabel }.orEmpty()
+        // `TextRes("")` rather than an entry: at a ceiling there is no message, so there is nothing
+        // for a language to say.
+        -> verdict?.let { if (ladder.isEmpty()) it.label else it.compactLabel } ?: TextRes("")
     },
     lines = when (action) {
         is ResearchActionUiState.Locked -> lines.take(1) + requirementSentence(requirement)
@@ -459,7 +464,7 @@ private fun GameState.rowSheet(
         is ResearchActionUiState.Running,
         -> null
         ResearchActionUiState.Start ->
-            SheetFooter(costs = costs, duration = duration, action = SheetAction.Live("Research"))
+            SheetFooter(costs = costs, duration = duration, action = SheetAction.Live(Strings.researchVerb()))
         // The row's own ghost, carried whole: no disabled state here either, because a player who
         // wants the level they cannot afford yet is told when rather than told no.
         is ResearchActionUiState.AvailableIn ->
@@ -469,21 +474,21 @@ private fun GameState.rowSheet(
 
 // The three sentences an applied row has, in the order they are read: what the level does to the
 // number on the row, what that number is in units an hour, and how long it takes to pay for itself.
-private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState, name: String): List<SheetLine> =
+private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState, name: TextRes): List<SheetLine> =
     when (purpose) {
         is LevelPurpose.Output -> listOf(
             effectSentence(effect),
             sheetLine(
-                words("Your colony makes "),
-                figure("${purpose.from.groupedByThousands()}/h"),
-                words(" ${purpose.kind.word()} and would make "),
-                figure("${purpose.to.groupedByThousands()}/h"),
-                words("."),
+                words(Strings.sheetMineMakes()),
+                figure(Strings.perHour(purpose.from.groupedByThousands())),
+                words(Strings.sheetAndWouldMake(purpose.kind)),
+                figure(Strings.perHour(purpose.to.groupedByThousands())),
+                words(Strings.sheetFullStop()),
             ),
             sheetLine(
-                words("Counted against everything the level costs, you are even after "),
+                words(Strings.sheetPaybackPrefix()),
                 figure(purpose.payback.toPaybackLabel()),
-                words("."),
+                words(Strings.sheetFullStop()),
             ),
         )
         // **The only sheet on this screen that never names the colony**, because the level does
@@ -493,13 +498,13 @@ private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState,
         is LevelPurpose.Haul -> listOf(
             effectSentence(effect),
             sheetLine(
-                words("Each hull lifts "),
+                words(Strings.sheetEachHullLifts()),
                 figure(purpose.from.groupedByThousands()),
-                words(" an hour on station and would lift "),
+                words(Strings.sheetAnHourOnStation()),
                 figure(purpose.to.groupedByThousands()),
-                words("."),
+                words(Strings.sheetFullStop()),
             ),
-            sheetLine(words("It pays on the next run rather than on a clock at home.")),
+            sheetLine(words(Strings.sheetPaysOnNextRun())),
         )
         // The row names itself rather than naming Photovoltaics, because in a deficit any of the
         // three lands here — see `toVerdictUiState`. The ledger sentence carries the percentage in
@@ -508,19 +513,19 @@ private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState,
             listOf(
                 throttledSupplySentence(),
                 sheetLine(
-                    words("At that ratio $name's "),
+                    words(Strings.sheetAtThatRatio(name)),
                     figure(effect.next),
-                    words(" rounds away before it reaches your stores."),
+                    words(Strings.sheetRoundsAway()),
                 ),
-                sheetLine(words("It starts to pay when your plants carry the draw again.")),
+                sheetLine(words(Strings.sheetPaysWhenPlantsCarry())),
             )
         } else {
             listOf(
                 supplySentence(),
                 sheetLine(
-                    words("$name multiplies supply, and supply is not what is limiting you. At "),
+                    words(Strings.sheetMultipliesSupply(name)),
                     figure(effect.next),
-                    words(" your output does not move."),
+                    words(Strings.sheetOutputDoesNotMove()),
                 ),
                 crossingSentence(purpose.mineLevelsSpare),
             )
@@ -538,38 +543,51 @@ private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState,
 // names the level the figure belongs to instead of leaving one side of the arrow empty.
 private fun effectSentence(effect: EffectUiState): SheetLine = effect.current
     ?.let { current ->
-        sheetLine(words("${effect.subject}: "), figure(current), words(" → "), figure(effect.next), words("."))
+        sheetLine(
+            words(Strings.sheetSubjectPrefix(effect.subject)),
+            figure(current),
+            words(Strings.sheetArrow()),
+            figure(effect.next),
+            words(Strings.sheetFullStop()),
+        )
     }
-    ?: sheetLine(words("${effect.subject}: "), figure(effect.next), words(" at LV 1."))
+    ?: sheetLine(
+        words(Strings.sheetSubjectPrefix(effect.subject)),
+        figure(effect.next),
+        words(Strings.sheetAtLevelOne()),
+    )
 
-private fun bandSentence(unit: String, current: String, next: String): SheetLine =
-    sheetLine(words("$unit tolerance: "), figure(current), words(" → "), figure(next), words("."))
+private fun bandSentence(unit: TextRes, current: TextRes, next: TextRes): SheetLine = sheetLine(
+    words(Strings.sheetToleranceSubject(unit)),
+    figure(current),
+    words(Strings.sheetArrow()),
+    figure(next),
+    words(Strings.sheetFullStop()),
+)
 
 // The counts the row states as a verdict, spelled back out as a sentence. The zero case says what
 // would change it rather than counting nothing, which is the same asymmetry the row's own line has:
 // there the useful information is not the number but that surveying is what moves it.
 private fun reachSentence(shortlist: ShortlistUiState): SheetLine = if (shortlist.unlocks == 0) {
-    sheetLine(
-        words("Nothing you have surveyed is blocked by this band alone, so this level reaches no new world."),
-    )
+    sheetLine(words(Strings.sheetReachesNothing()))
 } else {
     sheetLine(
-        words("Of the worlds you have surveyed this level reaches "),
-        figure("${shortlist.unlocks}"),
-        words(", and "),
-        figure("${shortlist.worthTaking}"),
-        words(" of those are worth taking."),
+        words(Strings.sheetReachesPrefix()),
+        figure(Strings.plainNumber(shortlist.unlocks)),
+        words(Strings.sheetReachesMiddle()),
+        figure(Strings.plainNumber(shortlist.worthTaking)),
+        words(Strings.sheetReachesSuffix()),
     )
 }
 
 private fun GameState.supplySentence(): SheetLine {
     val energy = PlaceholderBalance.energyBalance(buildings, research)
     return sheetLine(
-        words("Your plants supply "),
+        words(Strings.sheetPlantsSupply()),
         figure(energy.produced.groupedByThousands()),
-        words(" energy. The colony draws "),
+        words(Strings.sheetColonyDraws()),
         figure(energy.consumed.groupedByThousands()),
-        words("."),
+        words(Strings.sheetFullStop()),
     )
 }
 
@@ -578,13 +596,13 @@ private fun GameState.supplySentence(): SheetLine {
 private fun GameState.throttledSupplySentence(): SheetLine {
     val energy = PlaceholderBalance.energyBalance(buildings, research)
     return sheetLine(
-        words("Your plants supply "),
+        words(Strings.sheetPlantsSupply()),
         figure(energy.produced.groupedByThousands()),
-        words(" energy and the colony draws "),
+        words(Strings.sheetColonyDrawsAnd()),
         figure(energy.consumed.groupedByThousands()),
-        words(", so every mine is running at "),
-        figure("${energy.outputPercent}%"),
-        words("."),
+        words(Strings.sheetSoEveryMineAt()),
+        figure(Strings.percent(energy.outputPercent)),
+        words(Strings.sheetFullStop()),
     )
 }
 
@@ -595,22 +613,25 @@ private fun GameState.throttled(): Boolean = PlaceholderBalance.energyBalance(bu
 // mine level" reads as arithmetic where the sentence wants a consequence — and none at all drops
 // the count entirely, because there the answer is the next thing you buy.
 private fun crossingSentence(mineLevelsSpare: Long): SheetLine = when (mineLevelsSpare) {
-    0L -> sheetLine(words("It starts to pay with the next mine level you take."))
+    0L -> sheetLine(words(Strings.sheetPaysNextMineLevel()))
     1L -> sheetLine(
-        words("It starts to pay when draw passes supply — about "),
-        figure("one"),
-        words(" more mine level away."),
+        words(Strings.sheetPaysWhenDrawPasses()),
+        figure(Strings.sheetOneSpelled()),
+        words(Strings.sheetMoreMineLevelAway()),
     )
     else -> sheetLine(
-        words("It starts to pay when draw passes supply — about "),
+        words(Strings.sheetPaysWhenDrawPasses()),
         figure(mineLevelsSpare.groupedByThousands()),
-        words(" more mine levels away."),
+        words(Strings.sheetMoreMineLevelsAway()),
     )
 }
 
 // The requirement as a figure, because it is the thing the player has to go and get.
-private fun requirementSentence(requirement: ResearchRequirement): SheetLine =
-    sheetLine(words("Requires "), figure(requirement.subject()), words("."))
+private fun requirementSentence(requirement: ResearchRequirement): SheetLine = sheetLine(
+    words(Strings.sheetRequiresPrefix()),
+    figure(requirement.subject()),
+    words(Strings.sheetFullStop()),
+)
 
 // The row that moves the gate, named the way the screen it lives on names it. A technology gate
 // points at nothing: the row that moves that one is three rows up this same screen, and an arrow to
@@ -621,12 +642,16 @@ private fun GameState.gatePointer(requirement: ResearchRequirement): SheetPointe
         val next = BuildingLevel(held.value + 1)
         SheetPointer(
             name = requirement.building.facilityName(),
-            detail = "LV ${held.value} → ${next.value} · " + PlaceholderBalance.upgradeDuration(
-                building = requirement.building,
-                toLevel = next,
-                roboticsFactory = buildings.roboticsFactory,
-                naniteFactory = buildings.naniteFactory,
-            ).toChipLabel(),
+            detail = Strings.pointerLevelStep(
+                from = held.value,
+                to = next.value,
+                wait = PlaceholderBalance.upgradeDuration(
+                    building = requirement.building,
+                    toLevel = next,
+                    roboticsFactory = buildings.roboticsFactory,
+                    naniteFactory = buildings.naniteFactory,
+                ).toChipLabel(),
+            ),
         )
     }
     is ResearchRequirement.Tech -> null
@@ -645,7 +670,10 @@ private fun GameState.bestBuyBesides(
     ?.let { (other, output) ->
         SheetPointer(
             name = other.displayName(),
-            detail = "LV ${research.levelOf(other).value + 1} · back in ${output.payback.toPaybackLabel()}",
+            detail = Strings.pointerBestBuy(
+                level = research.levelOf(other).value + 1,
+                payback = output.payback.toPaybackLabel(),
+            ),
         )
     }
 
@@ -656,8 +684,8 @@ private fun Technology.sheetLadder(level: TechLevel): List<SheetLadderStep> = ga
     .map { (gateLevel, gates) ->
         val held = gateLevel <= level.value
         SheetLadderStep(
-            level = "LV $gateLevel",
-            opens = if (held) "${gates.opensLong()} · you have this" else gates.opensLong(),
+            level = Strings.levelBadge(gateLevel),
+            opens = if (held) Strings.ladderStepHeld(gates.opensLong()) else gates.opensLong(),
             held = held,
         )
     }
@@ -665,14 +693,16 @@ private fun Technology.sheetLadder(level: TechLevel): List<SheetLadderStep> = ga
 // `gatesOf` on a technology yields nothing but projects — the requirement table runs from a facility
 // or a technology *to* a technology, never back — so a level that opens more than one thing opens
 // more than one project, and the branch is named rather than listed.
-private fun List<Gate>.opensLong(): String =
-    if (size > 1) "applied research" else single().opens.opensLong()
+private fun List<Gate>.opensLong(): TextRes =
+    if (size > 1) Strings.gateSummaryResearchLong() else single().opens.opensLong()
 
-private fun GateSubject.opensLong(): String = when (this) {
+private fun GateSubject.opensLong(): TextRes = when (this) {
     // A facility names its price beside itself: on the screen where that gate does appear, the first
     // level's metal is the number a reader wants next.
-    is GateSubject.Facility -> "${building.facilityName()} · " +
-        "${PlaceholderBalance.upgradeCost(building, BuildingLevel(1)).metal.groupedByThousands()} metal"
+    is GateSubject.Facility -> Strings.gateFacilityLong(
+        name = building.facilityName(),
+        metal = PlaceholderBalance.upgradeCost(building, BuildingLevel(1)).metal.groupedByThousands(),
+    )
     is GateSubject.Project -> technology.displayName()
     is GateSubject.Ladder -> technology.displayName()
 }
@@ -680,14 +710,7 @@ private fun GateSubject.opensLong(): String = when (this) {
 // The full name rather than the requirement line's short one, because a pointer names a row on the
 // Colony screen and has to call it what that screen calls it. A second table rather than a
 // dependency: two `presentation` modules cannot see each other, which is rule 5.
-private fun BuildingType.facilityName(): String = when (this) {
-    BuildingType.METAL_MINE -> "Metal Mine"
-    BuildingType.CRYSTAL_MINE -> "Crystal Mine"
-    BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium Synth."
-    BuildingType.SOLAR_PLANT -> "Solar Plant"
-    BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
-    BuildingType.NANITE_FACTORY -> "Nanite Factory"
-}
+private fun BuildingType.facilityName(): TextRes = Strings.buildingName(this)
 
 // PLACEHOLDER copy, like the notification bodies and for the same reason: what a screen says to a
 // player is content, and content is Davide's.
@@ -722,80 +745,47 @@ internal fun LadderShortlist.toUiState(): ShortlistUiState = ShortlistUiState(
 // The zero case keeps "you have surveyed" at both widths, and the asymmetry is deliberate: it is
 // the one reading where the useful information is not the number but what would change it. "Go
 // survey more" is the whole reason this line exists.
-private fun LadderShortlist.describe(verb: Boolean): String {
-    if (unlocks == 0) return if (verb) "Unlocks nothing you have surveyed" else "Nothing you have surveyed"
-    val worlds = if (unlocks == 1) "1 world" else "$unlocks worlds"
-    // U+00A0 between the count and its qualifier, exactly as the Galaxy screen binds a value to its
-    // unit. If a longer count does push this to two lines, it has to break at the comma — "1 worth"
-    // stranded above "taking" reads as a defect where a clause break reads as a wrap.
-    val worth = if (worthTaking == 0) "none${NBSP}worth${NBSP}taking" else "$worthTaking${NBSP}worth${NBSP}taking"
-    return if (verb) "Unlocks $worlds, $worth" else "$worlds, $worth"
+private fun LadderShortlist.describe(verb: Boolean): TextRes {
+    if (unlocks == 0) return if (verb) Strings.shortlistNothingVerb() else Strings.shortlistNothing()
+    // The non-breaking space that binds each count to its qualifier moved into `English` with the
+    // sentence it belongs to — see `Translations`. What stays here is the *shape* of the reading:
+    // both counts, always, and the verb only where there is width for it.
+    return if (verb) {
+        Strings.shortlistVerb(unlocks = unlocks, worthTaking = worthTaking)
+    } else {
+        Strings.shortlist(unlocks = unlocks, worthTaking = worthTaking)
+    }
 }
-
-// Between a count and the words that qualify it, so a line that has to wrap never leaves "taking"
-// alone on one.
-private const val NBSP = ' '
 
 // "Requires Robotics 1" / "Requires Extraction 3" — short forms, because the requirement line is
 // read at a glance and the full facility name buys nothing here.
-private fun ResearchRequirement.label(): String = "Requires ${subject()}"
+private fun ResearchRequirement.label(): TextRes = Strings.requires(subject())
 
 // The thing wanted, without the verb in front of it: the row states the whole line, and the sheet
 // picks the requirement out as a figure inside a sentence of its own.
-private fun ResearchRequirement.subject(): String = when (this) {
-    is ResearchRequirement.Facility -> "${building.shortName()} ${level.value}"
-    is ResearchRequirement.Tech -> "${technology.displayName()} ${level.value}"
-}
-
-private fun BuildingType.shortName(): String = when (this) {
-    BuildingType.METAL_MINE -> "Metal Mine"
-    BuildingType.CRYSTAL_MINE -> "Crystal Mine"
-    BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium"
-    BuildingType.SOLAR_PLANT -> "Solar Plant"
-    BuildingType.ROBOTICS_FACTORY -> "Robotics"
-    BuildingType.NANITE_FACTORY -> "Nanite"
+private fun ResearchRequirement.subject(): TextRes = when (this) {
+    is ResearchRequirement.Facility -> Strings.namedLevel(Strings.buildingShortName(building), level.value)
+    is ResearchRequirement.Tech -> Strings.namedLevel(technology.displayName(), level.value)
 }
 
 // One word each, so no row ever needs a 320dp abbreviation, and the set reads as a set next to the
 // two-word facility names: facilities are physical things, technologies are disciplines.
 // Public rather than internal since the watch — see the note on the colony's own `displayName`.
-fun Technology.displayName(): String = when (this) {
-    Technology.PHOTOVOLTAICS -> "Photovoltaics"
-    Technology.EXTRACTION -> "Extraction"
-    Technology.ENRICHMENT -> "Enrichment"
-    Technology.PROSPECTING -> "Prospecting"
-}
+fun Technology.displayName(): TextRes = Strings.technologyName(this)
 
 // One word each, like the applied three, and no trailing "Adaptation": all three would end in the
 // same word, which carries nothing and costs eleven characters the row does not have. The Galaxy
 // screen's blocked rows already say "Gravitic 9" for the same reason, so the two screens name the
 // same object the same way.
-fun AdaptationTechnology.displayName(): String = when (this) {
-    AdaptationTechnology.THERMAL -> "Thermal"
-    AdaptationTechnology.GRAVITIC -> "Gravitic"
-    AdaptationTechnology.ATMOSPHERIC -> "Atmospheric"
-}
+fun AdaptationTechnology.displayName(): TextRes = Strings.adaptationName(this)
 
-private fun Technology.subject(): String = when (this) {
-    Technology.PHOTOVOLTAICS -> "Solar Plant output"
-    Technology.EXTRACTION -> "metal · crystal output"
-    Technology.ENRICHMENT -> "deuterium output"
-    // **PLACEHOLDER, and the one string this version owes.** Every other row here names a rate the
-    // colony produces; this is the first whose payoff is measured in a run, so "output" is the one
-    // word it cannot borrow. Claude Design flagged it and left it to Davide — see the deposit
-    // sheet's §11. Until then this says what it does and no more.
-    Technology.PROSPECTING -> "what a fleet lifts"
-}
+private fun Technology.subject(): TextRes = Strings.technologySubject(this)
 
 // No subject noun, unlike the applied rows: Thermal already says temperature, Gravitic gravity and
 // Atmospheric pressure, so "°C tolerance" would be the third time one row said the same thing. Both
 // bands carry the same unit, so it is stated once at the end — exactly where the applied row's
 // trailing noun sits, which is what keeps the two row types structurally identical.
-private fun AdaptationTechnology.unit(): String = when (this) {
-    AdaptationTechnology.THERMAL -> "°C"
-    AdaptationTechnology.GRAVITIC -> "g"
-    AdaptationTechnology.ATMOSPHERIC -> "atm"
-}
+private fun AdaptationTechnology.unit(): TextRes = Strings.adaptationUnit(this)
 
 // "−30 … +45" — the band this ladder tolerates at `level`, in the axis's own unit and written the
 // way the Galaxy screen writes a world's reading, because that is the number it is read against.
@@ -814,12 +804,13 @@ private fun AdaptationTechnology.unit(): String = when (this) {
 // bands read as a column. Pressure drops the zeros it does not need — its band spans an order of
 // magnitude more than gravity's, so it carries a leading digit more, and padded it is the one line
 // in the app that does not fit at 320dp: the unit gets ellipsised to "a…". See `milliTrimmed`.
-private fun AdaptationTechnology.bandLabel(level: TechLevel): String {
+private fun AdaptationTechnology.bandLabel(level: TechLevel): TextRes {
     val band = GalaxyBalance.tolerance(levelsWithOnly(level)).bandOf(axis())
     return when (this) {
-        AdaptationTechnology.THERMAL -> "${band.min.signed()} … ${band.max.signed()}"
-        AdaptationTechnology.GRAVITIC -> "${band.min.milli()} … ${band.max.milli()}"
-        AdaptationTechnology.ATMOSPHERIC -> "${band.min.milliTrimmed()} … ${band.max.milliTrimmed()}"
+        AdaptationTechnology.THERMAL -> Strings.toleranceBand(band.min.signed(), band.max.signed())
+        AdaptationTechnology.GRAVITIC -> Strings.toleranceBand(band.min.milli(), band.max.milli())
+        AdaptationTechnology.ATMOSPHERIC ->
+            Strings.toleranceBand(band.min.milliTrimmed(), band.max.milliTrimmed())
     }
 }
 
@@ -831,7 +822,7 @@ private fun AdaptationTechnology.levelsWithOnly(level: TechLevel): AdaptationLev
     atmospheric = if (this == AdaptationTechnology.ATMOSPHERIC) level.value else 0,
 )
 
-private fun Int.toPercent(): String = "+$this%"
+private fun Int.toPercent(): TextRes = Strings.plusPercent(this)
 
 private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
     takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }

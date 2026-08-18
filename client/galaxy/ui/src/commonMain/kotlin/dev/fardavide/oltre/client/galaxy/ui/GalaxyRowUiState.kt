@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
@@ -40,16 +42,16 @@ sealed interface GalaxyRowUiState {
     data class World(
         override val at: GalaxyCoordinate,
         // The headline, and the whole point of the slice. `Calianova VIII`.
-        val name: String,
+        val name: TextRes,
         // **Rendered once, in one of two positions**, and which one is decided by the epithet alone:
         // with an epithet it sits on the subtitle line, without one the subtitle ceases to exist and
         // the address trails the headline. The coordinate never disappears — it is the address, and
         // the arithmetic, the eventual multiplayer chat and the ledger's own key all need it.
-        val coordinate: String,
+        val coordinate: TextRes,
         val portrait: WorldPortraitUiState,
         // Null on a world nobody has surveyed, which is the same permission the portrait's socket
         // carries — see `WorldPortraitUiState`, where the two are made one decision.
-        val epithet: String?,
+        val epithet: TextRes?,
         val verdict: WorldVerdictUiState,
         // The round trip, and **only in the ledger**, where rows come from many systems at once and
         // there is no shared header to state it. Null in the system view.
@@ -57,12 +59,12 @@ sealed interface GalaxyRowUiState {
         // It is also where the per-row reach would come back if it ever has to: inside *your own*
         // system the trip really does vary by slot — `5 × |slotA − slotB|` units — where for every
         // other system all fifteen slots are equidistant.
-        val trailing: String?,
+        val trailing: TextRes?,
         val deposits: DepositReadingUiState?,
         // Never empty on a `BLOCKED` row and always empty on every other, but carried on the row
         // rather than inside the verdict so that one row shape serves six verdicts.
         val requirements: List<BlockedAxisUiState>,
-        val note: String?,
+        val note: TextRes?,
     ) : GalaxyRowUiState
 
     // Not a world and not a card: a hairline and no fill, and not tappable. It states its effect and
@@ -70,8 +72,8 @@ sealed interface GalaxyRowUiState {
     // fill either.
     data class Relay(
         override val at: GalaxyCoordinate,
-        val coordinate: String,
-        val effect: String,
+        val coordinate: TextRes,
+        val effect: TextRes,
     ) : GalaxyRowUiState
 }
 
@@ -81,13 +83,13 @@ sealed interface GalaxyRowUiState {
 // every surveyed row has a body is the state, stated in the position where the state belongs — and
 // it bought back a colour, a ten-character reading and the row's whole right end on 98% of rows.
 // The constant is kept rather than the case being deleted so that the decision stays arguable.
-enum class WorldVerdictUiState(val word: String?) {
-    HOME("Home"),
-    OCCUPIED("Occupied"),
+enum class WorldVerdictUiState(val word: TextRes?) {
+    HOME(Strings.verdictWordHome()),
+    OCCUPIED(Strings.verdictWordOccupied()),
     UNSURVEYED(null),
-    BLOCKED("Blocked"),
-    BARREN("Barren"),
-    SETTLEABLE("Settleable"),
+    BLOCKED(Strings.verdictWordBlocked()),
+    BARREN(Strings.verdictWordBarren()),
+    SETTLEABLE(Strings.verdictWordSettleable()),
 }
 
 // What is still in the ground. Metal then crystal, rail order, and **never deuterium** — a run
@@ -102,7 +104,7 @@ data class DepositReadingUiState(val metal: DepositItemUiState?, val crystal: De
 // unbreakable run: `metal` and `full` must never wrap apart.
 data class DepositItemUiState(
     val resource: ResourceKind,
-    val reading: String,
+    val reading: TextRes,
     val tone: DepositTone,
 )
 
@@ -116,12 +118,16 @@ enum class DepositTone { FULL, EMPTY, PARTIAL }
 // galaxy screen into a reason to research, and the only thing connecting two tabs that otherwise
 // never speak.
 data class BlockedAxisUiState(
-    val axis: String,
-    val reading: String,
-    val tolerated: String,
+    val axis: TextRes,
+    val reading: TextRes,
+    val tolerated: TextRes,
+    // "gravity 2.62, you tolerate 1.45 g" — the three above as the one line the row draws. Composed
+    // by the mapper for the reason every other sentence is; the three parts stay because the sheet
+    // and the tests read them individually.
+    val clause: TextRes,
     // The ladder itself as well as the string it renders: the label is what the row prints, the
     // enum is what the tap target is keyed by, so the one place this row names a technology is not
     // a bare string.
     val technology: AdaptationTechnology,
-    val label: String,
+    val label: TextRes,
 )

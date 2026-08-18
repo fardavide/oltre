@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.world.ui.WorldPortrait
@@ -44,7 +46,7 @@ internal fun WorkedList(
 ) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         SectionLabel(
-            text = "WORLDS WORKED",
+            text = Strings.workedHeading(),
             rule = if (compact) uiState.compactTrailing else uiState.trailing,
         )
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -66,7 +68,7 @@ internal fun WorkedList(
                         .padding(vertical = 5.dp),
                 ) {
                     Text(
-                        text = note,
+                        text = note.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -101,7 +103,7 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = uiState.name,
+                    text = uiState.name.resolve(),
                     color = OltreColors.text,
                     fontFamily = mono,
                     fontSize = 12.5.sp,
@@ -115,7 +117,7 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
                 // and the rail spend, so a number in crystal blue is a crystal number wherever it
                 // appears.
                 Text(
-                    text = uiState.total,
+                    text = uiState.total.resolve(),
                     color = uiState.kind.tint(),
                     fontFamily = mono,
                     fontSize = 10.5.sp,
@@ -127,7 +129,9 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
             Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${if (compact) uiState.compactPrefix else uiState.prefix} · ",
+                        text = Strings.worldRowSeparator(
+                            if (compact) uiState.compactPrefix else uiState.prefix,
+                        ).resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = mono,
                         fontSize = 10.5.sp,
@@ -135,7 +139,7 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
                         softWrap = false,
                     )
                     Text(
-                        text = uiState.kind.label(),
+                        text = Strings.resourceName(uiState.kind).resolve(),
                         color = uiState.kind.tint(),
                         fontFamily = mono,
                         fontSize = 10.5.sp,
@@ -143,7 +147,7 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
                         softWrap = false,
                     )
                     Text(
-                        text = " ${uiState.deposit}",
+                        text = Strings.depositGap().resolve() + uiState.deposit.resolve(),
                         // The one reading on the row that can say a door leads nowhere, and the only
                         // place danger red appears in this section.
                         color = if (uiState.depositIsEmpty) OltreColors.danger else OltreColors.text,
@@ -157,7 +161,7 @@ private fun WorkedRow(uiState: WorkedWorldUiState, compact: Boolean, onClick: ()
                 // in Oltre is a countdown.
                 uiState.landed?.let { landed ->
                     Text(
-                        text = landed,
+                        text = landed.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = mono,
                         fontSize = 10.5.sp,
@@ -185,8 +189,3 @@ private fun ResourceKind.tint() = when (this) {
     ResourceKind.DEUTERIUM -> OltreColors.deuterium
 }
 
-private fun ResourceKind.label(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}

@@ -26,7 +26,10 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.settlingColor
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
@@ -114,7 +117,7 @@ private fun Head(uiState: DispatchUiState, compact: Boolean) {
     val mono = oltreMono()
     Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = uiState.name,
+            text = uiState.name.resolve(),
             color = OltreColors.text,
             fontFamily = mono,
             fontSize = 15.sp,
@@ -123,7 +126,7 @@ private fun Head(uiState: DispatchUiState, compact: Boolean) {
             softWrap = false,
         )
         Text(
-            text = if (compact) uiState.compactHead else uiState.head,
+            text = (if (compact) uiState.compactHead else uiState.head).resolve(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -143,14 +146,14 @@ private fun Offer(
     onSelectWindow: (Duration) -> Unit,
     onDispatch: () -> Unit,
 ) {
-    Control(label = "Bring back") {
+    Control(label = Strings.controlBringBack()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             // Two, and never three. Deuterium is the Robotics gate's currency and a fleet that could
             // fetch it would undercut the one requirement the whole mid-game hangs on — so it is not
             // a disabled third card, it is not a card.
             GatherCard(
                 kind = ResourceKind.METAL,
-                name = "Metal",
+                name = Strings.resourceTitle(ResourceKind.METAL),
                 richness = uiState.metalRichness,
                 deposit = uiState.metalDeposit,
                 hue = OltreColors.metal,
@@ -160,7 +163,7 @@ private fun Offer(
             )
             GatherCard(
                 kind = ResourceKind.CRYSTAL,
-                name = "Crystal",
+                name = Strings.resourceTitle(ResourceKind.CRYSTAL),
                 richness = uiState.crystalRichness,
                 deposit = uiState.crystalDeposit,
                 hue = OltreColors.crystal,
@@ -170,20 +173,20 @@ private fun Offer(
             )
         }
     }
-    Control(label = "Send", trailing = uiState.pool) {
+    Control(label = Strings.controlSend(), trailing = uiState.pool) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Stepper(
-                glyph = "−",
+                glyph = Strings.stepperFewer(),
                 enabled = !uiState.atFewest,
                 tag = DispatchTestTags.SHIPS_FEWER,
                 onClick = { onSelectShips(uiState.shipCount - 1) },
             )
             Text(
-                text = uiState.ships,
+                text = uiState.ships.resolve(),
                 color = OltreColors.text,
                 fontFamily = oltreMono(),
                 fontSize = 13.5.sp,
@@ -192,7 +195,7 @@ private fun Offer(
                 modifier = Modifier.weight(1f),
             )
             Stepper(
-                glyph = "+",
+                glyph = Strings.stepperMore(),
                 enabled = !uiState.atMost,
                 tag = DispatchTestTags.SHIPS_MORE,
                 onClick = { onSelectShips(uiState.shipCount + 1) },
@@ -204,7 +207,7 @@ private fun Offer(
         // scold. At one hull there is no remedy here and the ladder carries the only one there is.
         uiState.clampNote?.let { note -> Aside(text = note) }
     }
-    Control(label = "Home in") {
+    Control(label = Strings.controlHomeIn()) {
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
             uiState.windows.forEach { rung ->
                 WindowRung(rung = rung, onClick = { onSelectWindow(rung.window) }, modifier = Modifier.weight(1f))
@@ -223,7 +226,7 @@ private fun Offer(
     Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = uiState.figure,
+                text = uiState.figure.resolve(),
                 color = if (uiState.gathering == ResourceKind.CRYSTAL) OltreColors.crystal else OltreColors.metal,
                 fontFamily = oltreMono(),
                 fontSize = 22.sp,
@@ -235,7 +238,7 @@ private fun Offer(
             // printed twice.
             uiState.perShip?.let { each ->
                 Text(
-                    text = each,
+                    text = each.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
@@ -250,14 +253,14 @@ private fun Offer(
         Detail(text = if (compact) uiState.compactLegs else uiState.legs)
         Detail(text = if (compact) uiState.compactDanger else uiState.danger)
     }
-    Verb(label = "Dispatch", tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
+    Verb(label = Strings.dispatchVerb(), tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
 }
 
 @Composable
 private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit) {
     Rule()
     Text(
-        text = uiState.title,
+        text = uiState.title.resolve(),
         color = OltreColors.text,
         fontFamily = oltreMono(),
         fontSize = 13.5.sp,
@@ -265,7 +268,7 @@ private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit)
         fontWeight = FontWeight.SemiBold,
     )
     Text(
-        text = uiState.note,
+        text = uiState.note.resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -296,11 +299,11 @@ private fun Waiting(
     onSelectShips: (Int) -> Unit,
     onSelectWindow: (Duration) -> Unit,
 ) {
-    Control(label = "Bring back") {
+    Control(label = Strings.controlBringBack()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             GatherCard(
                 kind = ResourceKind.METAL,
-                name = "Metal",
+                name = Strings.resourceTitle(ResourceKind.METAL),
                 richness = uiState.metalRichness,
                 deposit = uiState.metalDeposit,
                 hue = OltreColors.metal,
@@ -310,7 +313,7 @@ private fun Waiting(
             )
             GatherCard(
                 kind = ResourceKind.CRYSTAL,
-                name = "Crystal",
+                name = Strings.resourceTitle(ResourceKind.CRYSTAL),
                 richness = uiState.crystalRichness,
                 deposit = uiState.crystalDeposit,
                 hue = OltreColors.crystal,
@@ -320,20 +323,20 @@ private fun Waiting(
             )
         }
     }
-    Control(label = "Send", trailing = uiState.pool) {
+    Control(label = Strings.controlSend(), trailing = uiState.pool) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
             Stepper(
-                glyph = "−",
+                glyph = Strings.stepperFewer(),
                 enabled = !uiState.atFewest,
                 tag = DispatchTestTags.SHIPS_FEWER,
                 onClick = { onSelectShips(uiState.shipCount - 1) },
             )
             Text(
-                text = uiState.ships,
+                text = uiState.ships.resolve(),
                 color = OltreColors.text,
                 fontFamily = oltreMono(),
                 fontSize = 13.5.sp,
@@ -342,14 +345,14 @@ private fun Waiting(
                 modifier = Modifier.weight(1f),
             )
             Stepper(
-                glyph = "+",
+                glyph = Strings.stepperMore(),
                 enabled = !uiState.atMost,
                 tag = DispatchTestTags.SHIPS_MORE,
                 onClick = { onSelectShips(uiState.shipCount + 1) },
             )
         }
     }
-    Control(label = "Home in") {
+    Control(label = Strings.controlHomeIn()) {
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
             uiState.windows.forEach { rung ->
                 WindowRung(rung = rung, onClick = { onSelectWindow(rung.window) }, modifier = Modifier.weight(1f))
@@ -359,7 +362,7 @@ private fun Waiting(
     }
     Rule()
     Text(
-        text = uiState.title,
+        text = uiState.title.resolve(),
         color = OltreColors.text,
         fontFamily = oltreMono(),
         fontSize = 13.5.sp,
@@ -367,7 +370,7 @@ private fun Waiting(
         fontWeight = FontWeight.SemiBold,
     )
     Text(
-        text = uiState.note,
+        text = uiState.note.resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -386,9 +389,9 @@ private fun Waiting(
 // One faint sentence under a control, which is the shape every earned note on this sheet takes —
 // the narrowed ladder, the rung that brings the same, and the hull that brings nothing.
 @Composable
-private fun Aside(text: String) {
+private fun Aside(text: TextRes) {
     Text(
-        text = text,
+        text = text.resolve(),
         color = OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -398,9 +401,9 @@ private fun Aside(text: String) {
 }
 
 @Composable
-private fun Legs(legs: String) {
+private fun Legs(legs: TextRes) {
     Text(
-        text = legs,
+        text = legs.resolve(),
         color = OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -409,11 +412,11 @@ private fun Legs(legs: String) {
 }
 
 @Composable
-private fun Control(label: String, trailing: String? = null, content: @Composable () -> Unit) {
+private fun Control(label: TextRes, trailing: TextRes? = null, content: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             Text(
-                text = label.uppercase(),
+                text = label.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -423,7 +426,7 @@ private fun Control(label: String, trailing: String? = null, content: @Composabl
             )
             trailing?.let {
                 Text(
-                    text = it,
+                    text = it.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
@@ -439,9 +442,9 @@ private fun Control(label: String, trailing: String? = null, content: @Composabl
 @Composable
 private fun GatherCard(
     kind: ResourceKind,
-    name: String,
-    richness: String,
-    deposit: String,
+    name: TextRes,
+    richness: TextRes,
+    deposit: TextRes,
     hue: Color,
     selected: Boolean,
     onClick: () -> Unit,
@@ -464,14 +467,14 @@ private fun GatherCard(
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
-            text = name,
+            text = name.resolve(),
             color = hue,
             fontFamily = oltreMono(),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
         )
         Text(
-            text = "richness $richness",
+            text = Strings.richness(richness).resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -481,7 +484,7 @@ private fun GatherCard(
         // The stock under the richness rather than beside it: two readings of one world, and the
         // chip is the only place they sit together now that the row carries the stocks alone.
         Text(
-            text = deposit,
+            text = deposit.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -499,7 +502,7 @@ private fun GatherCard(
 // common case; `steppingWhileHeld` is what stops the uncommon one being fifty taps, and it is a file
 // of its own because nothing in it draws.
 @Composable
-private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
+private fun Stepper(glyph: TextRes, enabled: Boolean, tag: String, onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -513,7 +516,7 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
             .steppingWhileHeld(enabled = enabled, onStep = onClick),
     ) {
         Text(
-            text = glyph,
+            text = glyph.resolve(),
             color = if (enabled) OltreColors.text else OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 13.5.sp,
@@ -538,7 +541,7 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
             .clickable(onClick = onClick),
     ) {
         Text(
-            text = rung.label,
+            text = rung.label.resolve(),
             color = settlingColor(if (rung.selected) OltreColors.accent else OltreColors.textSecondary),
             fontFamily = oltreMono(),
             fontSize = 11.sp,
@@ -550,7 +553,7 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
 // The committed idiom, unchanged: accent on a live verb, a hairline ghost on a reading. **There is
 // no third state**, because a run costs nothing — see `DispatchUiState`.
 @Composable
-private fun Verb(label: String, tag: String, primary: Boolean, onClick: () -> Unit) {
+private fun Verb(label: TextRes, tag: String, primary: Boolean, onClick: () -> Unit) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
@@ -567,7 +570,7 @@ private fun Verb(label: String, tag: String, primary: Boolean, onClick: () -> Un
             .padding(vertical = 11.dp),
     ) {
         Text(
-            text = label,
+            text = label.resolve(),
             color = settlingColor(if (primary) OltreColors.accent else OltreColors.textSecondary),
             fontFamily = oltreMono(),
             fontSize = 11.sp,
@@ -582,9 +585,9 @@ private fun Rule() {
 }
 
 @Composable
-private fun Detail(text: String) {
+private fun Detail(text: TextRes) {
     Text(
-        text = text,
+        text = text.resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,

@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.galaxy.ui.BlockedAxisUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
@@ -82,7 +84,7 @@ class GalaxyPageBehaviourTest {
         listOf(PHONE_WIDTH, SLIDE_OVER_WIDTH).forEach { width ->
             galaxyPage(uiState = homeFold, width = width) {
                 assertTheGalaxyIsDrawn()
-                assertReads(homeFoldCaption.coordinate)
+                assertReads(English.resolve(homeFoldCaption.coordinate))
             }
         }
     }
@@ -203,9 +205,9 @@ class GalaxyPageBehaviourTest {
             assertTheRowReadsInOrder(
                 blocked.at,
                 name,
-                WorldVerdictUiState.BLOCKED.word.orEmpty().uppercase(),
+                English.resolve(checkNotNull(WorldVerdictUiState.BLOCKED.word)).orEmpty().uppercase(),
                 epithetFor(world(blocked.at).traits).toString(),
-                blocked.coordinate,
+                English.resolve(blocked.coordinate),
             )
         }
         // ...and on a row nobody has surveyed, where the name is the *only* thing in the leading
@@ -214,7 +216,7 @@ class GalaxyPageBehaviourTest {
             assertTheRowReadsInOrder(
                 unsurveyed.at,
                 worldNameAt(frameState.galaxy.seed, unsurveyed.at),
-                unsurveyed.coordinate,
+                English.resolve(unsurveyed.coordinate),
             )
         }
     }
@@ -227,7 +229,7 @@ class GalaxyPageBehaviourTest {
         galaxyPage(uiState = homeSystemUiState) {
             blocked.requirements.forEach { requirement ->
                 assertRowReads(blocked.at, requirement.clause())
-                assertRowReads(blocked.at, requirement.label)
+                assertRowReads(blocked.at, English.resolve(requirement.label))
             }
         }
     }
@@ -239,7 +241,7 @@ class GalaxyPageBehaviourTest {
         // built from the enum and not from the row: reading the order off the thing under test is how
         // an order test passes while reversed.
         val inAxisOrder = HostilityAxis.entries.map { axis ->
-            threeAxis.requirements.first { it.axis == axis.name.lowercase() }.clause()
+            threeAxis.requirements.first { English.resolve(it.axis) == axis.name.lowercase() }.clause()
         }
 
         galaxyPage(uiState = homeSystemUiState) {
@@ -253,7 +255,7 @@ class GalaxyPageBehaviourTest {
         // word, so it carries nothing and costs eleven characters this row does not have. Asserted
         // across the whole screen, because the row is not the only place a ladder could be named.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(blocked.at, blocked.requirements.first().label)
+            assertRowReads(blocked.at, English.resolve(blocked.requirements.first().label))
             assertNothingReads("Adaptation")
         }
     }
@@ -293,7 +295,7 @@ class GalaxyPageBehaviourTest {
         // free from the first launch, which is what makes a probe a purchase rather than a paywall.
         galaxyPage(uiState = unsurveyedSystemUiState) {
             assertRowReads(unsurveyed.at, worldNameAt(frameState.galaxy.seed, unsurveyed.at))
-            assertRowReads(unsurveyed.at, unsurveyed.coordinate)
+            assertRowReads(unsurveyed.at, English.resolve(unsurveyed.coordinate))
             assertTheRowDoesNotRead(unsurveyed.at, "you tolerate")
             assertTheRowDoesNotRead(unsurveyed.at, "full")
             assertTheRowDoesNotRead(unsurveyed.at, "Yield")
@@ -314,7 +316,7 @@ class GalaxyPageBehaviourTest {
         }
         galaxyPage(uiState = unsurveyedSystemUiState) {
             // The row is really on the screen, or the absence below is the absence of a row.
-            assertRowReads(unsurveyed.at, unsurveyed.coordinate)
+            assertRowReads(unsurveyed.at, English.resolve(unsurveyed.coordinate))
             assertNothingReads(epithetFor(world(unsurveyed.at).traits).toString())
         }
     }
@@ -344,7 +346,7 @@ class GalaxyPageBehaviourTest {
         // the badge carries it — so the line underneath opens on the yield rather than on the word.
         galaxyPage(uiState = homeSystemUiState) {
             assertRowReads(barren.at, "BARREN")
-            assertRowReads(barren.at, WORTH_IT_AT)
+            assertRowReads(barren.at, English.resolve(worthItAt()))
             assertTheRowDoesNotRead(barren.at, "Barren ")
         }
     }
@@ -357,7 +359,7 @@ class GalaxyPageBehaviourTest {
         // raises no sheet is `DispatchSheetBehaviourTest`'s assertion.
         galaxyPage(uiState = relaySystemUiState) {
             assertRowReads(relayCoordinate, "RELAY")
-            assertRowReads(relayCoordinate, RELAY_EFFECT)
+            assertRowReads(relayCoordinate, English.resolve(Strings.relayEffect()))
             assertTheRowDoesNotRead(relayCoordinate, "metal")
         }
     }
@@ -389,12 +391,13 @@ class GalaxyPageBehaviourTest {
         // `crystal` outright at 320dp to keep the pair on one line, and the row that replaced it grows
         // instead. Both widths assert the same strings, which is the whole claim.
         val requirement = blocked.requirements.first()
-        val detail = assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).header.detail.uppercase()
+        val detail = English.resolve(assertIs<GalaxyBodyUiState.System>(homeSystemUiState.body).header.detail)
+            .uppercase()
 
         listOf(SLIDE_OVER_WIDTH, PHONE_WIDTH).forEach { width ->
             galaxyPage(uiState = homeSystemUiState, width = width) {
                 assertRowReads(blocked.at, requirement.clause())
-                assertRowReads(blocked.at, requirement.label)
+                assertRowReads(blocked.at, English.resolve(requirement.label))
                 assertRowReads(blocked.at, "metal full")
                 assertRowReads(blocked.at, "crystal full")
                 assertReads(detail)
@@ -418,7 +421,10 @@ class GalaxyPageBehaviourTest {
     // What one requirement line prints. Composed from the parts rather than typed out, because the
     // space before each unit is U+00A0 — invisible in a diff, and a typed expectation would read as
     // flaky rather than as wrong.
-    private fun BlockedAxisUiState.clause(): String = "$axis $reading, you tolerate $tolerated"
+    // The line the row draws, resolved: the row builds it from one catalogue entry, so a test that
+    // reassembled it by hand would be asserting against its own copy of the sentence.
+    private fun BlockedAxisUiState.clause(): String =
+        English.resolve(Strings.blockedAxisLine(axis = axis, reading = reading, tolerated = tolerated))
 
     private companion object {
 

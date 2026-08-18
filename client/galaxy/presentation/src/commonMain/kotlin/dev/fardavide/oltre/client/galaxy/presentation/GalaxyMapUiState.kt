@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyMapUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapBandUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapCaptionTrailingUiState
@@ -68,7 +70,7 @@ private fun GameState.bandsOf(galaxy: Int, lit: Int): List<MapBandUiState> {
     return (1..GalaxyBalance.REGIONS_PER_GALAXY).map { region ->
         MapBandUiState(
             region = region,
-            name = regionNameAt(this.galaxy.seed, galaxy, region),
+            name = TextRes(regionNameAt(this.galaxy.seed, galaxy, region)),
             temperament = temperaments[region - 1],
             lit = region == lit,
         )
@@ -134,7 +136,7 @@ private fun GameState.hourMarksFor(galaxy: Int): List<MapHourUiState> {
         listOf(origin - away, origin + away)
             .distinct()
             .filter { it in 1..GalaxyBalance.SYSTEMS_PER_GALAXY }
-            .map { system -> MapHourUiState(system = system, label = "${hour}h") }
+            .map { system -> MapHourUiState(system = system, label = Strings.durationHours(hour.toLong())) }
     }
 }
 
@@ -147,7 +149,7 @@ private fun GameState.namesFor(at: SystemSelection): List<MapNameUiState> {
     return (pinned + listOfNotNull(home, at.system)).distinct().sorted().map { system ->
         MapNameUiState(
             system = system,
-            name = systemNameAt(galaxy.seed, at.galaxy, system),
+            name = TextRes(systemNameAt(galaxy.seed, at.galaxy, system)),
             tone = when {
                 system == home -> MapNameTone.HOME
                 system == at.system -> MapNameTone.SELECTED
@@ -164,22 +166,22 @@ internal fun GameState.toMapCaptionUiState(at: SystemSelection, now: Instant): M
     val seed = galaxy.seed
     val target = SystemAddress(galaxy = at.galaxy, system = at.system)
     val worlds = worldsIn(seed, target)
-    val starClass = starClassAt(seed, at.galaxy, at.system).name.lowercase()
-    val region = regionNameAt(seed, at.galaxy, regionOf(at.system))
+    val starClass = Strings.starClassName(starClassAt(seed, at.galaxy, at.system))
+    val region = TextRes(regionNameAt(seed, at.galaxy, regionOf(at.system)))
     return MapCaptionUiState(
-        system = systemNameAt(seed, at.galaxy, at.system),
-        coordinate = "[${at.galaxy}:${at.system}]",
+        system = TextRes(systemNameAt(seed, at.galaxy, at.system)),
+        coordinate = Strings.systemAddress(at.galaxy, at.system),
         // **The trailing noun goes and the number stays**, which is the abbreviation rule the system
         // header and the world row already follow. Claude Design's frame set all four words against
         // the run's clock on one line and showed them; at the real advance of JetBrains Mono the left
         // column is about 190dp at 393dp and `standard · Elyutis Reach · 7 worlds` is 214, so it
         // ellipsized inside the word `worlds`. Dropping the noun costs nothing a reader needs: the
         // bar is under a drawing of stars and the figure beside a system is its worlds.
-        meta = listOf(starClass, region, "$worlds").joinToString(SEPARATOR),
+        meta = Strings.clauses(listOf(starClass, region, Strings.plainNumber(worlds))),
         // At 320dp the region goes too, and it is the one exception the map earns to *"never a
         // name"*: the band the selection sits in is lit and named directly above this bar, so the
         // region is the single fact here the drawing has already stated for itself.
-        compactMeta = listOf(starClass, "$worlds").joinToString(SEPARATOR),
+        compactMeta = Strings.clauses(listOf(starClass, Strings.plainNumber(worlds))),
         trailing = trailingFor(at = at, target = target, worlds = worlds, now = now),
         own = true,
     )
@@ -200,19 +202,23 @@ private fun GameState.trailingFor(
     return when {
         // A system with nothing in it is the one case where neither verb applies, and saying so is
         // worth more than an empty corner: a probe sent there would come back with the same answer.
-        worlds == 0 -> MapCaptionTrailingUiState.Note("no worlds")
+        worlds == 0 -> MapCaptionTrailingUiState.Note(Strings.noWorlds())
         flight != null -> MapCaptionTrailingUiState.Note(
-            "probe lands in ${(flight.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()}",
+            Strings.probeLandsIn((flight.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()),
         )
         // **Stars are probe targets; worlds are run targets.** On a system you already know, the map
         // has nothing left to aim — a run is chosen per world on the orbit page — so it quotes the
         // clock and the caption's own tap takes you there.
-        known -> MapCaptionTrailingUiState.Note("${trip.toChipLabel()} out and back")
+        known -> MapCaptionTrailingUiState.Note(Strings.reachSingle(trip.toChipLabel()))
         !resources.covers(SurveyBalance.cost()) -> MapCaptionTrailingUiState.Note(
-            "probe ${SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel()}",
+            Strings.probeFlight(
+                SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel(),
+            ),
         )
         else -> MapCaptionTrailingUiState.Dispatch(
-            "probe ${SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel()}",
+            Strings.probeFlight(
+                SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel(),
+            ),
         )
     }
 }
@@ -226,10 +232,12 @@ internal fun GameState.toUniverseUiState(at: SystemSelection): UniverseUiState =
         val home = index == galaxy.home.galaxy
         UniverseDiscUiState(
             galaxy = index,
-            label = "G$index",
+            label = Strings.galaxyLabel(index),
             map = toGalaxyDiscUiState(galaxyIndex = index),
-            known = "${galaxy.surveyed.filter { it.galaxy == index }.distinctBy { it.system }.size} surveyed",
-            cost = if (home) null else "run ${galaxyHopFrom(index).toChipLabel()}",
+            known = Strings.surveyedCount(
+                galaxy.surveyed.filter { it.galaxy == index }.distinctBy { it.system }.size,
+            ),
+            cost = if (home) null else Strings.runFlight(galaxyHopFrom(index).toChipLabel()),
             home = home,
             selected = index == at.galaxy,
         )
@@ -244,21 +252,27 @@ internal fun GameState.toUniverseCaptionUiState(at: SystemSelection): MapCaption
     val known = galaxy.surveyed.filter { it.galaxy == at.galaxy }.distinctBy { it.system }.size
     val home = at.galaxy == galaxy.home.galaxy
     return MapCaptionUiState(
-        system = "Galaxy ${at.galaxy}",
-        coordinate = "",
-        meta = listOf(
-            "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
-            if (known == 0) "nothing charted" else "$known surveyed",
-        ).joinToString(SEPARATOR),
+        system = Strings.galaxyNamed(at.galaxy),
+        // Nothing to say rather than a message that is empty: a galaxy has no address inside
+        // itself, which is the same reason its caption has nothing to aim.
+        coordinate = TextRes(""),
+        meta = Strings.clauses(
+            listOf(
+                Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
+                if (known == 0) Strings.nothingCharted() else Strings.surveyedCount(known),
+            ),
+        ),
         // A galaxy's summary is two short facts and fits either width, so there is nothing to drop.
-        compactMeta = listOf(
-            "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
-            if (known == 0) "nothing charted" else "$known surveyed",
-        ).joinToString(SEPARATOR),
+        compactMeta = Strings.clauses(
+            listOf(
+                Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
+                if (known == 0) Strings.nothingCharted() else Strings.surveyedCount(known),
+            ),
+        ),
         trailing = if (home) {
-            MapCaptionTrailingUiState.Note("home")
+            MapCaptionTrailingUiState.Note(Strings.homeNote())
         } else {
-            MapCaptionTrailingUiState.Note("probe ${probeHopTo(at.galaxy).toChipLabel()}")
+            MapCaptionTrailingUiState.Note(Strings.probeFlight(probeHopTo(at.galaxy).toChipLabel()))
         },
         own = false,
     )

@@ -2,9 +2,10 @@ package dev.fardavide.oltre.client.shipyard.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.pad2
-import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.ComingHullUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
@@ -36,7 +37,7 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
         // **The fleet that exists, not the fleet that is paid for.** A hull on the slipway cannot be
         // sent, so counting it here would put a number on the heading that the Fleets tab disagrees
         // with. What it *does* count against is the price, one line down.
-        fleet = owned.total.let { if (it == 1) "1 hull" else "$it hulls" },
+        fleet = Strings.hullsInFleet(owned.total),
         hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
         comingHulls = COMING.map {
             ComingHullUiState(type = it.type, name = it.name, purpose = it.purpose)
@@ -81,18 +82,19 @@ private fun GameState.toHullRow(
 // **"building" is outside "owned" on purpose.** The other three add up — owned is idle plus away —
 // and a hull on the slipway belongs to none of them, because it is not a hull yet. Folding it into
 // the total would make the card and the heading say different things about the same fleet.
-private fun GameState.poolLine(type: ShipType, owned: Ships): String {
+private fun GameState.poolLine(type: ShipType, owned: Ships): TextRes {
     val total = owned.countOf(type)
     val idle = ships.countOf(type)
     val away = total - idle
     val building = yard.count { it.ship == type }
-    val clauses = listOfNotNull(
-        "$total owned",
-        "$idle idle",
-        "$away away".takeIf { away > 0 },
-        "$building building".takeIf { building > 0 },
+    return Strings.clauses(
+        listOfNotNull(
+            Strings.shipsOwned(total),
+            Strings.shipsIdle(idle),
+            Strings.shipsAway(away).takeIf { away > 0 },
+            Strings.shipsBuilding(building).takeIf { building > 0 },
+        ),
     )
-    return clauses.joinToString(SEPARATOR)
 }
 
 // The head of the queue for this hull, or null when there is none. Read off the *first* entry rather
@@ -106,13 +108,18 @@ private fun GameState.yardLine(type: ShipType, now: Instant, timeZone: TimeZone)
     val elapsedMs = (now.toEpochMilliseconds() - head.startedAt.toEpochMilliseconds()).coerceIn(0, totalMs)
     val remainingMs = (head.completesAt.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val behind = yard.size - 1
+    val doneAt = head.completesAt.toLocalDateTime(timeZone).let { Strings.doneAt(it.hour, it.minute) }
+    val queued = Strings.shipsQueued(behind).takeIf { behind > 0 }
     return YardUiState(
         // Ceil the remainder so a countdown only reads 00:00:00 once the hull is actually done — the
         // Colony row's rule, and the two have to agree or one screen finishes before the other.
         countdown = ((remainingMs + 999) / 1000).toCountdown(),
         progressPercent = (elapsedMs * 100 / totalMs).toInt(),
-        doneAt = head.completesAt.toLocalDateTime(timeZone).let { "done ${it.hour.pad2()}:${it.minute.pad2()}" },
-        queued = "$behind queued".takeIf { behind > 0 },
+        doneAt = doneAt,
+        queued = queued,
+        // The two trailing clauses joined into the one run the card draws — "done 14:05 · 2 queued"
+        // reads as one aside rather than as two competing readings.
+        footer = Strings.clauses(listOfNotNull(doneAt, queued)),
     )
 }
 
@@ -124,9 +131,9 @@ private fun GameState.buildOrWait(cost: Resources): BuildActionUiState {
     if (resources.covers(cost)) return BuildActionUiState.Build
     val wait = timeUntilAffordable(resources, cost, buildings, research)
     return if (wait.isFinite()) {
-        BuildActionUiState.AvailableIn("in ${wait.toChipLabel()}")
+        BuildActionUiState.AvailableIn(Strings.availableIn(wait.toChipLabel()))
     } else {
-        BuildActionUiState.AvailableIn("—")
+        BuildActionUiState.AvailableIn(Strings.availableNever())
     }
 }
 
@@ -144,14 +151,16 @@ private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostC
 // arrives as a bigger number rather than as a trade — so both are the same two clauses, speed against
 // hold, and read as a column.
 //
-// PLACEHOLDER copy, like every string the app says: content is Davide's.
-private class HullCopy(val type: ShipType, val name: String, val purpose: String)
+// PLACEHOLDER copy, like every string the app says: content is Davide's. It is in the catalogue
+// rather than in this file since #86 — a placeholder that is *catalogued* is a placeholder somebody
+// can find and replace in one place, which is most of what the catalogue was bought for.
+private class HullCopy(val type: ShipType, val name: TextRes, val purpose: TextRes)
 
 // **What is on sale, and it must stay one hull behind `FleetBalance`.** `shipCost` raises for a hull
 // with no price, so a card drawn here for one the balance cannot price would crash the tab rather
 // than dim it.
 private val FOR_SALE: List<HullCopy> = listOf(
-    HullCopy(ShipType.SKIFF, "Skiff", "One berth of hold · 10m + 1m per 10 units, one way"),
+    HullCopy(ShipType.SKIFF, Strings.skiffName(), Strings.skiffPurpose()),
 )
 
 // **Only the Hauler is drawn**, not all three unbuilt hulls. Design's call names it by name — *"the
@@ -160,7 +169,6 @@ private val FOR_SALE: List<HullCopy> = listOf(
 // is a combat model and the settler is colonisation, so a card for either would be advertising a
 // slice nobody has scheduled. The Hauler is next.
 private val COMING: List<HullCopy> = listOf(
-    HullCopy(ShipType.HAULER, "Hauler", "Four berths of hold, at half a skiff's speed."),
+    HullCopy(ShipType.HAULER, Strings.haulerName(), Strings.haulerPurpose()),
 )
 
-private const val SEPARATOR = " · "

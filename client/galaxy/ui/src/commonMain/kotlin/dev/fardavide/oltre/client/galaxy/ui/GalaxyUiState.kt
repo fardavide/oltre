@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 
 // **What the Galaxy tab draws, and nothing about how it is derived.** The mappers that produce these
@@ -78,19 +79,23 @@ data class SystemHeadUiState(
     // universe is where you *compare* galaxies, and this is where you step sideways between them
     // without leaving the system you are reading.
     val galaxies: List<GalaxyTabUiState>,
-    val scope: String,
-    val system: String,
-    val coordinate: String,
-    val region: String,
-    val detail: String,
+    val scope: TextRes,
+    val system: TextRes,
+    val coordinate: TextRes,
+    val region: TextRes,
+    val detail: TextRes,
     // "195 units out · danger 1 from here · 58m out and back". **Stated once, under the system
     // header, because it is astronomy** — free, known from the first launch, and identical for all
     // fifteen slots of any system but your own.
-    val astronomy: String,
+    val astronomy: TextRes,
+    // The same line with its least load-bearing clause dropped. **Which of the two is drawn is
+    // the composable's call since #86**: it used to be a `length` check inside the mapper, which
+    // is a measurement of English — see `astronomyFor`.
+    val shortAstronomy: TextRes,
     val isHome: Boolean,
 )
 
-data class GalaxyTabUiState(val label: String, val galaxy: Int, val selected: Boolean)
+data class GalaxyTabUiState(val label: TextRes, val galaxy: Int, val selected: Boolean)
 
 // What the map draws: the system as orbits seen at a shallow angle, one ellipse per occupied slot.
 //
@@ -122,7 +127,7 @@ data class MapBodyUiState(
 
 // "[2:118] · 4h 12m" — where the probe is going and how long it has left, printed at the faint end
 // of the arc that carries it.
-data class MapTrajectoryUiState(val label: String)
+data class MapTrajectoryUiState(val label: TextRes)
 
 // What a dot on the map means. `EMPTY` is a tick rather than a dot, and it is most of them.
 enum class MapMark { EMPTY, HOME, OCCUPIED, UNSURVEYED, BLOCKED, BARREN, SETTLEABLE, RELAY }

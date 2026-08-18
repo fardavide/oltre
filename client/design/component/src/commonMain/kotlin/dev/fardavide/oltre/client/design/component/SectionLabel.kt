@@ -14,6 +14,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -34,10 +36,10 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 // carry a trailing clause is the kind of drift this component exists to prevent, so the lift is
 // not conditional on the rule — which is why the Colony and the galaxy bands move too.
 @Composable
-fun SectionLabel(text: String, rule: String? = null) {
+fun SectionLabel(text: TextRes, rule: TextRes? = null) {
     if (rule == null) {
         Text(
-            text = text,
+            text = text.resolve(),
             color = OltreColors.textSecondary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -52,7 +54,7 @@ fun SectionLabel(text: String, rule: String? = null) {
             modifier = Modifier.fillMaxWidth().padding(bottom = 9.dp, start = 2.dp),
         ) {
             Text(
-                text = text,
+                text = text.resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -70,7 +72,7 @@ fun SectionLabel(text: String, rule: String? = null) {
                     .background(Color.White.copy(alpha = 0.09f)),
             )
             Text(
-                text = rule,
+                text = rule.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,

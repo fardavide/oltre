@@ -28,6 +28,8 @@ import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.core.ShipType
 
 // A price list. The card is the app's own card, in the same three states and at the same padding as
@@ -68,7 +70,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
     ) {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
-                text = hull.name,
+                text = hull.name.resolve(),
                 color = OltreColors.text,
                 fontFamily = mono,
                 fontSize = 13.5.sp,
@@ -80,7 +82,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
             // one line here that is a **reading** rather than an offer, and putting it beside the
             // name is what stops it being read as part of the price.
             Text(
-                text = hull.pool,
+                text = hull.pool.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -91,7 +93,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
             )
         }
         Text(
-            text = hull.purpose,
+            text = hull.purpose.resolve(),
             color = OltreColors.textSecondary,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -106,7 +108,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
             }
             when (val action = hull.action) {
                 BuildActionUiState.Build -> Text(
-                    text = "Build",
+                    text = Strings.build().resolve(),
                     color = Color.White,
                     fontFamily = mono,
                     fontSize = 11.sp,
@@ -122,7 +124,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
                 // No disabled state, here or anywhere: the chip that reddened already said which
                 // resource is short, and this says when it stops being short.
                 is BuildActionUiState.AvailableIn -> Text(
-                    text = action.label,
+                    text = action.label.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = mono,
                     fontSize = 11.sp,
@@ -149,7 +151,7 @@ private fun YardFooter(yard: YardUiState, type: ShipType) {
     Column(modifier = Modifier.fillMaxWidth().testTag(ShipyardTestTags.yard(type))) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(
-                text = yard.countdown,
+                text = yard.countdown.resolve(),
                 color = OltreColors.accent,
                 fontFamily = mono,
                 fontSize = 14.sp,
@@ -161,7 +163,7 @@ private fun YardFooter(yard: YardUiState, type: ShipType) {
             // between them, so "done 14:05 · 2 queued" reads as one aside rather than as two
             // competing readings. `listOfNotNull` because the queue count is absent at one hull.
             Text(
-                text = listOfNotNull(yard.doneAt, yard.queued).joinToString(" · "),
+                text = yard.footer.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -195,14 +197,14 @@ internal fun ComingHullList(hulls: List<ComingHullUiState>) {
                 verticalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Text(
-                    text = hull.name,
+                    text = hull.name.resolve(),
                     color = OltreColors.text,
                     fontFamily = mono,
                     fontSize = 13.5.sp,
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    text = hull.purpose,
+                    text = hull.purpose.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = mono,
                     fontSize = 10.5.sp,

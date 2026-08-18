@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.component.RowSheet
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
@@ -75,14 +76,15 @@ fun ResearchScreen(
                     .padding(16.dp),
             ) {
                 SectionLabel(
-                    text = "TECHNOLOGIES",
+                    text = Strings.researchHeading(),
                     // Two slot rules want this one slot, and while a watch exists it wins. **The
                     // watch is the one that can change without the player looking** — it is shared
                     // with the Colony screen, so tapping a square there silently takes it off a row
                     // here, and the only defence against that is naming it where it can be read.
                     // "One project at a time" is learned in the first minute and is still legible
                     // from the five rows reading the same wait; the watch is legible from nothing.
-                    rule = uiState.watching ?: if (compact) "one at a time" else "one project at a time",
+                    rule = uiState.watching
+                        ?: if (compact) Strings.ruleOneAtATime() else Strings.ruleOneProjectAtATime(),
                 )
                 TechnologyList(
                     technologies = uiState.technologies,
@@ -98,7 +100,7 @@ fun ResearchScreen(
                 // Colony's baselines too and this slice may not move its measurements.
                 Spacer(modifier = Modifier.height(22.dp))
                 SectionLabel(
-                    text = "ADAPTATION",
+                    text = Strings.adaptationHeading(),
                     // **A rule of its own since 0.12.2, where it used to be a pointer at the one
                     // above.** This read "the same slot" for eleven versions and the sentence was
                     // load-bearing: it existed to prevent a player reading the two headings as one
@@ -109,7 +111,7 @@ fun ResearchScreen(
                     // PLACEHOLDER copy, like every other string this screen says: what the game says
                     // to a player is Davide's. The shape is not placeholder — a section whose rule
                     // is silently wrong is worse than one whose wording is provisional.
-                    rule = if (compact) "one at a time" else "one ladder at a time",
+                    rule = if (compact) Strings.ruleOneAtATime() else Strings.ruleOneLadderAtATime(),
                 )
                 AdaptationList(
                     ladders = uiState.adaptation,

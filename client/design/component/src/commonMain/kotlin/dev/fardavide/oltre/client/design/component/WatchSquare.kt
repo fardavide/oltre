@@ -12,6 +12,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.icon.WatchBell
@@ -34,7 +35,7 @@ sealed interface WatchUiState {
     // The one row in the whole game holding the affordability watch, and the instant it named. The
     // line is carried here rather than on the row because the two are one fact — a lit square with
     // no instant beside it would be a state the row could get into and could not explain.
-    data class Booked(val affordableAt: String) : WatchUiState
+    data class Booked(val affordableAt: TextRes) : WatchUiState
 
     // A running job whose completion the player asked about. No line, deliberately: the row's own
     // accent line already says when it lands, and repeating it under the price would be the second

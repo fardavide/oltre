@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
@@ -62,17 +63,17 @@ class ResourceRailScreenshotTest {
                             metal = ResourceStockUiState(
                                 stock = 482_910,
                                 lastSeenStock = 482_910,
-                                ratePerHour = "+12,400/h",
+                                ratePerHour = TextRes("+12,400/h"),
                             ),
                             crystal = ResourceStockUiState(
                                 stock = 198_340,
                                 lastSeenStock = 198_340,
-                                ratePerHour = "+6,180/h",
+                                ratePerHour = TextRes("+6,180/h"),
                             ),
                             deuterium = ResourceStockUiState(
                                 stock = 74_120,
                                 lastSeenStock = 74_120,
-                                ratePerHour = "+900/h",
+                                ratePerHour = TextRes("+900/h"),
                             ),
                             throttled = throttled,
                             ),

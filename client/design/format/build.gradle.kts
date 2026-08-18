@@ -27,6 +27,13 @@ kotlin {
     }
 
     sourceSets {
+        commonMain.dependencies {
+            // `api`: every function in this module returns a `TextRes` now, so a consumer cannot
+            // call one without seeing the type. The two modules divide one job — this one decides
+            // *which* numbers to show, the catalogue writes them down — and neither is usable
+            // without the other.
+            api(projects.client.design.text)
+        }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
         }

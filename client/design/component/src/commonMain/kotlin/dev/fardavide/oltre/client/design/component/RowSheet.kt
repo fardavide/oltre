@@ -29,6 +29,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 
 // What a row opens on a tap. The chrome round it is `OltreBottomSheet`, which every sheet in the app
 // shares — the dispatch sheet on the Galaxy tab is the second one a player meets.
@@ -94,7 +97,7 @@ fun RowSheetContent(
 private fun Heading(uiState: RowSheetUiState) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text(
-            text = uiState.name,
+            text = uiState.name.resolve(),
             color = OltreColors.text,
             fontFamily = oltreMono(),
             fontSize = 13.5.sp,
@@ -104,7 +107,7 @@ private fun Heading(uiState: RowSheetUiState) {
         // `FacilityList` and `TechnologyList` each carry their own, because theirs also swaps the
         // number behind a completion sweep and this one has nothing to announce.
         Text(
-            text = "LV ${uiState.level}",
+            text = Strings.levelBadge(uiState.level).resolve(),
             color = OltreColors.textSecondary,
             fontFamily = oltreMono(),
             fontSize = 10.sp,
@@ -119,7 +122,7 @@ private fun Heading(uiState: RowSheetUiState) {
         // Pushed to the far end rather than set under the name: it is the sentence the player has
         // just read on the row, repeated so the sheet answers a question they still have in mind.
         Text(
-            text = uiState.verdict,
+            text = uiState.verdict.resolve(),
             color = OltreColors.textSecondary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -156,8 +159,8 @@ private fun Prose(lines: List<SheetLine>) {
 private fun SheetLine.annotated(): AnnotatedString = buildAnnotatedString {
     for (part in parts) {
         when (part) {
-            is SheetLinePart.Words -> append(part.text)
-            is SheetLinePart.Figure -> withStyle(SpanStyle(color = OltreColors.text)) { append(part.text) }
+            is SheetLinePart.Words -> append(part.text.resolve())
+            is SheetLinePart.Figure -> withStyle(SpanStyle(color = OltreColors.text)) { append(part.text.resolve()) }
         }
     }
 }
@@ -170,14 +173,14 @@ private fun Ladder(steps: List<SheetLadderStep>) {
         for (step in steps) {
             Row {
                 Text(
-                    text = step.level,
+                    text = step.level.resolve(),
                     color = if (step.held) OltreColors.textTertiary else OltreColors.accent,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
                     modifier = Modifier.width(46.dp),
                 )
                 Text(
-                    text = step.opens,
+                    text = step.opens.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
@@ -200,13 +203,13 @@ private fun Pointer(pointer: SheetPointer) {
             .padding(horizontal = 10.dp, vertical = 7.dp),
     ) {
         Text(
-            text = pointer.name,
+            text = pointer.name.resolve(),
             color = OltreColors.text,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
         )
         Text(
-            text = pointer.detail,
+            text = pointer.detail.resolve(),
             color = OltreColors.textSecondary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -237,7 +240,7 @@ private fun Footer(footer: SheetFooter, onAct: () -> Unit, actionModifier: Modif
             ) {
                 for (chip in footer.costs) CostChip(chip = chip)
                 Text(
-                    text = footer.duration,
+                    text = footer.duration.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
@@ -254,7 +257,7 @@ private fun Footer(footer: SheetFooter, onAct: () -> Unit, actionModifier: Modif
 private fun SheetActionButton(action: SheetAction, onAct: () -> Unit, modifier: Modifier) {
     when (action) {
         is SheetAction.Live -> Text(
-            text = action.label,
+            text = action.label.resolve(),
             color = Color.White,
             fontFamily = oltreMono(),
             fontSize = 11.sp,
@@ -269,7 +272,7 @@ private fun SheetActionButton(action: SheetAction, onAct: () -> Unit, modifier: 
         // No disabled state, here or anywhere: a player who wants the level they cannot afford yet
         // is told when, not told no.
         is SheetAction.Ghost -> Text(
-            text = action.label,
+            text = action.label.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 11.sp,
@@ -287,9 +290,9 @@ private fun SheetActionButton(action: SheetAction, onAct: () -> Unit, modifier: 
 // building from a technology would be a feature in the wrong module. `CostChipUiState` next door
 // is the precedent, down to carrying a `:core` enum and nothing else of the game.
 data class RowSheetUiState(
-    val name: String,
+    val name: TextRes,
     val level: Int,
-    val verdict: String,
+    val verdict: TextRes,
     val lines: List<SheetLine>,
     val ladder: List<SheetLadderStep>,
     val pointer: SheetPointer?,
@@ -305,28 +308,28 @@ data class SheetLine(val parts: List<SheetLinePart>)
 
 sealed interface SheetLinePart {
 
-    data class Words(val text: String) : SheetLinePart
+    data class Words(val text: TextRes) : SheetLinePart
 
-    data class Figure(val text: String) : SheetLinePart
+    data class Figure(val text: TextRes) : SheetLinePart
 }
 
 // `held` is computed against the current level rather than written, so "you have this" cannot go
 // stale the moment the level is bought.
-data class SheetLadderStep(val level: String, val opens: String, val held: Boolean)
+data class SheetLadderStep(val level: TextRes, val opens: TextRes, val held: Boolean)
 
-data class SheetPointer(val name: String, val detail: String)
+data class SheetPointer(val name: TextRes, val detail: TextRes)
 
-data class SheetFooter(val costs: List<CostChipUiState>, val duration: String, val action: SheetAction)
+data class SheetFooter(val costs: List<CostChipUiState>, val duration: TextRes, val action: SheetAction)
 
 sealed interface SheetAction {
 
-    data class Live(val label: String) : SheetAction
+    data class Live(val label: TextRes) : SheetAction
 
-    data class Ghost(val label: String) : SheetAction
+    data class Ghost(val label: TextRes) : SheetAction
 }
 
-fun words(text: String): SheetLinePart = SheetLinePart.Words(text)
+fun words(text: TextRes): SheetLinePart = SheetLinePart.Words(text)
 
-fun figure(text: String): SheetLinePart = SheetLinePart.Figure(text)
+fun figure(text: TextRes): SheetLinePart = SheetLinePart.Figure(text)
 
 fun sheetLine(vararg parts: SheetLinePart): SheetLine = SheetLine(parts.toList())

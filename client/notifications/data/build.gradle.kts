@@ -32,6 +32,9 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // `api`: `PendingNotification` carries `TextRes`, and `GameNotifications` takes the
+            // `Translations` that resolves it — both are this module's public surface.
+            api(projects.client.design.text)
             // GameState and FutureEvent are this module's own vocabulary, so they travel with it.
             api(projects.core)
         }

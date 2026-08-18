@@ -39,6 +39,7 @@ kotlin {
             // name both halves and would be re-declaring what this module already exposes.
             api(projects.client.colony.ui)
             implementation(projects.client.design.component)
+            implementation(projects.client.design.text)
             implementation(projects.client.design.format)
 
             implementation(libs.kotlinx.datetime)

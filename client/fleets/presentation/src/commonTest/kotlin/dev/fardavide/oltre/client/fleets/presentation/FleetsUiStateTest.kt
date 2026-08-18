@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
 import dev.fardavide.oltre.client.fleets.ui.RunCardUiState
 import dev.fardavide.oltre.client.fleets.ui.RunPhase
@@ -97,7 +98,7 @@ class FleetsUiStateTest {
 
         // Outbound: counting down to the landing, which is sooner than the whole window.
         val outbound = state.cardAt(EPOCH).countdown
-        assertEquals(secondsAsCountdown(flight.inWholeSeconds), outbound)
+        assertEquals(secondsAsCountdown(flight.inWholeSeconds), English.resolve(outbound))
     }
 
     @Test
@@ -105,20 +106,20 @@ class FleetsUiStateTest {
         val state = dispatch(window = 3.hours, hulls = 2)
         val card = state.cardAt(EPOCH)
 
-        assertTrue(card.manifest.startsWith("2 skiffs · "), card.manifest)
-        assertTrue(card.manifest.endsWith(" metal"), card.manifest)
+        assertTrue(English.resolve(card.manifest).startsWith("2 skiffs · "), English.resolve(card.manifest))
+        assertTrue(English.resolve(card.manifest).endsWith(" metal"), English.resolve(card.manifest))
     }
 
     @Test
     fun `one hull is a skiff rather than one skiffs`() {
-        assertTrue(dispatch(window = 3.hours, hulls = 1).cardAt(EPOCH).manifest.startsWith("1 skiff · "))
+        assertTrue(English.resolve(dispatch(window = 3.hours, hulls = 1).cardAt(EPOCH).manifest).startsWith("1 skiff · "))
     }
 
     @Test
     fun `the heading counts what is away against what is owned`() {
         val state = fleetOf(3).dispatchWith(hulls = 2, window = 3.hours)
 
-        assertEquals("2 of 3 away", state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).away)
+        assertEquals("2 of 3 away", English.resolve(state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).away))
     }
 
     @Test
@@ -133,7 +134,10 @@ class FleetsUiStateTest {
         val cards = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs
 
         assertEquals(2, cards.size)
-        assertTrue(cards[0].countdown <= cards[1].countdown, cards.map { it.countdown }.toString())
+        assertTrue(
+            English.resolve(cards[0].countdown) <= English.resolve(cards[1].countdown),
+            cards.map { English.resolve(it.countdown) }.toString(),
+        )
     }
 
     // ── The ledger ──────────────────────────────────────────────────────────────────────────
@@ -149,7 +153,7 @@ class FleetsUiStateTest {
 
         assertTrue(fresh.runs.isEmpty())
         assertNull(fresh.worked, "a heading over nothing claims a history that is not there")
-        assertEquals("0 of 1 away", fresh.away)
+        assertEquals("0 of 1 away", English.resolve(fresh.away))
     }
 
     @Test

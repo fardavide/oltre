@@ -3,6 +3,8 @@ package dev.fardavide.oltre.client
 import dev.fardavide.oltre.client.colony.presentation.compactName
 import dev.fardavide.oltre.client.colony.presentation.displayName
 import dev.fardavide.oltre.client.research.presentation.displayName
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.WatchTarget
 
 // "watching Metal Mine" — the clause both destinations print beside their section heading, and the
@@ -22,10 +24,12 @@ import dev.fardavide.oltre.core.WatchTarget
 // Factory "Robotics", so a heading still reading "watching Robotics Factory" would be naming a row
 // by a name that is nowhere on the screen. Taking `compact` is what keeps "the rows' own" true at
 // both widths rather than only at one.
-internal fun WatchTarget.watchingLabel(compact: Boolean): String = when (this) {
-    is WatchTarget.Facility -> "watching ${if (compact) building.compactName() else building.displayName()}"
-    // Every technology and every ladder is one word already, so neither branch has a narrow form to
-    // pick between — the compact rule is a facility's alone.
-    is WatchTarget.Project -> "watching ${technology.displayName()}"
-    is WatchTarget.Ladder -> "watching ${technology.displayName()}"
-}
+internal fun WatchTarget.watchingLabel(compact: Boolean): TextRes = Strings.watching(
+    when (this) {
+        is WatchTarget.Facility -> if (compact) building.compactName() else building.displayName()
+        // Every technology and every ladder is one word already, so neither branch has a narrow form
+        // to pick between — the compact rule is a facility's alone.
+        is WatchTarget.Project -> technology.displayName()
+        is WatchTarget.Ladder -> technology.displayName()
+    },
+)

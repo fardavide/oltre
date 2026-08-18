@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.SectionLabel
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
@@ -71,7 +73,7 @@ fun FleetsPage(
                     .testTag(FleetsTestTags.CONTENT)
                     .padding(16.dp),
             ) {
-                SectionLabel(text = "IN FLIGHT", rule = uiState.away)
+                SectionLabel(text = Strings.fleetsHeading(), rule = uiState.away)
                 if (uiState.runs.isEmpty()) {
                     // **The one state on this screen with no frame behind it**, and it is drawn in the
                     // idiom the Shipyard's footnote already spends rather than invented: a muted
@@ -82,7 +84,7 @@ fun FleetsPage(
                     //
                     // PLACEHOLDER copy, like every string in the app.
                     Text(
-                        text = "Nothing is out. A run starts from a world on the Galaxy tab.",
+                        text = Strings.fleetsNothingOut().resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,

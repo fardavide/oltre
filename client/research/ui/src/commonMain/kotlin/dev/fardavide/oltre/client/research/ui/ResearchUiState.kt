@@ -4,6 +4,8 @@ import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
@@ -42,7 +44,7 @@ data class ResearchUiState(
     // watch is one slot shared with the colony, so this names a facility as readily as a technology
     // — and it is handed in for the same reason the Colony screen's copy is: what a facility is
     // called belongs to the screen that draws facilities.
-    val watching: String?,
+    val watching: TextRes?,
 )
 
 // Which project landed between the instant the save was written and the instant the app came back.
@@ -57,7 +59,7 @@ sealed interface FinishedWhileAway {
 
 data class TechnologyRowUiState(
     val technology: Technology,
-    val name: String,
+    val name: TextRes,
     val level: TechLevel,
     // No longer drawn on the card — the verdict took that line, because two lines of numbers about
     // the same level is where a dense row becomes an unreadable one. It is still carried, because
@@ -68,7 +70,7 @@ data class TechnologyRowUiState(
     // there is no next level to price.
     val verdict: VerdictUiState?,
     val costs: List<CostChipUiState>,
-    val duration: String,
+    val duration: TextRes,
     val action: ResearchActionUiState,
     // What the card body opens: the arithmetic behind the verdict, the ladder of what the level
     // gates, and the numbers the verdict displaced. Derived here rather than in the screen because
@@ -91,7 +93,7 @@ data class TechnologyRowUiState(
 // to look exactly like a running technology.
 data class AdaptationRowUiState(
     val technology: AdaptationTechnology,
-    val name: String,
+    val name: TextRes,
     val level: TechLevel,
     val effect: EffectUiState,
     // The shortlist wearing the name every row now uses for the same slot. It is derived from the
@@ -99,7 +101,7 @@ data class AdaptationRowUiState(
     // that sentence repeated on the other twelve rows.
     val verdict: VerdictUiState?,
     val costs: List<CostChipUiState>,
-    val duration: String,
+    val duration: TextRes,
     val action: ResearchActionUiState,
     // The counts behind the verdict, which the sheet states as a sentence. Never null on this
     // branch: a ladder that would unlock nothing reports zero rather than going quiet, because
@@ -129,10 +131,10 @@ data class ShortlistUiState(
     // a line that sold the count without this would be selling the ladder on a number the player
     // cannot spend.
     val worthTaking: Int,
-    val label: String,
+    val label: TextRes,
     // 320dp drops the adjective, never a figure. Both counts are what the player is comparing
     // across the three rows, and the effect line above it abbreviates by the same rule.
-    val compactLabel: String,
+    val compactLabel: TextRes,
 )
 
 // What the technology does now and what the next level would make it — both halves, because
@@ -148,9 +150,9 @@ data class EffectUiState(
     // absent on an adaptation row — a tolerance band exists at level 0 where a production bonus
     // does not, which is why Enrichment 0 reads "→ +14%" and Gravitic 0 reads
     // "0.65 … 1.40 → 0.60 … 1.52 g".
-    val current: String?,
-    val next: String,
-    val subject: String,
+    val current: TextRes?,
+    val next: TextRes,
+    val subject: TextRes,
 )
 
 sealed interface ResearchActionUiState {
@@ -158,14 +160,14 @@ sealed interface ResearchActionUiState {
 
     // One number with one meaning: when you can start this. It is the later of "when can I pay
     // for it" and "when does the slot free", and the player never has to know which it was.
-    data class AvailableIn(val label: String) : ResearchActionUiState
-    data class Locked(val reason: String) : ResearchActionUiState
+    data class AvailableIn(val label: TextRes) : ResearchActionUiState
+    data class Locked(val reason: TextRes) : ResearchActionUiState
 
     data class Running(
         val toLevel: TechLevel,
-        val countdown: String,
+        val countdown: TextRes,
         val progressPercent: Int,
-        val doneAt: String,
+        val doneAt: TextRes,
     ) : ResearchActionUiState
 }
 
@@ -176,5 +178,13 @@ sealed interface ResearchActionUiState {
 // **Here rather than one layer up**, unlike the other three mappings this screen makes: both sides
 // are models this module already owns, so nothing about it reads a `GameState`. It is the same call
 // `FacilityRowUiState.toRowSheetUiState` makes on the Colony tab.
+// The accent line a running row carries, authored once and read twice: the card draws it in the
+// "→ becomes" slot and the sheet repeats it where the verdict would have been. **Here rather than
+// inside the composable** — the Colony's own `becomes()` is the same function for the same reason:
+// joining two clauses with the app's separator is a decision about language, and a `ui` module
+// draws rather than decides.
+internal fun ResearchActionUiState.Running.becomes(): TextRes =
+    Strings.clauses(listOf(Strings.becomesLevel(toLevel.value), doneAt))
+
 fun ShortlistUiState.toVerdictUiState(): VerdictUiState =
     VerdictUiState(label = label, compactLabel = compactLabel)

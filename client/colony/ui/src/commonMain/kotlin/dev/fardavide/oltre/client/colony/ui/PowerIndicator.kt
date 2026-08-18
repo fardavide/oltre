@@ -26,6 +26,8 @@ import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.rememberOneShotFill
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 
 // Energy is a ratio between two numbers with a consequence attached, so it gets a length rather
 // than a sentence: a ratio is the one kind of quantity a bar is genuinely better at than a
@@ -53,7 +55,7 @@ fun PowerIndicator(uiState: EnergyUiState, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "POWER",
+                text = Strings.powerHeading().resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -63,7 +65,7 @@ fun PowerIndicator(uiState: EnergyUiState, modifier: Modifier = Modifier) {
             // Amber, never red: red is scoped to the one resource a cost is short of, and a
             // deficit is a state the player occupies most weeks with nothing broken in it.
             Text(
-                text = uiState.verdict,
+                text = uiState.verdict.resolve(),
                 color = if (uiState.deficit) OltreColors.warn else OltreColors.ok,
                 fontFamily = mono,
                 fontSize = 11.sp,
@@ -80,7 +82,7 @@ fun PowerIndicator(uiState: EnergyUiState, modifier: Modifier = Modifier) {
         // are load-bearing; the card growing a line in a deep colony is the cheap side of that
         // trade, and losing the last term silently is not.
         Text(
-            text = uiState.terms,
+            text = uiState.terms.resolve(),
             color = OltreColors.textSecondary,
             fontFamily = mono,
             fontSize = 10.5.sp,

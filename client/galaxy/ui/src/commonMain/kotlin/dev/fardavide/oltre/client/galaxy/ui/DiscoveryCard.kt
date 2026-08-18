@@ -20,6 +20,10 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.world.ui.WorldPortrait
 
@@ -83,7 +87,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                     // whole point of the row: a clipped name is still recognisable and a clipped
                     // address is a different address.
                     Text(
-                        text = uiState.world,
+                        text = uiState.world.resolve(),
                         color = OltreColors.text,
                         fontFamily = oltreMono(),
                         fontSize = if (compact) 13.5.sp else 15.sp,
@@ -97,7 +101,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                     // No leading of its own — it takes the row's, which is what keeps it on the
                     // name's baseline at both title sizes.
                     Text(
-                        text = uiState.coordinate,
+                        text = uiState.coordinate.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -109,7 +113,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                 // The one line in the header block allowed to wrap: an epithet is a phrase rather
                 // than a figure, and clipping it would lose the noun that names the world's kind.
                 Text(
-                    text = uiState.epithet,
+                    text = uiState.epithet.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = oltreMono(),
                     fontSize = 11.sp,
@@ -121,7 +125,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                     // reading — `1.06 g` — arrives already set from `presentation`, so a value and
                     // its unit can never be split across a line.
                     Text(
-                        text = "${uiState.temperature} · ${uiState.gravity} · ${uiState.pressure}",
+                        text = uiState.readings.resolve(),
                         color = OltreColors.text,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -136,9 +140,15 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                     ) {
                         // Three, always, in this order — the same order `WorldPortrait` reads them
                         // in, so the column is a key to the disc beside it.
-                        Axis(label = "temperature", value = uiState.temperature)
-                        Axis(label = "gravity", value = uiState.gravity)
-                        Axis(label = "pressure", value = uiState.pressure)
+                        Axis(
+                            label = Strings.axisName(HostilityAxis.TEMPERATURE),
+                            value = uiState.temperature,
+                        )
+                        Axis(label = Strings.axisName(HostilityAxis.GRAVITY), value = uiState.gravity)
+                        Axis(
+                            label = Strings.axisName(HostilityAxis.PRESSURE),
+                            value = uiState.pressure,
+                        )
                     }
                 }
             }
@@ -153,7 +163,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
             // The verdict sentence, and the only thing on the card written in words rather than
             // read off the world.
             Text(
-                text = uiState.note,
+                text = uiState.note.resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -161,7 +171,7 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
                 modifier = Modifier.weight(1f).alignByBaseline(),
             )
             Text(
-                text = uiState.found,
+                text = uiState.found.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -179,14 +189,14 @@ internal fun DiscoveryCard(uiState: DiscoveryCardUiState, compact: Boolean, modi
 // one disc — so the label is written at the same size and weight as the value it introduces and
 // separated from it by colour alone.
 @Composable
-private fun Axis(label: String, value: String) {
+private fun Axis(label: TextRes, value: TextRes) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         // A hard 74dp that neither grows nor shrinks, measured rather than derived: "temperature"
         // is eleven characters of 10.5sp mono, about 69dp, so the longest of the three fits with
         // room to spare and all three values start on the same x at 320dp as at 393dp. Sized from
         // content instead, the column would move whenever the copy did.
         Text(
-            text = label,
+            text = label.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -196,7 +206,7 @@ private fun Axis(label: String, value: String) {
             modifier = Modifier.width(74.dp).alignByBaseline(),
         )
         Text(
-            text = value,
+            text = value.resolve(),
             color = OltreColors.text,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,

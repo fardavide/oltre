@@ -119,6 +119,24 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // The other half of the discovery card, and the half that had no baseline: one world found
+    // rather than several, so the card states its three readings as a labelled column instead of
+    // collapsing them onto one line. Which form is drawn is `discoveries.size > 1`, so the two are
+    // one tap of a probe apart and a player meets both.
+    @Test
+    fun `one world found overnight is a labelled column`() {
+        capture(
+            width = 393,
+            height = 1000,
+            uiState = frame(
+                state = justSurveyedOneWorldState,
+                view = GalaxyView.WORLDS,
+                seenAt = JUST_SURVEYED_SINCE,
+            ),
+            name = "galaxy_ledger_discovery_single",
+        )
+    }
+
     @Test
     fun `search returns one place`() {
         val name = wellTravelledState.let { state ->

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Technology
@@ -16,7 +17,7 @@ class WatchingTest {
     fun `a watched facility is named the way its own row names it`() {
         assertEquals(
             "watching Metal Mine",
-            WatchTarget.Facility(BuildingType.METAL_MINE).watchingLabel(compact = false),
+            English.resolve(WatchTarget.Facility(BuildingType.METAL_MINE).watchingLabel(compact = false)),
         )
     }
 
@@ -26,7 +27,7 @@ class WatchingTest {
     fun `a long facility name keeps the row's abbreviation`() {
         assertEquals(
             "watching Deuterium Synth.",
-            WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = false),
+            English.resolve(WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = false)),
         )
     }
 
@@ -36,11 +37,11 @@ class WatchingTest {
     fun `the one facility whose row shortens is named the short way in a narrow window`() {
         assertEquals(
             "watching Robotics",
-            WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = true),
+            English.resolve(WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = true)),
         )
         assertEquals(
             "watching Robotics Factory",
-            WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = false),
+            English.resolve(WatchTarget.Facility(BuildingType.ROBOTICS_FACTORY).watchingLabel(compact = false)),
         )
     }
 
@@ -49,7 +50,7 @@ class WatchingTest {
     fun `a name that fits at both widths is the same string twice`() {
         assertEquals(
             "watching Deuterium Synth.",
-            WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = true),
+            English.resolve(WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER).watchingLabel(compact = true)),
         )
     }
 
@@ -57,7 +58,7 @@ class WatchingTest {
     fun `a watched technology is named from the screen that draws technologies`() {
         assertEquals(
             "watching Extraction",
-            WatchTarget.Project(Technology.EXTRACTION).watchingLabel(compact = false),
+            English.resolve(WatchTarget.Project(Technology.EXTRACTION).watchingLabel(compact = false)),
         )
     }
 
@@ -67,7 +68,7 @@ class WatchingTest {
     fun `a watched ladder drops the trailing noun its rows drop`() {
         assertEquals(
             "watching Gravitic",
-            WatchTarget.Ladder(AdaptationTechnology.GRAVITIC).watchingLabel(compact = false),
+            English.resolve(WatchTarget.Ladder(AdaptationTechnology.GRAVITIC).watchingLabel(compact = false)),
         )
     }
 }

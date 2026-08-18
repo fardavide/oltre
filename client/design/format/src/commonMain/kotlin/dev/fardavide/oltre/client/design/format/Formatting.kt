@@ -1,8 +1,10 @@
 package dev.fardavide.oltre.client.design.format
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import kotlin.time.Duration
 
-// How the game writes numbers and durations to the player. Not tokens and not components — no
+// How the game measures numbers and durations for the player. Not tokens and not components — no
 // Compose reaches this file, which is why it is its own module rather than a corner of one that
 // needs the compiler plugin to build.
 //
@@ -11,13 +13,21 @@ import kotlin.time.Duration
 // is what turns that from a promise into something the compiler keeps: a check-in reads three
 // screens in a row, and a duration that is written two ways across them reads as two different
 // kinds of wait.
+//
+// **Every function here returns a `TextRes` and none of them returns a `String`, since #86.** The
+// split that arrived with the catalogue runs straight through this module and is worth stating,
+// because it is the reason the file still exists: *deciding which numbers to show is arithmetic, and
+// writing them down is language.* Rounding a duration up so a chip never reads 0m, choosing days
+// over hours past the day boundary, carrying a rounded fraction into the whole part — all of that is
+// the same in every language and stays here. The unit letters, the padding, the thousands separator
+// and the decimal point are English's, and moved to `Translations`.
 
 // Mockup style: "1h 04m" / "42m"; sub-minute durations round up so a chip never reads 0m.
-fun Duration.toChipLabel(): String {
-    val totalMinutes = (inWholeSeconds + 59) / 60
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return if (hours > 0) "${hours}h ${minutes.toString().padStart(2, '0')}m" else "${minutes}m"
+fun Duration.toChipLabel(): TextRes {
+    val totalMinutes = (inWholeSeconds + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
+    val hours = totalMinutes / MINUTES_PER_HOUR
+    val minutes = totalMinutes % MINUTES_PER_HOUR
+    return if (hours > 0) Strings.durationHoursMinutes(hours, minutes) else Strings.durationMinutes(minutes)
 }
 
 // How long until a level has paid for itself, which is a different kind of duration from every
@@ -28,10 +38,13 @@ fun Duration.toChipLabel(): String {
 // four days, and "102h 14m" is false precision on a number nobody will hold in their head. There is
 // deliberately no day unit — the brief writes a 186-hour build as 186 hours, and hours stay
 // comparable against each other all the way up where "4d 6h" against "1h 42m" does not.
-fun Duration.toPaybackLabel(): String =
-    if (inWholeHours < HOURS_PER_DAY) toChipLabel() else "${inWholeHours}h"
+fun Duration.toPaybackLabel(): TextRes =
+    if (inWholeHours < HOURS_PER_DAY) toChipLabel() else Strings.durationHours(inWholeHours)
 
 private const val HOURS_PER_DAY: Int = 24
+private const val MINUTES_PER_HOUR: Int = 60
+private const val SECONDS_PER_MINUTE: Int = 60
+private const val SECONDS_PER_HOUR: Int = 3_600
 
 // ── How long until a world is worth visiting again ───────────────────────────────────────────
 //
@@ -46,12 +59,11 @@ private const val HOURS_PER_DAY: Int = 24
 // compared with anything — it answers "come back when?" once — so at eighteen days "18d 13h" is the
 // readable form and "445h" is arithmetic homework.
 //
-// The hour is zero-padded so a column of these stays tabular; the day never is, because "04d" reads
-// like a countdown to a launch rather than a wait. Below a day this is `toChipLabel`, and below an
-// hour it is the running countdown — which is the tier the mechanic actually spends most of its time
-// in, since a 1,450 vein puts a whole unit back every twenty minutes.
-fun Duration.toWaitLabel(): String = when {
-    inWholeHours >= HOURS_PER_DAY -> "${inWholeDays}d ${(inWholeHours % HOURS_PER_DAY).toInt().pad2()}h"
+// Below a day this is `toChipLabel`, and below an hour it is the running countdown — which is the
+// tier the mechanic actually spends most of its time in, since a 1,450 vein puts a whole unit back
+// every twenty minutes.
+fun Duration.toWaitLabel(): TextRes = when {
+    inWholeHours >= HOURS_PER_DAY -> Strings.durationDaysHours(inWholeDays, inWholeHours % HOURS_PER_DAY)
     inWholeHours >= 1 -> toChipLabel()
     // Ceiled to the second for `toChipLabel`'s own reason: a wait reading 00:00:00 claims a thing has
     // already happened, and this one has not.
@@ -60,17 +72,14 @@ fun Duration.toWaitLabel(): String = when {
 
 private const val MILLIS_PER_SECOND: Long = 1_000
 
-// Zero-padded and always three fields, so a countdown never changes width as it runs down.
-fun Long.toCountdown(): String {
-    val hours = this / 3600
-    val minutes = this % 3600 / 60
-    val seconds = this % 60
-    return "${hours.pad2()}:${minutes.pad2()}:${seconds.pad2()}"
-}
-
-// Public for the wall-clock times a row prints next to its countdown ("done 11:23"), which come
-// from a `LocalDateTime` and are therefore Int.
-fun Int.pad2(): String = toString().padStart(2, '0')
+// Three fields, so a countdown never changes width as it runs down — and hours carry past a day
+// rather than wrapping, which is why this takes seconds rather than a `Duration`'s day part.
+fun Long.toCountdown(): TextRes =
+    Strings.countdown(
+        hours = this / SECONDS_PER_HOUR,
+        minutes = this % SECONDS_PER_HOUR / SECONDS_PER_MINUTE,
+        seconds = this % SECONDS_PER_MINUTE,
+    )
 
 // "→ affordable 19:51" — the one line a watched row adds, and the same line whether the row is a
 // facility, a technology or an adaptation ladder. Here rather than in either mapper for the reason
@@ -79,13 +88,10 @@ fun Int.pad2(): String = toString().padStart(2, '0')
 // two sentences waiting to drift.
 //
 // Takes the clock fields rather than an instant, so this module still needs no date library — the
-// caller has a `LocalDateTime` already, which is where `pad2` above came from too.
-fun watchedAtLabel(hour: Int, minute: Int): String = "→ affordable ${hour.pad2()}:${minute.pad2()}"
+// caller has a `LocalDateTime` already.
+fun watchedAtLabel(hour: Int, minute: Int): TextRes = Strings.watchedAt(hour = hour, minute = minute)
 
-private fun Long.pad2(): String = toString().padStart(2, '0')
-
-fun Long.groupedByThousands(): String =
-    toString().reversed().chunked(3).joinToString(",").reversed()
+fun Long.groupedByThousands(): TextRes = Strings.groupedNumber(this)
 
 // ── The three physical quantities the galaxy is measured in ──────────────────────────────────
 //
@@ -95,17 +101,17 @@ fun Long.groupedByThousands(): String =
 // 1.52 g") — and the second is only readable against the first if they are written identically.
 // One implementation is what makes that true by construction rather than by two comments agreeing.
 
-// A true minus sign rather than a hyphen, matching the design. Every screen in this app is numbers
-// in a mono face, and a hyphen at this size reads as a dash between two figures.
-fun Int.signed(): String = if (this < 0) "−${-this}" else "+$this"
+// A true minus sign rather than a hyphen, matching the design — English's business, not this
+// module's, but the *choice to sign at all* is the reading and belongs to the caller.
+fun Int.signed(): TextRes = Strings.signed(this)
 
 // Two decimal places, which is what keeps a blocked line's four numbers on one row at 393dp. The
 // scale is named by the caller rather than guessed from the magnitude: milli-g and parts-per-million
 // overlap in range, so a formatter that sniffed which it had been given would be right until the
 // day a world had a gravity of 0.15 g and a richness of 0.15.
-fun Int.milli(): String = decimalOf(scale = 1_000)
+fun Int.milli(): TextRes = decimalOf(scale = MILLI, trimTrailingZeros = false)
 
-fun Int.perMillion(): String = decimalOf(scale = 1_000_000)
+fun Int.perMillion(): TextRes = decimalOf(scale = PER_MILLION, trimTrailingZeros = false)
 
 // The same quantity with the zeros it does not need taken off — "0.50" becomes "0.5", "0.44" stays.
 //
@@ -118,15 +124,23 @@ fun Int.perMillion(): String = decimalOf(scale = 1_000_000)
 // Deliberately *not* applied to gravity or to the Galaxy screen's readings: those fit at both
 // widths, and a column of "1.4" over "0.65" stops being a column in a tabular face. That the two
 // axes therefore print differently is the design's call, not an accident — see `decisions.md`.
-fun Int.milliTrimmed(): String = milli().trimEnd('0').trimEnd('.')
+fun Int.milliTrimmed(): TextRes = decimalOf(scale = MILLI, trimTrailingZeros = true)
+
+private const val MILLI: Int = 1_000
+private const val PER_MILLION: Int = 1_000_000
+private const val HUNDREDTHS: Int = 100
 
 // Rounded half up rather than truncated, matching `ResearchBalance.effectPercent`: a pressure of
 // 0.016 atm reading as "0.01" understates a number the player is comparing against a band.
-private fun Int.decimalOf(scale: Int): String {
-    val magnitude = if (this < 0) -this else this
-    val sign = if (this < 0) "−" else ""
-    val hundredths = (magnitude % scale * 100 + scale / 2) / scale
-    // Rounding 0.999 up carries into the whole part, which the two halves have to agree about.
-    val whole = magnitude / scale + hundredths / 100
-    return "$sign$whole.${(hundredths % 100).toString().padStart(2, '0')}"
+//
+// The rounding is the whole of what this function does now — where the point goes and whether the
+// zeros survive it are `Translations`'.
+private fun Int.decimalOf(scale: Int, trimTrailingZeros: Boolean): TextRes {
+    val magnitude = if (this < 0) -toLong() else toLong()
+    val hundredths = (magnitude * HUNDREDTHS + scale / 2) / scale
+    return Strings.decimal(
+        scaled = if (this < 0) -hundredths else hundredths,
+        decimals = 2,
+        trimTrailingZeros = trimTrailingZeros,
+    )
 }

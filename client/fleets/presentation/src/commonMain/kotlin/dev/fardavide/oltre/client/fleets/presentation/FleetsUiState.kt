@@ -1,9 +1,10 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
@@ -41,7 +42,7 @@ fun GameState.toFleetsUiState(
     val owned = ownedShips().total
     val away = owned - ships.total
     return FleetsUiState(
-        away = "$away of $owned away",
+        away = Strings.fleetsAwayOf(away = away, owned = owned),
         // Sorted by the moment the card is counting down to rather than by the list's order — `runs`
         // is unordered on `GameState` for the reason `advance` sorts its arrivals on an intrinsic
         // key, and a list whose order depended on the sequence of taps that produced it is one a
@@ -66,19 +67,28 @@ private fun FleetRun.toCard(home: GalaxyCoordinate, now: Instant, timeZone: Time
     val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val landsLocal = returnsAt.toLocalDateTime(timeZone)
     val composition = ShipType.entries
-        .mapNotNull { type -> ships.counts[type]?.let { count -> "$count ${type.displayName(count)}" } }
-        .joinToString(SEPARATOR)
+        .mapNotNull { type -> ships.counts[type]?.let { count -> Strings.ships(count, type) } }
     return RunCardUiState(
         coordinate = target.label(),
-        manifest = "$composition$SEPARATOR${cargo.of(gathering).groupedByThousands()} ${gathering.label()}",
+        manifest = Strings.clauses(
+            composition + Strings.amountOfResource(cargo.of(gathering).groupedByThousands(), gathering),
+        ),
         // Ceiled, so a countdown only reads 00:00:00 once the moment it names has actually passed —
         // the same rule every other countdown in the app follows.
         countdown = ((remainingMs + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND).toCountdown(),
-        lands = "home ${landsLocal.hour.pad2()}:${landsLocal.minute.pad2()}",
-        legs = "out ${flight.toChipLabel()}$SEPARATOR" +
-            "on station ${station.toChipLabel()}$SEPARATOR" +
-            "home ${flight.toChipLabel()}",
-        compactLegs = "${flight.toChipLabel()}$SEPARATOR${station.toChipLabel()}$SEPARATOR${flight.toChipLabel()}",
+        lands = Strings.homeAt(hour = landsLocal.hour, minute = landsLocal.minute),
+        legs = Strings.clauses(
+            listOf(
+                Strings.legOut(flight.toChipLabel()),
+                Strings.legOnStation(station.toChipLabel()),
+                Strings.legHome(flight.toChipLabel()),
+            ),
+        ),
+        // The compact form drops the words and keeps the three figures in the same order, which is
+        // the same call the dispatch sheet's own legs line makes one width down.
+        compactLegs = Strings.clauses(
+            listOf(flight.toChipLabel(), station.toChipLabel(), flight.toChipLabel()),
+        ),
         phase = when {
             now < onStationAt -> RunPhase.OUTBOUND
             now < inboundAt -> RunPhase.ON_STATION
@@ -110,27 +120,12 @@ private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant 
     return if (now < onStation) onStation else returnsAt
 }
 
-private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
-
-private fun ShipType.displayName(count: Int): String = when (this) {
-    ShipType.SKIFF -> if (count == 1) "skiff" else "skiffs"
-    ShipType.HAULER -> if (count == 1) "hauler" else "haulers"
-    ShipType.ESCORT -> if (count == 1) "escort" else "escorts"
-    ShipType.SETTLER -> if (count == 1) "settler" else "settlers"
-}
-
-private fun ResourceKind.label(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}
+private fun GalaxyCoordinate.label(): TextRes = Strings.coordinate(galaxy, system, slot)
 
 private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal
     ResourceKind.CRYSTAL -> crystal
     ResourceKind.DEUTERIUM -> deuterium
 }
-
-private const val SEPARATOR = " · "
 
 private const val MILLIS_PER_SECOND: Long = 1_000

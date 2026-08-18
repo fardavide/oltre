@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -260,7 +261,7 @@ class LedgerBehaviourTest {
             // ...and the world is still in the ledger. What expired is the announcement, not the
             // reading — asked for by coordinate because that is the row's key and it is unique where
             // a name shared with a discovery card would not be.
-            assertTheLedgerLists(foundWorld.at.label())
+            assertTheLedgerLists(English.resolve(foundWorld.at.label()))
         }
     }
 
@@ -343,7 +344,7 @@ class LedgerBehaviourTest {
                 pairs.first { (_, candidate) -> pairs.count { candidate in it.second } > 1 }
             }
         val ambiguousName: String = ambiguous.second
-        val ambiguousAddress: String = ambiguous.first.label()
+        val ambiguousAddress: String = English.resolve(ambiguous.first.label())
 
         // The farthest world pinned, and nothing else changed.
         val pinnedFarthest: GameState = wellTravelledState.let { state ->

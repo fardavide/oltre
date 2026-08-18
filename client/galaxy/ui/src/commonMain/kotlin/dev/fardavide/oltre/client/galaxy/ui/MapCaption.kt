@@ -24,6 +24,7 @@ import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.settlingColor
 
@@ -77,7 +78,7 @@ internal fun MapCaption(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(
-                    text = uiState.system,
+                    text = uiState.system.resolve(),
                     color = OltreColors.text,
                     fontFamily = oltreMono(),
                     fontSize = 13.5.sp,
@@ -86,9 +87,13 @@ internal fun MapCaption(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f, fill = false),
                 )
-                if (uiState.coordinate.isNotEmpty()) {
+                // A galaxy's caption has no address inside itself, so the resolved line is empty
+                // and there is nothing to draw — checked on the resolved string, because whether a
+                // message is empty is the language's answer rather than the model's.
+                val coordinate = uiState.coordinate.resolve()
+                if (coordinate.isNotEmpty()) {
                     Text(
-                        text = uiState.coordinate,
+                        text = coordinate,
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -98,7 +103,7 @@ internal fun MapCaption(
                 }
             }
             Text(
-                text = if (compact) uiState.compactMeta else uiState.meta,
+                text = (if (compact) uiState.compactMeta else uiState.meta).resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -123,7 +128,7 @@ internal fun MapCaption(
                 // about one system. Here it sits beside a name that is already accented by being
                 // selected, and two solid accents in one bar is the screen shouting at itself.
                 Text(
-                    text = trailing.label,
+                    text = trailing.label.resolve(),
                     color = OltreColors.accent,
                     fontFamily = oltreMono(),
                     fontSize = 11.sp,
@@ -135,7 +140,7 @@ internal fun MapCaption(
             }
 
             is MapCaptionTrailingUiState.Note -> Text(
-                text = trailing.label,
+                text = trailing.label.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,

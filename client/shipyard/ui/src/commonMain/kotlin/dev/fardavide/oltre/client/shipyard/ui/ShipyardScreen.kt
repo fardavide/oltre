@@ -21,6 +21,8 @@ import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.core.ShipType
 
 // **Two of five tabs said "nothing here yet" and this is one of them.** `fleet-sheet.md` §8 names
@@ -60,7 +62,7 @@ fun ShipyardScreen(
             // The fleet as one number, in the slot Research spends on its slot rule. It is the only
             // reading on this screen that is about the fleet rather than about a hull, which is
             // exactly why it belongs on the heading rather than on a card.
-            SectionLabel(text = "HULLS", rule = uiState.fleet)
+            SectionLabel(text = Strings.shipyardHeading(), rule = uiState.fleet)
             HullList(hulls = uiState.hulls, onBuild = onBuild)
             // The sentence that has to exist at one hull, and the one thing on this screen arguing
             // against the purchase it is offering. What it is bought for is that it pays in the
@@ -73,9 +75,7 @@ fun ShipyardScreen(
             //
             // PLACEHOLDER copy, like every string in the app: content is Davide's.
             Text(
-                text = "Every hull costs the same, and the yard builds one at a time. A Metal Mine " +
-                    "level returns more per unit spent — the fleet is bought because it pays in the " +
-                    "resource you choose, not because it pays better.",
+                text = Strings.shipyardNote().resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -87,7 +87,7 @@ fun ShipyardScreen(
                 // branches on Research, which is what the system already spends to mean "different
                 // subject". Not a divider: these are one list of hulls with a seam in it.
                 Spacer(modifier = Modifier.height(22.dp))
-                SectionLabel(text = "NOT YET BUILT")
+                SectionLabel(text = Strings.shipyardNotYetBuiltHeading())
                 ComingHullList(hulls = uiState.comingHulls)
             }
         }

@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.research.ui
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.component.SheetAction
@@ -42,7 +44,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             verdict = surplusVerdict(),
             costs = costs(metal = "300", crystal = "150", deuterium = "100", short = null),
             duration = "1h 00m",
-            action = ResearchActionUiState.Locked("Requires Robotics 1"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Robotics 1")),
             watch = null,
         ),
         technologyRow(
@@ -53,7 +55,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             verdict = outputVerdict(ResourceKind.METAL, from = 90, to = 97, payback = 1_090.minutes),
             costs = costs(metal = "600", crystal = "400", deuterium = "200", short = null),
             duration = "1h 30m",
-            action = ResearchActionUiState.Locked("Requires Robotics 1"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Robotics 1")),
             watch = null,
         ),
         technologyRow(
@@ -64,7 +66,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             verdict = outputVerdict(ResourceKind.DEUTERIUM, from = 15, to = 17, payback = 2_500.minutes),
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 30m",
-            action = ResearchActionUiState.Locked("Requires Extraction 3"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 3")),
             watch = null,
         ),
         technologyRow(
@@ -75,7 +77,7 @@ internal val beforeTheGateUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
-            action = ResearchActionUiState.Locked("Requires Extraction 1"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
     ),
@@ -111,7 +113,7 @@ internal val nothingRunningUiState = ResearchUiState(
             verdict = outputVerdict(ResourceKind.METAL, from = 320, to = 345, payback = 6_000.minutes),
             costs = costs(metal = "1,350", crystal = "900", deuterium = "450", short = ResourceKind.DEUTERIUM),
             duration = "3h 53m",
-            action = ResearchActionUiState.AvailableIn("in 1h 45m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 1h 45m")),
             watch = WatchUiState.Offered,
         ),
         technologyRow(
@@ -122,7 +124,7 @@ internal val nothingRunningUiState = ResearchUiState(
             verdict = outputVerdict(ResourceKind.DEUTERIUM, from = 29, to = 33, payback = 12_500.minutes),
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "2h 10m",
-            action = ResearchActionUiState.Locked("Requires Extraction 3"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 3")),
             watch = null,
         ),
         technologyRow(
@@ -133,7 +135,7 @@ internal val nothingRunningUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
-            action = ResearchActionUiState.Locked("Requires Extraction 1"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
     ),
@@ -173,7 +175,7 @@ internal val gateOpenUiState = ResearchUiState(
             verdict = extractionAtNine(),
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.METAL),
             duration = "5h 41m",
-            action = ResearchActionUiState.AvailableIn("in 1h 16m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 1h 16m")),
             watch = WatchUiState.Offered,
         ),
         technologyRow(
@@ -195,7 +197,7 @@ internal val gateOpenUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
-            action = ResearchActionUiState.Locked("Requires Extraction 1"),
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
     ),
@@ -219,7 +221,7 @@ internal val gateOpenUiState = ResearchUiState(
             costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = ResourceKind.METAL),
             duration = "3h 02m",
             shortlist = shortlist(unlocks = 5, worthTaking = 1),
-            action = ResearchActionUiState.AvailableIn("in 36m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 36m")),
             watch = WatchUiState.Offered,
         ),
         adaptationRow(
@@ -297,9 +299,9 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             duration = "3h 02m",
             action = ResearchActionUiState.Running(
                 toLevel = TechLevel(4),
-                countdown = "01:12:44",
+                countdown = TextRes("01:12:44"),
                 progressPercent = 60,
-                doneAt = "done 11:23",
+                doneAt = TextRes("done 11:23"),
             ),
             watch = WatchUiState.Offered,
         ),
@@ -311,7 +313,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             verdict = extractionAtNine(),
             costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.DEUTERIUM),
             duration = "5h 41m",
-            action = ResearchActionUiState.AvailableIn("in 3h 55m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 3h 55m")),
             watch = WatchUiState.Offered,
         ),
         technologyRow(
@@ -322,7 +324,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             verdict = enrichmentAtNine(),
             costs = costs(metal = "500", crystal = "700", deuterium = "200", short = null),
             duration = "1h 54m",
-            action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 1h 13m")),
             watch = null,
         ),
         technologyRow(
@@ -333,7 +335,7 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
-            action = ResearchActionUiState.AvailableIn("in 1h 13m"),
+            action = ResearchActionUiState.AvailableIn(TextRes("in 1h 13m")),
             watch = null,
         ),
     ),
@@ -361,14 +363,14 @@ internal val oneLadderInFlightUiState = gateOpenUiState.copy(
                 verdict = null,
                 action = ResearchActionUiState.Running(
                     toLevel = TechLevel(1),
-                    countdown = "02:30:00",
+                    countdown = TextRes("02:30:00"),
                     progressPercent = 18,
-                    doneAt = "done 14:05",
+                    doneAt = TextRes("done 14:05"),
                 ),
                 watch = WatchUiState.Offered,
             )
         } else {
-            row.copy(action = ResearchActionUiState.AvailableIn("in 2h 30m"), watch = null)
+            row.copy(action = ResearchActionUiState.AvailableIn(TextRes("in 2h 30m")), watch = null)
         }
     },
     // Every applied row affordable, which is what makes the assertion about the seam a clean one:
@@ -386,9 +388,9 @@ internal val oneLadderInFlightUiState = gateOpenUiState.copy(
 // what it asserts is a *difference* — spelled out in full it would be a second copy of eleven rows
 // that could drift from the frame it is supposed to be compared against.
 internal val watchedUiState = gateOpenUiState.copy(
-    watching = "watching Gravitic",
+    watching = TextRes("watching Gravitic"),
     adaptation = gateOpenUiState.adaptation.map { row ->
-        if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 12:55"))
+        if (row.watch == null) row else row.copy(watch = WatchUiState.Booked(TextRes("→ affordable 12:55")))
     },
 )
 
@@ -413,34 +415,34 @@ internal val subscribedUiState = oneProjectInFlightUiState.copy(
 // has to be able to show its arithmetic, or the player is being told no without being told why. It
 // is also the only shape that carries a pointer at a row it can buy instead.
 internal val inertSheetUiState = RowSheetUiState(
-    name = "Photovoltaics",
+    name = TextRes("Photovoltaics"),
     level = 2,
     verdict = surplusVerdict().label,
     lines = listOf(
         sheetLine(
-            words("Your plants supply "),
-            figure("550"),
-            words(" energy. The colony draws "),
-            figure("380"),
-            words("."),
+            words(TextRes("Your plants supply ")),
+            figure(TextRes("550")),
+            words(TextRes(" energy. The colony draws ")),
+            figure(TextRes("380")),
+            words(TextRes(".")),
         ),
         sheetLine(
-            words("Photovoltaics multiplies supply, and supply is not what is limiting you. At "),
-            figure("+33%"),
-            words(" your output does not move."),
+            words(TextRes("Photovoltaics multiplies supply, and supply is not what is limiting you. At ")),
+            figure(TextRes("+33%")),
+            words(TextRes(" your output does not move.")),
         ),
         sheetLine(
-            words("It starts to pay when draw passes supply — about "),
-            figure("17"),
-            words(" more mine levels away."),
+            words(TextRes("It starts to pay when draw passes supply — about ")),
+            figure(TextRes("17")),
+            words(TextRes(" more mine levels away.")),
         ),
     ),
     ladder = emptyList(),
-    pointer = SheetPointer(name = "Enrichment", detail = "LV 1 · back in 138h"),
+    pointer = SheetPointer(name = TextRes("Enrichment"), detail = TextRes("LV 1 · back in 138h")),
     footer = SheetFooter(
         costs = costs(metal = "675", crystal = "338", deuterium = "225", short = null),
-        duration = "2h 17m",
-        action = SheetAction.Live("Research"),
+        duration = TextRes("2h 17m"),
+        action = SheetAction.Live(TextRes("Research")),
     ),
 )
 
@@ -448,36 +450,36 @@ internal val inertSheetUiState = RowSheetUiState(
 // on it — and the row is past the rung, which is what puts the aside on it. Its heading carries the
 // verdict's *first clause only*, because the second is what the ladder below already says.
 internal val gatedSheetUiState = RowSheetUiState(
-    name = "Extraction",
+    name = TextRes("Extraction"),
     level = 4,
     verdict = extractionAtNine().compactLabel,
     lines = listOf(
         sheetLine(
-            words("metal · crystal output: "),
-            figure("+36%"),
-            words(" → "),
-            figure("+47%"),
-            words("."),
+            words(TextRes("metal · crystal output: ")),
+            figure(TextRes("+36%")),
+            words(TextRes(" → ")),
+            figure(TextRes("+47%")),
+            words(TextRes(".")),
         ),
         sheetLine(
-            words("Your colony makes "),
-            figure("730/h"),
-            words(" metal and would make "),
-            figure("789/h"),
-            words("."),
+            words(TextRes("Your colony makes ")),
+            figure(TextRes("730/h")),
+            words(TextRes(" metal and would make ")),
+            figure(TextRes("789/h")),
+            words(TextRes(".")),
         ),
         sheetLine(
-            words("Counted against everything the level costs, you are even after "),
-            figure("96h"),
-            words("."),
+            words(TextRes("Counted against everything the level costs, you are even after ")),
+            figure(TextRes("96h")),
+            words(TextRes(".")),
         ),
     ),
-    ladder = listOf(SheetLadderStep(level = "LV 3", opens = "Enrichment · you have this", held = true)),
+    ladder = listOf(SheetLadderStep(level = TextRes("LV 3"), opens = TextRes("Enrichment · you have this"), held = true)),
     pointer = null,
     footer = SheetFooter(
         costs = costs(metal = "3,038", crystal = "2,025", deuterium = "1,013", short = ResourceKind.METAL),
-        duration = "5h 41m",
-        action = SheetAction.Ghost("in 1h 16m"),
+        duration = TextRes("5h 41m"),
+        action = SheetAction.Ghost(TextRes("in 1h 16m")),
     ),
 )
 
@@ -485,21 +487,21 @@ internal val gatedSheetUiState = RowSheetUiState(
 // show and nothing to press, so what it has instead is what the band would become and one line
 // naming the row that would open it.
 internal val lockedSheetUiState = RowSheetUiState(
-    name = "Thermal",
+    name = TextRes("Thermal"),
     level = 0,
-    verdict = "Requires Robotics 2",
+    verdict = TextRes("Requires Robotics 2"),
     lines = listOf(
         sheetLine(
-            words("°C tolerance: "),
-            figure("−30 … +45"),
-            words(" → "),
-            figure("−44 … +59"),
-            words("."),
+            words(TextRes("°C tolerance: ")),
+            figure(TextRes("−30 … +45")),
+            words(TextRes(" → ")),
+            figure(TextRes("−44 … +59")),
+            words(TextRes(".")),
         ),
-        sheetLine(words("Requires "), figure("Robotics 2"), words(".")),
+        sheetLine(words(TextRes("Requires ")), figure(TextRes("Robotics 2")), words(TextRes("."))),
     ),
     ladder = emptyList(),
-    pointer = SheetPointer(name = "Robotics Factory", detail = "LV 1 → 2 · 1h 08m"),
+    pointer = SheetPointer(name = TextRes("Robotics Factory"), detail = TextRes("LV 1 → 2 · 1h 08m")),
     footer = null,
 )
 
@@ -518,7 +520,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "900", crystal = "600", deuterium = "900", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 0, worthTaking = 0),
-        action = ResearchActionUiState.Locked("Requires Robotics 2"),
+        action = ResearchActionUiState.Locked(TextRes("Requires Robotics 2")),
         watch = null,
     ),
     adaptationRow(
@@ -529,7 +531,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "2,400", crystal = "900", deuterium = "200", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 5, worthTaking = 1),
-        action = ResearchActionUiState.Locked("Requires Robotics 2"),
+        action = ResearchActionUiState.Locked(TextRes("Requires Robotics 2")),
         watch = null,
     ),
     adaptationRow(
@@ -540,7 +542,7 @@ private fun lockedLadders(): List<AdaptationRowUiState> = listOf(
         costs = costs(metal = "850", crystal = "1,600", deuterium = "250", short = null),
         duration = "3h 02m",
         shortlist = shortlist(unlocks = 3, worthTaking = 0),
-        action = ResearchActionUiState.Locked("Requires Robotics 2"),
+        action = ResearchActionUiState.Locked(TextRes("Requires Robotics 2")),
         watch = null,
     ),
 )
@@ -560,12 +562,12 @@ private fun technologyRow(
     watch: WatchUiState?,
 ): TechnologyRowUiState = TechnologyRowUiState(
     technology = technology,
-    name = name,
+    name = TextRes(name),
     level = TechLevel(level),
     effect = effect,
     verdict = verdict,
     costs = costs,
-    duration = duration,
+    duration = TextRes(duration),
     action = action,
     sheet = rowSheet(
         name = name,
@@ -595,12 +597,12 @@ private fun adaptationRow(
     watch: WatchUiState?,
 ): AdaptationRowUiState = AdaptationRowUiState(
     technology = technology,
-    name = name,
+    name = TextRes(name),
     level = TechLevel(level),
     effect = effect,
     verdict = shortlist.toVerdictUiState().takeIf { action !is ResearchActionUiState.Running },
     costs = costs,
-    duration = duration,
+    duration = TextRes(duration),
     action = action,
     shortlist = shortlist,
     sheet = rowSheet(
@@ -627,14 +629,15 @@ private fun rowSheet(
     costs: List<CostChipUiState>,
     duration: String,
 ): RowSheetUiState = RowSheetUiState(
-    name = name,
+    name = TextRes(name),
     level = level,
     verdict = when (action) {
         is ResearchActionUiState.Locked -> action.reason
-        is ResearchActionUiState.Running -> "→ LV ${action.toLevel.value} · ${action.doneAt}"
+        is ResearchActionUiState.Running ->
+            Strings.clauses(listOf(Strings.becomesLevel(action.toLevel.value), action.doneAt))
         ResearchActionUiState.Start,
         is ResearchActionUiState.AvailableIn,
-        -> verdict?.label.orEmpty()
+        -> verdict?.label ?: TextRes("")
     },
     lines = emptyList(),
     ladder = emptyList(),
@@ -644,9 +647,9 @@ private fun rowSheet(
         is ResearchActionUiState.Running,
         -> null
         ResearchActionUiState.Start ->
-            SheetFooter(costs = costs, duration = duration, action = SheetAction.Live("Research"))
+            SheetFooter(costs = costs, duration = TextRes(duration), action = SheetAction.Live(TextRes("Research")))
         is ResearchActionUiState.AvailableIn ->
-            SheetFooter(costs = costs, duration = duration, action = SheetAction.Ghost(action.label))
+            SheetFooter(costs = costs, duration = TextRes(duration), action = SheetAction.Ghost(action.label))
     },
 )
 
@@ -679,22 +682,19 @@ private fun enrichmentAtNine(): VerdictUiState =
 // the noun is lower case because it is a word inside a sentence. See `LevelPurpose.toVerdictUiState`
 // — the compact form drops the payback clause rather than ellipsising it.
 private fun outputVerdict(kind: ResourceKind, from: Long, to: Long, payback: Duration): VerdictUiState {
-    val gain = "+${(to - from).groupedByThousands()}/h ${kind.word()}"
-    return VerdictUiState(label = "$gain · back in ${payback.toPaybackLabel()}", compactLabel = gain)
-}
-
-private fun ResourceKind.word(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
+    val gain = Strings.outputGain(perHour = (to - from).groupedByThousands(), kind = kind)
+    return VerdictUiState(
+        label = Strings.clauses(listOf(gain, Strings.backIn(payback.toPaybackLabel()))),
+        compactLabel = gain,
+    )
 }
 
 // Every colony in this file is in surplus, so Photovoltaics is worth nothing on all four frames.
 // `Inert` out of a deficit is the one verdict in the game with no figures in it at all — which is
 // why what it used to be built from (`suppliesMore = 5`, `mineLevelsSpare = 17`) reaches no string.
 private fun surplusVerdict(): VerdictUiState = VerdictUiState(
-    label = "nothing while you are in surplus",
-    compactLabel = "nothing while in surplus",
+    label = Strings.verdictNothingSurplus(),
+    compactLabel = Strings.verdictNothingSurplusCompact(),
 )
 
 // The counts are frozen by hand like every other number in this file, so a baseline moves only when
@@ -707,65 +707,62 @@ private fun surplusVerdict(): VerdictUiState = VerdictUiState(
 //
 // The verb is what 320dp drops, and the space between a count and its qualifier is U+00A0 — see
 // `LadderShortlist.describe`, which is the sentence this reproduces.
-private fun shortlist(unlocks: Int, worthTaking: Int): ShortlistUiState {
-    val worlds = if (unlocks == 1) "1 world" else "$unlocks worlds"
-    val worth = if (worthTaking == 0) {
-        "none${NBSP}worth${NBSP}taking"
+private fun shortlist(unlocks: Int, worthTaking: Int): ShortlistUiState = ShortlistUiState(
+    unlocks = unlocks,
+    worthTaking = worthTaking,
+    label = if (unlocks == 0) {
+        Strings.shortlistNothingVerb()
     } else {
-        "$worthTaking${NBSP}worth${NBSP}taking"
-    }
-    return ShortlistUiState(
-        unlocks = unlocks,
-        worthTaking = worthTaking,
-        label = if (unlocks == 0) "Unlocks nothing you have surveyed" else "Unlocks $worlds, $worth",
-        compactLabel = if (unlocks == 0) "Nothing you have surveyed" else "$worlds, $worth",
-    )
-}
+        Strings.shortlistVerb(unlocks = unlocks, worthTaking = worthTaking)
+    },
+    compactLabel = if (unlocks == 0) {
+        Strings.shortlistNothing()
+    } else {
+        Strings.shortlist(unlocks = unlocks, worthTaking = worthTaking)
+    },
+)
 
-// Between a count and the words that qualify it, so a line that has to wrap never leaves "taking"
-// alone on one. The same character the mapper binds these with.
-private const val NBSP = ' '
 
 // The unit is the compact form of itself: a band line is digits, units and relations, so unlike the
 // applied line there is nothing in it a narrower window could drop.
 private fun bandEffect(current: String, next: String, unit: String) = EffectUiState(
-    current = current,
-    next = next,
-    subject = unit,
+    current = TextRes(current),
+    next = TextRes(next),
+    subject = TextRes(unit),
 )
 
 private fun photovoltaicsEffect(current: String?, next: String) = EffectUiState(
-    current = current,
-    next = next,
-    subject = "Solar Plant output",
+    current = current?.let { TextRes(it) },
+    next = TextRes(next),
+    subject = TextRes("Solar Plant output"),
 )
 
 private fun extractionEffect(current: String?, next: String) = EffectUiState(
-    current = current,
-    next = next,
-    subject = "metal · crystal output",
+    current = current?.let { TextRes(it) },
+    next = TextRes(next),
+    subject = TextRes("metal · crystal output"),
 )
 
 private fun enrichmentEffect(current: String?, next: String) = EffectUiState(
-    current = current,
-    next = next,
-    subject = "deuterium output",
+    current = current?.let { TextRes(it) },
+    next = TextRes(next),
+    subject = TextRes("deuterium output"),
 )
 
 // The fourth row's subject is the one on this screen that names no resource: what it multiplies is
 // what a hull lifts, not what the colony makes. PLACEHOLDER copy — see `ResearchUiState`.
 private fun prospectingEffect(current: String?, next: String) = EffectUiState(
-    current = current,
-    next = next,
-    subject = "what a fleet lifts",
+    current = current?.let { TextRes(it) },
+    next = TextRes(next),
+    subject = TextRes("what a fleet lifts"),
 )
 
 // Quoted per hull per hour in priced units, which is the only figure that is a property of the
 // technology rather than of a fleet or a target. The gain is `to - from`; the noun is PLACEHOLDER
 // copy the mapper owns — see `LevelPurpose.toVerdictUiState`.
 private fun haulVerdict(from: Long, to: Long): VerdictUiState = VerdictUiState(
-    label = "+${to - from} a hull an hour on station",
-    compactLabel = "+${to - from} a hull an hour",
+    label = Strings.haulGain((to - from).groupedByThousands()),
+    compactLabel = Strings.haulGainCompact((to - from).groupedByThousands()),
 )
 
 private fun costs(
@@ -774,7 +771,7 @@ private fun costs(
     deuterium: String,
     short: ResourceKind?,
 ): List<CostChipUiState> = listOf(
-    CostChipUiState(kind = ResourceKind.METAL, amount = metal, short = short == ResourceKind.METAL),
-    CostChipUiState(kind = ResourceKind.CRYSTAL, amount = crystal, short = short == ResourceKind.CRYSTAL),
-    CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = deuterium, short = short == ResourceKind.DEUTERIUM),
+    CostChipUiState(kind = ResourceKind.METAL, amount = TextRes(metal), short = short == ResourceKind.METAL),
+    CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes(crystal), short = short == ResourceKind.CRYSTAL),
+    CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = TextRes(deuterium), short = short == ResourceKind.DEUTERIUM),
 )

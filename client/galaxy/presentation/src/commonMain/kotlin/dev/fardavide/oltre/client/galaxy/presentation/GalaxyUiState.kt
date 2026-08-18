@@ -2,6 +2,8 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchProbeOffer
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
@@ -121,14 +123,20 @@ private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiSt
     return GalaxyHeadUiState(
         mode = LedgerMode.MAP,
         scale = if (universe) GalaxyScale.UNIVERSE else GalaxyScale.GALAXY,
-        chip = if (universe) "${GalaxyBalance.GALAXIES} galaxies" else "G${nav.at.galaxy}",
-        count = listOfNotNull(
-            "${systems.toLong().groupedByThousands()} systems",
-            "$known surveyed",
-            // Absent rather than zero, so a save with nothing pinned does not print a control it
-            // does not have. The same rule the ledger's own emptiness follows.
-            "$pinned pinned".takeIf { pinned > 0 },
-        ).joinToString(SEPARATOR),
+        chip = if (universe) {
+            Strings.galaxiesCount(GalaxyBalance.GALAXIES)
+        } else {
+            Strings.galaxyLabel(nav.at.galaxy)
+        },
+        count = Strings.clauses(
+            listOfNotNull(
+                Strings.systemsCount(systems.toLong().groupedByThousands()),
+                Strings.surveyedCount(known),
+                // Absent rather than zero, so a save with nothing pinned does not print a control
+                // it does not have. The same rule the ledger's own emptiness follows.
+                Strings.pinnedCount(pinned).takeIf { pinned > 0 },
+            ),
+        ),
     )
 }
 
@@ -150,7 +158,7 @@ private fun GameState.toSystemRows(at: SystemSelection, now: Instant): List<Gala
             coordinate == relay -> GalaxyRowUiState.Relay(
                 at = coordinate,
                 coordinate = coordinate.label(),
-                effect = RELAY_EFFECT,
+                effect = Strings.relayEffect(),
             )
             else -> null
         }
@@ -162,14 +170,17 @@ private fun GameState.toSystemHeadUiState(at: SystemSelection): SystemHeadUiStat
     val starClass = starClassAt(galaxy.seed, at.galaxy, at.system)
     return SystemHeadUiState(
         galaxies = (1..GalaxyBalance.GALAXIES).map { index ->
-            GalaxyTabUiState(label = "G$index", galaxy = index, selected = index == at.galaxy)
+            GalaxyTabUiState(label = Strings.galaxyLabel(index), galaxy = index, selected = index == at.galaxy)
         },
-        scope = "${GalaxyBalance.SYSTEMS_PER_GALAXY} systems",
-        system = systemNameAt(galaxy.seed, at.galaxy, at.system),
-        coordinate = "${at.galaxy}:${at.system}",
-        region = regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system)),
+        scope = Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
+        // Generated names, so `TextRes.Raw` by construction: a star and a region are named from
+        // the seed, and there is no language they could be translated into.
+        system = TextRes(systemNameAt(galaxy.seed, at.galaxy, at.system)),
+        coordinate = Strings.systemAddressBare(galaxy = at.galaxy, system = at.system),
+        region = TextRes(regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system))),
         detail = detailFor(starClass, worlds.size, compact = false),
         astronomy = astronomyFor(at = at, worlds = worlds),
+        shortAstronomy = astronomyFor(at = at, worlds = worlds, dropFromHere = true),
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
     )
 }
@@ -196,8 +207,12 @@ private fun GameState.toSystemMapUiState(at: SystemSelection, now: Instant): Sys
             // caps simultaneous probes, and the arc can only carry one of them.
             surveys.minByOrNull { it.completesAt }?.let { job ->
                 MapTrajectoryUiState(
-                    label = "[${job.target.galaxy}:${job.target.system}]" +
-                        " · ${(job.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()}",
+                    label = Strings.clauses(
+                        listOf(
+                            Strings.systemAddress(job.target.galaxy, job.target.system),
+                            (job.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel(),
+                        ),
+                    ),
                 )
             }
         } else {
@@ -226,7 +241,11 @@ private fun GameState.markFor(world: World): MapMark = when (verdictFor(world, t
 // distance metric is world-to-world, so within one system it is the *slot* gap that varies, where a
 // hop to any other system is priced identically for all fifteen. So one number everywhere else, and
 // a spread at home — where the player is choosing between neighbours and the spread is the choice.
-private fun GameState.astronomyFor(at: SystemSelection, worlds: List<World>): String {
+private fun GameState.astronomyFor(
+    at: SystemSelection,
+    worlds: List<World>,
+    dropFromHere: Boolean = false,
+): TextRes {
     val home = galaxy.home
     // Any slot of the system will do and slot 1 is the one that always exists: the band and the unit
     // count both ignore the slot the moment the system differs, which is the whole reason this line
@@ -234,54 +253,54 @@ private fun GameState.astronomyFor(at: SystemSelection, worlds: List<World>): St
     val anywhereInIt = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = 1)
     val band = FleetBalance.distanceBand(from = home, to = anywhereInIt)
     val where = if (band == 0) {
-        "Your own system"
+        Strings.yourOwnSystemCapitalised()
     } else {
-        "${FleetBalance.distanceUnits(from = home, to = anywhereInIt).toLong().groupedByThousands()} units out"
+        Strings.unitsOut(FleetBalance.distanceUnits(from = home, to = anywhereInIt).toLong().groupedByThousands())
     }
     val trips = worlds.map { it.at }
         .filter { it != home }
         .map { FleetBalance.roundTrip(from = home, to = it) }
         .sorted()
     val reach = trips.reachLabel()
-    // **"from here" goes when the line will not fit, and the budget is a measurement rather than a
-    // taste.** Two cases overflow and both are ordinary: the home system, which states a *range* of
-    // round trips rather than one, and any target in another galaxy, whose distance is four digits
-    // and whose flight is hours. The home system is the screen every player opens on.
+    // **"from here" goes when the line will not fit** — two cases overflow and both are ordinary:
+    // the home system, which states a *range* of round trips rather than one, and any target in
+    // another galaxy, whose distance is four digits and whose flight is hours. What goes is a noun
+    // and never a figure, the rule the header and the world row already follow, and it is the least
+    // load-bearing clause here because the first one has already said what the band is measured from.
     //
-    // What goes is a noun and never a figure — the rule the header and the world row already follow
-    // — and it is the least load-bearing clause here, because the first clause has already said what
-    // the band is measured from.
-    val full = listOfNotNull(where, "danger $band from here", reach).joinToString(SEPARATOR)
-    if (full.length <= ASTRONOMY_BUDGET_CHARS) return full
-    return listOfNotNull(where, "danger $band", reach).joinToString(SEPARATOR)
+    // **Which of the two the screen uses is `SystemHead`'s call since #86, and it has to be.** The
+    // choice was a `length` check on the built string, which is a measurement of *English*: a
+    // translated line is a different length, so the decision cannot be made before the language is
+    // known. So the mapper states both readings and the composable measures the one it is about to
+    // draw — the same shape every other compact/full pair on this screen already has.
+    val danger = if (dropFromHere) Strings.dangerLevel(band) else Strings.dangerFromHere(band)
+    return Strings.clauses(listOfNotNull(where, danger, reach))
 }
 
-// What one line of this column holds. The content column is capped at `maxContentWidth` and padded
-// 16dp a side, so at a phone's 393dp it is 361dp wide; JetBrains Mono advances 0.6em, which at the
-// 10.5sp this line is set in makes 57 characters exactly 359dp. That is inside 361 on paper and
-// wrapped in practice, so the budget is the measured figure with the rounding taken off rather than
-// the arithmetic one.
-private const val ASTRONOMY_BUDGET_CHARS = 54
+
 
 // Null on a system with nothing in it: there is no round trip to nowhere, and the probe footer above
 // is already saying the system is empty.
-private fun List<Duration>.reachLabel(): String? {
+private fun List<Duration>.reachLabel(): TextRes? {
     val shortest = firstOrNull() ?: return null
     val longest = last()
-    if (shortest == longest) return "${shortest.toChipLabel()} out and back"
-    val from = shortest.toChipLabel()
-    val to = longest.toChipLabel()
-    // "20–26m" rather than "20m–26m", but only when both ends are minutes: at the hour scale the
-    // label already carries an "h" and dropping the "m" off the near end would leave "1h 04–2h 12m".
-    val collapsed = if ('h' in from || 'h' in to) "$from–$to" else "${from.removeSuffix("m")}–$to"
-    return "$collapsed out and back"
+    if (shortest == longest) return Strings.reachSingle(shortest.toChipLabel())
+    // **Whether the near end may drop its unit is the language's call, not this file's.** It used to
+    // be decided by looking for an 'h' in the rendered label, which is a fact about English; what the
+    // mapper actually knows is whether both ends are under an hour, so that is what it says.
+    if (longest.inWholeHours >= 1) {
+        return Strings.reachRange(from = shortest.toChipLabel(), to = longest.toChipLabel())
+    }
+    // Ceiled by the same rule `toChipLabel` rounds by, so the collapsed near end names the minute
+    // the full form would have printed.
+    val minutes = (shortest.inWholeSeconds + SECONDS_PER_MINUTE - 1) / SECONDS_PER_MINUTE
+    return Strings.reachRangeMinutes(fromMinutes = minutes, to = longest.toChipLabel())
 }
 
-private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): String {
-    if (compact) return "${starClass.name} · $worlds"
-    val plural = if (worlds == 1) "world" else "worlds"
-    return "${starClass.name} · $worlds $plural"
-}
+private const val SECONDS_PER_MINUTE: Int = 60
+
+private fun detailFor(starClass: StarClass, worlds: Int, compact: Boolean): TextRes =
+    if (compact) Strings.starDetailCompact(starClass, worlds) else Strings.starDetail(starClass, worlds)
 
 // Evenly across the frame, whatever the system holds. A lone body sits midway rather than at
 // either edge — an orbit pinned to the inner limit would say "hot" about a world that might be the
@@ -304,16 +323,4 @@ internal fun ProbeActionUiState.asDispatchProbeOffer(): DispatchProbeOffer? =
 
 // Internal since the dispatch sheet: the sheet heads itself with the coordinate the row it was
 // raised from prints, and two copies of this would be two ways of writing one address.
-internal fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
-
-// Internal because three files in this module now join a list of facts with it — the row, the sheet
-// and the astronomy line — and one screen writing "·" three different ways is the screen reading as
-// three screens.
-internal const val SEPARATOR = " · "
-
-// The relay's one sentence. It states its effect and stops: no holding mechanic exists until
-// multiplayer, and a relay has no hold for a fleet to fill either.
-internal const val RELAY_EFFECT = "Relay · contested · +18% range while held"
-
-// Between a value and its unit, so a line that has to wrap never leaves "atm" alone on one.
-private const val NBSP = ' '
+internal fun GalaxyCoordinate.label(): TextRes = Strings.coordinate(galaxy, system, slot)

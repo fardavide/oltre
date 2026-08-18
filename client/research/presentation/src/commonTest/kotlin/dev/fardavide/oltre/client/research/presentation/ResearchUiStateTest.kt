@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.client.research.presentation
 
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.SheetAction
 import dev.fardavide.oltre.client.design.component.SheetFooter
@@ -11,7 +14,10 @@ import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.figure
 import dev.fardavide.oltre.client.design.component.sheetLine
 import dev.fardavide.oltre.client.design.component.words
-import dev.fardavide.oltre.client.design.format.pad2
+import dev.fardavide.oltre.client.design.format.watchedAtLabel
+import dev.fardavide.oltre.client.design.format.milli
+import dev.fardavide.oltre.client.design.format.milliTrimmed
+import dev.fardavide.oltre.client.design.format.signed
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.research.ui.AdaptationRowUiState
@@ -77,7 +83,7 @@ class ResearchUiStateTest {
         )
         assertEquals(
             listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting"),
-            uiState.technologies.map { it.name },
+            uiState.technologies.map { English.resolve(it.name) },
         )
     }
 
@@ -88,7 +94,7 @@ class ResearchUiStateTest {
 
         // then
         assertNull(row.effect.current)
-        assertEquals("+10%", row.effect.next)
+        assertEquals("+10%", English.resolve(row.effect.next))
         assertEquals(TechLevel(0), row.level)
     }
 
@@ -99,8 +105,8 @@ class ResearchUiStateTest {
             .rowFor(Technology.PHOTOVOLTAICS)
 
         // then - level 8 is only meaningful against level 7
-        assertEquals("+21%", row.effect.current)
-        assertEquals("+33%", row.effect.next)
+        assertEquals("+21%", English.resolve(checkNotNull(row.effect.current)))
+        assertEquals("+33%", English.resolve(row.effect.next))
     }
 
     // The subject is what the sheet's first sentence is *about* — "metal · crystal output: +17% →
@@ -113,9 +119,9 @@ class ResearchUiStateTest {
         val uiState = colony().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
         // then
-        assertEquals("Solar Plant output", uiState.technologies[0].effect.subject)
-        assertEquals("metal · crystal output", uiState.technologies[1].effect.subject)
-        assertEquals("deuterium output", uiState.technologies[2].effect.subject)
+        assertEquals("Solar Plant output", English.resolve(uiState.technologies[0].effect.subject))
+        assertEquals("metal · crystal output", English.resolve(uiState.technologies[1].effect.subject))
+        assertEquals("deuterium output", English.resolve(uiState.technologies[2].effect.subject))
     }
 
     @Test
@@ -132,9 +138,9 @@ class ResearchUiStateTest {
                 // Photovoltaics 1 at a tenth of the sheet's 300 / 150 / 100 — the opening
                 // discount. The stock below still covers two of the three and not the deuterium,
                 // which is what this test is about.
-                CostChipUiState(kind = ResourceKind.METAL, amount = "30", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "15", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "10", short = true),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(30), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(15), short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = Strings.groupedNumber(10), short = true),
             ),
             row.costs,
         )
@@ -147,11 +153,15 @@ class ResearchUiStateTest {
 
         // then
         assertEquals(
-            ResearchActionUiState.Locked("Requires Robotics 1"),
+            ResearchActionUiState.Locked(Strings.requires(
+                Strings.namedLevel(Strings.buildingShortName(BuildingType.ROBOTICS_FACTORY), 1),
+            )),
             uiState.technologies.first { it.technology == Technology.PHOTOVOLTAICS }.action,
         )
         assertEquals(
-            ResearchActionUiState.Locked("Requires Extraction 3"),
+            ResearchActionUiState.Locked(
+                Strings.requires(Strings.namedLevel(Strings.technologyName(Technology.EXTRACTION), 3)),
+            ),
             uiState.technologies.first { it.technology == Technology.ENRICHMENT }.action,
         )
     }
@@ -194,7 +204,7 @@ class ResearchUiStateTest {
         ).rowFor(Technology.PHOTOVOLTAICS)
 
         // then
-        assertEquals(ResearchActionUiState.AvailableIn("in 14m"), row.action)
+        assertEquals(ResearchActionUiState.AvailableIn(Strings.availableIn(Strings.durationMinutes(14))), row.action)
     }
 
     @Test
@@ -207,7 +217,7 @@ class ResearchUiStateTest {
         ).rowFor(Technology.PHOTOVOLTAICS)
 
         // then - one number with one meaning, and the player never has to know which reason it was
-        assertEquals(ResearchActionUiState.AvailableIn("in 2h 00m"), row.action)
+        assertEquals(ResearchActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(2, 0))), row.action)
     }
 
     @Test
@@ -237,7 +247,7 @@ class ResearchUiStateTest {
         )
 
         assertEquals(
-            ResearchActionUiState.AvailableIn("in 2h 00m"),
+            ResearchActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(2, 0))),
             state.rowFor(Technology.PHOTOVOLTAICS).action,
         )
     }
@@ -251,7 +261,7 @@ class ResearchUiStateTest {
         ).rowFor(Technology.PHOTOVOLTAICS)
 
         // then - "in 2,000,000h" would be a worse lie than saying nothing
-        assertEquals(ResearchActionUiState.AvailableIn("—"), row.action)
+        assertEquals(ResearchActionUiState.AvailableIn(Strings.availableNever()), row.action)
     }
 
     @Test
@@ -272,9 +282,9 @@ class ResearchUiStateTest {
         assertEquals(
             ResearchActionUiState.Running(
                 toLevel = TechLevel(1),
-                countdown = "01:00:00",
+                countdown = Strings.countdown(1, 0, 0),
                 progressPercent = 50,
-                doneAt = "done 11:00",
+                doneAt = Strings.doneAt(hour = 11, minute = 0),
             ),
             row.action,
         )
@@ -303,8 +313,8 @@ class ResearchUiStateTest {
         // then - level 1 is the deepest step of the opening discount, and since that discount went
         // to 10x it is 6 minutes rather than the sheet's 60, then the divisor: 6 x 25/27 at
         // Robotics 1 and 6 x 25/33 at Robotics 4, each ceiled to the minute the chip shows.
-        assertEquals("6m", slow.duration)
-        assertEquals("5m", quick.duration)
+        assertEquals("6m", English.resolve(slow.duration))
+        assertEquals("5m", English.resolve(quick.duration))
     }
 
     // ── The adaptation branch ────────────────────────────────────────────────────────────────
@@ -324,7 +334,7 @@ class ResearchUiStateTest {
             listOf(AdaptationTechnology.THERMAL, AdaptationTechnology.GRAVITIC, AdaptationTechnology.ATMOSPHERIC),
             uiState.adaptation.map { it.technology },
         )
-        assertEquals(listOf("Thermal", "Gravitic", "Atmospheric"), uiState.adaptation.map { it.name })
+        assertEquals(listOf("Thermal", "Gravitic", "Atmospheric"), uiState.adaptation.map { English.resolve(it.name) })
     }
 
     @Test
@@ -334,9 +344,30 @@ class ResearchUiStateTest {
 
         // then - the unit sits where the applied row's trailing noun sits, so both read
         // [value] -> [value] [what of]
-        assertEquals(EffectUiState("−30 … +45", "−44 … +59", "°C"), rows[0].effect)
-        assertEquals(EffectUiState("0.65 … 1.40", "0.60 … 1.52", "g"), rows[1].effect)
-        assertEquals(EffectUiState("0.5 … 2.6", "0.44 … 3.5", "atm"), rows[2].effect)
+        assertEquals(
+            EffectUiState(
+                current = Strings.toleranceBand((-30).signed(), (45).signed()),
+                next = Strings.toleranceBand((-44).signed(), (59).signed()),
+                subject = Strings.adaptationUnit(AdaptationTechnology.THERMAL),
+            ),
+            rows[0].effect,
+        )
+        assertEquals(
+            EffectUiState(
+                current = Strings.toleranceBand(650.milli(), 1_400.milli()),
+                next = Strings.toleranceBand(600.milli(), 1_520.milli()),
+                subject = Strings.adaptationUnit(AdaptationTechnology.GRAVITIC),
+            ),
+            rows[1].effect,
+        )
+        assertEquals(
+            EffectUiState(
+                current = Strings.toleranceBand(500.milliTrimmed(), 2_600.milliTrimmed()),
+                next = Strings.toleranceBand(440.milliTrimmed(), 3_500.milliTrimmed()),
+                subject = Strings.adaptationUnit(AdaptationTechnology.ATMOSPHERIC),
+            ),
+            rows[2].effect,
+        )
     }
 
     // A ladder's subject is its bare unit rather than a phrase, which is why the sheet's band
@@ -348,7 +379,7 @@ class ResearchUiStateTest {
         val rows = adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).adaptation
 
         // then
-        assertEquals(listOf("°C", "g", "atm"), rows.map { it.effect.subject })
+        assertEquals(listOf("°C", "g", "atm"), rows.map { English.resolve(it.effect.subject) })
     }
 
     // Every other ladder assertion holds a level-0 empire, which is the one level at which
@@ -363,10 +394,10 @@ class ResearchUiStateTest {
 
         // then - the level, the band it bought, the band level 5 would buy, and level 5's price
         assertEquals(TechLevel(4), row.level)
-        assertEquals("0.45 … 1.88", row.effect.current)
-        assertEquals("0.40 … 2.00", row.effect.next)
-        assertEquals("12,150", row.costs.first { it.kind == ResourceKind.METAL }.amount)
-        assertEquals("15h 10m", row.duration)
+        assertEquals("0.45 … 1.88", English.resolve(checkNotNull(row.effect.current)))
+        assertEquals("0.40 … 2.00", English.resolve(row.effect.next))
+        assertEquals("12,150", English.resolve(row.costs.first { it.kind == ResourceKind.METAL }.amount))
+        assertEquals("15h 10m", English.resolve(row.duration))
     }
 
     @Test
@@ -376,7 +407,7 @@ class ResearchUiStateTest {
 
         // then - a tolerance band exists at level 0 where a production bonus does not, so unlike
         // Enrichment 0 the left half is never empty
-        assertEquals("0.65 … 1.40", row.effect.current)
+        assertEquals("0.65 … 1.40", English.resolve(checkNotNull(row.effect.current)))
         assertEquals(TechLevel(0), row.level)
     }
 
@@ -390,9 +421,15 @@ class ResearchUiStateTest {
         // then - three gates that differ would decide the first ladder for the player
         assertEquals(
             listOf(
-                ResearchActionUiState.Locked("Requires Robotics 2"),
-                ResearchActionUiState.Locked("Requires Robotics 2"),
-                ResearchActionUiState.Locked("Requires Robotics 2"),
+                ResearchActionUiState.Locked(Strings.requires(
+                Strings.namedLevel(Strings.buildingShortName(BuildingType.ROBOTICS_FACTORY), 2),
+            )),
+                ResearchActionUiState.Locked(Strings.requires(
+                Strings.namedLevel(Strings.buildingShortName(BuildingType.ROBOTICS_FACTORY), 2),
+            )),
+                ResearchActionUiState.Locked(Strings.requires(
+                Strings.namedLevel(Strings.buildingShortName(BuildingType.ROBOTICS_FACTORY), 2),
+            )),
             ),
             uiState.adaptation.map { it.action },
         )
@@ -408,9 +445,9 @@ class ResearchUiStateTest {
             listOf(
                 // A tenth of the sheet's 2,400 / 900 / 200 at level 1, and still overwhelmingly
                 // metal — the discount scales all three alike, so the shape the sheet chose survives.
-                CostChipUiState(kind = ResourceKind.METAL, amount = "240", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "90", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "20", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(240), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(90), short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = Strings.groupedNumber(20), short = false),
             ),
             row.costs,
         )
@@ -447,7 +484,7 @@ class ResearchUiStateTest {
         val row = adaptable(activeAdaptation = ladder(completesAt = EPOCH + 2.hours))
             .adaptationRowFor(AdaptationTechnology.THERMAL)
 
-        assertEquals(ResearchActionUiState.AvailableIn("in 2h 00m"), row.action)
+        assertEquals(ResearchActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(2, 0))), row.action)
     }
 
     @Test
@@ -468,9 +505,9 @@ class ResearchUiStateTest {
         assertEquals(
             ResearchActionUiState.Running(
                 toLevel = TechLevel(1),
-                countdown = "01:00:00",
+                countdown = Strings.countdown(1, 0, 0),
                 progressPercent = 50,
-                doneAt = "done 11:00",
+                doneAt = Strings.doneAt(hour = 11, minute = 0),
             ),
             row.action,
         )
@@ -486,8 +523,8 @@ class ResearchUiStateTest {
         // 240, then the divisor: 24 x 25/33 at Robotics 4 and 24 x 25/41 at Robotics 8. Both ceil
         // rather than round, because a duration that rounded down would promise a project sooner
         // than it can finish.
-        assertEquals("19m", atGate.duration)
-        assertEquals("15m", deeper.duration)
+        assertEquals("19m", English.resolve(atGate.duration))
+        assertEquals("15m", English.resolve(deeper.duration))
     }
 
     @Test
@@ -515,7 +552,9 @@ class ResearchUiStateTest {
         val expected = shortlistFor(AdaptationTechnology.THERMAL)
         val shortlist = checkNotNull(row.shortlist)
         assertEquals(expected.unlocks, shortlist.unlocks)
-        if (expected.unlocks == 0) assertEquals("Unlocks nothing you have surveyed", shortlist.label)
+        if (expected.unlocks == 0) {
+                assertEquals("Unlocks nothing you have surveyed", English.resolve(shortlist.label))
+            }
     }
 
     @Test
@@ -535,7 +574,7 @@ class ResearchUiStateTest {
         // worlds on that row would be the screen inventing a consequence — which is why the applied
         // branch's verdict is priced in units an hour and never in worlds.
         for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).technologies) {
-            assertTrue("world" !in checkNotNull(row.verdict).label, "${row.technology}")
+            assertTrue("world" !in English.resolve(checkNotNull(row.verdict).label), "${row.technology}")
         }
     }
 
@@ -547,13 +586,13 @@ class ResearchUiStateTest {
         for (row in adaptable().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC).adaptation) {
             val shortlist = row.shortlist
             assertTrue(
-                shortlist.compactLabel.length < shortlist.label.length,
+                English.resolve(shortlist.compactLabel).length < English.resolve(shortlist.label).length,
                 "${row.technology} compact '${shortlist.compactLabel}' is no shorter than '${shortlist.label}'",
             )
             if (shortlist.unlocks > 0) {
-                assertTrue("${shortlist.unlocks}" in shortlist.compactLabel, "was '${shortlist.compactLabel}'")
+                assertTrue("${shortlist.unlocks}" in English.resolve(shortlist.compactLabel), "was '${shortlist.compactLabel}'")
                 val worth = if (shortlist.worthTaking == 0) "none" else "${shortlist.worthTaking}"
-                assertTrue(worth in shortlist.compactLabel, "was '${shortlist.compactLabel}'")
+                assertTrue(worth in English.resolve(shortlist.compactLabel), "was '${shortlist.compactLabel}'")
             }
         }
     }
@@ -594,12 +633,12 @@ class ResearchUiStateTest {
 
         assertEquals(expected.unlocks, row.shortlist.unlocks)
         assertEquals(expected.worthTaking, row.shortlist.worthTaking)
-        assertTrue("${expected.unlocks}" in row.shortlist.label, "was '${row.shortlist.label}'")
-        assertTrue(row.shortlist.label.startsWith("Unlocks "), "was '${row.shortlist.label}'")
+        assertTrue("${expected.unlocks}" in English.resolve(row.shortlist.label), "was '${row.shortlist.label}'")
+        assertTrue(English.resolve(row.shortlist.label).startsWith("Unlocks "), "was '${row.shortlist.label}'")
         // And the 320dp form keeps both figures while dropping the verb — the assertion the
         // all-zero fixture could never make.
-        assertTrue("${expected.unlocks}" in row.shortlist.compactLabel, "was '${row.shortlist.compactLabel}'")
-        assertTrue(!row.shortlist.compactLabel.startsWith("Unlocks"), "was '${row.shortlist.compactLabel}'")
+        assertTrue("${expected.unlocks}" in English.resolve(row.shortlist.compactLabel), "was '${row.shortlist.compactLabel}'")
+        assertTrue(!English.resolve(row.shortlist.compactLabel).startsWith("Unlocks"), "was '${row.shortlist.compactLabel}'")
     }
 
     @Test
@@ -611,7 +650,7 @@ class ResearchUiStateTest {
             .adaptation.first { it.shortlist.unlocks > 0 }
 
         val expected = if (row.shortlist.worthTaking == 0) "none worth" else "${row.shortlist.worthTaking} worth"
-        assertTrue(expected in row.shortlist.label, "was '${row.shortlist.label}'")
+        assertTrue(expected in English.resolve(row.shortlist.label), "was '${row.shortlist.label}'")
     }
 
     @Test
@@ -758,8 +797,8 @@ class ResearchUiStateTest {
         )
         val expected = (EPOCH + wait).toLocalDateTime(TimeZone.UTC)
         assertEquals(
-            "→ affordable ${expected.hour.pad2()}:${expected.minute.pad2()}",
-            assertIs<WatchUiState.Booked>(row.watch).affordableAt,
+            English.resolve(watchedAtLabel(hour = expected.hour, minute = expected.minute)),
+            English.resolve(assertIs<WatchUiState.Booked>(row.watch).affordableAt),
         )
     }
 
@@ -782,11 +821,11 @@ class ResearchUiStateTest {
         val uiState = colony().toResearchUiState(
             now = EPOCH,
             timeZone = TimeZone.UTC,
-            watching = "watching Metal Mine",
+            watching = Strings.watching(Strings.buildingName(BuildingType.METAL_MINE)),
         )
 
         // then
-        assertEquals("watching Metal Mine", uiState.watching)
+        assertEquals("watching Metal Mine", English.resolve(checkNotNull(uiState.watching)))
     }
 
     // ── The verdict ──────────────────────────────────────────────────────────────────────────
@@ -807,8 +846,13 @@ class ResearchUiStateTest {
         // then - two clauses, and the second is the one a narrow window drops rather than truncates
         assertEquals(
             VerdictUiState(
-                label = "+${purpose.perHour}/h metal · back in ${purpose.payback.toPaybackLabel()}",
-                compactLabel = "+${purpose.perHour}/h metal",
+                label = Strings.clauses(
+                    listOf(
+                        Strings.outputGain(Strings.groupedNumber(purpose.perHour), ResourceKind.METAL),
+                        Strings.backIn(purpose.payback.toPaybackLabel()),
+                    ),
+                ),
+                compactLabel = Strings.outputGain(Strings.groupedNumber(purpose.perHour), ResourceKind.METAL),
             ),
             row.verdict,
         )
@@ -823,8 +867,8 @@ class ResearchUiStateTest {
         // then
         val metal = checkNotNull(state.rowFor(Technology.EXTRACTION).verdict).compactLabel
         val deuterium = checkNotNull(state.rowFor(Technology.ENRICHMENT).verdict).compactLabel
-        assertTrue(metal.endsWith(" metal"), "was '$metal'")
-        assertTrue(deuterium.endsWith(" deuterium"), "was '$deuterium'")
+        assertTrue(English.resolve(metal).endsWith(" metal"), "was '$metal'")
+        assertTrue(English.resolve(deuterium).endsWith(" deuterium"), "was '$deuterium'")
     }
 
     @Test
@@ -835,7 +879,7 @@ class ResearchUiStateTest {
 
         // then - it says so rather than going quiet, which is the whole point of a verdict
         assertEquals(
-            VerdictUiState(label = "nothing while you are in surplus", compactLabel = "nothing while in surplus"),
+            VerdictUiState(label = Strings.verdictNothingSurplus(), compactLabel = Strings.verdictNothingSurplusCompact()),
             row.verdict,
         )
     }
@@ -883,9 +927,9 @@ class ResearchUiStateTest {
         ).toUiState()
 
         assertEquals(1, one.unlocks)
-        assertTrue("1 world," in one.label, one.label)
+        assertTrue("1 world," in English.resolve(one.label), English.resolve(one.label))
         // ...and never "1 worlds", which is the whole of what the branch is for.
-        assertTrue("worlds" !in one.label, one.label)
+        assertTrue("worlds" !in English.resolve(one.label), English.resolve(one.label))
     }
 
     @Test
@@ -910,7 +954,7 @@ class ResearchUiStateTest {
         val row = colony(buildings = gated()).rowFor(Technology.PHOTOVOLTAICS)
 
         // then
-        assertEquals("Photovoltaics", row.sheet.name)
+        assertEquals("Photovoltaics", English.resolve(row.sheet.name))
         assertEquals(0, row.sheet.level)
         assertEquals(checkNotNull(row.verdict).label, row.sheet.verdict)
     }
@@ -941,23 +985,23 @@ class ResearchUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("metal · crystal output: "),
-                    figure("+17%"),
-                    words(" → "),
-                    figure("+26%"),
-                    words("."),
+                    words(Strings.sheetSubjectPrefix(Strings.technologySubject(Technology.EXTRACTION))),
+                    figure(Strings.plusPercent(17)),
+                    words(Strings.sheetArrow()),
+                    figure(Strings.plusPercent(26)),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Your colony makes "),
-                    figure("${purpose.from}/h"),
-                    words(" metal and would make "),
-                    figure("${purpose.to}/h"),
-                    words("."),
+                    words(Strings.sheetMineMakes()),
+                    figure(Strings.perHour(Strings.groupedNumber(purpose.from))),
+                    words(Strings.sheetAndWouldMake(ResourceKind.METAL)),
+                    figure(Strings.perHour(Strings.groupedNumber(purpose.to))),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Counted against everything the level costs, you are even after "),
+                    words(Strings.sheetPaybackPrefix()),
                     figure(purpose.payback.toPaybackLabel()),
-                    words("."),
+                    words(Strings.sheetFullStop()),
                 ),
             ),
             row.sheet.lines,
@@ -971,7 +1015,7 @@ class ResearchUiStateTest {
 
         // then
         assertEquals(
-            sheetLine(words("deuterium output: "), figure("+14%"), words(" at LV 1.")),
+            sheetLine(words(Strings.sheetSubjectPrefix(Strings.technologySubject(Technology.ENRICHMENT))), figure(Strings.plusPercent(14)), words(Strings.sheetAtLevelOne())),
             row.sheet.lines.first(),
         )
     }
@@ -985,21 +1029,21 @@ class ResearchUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("Your plants supply "),
-                    figure("50"),
-                    words(" energy. The colony draws "),
-                    figure("40"),
-                    words("."),
+                    words(Strings.sheetPlantsSupply()),
+                    figure(Strings.groupedNumber(50)),
+                    words(Strings.sheetColonyDraws()),
+                    figure(Strings.groupedNumber(40)),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Photovoltaics multiplies supply, and supply is not what is limiting you. At "),
-                    figure("+10%"),
-                    words(" your output does not move."),
+                    words(Strings.sheetMultipliesSupply(Strings.technologyName(Technology.PHOTOVOLTAICS))),
+                    figure(Strings.plusPercent(10)),
+                    words(Strings.sheetOutputDoesNotMove()),
                 ),
                 sheetLine(
-                    words("It starts to pay when draw passes supply — about "),
-                    figure("one"),
-                    words(" more mine level away."),
+                    words(Strings.sheetPaysWhenDrawPasses()),
+                    figure(Strings.sheetOneSpelled()),
+                    words(Strings.sheetMoreMineLevelAway()),
                 ),
             ),
             row.sheet.lines,
@@ -1016,9 +1060,9 @@ class ResearchUiStateTest {
         // then
         assertEquals(
             sheetLine(
-                words("It starts to pay when draw passes supply — about "),
-                figure("6"),
-                words(" more mine levels away."),
+                words(Strings.sheetPaysWhenDrawPasses()),
+                figure(Strings.groupedNumber(6)),
+                words(Strings.sheetMoreMineLevelsAway()),
             ),
             row.sheet.lines.last(),
         )
@@ -1032,7 +1076,7 @@ class ResearchUiStateTest {
 
         // then - a count of zero would be arithmetic where the sentence wants a consequence
         assertEquals(
-            sheetLine(words("It starts to pay with the next mine level you take.")),
+            sheetLine(words(Strings.sheetPaysNextMineLevel())),
             row.sheet.lines.last(),
         )
     }
@@ -1054,7 +1098,7 @@ class ResearchUiStateTest {
         assertEquals(
             SheetPointer(
                 name = best.first.displayName(),
-                detail = "LV 1 · back in ${best.second.payback.toPaybackLabel()}",
+                detail = Strings.pointerBestBuy(level = 1, payback = best.second.payback.toPaybackLabel()),
             ),
             row.sheet.pointer,
         )
@@ -1076,17 +1120,17 @@ class ResearchUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("Your plants supply "),
-                    figure("50"),
-                    words(" energy. The colony draws "),
-                    figure("40"),
-                    words("."),
+                    words(Strings.sheetPlantsSupply()),
+                    figure(Strings.groupedNumber(50)),
+                    words(Strings.sheetColonyDraws()),
+                    figure(Strings.groupedNumber(40)),
+                    words(Strings.sheetFullStop()),
                 ),
-                sheetLine(words("Requires "), figure("Robotics 1"), words(".")),
+                sheetLine(words(Strings.sheetRequiresPrefix()), figure(Strings.namedLevel(Strings.buildingShortName(BuildingType.ROBOTICS_FACTORY), 1)), words(Strings.sheetFullStop())),
             ),
             row.sheet.lines,
         )
-        assertEquals("Requires Robotics 1", row.sheet.verdict)
+        assertEquals("Requires Robotics 1", English.resolve(row.sheet.verdict))
         assertNull(row.sheet.footer)
     }
 
@@ -1101,13 +1145,17 @@ class ResearchUiStateTest {
         // then - the current level to the next one it would reach, and that upgrade's own wait
         assertEquals(
             SheetPointer(
-                name = "Robotics Factory",
-                detail = "LV 0 → 1 · " + PlaceholderBalance.upgradeDuration(
-                    building = BuildingType.ROBOTICS_FACTORY,
-                    toLevel = BuildingLevel(1),
-                    roboticsFactory = BuildingLevel(0),
-                    naniteFactory = BuildingLevel(0),
-                ).toChipLabel(),
+                name = Strings.buildingName(BuildingType.ROBOTICS_FACTORY),
+                detail = Strings.pointerLevelStep(
+                    from = 0,
+                    to = 1,
+                    wait = PlaceholderBalance.upgradeDuration(
+                        building = BuildingType.ROBOTICS_FACTORY,
+                        toLevel = BuildingLevel(1),
+                        roboticsFactory = BuildingLevel(0),
+                        naniteFactory = BuildingLevel(0),
+                    ).toChipLabel(),
+                ),
             ),
             row.sheet.pointer,
         )
@@ -1132,7 +1180,7 @@ class ResearchUiStateTest {
         assertEquals(1, row.sheet.lines.size)
         assertNull(row.sheet.footer)
         assertNull(row.sheet.pointer)
-        assertEquals("→ LV 1 · done 02:00", row.sheet.verdict)
+        assertEquals("→ LV 1 · done 02:00", English.resolve(row.sheet.verdict))
     }
 
     @Test
@@ -1147,8 +1195,8 @@ class ResearchUiStateTest {
         // thing this technology does at all
         assertEquals(
             listOf(
-                SheetLadderStep(level = "LV 1", opens = "Prospecting · you have this", held = true),
-                SheetLadderStep(level = "LV 3", opens = "Enrichment · you have this", held = true),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.PROSPECTING)), held = true),
+                SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.ENRICHMENT)), held = true),
             ),
             row.sheet.ladder,
         )
@@ -1162,8 +1210,8 @@ class ResearchUiStateTest {
         // then
         assertEquals(
             listOf(
-                SheetLadderStep(level = "LV 1", opens = "Prospecting", held = false),
-                SheetLadderStep(level = "LV 3", opens = "Enrichment", held = false),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.technologyName(Technology.PROSPECTING), held = false),
+                SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.technologyName(Technology.ENRICHMENT), held = false),
             ),
             row.sheet.ladder,
         )
@@ -1185,7 +1233,7 @@ class ResearchUiStateTest {
         // then - the sheet is somewhere a decision can be made rather than somewhere you read
         // about one and then go back
         assertEquals(
-            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Live("Research")),
+            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Live(Strings.researchVerb())),
             row.sheet.footer,
         )
     }
@@ -1201,7 +1249,7 @@ class ResearchUiStateTest {
         // then - no disabled state here either: a player who wants the level they cannot afford is
         // told when, not told no
         assertEquals(
-            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Ghost("in 14m")),
+            SheetFooter(costs = row.costs, duration = row.duration, action = SheetAction.Ghost(Strings.availableIn(Strings.durationMinutes(14)))),
             row.sheet.footer,
         )
     }
@@ -1218,18 +1266,18 @@ class ResearchUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("${row.effect.subject} tolerance: "),
+                    words(Strings.sheetToleranceSubject(row.effect.subject)),
                     figure(checkNotNull(row.effect.current)),
-                    words(" → "),
+                    words(Strings.sheetArrow()),
                     figure(row.effect.next),
-                    words("."),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Of the worlds you have surveyed this level reaches "),
-                    figure("${expected.unlocks}"),
-                    words(", and "),
-                    figure("${expected.worthTaking}"),
-                    words(" of those are worth taking."),
+                    words(Strings.sheetReachesPrefix()),
+                    figure(Strings.plainNumber(expected.unlocks)),
+                    words(Strings.sheetReachesMiddle()),
+                    figure(Strings.plainNumber(expected.worthTaking)),
+                    words(Strings.sheetReachesSuffix()),
                 ),
             ),
             row.sheet.lines,
@@ -1245,8 +1293,7 @@ class ResearchUiStateTest {
         assertEquals(
             sheetLine(
                 words(
-                    "Nothing you have surveyed is blocked by this band alone, " +
-                        "so this level reaches no new world.",
+                    Strings.sheetReachesNothing(),
                 ),
             ),
             row.sheet.lines.last(),
@@ -1259,8 +1306,8 @@ class ResearchUiStateTest {
         val row = colony(buildings = gated()).adaptationRowFor(AdaptationTechnology.THERMAL)
 
         // then
-        assertEquals("Requires Robotics 2", row.sheet.verdict)
-        assertEquals("Robotics Factory", checkNotNull(row.sheet.pointer).name)
+        assertEquals("Requires Robotics 2", English.resolve(row.sheet.verdict))
+        assertEquals("Robotics Factory", English.resolve(checkNotNull(row.sheet.pointer).name))
         assertNull(row.sheet.footer)
     }
 
@@ -1298,8 +1345,8 @@ class ResearchUiStateTest {
         // then it names the throttle rather than a surplus the colony does not have
         assertEquals(
             VerdictUiState(
-                label = "nothing while your mines are throttled",
-                compactLabel = "nothing while throttled",
+                label = Strings.verdictNothingThrottled(),
+                compactLabel = Strings.verdictNothingThrottledCompact(),
             ),
             row.verdict,
         )
@@ -1307,10 +1354,12 @@ class ResearchUiStateTest {
         // and the sheet names the row itself rather than the one technology this case used to
         // assume, and states the ratio that is eating the level
         val prose = row.sheet.lines.flatMap { it.parts }.joinToString("") {
-            when (it) {
-                is SheetLinePart.Words -> it.text
-                is SheetLinePart.Figure -> it.text
-            }
+            English.resolve(
+                when (it) {
+                    is SheetLinePart.Words -> it.text
+                    is SheetLinePart.Figure -> it.text
+                },
+            )
         }
         assertTrue(prose.contains("every mine is running at"), prose)
         assertTrue(prose.contains("Enrichment"), prose)
