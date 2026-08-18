@@ -116,6 +116,7 @@ dependencies {
     kover(projects.client.debug.data)
     kover(projects.client.debug.domain)
     kover(projects.client.debug.ui)
+    kover(projects.client.dispatch.domain)
     kover(projects.client.dispatch.presentation)
     kover(projects.client.dispatch.ui)
     kover(projects.client.fleets.presentation)

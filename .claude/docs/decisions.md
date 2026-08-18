@@ -3579,3 +3579,60 @@ much"* — would have opened on a single skiff and offered a date. Both state th
 edit was needed in four mapper tests, and it is the same lesson `dispatchClampedUiState` recorded at
 0.9: **a fixture that leaves a default blank is a fixture that stops being about its own subject the
 day the default moves.**
+
+### The coverage gate asked what tests the gesture, and the answer was a module (2026-08-17, 0.13.1)
+
+The gate blocked 0.13.1's first push on three numbers — unit line 87.4 → 87.3, screenshot line
+87.1 → 86.9, screenshot branch 50.9 → 50.8 — and chasing them found the same thing 0.13.0's round
+did: a real structural fault rather than a threshold to argue with.
+
+**Every failing number was the hold-to-repeat gesture**, and the diagnosis is the interesting part.
+Measured line by line off the two failing passes:
+
+| what | unit pass | screenshot pass |
+|---|---|---|
+| `hullsToLift` in `core` | covered by `FleetBalanceTest` | excluded (`core.**`) |
+| the mapper's suggestion | covered by `DispatchUiStateTest` | excluded (`*.presentation`) |
+| `homingIn` / `bringingBack` | **uncovered — no test existed** | excluded |
+| four invented timing constants | **uncovered** | covered (static init) |
+| the gesture body | excluded (inside a `@Composable`) | **uncovered, permanently** |
+
+Two of those three are things that should have been done anyway, and one is a genuine limit.
+
+**`homingIn` / `bringingBack` had no unit test at all.** They are pure functions holding the one rule
+Galaxy and Fleets share, and they were asserted only through two Compose screens. `DispatchSelectionTest`
+is what the gate asked for and what should have been written with them.
+
+**The four timing constants became `:client:dispatch:domain`.** What a held stepper *does* is a
+cadence — a rest, a first repeat, a ramp to a floor — and that is arithmetic. `StepperHold.waits()`
+is a lazy sequence of the waits, and the gesture reads `wait, step, wait, step` with no arithmetic
+of its own. The module earns itself the way `:client:tilt:domain` did: *"push the logic of a feature
+down into a module it can test, and leave the Compose layer as thin as it will go."*
+
+**And the first test written there failed.** The changelog claimed the ramp walked 55 hulls down to
+3 in about two seconds; at `GAIN = 10ms` it bought 47 steps against the 52 that trip needs — a fifth
+short of the thing the number was chosen for. `GAIN` is 15ms because a test said so. **That is the
+whole argument for the module in one line: the claim was in a comment, and the comment was wrong.**
+A motion constant a session invents has to be flagged as invented; this one was, and it was still
+wrong in a way only arithmetic could catch. The device session will still move all four, and
+`StepperHoldTest` pins the *shape* — a rest, a ramp that only accelerates, a floor — so a tuning
+pass may move every constant and leave every assertion standing.
+
+**What is left is a real limit, and it is Davide's call.** Fourteen lines and six branches of pointer
+handling — `awaitFirstDown`, the repeat `launch`, `waitForUpOrCancellation`, the tap's suppression
+check — sit in a `*.ui` package and **cannot be reached by a screenshot test by construction**: a
+screenshot renders, it does not press. Three behaviour tests cover them and the behaviour row went
+up. Measured on one machine against `origin/main`:
+
+| | main | branch |
+|---|---|---|
+| unit line | 84.26% | **84.29%** |
+| screenshot line | 84.14% | 83.92% |
+| screenshot branch | 50.88% | 50.74% |
+
+The unit row is recovered and better than it was. The two screenshot rows are the gesture and
+nothing else, and no test of that kind can move them. The screenshot filter's own principle —
+*"what survives is what draws"* — reads on a gesture handler exactly as it reads on a mapper, but
+there is no layer boundary to express it with, so widening it is a change to the gate rather than a
+change to the code. **Rejected on the way**: a `…ScreenshotTest` that presses and holds before it
+captures would execute the lines and is a test written to move a number, not to assert a drawing.

@@ -873,12 +873,19 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 ## Pending, from 0.13.1
 
 - **The four hold-to-repeat timings on the dispatch stepper are invented and marked as such** —
-  350ms before a held stepper starts running, then 120ms ramping by 10 to 25. They are arithmetic
-  (the ramp walks 55 hulls down to 3 in about two seconds, which is the trip Davide counted) and not
-  measurement, and the motion-tuning precedent in `session-roles.md` says plainly that a hand is what
-  decides them. **The first install is the test.** If the rest is too long the control feels dead
-  under a thumb; if the ramp is too eager the number runs past what you were aiming at, which is the
-  failure mode that costs a tap back.
+  350ms before a held stepper starts running, then 120ms ramping by 15 to 25, in
+  `:client:dispatch:domain`'s `StepperHold`. They are arithmetic and not measurement, and the
+  motion-tuning precedent in `session-roles.md` says plainly that a hand is what decides them.
+  **The first install is the test.** If the rest is too long the control feels dead under a thumb; if
+  the ramp is too eager the number runs past what you were aiming at, which is the failure mode that
+  costs a tap back. `StepperHoldTest` pins the *shape* rather than the values, so a tuning pass may
+  move all four and leave every assertion standing.
+  **The ramp is 15 rather than 10 because a test said so**: at 10 it bought 47 steps in two seconds
+  against the 52 that 55-down-to-3 needs. That is what the module is for — see `decisions.md`.
+- **The dispatch stepper's gesture is covered by behaviour tests and by nothing else**, and the
+  coverage gate's screenshot rows are down 0.22 and 0.14 because of it. A screenshot renders, it does
+  not press, so those fourteen lines cannot be reached by that kind of test at all. Awaiting Davide's
+  call on whether the screenshot pass's filter widens.
 - **Nothing has yet felt the suggested manifest on a device.** The arithmetic is pinned to the hull
   and the frames agree, but what nobody can check from here is whether opening on *3 skiffs* out of
   55 reads as the app being helpful or as the app having lost your fleet. The pool line beside the

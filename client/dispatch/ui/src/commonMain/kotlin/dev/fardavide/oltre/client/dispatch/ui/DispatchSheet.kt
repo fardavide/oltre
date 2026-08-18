@@ -3,6 +3,9 @@ package dev.fardavide.oltre.client.dispatch.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,15 +29,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.dispatch.domain.StepperHold
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -513,6 +513,12 @@ private fun GatherCard(
 //   the press was, so the repeat says out loud that it already stepped and the tap stands down.
 // - **A dead control stays dead.** `enabled` is read inside the loop rather than captured, so the
 //   repeat stops itself at the bound rather than leaning on the mapper's clamp to hide it.
+//
+// **The pace is `StepperHold`'s and not this file's.** How long a thumb rests before the control
+// starts running, and how the ramp gets there, is arithmetic — and arithmetic in a draw scope is a
+// claim no test can check. It moved into `:client:dispatch:domain` when the coverage gate asked what
+// covers it, and the first test written there found the ramp a fifth short of the trip it was
+// chosen for.
 @Composable
 private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
     val step by rememberUpdatedState(onClick)
@@ -533,14 +539,16 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
                         // the press this needs to hear about.
                         awaitFirstDown(requireUnconsumed = false)
                         repeated.held = false
+                        // **Wait, step, wait, step — and no arithmetic of its own.** The cadence is
+                        // `StepperHold`'s, where it is a tested sequence rather than four constants
+                        // and a ramp nobody can run. The first wait is the rest that keeps a tap a
+                        // tap, which is why the flag is only raised once a step has actually fired.
                         val repeat = launch {
-                            delay(HOLD_BEFORE_REPEAT)
-                            var interval = FIRST_REPEAT
-                            while (live) {
+                            for (wait in StepperHold.waits()) {
+                                delay(wait)
+                                if (!live) break
                                 repeated.held = true
                                 step()
-                                delay(interval)
-                                interval = maxOf(FASTEST_REPEAT, interval - REPEAT_GAIN)
                             }
                         }
                         waitForUpOrCancellation()
@@ -565,15 +573,6 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
 private class RepeatFlag {
     var held: Boolean = false
 }
-
-// **Invented, and expected to move on the first device session.** Nobody knows how long a thumb
-// should rest before a control starts running, or how fast is fast without being unreadable, until
-// they are holding a phone — so these are starting values chosen by arithmetic rather than measured:
-// the ramp walks 55 hulls down to 3 in about two seconds, which is the trip Davide counted.
-private val HOLD_BEFORE_REPEAT: Duration = 350.milliseconds
-private val FIRST_REPEAT: Duration = 120.milliseconds
-private val FASTEST_REPEAT: Duration = 25.milliseconds
-private val REPEAT_GAIN: Duration = 10.milliseconds
 
 @Composable
 private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
