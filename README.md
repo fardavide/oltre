@@ -206,6 +206,25 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.13.2 — 2026-08-18
+
+- **Buttons no longer flash a square.** Every rounded card, button, pill and chip in the game drew
+  its tap highlight as a rectangle, so pressing anything painted the corners its own shape had
+  rounded off. The highlight now stops where the control does, everywhere, and the two buttons that
+  claim more height than they draw keep it on the button rather than smearing it across the gap.
+- **Switching tabs is a move rather than a cut.** A destination now arrives from the side the tab
+  bar says it is on and the one you left goes the other way. The Galaxy tab's four views — the fold,
+  the universe, a system, your worlds — cross-fade into each other instead of replacing each other
+  between frames.
+- **Controls turn over instead of snapping.** A selected pill, a booked alert, a card that has just
+  started building, the highlighted galaxy: anything that changes colour because you tapped it now
+  takes the length of the tap to do it.
+- **Cards grow rather than jump.** Booking an alert adds a line to a row, and the row takes the
+  height smoothly instead of shoving everything below it down a step. The worlds list does the same
+  as you type in the search box.
+- Nothing here loops or repeats, and nothing runs on its own: every one of these is a single
+  response to something you did, and the game is as still as it was when you are not touching it.
+
 ### 0.13.1 — 2026-08-17
 
 - **The dispatch sheet opens on the fleet that will actually fill up**, not on every hull you own. A
