@@ -97,7 +97,12 @@ val oltreActionShape = RoundedCornerShape(9.dp)
 // here. The values are kept as specified because the handoff calls them final and recomputing them
 // would be inventing colours nobody approved; the discrepancy is Davide's to settle. If the base
 // is ever corrected, every fill in this file and `oltreCardSurface` move together.
-private fun OltreCardState.fill(): Color = when (this) {
+// `internal` rather than private, on `GalaxyMapDrawingTest`'s precedent: the mapping from a state to
+// a colour is separable from the composable that draws it, and separating it is what makes it
+// executable by a test that needs no composition. What that test pins is the paragraph above — that
+// these are the handoff's literal values — so an accidental edit to one of six hex literals is caught
+// by an assertion rather than by a baseline's tolerance.
+internal fun OltreCardState.fill(): Color = when (this) {
     // white 6% over background
     OltreCardState.ACTIONABLE -> Color(0xFF14161C)
     // white 3% over background
@@ -109,14 +114,14 @@ private fun OltreCardState.fill(): Color = when (this) {
 // The two stops of the lit edge, apart rather than as one brush so that each can be interpolated on
 // its own. The stop is at 0.12 rather than at 0.5 for the same reason the alphas are one step apart:
 // this has to read as an edge, not as a fade down the card.
-private fun OltreCardState.bevelTop(): Color = when (this) {
+internal fun OltreCardState.bevelTop(): Color = when (this) {
     OltreCardState.RUNNING -> OltreColors.accent.copy(alpha = 0.62f)
     OltreCardState.ACTIONABLE,
     OltreCardState.WAITING,
     -> Color.White.copy(alpha = 0.17f)
 }
 
-private fun OltreCardState.bevelFoot(): Color = when (this) {
+internal fun OltreCardState.bevelFoot(): Color = when (this) {
     OltreCardState.RUNNING -> OltreColors.accent.copy(alpha = 0.45f)
     OltreCardState.ACTIONABLE,
     OltreCardState.WAITING,

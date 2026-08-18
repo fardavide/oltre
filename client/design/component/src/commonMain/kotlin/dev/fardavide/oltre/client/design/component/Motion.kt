@@ -176,8 +176,6 @@ fun PressableFace(
                 .graphicsLayer {
                     scaleX = scale
                     scaleY = scale
-                    this.shape = shape
-                    clip = true
                 }
                 // Ahead of `faceModifier`, which is where the fill is: an indication draws its
                 // content first and its ripple over the top, so declared here the ripple lands on

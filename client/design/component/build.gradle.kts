@@ -54,15 +54,20 @@ kotlin {
         // component *says*, which a feature's frame shows anyway, and useless for what a component
         // *does under a finger*: no screen's baseline holds a press, so the ripple that spilled
         // square out of every rounded button in the app was invisible to all fourteen of them.
-        commonTest.dependencies {
-            implementation(libs.kotlin.test)
-        }
+        // **`desktopTest` and no `commonTest`, deliberately.** `OltreCardTest` is pure Kotlin over an
+        // enum and would compile for every target, but a `commonTest` source set in a module with iOS
+        // targets pulls Kotlin/Native test compilation and linking into `check` — which is a large
+        // amount of build for a test that asserts six colours, and it made the suite heavy enough to
+        // tip over several already-marginal screenshot and behaviour tests in other modules. It also
+        // walks into the Native comma trap that `commonTest` names have to dodge. Nothing here needs
+        // to run on a device, and a `…Test` class counts as a unit test wherever it sits.
         val desktopTest by getting {
             dependencies {
                 implementation(projects.client.design.screenshotTesting)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)
+                implementation(libs.kotlin.test)
                 implementation(libs.roborazzi.compose.desktop)
             }
         }
