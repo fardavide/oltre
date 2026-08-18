@@ -44,6 +44,21 @@ data class DispatchSelection(
     val window: Duration?,
 )
 
+// **The two controls that change what a fleet would lift put the manifest back to null**, which is
+// how the sheet re-derives it — Davide, 2026-08-17, having asked for a suggested count that follows
+// the window. A rung is not a change of schedule: a longer stay means a smaller fleet takes the same
+// vein, so a count chosen against the 3h rung is arithmetic about a run that no longer exists. The
+// currency is the same claim about the other axis, since the two deposits are different sizes.
+//
+// **They live here rather than in the screens for one reason**: Galaxy and Fleets both raise this
+// sheet and rule 5 stops either seeing the other, so a `copy` written twice is two places for the
+// two doors to start disagreeing about what a tap means. The stepper has no counterpart, because a
+// count the player typed in with their thumb is the one thing on the sheet nothing should overrule.
+fun DispatchSelection.homingIn(window: Duration): DispatchSelection = copy(window = window, ships = null)
+
+fun DispatchSelection.bringingBack(gathering: ResourceKind): DispatchSelection =
+    copy(gathering = gathering, ships = null)
+
 // **The probe the unsurveyed refusal may hand back, priced by whoever knows how.** Three strings and
 // no verb: this module cannot price a survey and must not learn to, because the map card's footer
 // already decides whether a flight would be honoured — it is in flight, it is unaffordable, it has
@@ -110,11 +125,31 @@ fun GameState.toDispatchUiState(
     val offered = FleetBalance.windowsFor(from = home, to = target)
     val window = selection.window?.takeIf { it in offered } ?: offered.defaultRung()
     val gathering = selection.gathering ?: world.richerOf()
-    val hulls = (selection.ships ?: idle).coerceIn(1, idle)
-    val sent = Ships.of(ShipType.SKIFF, hulls)
     val flight = FleetBalance.flight(from = home, to = target)
     val station = FleetBalance.stationFor(from = home, to = target, window = window)
     val danger = FleetBalance.danger(from = home, world = world)
+    // What is actually in the ground, and the cap behind it. Both are read once and shared by the
+    // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
+    val inTheGround = galaxy.remaining(target, gathering, now)
+    // **The fleet that empties the vein, not every hull you own** — Davide, 2026-08-17, having
+    // counted the taps on a 55-hull pool a world could absorb three of. A hull past the cliff is
+    // locked away for the whole window and brings back exactly zero, and until now the sheet said so
+    // in a note and then made the player walk the stepper down anyway.
+    //
+    // **It is a suggestion rather than a cap.** The pool is still stated in full beside the label,
+    // the `+` still reaches every idle hull, and a deep vein still opens on the whole fleet — which
+    // is the same rule, since there nothing is wasted. Null is a window with no surface time, which
+    // the ladder never offers; the pool is the honest fallback because no fleet size would empty it.
+    val suggested = FleetBalance.hullsToLift(
+        world = world,
+        gathering = gathering,
+        remaining = inTheGround,
+        station = station,
+        danger = danger,
+        research = research,
+    ) ?: idle
+    val hulls = (selection.ships ?: suggested).coerceIn(1, idle)
+    val sent = Ships.of(ShipType.SKIFF, hulls)
     val cargo = FleetBalance.cargo(
         world = world,
         gathering = gathering,
@@ -124,9 +159,6 @@ fun GameState.toDispatchUiState(
         research = research,
     )
     val lift = cargo.of(gathering)
-    // What is actually in the ground, and the cap behind it. Both are read once and shared by the
-    // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
-    val inTheGround = galaxy.remaining(target, gathering, now)
     val haul = minOf(lift, inTheGround)
     val clamped = lift > inTheGround
     val working = DepositBalance.workingTime(

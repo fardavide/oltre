@@ -3,7 +3,10 @@ package dev.fardavide.oltre.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 
@@ -388,6 +391,73 @@ class FleetBalanceTest {
 
         assertFailsWith<IllegalArgumentException> {
             FleetBalance.cargo(rich, ResourceKind.DEUTERIUM, Ships.of(ShipType.SKIFF, 1), 160.minutes, 0, NONE)
+        }
+    }
+
+    // ── The fleet the deposit is worth sending ───────────────────────────────────────────────
+
+    @Test
+    fun `the fleet that empties a vein is the smallest one whose hold covers it`() {
+        // **Derived from `cargo`'s own expression rather than from a second rate**, exactly as
+        // `DepositBalance.workingTime` is — so the two can never disagree about a hull. The property
+        // is the definition: this many hulls take everything there is and one fewer does not.
+        val target = home.copy(slot = 6)
+        val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        fun lift(hulls: Int): Long =
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), 160.minutes, 2, NONE).metal
+
+        for (remaining in listOf(1L, 100L, 1_000L, 4_321L, 12_000L, 25_000L)) {
+            val hulls = assertNotNull(
+                FleetBalance.hullsToLift(rich, ResourceKind.METAL, remaining, 160.minutes, 2, NONE),
+            )
+            assertTrue(lift(hulls) >= remaining, "$hulls hulls lift ${lift(hulls)} of $remaining")
+            assertTrue(hulls == 1 || lift(hulls - 1) < remaining, "${hulls - 1} hulls already lift $remaining")
+        }
+    }
+
+    @Test
+    fun `a vein with nothing left in it takes one hull rather than none`() {
+        // One is the floor because a fleet of nothing is not an offer. The dispatch sheet opens on
+        // this number on a stripped world — which is what makes its countdown the soonest one there
+        // is rather than a date no world will ever reach.
+        val target = home.copy(slot = 6)
+        val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+
+        assertEquals(1, FleetBalance.hullsToLift(rich, ResourceKind.METAL, 0, 160.minutes, 0, NONE))
+    }
+
+    @Test
+    fun `a window that leaves no time on the surface is one no fleet can empty`() {
+        // Null rather than a number, because the answer is *none of them*: `cargo` is zero at every
+        // fleet size when the station is, so any figure here would be a lie with a plausible face.
+        val target = home.copy(slot = 6)
+        val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+
+        assertNull(FleetBalance.hullsToLift(rich, ResourceKind.METAL, 500, 0.minutes, 0, NONE))
+        assertNull(FleetBalance.hullsToLift(rich, ResourceKind.METAL, 500, (-30).minutes, 0, NONE))
+    }
+
+    @Test
+    fun `a longer window and a richer world both want fewer hulls`() {
+        // The two reasons the sheet re-derives the number when a rung is tapped: the same vein wants
+        // a smaller fleet the longer the fleet is allowed to stay.
+        val target = home.copy(slot = 6)
+        val poor = world(target, metalPerMillion = 600_000, hazards = emptySet())
+        val rich = world(target, metalPerMillion = 1_600_000, hazards = emptySet())
+        fun hulls(on: World, station: Duration): Int? =
+            FleetBalance.hullsToLift(on, ResourceKind.METAL, 8_000, station, 0, NONE)
+
+        assertTrue(hulls(poor, 160.minutes)!! > hulls(poor, 700.minutes)!!)
+        assertTrue(hulls(poor, 160.minutes)!! > hulls(rich, 160.minutes)!!)
+    }
+
+    @Test
+    fun `no fleet is ever sent to gather deuterium`() {
+        val target = home.copy(slot = 6)
+        val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+
+        assertFailsWith<IllegalArgumentException> {
+            FleetBalance.hullsToLift(rich, ResourceKind.DEUTERIUM, 500, 160.minutes, 0, NONE)
         }
     }
 

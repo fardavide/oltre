@@ -9,6 +9,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.bringingBack
+import dev.fardavide.oltre.client.dispatch.presentation.homingIn
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsPage
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -61,9 +63,12 @@ fun FleetsScreen(
             open = DispatchSelection(at = world, gathering = null, ships = null, window = null)
         },
         onCloseDispatch = { open = null },
-        onSelectGathering = { kind -> open = open?.copy(gathering = kind) },
+        // Both drop the manifest so the sheet re-derives the fleet that empties the vein — the rule
+        // is `homingIn`'s rather than this screen's, so that this door and Galaxy's cannot disagree
+        // about what a rung means.
+        onSelectGathering = { kind -> open = open?.bringingBack(kind) },
         onSelectShips = { count -> open = open?.copy(ships = count) },
-        onSelectWindow = { window -> open = open?.copy(window = window) },
+        onSelectWindow = { window -> open = open?.homingIn(window) },
         onDispatchRun = {
             // Read off the *rendered* offer rather than off the selection, because the offer is what
             // the player was actually shown — see `GalaxyScreen`, where the same three lines guard

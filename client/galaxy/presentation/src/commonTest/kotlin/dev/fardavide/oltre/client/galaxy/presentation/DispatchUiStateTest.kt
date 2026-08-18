@@ -96,12 +96,87 @@ class DispatchUiStateTest {
     }
 
     @Test
-    fun `a run defaults to the whole idle pool`() {
+    fun `a run defaults to the whole idle pool when every hull brings something back`() {
+        // Four skiffs at the 3h rung do not come close to a full vein, so nothing is wasted and the
+        // suggestion is the whole pool — which is what the sheet defaulted to unconditionally until
+        // 0.13.1.
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), withSkiffs(4)))
 
         assertEquals(4, offer.shipCount)
         assertEquals("4 skiffs", offer.ships)
         assertTrue(offer.atMost)
+    }
+
+    @Test
+    fun `a run defaults to the fleet that empties the vein rather than to every hull you own`() {
+        // **Davide 2026-08-17** — *"going from 55 to 3 is a lot of taps"*. A hull past the cliff is
+        // locked away for the whole window and brings back exactly zero; the sheet has said so in a
+        // note since 0.10 and now opens on the number instead of asking the player to walk to it.
+        val target = runnable()
+        val fleet = 40
+
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, state = withSkiffs(fleet), selection = selection(target).copy(window = 24.hours)),
+        )
+
+        assertTrue(offer.shipCount < fleet, "the sheet opened on the whole pool: ${offer.ships}")
+        assertEquals("of $fleet idle", offer.pool, "the pool is still stated in full")
+        assertTrue(!offer.atMost)
+        // And the note that names the wasted hulls is gone, because at the suggestion there are none
+        // — it is earned rather than standing, so a default that earns it would be furniture.
+        assertNull(offer.clampNote)
+    }
+
+    @Test
+    fun `the suggested fleet is the smallest one that still takes the whole deposit`() {
+        // The definition asserted rather than restated: at the suggestion the vein is what stops the
+        // run, and one hull fewer leaves something in the ground.
+        val target = runnable()
+        val asked = selection(target).copy(window = 24.hours)
+        val suggested = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(40), asked)).shipCount
+        assertTrue(suggested > 1, "the fixture has to bite for this to be a claim about anything")
+
+        val fewer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, withSkiffs(40), asked.copy(ships = suggested - 1)),
+        )
+
+        assertTrue(fewer.perShip.orEmpty().endsWith(" each"), "one hull fewer still emptied it: ${fewer.perShip}")
+    }
+
+    @Test
+    fun `a longer window suggests a smaller fleet`() {
+        // The reason the number is re-derived when a rung is tapped: the same vein wants a smaller
+        // fleet the longer the fleet is allowed to stay on the surface.
+        val target = runnable()
+        val short = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, withSkiffs(40), selection(target).copy(window = 3.hours)),
+        )
+        val long = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, withSkiffs(40), selection(target).copy(window = 24.hours)),
+        )
+
+        assertTrue(short.shipCount > long.shipCount, "${short.ships} at 3h against ${long.ships} at 24h")
+    }
+
+    @Test
+    fun `a stripped world suggests the single hull that reaches the soonest date`() {
+        // The degenerate end of the same rule — there is nothing to empty, so one hull empties it —
+        // and it is the useful answer rather than an accident: the countdown is a function of the
+        // ask, so the smallest ask is the soonest date the sheet can offer.
+        val target = runnable()
+        val cap = state.galaxy.depositCap(target, ResourceKind.METAL)!!
+        val stripped = state.copy(
+            ships = Ships.of(ShipType.SKIFF, 40),
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, cap, at = EPOCH),
+        )
+
+        val waiting = assertIs<DispatchUiState.Waiting>(
+            dispatchAt(target, state = stripped, selection = selection(target).copy(gathering = ResourceKind.METAL)),
+        )
+
+        assertEquals(1, waiting.shipCount)
+        // ...which is what turns "no world this size ever holds that much" into a date.
+        assertNotNull(waiting.wait, waiting.note)
     }
 
     @Test
@@ -275,9 +350,12 @@ class DispatchUiStateTest {
 
     @Test
     fun `a clamped run says the whole deposit rather than printing the figure twice`() {
+        // **The manifest is named rather than defaulted since 0.13.1**, in this test and the three
+        // below it: the sheet now opens on the fleet that empties the vein, so a fixture that left
+        // the count blank would be asserting about the suggestion instead of about the clamp.
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
         )
 
         assertEquals("the whole deposit", offer.perShip)
@@ -289,7 +367,7 @@ class DispatchUiStateTest {
     fun `a clamped run names the hulls that bring nothing`() {
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = 24.hours)),
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
         )
 
         val note = assertNotNull(offer.clampNote)
@@ -318,7 +396,11 @@ class DispatchUiStateTest {
         // now the manifest a 24h rung is *right* for and the note it would print is no note at all.
         val target = runnable()
         val offer = assertIs<DispatchUiState.Offer>(
-            dispatchAt(target, state = withSkiffs(32), selection = selection(target).copy(window = 24.hours)),
+            dispatchAt(
+                target,
+                state = withSkiffs(32),
+                selection = selection(target).copy(ships = 32, window = 24.hours),
+            ),
         )
 
         val note = assertNotNull(offer.rungNote)
@@ -362,7 +444,7 @@ class DispatchUiStateTest {
             dispatchAt(
                 target,
                 state = stripped,
-                selection = selection(target).copy(gathering = ResourceKind.METAL, window = 24.hours),
+                selection = selection(target).copy(gathering = ResourceKind.METAL, ships = 8, window = 24.hours),
             ),
         )
         val small = assertIs<DispatchUiState.Waiting>(

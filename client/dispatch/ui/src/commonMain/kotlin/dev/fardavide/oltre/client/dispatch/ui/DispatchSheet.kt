@@ -14,19 +14,30 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 // **Raised from a world row, and the second of the two sheets a player meets.** Everything else in
 // Oltre is a list you scroll: a sheet exists here because a run is the one action with three inputs,
@@ -484,15 +495,60 @@ private fun GatherCard(
 
 // 32dp square, which is the size the colony's own steppers are and the size every target in this app
 // that is not a full-width button is. Below that is the 44pt iOS minimum failing on contact.
+//
+// **A finger left on it keeps stepping** — Davide, 2026-08-17: *"going from 55 to 3 is a lot of
+// taps"*. The suggested manifest is the other half of that call and makes the walk short in the
+// common case; this is what stops the uncommon one being fifty taps. The tap is unchanged, and it
+// has to be: a repeat that swallowed the first step would make a control that only works if you
+// wait.
+//
+// Three things the shape of this has to get right, each of which is a defect if it does not:
+//
+// - **The step reads the count that is on screen now, not the one that was there when the finger
+//   landed.** `rememberUpdatedState` is what gives the loop the freshest lambda, and without it a
+//   hold would ask for the same number fifty times. If a frame has not landed between two ticks the
+//   loop asks for a number it already asked for, which loses a step and can never overshoot — the
+//   right way round for a bound.
+// - **A hold does not add a step when the finger comes off.** `clickable` fires on the up whatever
+//   the press was, so the repeat says out loud that it already stepped and the tap stands down.
+// - **A dead control stays dead.** `enabled` is read inside the loop rather than captured, so the
+//   repeat stops itself at the bound rather than leaning on the mapper's clamp to hide it.
 @Composable
 private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
+    val step by rememberUpdatedState(onClick)
+    val live by rememberUpdatedState(enabled)
+    // Written by the repeat and read by the tap, which is the whole of the off-by-one guard.
+    val repeated = remember { RepeatFlag() }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(32.dp)
             .border(1.dp, Color.White.copy(alpha = 0.17f), CONTROL_SHAPE)
             .testTag(tag)
-            .clickable(enabled = enabled, onClick = onClick),
+            .pointerInput(Unit) {
+                coroutineScope {
+                    awaitEachGesture {
+                        // Unconsumed is not required: `clickable` sits inside this in the chain and
+                        // sees the down first, and a press it has taken an interest in is exactly
+                        // the press this needs to hear about.
+                        awaitFirstDown(requireUnconsumed = false)
+                        repeated.held = false
+                        val repeat = launch {
+                            delay(HOLD_BEFORE_REPEAT)
+                            var interval = FIRST_REPEAT
+                            while (live) {
+                                repeated.held = true
+                                step()
+                                delay(interval)
+                                interval = maxOf(FASTEST_REPEAT, interval - REPEAT_GAIN)
+                            }
+                        }
+                        waitForUpOrCancellation()
+                        repeat.cancel()
+                    }
+                }
+            }
+            .clickable(enabled = enabled) { if (!repeated.held) onClick() },
     ) {
         Text(
             text = glyph,
@@ -502,6 +558,22 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
         )
     }
 }
+
+// One mutable flag, living across a gesture rather than across a recomposition — see `Stepper`.
+// Deliberately not a `MutableState`: nothing draws it, and a recomposition per tick would be a frame
+// spent redrawing a 32dp square that has not changed.
+private class RepeatFlag {
+    var held: Boolean = false
+}
+
+// **Invented, and expected to move on the first device session.** Nobody knows how long a thumb
+// should rest before a control starts running, or how fast is fast without being unreadable, until
+// they are holding a phone — so these are starting values chosen by arithmetic rather than measured:
+// the ramp walks 55 hulls down to 3 in about two seconds, which is the trip Davide counted.
+private val HOLD_BEFORE_REPEAT: Duration = 350.milliseconds
+private val FIRST_REPEAT: Duration = 120.milliseconds
+private val FASTEST_REPEAT: Duration = 25.milliseconds
+private val REPEAT_GAIN: Duration = 10.milliseconds
 
 @Composable
 private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {

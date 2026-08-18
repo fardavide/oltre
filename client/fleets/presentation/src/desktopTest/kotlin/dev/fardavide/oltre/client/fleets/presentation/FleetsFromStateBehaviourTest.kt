@@ -149,6 +149,12 @@ class FleetsFromStateBehaviourTest {
     fun `the run that leaves carries every control the player touched`() {
         // All three, together: the sheet's state is this screen's own, so a hull count and a window
         // chosen here have to survive to the verb. Two skiffs, so the stepper has somewhere to go.
+        //
+        // **The stepper is touched last since 0.13.1, and the order is the assertion rather than an
+        // accident.** A currency and a rung both change what a fleet would lift, so both put the
+        // manifest back to the fleet that empties the vein — see `homingIn`. Stepping before them
+        // would be asserting that a count survives the two controls designed to overrule it, which is
+        // the opposite of what this screen now does.
         val state = colonyWithARun().copy(ships = Ships.of(ShipType.SKIFF, 2))
         val sent = mutableListOf<Quadruple>()
 
@@ -158,16 +164,16 @@ class FleetsFromStateBehaviourTest {
         ) {
             tapTheWorld(worked)
             bringBack(ResourceKind.CRYSTAL)
-            sendOneFewer()
             homeIn(6.hours)
+            sendOneFewer()
             send()
         }
 
         val run = sent.single()
         assertEquals(ResourceKind.CRYSTAL, run.gathering)
         assertEquals(6.hours, run.window)
-        // One fewer than the pool, because the sheet opens on the whole of it — so `−` is the only
-        // stepper end that moves from a default, and `+` is already at its stop.
+        // One fewer than the two the vein can absorb here, so `−` is a real move from the suggestion
+        // rather than a step the clamp would have made anyway.
         assertEquals(Ships.of(ShipType.SKIFF, 1), run.ships)
     }
 

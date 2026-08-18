@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-16 (0.12.1)
+Updated: 2026-08-17 (0.13.1)
 
 ## Landed
 
@@ -869,6 +869,20 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.13.1
+
+- **The four hold-to-repeat timings on the dispatch stepper are invented and marked as such** —
+  350ms before a held stepper starts running, then 120ms ramping by 10 to 25. They are arithmetic
+  (the ramp walks 55 hulls down to 3 in about two seconds, which is the trip Davide counted) and not
+  measurement, and the motion-tuning precedent in `session-roles.md` says plainly that a hand is what
+  decides them. **The first install is the test.** If the rest is too long the control feels dead
+  under a thumb; if the ramp is too eager the number runs past what you were aiming at, which is the
+  failure mode that costs a tap back.
+- **Nothing has yet felt the suggested manifest on a device.** The arithmetic is pinned to the hull
+  and the frames agree, but what nobody can check from here is whether opening on *3 skiffs* out of
+  55 reads as the app being helpful or as the app having lost your fleet. The pool line beside the
+  label — `of 55 idle` — is the whole of the answer to that, and it is one small grey string.
 
 ## Pending, from 0.12.0
 

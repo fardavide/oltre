@@ -100,7 +100,19 @@ internal val dispatchClampedUiState: GalaxyUiState =
 
 // A fleet big enough that what it would lift is more than the world currently holds — so the sheet
 // says it is taking *the whole deposit* rather than printing a figure the ground cannot supply.
+//
+// **The manifest is stated rather than defaulted since 0.13.1**, and that is the frame keeping its
+// subject: the sheet now opens on the fleet that empties the vein, so a blank count here would
+// resolve to a manifest with nothing wasted and this would quietly become a picture of the plain
+// offer — the same trap `dispatchClampedUiState` fell into at 0.9 and records below.
 internal val dispatchWholeDepositUiState: GalaxyUiState =
+    sheet(state = frameState.copy(ships = Ships.of(ShipType.SKIFF, 40)), ships = 40, window = 24.hours)
+
+// The pool the suggestion is *about*: 40 idle hulls at a world a handful can empty, with the count
+// left blank so the mapper fills it in. Both steppers are live here and nowhere else — the offer
+// frame owns one hull, and the two clamped frames are pinned at the top of their pool — which is
+// what the hold-to-repeat assertions need to be assertions about anything.
+internal val dispatchSuggestedUiState: GalaxyUiState =
     sheet(state = frameState.copy(ships = Ships.of(ShipType.SKIFF, 40)), window = 24.hours)
 
 // A world already stripped, so the offer is a wait rather than a haul.
@@ -127,6 +139,10 @@ internal val dispatchWaitingForeverUiState: GalaxyUiState = frameState.let { sta
     sheet(
         state = state.copy(galaxy = emptied, ships = Ships.of(ShipType.SKIFF, 400)),
         gathering = ResourceKind.METAL,
+        // Stated for `dispatchWholeDepositUiState`'s reason, and here it is the whole subject: a
+        // stripped world has nothing to empty, so the suggestion on one is a single hull — which is
+        // the *soonest* date there is rather than the "never" this frame exists to draw.
+        ships = 400,
         window = 24.hours,
     )
 }

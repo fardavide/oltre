@@ -10,6 +10,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.click
+import androidx.compose.ui.test.down
+import androidx.compose.ui.test.up
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasText
@@ -363,6 +365,25 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 
     fun sendOneFewer() = apply {
         test.onNodeWithTag(DispatchTestTags.SHIPS_FEWER).performClick()
+    }
+
+    // A finger left on a stepper, which is a different gesture from a tap rather than a slow one:
+    // past the hold the control repeats on its own and the release stops adding a step of its own.
+    // **The down and the up are two injections with the clock advanced between them**, because a
+    // single `performTouchInput` block cannot hold a pointer while virtual time passes.
+    fun holdSendFewer(millis: Long) = apply {
+        holdStepper(tag = DispatchTestTags.SHIPS_FEWER, millis = millis)
+    }
+
+    fun holdSendMore(millis: Long) = apply {
+        holdStepper(tag = DispatchTestTags.SHIPS_MORE, millis = millis)
+    }
+
+    private fun holdStepper(tag: String, millis: Long) {
+        test.onNodeWithTag(tag).performTouchInput { down(center) }
+        test.mainClock.advanceTimeBy(millis)
+        test.onNodeWithTag(tag).performTouchInput { up() }
+        test.waitForIdle()
     }
 
     fun homeIn(window: Duration) = apply {

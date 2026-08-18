@@ -2,6 +2,8 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
+import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
+import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
@@ -9,6 +11,7 @@ import dev.fardavide.oltre.client.galaxy.ui.WorldVerdictUiState
 import dev.fardavide.oltre.client.galaxy.ui.galaxyPage
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -415,7 +418,133 @@ class DispatchSheetBehaviourTest {
         galaxyPage(uiState = homeSystemUiState) { assertNoSheet() }
     }
 
+    // ── The manifest suggests itself ─────────────────────────────────────────────────────────
+    //
+    // **Davide, 2026-08-17** — *"going from 55 to 3 is a lot of taps"*. The sheet opens on the fleet
+    // that empties the vein rather than on every hull the colony owns, and the two controls that
+    // change what a fleet would lift put the number back where the arithmetic says it should be.
+    // Both are asserted on the stateful screen, because the selection they reset is `GalaxyScreen`'s.
+
+    @Test
+    fun `a rung puts the fleet back to the one that empties the vein`() {
+        // A rung is a change of ask rather than a change of schedule: the same vein wants a smaller
+        // fleet the longer the fleet may stay on the surface, so a count chosen against the 3h rung
+        // is arithmetic about a run that no longer exists.
+        val onTheLongRung = suggestionFor(window = 24.hours)
+        val stepped = suggestionFor().shipCount + 1
+        assertTrue(stepped != onTheLongRung.shipCount, "the two have to differ for this to be a claim")
+
+        galaxyScreen(state = bigFleetState, landing = GalaxyLanding.WORLDS) {
+            tapTheWorld(RUNNABLE)
+            sendOneMore()
+            assertTheSheetReads("$stepped skiffs")
+
+            homeIn(24.hours)
+
+            assertTheSheetReads(onTheLongRung.ships)
+        }
+    }
+
+    @Test
+    fun `a currency puts the fleet back to the one that empties the vein`() {
+        // The other half of the same rule and Davide's call of 2026-08-17: the two deposits are
+        // different sizes, so a count suggested for one is arithmetic about the wrong world.
+        val onCrystal = suggestionFor(gathering = ResourceKind.CRYSTAL)
+        val stepped = suggestionFor().shipCount + 1
+        assertTrue(stepped != onCrystal.shipCount, "the two have to differ for this to be a claim")
+
+        galaxyScreen(state = bigFleetState, landing = GalaxyLanding.WORLDS) {
+            tapTheWorld(RUNNABLE)
+            sendOneMore()
+            assertTheSheetReads("$stepped skiffs")
+
+            bringBack(ResourceKind.CRYSTAL)
+
+            assertTheSheetReads(onCrystal.ships)
+        }
+    }
+
+    @Test
+    fun `the sheet opens on the fleet that empties the vein rather than on every hull you own`() {
+        // **A suggestion rather than a cap**, which is what the pool line beside the label is for:
+        // the number opens where the arithmetic is and the `+` still reaches all 55.
+        galaxyScreen(state = bigFleetState, landing = GalaxyLanding.WORLDS) {
+            tapTheWorld(RUNNABLE)
+
+            assertTheSheetReads(suggestionFor().ships)
+            assertTheSheetReads("of 55 idle")
+            assertTheSheetDoesNotRead("55 skiffs")
+        }
+    }
+
+    // ── The stepper repeats while it is held ─────────────────────────────────────────────────
+
+    @Test
+    fun `a stepper held down keeps stepping instead of asking for a tap each time`() {
+        // The other half of Davide's 2026-08-17 call: the suggestion means the walk is usually short,
+        // and a walk that is not short should not be 52 taps. The hold is what makes the whole pool
+        // reachable from the suggestion and back.
+        val asked = mutableListOf<Int>()
+
+        galaxyPage(uiState = dispatchSuggestedUiState, onSelectShips = { asked += it }) {
+            holdSendMore(millis = 1_500)
+        }
+
+        assertTrue(asked.size > 1, "a hold produced ${asked.size} steps")
+    }
+
+    @Test
+    fun `a tap is one step and a hold does not add one more when the finger comes off`() {
+        // The off-by-one a repeat invites: the release is still an up on a control whose tap fires on
+        // up, so the hold has to say it already stepped. A tap is unchanged — one step, no hold.
+        val tapped = mutableListOf<Int>()
+        val held = mutableListOf<Int>()
+
+        galaxyPage(uiState = dispatchSuggestedUiState, onSelectShips = { tapped += it }) {
+            sendOneMore()
+        }
+        galaxyPage(uiState = dispatchSuggestedUiState, onSelectShips = { held += it }) {
+            holdSendMore(millis = 1_500)
+        }
+
+        assertEquals(1, tapped.size)
+        // The frame is static, so every step asks for the same number — what is being counted is how
+        // many times the control fired, and the release must not be one of them.
+        assertEquals(held.size, held.count { it == tapped.single() })
+    }
+
+    @Test
+    fun `a stepper at its bound stays at its bound however long it is held`() {
+        // The pool is one hull in this frame, so `−` is disabled and the repeat must not start: a
+        // hold on a dead control is the one place a repeat could invent a step the tap cannot make.
+        val asked = mutableListOf<Int>()
+
+        galaxyPage(uiState = dispatchOfferUiState, onSelectShips = { asked += it }) {
+            holdSendFewer(millis = 1_500)
+        }
+
+        assertTrue(asked.isEmpty(), "a disabled stepper fired ${asked.size} steps")
+    }
+
     private companion object {
+
+        // Big enough that the vein is what stops the run, which is the state the default was wrong
+        // in: 55 idle hulls at a world three of them can empty.
+        val bigFleetState: GameState = testGameState.copy(ships = Ships.of(ShipType.SKIFF, 55))
+
+        // What the mapper would suggest, read off the mapper rather than written down — the number
+        // is `FleetBalance.hullsToLift` to the hull, and a figure typed here would be this test
+        // asserting the balance instead of the screen.
+        fun suggestionFor(
+            gathering: ResourceKind? = null,
+            window: kotlin.time.Duration? = null,
+        ): DispatchUiState.Offer = assertIs<DispatchUiState.Offer>(
+            bigFleetState.toDispatchUiState(
+                selection = DispatchSelection(at = RUNNABLE, gathering = gathering, ships = null, window = window),
+                probe = null,
+                now = FIXTURE_NOW,
+            ),
+        )
 
         // A surveyed world outside the home system — the nearest one, so the ledger's own ordering
         // puts it near the top and the ladder is a full five rungs. Found rather than written down:

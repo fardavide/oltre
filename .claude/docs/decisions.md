@@ -3515,3 +3515,67 @@ existed:
 Kotlin needs for exhaustiveness and `core` makes unreachable: `FleetRun`'s constructor throws *"a run
 never gathers deuterium"*. A test for it would assert against a colony that cannot exist. Written
 down rather than excluded, because the next reader will find it and wonder.
+
+## The dispatch sheet suggests a manifest (2026-08-17, 0.13.1)
+
+Davide, on a screenshot of the sheet reading *"3 skiffs empty it. The other 52 bring nothing."* above
+a stepper parked at 55:
+
+> **"Going from 55 to 3 is a lot of taps 😅"**
+
+Three changes, and the first is the one that matters.
+
+### The default is the fleet that empties the vein, not the pool
+
+`hulls = selection.ships ?: idle` had been the rule since the sheet landed, and the clamp note has
+been telling the player it was wrong since 0.10 — *this many empty it, the rest bring nothing*. The
+note was right and the default was the thing being explained. Now `FleetBalance.hullsToLift` answers
+the same question the note asks and the sheet opens on the answer.
+
+**It is a suggestion, never a cap.** `of 55 idle` still sits beside the label, `+` still reaches every
+hull, and a deep vein still opens on the whole fleet — which is the same rule rather than an
+exception, because there nothing is wasted. What the change deletes is the walk, not the choice.
+
+**The note's disappearance is the point rather than a loss.** `clampNote` is earned rather than
+standing: at the suggestion there are no wasted hulls to name, so it now appears only when the player
+has deliberately asked for more. It stopped being furniture and became a live warning.
+
+**`hullsToLift` is derived from `cargo`'s own expression**, for the reason `DepositBalance.workingTime`
+states: `cargo(n)` is `floor(n × K)`, so *n hulls empty it* is one ceiling division, and a second copy
+of the rate here would be a second rounding convention. Null is *no fleet size lifts this in this
+window*, which only a window with no surface time reaches and the ladder never offers.
+
+### A rung and a currency both re-derive it — Davide's call, asked as an option
+
+He asked for the window; the currency was offered beside it and he took both. The argument is the
+same on either axis: a longer stay means a smaller fleet takes the same vein, and the two deposits
+are different sizes, so a count chosen against the old ask is arithmetic about a run that no longer
+exists. The **stepper is the one control that keeps what it was given** — a number a thumb put there
+is the one thing on the sheet nothing should overrule.
+
+The rule lives in `homingIn` / `bringingBack` on `DispatchSelection` rather than in the two screens,
+because Galaxy and Fleets both raise this sheet and rule 5 stops either seeing the other: a `copy`
+written twice is two doors that can start disagreeing about what a tap means.
+
+### And the stepper repeats while it is held
+
+The suggestion makes the walk short in the common case; the hold is what stops the uncommon one being
+fifty taps. Three things it has to get right, each a defect if it does not: the step reads the count
+that is **on screen now** (`rememberUpdatedState`, or a hold asks for one number fifty times); a hold
+**does not add a step on the release**, since `clickable` fires on the up whatever the press was; and
+a **disabled stepper stays disabled**, because `enabled` is read inside the loop rather than captured.
+
+**The four timings are invented and marked as such** — 350ms before it starts, 120ms ramping to 25ms —
+under the motion-tuning precedent in `session-roles.md`: nobody knows how long a thumb should rest
+before a control starts running until they are holding a phone. The ramp walks 55 down to 3 in about
+two seconds, which is the trip that was counted. Expect them to move on the first install.
+
+### What the frames had to say out loud
+
+Two screenshot fixtures were leaving the manifest blank and relying on it resolving to the pool:
+`dispatchWholeDepositUiState` would have become a picture of the plain offer, and
+`dispatchWaitingForeverUiState` — the one frame whose subject is *"no world this size ever holds that
+much"* — would have opened on a single skiff and offered a date. Both state their count now. The same
+edit was needed in four mapper tests, and it is the same lesson `dispatchClampedUiState` recorded at
+0.9: **a fixture that leaves a default blank is a fixture that stops being about its own subject the
+day the default moves.**
