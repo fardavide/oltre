@@ -882,10 +882,13 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   move all four and leave every assertion standing.
   **The ramp is 15 rather than 10 because a test said so**: at 10 it bought 47 steps in two seconds
   against the 52 that 55-down-to-3 needs. That is what the module is for — see `decisions.md`.
-- **The dispatch stepper's gesture is covered by behaviour tests and by nothing else**, and the
-  coverage gate's screenshot rows are down 0.22 and 0.14 because of it. A screenshot renders, it does
-  not press, so those fourteen lines cannot be reached by that kind of test at all. Awaiting Davide's
-  call on whether the screenshot pass's filter widens.
+- ~~**The dispatch stepper's gesture is covered by behaviour tests and by nothing else.**~~ —
+  **closed 2026-08-17.** A screenshot renders, it does not press, so the gesture cannot be reached by
+  that kind of test at all. Davide widened the screenshot pass's filter to name `StepperGesture.kt`,
+  which exists as a file for that reason: one `Modifier` extension and nothing that draws. With the
+  entry in place the screenshot pass reads identically to `main` in every digit, which is the
+  evidence that it excludes what this branch added and nothing else. See `decisions.md` for what the
+  next entry has to demonstrate.
 - **Nothing has yet felt the suggested manifest on a device.** The arithmetic is pinned to the hull
   and the frames agree, but what nobody can check from here is whether opening on *3 skiffs* out of
   55 reads as the app being helpful or as the app having lost your fleet. The pool line beside the

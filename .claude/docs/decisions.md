@@ -3631,8 +3631,28 @@ up. Measured on one machine against `origin/main`:
 | screenshot branch | 50.88% | 50.74% |
 
 The unit row is recovered and better than it was. The two screenshot rows are the gesture and
-nothing else, and no test of that kind can move them. The screenshot filter's own principle —
-*"what survives is what draws"* — reads on a gesture handler exactly as it reads on a mapper, but
-there is no layer boundary to express it with, so widening it is a change to the gate rather than a
-change to the code. **Rejected on the way**: a `…ScreenshotTest` that presses and holds before it
-captures would execute the lines and is a test written to move a number, not to assert a drawing.
+nothing else, and no test of that kind can move them.
+
+**Davide's call, put to him with those numbers: widen the screenshot filter.** The filter's own
+principle — *"what survives is what draws"* — reads on a gesture handler exactly as it reads on a
+mapper; what it lacked was a layer boundary to express it with. So the gesture became
+`StepperGesture.kt`, one `Modifier` extension and nothing that emits, and the screenshot pass names
+that file beside the mappers and `core`.
+
+**The measurement is the argument that it is narrow enough.** With the entry in place the screenshot
+pass reads `4139/4919` lines and `1067/2097` branches — *identical to `main` in every digit*. The
+excluded file holds exactly the lines this branch added to that pass and not one line that existed
+before it, which is what "narrow" has to mean if it is to mean anything. The unit row ends at 84.32%
+against main's 84.26%, and the behaviour row — the one that actually proves the gesture works — went
+up.
+
+**Two things rejected on the way.** A `…ScreenshotTest` that presses and holds before it captures
+would execute the lines, and is a test written to move a number rather than to assert a drawing. A
+global `excludes` entry, beside `MainActivity` and `AndroidShakeDetector`, would hide the gesture
+from *every* pass including the behaviour one that covers it — which is the property those three
+entries have (no seam any test can reach) and this one does not.
+
+**What the next entry has to do.** Not "is it small" and not "is it hard to test", but: *is there a
+kind of test that could reach this, and does the file contain anything that kind could catch.* A
+pointer handler in a file with no drawing in it answers no and no. A composable that emits anything
+does not, and belongs back in `DispatchSheet.kt`.

@@ -3,9 +3,6 @@ package dev.fardavide.oltre.client.dispatch.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,13 +14,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -32,12 +25,8 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
-import dev.fardavide.oltre.client.dispatch.domain.StepperHold
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 
 // **Raised from a world row, and the second of the two sheets a player meets.** Everything else in
 // Oltre is a list you scroll: a sheet exists here because a run is the one action with three inputs,
@@ -498,65 +487,17 @@ private fun GatherCard(
 //
 // **A finger left on it keeps stepping** — Davide, 2026-08-17: *"going from 55 to 3 is a lot of
 // taps"*. The suggested manifest is the other half of that call and makes the walk short in the
-// common case; this is what stops the uncommon one being fifty taps. The tap is unchanged, and it
-// has to be: a repeat that swallowed the first step would make a control that only works if you
-// wait.
-//
-// Three things the shape of this has to get right, each of which is a defect if it does not:
-//
-// - **The step reads the count that is on screen now, not the one that was there when the finger
-//   landed.** `rememberUpdatedState` is what gives the loop the freshest lambda, and without it a
-//   hold would ask for the same number fifty times. If a frame has not landed between two ticks the
-//   loop asks for a number it already asked for, which loses a step and can never overshoot — the
-//   right way round for a bound.
-// - **A hold does not add a step when the finger comes off.** `clickable` fires on the up whatever
-//   the press was, so the repeat says out loud that it already stepped and the tap stands down.
-// - **A dead control stays dead.** `enabled` is read inside the loop rather than captured, so the
-//   repeat stops itself at the bound rather than leaning on the mapper's clamp to hide it.
-//
-// **The pace is `StepperHold`'s and not this file's.** How long a thumb rests before the control
-// starts running, and how the ramp gets there, is arithmetic — and arithmetic in a draw scope is a
-// claim no test can check. It moved into `:client:dispatch:domain` when the coverage gate asked what
-// covers it, and the first test written there found the ramp a fifth short of the trip it was
-// chosen for.
+// common case; `steppingWhileHeld` is what stops the uncommon one being fifty taps, and it is a file
+// of its own because nothing in it draws.
 @Composable
 private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () -> Unit) {
-    val step by rememberUpdatedState(onClick)
-    val live by rememberUpdatedState(enabled)
-    // Written by the repeat and read by the tap, which is the whole of the off-by-one guard.
-    val repeated = remember { RepeatFlag() }
     Box(
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .size(32.dp)
             .border(1.dp, Color.White.copy(alpha = 0.17f), CONTROL_SHAPE)
             .testTag(tag)
-            .pointerInput(Unit) {
-                coroutineScope {
-                    awaitEachGesture {
-                        // Unconsumed is not required: `clickable` sits inside this in the chain and
-                        // sees the down first, and a press it has taken an interest in is exactly
-                        // the press this needs to hear about.
-                        awaitFirstDown(requireUnconsumed = false)
-                        repeated.held = false
-                        // **Wait, step, wait, step — and no arithmetic of its own.** The cadence is
-                        // `StepperHold`'s, where it is a tested sequence rather than four constants
-                        // and a ramp nobody can run. The first wait is the rest that keeps a tap a
-                        // tap, which is why the flag is only raised once a step has actually fired.
-                        val repeat = launch {
-                            for (wait in StepperHold.waits()) {
-                                delay(wait)
-                                if (!live) break
-                                repeated.held = true
-                                step()
-                            }
-                        }
-                        waitForUpOrCancellation()
-                        repeat.cancel()
-                    }
-                }
-            }
-            .clickable(enabled = enabled) { if (!repeated.held) onClick() },
+            .steppingWhileHeld(enabled = enabled, onStep = onClick),
     ) {
         Text(
             text = glyph,
@@ -565,13 +506,6 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
             fontSize = 13.5.sp,
         )
     }
-}
-
-// One mutable flag, living across a gesture rather than across a recomposition — see `Stepper`.
-// Deliberately not a `MutableState`: nothing draws it, and a recomposition per tick would be a frame
-// spent redrawing a 32dp square that has not changed.
-private class RepeatFlag {
-    var held: Boolean = false
 }
 
 @Composable

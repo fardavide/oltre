@@ -198,9 +198,31 @@ kover {
                 // in the denominator, silently — the report simply still listed them. Only `.**`
                 // empties it. The layer patterns above work because every layer package *is* a
                 // leaf.
+                //
+                // **`StepperGesture.kt` is the same rule reaching something a layer name cannot
+                // describe** — Davide's call, 2026-08-17, on a failing report. A screenshot test
+                // renders a frame; it cannot *press* one. So a pointer-input handler is uncoverable
+                // by this kind for exactly the reason a mapper is, and the fourteen lines of the
+                // dispatch stepper's hold gesture took the screenshot rows down 0.22 and 0.14 on a
+                // branch whose behaviour row went *up*.
+                //
+                // **Named by file rather than by layer, because there is no layer for a gesture.**
+                // That makes it the narrowest entry in this block and the one that has to earn
+                // itself hardest, so the condition is structural: **nothing in that file draws.** It
+                // holds one `Modifier` extension and no composable that emits anything, which is why
+                // it was split out of `DispatchSheet.kt` rather than annotated in place — a rule
+                // that is enforced by what a file is allowed to contain, not by a comment.
+                //
+                // Scoped to this pass exactly like the two above, which is what keeps it safe: the
+                // behaviour and unfiltered passes still see every line, and three behaviour tests in
+                // `DispatchSheetBehaviourTest` are what actually prove the gesture works — a tap
+                // steps once, a hold repeats, a hold on a disabled control does nothing. This
+                // removes a number no test of this kind could ever move; it removes nothing the gate
+                // could see.
                 if (testCategory == "screenshot") {
                     packages("*.presentation", "*.domain", "*.data")
                     classes("dev.fardavide.oltre.core.**")
+                    classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
                 }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
