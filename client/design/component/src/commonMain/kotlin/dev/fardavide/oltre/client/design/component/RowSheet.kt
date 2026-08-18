@@ -262,8 +262,8 @@ private fun SheetActionButton(action: SheetAction, onAct: () -> Unit, modifier: 
             // `pressable` ahead of the fill, as everywhere else: a background declared first is
             // drawn outside the scaling layer.
             modifier = modifier
-                .pressable { onAct() }
-                .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                .pressable(shape = oltreActionShape) { onAct() }
+                .background(OltreColors.accent, oltreActionShape)
                 .padding(horizontal = 11.dp, vertical = 7.dp),
         )
         // No disabled state, here or anywhere: a player who wants the level they cannot afford yet
@@ -275,7 +275,7 @@ private fun SheetActionButton(action: SheetAction, onAct: () -> Unit, modifier: 
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = modifier
-                .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                 .padding(horizontal = 11.dp, vertical = 7.dp),
         )
     }

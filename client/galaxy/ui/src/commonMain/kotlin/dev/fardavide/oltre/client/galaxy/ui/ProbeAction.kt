@@ -21,8 +21,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.ProgressBar
-import dev.fardavide.oltre.client.design.component.pressable
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -50,15 +51,17 @@ internal fun ProbeAction(
                     //
                     // Nothing else in the footer is tappable, so there is nothing for the expanded
                     // area to collide with.
-                    // `pressable` rather than `clickable` since the Sky pass: it is the same tap
-                    // with the same ripple and a 1.5% shrink under the finger. It sits where the
-                    // `clickable` sat, so the 44dp hit area is unchanged.
-                    Box(
-                        contentAlignment = Alignment.Center,
+                    // `PressableFace` since 0.13.1, and it is what the two-box shape above was
+                    // always asking for: the click stays on the outer 44dp box and the ripple moves
+                    // to the filled text, so the indication is the size of the button rather than
+                    // the size of the area the button claims.
+                    PressableFace(
+                        onClick = onDispatch,
+                        shape = oltreActionShape,
                         modifier = Modifier
                             .heightIn(min = TOUCH_MINIMUM)
-                            .pressable(onClick = onDispatch)
                             .testTag(GalaxyTestTags.DISPATCH),
+                        faceModifier = Modifier.background(OltreColors.accent, oltreActionShape),
                     ) {
                         Text(
                             text = if (compact) uiState.compactLabel else uiState.label,
@@ -68,9 +71,7 @@ internal fun ProbeAction(
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             softWrap = false,
-                            modifier = Modifier
-                                .background(OltreColors.accent, RoundedCornerShape(9.dp))
-                                .padding(horizontal = 11.dp, vertical = 7.dp),
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                         )
                     }
                 },

@@ -1,5 +1,11 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -25,6 +31,7 @@ import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.dispatch.ui.DispatchSheet
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -75,89 +82,117 @@ fun GalaxyPage(
         // Measured on the window rather than on the capped column, because it is the window that is
         // a Slide Over pane.
         val compact = maxWidth < OltreLayout.compactWidth
-        val drawn = uiState.body is GalaxyBodyUiState.Map || uiState.body is GalaxyBodyUiState.Universe
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                // The map's own opaque ground, and the cheapest honest way to keep the shell's sky
-                // off it: the starfield is drawn first inside the destination box, under every
-                // screen, and a feature cannot reach up and switch it off. Painting over it is one
-                // rect and needs nothing hoisted.
-                .then(if (drawn) Modifier.background(OltreColors.background) else Modifier)
-                .then(if (drawn) Modifier else Modifier.verticalScroll(scrollState)),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
+        // **A fade and not a slide, which is the one considered thing about this transition.** The
+        // shell's tab switch travels sideways because the tab bar is a row and the player can see
+        // the order; these four views are not in a row. Map to Universe is a zoom out, Map to System
+        // is a push, Map to Ledger is neither — it is the same galaxy read a different way. A
+        // direction would be the screen asserting a spatial arrangement the design has not settled,
+        // and a wrong one is worse than none.
+        //
+        // **The whole column is inside, layout mode and all.** `drawn` decides whether the page
+        // paints an opaque ground and whether it scrolls, and the two halves of a crossfade disagree
+        // about it whenever the view changes between a map and a list. Read from the live `uiState`
+        // it would flip on the first frame, so the map on its way out would lose its ground and its
+        // fill height while it was still visible. Read from each side's *own* state, as here, every
+        // screen keeps the layout it was composed with for as long as it is on screen.
+        AnimatedContent(
+            targetState = uiState,
+            // Keyed on which view it is, not on the state: the body is a data class holding
+            // countdowns, so a transition keyed on it would replay once a second forever.
+            contentKey = { it.body.view },
+            transitionSpec = {
+                val fade = tween<Float>(OltreMotion.SWITCH_MILLIS, easing = OltreMotion.Settle)
+                fadeIn(fade) togetherWith fadeOut(fade) using null
+            },
+            modifier = Modifier.fillMaxSize(),
+            label = "galaxy view",
+        ) { page ->
+            val drawn = page.body is GalaxyBodyUiState.Map || page.body is GalaxyBodyUiState.Universe
             Column(
                 modifier = Modifier
-                    .widthIn(max = OltreLayout.maxContentWidth)
-                    .fillMaxWidth()
-                    // Ahead of the padding, so the bounds a layout test reads are the column's own
-                    // rather than its padded interior.
-                    .testTag(GalaxyTestTags.CONTENT)
-                    // Same reason as the body below: an unweighted child of a Column is measured
-                    // against an unbounded height, so `fillMaxSize` here would wrap instead of
-                    // claiming the screen and the weight inside it would have nothing to divide.
-                    .then(if (drawn) Modifier.weight(1f) else Modifier)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(13.dp),
+                    .fillMaxSize()
+                    // The map's own opaque ground, and the cheapest honest way to keep the shell's sky
+                    // off it: the starfield is drawn first inside the destination box, under every
+                    // screen, and a feature cannot reach up and switch it off. Painting over it is one
+                    // rect and needs nothing hoisted.
+                    .then(if (drawn) Modifier.background(OltreColors.background) else Modifier)
+                    .then(if (drawn) Modifier else Modifier.verticalScroll(scrollState)),
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                when (val head = uiState.head) {
-                    is GalaxyHeadsUiState.Map -> GalaxyHead(
-                        uiState = head.head,
-                        onSelectMode = onSelectMode,
-                        onToggleScale = onToggleScale,
-                    )
-
-                    is GalaxyHeadsUiState.Worlds -> LedgerHead(
-                        uiState = head.head,
-                        onSelectMode = onSelectMode,
-                        onQueryChange = onQueryChange,
-                    )
-                }
-                when (val body = uiState.body) {
-                    // **`weight` and not `fillMaxSize`**, and the difference is the caption's place on
-                    // the screen: a Column measures an unweighted child against an *unbounded* height,
-                    // so `fillMaxSize` there silently degrades to wrap-content and the bar rides up
-                    // under the fold instead of sitting at the foot. The weight is what turns the
-                    // leftover space into the gap the design puts between them.
-                    is GalaxyBodyUiState.Map -> MapBody(
-                        body = body,
-                        compact = compact,
-                        onSelectSystem = onSelectSystem,
-                        onOpenSelected = onOpenSelected,
-                        onDispatchProbe = onDispatchProbe,
-                        modifier = Modifier.weight(1f),
-                    )
-
-                    is GalaxyBodyUiState.Universe -> UniverseBody(
-                        body = body,
-                        compact = compact,
-                        onSelectGalaxy = onSelectGalaxy,
-                        onOpenSelected = onOpenSelected,
-                        modifier = Modifier.weight(1f),
-                    )
-
-                    is GalaxyBodyUiState.System -> SystemBody(
-                        body = body,
-                        compact = compact,
-                        onSelectGalaxy = onSelectGalaxy,
-                        onOpenMap = onOpenMap,
-                        onGoHome = onGoHome,
-                        onOpenResearch = onOpenResearch,
-                        onDispatchProbe = onDispatchProbe,
-                        onOpenWorld = onOpenWorld,
-                    )
-
-                    is GalaxyBodyUiState.Ledger -> LedgerBody(
-                        body = body.body,
-                        onOpenResearch = onOpenResearch,
-                        onOpenWorld = onOpenWorld,
-                    )
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = OltreLayout.maxContentWidth)
+                        .fillMaxWidth()
+                        // Ahead of the padding, so the bounds a layout test reads are the column's own
+                        // rather than its padded interior.
+                        .testTag(GalaxyTestTags.CONTENT)
+                        // Same reason as the body below: an unweighted child of a Column is measured
+                        // against an unbounded height, so `fillMaxSize` here would wrap instead of
+                        // claiming the screen and the weight inside it would have nothing to divide.
+                        .then(if (drawn) Modifier.weight(1f) else Modifier)
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(13.dp),
+                ) {
+                    when (val head = page.head) {
+                        is GalaxyHeadsUiState.Map -> GalaxyHead(
+                            uiState = head.head,
+                            onSelectMode = onSelectMode,
+                            onToggleScale = onToggleScale,
+                        )
+    
+                        is GalaxyHeadsUiState.Worlds -> LedgerHead(
+                            uiState = head.head,
+                            onSelectMode = onSelectMode,
+                            onQueryChange = onQueryChange,
+                        )
+                    }
+                    when (val body = page.body) {
+                        // **`weight` and not `fillMaxSize`**, and the difference is the caption's place on
+                        // the screen: a Column measures an unweighted child against an *unbounded* height,
+                        // so `fillMaxSize` there silently degrades to wrap-content and the bar rides up
+                        // under the fold instead of sitting at the foot. The weight is what turns the
+                        // leftover space into the gap the design puts between them.
+                        is GalaxyBodyUiState.Map -> MapBody(
+                            body = body,
+                            compact = compact,
+                            onSelectSystem = onSelectSystem,
+                            onOpenSelected = onOpenSelected,
+                            onDispatchProbe = onDispatchProbe,
+                            modifier = Modifier.weight(1f),
+                        )
+    
+                        is GalaxyBodyUiState.Universe -> UniverseBody(
+                            body = body,
+                            compact = compact,
+                            onSelectGalaxy = onSelectGalaxy,
+                            onOpenSelected = onOpenSelected,
+                            modifier = Modifier.weight(1f),
+                        )
+    
+                        is GalaxyBodyUiState.System -> SystemBody(
+                            body = body,
+                            compact = compact,
+                            onSelectGalaxy = onSelectGalaxy,
+                            onOpenMap = onOpenMap,
+                            onGoHome = onGoHome,
+                            onOpenResearch = onOpenResearch,
+                            onDispatchProbe = onDispatchProbe,
+                            onOpenWorld = onOpenWorld,
+                        )
+    
+                        is GalaxyBodyUiState.Ledger -> LedgerBody(
+                            body = body.body,
+                            onOpenResearch = onOpenResearch,
+                            onOpenWorld = onOpenWorld,
+                        )
+                    }
                 }
             }
         }
         // A popup rather than a layer of this box: a panel drawn inside the destination stops where
         // the destination stops — above the tab bar — and lets a drag through to the list behind it.
+        // Outside the crossfade, because it belongs to the tab rather than to a view: a sheet raised
+        // from a world row must not fade out because the row behind it changed view.
         uiState.dispatch?.let { dispatch ->
             DispatchSheet(
                 uiState = dispatch,
@@ -304,7 +339,19 @@ private fun LedgerBody(
                 }
             }
         }
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        // **The list the search box filters, so the one list in the app whose length a player
+        // changes by typing.** Each keystroke used to resize it between two frames, which on a
+        // scrolled list throws everything below the caret up or down the screen mid-word.
+        //
+        // What this animates is the column's *height* and not the rows: a row filtered out is simply
+        // absent from `body.rows`, so it is never composed and has nothing to animate away with. A
+        // per-row exit would need `animateItem`, which is a `LazyColumn` API, and this list cannot be
+        // one — it sits inside the page's own `verticalScroll`, and a lazy list nested in a scroll of
+        // the same axis has no bounded height to lay out against.
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.animateContentSize(),
+        ) {
             body.rows.forEach { row ->
                 WorldRow(row = row, onOpenResearch = onOpenResearch, onOpenWorld = onOpenWorld)
             }

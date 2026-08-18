@@ -15,6 +15,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.colony.ui.ColonyTestTags
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
@@ -55,9 +56,19 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
 
     fun open(tab: OltreTab) = apply {
         test.onNodeWithTag(ShellTestTags.tab(tab)).performClick()
-        // Two frames: one for the tab's state change to land and one for the destination it selects
-        // to compose. Needed only with the clock stopped; harmless while it is running.
+        // Two frames for the tab's state change to land and for the destination it selects to
+        // compose, then the length of the switch itself: since 0.13.1 a destination arrives over
+        // `SWITCH_MILLIS` and the one it replaces is still composed for exactly that long, so a test
+        // that asserted immediately after the tap would be counting rows on two screens at once.
+        // Needed only with the clock stopped; harmless while it is running.
+        //
+        // **This is a wait, not a settle** — it is as short as the switch and no shorter, so a test
+        // that cares about what else is happening on the arriving screen still arrives early enough
+        // to see it. The completion sweep is the case that matters: it does not put a band on a card
+        // for another 420ms and does not move a level badge for 930, so opening a tab still lands
+        // well before either.
         repeat(2) { test.mainClock.advanceTimeByFrame() }
+        test.mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS.toLong())
         test.waitForIdle()
     }
 

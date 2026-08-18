@@ -18,6 +18,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -30,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 
 // **The head above the tab's two lists** — the worlds ledger and the orbit page. The switch and the
 // search: everything that says *which worlds*, where the body under it says *this world*. The two
@@ -111,7 +113,9 @@ internal fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
 private fun ModePill(label: String, mode: LedgerMode, on: Boolean, onClick: () -> Unit) {
     Text(
         text = label.uppercase(),
-        color = if (on) OltreColors.accent else OltreColors.textTertiary,
+        // Both channels turn together: the ink and the fill are one statement about which mode is
+        // showing, and a pill whose fill arrived before its letters did would read as two.
+        color = settlingColor(if (on) OltreColors.accent else OltreColors.textTertiary),
         fontFamily = oltreMono(),
         fontSize = 9.5.sp,
         fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
@@ -120,7 +124,10 @@ private fun ModePill(label: String, mode: LedgerMode, on: Boolean, onClick: () -
         softWrap = false,
         modifier = Modifier
             .testTag(GalaxyTestTags.mode(mode))
-            .background(if (on) PILL_FILL else Color.Transparent, PILL_SHAPE)
+            .background(settlingColor(if (on) PILL_FILL else Color.Transparent), PILL_SHAPE)
+            // Between the fill and the click, which is the only place a clip works: an indication is
+            // clipped by the layer declared before it, so a pill's ripple is a pill.
+            .clip(PILL_SHAPE)
             .clickable(onClick = onClick)
             .padding(horizontal = 9.dp, vertical = 4.dp),
     )

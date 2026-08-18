@@ -1,12 +1,15 @@
 package dev.fardavide.oltre.client.design.core
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
 
 // The Sky pass's four transitions, as tokens rather than as four numbers written down five times.
 //
@@ -66,6 +69,29 @@ object OltreMotion {
     // How far a card shrinks under a finger. Small enough that it reads as the card taking the
     // press rather than as the card moving.
     const val PRESS_SCALE: Float = 0.985f
+
+    // **How long the app takes to answer a tap** — one number for the two things a tap can change.
+    // A destination arriving and the one it replaced leaving is one; a control turning over to say
+    // it is now the selected one is the other. They are the same duration because they are the same
+    // event from the player's side, and giving them two numbers would only be a way for them to
+    // drift apart.
+    //
+    // Shorter than any of the fills above, and deliberately: a fill is a value settling into place
+    // and wants to be watched, where this is the app getting out of the way of something the player
+    // has already decided. Past about 250ms an answer stops reading as responsive and starts reading
+    // as a wait.
+    //
+    // **It spends the animation rule the same way the Sky pass did and no further.** It runs once,
+    // on a tap, and then holds — there is no loop in it and nothing about it says the simulation is
+    // running. What it replaces is a hard cut, which was not stillness so much as the absence of a
+    // transition nobody had written yet.
+    const val SWITCH_MILLIS: Int = 210
+
+    // How far a destination travels on its way in or out, as a fraction of its own width. A whole
+    // screen-width slide is a carousel and claims the five tabs are laid out in a line the player
+    // can move along; an eighth is a nudge in the direction of travel, which is all the direction
+    // has to say.
+    const val SWITCH_TRAVEL: Float = 0.125f
 }
 
 // A value arriving: 0 to 1 over 900ms when the caller enters composition, and 1 forever after.
@@ -90,4 +116,27 @@ fun rememberOneShotFill(): Float {
         )
     }
     return fill.value
+}
+
+// A colour that turns rather than snaps: the fill under a selected pill, the border on a card that
+// has started building, the accent a watched square takes. It lives here beside the fill above for
+// the same reason that one does — what every layer of the app shares is this module's — and it is
+// the token applied rather than a new token.
+//
+// **It is safe for a screenshot baseline, and that is worth stating rather than discovering.**
+// `animateColorAsState` begins *at* its target on first composition and only animates a subsequent
+// change, so a frame captured on arrival is the frame that was captured before this existed. What
+// moves is only what a player's own tap moved.
+//
+// **Use it for a colour a tap changes, never for one the simulation changes.** A stock crossing a
+// threshold and reddening a chip is the game reporting a fact, and a fact that fades in is a fact
+// the player is invited to watch happen — which is the thing this app may not draw. The rule is the
+// same one `rememberOneShotFill` states from the other direction.
+@Composable
+fun settlingColor(target: Color): Color {
+    val color by animateColorAsState(
+        targetValue = target,
+        animationSpec = tween(durationMillis = OltreMotion.SWITCH_MILLIS, easing = OltreMotion.Settle),
+    )
+    return color
 }

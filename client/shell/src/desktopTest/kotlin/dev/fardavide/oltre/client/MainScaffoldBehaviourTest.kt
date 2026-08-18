@@ -10,6 +10,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.tilt.domain.Tilt
@@ -109,10 +110,51 @@ class MainScaffoldBehaviourTest {
         }
     }
 
+    // **The two halves of a switch, and the second one is the one worth having.** A transition that
+    // brings the new screen in is easy to see and easy to get right; a transition that forgets to
+    // take the old one away leaves two destinations composed on top of each other for the rest of the
+    // session, which reads as a rendering bug rather than as a missing animation and is exactly what
+    // `assertDoesNotExist` in the tests above would start failing on.
+    //
+    // Mid-crossing is asserted first because it is what makes the second assertion mean something:
+    // without it, "the colony is gone" is satisfied by a switch that never drew the colony at all.
+    @Test
+    fun `the destination being left is still drawn while the one arriving crosses it`() {
+        switching {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.RESEARCH)).performClick()
+            mainClock.advanceTimeByFrame()
+            mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS / 2L)
+            onNodeWithText(COLONY_MARKER).assertExists()
+            onNodeWithText(RESEARCH_MARKER).assertExists()
+        }
+    }
+
+    @Test
+    fun `the destination being left is gone once the switch is over`() {
+        switching {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.RESEARCH)).performClick()
+            mainClock.advanceTimeByFrame()
+            // Past the end rather than exactly on it: the switch starts on the frame after the tap,
+            // so `SWITCH_MILLIS` from here lands a frame short, and a boundary is the one place two
+            // machines round differently.
+            mainClock.advanceTimeBy(OltreMotion.SWITCH_MILLIS + 100L)
+            onNodeWithText(RESEARCH_MARKER).assertIsDisplayed()
+            onNodeWithText(COLONY_MARKER).assertDoesNotExist()
+        }
+    }
+
+    // The clock stopped, so the switch can be read frame by frame rather than jumped over. Every
+    // other test in this file wants the opposite — it asks what is on screen once everything has
+    // settled — which is what the auto-advancing `scaffold` below gives it.
+    private fun switching(assertions: ComposeUiTest.() -> Unit) {
+        scaffold(pauseTheClock = true, assertions = assertions)
+    }
+
     // A phone-sized window: the bar has to fit five destinations at the narrowest width the game
     // actually ships at.
-    private fun scaffold(assertions: ComposeUiTest.() -> Unit) {
+    private fun scaffold(pauseTheClock: Boolean = false, assertions: ComposeUiTest.() -> Unit) {
         runDesktopComposeUiTest(width = 393, height = 852) {
+            if (pauseTheClock) mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
                     MainScaffold(

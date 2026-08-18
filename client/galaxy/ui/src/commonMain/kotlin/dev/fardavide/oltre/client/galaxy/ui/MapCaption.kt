@@ -20,9 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.PressableFace
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 
 // **The whole bar is the 44dp target**, which is what lets the stars be 3dp across and still cost
 // nothing to miss: you scrub with a thumb anywhere on the drawing and act down here, where there is
@@ -47,16 +50,20 @@ internal fun MapCaption(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = TOUCH_MINIMUM)
+            // Ahead of the border and the fill, as everywhere else: declared after them the press
+            // scaled the caption's text and left the card it is written on standing still.
+            .pressable(shape = SHAPE, onClick = onOpen)
             .border(
                 width = 1.dp,
-                color = if (uiState.own) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
+                color = settlingColor(
+                    if (uiState.own) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.09f),
+                ),
                 shape = SHAPE,
             )
             .background(
-                color = if (uiState.own) OltreColors.accent.copy(alpha = 0.10f) else CARD_FILL,
+                color = settlingColor(if (uiState.own) OltreColors.accent.copy(alpha = 0.10f) else CARD_FILL),
                 shape = SHAPE,
             )
-            .pressable(onClick = onOpen)
             .testTag(GalaxyTestTags.CAPTION)
             .padding(11.dp),
     ) {
@@ -100,12 +107,16 @@ internal fun MapCaption(
             )
         }
         when (val trailing = uiState.trailing) {
-            is MapCaptionTrailingUiState.Dispatch -> Box(
-                contentAlignment = Alignment.Center,
+            // `PressableFace`, because this claims 44dp and draws about 30: the ripple belongs on
+            // the ghost rather than on the whole height the button asks the row for.
+            is MapCaptionTrailingUiState.Dispatch -> PressableFace(
+                onClick = onDispatchProbe,
+                shape = oltreActionShape,
                 modifier = Modifier
                     .heightIn(min = TOUCH_MINIMUM)
-                    .pressable(onClick = onDispatchProbe)
                     .testTag(GalaxyTestTags.CAPTION_ACTION),
+                faceModifier = Modifier
+                    .border(1.dp, OltreColors.accent.copy(alpha = 0.45f), oltreActionShape),
             ) {
                 // A ghost rather than a filled button, and the difference is load-bearing: the
                 // filled accent verb belongs to the orbit page's footer, where the whole screen is
@@ -119,9 +130,7 @@ internal fun MapCaption(
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     softWrap = false,
-                    modifier = Modifier
-                        .border(1.dp, OltreColors.accent.copy(alpha = 0.45f), RoundedCornerShape(9.dp))
-                        .padding(horizontal = 11.dp, vertical = 7.dp),
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
                 )
             }
 

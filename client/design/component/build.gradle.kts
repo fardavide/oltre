@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
+    alias(libs.plugins.roborazzi)
 }
 
 kotlin {
@@ -47,6 +48,23 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
             implementation(libs.compose.ui)
+        }
+        // The design system's own baselines, and until 0.13.1 it had none — every component here
+        // was pinned only through whichever feature happened to render it. That is fine for what a
+        // component *says*, which a feature's frame shows anyway, and useless for what a component
+        // *does under a finger*: no screen's baseline holds a press, so the ripple that spilled
+        // square out of every rounded button in the app was invisible to all fourteen of them.
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
+        val desktopTest by getting {
+            dependencies {
+                implementation(projects.client.design.screenshotTesting)
+
+                implementation(compose.desktop.uiTestJUnit4)
+                implementation(compose.desktop.currentOs)
+                implementation(libs.roborazzi.compose.desktop)
+            }
         }
     }
 }

@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 
 // The head above the fold and above the four discs. Two rows, because it does two things: say which
 // of the tab's two lists you are looking at, and say which galaxy — and the galaxy chip is the only
@@ -73,7 +74,7 @@ private fun ScaleChip(uiState: GalaxyHeadUiState, onToggleScale: () -> Unit) {
     val up = uiState.scale == GalaxyScale.UNIVERSE
     Text(
         text = uiState.chip,
-        color = if (up) OltreColors.accent else OltreColors.textSecondary,
+        color = settlingColor(if (up) OltreColors.accent else OltreColors.textSecondary),
         fontFamily = oltreMono(),
         fontSize = 9.5.sp,
         letterSpacing = 1.sp,
@@ -81,13 +82,18 @@ private fun ScaleChip(uiState: GalaxyHeadUiState, onToggleScale: () -> Unit) {
         softWrap = false,
         modifier = Modifier
             .testTag(GalaxyTestTags.SCALE_CHIP)
+            // Ahead of the border and the fill, as everywhere else: declared after them the press
+            // scaled the chip's letters inside a badge that stayed where it was.
+            .pressable(shape = BADGE_SHAPE, onClick = onToggleScale)
             .border(
                 width = 1.dp,
-                color = if (up) OltreColors.accent.copy(alpha = 0.45f) else EDGE,
+                color = settlingColor(if (up) OltreColors.accent.copy(alpha = 0.45f) else EDGE),
                 shape = BADGE_SHAPE,
             )
-            .background(if (up) OltreColors.accent.copy(alpha = 0.10f) else Color.Transparent, BADGE_SHAPE)
-            .pressable(onClick = onToggleScale)
+            .background(
+                settlingColor(if (up) OltreColors.accent.copy(alpha = 0.10f) else Color.Transparent),
+                BADGE_SHAPE,
+            )
             .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }

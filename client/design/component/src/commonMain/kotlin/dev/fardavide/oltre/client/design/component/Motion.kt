@@ -8,13 +8,16 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
@@ -22,6 +25,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -106,21 +110,94 @@ fun Modifier.completionSweep(sweep: CompletionSweep): Modifier {
     }
 }
 
-// A card taking a press, under whatever indication the theme already supplies — the Material3 ripple
-// here, unchanged and un-replaced. **Place this ahead of the fill and the border in the chain**: a
-// `graphicsLayer` transforms what is drawn inside it, and a `background` declared before it is drawn
-// outside, which would scale the text on a card whose fill stayed put.
+// A card or a button taking a press, under whatever indication the theme already supplies — the
+// Material3 ripple here, unchanged and un-replaced.
+//
+// **Place this ahead of the fill and the border in the chain**: a `graphicsLayer` transforms what is
+// drawn inside it, and a `background` declared before it is drawn outside, which would scale the text
+// on a card whose fill stayed put.
+//
+// **`shape` is required, and that is the fix rather than a convenience.** Until 0.13.1 this modifier
+// took a click and nothing else, so the ripple was a circle clipped to the node's *rectangle* — which
+// is to say clipped to nothing a player can see, because every tappable surface in this app is
+// rounded. It spilled square out of all of them. Compose has one answer and it is an ordering: an
+// indication is clipped by whatever layer is declared *before* it, so the clip has to sit between the
+// scale and the click. Making the shape a parameter with no default is what stops the next caller
+// from being the fifteenth to forget — there is no shape this could sensibly assume, and a
+// `RectangleShape` default would reintroduce exactly the bug under a name that sounds deliberate.
+//
+// One `graphicsLayer` carries both the scale and the clip rather than a `clip()` after a
+// `graphicsLayer`: they would otherwise be two layers doing one job, and in this order the clip is
+// applied in the layer's own coordinates, so the corner shrinks with the card instead of staying put
+// while the card moves away from it.
 @Composable
-fun Modifier.pressable(onClick: () -> Unit): Modifier {
+fun Modifier.pressable(shape: Shape, onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
+    val scale = pressScale(interaction)
+    return graphicsLayer {
+        scaleX = scale
+        scaleY = scale
+        this.shape = shape
+        clip = true
+    }.clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+}
+
+// The press, when the tap area is deliberately bigger than the thing it presses — a 30dp button that
+// claims the 44dp iOS minimum, or a 29dp square that claims the height of the row it sits on.
+//
+// **The click and the indication are on two different nodes, and that is the whole of what this
+// buys.** Put them on one and the ripple fills the claimed area: a smear beside the button rather
+// than the button taking the press, which is what `WatchSquare` has said about its own 29x44 since
+// the watch slice. What it said, three call sites then reproduced by hand — the probe's Dispatch, the
+// caption's Dispatch and the square itself — with the spring copied out each time. This is that
+// chain, written once.
+//
+// The face is measured by its content and clipped to `shape`, so `faceModifier` carries the fill and
+// the border and nothing has to agree with anything twice.
+@Composable
+fun PressableFace(
+    onClick: () -> Unit,
+    shape: Shape,
+    modifier: Modifier = Modifier,
+    faceModifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val interaction = remember { MutableInteractionSource() }
+    val scale = pressScale(interaction)
+    Box(
+        contentAlignment = Alignment.Center,
+        // `indication = null`: this node is the target, not the drawing. It is also where the
+        // testTag belongs, so a robot presses what a finger presses.
+        modifier = modifier.clickable(interactionSource = interaction, indication = null, onClick = onClick),
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    this.shape = shape
+                    clip = true
+                }
+                // Ahead of `faceModifier`, which is where the fill is: an indication draws its
+                // content first and its ripple over the top, so declared here the ripple lands on
+                // the fill rather than under it.
+                .indication(interaction, LocalIndication.current)
+                .then(faceModifier),
+            content = { content() },
+        )
+    }
+}
+
+// A spring rather than a duration, and the only one in the pass. A press has no length — it lasts as
+// long as the finger does — so the release has to be able to interrupt the press mid-travel and hand
+// back a continuous motion, which is the one thing a tween cannot do.
+@Composable
+private fun pressScale(interaction: MutableInteractionSource): Float {
     val pressed by interaction.collectIsPressedAsState()
-    // A spring rather than a duration, and the only one in the pass. A press has no length — it
-    // lasts as long as the finger does — so the release has to be able to interrupt the press
-    // mid-travel and hand back a continuous motion, which is the one thing a tween cannot do.
     val scale by animateFloatAsState(
         targetValue = if (pressed) OltreMotion.PRESS_SCALE else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium),
     )
-    return graphicsLayer { scaleX = scale; scaleY = scale }
-        .clickable(interactionSource = interaction, indication = LocalIndication.current, onClick = onClick)
+    return scale
 }

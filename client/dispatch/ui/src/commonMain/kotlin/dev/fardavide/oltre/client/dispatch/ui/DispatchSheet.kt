@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
 
@@ -447,9 +449,16 @@ private fun GatherCard(
 ) {
     Column(
         modifier = modifier
-            .border(1.dp, if (selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f), CONTROL_SHAPE)
-            .background(if (selected) SELECTED_FILL else Color.Transparent, CONTROL_SHAPE)
+            .border(
+                1.dp,
+                settlingColor(if (selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f)),
+                CONTROL_SHAPE,
+            )
+            .background(settlingColor(if (selected) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
             .testTag(DispatchTestTags.gather(kind))
+            // Every control on this sheet clips before it clicks: an indication is clipped by the
+            // layer declared ahead of it, and all four of these are drawn with `CONTROL_SHAPE`.
+            .clip(CONTROL_SHAPE)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -497,6 +506,10 @@ private fun Stepper(glyph: String, enabled: Boolean, tag: String, onClick: () ->
             .size(32.dp)
             .border(1.dp, Color.White.copy(alpha = 0.17f), CONTROL_SHAPE)
             .testTag(tag)
+            // Ahead of the hold gesture rather than after it, because `steppingWhileHeld` ends in a
+            // `clickable` of its own: an indication is clipped by the layer declared before it, so
+            // this is what keeps a held repeat from painting a square across the stepper's corners.
+            .clip(CONTROL_SHAPE)
             .steppingWhileHeld(enabled = enabled, onStep = onClick),
     ) {
         Text(
@@ -514,14 +527,19 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
         contentAlignment = Alignment.Center,
         modifier = modifier
             .height(32.dp)
-            .border(1.dp, if (rung.selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f), CONTROL_SHAPE)
-            .background(if (rung.selected) SELECTED_FILL else Color.Transparent, CONTROL_SHAPE)
+            .border(
+                1.dp,
+                settlingColor(if (rung.selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f)),
+                CONTROL_SHAPE,
+            )
+            .background(settlingColor(if (rung.selected) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
             .testTag(DispatchTestTags.window(rung.window.inWholeMinutes))
+            .clip(CONTROL_SHAPE)
             .clickable(onClick = onClick),
     ) {
         Text(
             text = rung.label,
-            color = if (rung.selected) OltreColors.accent else OltreColors.textSecondary,
+            color = settlingColor(if (rung.selected) OltreColors.accent else OltreColors.textSecondary),
             fontFamily = oltreMono(),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
@@ -537,15 +555,20 @@ private fun Verb(label: String, tag: String, primary: Boolean, onClick: () -> Un
         contentAlignment = Alignment.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, if (primary) SELECTED_EDGE else Color.White.copy(alpha = 0.09f), CONTROL_SHAPE)
-            .background(if (primary) SELECTED_FILL else Color.Transparent, CONTROL_SHAPE)
+            .border(
+                1.dp,
+                settlingColor(if (primary) SELECTED_EDGE else Color.White.copy(alpha = 0.09f)),
+                CONTROL_SHAPE,
+            )
+            .background(settlingColor(if (primary) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
             .testTag(tag)
+            .clip(CONTROL_SHAPE)
             .clickable(enabled = primary, onClick = onClick)
             .padding(vertical = 11.dp),
     ) {
         Text(
             text = label,
-            color = if (primary) OltreColors.accent else OltreColors.textSecondary,
+            color = settlingColor(if (primary) OltreColors.accent else OltreColors.textSecondary),
             fontFamily = oltreMono(),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,

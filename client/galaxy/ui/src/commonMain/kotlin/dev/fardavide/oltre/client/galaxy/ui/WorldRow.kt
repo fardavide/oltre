@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
@@ -69,6 +70,9 @@ internal fun WorldRow(
             )
             .background(oltreCardSurface, oltreCardShape)
             .testTag(GalaxyTestTags.row(row.at))
+            // Clipped to the card, so the ripple stops at the corner the fill stops at. A raw
+            // `clickable` draws its indication on the node's rectangle and this row is 14dp round.
+            .clip(oltreCardShape)
             .clickable(enabled = row.verdict.isRunnable()) { onOpenWorld(row.at) }
             .padding(11.dp),
         // The one gap between every top-level block: header, deposits, requirements, note. A block

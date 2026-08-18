@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -113,8 +114,8 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
                     // `pressable` ahead of the fill, as everywhere else: a background declared
                     // first is drawn outside the scaling layer.
                     modifier = Modifier
-                        .pressable { onBuild() }
-                        .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                        .pressable(shape = oltreActionShape) { onBuild() }
+                        .background(OltreColors.accent, oltreActionShape)
                         .testTag(ShipyardTestTags.action(hull.type))
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
@@ -127,7 +128,7 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                        .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                         .testTag(ShipyardTestTags.action(hull.type))
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )

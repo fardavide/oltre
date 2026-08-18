@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -30,7 +31,9 @@ import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
+import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -85,7 +88,7 @@ private fun FacilityRow(
             //
             // Ahead of the fill, as everywhere else: `pressable` scales what is drawn inside it, and
             // a background declared first is drawn outside.
-            .pressable { onOpenDetail(row.building) }
+            .pressable(shape = oltreCardShape) { onOpenDetail(row.building) }
             .oltreCard(row.action.cardState())
             // Over the fill and over the content, which is what makes it read as light falling on
             // the card rather than as a shape drawn on it.
@@ -94,6 +97,16 @@ private fun FacilityRow(
             // ahead of the fill dims the card and lets the starfield through a locked row; here
             // the card stays solid and only its content recedes.
             .alpha(if (locked) 0.42f else 1f)
+            // **The card grows a line when a watch is booked**, and until 0.13.1 it grew it between
+            // two frames — so the row under it jumped, and on a list scrolled halfway the jump was
+            // the only thing the eye caught. Booking an alert is the one action in the app whose
+            // whole result is that the card changed, which makes it the one that most wants the
+            // change to be legible.
+            //
+            // After the fill and before the padding: it animates the size this node measures, and
+            // the fill has to be the thing that grows rather than something drawn at the old height
+            // while the content moves inside it.
+            .animateContentSize()
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -213,8 +226,8 @@ private fun FacilityRow(
                     // inside it, and a background declared first is drawn outside, which would
                     // shrink the word and leave the blue behind.
                     modifier = Modifier
-                        .pressable { onUpgrade(row.building) }
-                        .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                        .pressable(shape = oltreActionShape) { onUpgrade(row.building) }
+                        .background(OltreColors.accent, oltreActionShape)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 // The ghost time, and beside it the square that books an alert for the instant it
@@ -234,7 +247,7 @@ private fun FacilityRow(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )
                 }

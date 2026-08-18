@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.research.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +30,9 @@ import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.completionSweep
+import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
+import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -150,7 +153,7 @@ private fun ProjectRow(
             // what is drawn inside it, and a background declared first is drawn outside. A **locked**
             // row is tappable too: the sheet is where a row the player cannot buy yet says what it
             // would be worth when they can.
-            .pressable { onOpenDetail() }
+            .pressable(shape = oltreCardShape) { onOpenDetail() }
             .oltreCard(action.cardState())
             // Over the fill and over the content, so it reads as light falling on the card.
             .completionSweep(sweep)
@@ -162,6 +165,10 @@ private fun ProjectRow(
             // the exact effect the opaque fills exist to prevent. Here the card stays solid and
             // only what is written on it recedes.
             .alpha(if (locked) 0.42f else 1f)
+            // The colony's argument, and the same booking: a watched row gains its `→ affordable`
+            // line, and the card takes the extra height over the length of a tap rather than
+            // between two frames. See `FacilityList`.
+            .animateContentSize()
             .padding(11.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -276,8 +283,8 @@ private fun ProjectRow(
                     // `pressable` ahead of the fill rather than after it — see the same ordering
                     // on the colony's Upgrade button.
                     modifier = Modifier
-                        .pressable { onStart() }
-                        .background(OltreColors.accent, RoundedCornerShape(9.dp))
+                        .pressable(shape = oltreActionShape) { onStart() }
+                        .background(OltreColors.accent, oltreActionShape)
                         .testTag(actionTag)
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
@@ -296,7 +303,7 @@ private fun ProjectRow(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(9.dp))
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
                             .testTag(actionTag)
                             .padding(horizontal = 11.dp, vertical = 7.dp),
                     )
