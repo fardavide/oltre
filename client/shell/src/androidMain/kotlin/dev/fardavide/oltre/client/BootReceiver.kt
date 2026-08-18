@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.save.data.GameStore
@@ -35,7 +36,11 @@ class BootReceiver : BroadcastReceiver() {
                 // genuinely still in flight. Syncing the raw snapshot instead would book alerts
                 // for builds that finished while the phone was off.
                 val session = resume(GameStore(defaultSaveFile()).load(), now = Clock.System.now())
-                GameNotifications(defaultNotificationScheduler())
+                // **`English` by name, and it is the honest reading rather than a shortcut.** There
+                // is one language, and at boot there is no composition and no shell to have chosen
+                // one — so the receiver names the table the app would have named. #87 is what turns
+                // this into a device-locale read, in the one place that will need it.
+                GameNotifications(defaultNotificationScheduler(), English)
                     .sync(session.state, now = session.lastUpdatedAt)
             } catch (error: Throwable) {
                 // Nothing to report to and nowhere to report it: there is no UI at boot, and the

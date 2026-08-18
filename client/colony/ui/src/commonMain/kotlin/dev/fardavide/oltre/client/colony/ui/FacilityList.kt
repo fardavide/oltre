@@ -37,6 +37,9 @@ import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.component.rememberCompletionSweep
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.icon.PowerMark
 import dev.fardavide.oltre.core.BuildingType
 
@@ -115,7 +118,7 @@ private fun FacilityRow(
                 // level badge keeps its one line rather than wrapping "LV" above its number.
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = if (compact) row.compactName else row.name,
+                        text = (if (compact) row.compactName else row.name).resolve(),
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 13.5.sp,
@@ -129,7 +132,7 @@ private fun FacilityRow(
                         // completion band is still short of the badge — see `CompletionSweep`.
                         // The number changes behind the light, so the eye is pulled to the badge
                         // by the sweep and finds the new level already there.
-                        text = "LV ${if (sweep.settled) row.level.value else row.level.value - 1}",
+                        text = Strings.levelBadge(if (sweep.settled) row.level.value else row.level.value - 1).resolve(),
                         color = OltreColors.textSecondary,
                         fontFamily = mono,
                         fontSize = 10.sp,
@@ -154,7 +157,7 @@ private fun FacilityRow(
                     // has to be read before what it would be worth.
                     is FacilityActionUiState.Locked -> {
                         Text(
-                            text = action.reason,
+                            text = action.reason.resolve(),
                             color = OltreColors.textSecondary,
                             fontFamily = mono,
                             fontSize = 10.5.sp,
@@ -169,7 +172,7 @@ private fun FacilityRow(
                         // it after a gap, in amber against the accent. The bar is untouched.
                         TermsLine {
                             Text(
-                                text = action.becomes(),
+                                text = action.becomes().resolve(),
                                 color = OltreColors.accent,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -186,7 +189,7 @@ private fun FacilityRow(
                         TermsLine {
                             row.costs.forEach { chip -> CostChip(chip = chip) }
                             Text(
-                                text = row.duration,
+                                text = row.duration.resolve(),
                                 color = OltreColors.textSecondary,
                                 fontFamily = mono,
                                 fontSize = 10.5.sp,
@@ -203,7 +206,7 @@ private fun FacilityRow(
                 // anything — it is booked.
                 (row.watch as? WatchUiState.Booked)?.let { booked ->
                     Text(
-                        text = booked.affordableAt,
+                        text = booked.affordableAt.resolve(),
                         color = OltreColors.accent,
                         fontFamily = mono,
                         fontSize = 10.5.sp,
@@ -216,7 +219,7 @@ private fun FacilityRow(
             }
             when (val action = row.action) {
                 FacilityActionUiState.Upgrade -> Text(
-                    text = "Upgrade",
+                    text = Strings.upgradeVerb().resolve(),
                     color = Color.White,
                     fontFamily = mono,
                     fontSize = 11.sp,
@@ -240,7 +243,7 @@ private fun FacilityRow(
                     watchModifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
                 ) {
                     Text(
-                        text = action.label,
+                        text = action.label.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = mono,
                         fontSize = 11.sp,
@@ -264,7 +267,7 @@ private fun FacilityRow(
                     modifier = Modifier.padding(start = 11.dp),
                 ) {
                     Text(
-                        text = action.countdown,
+                        text = action.countdown.resolve(),
                         color = OltreColors.text,
                         fontFamily = mono,
                         fontSize = 14.sp,
@@ -321,9 +324,9 @@ private fun TermsLine(content: @Composable FlowRowScope.() -> Unit) {
 // supply mark on the same card. Not a call to action and not a reason to reorder the list:
 // spatial memory is the one thing a game of five-minute check-ins cannot afford to break.
 @Composable
-private fun FixLine(fix: String, mono: FontFamily) {
+private fun FixLine(fix: TextRes, mono: FontFamily) {
     Text(
-        text = fix,
+        text = fix.resolve(),
         color = OltreColors.ok,
         fontFamily = mono,
         fontSize = 10.5.sp,
@@ -339,7 +342,7 @@ private fun PowerTerm(power: FacilityPowerUiState) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         PowerMark(color = tint)
         Text(
-            text = power.label,
+            text = power.label.resolve(),
             color = tint,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.FleetRun
@@ -63,7 +64,7 @@ class FleetsManifestTest {
 
         val row = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!.rows.single()
 
-        assertEquals("7 deuterium", row.total)
+        assertEquals("7 deuterium", English.resolve(row.total))
         assertEquals(ResourceKind.DEUTERIUM, row.kind)
     }
 
@@ -85,7 +86,7 @@ class FleetsManifestTest {
 
         val worked = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).worked!!
 
-        assertEquals("1 earlier run · 0 metal · no target recorded", worked.unrecorded)
+        assertEquals("1 earlier run · 0 metal · no target recorded", English.resolve(checkNotNull(worked.unrecorded)))
     }
 
     @Test
@@ -107,7 +108,7 @@ class FleetsManifestTest {
 
         val card = state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs.single()
 
-        assertEquals("1 skiff · 52 crystal", card.manifest)
+        assertEquals("1 skiff · 52 crystal", English.resolve(card.manifest))
     }
 
     // **No deuterium card test, and the absence is the point.** `FleetRun`'s own constructor throws
@@ -129,7 +130,7 @@ class FleetsManifestTest {
                 ),
             ),
         )
-        return state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs.single().manifest
+        return English.resolve(state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).runs.single().manifest)
     }
 
     private companion object {

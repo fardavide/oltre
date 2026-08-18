@@ -5,6 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
 import android.content.Context
 import android.content.Intent
 
@@ -56,11 +58,14 @@ class NotificationReceiver : BroadcastReceiver() {
     private companion object {
         const val CHANNEL_ID = "oltre-colony-events"
 
-        // Shown in the system's notification settings, so they are read by a player rather than
-        // by a developer. PLACEHOLDER, like the alert copy in `GameNotifications` and for the
-        // same reason: what the game says to a player is Davide's.
-        const val CHANNEL_NAME = "Colony events"
-        const val CHANNEL_DESCRIPTION =
-            "Tells you when a build or a research project has finished, and when a fleet lands."
+        // Shown in the system's notification settings, so they are read by a player rather than by a
+        // developer — which is why they are catalogue entries like everything else the game says.
+        //
+        // **Resolved against `English` by name, and it is the honest reading rather than a shortcut.**
+        // This is a broadcast receiver: the process may have been started for this alarm alone, with
+        // no shell to have chosen a language and nothing composing. `BootReceiver` names the table
+        // for the same reason, and #87 is what turns both into a device-locale read.
+        val CHANNEL_NAME: String = English.resolve(Strings.notificationChannelName())
+        val CHANNEL_DESCRIPTION: String = English.resolve(Strings.notificationChannelDescription())
     }
 }

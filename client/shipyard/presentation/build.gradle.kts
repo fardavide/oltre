@@ -37,6 +37,9 @@ kotlin {
             api(projects.client.shipyard.ui)
             implementation(projects.client.design.component)
             implementation(projects.client.design.format)
+            // Every word this file writes comes from here. Declared even though `:client:design:format`
+            // re-exports it: the catalogue is what this module *uses*, not something it inherits.
+            implementation(projects.client.design.text)
 
             // The ghost on an unaffordable card carries a wait, and the wait is a duration written
             // the way every other wait in the app is written.

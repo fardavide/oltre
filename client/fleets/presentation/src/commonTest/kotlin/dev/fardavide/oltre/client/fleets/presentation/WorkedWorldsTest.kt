@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.fleets.ui.WorkedListUiState
 import dev.fardavide.oltre.core.Event
@@ -39,8 +40,8 @@ class WorkedWorldsTest {
         val row = state.worked().rows.single()
 
         assertEquals(near, row.at)
-        assertEquals("2 runs", row.prefix.substringAfterLast(" · "))
-        assertEquals("281 metal", row.total)
+        assertEquals("2 runs", English.resolve(row.prefix).substringAfterLast(" · "))
+        assertEquals("281 metal", English.resolve(row.total))
     }
 
     @Test
@@ -53,8 +54,8 @@ class WorkedWorldsTest {
 
         val row = state.worked().rows.single()
 
-        assertEquals("9 runs", row.prefix.substringAfterLast(" · "))
-        assertEquals("900 metal", row.total)
+        assertEquals("9 runs", English.resolve(row.prefix).substringAfterLast(" · "))
+        assertEquals("900 metal", English.resolve(row.total))
     }
 
     @Test
@@ -79,7 +80,7 @@ class WorkedWorldsTest {
         val row = state.worked().rows.single()
 
         assertEquals(ResourceKind.CRYSTAL, row.kind)
-        assertEquals("300 crystal", row.total)
+        assertEquals("300 crystal", English.resolve(row.total))
     }
 
     @Test
@@ -88,7 +89,7 @@ class WorkedWorldsTest {
 
         val row = state.worked().rows.single()
 
-        assertEquals(worldNameAt(state.galaxy.seed, near), row.name)
+        assertEquals(worldNameAt(state.galaxy.seed, near), English.resolve(row.name))
         // The disc is the affordance — *"a face makes a row an object, and objects open"* — so a row
         // without one would be a door with nothing to say it is one.
         assertEquals(traitsOf(state, near), row.portrait.hazards)
@@ -97,7 +98,7 @@ class WorkedWorldsTest {
     @Test
     fun `a deposit nobody has touched reads full and one that is finished reads empty`() {
         val untouched = colony(landing(from = near, cargo = Resources.of(metal = 132), at = EPOCH))
-        assertEquals("full", untouched.worked().rows.single().deposit)
+        assertEquals("full", English.resolve(untouched.worked().rows.single().deposit))
         assertTrue(!untouched.worked().rows.single().depositIsEmpty)
 
         val cap = untouched.galaxy.depositCap(near, ResourceKind.METAL)!!
@@ -108,7 +109,7 @@ class WorkedWorldsTest {
         // The one reading on the row that can say a door leads nowhere. **Read at the instant it was
         // emptied**, because a vein regenerates: twelve hours later this world holds 166 again, which
         // is the mechanic working rather than the reading being wrong.
-        assertEquals("empty", stripped.worked(now = EPOCH).rows.single().deposit)
+        assertEquals("empty", English.resolve(stripped.worked(now = EPOCH).rows.single().deposit))
         assertTrue(stripped.worked(now = EPOCH).rows.single().depositIsEmpty)
     }
 
@@ -120,7 +121,7 @@ class WorkedWorldsTest {
 
         val deposit = worked.worked().rows.single().deposit
 
-        assertTrue(deposit.first().isDigit(), deposit)
+        assertTrue(English.resolve(deposit).first().isDigit(), English.resolve(deposit))
         assertTrue(!worked.worked().rows.single().depositIsEmpty)
     }
 
@@ -134,7 +135,7 @@ class WorkedWorldsTest {
         // The span this launch advanced: the far world landed inside it, the near one before it.
         val rows = state.worked(since = EPOCH + 4.hours, now = EPOCH + 6.hours).rows.associateBy { it.at }
 
-        assertEquals("landed 05:00", rows.getValue(far).landed)
+        assertEquals("landed 05:00", English.resolve(checkNotNull(rows.getValue(far).landed)))
         // A column that is sometimes empty is a column you stop reading — but this is the one
         // conditional element Design allows, and it carries the verb because a bare clock in Oltre
         // is a countdown.
@@ -155,7 +156,7 @@ class WorkedWorldsTest {
         val worked = state.worked()
 
         assertEquals(listOf(near), worked.rows.map { it.at })
-        assertEquals("2 earlier runs · 402 metal · no target recorded", worked.unrecorded)
+        assertEquals("2 earlier runs · 402 metal · no target recorded", English.resolve(checkNotNull(worked.unrecorded)))
     }
 
     @Test
@@ -201,7 +202,7 @@ class WorkedWorldsTest {
             dispatch = DispatchSelection(at = near, gathering = null, ships = null, window = null),
         )
 
-        assertEquals(worldNameAt(state.galaxy.seed, near), assertNotNull(open.dispatch).name)
+        assertEquals(worldNameAt(state.galaxy.seed, near), English.resolve(assertNotNull(open.dispatch).name))
     }
 
     @Test
@@ -221,9 +222,9 @@ class WorkedWorldsTest {
 
         val worked = state.worked()
 
-        assertEquals("3 runs · newest first", worked.trailing)
+        assertEquals("3 runs · newest first", English.resolve(worked.trailing))
         // 320dp keeps the count and drops the ordering: the rows are in an order the eye can see.
-        assertEquals("3 runs", worked.compactTrailing)
+        assertEquals("3 runs", English.resolve(worked.compactTrailing))
     }
 
     @Test
@@ -239,9 +240,9 @@ class WorkedWorldsTest {
 
         val row = state.worked().rows.single()
 
-        assertTrue(row.prefix.startsWith("[3:"), row.prefix)
+        assertTrue(English.resolve(row.prefix).startsWith("[3:"), English.resolve(row.prefix))
         // The name is the identity now, and the address is in the sheet's own head one tap later.
-        assertEquals("1 run", row.compactPrefix)
+        assertEquals("1 run", English.resolve(row.compactPrefix))
     }
 
     // ── The fixture ─────────────────────────────────────────────────────────────────────────

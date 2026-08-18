@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.shipyard.presentation
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.shipyard.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.shipyard
@@ -51,7 +52,7 @@ class ShipyardFromStateBehaviourTest {
         shipyard(uiState = state.toShipyardUiState(now = NOW, timeZone = TimeZone.UTC)) {
             assertReads("0 hulls")
             assertCardReads(ShipType.SKIFF, "0 owned · 0 idle")
-            assertCardReads(ShipType.SKIFF, first.metal.groupedByThousands())
+            assertCardReads(ShipType.SKIFF, English.resolve(first.metal.groupedByThousands()))
             assertCardDoesNotRead(ShipType.SKIFF, "Build")
         }
     }
@@ -97,7 +98,7 @@ class ShipyardFromStateBehaviourTest {
             // because `buildShips` charges the same thing every time.
             assertReads("0 hulls")
             assertCardReads(ShipType.SKIFF, "0 owned · 0 idle · 1 building")
-            assertCardReads(ShipType.SKIFF, next.metal.groupedByThousands())
+            assertCardReads(ShipType.SKIFF, English.resolve(next.metal.groupedByThousands()))
         }
     }
 

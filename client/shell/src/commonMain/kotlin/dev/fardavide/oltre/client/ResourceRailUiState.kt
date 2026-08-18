@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
@@ -32,7 +34,7 @@ data class ResourceStockUiState(
     // saw. Equal to `stock` on a first launch and after the arrival window has passed — the roll is
     // then a roll of zero length, which is the same thing as no roll at all and needs no branch.
     val lastSeenStock: Long,
-    val ratePerHour: String,
+    val ratePerHour: TextRes,
 )
 
 // `lastSeen` is the saved colony's stocks — the reading the player was looking at when they closed
@@ -60,4 +62,4 @@ internal fun GameState.toResourceRailUiState(lastSeen: Resources? = null): Resou
         throttled = PlaceholderBalance.energyBalance(buildings, research).isDeficit,
     )
 
-private fun Long.toRate(): String = "+${groupedByThousands()}/h"
+private fun Long.toRate(): TextRes = Strings.ratePerHour(groupedByThousands())

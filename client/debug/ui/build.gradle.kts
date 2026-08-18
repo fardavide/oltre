@@ -53,6 +53,10 @@ kotlin {
             api(projects.client.debug.domain)
             implementation(projects.client.design.component)
             implementation(projects.client.design.core)
+            // `TextRes(…)` for the panel's own labels, and `English` for the one duration it
+            // prints — a debug panel is an instrument rather than something a player reads in
+            // their own language, so it names the table directly.
+            implementation(projects.client.design.text)
             implementation(projects.client.design.format)
 
             implementation(libs.compose.runtime)

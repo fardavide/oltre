@@ -7,6 +7,8 @@ import dev.fardavide.oltre.client.galaxy.ui.DiscoveryCardUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerEmptinessUiState
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.LedgerHeadUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
@@ -107,13 +109,13 @@ private fun GameState.matchesQuery(world: World, query: String): Boolean {
 // than on an apology.
 private fun emptinessFor(nav: GalaxyNavigation): LedgerEmptinessUiState = if (nav.query.isBlank()) {
     LedgerEmptinessUiState(
-        headline = "Every world a probe reaches lands here.",
-        detail = "You have surveyed nothing yet.",
+        headline = Strings.ledgerEmptyHeadline(),
+        detail = Strings.ledgerEmptyDetail(),
     )
 } else {
     LedgerEmptinessUiState(
-        headline = "No world you know is called that.",
-        detail = "Names are unique in a galaxy, so a full name finds one place.",
+        headline = Strings.ledgerNoMatchHeadline(),
+        detail = Strings.ledgerNoMatchDetail(),
     )
 }
 
@@ -144,10 +146,13 @@ private fun GameState.discoveriesIn(now: Instant, since: Instant): List<Discover
 
 private fun GameState.toDiscoveryCard(world: World, foundAt: Instant, now: Instant): DiscoveryCardUiState {
     val traits = world.traits
+    val temperature = Strings.temperatureReading(traits.temperature.celsius.signed())
+    val gravity = Strings.gravityReading(traits.gravity.milliG.milli())
+    val pressure = Strings.pressureReading(traits.pressure.milliAtm.milli())
     return DiscoveryCardUiState(
-        world = worldNameAt(galaxy.seed, world.at),
+        world = TextRes(worldNameAt(galaxy.seed, world.at)),
         coordinate = world.at.label(),
-        epithet = epithetFor(traits).toString(),
+        epithet = TextRes(epithetFor(traits).toString()),
         portrait = WorldPortraitUiState.Surveyed(
             temperature = traits.temperature,
             gravity = traits.gravity,
@@ -155,33 +160,29 @@ private fun GameState.toDiscoveryCard(world: World, foundAt: Instant, now: Insta
             hazards = traits.hazards,
             hasRing = world.hasRing,
         ),
-        temperature = "${traits.temperature.celsius.signed()} °C",
-        gravity = "${traits.gravity.milliG.milli()} g",
-        pressure = "${traits.pressure.milliAtm.milli()} atm",
+        temperature = temperature,
+        gravity = gravity,
+        pressure = pressure,
+        readings = Strings.clauses(listOf(temperature, gravity, pressure)),
         note = verdictFor(world, this).discoveryNote(),
         // **"found 5 days ago", not "found day 9"** — nothing in `GameState` carries a genesis
         // instant, so a day number is not derivable where elapsed-since is.
         // Coerced, because a survey cannot have landed in the future and a label that says it did
         // reads as a defect rather than as a clock. Nothing should produce one now that the span is
         // measured from where the advance began, which is why this is a floor rather than a fix.
-        found = "found ${(now - foundAt).coerceAtLeast(Duration.ZERO).toChipLabel()} ago",
+        found = Strings.foundAgo((now - foundAt).coerceAtLeast(Duration.ZERO).toChipLabel()),
     )
 }
 
-private fun dev.fardavide.oltre.core.WorldVerdict.discoveryNote(): String = when (this) {
-    is dev.fardavide.oltre.core.WorldVerdict.Settleable -> "Nothing here blocks a colony."
-    dev.fardavide.oltre.core.WorldVerdict.Barren -> "Passes every band, and not worth taking."
-    is dev.fardavide.oltre.core.WorldVerdict.Blocked ->
-        failures.firstOrNull()?.let { "${it.axis.adaptation.name.lowercase()
-            .replaceFirstChar { first -> first.uppercase() }} ${it.closedAtLevel} would land it." }
-            ?: "Blocked."
-    dev.fardavide.oltre.core.WorldVerdict.Home -> "Your colony."
-    is dev.fardavide.oltre.core.WorldVerdict.Occupied -> "Held by ${holder.value}."
-    dev.fardavide.oltre.core.WorldVerdict.Unsurveyed -> "Surveyed."
+private fun dev.fardavide.oltre.core.WorldVerdict.discoveryNote(): TextRes = when (this) {
+    is dev.fardavide.oltre.core.WorldVerdict.Settleable -> Strings.noteSettleable()
+    dev.fardavide.oltre.core.WorldVerdict.Barren -> Strings.noteBarrenDiscovery()
+    is dev.fardavide.oltre.core.WorldVerdict.Blocked -> failures.firstOrNull()
+        ?.let { Strings.noteWouldLandIt(Strings.adaptationName(it.axis.adaptation), it.closedAtLevel) }
+        ?: Strings.noteBlocked()
+    dev.fardavide.oltre.core.WorldVerdict.Home -> Strings.noteHome()
+    is dev.fardavide.oltre.core.WorldVerdict.Occupied -> Strings.noteOccupied(TextRes(holder.value))
+    dev.fardavide.oltre.core.WorldVerdict.Unsurveyed -> Strings.noteSurveyed()
 }
 
-private fun Int.worldCount(): String = when (this) {
-    0 -> "no worlds"
-    1 -> "1 world"
-    else -> "$this worlds"
-}
+private fun Int.worldCount(): TextRes = Strings.worldCount(this)

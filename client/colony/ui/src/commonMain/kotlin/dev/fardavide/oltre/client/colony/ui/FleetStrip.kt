@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
 
 // The returning-fleet strip per the mockup: a warn-tinted row between the hero card and the
 // facility list — dot, mission title over origin and composition, arrival countdown.
@@ -48,14 +49,14 @@ fun FleetStrip(uiState: ReturningFleetUiState, modifier: Modifier = Modifier) {
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = uiState.title,
+                text = uiState.title.resolve(),
                 color = OltreColors.text,
                 fontFamily = mono,
                 fontSize = 12.5.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = uiState.subtitle,
+                text = uiState.subtitle.resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 11.sp,
@@ -63,7 +64,7 @@ fun FleetStrip(uiState: ReturningFleetUiState, modifier: Modifier = Modifier) {
             )
         }
         Text(
-            text = uiState.countdown,
+            text = uiState.countdown.resolve(),
             color = OltreColors.warn,
             fontFamily = mono,
             fontSize = 13.5.sp,

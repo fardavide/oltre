@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapCaptionTrailingUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapHourUiState
@@ -59,7 +62,7 @@ class GalaxyMapUiStateTest {
         assertEquals((1..GalaxyBalance.REGIONS_PER_GALAXY).toList(), bands.map { it.region })
         // Ten names, all different, and band 7 is the one the system view already prints as the
         // region of 3:171. The two surfaces name a region identically or the map is a second galaxy.
-        assertEquals("Elyutis Reach", bands[6].name)
+        assertEquals("Elyutis Reach", English.resolve(bands[6].name))
         assertEquals(bands.size, bands.map { it.name }.distinct().size, bands.map { it.name }.toString())
         // The temperaments are a **permutation** of the fixed multiset rather than ten draws, so
         // every galaxy holds four Deeps, two Settleds and four Burnings. That is what lets the game
@@ -237,7 +240,7 @@ class GalaxyMapUiStateTest {
         // Real names off the same generator the system header reads — read off the run and pinned
         // here rather than derived, because a test that asked `systemNameAt` for its expectation
         // would agree with whatever answer it was given.
-        assertEquals(listOf("Torodra", "Elyotis", "Raxezon"), names.map { it.name })
+        assertEquals(listOf("Torodra", "Elyotis", "Raxezon"), names.map { English.resolve(it.name) })
     }
 
     @Test
@@ -260,10 +263,10 @@ class GalaxyMapUiStateTest {
         // then
         assertEquals(
             listOf(
-                MapHourUiState(system = 141, label = "1h"),
-                MapHourUiState(system = 201, label = "1h"),
-                MapHourUiState(system = 81, label = "2h"),
-                MapHourUiState(system = 21, label = "3h"),
+                MapHourUiState(system = 141, label = Strings.durationHours(1)),
+                MapHourUiState(system = 201, label = Strings.durationHours(1)),
+                MapHourUiState(system = 81, label = Strings.durationHours(2)),
+                MapHourUiState(system = 21, label = Strings.durationHours(3)),
             ),
             hours,
         )
@@ -289,10 +292,10 @@ class GalaxyMapUiStateTest {
         // then
         assertEquals(
             listOf(
-                MapHourUiState(system = 151, label = "5h"),
-                MapHourUiState(system = 191, label = "5h"),
-                MapHourUiState(system = 91, label = "6h"),
-                MapHourUiState(system = 31, label = "7h"),
+                MapHourUiState(system = 151, label = Strings.durationHours(5)),
+                MapHourUiState(system = 191, label = Strings.durationHours(5)),
+                MapHourUiState(system = 91, label = Strings.durationHours(6)),
+                MapHourUiState(system = 31, label = Strings.durationHours(7)),
             ),
             hours,
         )
@@ -310,15 +313,15 @@ class GalaxyMapUiStateTest {
         // reward for. Class, region and world count are the same three the system header prints one
         // push down, which is what makes the caption a preview of that page rather than a summary of
         // its own.
-        assertEquals("Elyotis", caption.system)
-        assertEquals("[3:171]", caption.coordinate)
+        assertEquals("Elyotis", English.resolve(caption.system))
+        assertEquals("[3:171]", English.resolve(caption.coordinate))
         // **The trailing noun is gone and the number is not**, which is the abbreviation rule the
         // system header and the world row already follow — and it is here because Claude Design's
         // one-line frame did not survive real text metrics: the full four words ellipsized inside
         // `worlds` at 393dp. At 320dp the region goes too, which is the one place the map is allowed
         // to drop a *name*: the band it sits in is lit and named directly above the bar.
-        assertEquals("standard · Elyutis Reach · 7", caption.meta)
-        assertEquals("standard · 7", caption.compactMeta)
+        assertEquals("standard · Elyutis Reach · 7", English.resolve(caption.meta))
+        assertEquals("standard · 7", English.resolve(caption.compactMeta))
         // The map's caption *is* the selection, so it takes the accent edge — accent means "go tap
         // this", and the thing it acts on is what the caption names.
         assertTrue(caption.own)
@@ -336,13 +339,13 @@ class GalaxyMapUiStateTest {
 
         // 170 systems from home at a minute each, plus the flat half hour.
         assertEquals(
-            MapCaptionTrailingUiState.Dispatch("probe 3h 20m"),
+            MapCaptionTrailingUiState.Dispatch(Strings.probeFlight(Strings.durationHoursMinutes(3, 20))),
             unknown.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 1)).caption.trailing,
         )
         // A note and not a second dispatch — and note that this state is *wealthier* than the one
         // above, which is the point: what closes the offer is the reading, never the price.
         assertEquals(
-            MapCaptionTrailingUiState.Note("1h 18m out and back"),
+            MapCaptionTrailingUiState.Note(Strings.reachSingle(Strings.durationHoursMinutes(1, 18))),
             known.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = TARGET.system), now = LANDED)
                 .caption.trailing,
         )
@@ -362,9 +365,9 @@ class GalaxyMapUiStateTest {
         for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val caption = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = system)).caption
 
-            assertTrue(caption.system.isNotBlank(), "3:$system is nameless")
-            assertEquals("[$HOME_GALAXY:$system]", caption.coordinate)
-            assertTrue(caption.meta.isNotBlank(), "3:$system reads blank")
+            assertTrue(English.resolve(caption.system).isNotBlank(), "3:$system is nameless")
+            assertEquals("[$HOME_GALAXY:$system]", English.resolve(caption.coordinate))
+            assertTrue(English.resolve(caption.meta).isNotBlank(), "3:$system reads blank")
             // **The trailing type has no empty case at all any more**, which is a stronger statement
             // than the one this line used to make: `None` was a state the mapper could not produce
             // and the drawing still had to handle, so it went. What survives is the claim that every
@@ -387,9 +390,9 @@ class GalaxyMapUiStateTest {
 
         // then — 250 systems of galaxy hop plus the flat half hour, at a minute a unit, from a home
         // system that is the same index in both: 30 + 250 = 280 minutes.
-        assertEquals("Galaxy 2", caption.system)
-        assertEquals("250 systems · nothing charted", caption.meta)
-        assertEquals(MapCaptionTrailingUiState.Note("probe 4h 40m"), caption.trailing)
+        assertEquals("Galaxy 2", English.resolve(caption.system))
+        assertEquals("250 systems · nothing charted", English.resolve(caption.meta))
+        assertEquals(MapCaptionTrailingUiState.Note(Strings.probeFlight(Strings.durationHoursMinutes(4, 40))), caption.trailing)
         // Not `own`, which is the accent edge: accent means "go tap this" and what it would be
         // pointing at here is a galaxy you have not chosen yet.
         assertFalse(caption.own)
@@ -405,7 +408,7 @@ class GalaxyMapUiStateTest {
         val caption = broke.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 1)).caption
 
         assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
-        assertEquals("probe 3h 20m", (caption.trailing as MapCaptionTrailingUiState.Note).label)
+        assertEquals("probe 3h 20m", English.resolve((caption.trailing as MapCaptionTrailingUiState.Note).label))
     }
 
     @Test
@@ -424,15 +427,18 @@ class GalaxyMapUiStateTest {
 
         // then
         assertEquals(listOf(1, 2, 3, 4), discs.map { it.galaxy })
-        assertEquals(listOf("G1", "G2", "G3", "G4"), discs.map { it.label })
+        assertEquals(listOf("G1", "G2", "G3", "G4"), discs.map { English.resolve(it.label) })
         // Home is priced as home: there is no run to where you already are, and a figure there would
         // be an offer the game does not make.
-        assertEquals(listOf("run 18h 20m", "run 9h 20m", null, "run 9h 20m"), discs.map { it.cost })
+        assertEquals(
+            listOf("run 18h 20m", "run 9h 20m", null, "run 9h 20m"),
+            discs.map { disc -> disc.cost?.let { English.resolve(it) } },
+        )
         assertEquals(listOf(false, false, true, false), discs.map { it.home })
         assertEquals(listOf(false, false, true, false), discs.map { it.selected })
         // Systems and not worlds: genesis surveys seven worlds and they are all in one system, so the
         // line the empires will later share reads "1 surveyed" rather than "7".
-        assertEquals(listOf("0 surveyed", "0 surveyed", "1 surveyed", "0 surveyed"), discs.map { it.known })
+        assertEquals(listOf("0 surveyed", "0 surveyed", "1 surveyed", "0 surveyed"), discs.map { English.resolve(it.known) })
         // Four different galaxies rather than one drawing shown four times — each disc carries its
         // own seed's region names and its own temperament permutation.
         assertEquals(discs.size, discs.map { disc -> disc.map.bands.map { it.name } }.distinct().size)
@@ -557,7 +563,9 @@ class GalaxyMapUiStateTest {
 
 // The trailing element says something whichever of its two shapes it is in — a control on a star you
 // could probe, a reading on one you could not.
-private fun MapCaptionTrailingUiState.trailingLabel(): String = when (this) {
-    is MapCaptionTrailingUiState.Dispatch -> label
-    is MapCaptionTrailingUiState.Note -> label
-}
+private fun MapCaptionTrailingUiState.trailingLabel(): String = English.resolve(
+    when (this) {
+        is MapCaptionTrailingUiState.Dispatch -> label
+        is MapCaptionTrailingUiState.Note -> label
+    },
+)

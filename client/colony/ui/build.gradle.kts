@@ -37,6 +37,7 @@ kotlin {
             // constant or a rule here would be the signal that a mapping belongs one layer up.
             implementation(projects.core)
             implementation(projects.client.design.component)
+            api(projects.client.design.text)
             implementation(projects.client.design.core)
             implementation(projects.client.design.icon)
 

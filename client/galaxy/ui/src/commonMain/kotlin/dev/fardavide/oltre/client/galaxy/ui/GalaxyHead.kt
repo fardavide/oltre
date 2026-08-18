@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.settlingColor
 
@@ -52,7 +53,7 @@ internal fun GalaxyHead(
         // the casing is a style the design owns and the string is a sentence the mapper wrote, and a
         // model that shouted would make a copy change a two-file edit.
         Text(
-            text = uiState.count.uppercase(),
+            text = uiState.count.resolve().uppercase(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,
@@ -73,7 +74,7 @@ internal fun GalaxyHead(
 private fun ScaleChip(uiState: GalaxyHeadUiState, onToggleScale: () -> Unit) {
     val up = uiState.scale == GalaxyScale.UNIVERSE
     Text(
-        text = uiState.chip,
+        text = uiState.chip.resolve(),
         color = settlingColor(if (up) OltreColors.accent else OltreColors.textSecondary),
         fontFamily = oltreMono(),
         fontSize = 9.5.sp,

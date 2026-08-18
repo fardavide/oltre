@@ -1,5 +1,10 @@
 package dev.fardavide.oltre.client.colony.presentation
 
+import dev.fardavide.oltre.client.design.format.watchedAtLabel
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.StringId
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.colony.ui.ColonyUiState
 import dev.fardavide.oltre.client.colony.ui.EnergyUiState
 import dev.fardavide.oltre.client.colony.ui.FacilityActionUiState
@@ -17,7 +22,6 @@ import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.figure
 import dev.fardavide.oltre.client.design.component.sheetLine
 import dev.fardavide.oltre.client.design.component.words
-import dev.fardavide.oltre.client.design.format.pad2
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
@@ -64,8 +68,14 @@ class ColonyUiStateTest {
         // the headroom the verdict names
         assertEquals(
             EnergyUiState(
-                verdict = "room for 1 mine level",
-                terms = "50 produced · 40 drawn · 10 spare",
+                verdict = Strings.energyRoomForMineLevels(1),
+                terms = Strings.clauses(
+                listOf(
+                    Strings.energyProduced(Strings.groupedNumber(50)),
+                    Strings.energyDrawn(Strings.groupedNumber(40)),
+                    Strings.energySpare(Strings.groupedNumber(10)),
+                ),
+            ),
                 coveredFraction = 40f / 50f,
                 deficit = false,
             ),
@@ -91,7 +101,7 @@ class ColonyUiStateTest {
         val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
 
         // then
-        assertEquals("room for 3 mine levels", energy.verdict)
+        assertEquals("room for 3 mine levels", English.resolve(energy.verdict))
     }
 
     @Test
@@ -105,7 +115,7 @@ class ColonyUiStateTest {
         val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
 
         // then "room for 0 mine levels" is a sentence about nothing; this is the same fact
-        assertEquals("break even", energy.verdict)
+        assertEquals("break even", English.resolve(energy.verdict))
         assertEquals(false, energy.deficit)
     }
 
@@ -121,8 +131,14 @@ class ColonyUiStateTest {
         // then the fill stops where the plant stops, so the boundary is the plant's ceiling
         assertEquals(
             EnergyUiState(
-                verdict = "every mine at 55%",
-                terms = "50 produced · 90 drawn · 40 short",
+                verdict = Strings.energyEveryMineAt(55),
+                terms = Strings.clauses(
+                listOf(
+                    Strings.energyProduced(Strings.groupedNumber(50)),
+                    Strings.energyDrawn(Strings.groupedNumber(90)),
+                    Strings.energyShort(Strings.groupedNumber(40)),
+                ),
+            ),
                 coveredFraction = 50f / 90f,
                 deficit = true,
             ),
@@ -139,7 +155,7 @@ class ColonyUiStateTest {
         val energy = state.toColonyUiState(now = Instant.fromEpochMilliseconds(0), timeZone = TimeZone.UTC).energy
 
         // then a track with no green in it already says the state is total, so no new colour
-        assertEquals("every mine stopped", energy.verdict)
+        assertEquals("every mine stopped", English.resolve(energy.verdict))
         assertEquals(0f, energy.coveredFraction)
     }
 
@@ -155,10 +171,10 @@ class ColonyUiStateTest {
         // cards saying "55%" would each be slightly wrong. The draw is exactly true per card.
         assertEquals(
             mapOf(
-                BuildingType.METAL_MINE to FacilityPowerUiState(label = "−30", supply = false),
-                BuildingType.CRYSTAL_MINE to FacilityPowerUiState(label = "−20", supply = false),
-                BuildingType.DEUTERIUM_SYNTHESIZER to FacilityPowerUiState(label = "−40", supply = false),
-                BuildingType.SOLAR_PLANT to FacilityPowerUiState(label = "+50", supply = true),
+                BuildingType.METAL_MINE to FacilityPowerUiState(label = Strings.powerDraw(Strings.groupedNumber(30)), supply = false),
+                BuildingType.CRYSTAL_MINE to FacilityPowerUiState(label = Strings.powerDraw(Strings.groupedNumber(20)), supply = false),
+                BuildingType.DEUTERIUM_SYNTHESIZER to FacilityPowerUiState(label = Strings.powerDraw(Strings.groupedNumber(40)), supply = false),
+                BuildingType.SOLAR_PLANT to FacilityPowerUiState(label = Strings.powerSupply(Strings.groupedNumber(50)), supply = true),
             ),
             rows.mapNotNull { row -> row.power?.let { row.building to it } }.toMap(),
         )
@@ -200,7 +216,7 @@ class ColonyUiStateTest {
 
         // then no banner and no reordering — one line, in the slot a card already uses to say
         // what its next level is
-        assertEquals("→ LV 2 covers all 90 drawn", rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)
+        assertEquals("→ LV 2 covers all 90 drawn", English.resolve(checkNotNull(rows.first { it.building == BuildingType.SOLAR_PLANT }.fix)))
         assertEquals(emptyList(), rows.filter { it.building != BuildingType.SOLAR_PLANT && it.fix != null })
     }
 
@@ -237,12 +253,12 @@ class ColonyUiStateTest {
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals("Metal Mine", metalMine.name)
+        assertEquals("Metal Mine", English.resolve(metalMine.name))
         assertEquals(BuildingLevel(1), metalMine.level)
         assertEquals(
             listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "19", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "4", short = true),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(19), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(4), short = true),
             ),
             metalMine.costs,
         )
@@ -253,7 +269,7 @@ class ColonyUiStateTest {
         // the same level 9 — because Davide asked for the first taps in minutes rather than as a
         // multiple: "a 2/3 min build time at the very first levels". Four minutes per root of the
         // *full* 112 is 40, and two thirds of that seven times over is this.
-        assertEquals("2m", metalMine.duration)
+        assertEquals("2m", English.resolve(metalMine.duration))
     }
 
     @Test
@@ -269,9 +285,9 @@ class ColonyUiStateTest {
             listOf(
                 // 400 / 120 / 200 at full price, here on the deepest step of the opening
                 // discount: level 1 pays exactly a tenth of it.
-                CostChipUiState(kind = ResourceKind.METAL, amount = "40", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "12", short = true),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "20", short = true),
+                CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(40), short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(12), short = true),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = Strings.groupedNumber(20), short = true),
             ),
             robotics.costs,
         )
@@ -291,7 +307,7 @@ class ColonyUiStateTest {
         val synth = state.rowFor(BuildingType.DEUTERIUM_SYNTHESIZER)
 
         // then
-        assertEquals("16m", synth.duration)
+        assertEquals("16m", English.resolve(synth.duration))
     }
 
     @Test
@@ -316,7 +332,7 @@ class ColonyUiStateTest {
         val metalMine = state.rowFor(BuildingType.METAL_MINE)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("in 13m"), metalMine.action)
+        assertEquals(FacilityActionUiState.AffordableIn(Strings.availableIn(Strings.durationMinutes(13))), metalMine.action)
     }
 
     @Test
@@ -331,7 +347,7 @@ class ColonyUiStateTest {
         val robotics = state.rowFor(BuildingType.ROBOTICS_FACTORY)
 
         // then
-        assertEquals(FacilityActionUiState.AffordableIn("—"), robotics.action)
+        assertEquals(FacilityActionUiState.AffordableIn(Strings.availableNever()), robotics.action)
     }
 
     @Test
@@ -343,7 +359,7 @@ class ColonyUiStateTest {
         val nanite = state.rowFor(BuildingType.NANITE_FACTORY)
 
         // then
-        assertEquals(FacilityActionUiState.Locked("Requires Robotics 10"), nanite.action)
+        assertEquals(FacilityActionUiState.Locked(Strings.requiresRobotics(10)), nanite.action)
     }
 
     @Test
@@ -361,9 +377,9 @@ class ColonyUiStateTest {
         assertEquals(
             FacilityActionUiState.Upgrading(
                 toLevel = BuildingLevel(2),
-                countdown = "00:01:36",
+                countdown = Strings.countdown(0, 1, 36),
                 progressPercent = 20,
-                doneAt = "done 00:02",
+                doneAt = Strings.doneAt(hour = 0, minute = 2),
             ),
             metalMine.action,
         )
@@ -395,7 +411,7 @@ class ColonyUiStateTest {
         val action = started.rowFor(BuildingType.METAL_MINE, now = t0, timeZone = TimeZone.of("Europe/Rome")).action
 
         // then
-        assertEquals("done 12:02", assertIs<FacilityActionUiState.Upgrading>(action).doneAt)
+        assertEquals("done 12:02", English.resolve(assertIs<FacilityActionUiState.Upgrading>(action).doneAt))
     }
 
     @Test
@@ -409,7 +425,7 @@ class ColonyUiStateTest {
         val action = started.rowFor(BuildingType.METAL_MINE, now = completesAt - 900.milliseconds).action
 
         // then
-        assertEquals("00:00:01", assertIs<FacilityActionUiState.Upgrading>(action).countdown)
+        assertEquals("00:00:01", English.resolve(assertIs<FacilityActionUiState.Upgrading>(action).countdown))
     }
 
     @Test
@@ -429,9 +445,15 @@ class ColonyUiStateTest {
         // then
         assertEquals(
             ReturningFleetUiState(
-                title = "Fleet returning",
-                subtitle = "from [2:117:9] · 14 skiff · 1 hauler",
-                countdown = "04:11:52",
+                title = Strings.fleetReturning(),
+                subtitle = Strings.clauses(
+                    listOf(
+                        Strings.fromTarget(Strings.coordinate(2, 117, 9)),
+                        Strings.shipsOfType(14, ShipType.SKIFF),
+                        Strings.shipsOfType(1, ShipType.HAULER),
+                    ),
+                ),
+                countdown = Strings.countdown(4, 11, 52),
             ),
             checkNotNull(strip),
         )
@@ -455,11 +477,11 @@ class ColonyUiStateTest {
         val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
 
         // then the target is in the title, where the verb needs it, and not repeated below it
-        assertEquals("On station at [2:117:9]", strip.title)
-        assertEquals("14 skiff · 1 hauler", strip.subtitle)
+        assertEquals("On station at [2:117:9]", English.resolve(strip.title))
+        assertEquals("14 skiff · 1 hauler", English.resolve(strip.subtitle))
         // ...and the countdown is to the arrival, so it is strictly shorter than the nine hours the
         // run is out for
-        assertTrue(strip.countdown < "09:00:00", strip.countdown)
+        assertTrue(English.resolve(strip.countdown) < "09:00:00", English.resolve(strip.countdown))
     }
 
     // Runs are parallel where the old model held exactly one fleet, so the strip has a case it never
@@ -489,8 +511,8 @@ class ColonyUiStateTest {
         val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
 
         // then the soonest is the one named in full and the other two are the door to Fleets
-        assertEquals("from [2:117:9] · 3 skiff · 2 more away", strip.subtitle)
-        assertEquals("02:00:00", strip.countdown)
+        assertEquals("from [2:117:9] · 3 skiff · 2 more away", English.resolve(strip.subtitle))
+        assertEquals("02:00:00", English.resolve(strip.countdown))
     }
 
     // **Sorted by event rather than by return, and the two orderings genuinely differ**: a run
@@ -515,8 +537,8 @@ class ColonyUiStateTest {
         val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
 
         // then it is the far run's arrival that is named, not the near run's return
-        assertEquals("On station at [1:42:7]", strip.title)
-        assertTrue(strip.countdown < "20:00:00", strip.countdown)
+        assertEquals("On station at [1:42:7]", English.resolve(strip.title))
+        assertTrue(English.resolve(strip.countdown) < "20:00:00", English.resolve(strip.countdown))
     }
 
     @Test
@@ -626,11 +648,11 @@ class ColonyUiStateTest {
         // then
         assertEquals(
             listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics", "Nanite Factory"),
-            rows.map { it.compactName },
+            rows.map { English.resolve(it.compactName) },
         )
         assertEquals(
             listOf("Metal Mine", "Crystal Mine", "Deuterium Synth.", "Solar Plant", "Robotics Factory", "Nanite Factory"),
-            rows.map { it.name },
+            rows.map { English.resolve(it.name) },
         )
     }
 
@@ -698,8 +720,8 @@ class ColonyUiStateTest {
         // then
         val expected = (now + wait).toLocalDateTime(TimeZone.UTC)
         assertEquals(
-            "→ affordable ${expected.hour.pad2()}:${expected.minute.pad2()}",
-            assertIs<WatchUiState.Booked>(row.watch).affordableAt,
+            English.resolve(watchedAtLabel(hour = expected.hour, minute = expected.minute)),
+            English.resolve(assertIs<WatchUiState.Booked>(row.watch).affordableAt),
         )
     }
 
@@ -734,7 +756,12 @@ class ColonyUiStateTest {
         // then the clause a Slide Over keeps is the gain; the one it drops is what the gain costs
         // in time, which is the sheet's to repeat
         assertEquals(
-            VerdictUiState(label = "+22/h metal · back in 1h 13m", compactLabel = "+22/h metal"),
+            VerdictUiState(label = Strings.clauses(
+                    listOf(
+                        Strings.outputGain(Strings.groupedNumber(22), ResourceKind.METAL),
+                        Strings.backIn(Strings.durationHoursMinutes(1, 13)),
+                    ),
+                ), compactLabel = Strings.outputGain(Strings.groupedNumber(22), ResourceKind.METAL)),
             verdict,
         )
     }
@@ -751,8 +778,8 @@ class ColonyUiStateTest {
         // then the level is not a small gain but a loss, and the row says which plant level ends it
         assertEquals(
             VerdictUiState(
-                label = "throttles every mine · Solar Plant 2 covers it",
-                compactLabel = "throttles every mine",
+                label = Strings.clauses(listOf(Strings.throttlesEveryMine(), Strings.solarPlantCovers(2))),
+                compactLabel = Strings.throttlesEveryMine(),
             ),
             verdict,
         )
@@ -768,7 +795,9 @@ class ColonyUiStateTest {
 
         // then the honest reading is that the level buys nothing today — said as what it does add
         assertEquals(
-            VerdictUiState(label = "+50 supply · draw already covered", compactLabel = "+50 supply"),
+            VerdictUiState(label = Strings.clauses(
+                    listOf(Strings.suppliesMore(Strings.groupedNumber(50)), Strings.drawAlreadyCovered()),
+                ), compactLabel = Strings.suppliesMore(Strings.groupedNumber(50))),
             verdict,
         )
     }
@@ -784,7 +813,12 @@ class ColonyUiStateTest {
 
         // then the one row on this screen that gates anything says so in its second clause
         assertEquals(
-            VerdictUiState(label = "−20m per build · LV 10 → Nanite", compactLabel = "−20m per build"),
+            VerdictUiState(label = Strings.clauses(
+                    listOf(
+                        Strings.savedPerBuild(Strings.durationMinutes(20)),
+                        Strings.gateClause(level = 10, opens = Strings.gateSummaryNanite()),
+                    ),
+                ), compactLabel = Strings.savedPerBuild(Strings.durationMinutes(20))),
             verdict,
         )
     }
@@ -799,7 +833,7 @@ class ColonyUiStateTest {
 
         // then a group of technologies is described rather than listed: two names in a clause is
         // the beginning of a table
-        assertEquals("−3h 14m per build · LV 1 → research", verdict.label)
+        assertEquals("−3h 14m per build · LV 1 → research", English.resolve(verdict.label))
     }
 
     @Test
@@ -815,8 +849,16 @@ class ColonyUiStateTest {
         // colony's, so a claim about the building does not move when the reader does
         assertEquals(
             VerdictUiState(
-                label = "A 271h build takes 23h 49m at LV 6",
-                compactLabel = "271h builds take 23h 49m at LV 6",
+                label = Strings.naniteReliefLong(
+                    unaided = Strings.durationHours(271),
+                    helped = Strings.durationHoursMinutes(23, 49),
+                    level = 6,
+                ),
+                compactLabel = Strings.naniteReliefShort(
+                    unaided = Strings.durationHours(271),
+                    helped = Strings.durationHoursMinutes(23, 49),
+                    level = 6,
+                ),
             ),
             verdict,
         )
@@ -852,16 +894,16 @@ class ColonyUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("Your colony makes "),
-                    figure("90/h"),
-                    words(" metal. At LV 2 it makes "),
-                    figure("112/h"),
-                    words("."),
+                    words(Strings.sheetMineMakes()),
+                    figure(Strings.perHour(Strings.groupedNumber(90))),
+                    words(Strings.sheetMineAtLevel(kind = ResourceKind.METAL, level = 2)),
+                    figure(Strings.perHour(Strings.groupedNumber(112))),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Counted against everything the level costs, you are even after "),
-                    figure("1h 13m"),
-                    words("."),
+                    words(Strings.sheetPaybackPrefix()),
+                    figure(Strings.durationHoursMinutes(1, 13)),
+                    words(Strings.sheetFullStop()),
                 ),
             ),
             lines,
@@ -882,14 +924,13 @@ class ColonyUiStateTest {
             listOf(
                 sheetLine(
                     words(
-                        "The colony cannot power this level. Taking it would throttle every mine " +
-                            "you have rather than raise anything.",
+                        Strings.sheetCannotPowerLevel(),
                     ),
                 ),
                 sheetLine(
-                    words("A Solar Plant at LV "),
-                    figure("2"),
-                    words(" carries the new draw. Build that first and this level becomes what it looks like."),
+                    words(Strings.sheetPlantCarriesPrefix()),
+                    figure(Strings.plainNumber(2)),
+                    words(Strings.sheetPlantCarriesSuffix()),
                 ),
             ),
             lines,
@@ -908,21 +949,21 @@ class ColonyUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words("Your plants supply "),
-                    figure("50"),
-                    words(" energy. The colony draws "),
-                    figure("40"),
-                    words("."),
+                    words(Strings.sheetPlantsSupply()),
+                    figure(Strings.groupedNumber(50)),
+                    words(Strings.sheetColonyDraws()),
+                    figure(Strings.groupedNumber(40)),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Supply is not what is limiting you, so a level that adds "),
-                    figure("+50"),
-                    words(" changes no rate."),
+                    words(Strings.sheetSupplyNotLimiting()),
+                    figure(Strings.plusAmount(Strings.groupedNumber(50))),
+                    words(Strings.sheetChangesNoRate()),
                 ),
                 sheetLine(
-                    words("It starts to pay when draw passes supply — about "),
-                    figure("one"),
-                    words(" more mine level away."),
+                    words(Strings.sheetPaysWhenDrawPasses()),
+                    figure(Strings.sheetOneSpelled()),
+                    words(Strings.sheetMoreMineLevelAway()),
                 ),
             ),
             lines,
@@ -940,9 +981,9 @@ class ColonyUiStateTest {
         // then
         assertEquals(
             sheetLine(
-                words("It starts to pay when draw passes supply — about "),
-                figure("16"),
-                words(" more mine levels away."),
+                words(Strings.sheetPaysWhenDrawPasses()),
+                figure(Strings.groupedNumber(16)),
+                words(Strings.sheetMoreMineLevelsAway()),
             ),
             lines.last(),
         )
@@ -957,7 +998,7 @@ class ColonyUiStateTest {
         val lines = state.rowFor(BuildingType.SOLAR_PLANT).detail.lines
 
         // then no figure at all — there is no number left to state
-        assertEquals(sheetLine(words("It starts to pay with the next mine level you take.")), lines.last())
+        assertEquals(sheetLine(words(Strings.sheetPaysNextMineLevel())), lines.last())
     }
 
     @Test
@@ -970,29 +1011,34 @@ class ColonyUiStateTest {
 
         // then the same row that bought nothing a moment ago is now the best buy on the screen
         assertEquals(
-            VerdictUiState(label = "+63/h metal · back in 19m", compactLabel = "+63/h metal"),
+            VerdictUiState(label = Strings.clauses(
+                    listOf(
+                        Strings.outputGain(Strings.groupedNumber(63), ResourceKind.METAL),
+                        Strings.backIn(Strings.durationMinutes(19)),
+                    ),
+                ), compactLabel = Strings.outputGain(Strings.groupedNumber(63), ResourceKind.METAL)),
             row.verdict,
         )
         assertEquals(
             listOf(
                 sheetLine(
-                    words("Your plants supply "),
-                    figure("50"),
-                    words(" energy. The colony draws "),
-                    figure("90"),
-                    words(", so every mine is running at "),
-                    figure("55%"),
-                    words("."),
+                    words(Strings.sheetPlantsSupply()),
+                    figure(Strings.groupedNumber(50)),
+                    words(Strings.sheetColonyDraws()),
+                    figure(Strings.groupedNumber(90)),
+                    words(Strings.sheetSoEveryMineAt()),
+                    figure(Strings.percent(55)),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("This level lifts that, which is why it reads as "),
-                    figure("+63/h"),
-                    words(" metal rather than as energy."),
+                    words(Strings.sheetThisLevelLifts()),
+                    figure(Strings.plusPerHour(Strings.groupedNumber(63))),
+                    words(Strings.sheetRatherThanEnergy(ResourceKind.METAL)),
                 ),
                 sheetLine(
-                    words("Counted against everything the level costs, you are even after "),
-                    figure("19m"),
-                    words("."),
+                    words(Strings.sheetPaybackPrefix()),
+                    figure(Strings.durationMinutes(19)),
+                    words(Strings.sheetFullStop()),
                 ),
             ),
             row.detail.lines,
@@ -1011,17 +1057,14 @@ class ColonyUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words(
-                        "Shortens every build on this colony and every research in the empire. " +
-                            "It raises no output of its own.",
-                    ),
+                    words(Strings.sheetShortensEveryBuild()),
                 ),
                 sheetLine(
-                    words("Your next Metal Mine takes "),
-                    figure("1h 37m"),
-                    words(". At Robotics Factory 4 it takes "),
-                    figure("1h 18m"),
-                    words("."),
+                    words(Strings.sheetNextBuildTakes(Strings.buildingName(BuildingType.METAL_MINE))),
+                    figure(Strings.durationHoursMinutes(1, 37)),
+                    words(Strings.sheetAtBuildingLevelTakes(Strings.buildingName(BuildingType.ROBOTICS_FACTORY), 4)),
+                    figure(Strings.durationHoursMinutes(1, 18)),
+                    words(Strings.sheetFullStop()),
                 ),
             ),
             lines,
@@ -1039,9 +1082,12 @@ class ColonyUiStateTest {
         // then in the order the player reaches them — and the one facility on it carries its price
         assertEquals(
             listOf(
-                SheetLadderStep(level = "LV 1", opens = "applied research", held = false),
-                SheetLadderStep(level = "LV 2", opens = "the three adaptation ladders", held = false),
-                SheetLadderStep(level = "LV 10", opens = "Nanite Factory · 2,000 metal", held = false),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.gateSummaryResearchLong(), held = false),
+                SheetLadderStep(level = Strings.levelBadge(2), opens = Strings.gateSummaryAdaptationLong(), held = false),
+                SheetLadderStep(level = Strings.levelBadge(10), opens = Strings.gateFacilityLong(
+                    name = Strings.buildingName(BuildingType.NANITE_FACTORY),
+                    metal = Strings.groupedNumber(2_000),
+                ), held = false),
             ),
             ladder,
         )
@@ -1058,13 +1104,16 @@ class ColonyUiStateTest {
         // then held is computed rather than written, so "you have this" cannot go stale
         assertEquals(
             listOf(
-                SheetLadderStep(level = "LV 1", opens = "applied research · you have this", held = true),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.gateSummaryResearchLong()), held = true),
                 SheetLadderStep(
-                    level = "LV 2",
-                    opens = "the three adaptation ladders · you have this",
+                    level = Strings.levelBadge(2),
+                    opens = Strings.ladderStepHeld(Strings.gateSummaryAdaptationLong()),
                     held = true,
                 ),
-                SheetLadderStep(level = "LV 10", opens = "Nanite Factory · 2,000 metal", held = false),
+                SheetLadderStep(level = Strings.levelBadge(10), opens = Strings.gateFacilityLong(
+                    name = Strings.buildingName(BuildingType.NANITE_FACTORY),
+                    metal = Strings.groupedNumber(2_000),
+                ), held = false),
             ),
             ladder,
         )
@@ -1099,24 +1148,21 @@ class ColonyUiStateTest {
         assertEquals(
             listOf(
                 sheetLine(
-                    words(
-                        "Takes the late game's waits apart. It is the only thing in the game that " +
-                            "shortens a deep build.",
-                    ),
+                    words(Strings.sheetShortensDeepBuild()),
                 ),
                 sheetLine(
-                    words("A level-30 Metal Mine takes "),
-                    figure("271h"),
-                    words(" unaided. At 6 Nanite levels it takes "),
-                    figure("23h 49m"),
-                    words("."),
+                    words(Strings.sheetNaniteMineTakes(30)),
+                    figure(Strings.durationHours(271)),
+                    words(Strings.sheetNaniteUnaidedAt(6)),
+                    figure(Strings.durationHoursMinutes(23, 49)),
+                    words(Strings.sheetFullStop()),
                 ),
                 sheetLine(
-                    words("Your Robotics Factory is at "),
-                    figure("0"),
-                    words(". 10 levels to go, and the first Nanite level costs "),
-                    figure("2,000"),
-                    words(" metal."),
+                    words(Strings.sheetRoboticsIsAt()),
+                    figure(Strings.plainNumber(0)),
+                    words(Strings.sheetLevelsToGo(10)),
+                    figure(Strings.groupedNumber(2_000)),
+                    words(Strings.sheetMetalSuffix()),
                 ),
             ),
             lines,
@@ -1136,11 +1182,11 @@ class ColonyUiStateTest {
         // then "1 levels to go" is not a sentence either
         assertEquals(
             sheetLine(
-                words("Your Robotics Factory is at "),
-                figure("9"),
-                words(". One level to go, and the first Nanite level costs "),
-                figure("2,000"),
-                words(" metal."),
+                words(Strings.sheetRoboticsIsAt()),
+                figure(Strings.plainNumber(9)),
+                words(Strings.sheetLevelsToGo(1)),
+                figure(Strings.groupedNumber(2_000)),
+                words(Strings.sheetMetalSuffix()),
             ),
             lines.last(),
         )
@@ -1155,7 +1201,7 @@ class ColonyUiStateTest {
         val pointer = state.rowFor(BuildingType.NANITE_FACTORY).detail.pointer
 
         // then a locked row ends on something to do rather than on a number it cannot reach
-        assertEquals(SheetPointer(name = "Robotics Factory", detail = "LV 0 → 1 · 3m"), pointer)
+        assertEquals(SheetPointer(name = Strings.buildingName(BuildingType.ROBOTICS_FACTORY), detail = Strings.pointerLevelStep(from = 0, to = 1, wait = Strings.durationMinutes(3))), pointer)
     }
 
     @Test
@@ -1168,7 +1214,7 @@ class ColonyUiStateTest {
         val pointer = state.rowFor(BuildingType.SOLAR_PLANT).detail.pointer
 
         // then the only useful thing a verdict of "nothing" can end on is the row to read instead
-        assertEquals(SheetPointer(name = "Metal Mine", detail = "LV 2 · back in 1h 13m"), pointer)
+        assertEquals(SheetPointer(name = Strings.buildingName(BuildingType.METAL_MINE), detail = Strings.pointerBestBuy(level = 2, payback = Strings.durationHoursMinutes(1, 13))), pointer)
     }
 
     @Test
@@ -1203,7 +1249,7 @@ class ColonyUiStateTest {
 
         // then a row that said one thing and a sheet that said another would be the worst failure
         // this pass has available
-        assertEquals("→ LV 2 · done 00:02", state.rowFor(BuildingType.METAL_MINE, now = t0).toRowSheetUiState().verdict)
+        assertEquals("→ LV 2 · done 00:02", English.resolve(state.rowFor(BuildingType.METAL_MINE, now = t0).toRowSheetUiState().verdict))
     }
 
     @Test
@@ -1215,9 +1261,9 @@ class ColonyUiStateTest {
         val sheet = state.rowFor(BuildingType.METAL_MINE).toRowSheetUiState()
 
         // then
-        assertEquals("Metal Mine", sheet.name)
+        assertEquals("Metal Mine", English.resolve(sheet.name))
         assertEquals(1, sheet.level)
-        assertEquals("+22/h metal · back in 1h 13m", sheet.verdict)
+        assertEquals("+22/h metal · back in 1h 13m", English.resolve(sheet.verdict))
     }
 
     @Test
@@ -1229,7 +1275,7 @@ class ColonyUiStateTest {
         val sheet = state.rowFor(BuildingType.ROBOTICS_FACTORY).toRowSheetUiState()
 
         // then saying "LV 10 → Nanite" above a ladder that says it in full would say it twice
-        assertEquals("−20m per build", sheet.verdict)
+        assertEquals("−20m per build", English.resolve(sheet.verdict))
     }
 
     @Test
@@ -1241,7 +1287,7 @@ class ColonyUiStateTest {
         val sheet = state.rowFor(BuildingType.NANITE_FACTORY).toRowSheetUiState()
 
         // then — and no footer, because a locked row has no price yet
-        assertEquals("Requires Robotics 10", sheet.verdict)
+        assertEquals(Strings.requiresRobotics(10), sheet.verdict)
         assertEquals(null, sheet.footer)
     }
 
@@ -1258,11 +1304,11 @@ class ColonyUiStateTest {
         assertEquals(
             SheetFooter(
                 costs = listOf(
-                    CostChipUiState(kind = ResourceKind.METAL, amount = "19", short = false),
-                    CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "4", short = false),
+                    CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(19), short = false),
+                    CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(4), short = false),
                 ),
-                duration = "2m",
-                action = SheetAction.Live("Upgrade"),
+                duration = Strings.durationMinutes(2),
+                action = SheetAction.Live(Strings.upgradeVerb()),
             ),
             footer,
         )
@@ -1277,7 +1323,7 @@ class ColonyUiStateTest {
         val footer = checkNotNull(state.rowFor(BuildingType.METAL_MINE).toRowSheetUiState().footer)
 
         // then no disabled state here either: a player who cannot afford the level is told when
-        assertEquals(SheetAction.Ghost("in 13m"), footer.action)
+        assertEquals(SheetAction.Ghost(Strings.availableIn(Strings.durationMinutes(13))), footer.action)
     }
 
     // The one row on either screen whose verdict changes shape when a gate opens, and the only
@@ -1294,9 +1340,9 @@ class ColonyUiStateTest {
         // then it stops being about the shape of the curve and starts being about this colony's
         // longest build — and it has no gate clause, because it opens nothing
         val verdict = checkNotNull(row.verdict)
-        assertTrue(verdict.label.endsWith(" per build"), verdict.label)
+        assertEquals(StringId.SavedPerBuild, assertIs<TextRes.Message>(verdict.label).id)
         assertEquals(verdict.label, verdict.compactLabel)
-        assertTrue(verdict.label.startsWith("−"), verdict.label)
+        assertTrue(English.resolve(verdict.label).startsWith("−"), English.resolve(verdict.label))
     }
 
     // Every rate and every energy figure on both screens goes through `groupedByThousands`, and
@@ -1314,7 +1360,7 @@ class ColonyUiStateTest {
 
         // then
         val verdict = checkNotNull(state.rowFor(BuildingType.METAL_MINE).verdict)
-        assertTrue(verdict.label.startsWith("+1,"), verdict.label)
+        assertTrue(English.resolve(verdict.label).startsWith("+1,"), English.resolve(verdict.label))
     }
 
     // Deep enough for a build to be worth shortening, and past two of the three gates: the metal
@@ -1419,10 +1465,10 @@ class ColonyUiStateTest {
         val uiState = state.toColonyUiState(
             now = Instant.fromEpochMilliseconds(0),
             timeZone = TimeZone.UTC,
-            watching = "watching Extraction",
+            watching = Strings.watching(Strings.technologyName(Technology.EXTRACTION)),
         )
 
         // then
-        assertEquals("watching Extraction", uiState.watching)
+        assertEquals("watching Extraction", English.resolve(checkNotNull(uiState.watching)))
     }
 }

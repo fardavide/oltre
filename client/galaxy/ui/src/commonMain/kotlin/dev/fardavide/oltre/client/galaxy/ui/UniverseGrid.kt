@@ -20,6 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.settlingColor
 
@@ -92,7 +94,7 @@ private fun Disc(disc: UniverseDiscUiState, onSelectGalaxy: (Int) -> Unit, modif
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(
-                text = disc.label,
+                text = disc.label.resolve(),
                 color = OltreColors.text,
                 fontFamily = oltreMono(),
                 fontSize = 12.5.sp,
@@ -105,7 +107,7 @@ private fun Disc(disc: UniverseDiscUiState, onSelectGalaxy: (Int) -> Unit, modif
             // one card with nothing to price, and saying "run 0m" would be a number pretending to
             // be a decision.
             Text(
-                text = disc.cost ?: HOME_WORD,
+                text = (disc.cost ?: Strings.homeNote()).resolve(),
                 color = if (disc.home) OltreColors.accent else OltreColors.textSecondary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -115,7 +117,7 @@ private fun Disc(disc: UniverseDiscUiState, onSelectGalaxy: (Int) -> Unit, modif
             )
         }
         Text(
-            text = disc.known,
+            text = disc.known.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 9.5.sp,
@@ -127,7 +129,6 @@ private fun Disc(disc: UniverseDiscUiState, onSelectGalaxy: (Int) -> Unit, modif
     }
 }
 
-private const val HOME_WORD = "home"
 private val DISC_LANE = 19.dp
 private val EDGE = Color.White.copy(alpha = 0.16f)
 private val SHAPE = RoundedCornerShape(14.dp)

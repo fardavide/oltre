@@ -36,6 +36,12 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // `api`, because `LocalTranslations` and `TextRes.resolve()` are this module's public
+            // surface and both name types from it — a consumer that draws a word cannot avoid
+            // seeing `TextRes`. The one design module `:client:design:core` re-exports, and it is
+            // the leaf of the leaves: `:client:design:text` depends on nothing at all.
+            api(projects.client.design.text)
+
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             api(libs.compose.material3)

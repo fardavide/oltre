@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.SheetLadderStep
 import dev.fardavide.oltre.client.design.component.SheetPointer
@@ -23,29 +25,29 @@ internal val testColonyUiState = ColonyUiState(
     // the indicator, the throttled rates on the rail, the marks that attribute the cut, and the
     // one line that says what ends it.
     energy = EnergyUiState(
-        verdict = "every mine at 90%",
-        terms = "400 produced · 440 drawn · 40 short",
+        verdict = TextRes("every mine at 90%"),
+        terms = TextRes("400 produced · 440 drawn · 40 short"),
         coveredFraction = 400f / 440f,
         deficit = true,
     ),
     facilities = listOf(
         FacilityRowUiState(
             building = BuildingType.METAL_MINE,
-            name = "Metal Mine",
-            compactName = "Metal Mine",
+            name = TextRes("Metal Mine"),
+            compactName = TextRes("Metal Mine"),
             level = BuildingLevel(12),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "7,749", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,851", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("7,749"), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("1,851"), short = false),
             ),
-            duration = "2h 10m",
+            duration = TextRes("2h 10m"),
             action = FacilityActionUiState.Upgrading(
                 toLevel = BuildingLevel(13),
-                countdown = "01:42:19",
+                countdown = TextRes("01:42:19"),
                 progressPercent = 68,
-                doneAt = "done 11:23",
+                doneAt = TextRes("done 11:23"),
             ),
-            power = FacilityPowerUiState(label = "−120", supply = false),
+            power = FacilityPowerUiState(label = TextRes("−120"), supply = false),
             fix = null,
             watch = WatchUiState.Offered,
             // No verdict, because nobody is choosing: this level was decided on when the player
@@ -54,11 +56,11 @@ internal val testColonyUiState = ColonyUiState(
             detail = FacilityDetailUiState(
                 lines = listOf(
                     sheetLine(
-                        words("Your colony makes "),
-                        figure("1,124/h"),
-                        words(" metal. At LV 13 it makes "),
-                        figure("1,405/h"),
-                        words("."),
+                        words(TextRes("Your colony makes ")),
+                        figure(TextRes("1,124/h")),
+                        words(TextRes(" metal. At LV 13 it makes ")),
+                        figure(TextRes("1,405/h")),
+                        words(TextRes(".")),
                     ),
                 ),
                 ladder = emptyList(),
@@ -68,45 +70,45 @@ internal val testColonyUiState = ColonyUiState(
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
-            name = "Solar Plant",
-            compactName = "Solar Plant",
+            name = TextRes("Solar Plant"),
+            compactName = TextRes("Solar Plant"),
             level = BuildingLevel(8),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "1,912", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "757", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("1,912"), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("757"), short = false),
             ),
-            duration = "1h 12m",
+            duration = TextRes("1h 12m"),
             action = FacilityActionUiState.Upgrade,
-            power = FacilityPowerUiState(label = "+400", supply = true),
-            fix = "→ LV 9 covers all 440 drawn",
+            power = FacilityPowerUiState(label = TextRes("+400"), supply = true),
+            fix = TextRes("→ LV 9 covers all 440 drawn"),
             watch = null,
             // A plant on a throttled colony is an income row like any other, and this is the frame
             // that says so: the same building reads as supply while there is headroom and as metal
             // once there is not.
             verdict = VerdictUiState(
-                label = "+38/h metal · back in 4h 20m",
-                compactLabel = "+38/h metal",
+                label = TextRes("+38/h metal · back in 4h 20m"),
+                compactLabel = TextRes("+38/h metal"),
             ),
             detail = FacilityDetailUiState(
                 lines = listOf(
                     sheetLine(
-                        words("Your plants supply "),
-                        figure("400"),
-                        words(" energy. The colony draws "),
-                        figure("440"),
-                        words(", so every mine is running at "),
-                        figure("90%"),
-                        words("."),
+                        words(TextRes("Your plants supply ")),
+                        figure(TextRes("400")),
+                        words(TextRes(" energy. The colony draws ")),
+                        figure(TextRes("440")),
+                        words(TextRes(", so every mine is running at ")),
+                        figure(TextRes("90%")),
+                        words(TextRes(".")),
                     ),
                     sheetLine(
-                        words("This level lifts that, which is why it reads as "),
-                        figure("+38/h"),
-                        words(" metal rather than as energy."),
+                        words(TextRes("This level lifts that, which is why it reads as ")),
+                        figure(TextRes("+38/h")),
+                        words(TextRes(" metal rather than as energy.")),
                     ),
                     sheetLine(
-                        words("Counted against everything the level costs, you are even after "),
-                        figure("4h 20m"),
-                        words("."),
+                        words(TextRes("Counted against everything the level costs, you are even after ")),
+                        figure(TextRes("4h 20m")),
+                        words(TextRes(".")),
                     ),
                 ),
                 ladder = emptyList(),
@@ -116,35 +118,35 @@ internal val testColonyUiState = ColonyUiState(
         ),
         FacilityRowUiState(
             building = BuildingType.DEUTERIUM_SYNTHESIZER,
-            name = "Deuterium Synth.",
-            compactName = "Deuterium Synth.",
+            name = TextRes("Deuterium Synth."),
+            compactName = TextRes("Deuterium Synth."),
             level = BuildingLevel(16),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "147,169", short = true),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "48,997", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("147,169"), short = true),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("48,997"), short = false),
             ),
-            duration = "5h 40m",
-            action = FacilityActionUiState.AffordableIn("in 3h 12m"),
-            power = FacilityPowerUiState(label = "−320", supply = false),
+            duration = TextRes("5h 40m"),
+            action = FacilityActionUiState.AffordableIn(TextRes("in 3h 12m")),
+            power = FacilityPowerUiState(label = TextRes("−320"), supply = false),
             fix = null,
             watch = WatchUiState.Offered,
             verdict = VerdictUiState(
-                label = "+41/h deuterium · back in 61h",
-                compactLabel = "+41/h deuterium",
+                label = TextRes("+41/h deuterium · back in 61h"),
+                compactLabel = TextRes("+41/h deuterium"),
             ),
             detail = FacilityDetailUiState(
                 lines = listOf(
                     sheetLine(
-                        words("Your colony makes "),
-                        figure("172/h"),
-                        words(" deuterium. At LV 17 it makes "),
-                        figure("213/h"),
-                        words("."),
+                        words(TextRes("Your colony makes ")),
+                        figure(TextRes("172/h")),
+                        words(TextRes(" deuterium. At LV 17 it makes ")),
+                        figure(TextRes("213/h")),
+                        words(TextRes(".")),
                     ),
                     sheetLine(
-                        words("Counted against everything the level costs, you are even after "),
-                        figure("61h"),
-                        words("."),
+                        words(TextRes("Counted against everything the level costs, you are even after ")),
+                        figure(TextRes("61h")),
+                        words(TextRes(".")),
                     ),
                 ),
                 ladder = emptyList(),
@@ -154,16 +156,16 @@ internal val testColonyUiState = ColonyUiState(
         ),
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,
-            name = "Nanite Factory",
-            compactName = "Nanite Factory",
+            name = TextRes("Nanite Factory"),
+            compactName = TextRes("Nanite Factory"),
             level = BuildingLevel(0),
             costs = listOf(
-                CostChipUiState(kind = ResourceKind.METAL, amount = "20,000", short = false),
-                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "10,000", short = false),
-                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "4,000", short = false),
+                CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("20,000"), short = false),
+                CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("10,000"), short = false),
+                CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = TextRes("4,000"), short = false),
             ),
-            duration = "2h 00m",
-            action = FacilityActionUiState.Locked("Requires Robotics 10"),
+            duration = TextRes("2h 00m"),
+            action = FacilityActionUiState.Locked(TextRes("Requires Robotics 10")),
             power = null,
             fix = null,
             watch = null,
@@ -171,42 +173,41 @@ internal val testColonyUiState = ColonyUiState(
             // alpha while the building is still days out, which is why it is the shape of the curve
             // rather than a saving.
             verdict = VerdictUiState(
-                label = "A 298h build takes 26h at LV 6",
-                compactLabel = "298h builds take 26h at LV 6",
+                label = TextRes("A 298h build takes 26h at LV 6"),
+                compactLabel = TextRes("298h builds take 26h at LV 6"),
             ),
             detail = FacilityDetailUiState(
                 lines = listOf(
                     sheetLine(
                         words(
-                            "Takes the late game's waits apart. It is the only thing in the game " +
-                                "that shortens a deep build.",
+                            Strings.sheetShortensDeepBuild(),
                         ),
                     ),
                     sheetLine(
-                        words("A level-30 Metal Mine takes "),
-                        figure("298h"),
-                        words(" unaided. At 6 Nanite levels it takes "),
-                        figure("26h"),
-                        words("."),
+                        words(TextRes("A level-30 Metal Mine takes ")),
+                        figure(TextRes("298h")),
+                        words(TextRes(" unaided. At 6 Nanite levels it takes ")),
+                        figure(TextRes("26h")),
+                        words(TextRes(".")),
                     ),
                     sheetLine(
-                        words("Your Robotics Factory is at "),
-                        figure("7"),
-                        words(". 3 levels to go, and the first Nanite level costs "),
-                        figure("2,000"),
-                        words(" metal."),
+                        words(TextRes("Your Robotics Factory is at ")),
+                        figure(TextRes("7")),
+                        words(TextRes(". 3 levels to go, and the first Nanite level costs ")),
+                        figure(TextRes("2,000")),
+                        words(TextRes(" metal.")),
                     ),
                 ),
                 ladder = emptyList(),
-                pointer = SheetPointer(name = "Robotics Factory", detail = "LV 7 → 8 · 41m"),
+                pointer = SheetPointer(name = TextRes("Robotics Factory"), detail = TextRes("LV 7 → 8 · 41m")),
             ),
             finishedWhileAway = false,
         ),
     ),
     returningFleet = ReturningFleetUiState(
-        title = "Fleet returning",
-        subtitle = "from [1:42:7] · 12 cargo",
-        countdown = "02:11:40",
+        title = TextRes("Fleet returning"),
+        subtitle = TextRes("from [1:42:7] · 12 cargo"),
+        countdown = TextRes("02:11:40"),
     ),
     // The square is offered on the one row that is waiting on its stocks, and nothing holds the
     // watch. The watched reading is its own frame — see `watchedColonyUiState`.
@@ -218,11 +219,11 @@ internal val testColonyUiState = ColonyUiState(
 // stores gains a line naming the instant, because nothing else on the card says it. The row that is
 // building gains nothing at all, because its own accent line already does.
 internal val watchedColonyUiState = testColonyUiState.copy(
-    watching = "watching Deuterium Synth.",
+    watching = TextRes("watching Deuterium Synth."),
     facilities = testColonyUiState.facilities.map { row ->
         when (row.action) {
             is FacilityActionUiState.Upgrading -> row.copy(watch = WatchUiState.Subscribed)
-            is FacilityActionUiState.AffordableIn -> row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+            is FacilityActionUiState.AffordableIn -> row.copy(watch = WatchUiState.Booked(TextRes("→ affordable 19:51")))
             FacilityActionUiState.Upgrade, is FacilityActionUiState.Locked -> row
         }
     },
@@ -233,42 +234,41 @@ internal val watchedColonyUiState = testColonyUiState.copy(
 // baseline is a picture of, and what this fixture is for is the sheet rather than the list.
 internal val roboticsFacilityRow = FacilityRowUiState(
     building = BuildingType.ROBOTICS_FACTORY,
-    name = "Robotics Factory",
-    compactName = "Robotics",
+    name = TextRes("Robotics Factory"),
+    compactName = TextRes("Robotics"),
     level = BuildingLevel(3),
     costs = listOf(
-        CostChipUiState(kind = ResourceKind.METAL, amount = "1,350", short = false),
-        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "405", short = false),
-        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = "675", short = false),
+        CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("1,350"), short = false),
+        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("405"), short = false),
+        CostChipUiState(kind = ResourceKind.DEUTERIUM, amount = TextRes("675"), short = false),
     ),
-    duration = "1h 04m",
+    duration = TextRes("1h 04m"),
     action = FacilityActionUiState.Upgrade,
     power = null,
     fix = null,
     watch = null,
-    verdict = VerdictUiState(label = "−20m per build · LV 10 → Nanite", compactLabel = "−20m per build"),
+    verdict = VerdictUiState(label = TextRes("−20m per build · LV 10 → Nanite"), compactLabel = TextRes("−20m per build")),
     detail = FacilityDetailUiState(
         lines = listOf(
             sheetLine(
                 words(
-                    "Shortens every build on this colony and every research in the empire. " +
-                        "It raises no output of its own.",
+                    Strings.sheetShortensEveryBuild(),
                 ),
             ),
             sheetLine(
-                words("Your next Metal Mine takes "),
-                figure("1h 37m"),
-                words(". At Robotics Factory 4 it takes "),
-                figure("1h 18m"),
-                words("."),
+                words(TextRes("Your next Metal Mine takes ")),
+                figure(TextRes("1h 37m")),
+                words(TextRes(". At Robotics Factory 4 it takes ")),
+                figure(TextRes("1h 18m")),
+                words(TextRes(".")),
             ),
         ),
         // Two held and one ahead, which is the whole reason the levels already bought are on the
         // ladder at all: it is how you learn that gating is a thing this row does.
         ladder = listOf(
-            SheetLadderStep(level = "LV 1", opens = "applied research · you have this", held = true),
-            SheetLadderStep(level = "LV 2", opens = "the three adaptation ladders · you have this", held = true),
-            SheetLadderStep(level = "LV 10", opens = "Nanite Factory · 2,000 metal", held = false),
+            SheetLadderStep(level = TextRes("LV 1"), opens = TextRes("applied research · you have this"), held = true),
+            SheetLadderStep(level = TextRes("LV 2"), opens = TextRes("the three adaptation ladders · you have this"), held = true),
+            SheetLadderStep(level = TextRes("LV 10"), opens = TextRes("Nanite Factory · 2,000 metal"), held = false),
         ),
         pointer = null,
     ),
@@ -279,41 +279,41 @@ internal val roboticsFacilityRow = FacilityRowUiState(
 // honest verdict is "nothing", and which therefore has to end on the row to read instead.
 internal val inertPlantFacilityRow = FacilityRowUiState(
     building = BuildingType.SOLAR_PLANT,
-    name = "Solar Plant",
-    compactName = "Solar Plant",
+    name = TextRes("Solar Plant"),
+    compactName = TextRes("Solar Plant"),
     level = BuildingLevel(4),
     costs = listOf(
-        CostChipUiState(kind = ResourceKind.METAL, amount = "253", short = false),
-        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "101", short = false),
+        CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("253"), short = false),
+        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("101"), short = false),
     ),
-    duration = "18m",
-    action = FacilityActionUiState.AffordableIn("in 42m"),
+    duration = TextRes("18m"),
+    action = FacilityActionUiState.AffordableIn(TextRes("in 42m")),
     power = null,
     fix = null,
     watch = WatchUiState.Offered,
-    verdict = VerdictUiState(label = "+50 supply · draw already covered", compactLabel = "+50 supply"),
+    verdict = VerdictUiState(label = TextRes("+50 supply · draw already covered"), compactLabel = TextRes("+50 supply")),
     detail = FacilityDetailUiState(
         lines = listOf(
             sheetLine(
-                words("Your plants supply "),
-                figure("200"),
-                words(" energy. The colony draws "),
-                figure("120"),
-                words("."),
+                words(TextRes("Your plants supply ")),
+                figure(TextRes("200")),
+                words(TextRes(" energy. The colony draws ")),
+                figure(TextRes("120")),
+                words(TextRes(".")),
             ),
             sheetLine(
-                words("Supply is not what is limiting you, so a level that adds "),
-                figure("+50"),
-                words(" changes no rate."),
+                words(TextRes("Supply is not what is limiting you, so a level that adds ")),
+                figure(TextRes("+50")),
+                words(TextRes(" changes no rate.")),
             ),
             sheetLine(
-                words("It starts to pay when draw passes supply — about "),
-                figure("8"),
-                words(" more mine levels away."),
+                words(TextRes("It starts to pay when draw passes supply — about ")),
+                figure(TextRes("8")),
+                words(TextRes(" more mine levels away.")),
             ),
         ),
         ladder = emptyList(),
-        pointer = SheetPointer(name = "Metal Mine", detail = "LV 5 · back in 2h 06m"),
+        pointer = SheetPointer(name = TextRes("Metal Mine"), detail = TextRes("LV 5 · back in 2h 06m")),
     ),
     finishedWhileAway = false,
 )

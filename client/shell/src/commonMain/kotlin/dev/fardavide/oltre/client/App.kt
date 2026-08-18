@@ -20,6 +20,8 @@ import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.ui.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
@@ -86,7 +88,14 @@ fun App(
     // out of `GameStore` deliberately: a preference must never be able to cost somebody a colony,
     // and separate files mean a corrupt one of either kind takes only its own down.
     preferences: PreferencesStore = remember { PreferencesStore(defaultPreferencesFile()) },
-    notifications: GameNotifications = remember { GameNotifications(defaultNotificationScheduler()) },
+    // **The one place the game's language is chosen**, and it is chosen once. `English` is the only
+    // table there is — #87 is what adds a second and a device locale to pick between them — so what
+    // this parameter buys today is the seam rather than a choice: a test can hand in a different
+    // table, and the pseudo-locale suite will.
+    translations: Translations = English,
+    notifications: GameNotifications = remember(translations) {
+        GameNotifications(defaultNotificationScheduler(), translations)
+    },
     // A parameter rather than a call, so the desktop entry point can hand in its keyboard chord —
     // a laptop cannot be shaken, and desktop is the platform where the menu is most wanted.
     shakeDetector: ShakeDetector = remember { defaultShakeDetector() },
@@ -95,7 +104,9 @@ fun App(
     tiltSource: TiltSource = remember { defaultTiltSource() },
     modifier: Modifier = Modifier,
 ) {
-    OltreTheme {
+    // Handed to the theme rather than provided around it: `OltreTheme` is what every frame, preview
+    // and behaviour test already wraps itself in, so the ambient belongs inside it — see there.
+    OltreTheme(translations = translations) {
         Surface(modifier.fillMaxSize()) {
             val scope = rememberCoroutineScope()
             // Null until the save has been read. Rendering a fresh colony first and swapping it

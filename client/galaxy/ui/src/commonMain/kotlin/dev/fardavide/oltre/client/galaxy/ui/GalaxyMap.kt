@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.world.ui.drawWorldPortrait
 import dev.fardavide.oltre.core.RegionTemperament
@@ -431,7 +432,7 @@ private fun DrawScope.drawRing(centre: Offset, radiusDp: Float, colour: Color, w
 private fun RegionLabel(band: MapBandUiState, band0: Int, fold: Fold, inset: Dp) {
     Box(modifier = Modifier.fillMaxWidth().offset(y = (band0 * fold.bandHeight).dp)) {
         Text(
-            text = band.name.uppercase(),
+            text = band.name.resolve().uppercase(),
             color = if (band.lit) OltreColors.text else OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = LABEL_SIZE,
@@ -451,7 +452,7 @@ private fun HourLabel(hour: MapHourUiState, fold: Fold) {
     val band = MapGeometry.bandOf(hour.system)
     val onTheRight = x < fold.width - HOUR_LABEL_MARGIN_DP
     Text(
-        text = hour.label,
+        text = hour.label.resolve(),
         color = OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = LABEL_SIZE,
@@ -479,7 +480,7 @@ private fun NameLabel(name: MapNameUiState, fold: Fold) {
     val x = fold.x(name.system)
     val toTheLeft = x > fold.width / 2f
     Text(
-        text = name.name,
+        text = name.name.resolve(),
         color = when (name.tone) {
             MapNameTone.HOME -> OltreColors.text
             MapNameTone.SELECTED -> OltreColors.accent

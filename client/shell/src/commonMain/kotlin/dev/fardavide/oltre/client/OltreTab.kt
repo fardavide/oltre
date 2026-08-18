@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
+
 // The five destinations the mockup's bottom bar carries. Navigation is the shell's, not a
 // feature's: the shell is the only module that may see every feature, so a tab set naming all of
 // them can live nowhere else.
@@ -13,10 +16,10 @@ package dev.fardavide.oltre.client
 // If a sixth destination ever arrives ahead of its screen, the honest empty state comes back with it
 // — and it should come back as that tab's own, in that tab's own module, rather than as a column
 // here. What made the old one shell-shaped was that two tabs shared it.
-enum class OltreTab(val label: String) {
-    COLONY(label = "Colony"),
-    RESEARCH(label = "Research"),
-    SHIPYARD(label = "Shipyard"),
-    GALAXY(label = "Galaxy"),
-    FLEETS(label = "Fleets"),
+enum class OltreTab(val label: TextRes) {
+    COLONY(label = Strings.tabColony()),
+    RESEARCH(label = Strings.tabResearch()),
+    SHIPYARD(label = Strings.tabShipyard()),
+    GALAXY(label = Strings.tabGalaxy()),
+    FLEETS(label = Strings.tabFleets()),
 }

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
@@ -23,8 +24,8 @@ class PowerIndicatorScreenshotTest {
         capture(
             name = "power_indicator_headroom",
             uiState = EnergyUiState(
-                verdict = "room for 1 mine level",
-                terms = "50 produced · 40 drawn · 10 spare",
+                verdict = TextRes("room for 1 mine level"),
+                terms = TextRes("50 produced · 40 drawn · 10 spare"),
                 coveredFraction = 40f / 50f,
                 deficit = false,
             ),
@@ -36,8 +37,8 @@ class PowerIndicatorScreenshotTest {
         capture(
             name = "power_indicator_deficit",
             uiState = EnergyUiState(
-                verdict = "every mine at 55%",
-                terms = "50 produced · 90 drawn · 40 short",
+                verdict = TextRes("every mine at 55%"),
+                terms = TextRes("50 produced · 90 drawn · 40 short"),
                 coveredFraction = 50f / 90f,
                 deficit = true,
             ),
@@ -50,8 +51,8 @@ class PowerIndicatorScreenshotTest {
         capture(
             name = "power_indicator_stopped",
             uiState = EnergyUiState(
-                verdict = "every mine stopped",
-                terms = "0 produced · 90 drawn · 90 short",
+                verdict = TextRes("every mine stopped"),
+                terms = TextRes("0 produced · 90 drawn · 90 short"),
                 coveredFraction = 0f,
                 deficit = true,
             ),
@@ -74,8 +75,8 @@ class PowerIndicatorScreenshotTest {
                     Surface {
                         PowerIndicator(
                             uiState = EnergyUiState(
-                                verdict = "every mine at 90%",
-                                terms = "1,000 produced · 1,100 drawn · 100 short",
+                                verdict = TextRes("every mine at 90%"),
+                                terms = TextRes("1,000 produced · 1,100 drawn · 100 short"),
                                 coveredFraction = 1000f / 1100f,
                                 deficit = true,
                             ),

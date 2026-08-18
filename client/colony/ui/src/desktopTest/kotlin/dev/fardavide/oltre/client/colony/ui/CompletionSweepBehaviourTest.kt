@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.core.BuildingLevel
@@ -61,19 +62,19 @@ class CompletionSweepBehaviourTest {
 
     private fun finishedSolarPlant() = FacilityRowUiState(
         building = BuildingType.SOLAR_PLANT,
-        name = "Solar Plant",
-        compactName = "Solar Plant",
+        name = TextRes("Solar Plant"),
+        compactName = TextRes("Solar Plant"),
         level = BuildingLevel(9),
         costs = listOf(
-            CostChipUiState(kind = ResourceKind.METAL, amount = "2,868", short = false),
-            CostChipUiState(kind = ResourceKind.CRYSTAL, amount = "1,135", short = false),
+            CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("2,868"), short = false),
+            CostChipUiState(kind = ResourceKind.CRYSTAL, amount = TextRes("1,135"), short = false),
         ),
-        duration = "1h 48m",
+        duration = TextRes("1h 48m"),
         action = FacilityActionUiState.Upgrade,
         power = null,
         fix = null,
         watch = null,
-        verdict = VerdictUiState(label = "+50 supply · draw already covered", compactLabel = "+50 supply"),
+        verdict = VerdictUiState(label = TextRes("+50 supply · draw already covered"), compactLabel = TextRes("+50 supply")),
         detail = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null),
         finishedWhileAway = true,
     )

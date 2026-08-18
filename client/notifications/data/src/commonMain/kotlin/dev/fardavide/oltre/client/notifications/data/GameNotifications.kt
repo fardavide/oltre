@@ -1,5 +1,8 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -23,7 +26,14 @@ import kotlin.time.Instant
 // that decides when to write the save. Nothing is ever amended, so a build that completed, a
 // fleet that landed, or a colony reloaded from a different save can never leave a stale alert
 // behind to fire about something that is no longer true.
-class GameNotifications(private val scheduler: NotificationScheduler) {
+// **The language arrives as a constructor parameter rather than as a `CompositionLocal`**, and that
+// is the whole reason `TextRes` had to be buildable outside Compose. An alert is written into the
+// OS's own database hours before anybody looks at it, with nothing composing — so the shell resolves
+// the device's locale once and hands the table down here, exactly as it hands down the scheduler.
+class GameNotifications(
+    private val scheduler: NotificationScheduler,
+    private val translations: Translations,
+) {
 
     // `now` and everything `futureEvents` computes are in **game** time, which is not the same
     // clock the operating system raises alarms on the moment the debug menu skips the colony
@@ -40,7 +50,16 @@ class GameNotifications(private val scheduler: NotificationScheduler) {
         // decisions that must be made in the clock the simulation computed them in. The translation
         // is monotone, so it moves every alert without reordering any of them, and the set that
         // reaches the platform is the same set with a different origin.
-        scheduler.replaceAll(notificationsFor(state, now).map { it.copy(at = toRealTime(it.at)) })
+        scheduler.replaceAll(
+            notificationsFor(state, now).map {
+                LocalNotification(
+                    id = it.id,
+                    title = translations.resolve(it.title),
+                    body = translations.resolve(it.body),
+                    at = toRealTime(it.at),
+                )
+            },
+        )
     }
 }
 
@@ -65,7 +84,7 @@ internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
 // one separately would.
 private val GROUPING_WINDOW: Duration = 5.minutes
 
-internal fun notificationsFor(state: GameState, now: Instant): List<LocalNotification> {
+internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotification> {
     // `now` reaches core as well as filtering its answer, and the two uses are not the same. One
     // member of that list is not a job with a stored instant — the watch is projected forward from
     // the moment these stocks are accurate as of, which is this one.
@@ -163,13 +182,13 @@ private fun List<FutureEvent.Completion>.chainedWithin(window: Duration): List<L
 //
 // No levels, unlike the singleton alerts. Seven "reached level N" clauses do not fit a lock screen,
 // and what this one has to say is which things are done rather than what they became.
-private fun List<FutureEvent.Completion>.toNotification(): LocalNotification = LocalNotification(
+private fun List<FutureEvent.Completion>.toNotification(): PendingNotification = PendingNotification(
     id = "group-${last().at.toEpochMilliseconds()}",
-    title = "${size.spelled()} upgrades are done",
+    title = Strings.upgradesDoneTitle(size),
     // The second clause is the shipped `BuildCompletes` body's, word for word — the design's
     // instruction, and it is the right one even when a technology is in the list: the sentence is
     // about a decision waiting, and every one of these frees a slot to decide with.
-    body = "${map { it.displayName() }.listed()} — pick what your colony builds next.",
+    body = Strings.upgradesDoneBody(Strings.listed(map { it.displayName() })),
     at = last().at,
 )
 
@@ -183,57 +202,42 @@ private fun List<FutureEvent.Completion>.toNotification(): LocalNotification = L
 // would have been announced as "Seven upgrades are done" with eight names listed under it, and
 // nothing would have failed. Both counts have a branch now, and the `else` is unreachable rather
 // than load-bearing.
-private fun Int.spelled(): String = when (this) {
-    2 -> "Two"
-    3 -> "Three"
-    4 -> "Four"
-    5 -> "Five"
-    6 -> "Six"
-    7 -> "Seven"
-    else -> "Eight"
-}
-
-// "Metal Mine, Solar Plant and Extraction" — commas between, "and" before the last, and no Oxford
-// comma, which is the prose style of everything else the game says. No branch for a list of one:
-// a group is two or more by construction, and the general form already reads "A and B" at two.
-private fun List<String>.listed(): String = "${dropLast(1).joinToString(", ")} and ${last()}"
-
-private fun FutureEvent.Completion.displayName(): String = when (this) {
+private fun FutureEvent.Completion.displayName(): TextRes = when (this) {
     is FutureEvent.BuildCompletes -> building.displayName()
     is FutureEvent.ResearchCompletes -> technology.displayName()
     is FutureEvent.AdaptationCompletes -> technology.displayName()
 }
 
-private fun FutureEvent.toNotification(): LocalNotification = when (this) {
-    is FutureEvent.BuildCompletes -> LocalNotification(
+private fun FutureEvent.toNotification(): PendingNotification = when (this) {
+    is FutureEvent.BuildCompletes -> PendingNotification(
         // Stable and derived from the thing it is about: the same colony always produces the
         // same alerts, which is what makes replacing the set idempotent.
         id = "build-${building.name}",
-        title = "${building.displayName()} reached level ${toLevel.value}",
-        body = "Construction is complete — pick what your colony builds next.",
+        title = Strings.reachedLevel(building.displayName(), toLevel.value),
+        body = Strings.buildCompleteBody(),
         at = at,
     )
-    is FutureEvent.ResearchCompletes -> LocalNotification(
+    is FutureEvent.ResearchCompletes -> PendingNotification(
         // Only one project runs at a time, so the technology is not needed to keep this unique —
         // it is here because an id derived from the thing it is about is what makes replacing the
         // whole set idempotent, and because a second slot would otherwise silently collide.
         id = "research-${technology.name}",
-        title = "${technology.displayName()} reached level ${toLevel.value}",
-        body = "The lab is free — pick what your empire researches next.",
+        title = Strings.reachedLevel(technology.displayName(), toLevel.value),
+        body = Strings.labFreeBody(),
         at = at,
     )
-    is FutureEvent.AdaptationCompletes -> LocalNotification(
+    is FutureEvent.AdaptationCompletes -> PendingNotification(
         // A separate id space from research even though the two share one slot, because the id is
         // derived from the thing it is about — and the two branches are not the same thing. Sharing
         // "research-…" would also collide the day a ladder and a technology are named alike.
         id = "adaptation-${technology.name}",
-        title = "${technology.displayName()} reached level ${toLevel.value}",
+        title = Strings.reachedLevel(technology.displayName(), toLevel.value),
         // The only notification in the game that is about somewhere else. What changed is not the
         // colony but which worlds it could stand on, so the sentence points at the Galaxy tab.
-        body = "Worlds you could not settle may have opened up — check the galaxy.",
+        body = Strings.adaptationOpenedBody(),
         at = at,
     )
-    is FutureEvent.ShipsComplete -> LocalNotification(
+    is FutureEvent.ShipsComplete -> PendingNotification(
         // **The instant is the whole id, and it is the only one here derived from a time rather than
         // from a subject.** Every other alert names a thing there is one of — a facility, a
         // technology, a target system — and a hull names nothing: a queue of four skiffs is four
@@ -243,21 +247,21 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         // queued hull never moves once it is queued. Both halves are `GameState.init`'s serial rule,
         // which is checked on every decode.
         id = "hull-${at.toEpochMilliseconds()}",
-        title = "A ${ship.displayName()} has left the yard",
-        body = "It is in your fleet and ready to send.",
+        title = Strings.hullLeftYardTitle(ship.displayName()),
+        body = Strings.hullLeftYardBody(),
         at = at,
     )
-    is FutureEvent.SurveyLands -> LocalNotification(
+    is FutureEvent.SurveyLands -> PendingNotification(
         // The one id that has to carry its subject to stay unique: probes run in parallel with no
         // cap, so a colony can hold thirty of these at once where it holds one research and at most
         // six builds. Derived from the target for the same reason all of them are — it is what
         // makes replacing the whole set idempotent.
         id = "survey-${target.galaxy}-${target.system}",
-        title = "Your probe reached ${target.label()}",
+        title = Strings.probeReachedTitle(target.label()),
         body = charted(worldsFound = worldsFound, settleable = settleable),
         at = at,
     )
-    is FutureEvent.FleetReturns -> LocalNotification(
+    is FutureEvent.FleetReturns -> PendingNotification(
         // **This was the constant string `"fleet-arrival"`, and that was a latent defect that the
         // fleet slice turns into a live one.** A colony could only ever hold one returning fleet, so
         // one id was unique by construction; runs are parallel and uncapped, so two landing at once
@@ -285,8 +289,8 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
         // minutes would quietly merge two rungs the day one of them stops being a whole hour.
         id = "run-${target.galaxy}-${target.system}-${target.slot}-" +
             "${dispatchedAt.toEpochMilliseconds()}-${(at - dispatchedAt).inWholeMilliseconds}",
-        title = "Your ships are home",
-        body = "The cargo from ${target.label()} is in your stores.",
+        title = Strings.shipsHomeTitle(),
+        body = Strings.shipsHomeBody(target.label()),
         at = at,
     )
     // **The only alert in the game that is not about something that happened** — it is about
@@ -296,10 +300,10 @@ private fun FutureEvent.toNotification(): LocalNotification = when (this) {
     // One id space across the three branches, unlike the research/adaptation pair above, and for a
     // reason that pair does not have: there is one watch in the whole game, so this set can never
     // hold two of these to collide.
-    is FutureEvent.AffordableAt -> LocalNotification(
+    is FutureEvent.AffordableAt -> PendingNotification(
         id = "affordable-${purchase.subject()}",
-        title = "You can afford ${purchase.displayName()}",
-        body = "The colony has the resources for level ${purchase.level()}.",
+        title = Strings.affordableTitle(purchase.displayName()),
+        body = Strings.affordableBody(purchase.level()),
         at = at,
     )
 }
@@ -314,7 +318,7 @@ private fun WatchedPurchase.subject(): String = when (this) {
 
 // The same names the completion alerts use, so a player who is told they can afford a Deuterium
 // Synthesizer and then told it reached level 8 is being told about one thing.
-private fun WatchedPurchase.displayName(): String = when (this) {
+private fun WatchedPurchase.displayName(): TextRes = when (this) {
     is WatchedPurchase.Facility -> building.displayName()
     is WatchedPurchase.Project -> technology.displayName()
     is WatchedPurchase.Ladder -> technology.displayName()
@@ -348,12 +352,9 @@ private fun WatchedPurchase.level(): Int = when (this) {
 //
 // Zero worlds is not a case: whether a slot holds a world is charted free and galaxy-wide, so
 // `startSurvey` refuses a starless system outright rather than selling a flight to one.
-private fun charted(worldsFound: Int, settleable: Int): String {
-    val worlds = if (worldsFound == 1) "1 world" else "$worldsFound worlds"
-    return when (settleable) {
-        0 -> "$worlds charted, none settleable."
-        else -> "$worlds charted, $settleable settleable."
-    }
+private fun charted(worldsFound: Int, settleable: Int): TextRes = when (settleable) {
+    0 -> Strings.chartedNoneSettleable(worldsFound)
+    else -> Strings.chartedSettleable(worlds = worldsFound, settleable = settleable)
 }
 
 // PLACEHOLDER copy. What a notification says is player-facing content and therefore Davide's
@@ -362,45 +363,24 @@ private fun charted(worldsFound: Int, settleable: Int): String {
 //
 // Written out in full rather than reusing the Colony screen's names, which abbreviate
 // ("Deuterium Synth.") to fit a row that a notification does not have.
-private fun BuildingType.displayName(): String = when (this) {
-    BuildingType.METAL_MINE -> "Metal Mine"
-    BuildingType.CRYSTAL_MINE -> "Crystal Mine"
-    BuildingType.DEUTERIUM_SYNTHESIZER -> "Deuterium Synthesizer"
-    BuildingType.SOLAR_PLANT -> "Solar Plant"
-    BuildingType.ROBOTICS_FACTORY -> "Robotics Factory"
-    BuildingType.NANITE_FACTORY -> "Nanite Factory"
-}
+private fun BuildingType.displayName(): TextRes = Strings.buildingFullName(this)
 
 // Capitalised, unlike the Colony screen's lower-case version of this — that one appears mid-sentence
 // inside a strip ("your skiff is on station"), and this one opens a lock-screen title.
-private fun ShipType.displayName(): String = when (this) {
-    ShipType.SKIFF -> "Skiff"
-    ShipType.HAULER -> "Hauler"
-    ShipType.ESCORT -> "Escort"
-    ShipType.SETTLER -> "Settler"
-}
+private fun ShipType.displayName(): TextRes = Strings.shipTitleName(this)
 
-private fun Technology.displayName(): String = when (this) {
-    Technology.PHOTOVOLTAICS -> "Photovoltaics"
-    Technology.EXTRACTION -> "Extraction"
-    Technology.ENRICHMENT -> "Enrichment"
-    Technology.PROSPECTING -> "Prospecting"
-}
+private fun Technology.displayName(): TextRes = Strings.technologyName(this)
 
 // Spelled out in full, with the word the Galaxy screen's blocked rows drop to save eleven
 // characters they do not have. A lock screen has the room, and "Gravitic reached level 3" on its
 // own does not say what kind of thing climbed.
-private fun AdaptationTechnology.displayName(): String = when (this) {
-    AdaptationTechnology.THERMAL -> "Thermal Adaptation"
-    AdaptationTechnology.GRAVITIC -> "Gravitic Adaptation"
-    AdaptationTechnology.ATMOSPHERIC -> "Atmospheric Adaptation"
-}
+private fun AdaptationTechnology.displayName(): TextRes = Strings.adaptationFullName(this)
 
 // A world, brackets and all — and now the bounded `GalaxyCoordinate` rather than the unbounded twin
 // it replaced, so a label can no longer be written for an address that is off the map.
-private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
+private fun GalaxyCoordinate.label(): TextRes = Strings.coordinate(galaxy, system, slot)
 
 // No slot and no brackets: a probe is aimed at a star, not at a world, and the Galaxy screen's own
 // header writes a system the same way — bare, because there is nothing for a bracket to separate it
 // from.
-private fun SystemAddress.label(): String = "$galaxy:$system"
+private fun SystemAddress.label(): TextRes = Strings.systemAddressBare(galaxy, system)

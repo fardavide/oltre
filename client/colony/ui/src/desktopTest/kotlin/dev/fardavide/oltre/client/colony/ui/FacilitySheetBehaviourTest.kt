@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.core.BuildingType
 import kotlin.test.assertEquals
@@ -82,7 +83,7 @@ class FacilitySheetBehaviourTest {
     fun `a row in flight draws no verdict even when it is handed one`() {
         // given the running row from the shared colony, told a verdict it must not print
         val running = testColonyUiState.facilities.first().copy(
-            verdict = VerdictUiState(label = "+281/h metal · back in 6h 40m", compactLabel = "+281/h metal"),
+            verdict = VerdictUiState(label = TextRes("+281/h metal · back in 6h 40m"), compactLabel = TextRes("+281/h metal")),
         )
 
         // then the slot belongs to the arrow and the countdown: nobody is choosing on this row

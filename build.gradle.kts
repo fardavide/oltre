@@ -110,6 +110,7 @@ dependencies {
     kover(projects.client.design.core)
     kover(projects.client.design.format)
     kover(projects.client.design.icon)
+    kover(projects.client.design.text)
     kover(projects.client.shell)
     kover(projects.client.colony.presentation)
     kover(projects.client.colony.ui)
@@ -223,6 +224,29 @@ kover {
                     packages("*.presentation", "*.domain", "*.data")
                     classes("dev.fardavide.oltre.core.**")
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
+                }
+                // ── The catalogue, and **only while measuring a pass that renders** ──────────
+                //
+                // The third of these, added at #86 with Davide's say-so and on the argument the two
+                // above make. `:client:design:text` is `TextRes`, the `Strings` catalogue and
+                // `English`: 309 one-line entries and a `when` with a branch per `StringId`. It
+                // draws nothing and decides nothing — it is the *table* of what the game says.
+                //
+                // Left in, the screenshot row stops measuring how well the drawings are covered and
+                // starts measuring **what fraction of the table a set of frames happens to quote** —
+                // and the behaviour row the same, one step less sharply. Neither is a property of
+                // the tests: a frame photographs one screen and quotes a dozen entries, so the
+                // number falls on every entry the catalogue gains and cannot be recovered by drawing
+                // or driving anything better. Measured at #86: the screenshot row fell 87.1% → 82.8%
+                // on a change that moved no baseline by a byte.
+                //
+                // **Scoped to the two passes that render, which is what makes it safe**, exactly as
+                // above. The unit pass sees every line of it and covers all of them — `CatalogueTest`
+                // resolves every entry the catalogue can produce — and the unfiltered pass sees it
+                // too. So nothing becomes invisible: an entry no test reaches at all still shows up
+                // in the row whose job that is.
+                if (testCategory == "screenshot" || testCategory == "behaviour") {
+                    packages("*.design.text")
                 }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.

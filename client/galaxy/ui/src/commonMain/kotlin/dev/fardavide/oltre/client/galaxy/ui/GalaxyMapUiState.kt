@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.RegionTemperament
 import dev.fardavide.oltre.core.StarClass
 
@@ -47,7 +48,7 @@ data class GalaxyMapUiState(
 // together, ten times, on one screen. Nobody has to be told what a Deep is.
 data class MapBandUiState(
     val region: Int,
-    val name: String,
+    val name: TextRes,
     // The tinted field behind the band — the region as weather rather than as a boundary. The hue
     // follows the temperament the way the world portrait's ramp does.
     val temperament: RegionTemperament,
@@ -92,9 +93,9 @@ enum class MapStarMark {
 // "1h" against the system where a probe's flight first costs that hour. The probe's clock and not
 // the run's — Davide's call, 2026-08-15: two rulers over one drawing is not survivable, and a probe
 // is aimed at a star, which is the only thing the map can aim.
-data class MapHourUiState(val system: Int, val label: String)
+data class MapHourUiState(val system: Int, val label: TextRes)
 
-data class MapNameUiState(val system: Int, val name: String, val tone: MapNameTone)
+data class MapNameUiState(val system: Int, val name: TextRes, val tone: MapNameTone)
 
 enum class MapNameTone { HOME, SELECTED, PINNED }
 
@@ -107,16 +108,16 @@ enum class MapNameTone { HOME, SELECTED, PINNED }
 // of the screen. It also means the first thing the tab ever shows a new player is their own star,
 // named, with its own clock on it.
 data class MapCaptionUiState(
-    val system: String,
-    val coordinate: String,
-    val meta: String,
+    val system: TextRes,
+    val coordinate: TextRes,
+    val meta: TextRes,
     // **A premise of the design's that did not survive real text metrics.** The frame set the class,
     // the region and the world count against a trailing clock on one line and showed all of it; at
     // the real advance of JetBrains Mono the left column is about 220dp at 393dp and the string is
     // 214, so it ellipsized in the middle of the word `worlds`. What drops at 320dp is the region
     // name — a trailing noun would be the house rule, but the region is the one fact here the map
     // has already stated, in the lit band label directly above the caption.
-    val compactMeta: String,
+    val compactMeta: TextRes,
     val trailing: MapCaptionTrailingUiState,
     // The galaxy map's caption is the selection, so it takes the accent edge; the universe view's is
     // a summary of a disc, so it takes the plain card. Accent means "go tap this" and the selection
@@ -135,7 +136,7 @@ sealed interface MapCaptionTrailingUiState {
     // never has been: the system page's footer is a one-tap verb and this is the same verb with the
     // same price on it. Claude Design wrote "opening the dispatch sheet already pointed"; the sheet
     // it means does not exist.
-    data class Dispatch(val label: String) : MapCaptionTrailingUiState
+    data class Dispatch(val label: TextRes) : MapCaptionTrailingUiState
 
     // The clock, in plain text, when there is nothing to aim: the run's round trip on a system you
     // already know, the probe's remaining flight on one you are already looking at.
@@ -143,7 +144,7 @@ sealed interface MapCaptionTrailingUiState {
     // **There is no third case and deliberately no `None`.** Every system the caption can name has
     // something true to say about its clock — even an empty one, which says so — and a nullable
     // trailing would be a state the mapper cannot produce and the drawing would still have to handle.
-    data class Note(val label: String) : MapCaptionTrailingUiState
+    data class Note(val label: TextRes) : MapCaptionTrailingUiState
 }
 
 // **The universe is one gesture up, not a screen.** Four galaxies swap into the map's own frame from
@@ -156,14 +157,14 @@ data class UniverseUiState(val discs: List<UniverseDiscUiState>)
 
 data class UniverseDiscUiState(
     val galaxy: Int,
-    val label: String,
+    val label: TextRes,
     // The same ten bands at a fifth of the size, drawn from that galaxy's own temperament
     // permutation. Real, not decorative, and it costs one more sweep of the 55 µs.
     val map: GalaxyMapUiState,
-    val known: String,
+    val known: TextRes,
     // "run 9h 20m" — a round trip, because a hop is a commitment rather than a journey. Null on the
     // galaxy you live in, which says "home" instead.
-    val cost: String?,
+    val cost: TextRes?,
     val home: Boolean,
     val selected: Boolean,
 )
@@ -178,8 +179,8 @@ data class GalaxyHeadUiState(
     val mode: LedgerMode,
     val scale: GalaxyScale,
     // "G3", or "4 galaxies" when the four discs are up. The only way up and the only way back.
-    val chip: String,
-    val count: String,
+    val chip: TextRes,
+    val count: TextRes,
 )
 
 enum class GalaxyScale { GALAXY, UNIVERSE }

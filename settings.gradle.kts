@@ -55,6 +55,11 @@ include(":client:design:core")
 include(":client:design:format")
 include(":client:design:icon")
 include(":client:design:screenshot-testing")
+// What the game says, and the one design module that names no colour and draws nothing. It is here
+// rather than in `:client:design:component` for `:client:design:format`'s reason, doubled: a string
+// is built in a `presentation` module that has no Compose compiler, and a notification's string is
+// built outside composition altogether. See its build file.
+include(":client:design:text")
 // The dispatch sheet, which belongs to no tab: Galaxy raises it from a world row and Fleets raises
 // it from a landing. Davide's call, 2026-08-13 — *"We absolutely do not put code in shell! I'd
 // suggest `client/dispatch/ui` with its UI state."* — so it is a directory of layer modules like a

@@ -48,6 +48,8 @@ kotlin {
             // `OltreBottomSheet`, which is the chrome every sheet in the app has swiped away with
             // since 0.7.1.
             implementation(projects.client.design.component)
+            // Every string the sheet carries is a `TextRes`, and its models name the type.
+            api(projects.client.design.text)
             implementation(projects.client.design.core)
 
             // No `:client:design:format`: by the time a countdown, a richness or a haul reaches this

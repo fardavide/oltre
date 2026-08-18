@@ -107,6 +107,31 @@ internal val justSurveyedState: GameState = wellTravelledState.let { state ->
     )
 }
 
+// **The same moment on a system that holds one world**, which is the other half of the discovery
+// card and the half no frame had. Two or more discoveries draw the compact form — the three readings
+// as one line — and a single one draws the full form, three labelled axes in a column keyed to the
+// disc beside it. Both are states a player reaches on an ordinary check-in, and only one of them was
+// photographed.
+//
+// System 62 of the home galaxy holds exactly one world in this seed. Named rather than searched for,
+// like every other coordinate in this file: a frame that hunted for its own subject would photograph
+// a different world the day the generator changed.
+internal val justSurveyedOneWorldState: GameState = wellTravelledState.let { state ->
+    val target = SystemAddress(galaxy = state.galaxy.home.galaxy, system = ONE_WORLD_SYSTEM)
+    val worlds = state.worldsOf(SystemSelection(target.galaxy, target.system))
+    check(worlds.size == 1) { "system $ONE_WORLD_SYSTEM holds ${worlds.size} worlds, not one" }
+    state.copy(
+        galaxy = state.galaxy.copy(surveyed = state.galaxy.surveyed + worlds.map { it.at }),
+        eventLog = state.eventLog + Event.SurveyCompleted(
+            target = target,
+            worldsFound = worlds.size,
+            at = FIXTURE_NOW - kotlin.time.Duration.parse("1h"),
+        ),
+    )
+}
+
+private const val ONE_WORLD_SYSTEM: Int = 62
+
 // Surveys the systems at the given offsets from home, which is what a fortnight of probes buys.
 private fun GameState.surveying(systems: List<Int>): GameState {
     val added = systems.flatMap { offset ->

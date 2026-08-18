@@ -5,6 +5,8 @@ import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toWaitLabel
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.dispatch.ui.WindowRungUiState
@@ -68,7 +70,7 @@ fun DispatchSelection.bringingBack(gathering: ResourceKind): DispatchSelection =
 // So the caller passes what its own footer resolved, or null. **Null is the ordinary case from a
 // landing**: a world a fleet has already been sent to was surveyed in order to be dispatched to, and
 // `surveyed` is never removed — so the refusal this feeds is unreachable from the Fleets ledger.
-data class DispatchProbeOffer(val label: String, val cost: String, val flight: String)
+data class DispatchProbeOffer(val label: TextRes, val cost: TextRes, val flight: TextRes)
 
 // Null when the target is not a target at all, which is the screen agreeing with `startRun` rather
 // than finding out afterwards: your own world, a world somebody holds, an empty slot and a relay all
@@ -86,14 +88,17 @@ fun GameState.toDispatchUiState(
     // **The name in the title and the address in the head**, on both doors — see `DispatchUiState`.
     // `worldNameAt` is a pure function of the seed, so it names an unsurveyed world too: a name is
     // astronomy, and it is the traits a survey buys rather than the label.
-    val name = worldNameAt(galaxy.seed, target)
+    // **The one `TextRes.Raw` on this sheet, and the case the type exists for.** A world's name is
+    // generated from the seed rather than authored, so there is no catalogue entry it could be and
+    // no language it could be translated into — which is exactly what `Raw` says.
+    val name = TextRes(worldNameAt(galaxy.seed, target))
     val address = target.label()
     if (target !in galaxy.surveyed) {
         return DispatchUiState.Refuse(
             name = name,
-            head = "$address$SEPARATOR$UNSURVEYED_HEAD",
-            compactHead = "$address$SEPARATOR$UNSURVEYED_HEAD",
-            title = "A hold cannot be priced from a world nobody has looked at.",
+            head = Strings.clauses(listOf(address, Strings.chartedUnsurveyed())),
+            compactHead = Strings.clauses(listOf(address, Strings.chartedUnsurveyed())),
+            title = Strings.dispatchUnsurveyedTitle(),
             note = unsurveyedNote(at = target, probe = probe),
             // Only when the caller's own footer would honour it — see `DispatchProbeOffer`.
             action = probe?.let { RefuseActionUiState.Probe(it.label) },
@@ -104,7 +109,7 @@ fun GameState.toDispatchUiState(
     // and a subtraction rather than a trade: the two gather cards below already print `richness 1.15`
     // and `richness 1.47`, so the head was saying it twice. Measured rather than argued — the first
     // cut kept both and clipped the hazard clause off the end of a 393dp sheet.
-    val head = "$address$SEPARATOR${world.hazardClause()}"
+    val head = Strings.clauses(listOf(address, world.hazardClause()))
     val compactHead = head
     val idle = ships.countOf(ShipType.SKIFF)
     if (idle <= 0) {
@@ -113,11 +118,11 @@ fun GameState.toDispatchUiState(
             // **A refusal has no gather cards, so the richness has nowhere else to be said** — and
             // it is the reading a player is being refused *for*. The compact form at both widths:
             // the address costs the room the lesser resource had.
-            head = "$address$SEPARATOR${world.headLine(compact = true)}",
-            compactHead = "$address$SEPARATOR${world.headLine(compact = true)}",
-            title = "Every skiff is away.",
+            head = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            compactHead = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            title = Strings.dispatchEverySkiffAwayTitle(),
             note = awayNote(),
-            action = nextReturn(now)?.let { RefuseActionUiState.Waiting("in ${it.toCountdown()}") },
+            action = nextReturn(now)?.let { RefuseActionUiState.Waiting(Strings.availableIn(it.toCountdown())) },
         )
     }
 
@@ -174,11 +179,11 @@ fun GameState.toDispatchUiState(
         crystal = depositChip(target, ResourceKind.CRYSTAL, now),
     )
     val stepper = SteppedFleet(
-        ships = "$hulls ${if (hulls == 1) "skiff" else "skiffs"}",
+        ships = Strings.skiffCount(hulls),
         shipCount = hulls,
         atFewest = hulls <= 1,
         atMost = hulls >= idle,
-        pool = "of $idle idle",
+        pool = Strings.ofIdle(idle),
     )
     val rungs = offered.map { WindowRungUiState(label = it.rungLabel(), window = it, selected = it == window) }
     val ladderNote = ladderNoteFor(offered = offered, roundTrip = flight * 2)
@@ -205,7 +210,7 @@ fun GameState.toDispatchUiState(
             ladderNote = ladderNote,
             title = waitingTitle(target, now),
             note = waitingNote(ships = stepper.ships, window = window, lift = lift, gathering = gathering, wait = wait),
-            wait = wait?.let { "in ${it.toWaitLabel()}" },
+            wait = wait?.let { Strings.availableIn(it.toWaitLabel()) },
             legs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = false),
             compactLegs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = true),
             danger = dangerLine(world = world, danger = danger, compact = false),
@@ -233,10 +238,10 @@ fun GameState.toDispatchUiState(
         ladderNote = ladderNote,
         rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
         clampNote = clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround),
-        figure = "${haul.groupedByThousands()} ${gathering.label()}",
+        figure = Strings.amountOfResource(haul.groupedByThousands(), gathering),
         perShip = when {
-            clamped -> "the whole deposit"
-            hulls > 1 -> "${(haul / hulls).groupedByThousands()} each"
+            clamped -> Strings.theWholeDeposit()
+            hulls > 1 -> Strings.eachShip((haul / hulls).groupedByThousands())
             else -> null
         },
         legs = legsLine(flight = flight, station = station, working = working, compact = false),
@@ -246,14 +251,14 @@ fun GameState.toDispatchUiState(
     )
 }
 
-private class DepositChips(val metal: String, val crystal: String)
+private class DepositChips(val metal: TextRes, val crystal: TextRes)
 
 private class SteppedFleet(
-    val ships: String,
+    val ships: TextRes,
     val shipCount: Int,
     val atFewest: Boolean,
     val atMost: Boolean,
-    val pool: String,
+    val pool: TextRes,
 )
 
 // "deposit full", "deposit 620/1,798", "deposit empty" — the second line of a chip whose first is
@@ -261,31 +266,33 @@ private class SteppedFleet(
 // word "richness"**, and the first cut of this returned both in one and rendered "richness richness
 // 1.15" with the stock clipped off the end. A screenshot caught it; no test could have, because a
 // node query reads the whole string whatever is painted.
-private fun GameState.depositChip(target: GalaxyCoordinate, kind: ResourceKind, now: Instant): String {
+private fun GameState.depositChip(target: GalaxyCoordinate, kind: ResourceKind, now: Instant): TextRes {
     val cap = galaxy.depositCap(target, kind)
     val remaining = galaxy.remaining(target, kind, now)
-    val stock = when {
-        cap == null || remaining <= 0 -> "empty"
-        remaining >= cap -> "full"
-        else -> "${remaining.groupedByThousands()}/${cap.groupedByThousands()}"
+    return when {
+        cap == null || remaining <= 0 -> Strings.depositEmpty()
+        remaining >= cap -> Strings.depositFull()
+        else -> Strings.depositStock(remaining.groupedByThousands(), cap.groupedByThousands())
     }
-    return "deposit $stock"
 }
 
 // "out 10m · on station 11h 40m · working 6h 03m · home 10m". **The fourth segment is the invariant
 // made visible with no copy at all** — because the vein and the rate carry one multiplier, `working`
 // reads the same on the doorstep as in the next galaxy, so the rule teaches itself off this line
 // rather than out of a tooltip. Absent when there is nothing to work.
-private fun legsLine(flight: Duration, station: Duration, working: Duration, compact: Boolean): String {
-    val stationWord = if (compact) "station" else "on station"
-    val parts = listOfNotNull(
-        "out ${flight.toChipLabel()}",
-        "$stationWord ${station.toChipLabel()}",
-        "working ${working.toChipLabel()}".takeIf { working > Duration.ZERO },
-        "home ${flight.toChipLabel()}",
+private fun legsLine(flight: Duration, station: Duration, working: Duration, compact: Boolean): TextRes =
+    Strings.clauses(
+        listOfNotNull(
+            Strings.legOut(flight.toChipLabel()),
+            if (compact) {
+                Strings.legStation(station.toChipLabel())
+            } else {
+                Strings.legOnStation(station.toChipLabel())
+            },
+            Strings.legWorking(working.toChipLabel()).takeIf { working > Duration.ZERO },
+            Strings.legHome(flight.toChipLabel()),
+        ),
     )
-    return parts.joinToString(SEPARATOR)
-}
 
 // "3 skiffs empty it. The 4th brings nothing." Under the cliff the marginal hull contributes exactly
 // zero and is locked away for the whole window, so this is deterministic arithmetic stated before the
@@ -294,21 +301,13 @@ private fun legsLine(flight: Duration, station: Duration, working: Duration, com
 // **Earned rather than standing.** Null at one hull, where there is no smaller fleet to send and the
 // shorter rung is the only remedy left; null when nothing is clamped. A note that appeared on every
 // dispatch would be furniture, and furniture is what stops the other two being read as instructions.
-private fun clampNoteFor(clamped: Boolean, hulls: Int, perShip: Long, inTheGround: Long): String? {
+private fun clampNoteFor(clamped: Boolean, hulls: Int, perShip: Long, inTheGround: Long): TextRes? {
     if (!clamped || hulls <= 1 || perShip <= 0) return null
     val enough = ((inTheGround + perShip - 1) / perShip).toInt().coerceIn(1, hulls)
     if (enough >= hulls) return null
     val idle = hulls - enough
-    val subject = if (enough == 1) "1 skiff empties it" else "$enough skiffs empty it"
-    val rest = if (idle == 1) "The ${ordinal(hulls)} brings nothing." else "The other $idle bring nothing."
-    return "$subject. $rest"
-}
-
-private fun ordinal(n: Int): String = when (n % 10) {
-    1 -> if (n % 100 == 11) "${n}th" else "${n}st"
-    2 -> if (n % 100 == 12) "${n}th" else "${n}nd"
-    3 -> if (n % 100 == 13) "${n}th" else "${n}rd"
-    else -> "${n}th"
+    val rest = if (idle == 1) Strings.clampRestOrdinal(hulls) else Strings.clampRestOthers(idle)
+    return Strings.sentences(listOf(Strings.clampSubject(enough), rest))
 }
 
 // "The 12h window brings the same." The shortest rung that still takes everything there is — named
@@ -319,16 +318,16 @@ private fun rungNoteFor(
     chosen: Duration,
     roundTrip: Duration,
     working: Duration,
-): String? {
+): TextRes? {
     val shortest = offered.firstOrNull { it >= roundTrip + working } ?: return null
     if (shortest >= chosen) return null
-    return "The ${shortest.rungLabel()} window brings the same."
+    return Strings.rungNote(shortest.rungLabel())
 }
 
-private fun GameState.waitingTitle(target: GalaxyCoordinate, now: Instant): String {
+private fun GameState.waitingTitle(target: GalaxyCoordinate, now: Instant): TextRes {
     val metal = galaxy.remaining(target, ResourceKind.METAL, now)
     val crystal = galaxy.remaining(target, ResourceKind.CRYSTAL, now)
-    return if (metal <= 0 && crystal <= 0) "Both deposits are empty." else "This deposit is empty."
+    return if (metal <= 0 && crystal <= 0) Strings.bothDepositsEmpty() else Strings.thisDepositEmpty()
 }
 
 // The ask, what it would lift, and when the world holds that much again — then the remedy, which is
@@ -336,16 +335,20 @@ private fun GameState.waitingTitle(target: GalaxyCoordinate, now: Instant): Stri
 // fleet's lift is about the size of a vein, so the honest answer to "when?" is often "not soon, and
 // you can ask for less."
 private fun waitingNote(
-    ships: String,
+    ships: TextRes,
     window: Duration,
     lift: Long,
     gathering: ResourceKind,
     wait: Duration?,
-): String {
-    val ask = "$ships at ${window.rungLabel()} would lift ${lift.groupedByThousands()} ${gathering.label()}."
-    val when_ = wait?.let { "The world holds that much again in ${it.toWaitLabel()}." }
-        ?: "No world this size ever holds that much."
-    return "$ask $when_ Fewer skiffs, or a shorter window, is sooner."
+): TextRes {
+    val ask = Strings.waitingAsk(
+        ships = ships,
+        window = window.rungLabel(),
+        lift = lift.groupedByThousands(),
+        kind = gathering,
+    )
+    val holds = wait?.let { Strings.waitingHoldsAgain(it.toWaitLabel()) } ?: Strings.waitingNeverHolds()
+    return Strings.sentences(listOf(ask, holds, Strings.waitingRemedy()))
 }
 
 // 3h is the rhythm the measured cadence names — *"ogni 2/3 ore"* — so it is where the ladder opens
@@ -358,10 +361,12 @@ private fun List<Duration>.defaultRung(): Duration = firstOrNull { it >= PREFERR
 // "18h 20m out and back. No shorter window leaves 20 minutes on the surface." Present only when
 // something has actually been dropped: on a neighbour every rung is offered and the sentence would
 // be explaining an absence that is not there.
-private fun ladderNoteFor(offered: List<Duration>, roundTrip: Duration): String? {
+private fun ladderNoteFor(offered: List<Duration>, roundTrip: Duration): TextRes? {
     if (offered.size == FleetBalance.WINDOWS.size) return null
-    return "${roundTrip.toChipLabel()} out and back. No shorter window leaves " +
-        "${FleetBalance.MINIMUM_STATION.inWholeMinutes} minutes on the surface."
+    return Strings.ladderNote(
+        roundTrip = roundTrip.toChipLabel(),
+        minimumStationMinutes = FleetBalance.MINIMUM_STATION.inWholeMinutes,
+    )
 }
 
 // The world in one line, richer resource first, because the first thing the eye lands on should be
@@ -370,13 +375,26 @@ private fun ladderNoteFor(offered: List<Duration>, roundTrip: Duration): String?
 //
 // **Only the away refusal calls this since 0.13.** An offer's head is the address and the hazards,
 // because its two chips carry the richness — see the head above.
-private fun World.headLine(compact: Boolean): String {
-    val metal = "metal ${traits.metalRichness.perMillion.perMillion()}"
-    val crystal = "crystal ${traits.crystalRichness.perMillion.perMillion()}"
-    val richer = if (traits.metalRichness.perMillion >= traits.crystalRichness.perMillion) metal else crystal
-    val lesser = if (richer == metal) crystal else metal
-    return listOfNotNull(richer, lesser.takeIf { !compact }, hazardClause()).joinToString(SEPARATOR)
+private fun World.headLine(compact: Boolean): List<TextRes> {
+    val metalIsRicher = traits.metalRichness.perMillion >= traits.crystalRichness.perMillion
+    val richerKind = if (metalIsRicher) ResourceKind.METAL else ResourceKind.CRYSTAL
+    val lesserKind = if (metalIsRicher) ResourceKind.CRYSTAL else ResourceKind.METAL
+    return listOfNotNull(
+        reading(richerKind),
+        reading(lesserKind).takeIf { !compact },
+        hazardClause(),
+    )
 }
+
+private fun World.reading(kind: ResourceKind): TextRes = Strings.resourceReading(
+    kind = kind,
+    value = when (kind) {
+        ResourceKind.METAL -> traits.metalRichness.perMillion.perMillion()
+        ResourceKind.CRYSTAL -> traits.crystalRichness.perMillion.perMillion()
+        // Never asked for: a fleet cannot fetch deuterium, so no card offers it.
+        ResourceKind.DEUTERIUM -> traits.crystalRichness.perMillion.perMillion()
+    },
+)
 
 // Which resource this world is better at, and therefore what the sheet opens on. Compared in the
 // generator's own units rather than in the priced basket, because the player is choosing between
@@ -400,43 +418,54 @@ private fun World.richerOf(): ResourceKind =
 //
 // **Deterministic, and stated before the tap.** Nothing in this mechanic is rolled, so the sentence
 // is a specification rather than a warning.
-private fun GameState.dangerLine(world: World, danger: Int, compact: Boolean): String {
+private fun GameState.dangerLine(world: World, danger: Int, compact: Boolean): TextRes {
     val take = when (danger) {
-        0 -> "nothing added"
-        else -> "+${danger * DANGER_BONUS_PERCENT}% of the hold"
+        0 -> Strings.dangerNothingAdded()
+        else -> Strings.dangerBonus(danger * DANGER_BONUS_PERCENT)
     }
-    if (compact) return "danger $danger · $take"
+    if (compact) return Strings.clauses(listOf(Strings.dangerLevel(danger), take))
     val band = FleetBalance.distanceBand(from = galaxy.home, to = world.at)
     val distance = when {
-        band == 0 -> "your own system"
-        world.at.galaxy != galaxy.home.galaxy -> "another galaxy"
-        else -> "${FleetBalance.distanceUnits(from = galaxy.home, to = world.at)} units out"
+        band == 0 -> Strings.yourOwnSystem()
+        world.at.galaxy != galaxy.home.galaxy -> Strings.anotherGalaxy()
+        else -> Strings.unitsOut(
+            Strings.plainNumber(FleetBalance.distanceUnits(from = galaxy.home, to = world.at)),
+        )
     }
-    return "danger $danger · ${world.hazardClause()}, $distance · $take"
+    return Strings.clauses(
+        listOf(
+            Strings.dangerLevel(danger),
+            Strings.hazardsAtDistance(world.hazardClause(), distance),
+            take,
+        ),
+    )
 }
 
 // The world's own half of the danger, in words carrying their own arithmetic — the row prints this
 // too, which is what lets the two agree without either quoting a total.
-private fun World.hazardClause(): String = when (traits.hazards.size) {
-    0 -> "no hazards"
-    1 -> "one hazard"
-    else -> "two hazards"
-}
+private fun World.hazardClause(): TextRes = Strings.hazards(traits.hazards.size)
 
 // What is out, and what is coming — the honest half of a refusal that has nothing to offer. Named
 // off the soonest return rather than the list's order, for the reason `advance` sorts its arrivals
 // on an intrinsic key: `runs` is unordered.
-private fun GameState.awayNote(): String {
+private fun GameState.awayNote(): TextRes {
     // Unreachable through the sheet — the branch above only asks when the idle pool is empty, and a
     // colony with no idle hull and no run in flight owns no hulls at all, which genesis forbids. It
     // is a sentence rather than an `error` because a refusal is the wrong place to crash a screen.
-    val soonest = runs.minByOrNull { it.returnsAt } ?: return "Nothing is idle and nothing is out."
-    val plural = if (runs.size == 1) "run is" else "runs are"
+    val soonest = runs.minByOrNull { it.returnsAt } ?: return Strings.dispatchNothingIdle()
     val kind = soonest.gathering
-    val rest = if (runs.size > 1) " ${runs.size - 1} more behind it." else ""
-    return "${runs.size} $plural out. ${soonest.target.label()} is inbound with " +
-        "${soonest.cargo.of(kind).groupedByThousands()} ${kind.label()}.$rest" +
-        " A hull is idle only once it is home."
+    return Strings.sentences(
+        listOfNotNull(
+            Strings.dispatchAwayNote(
+                runs = runs.size,
+                target = soonest.target.label(),
+                cargo = soonest.cargo.of(kind).groupedByThousands(),
+                kind = kind,
+            ),
+            Strings.dispatchAwayMore(runs.size - 1).takeIf { runs.size > 1 },
+            Strings.dispatchAwayTail(),
+        ),
+    )
 }
 
 private fun GameState.nextReturn(now: Instant): Long? {
@@ -451,36 +480,28 @@ private fun GameState.nextReturn(now: Instant): Long? {
 //
 // **The target's own system, never the page's.** A survey covers all fifteen slots of the star the
 // world orbits, and the sheet is raised from rows belonging to six systems at once.
-private fun GameState.unsurveyedNote(at: GalaxyCoordinate, probe: DispatchProbeOffer?): String {
+private fun GameState.unsurveyedNote(at: GalaxyCoordinate, probe: DispatchProbeOffer?): TextRes {
     val worlds = (1..GalaxyBalance.SLOTS_PER_SYSTEM).count { slot ->
         worldAt(galaxy.seed, GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)) != null
     }
-    val plural = if (worlds == 1) "world" else "worlds"
-    val offer = probe?.let { " ${it.cost} metal · ${it.flight}." } ?: ""
-    return "Richness and hazards need a survey. A probe surveys all " +
-        "${GalaxyBalance.SLOTS_PER_SYSTEM} slots at once, and this system holds $worlds $plural.$offer"
+    return Strings.sentences(
+        listOfNotNull(
+            Strings.dispatchUnsurveyedNote(slots = GalaxyBalance.SLOTS_PER_SYSTEM, worlds = worlds),
+            probe?.let { Strings.dispatchProbeOffer(cost = it.cost, flight = it.flight) },
+        ),
+    )
 }
 
 // "1h", "24h" — the rung is a window rather than a duration to be read, so it is written the short
 // way the ladder is spoken in.
-private fun Duration.rungLabel(): String = "${inWholeHours}h"
+private fun Duration.rungLabel(): TextRes = Strings.durationHours(inWholeHours)
 
-// **A second copy of the one in `:client:galaxy:presentation`, and it has to be.** The sheet heads
-// itself with the address the row that raised it prints, and rule 5 stops two presentation modules
-// seeing each other — so what a shared home would cost is a feature module every feature depends on
-// for one line of string building. The two are pinned together by the frames rather than by an
-// import: a sheet raised from a row asserts the row's own coordinate.
-private fun GalaxyCoordinate.label(): String = "[$galaxy:$system:$slot]"
-
-// Between the facts on a line, everywhere in the app. Duplicated for the reason above and cheap for
-// the same one.
-private const val SEPARATOR = " · "
-
-private fun ResourceKind.label(): String = when (this) {
-    ResourceKind.METAL -> "metal"
-    ResourceKind.CRYSTAL -> "crystal"
-    ResourceKind.DEUTERIUM -> "deuterium"
-}
+// **This used to be a second copy of the one in `:client:galaxy:presentation`, and #86 removed the
+// copy rather than the need.** The sheet heads itself with the address the row that raised it prints,
+// and rule 5 stops two presentation modules seeing each other — so the two were kept in step by the
+// frames rather than by the compiler. `Strings.coordinate` is a third place both may point at, which
+// is what the catalogue is for.
+private fun GalaxyCoordinate.label(): TextRes = Strings.coordinate(galaxy, system, slot)
 
 private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal
@@ -494,6 +515,3 @@ private const val DANGER_BONUS_PERCENT: Int = 35
 
 private const val MILLIS_PER_SECOND: Long = 1_000
 
-// The head of a world nobody has looked at. It says both halves at once: the *system* is charted, so
-// the player knows a world is there — and the world is not, so nothing about it can be priced.
-private const val UNSURVEYED_HEAD = "charted · unsurveyed"

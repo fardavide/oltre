@@ -40,6 +40,7 @@ kotlin {
             // No `:client:design:icon` — a run card draws no glyph. The three-phase bar is this
             // feature's own geometry rather than a mark any other screen wants.
             implementation(projects.client.design.component)
+            api(projects.client.design.text)
             implementation(projects.client.design.core)
 
             // No `:client:design:format` and no `kotlinx-datetime`: a countdown is a `String` by the

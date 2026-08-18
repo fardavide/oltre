@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.ImageBitmap
@@ -218,7 +219,7 @@ private fun star(system: Int, starClass: StarClass): MapStarUiState = MapStarUiS
 
 private fun bands(temperament: RegionTemperament): List<MapBandUiState> =
     (1..MapGeometry.BANDS).map { region ->
-        MapBandUiState(region = region, name = "Region $region", temperament = temperament, lit = region == 1)
+        MapBandUiState(region = region, name = TextRes("Region $region"), temperament = temperament, lit = region == 1)
     }
 
 private fun mapOf(

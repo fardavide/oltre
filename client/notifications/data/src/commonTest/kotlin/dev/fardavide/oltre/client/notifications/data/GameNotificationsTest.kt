@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
@@ -54,7 +55,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler).sync(freshState(), now = EPOCH)
+        GameNotifications(scheduler, English).sync(freshState(), now = EPOCH)
 
         // then
         assertEquals(emptyList(), scheduler.scheduled)
@@ -67,7 +68,7 @@ class GameNotificationsTest {
         val state = building(BuildingType.METAL_MINE)
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -83,7 +84,7 @@ class GameNotificationsTest {
         val state = freshState().copy(runs = listOf(fleetReturningAt(EPOCH + 3.hours)))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — the world the hold was filled at is what the alert is about
         val notification = scheduler.scheduled.single()
@@ -107,7 +108,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(2, scheduler.scheduled.size)
@@ -130,7 +131,7 @@ class GameNotificationsTest {
         val state = building(BuildingType.METAL_MINE).copy(subscribed = emptySet())
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — absent rather than trimmed: the player never asked, so there is nothing to weigh
         // against the platform's ceiling
@@ -145,7 +146,7 @@ class GameNotificationsTest {
             .copy(subscribed = setOf(WatchTarget.Facility(BuildingType.SOLAR_PLANT)))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals("Solar Plant reached level 2", scheduler.scheduled.single().title)
@@ -158,7 +159,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler).sync(surveying(systemsAway = 20), now = EPOCH)
+        GameNotifications(scheduler, English).sync(surveying(systemsAway = 20), now = EPOCH)
 
         // then
         assertTrue("probe" in scheduler.scheduled.single().title, "was '${scheduler.scheduled.single().title}'")
@@ -176,7 +177,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — one alert, at the instant the *last* of them lands, because "three upgrades are
         // done" is not true until the third one is
@@ -200,7 +201,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals("group-${(EPOCH + 32.minutes).toEpochMilliseconds()}", scheduler.scheduled.single().id)
@@ -218,7 +219,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(2, scheduler.scheduled.size)
@@ -239,7 +240,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals("Four upgrades are done", scheduler.scheduled.single().title)
@@ -257,7 +258,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals("Two upgrades are done", scheduler.scheduled.single().title)
@@ -273,7 +274,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(2, scheduler.scheduled.size)
@@ -314,7 +315,7 @@ class GameNotificationsTest {
         }
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — spelled to the end of the count the model allows, and every name listed: a group
         // that said "and 4 more" would be an alert you have to open the app to understand
@@ -352,7 +353,7 @@ class GameNotificationsTest {
             )
         }
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals("Seven upgrades are done", scheduler.scheduled.single().title)
     }
@@ -369,7 +370,7 @@ class GameNotificationsTest {
                     building to EPOCH + 30.minutes + (index * 30).seconds
                 }.toTypedArray(),
             )
-            GameNotifications(scheduler).sync(state, now = EPOCH)
+            GameNotifications(scheduler, English).sync(state, now = EPOCH)
             scheduler.scheduled.single().title
         }
 
@@ -398,7 +399,7 @@ class GameNotificationsTest {
         }
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — spelled out with the word the row drops, exactly as the singleton alert spells it
         assertEquals(
@@ -426,7 +427,7 @@ class GameNotificationsTest {
             }
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals("Two upgrades are done", scheduler.scheduled.single().title)
@@ -443,7 +444,7 @@ class GameNotificationsTest {
         val state = watching(WatchTarget.Facility(BuildingType.METAL_MINE))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — the instant is the one the row itself prints, so the lock screen and the card
         // cannot disagree about when
@@ -464,7 +465,7 @@ class GameNotificationsTest {
         val state = toggleAlert(freshState(), WatchTarget.Facility(BuildingType.METAL_MINE))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(emptyList(), scheduler.scheduled)
@@ -476,7 +477,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler).sync(watching(WatchTarget.Project(Technology.EXTRACTION)), now = EPOCH)
+        GameNotifications(scheduler, English).sync(watching(WatchTarget.Project(Technology.EXTRACTION)), now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -490,7 +491,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler).sync(watching(WatchTarget.Ladder(AdaptationTechnology.GRAVITIC)), now = EPOCH)
+        GameNotifications(scheduler, English).sync(watching(WatchTarget.Ladder(AdaptationTechnology.GRAVITIC)), now = EPOCH)
 
         // then
         assertEquals("You can afford Gravitic Adaptation", scheduler.scheduled.single().title)
@@ -502,7 +503,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
 
         // when
-        GameNotifications(scheduler)
+        GameNotifications(scheduler, English)
             .sync(watching(WatchTarget.Facility(BuildingType.DEUTERIUM_SYNTHESIZER)), now = EPOCH)
 
         // then
@@ -519,7 +520,7 @@ class GameNotificationsTest {
         )
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — one watch is bounded by the model exactly as the six facilities and the one
         // research slot are, so it is protected rather than trimmed
@@ -534,7 +535,7 @@ class GameNotificationsTest {
         val state = researching(Technology.EXTRACTION)
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -550,7 +551,7 @@ class GameNotificationsTest {
         val state = researching(Technology.EXTRACTION, on = building(BuildingType.METAL_MINE))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(2, scheduler.scheduled.size)
@@ -569,7 +570,7 @@ class GameNotificationsTest {
             .let { toggleAlert(it, WatchTarget.Facility(BuildingType.NANITE_FACTORY)) }
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(2, scheduler.scheduled.size)
@@ -584,7 +585,7 @@ class GameNotificationsTest {
             .copy(runs = listOf(fleetReturningAt(EPOCH + 1.hours)))
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(scheduler.scheduled.map { it.at }.sorted(), scheduler.scheduled.map { it.at })
@@ -597,7 +598,7 @@ class GameNotificationsTest {
         val state = building(BuildingType.METAL_MINE)
 
         // when the colony is synced long after everything in it was due
-        GameNotifications(scheduler).sync(state, now = EPOCH + 5.hours)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH + 5.hours)
 
         // then
         assertEquals(emptyList(), scheduler.scheduled)
@@ -611,7 +612,7 @@ class GameNotificationsTest {
         val completesAt = state.builds.getValue(BuildingType.METAL_MINE).completesAt
 
         // when
-        GameNotifications(scheduler).sync(state, now = completesAt)
+        GameNotifications(scheduler, English).sync(state, now = completesAt)
 
         // then — the player is looking at the app; the event is about to be applied by advance
         assertEquals(emptyList(), scheduler.scheduled)
@@ -621,7 +622,7 @@ class GameNotificationsTest {
     fun `syncing an empty colony clears whatever was pending`() = runTest {
         // given a scheduler holding the alerts of a colony that was building
         val scheduler = FakeNotificationScheduler()
-        val notifications = GameNotifications(scheduler)
+        val notifications = GameNotifications(scheduler, English)
         notifications.sync(building(BuildingType.METAL_MINE), now = EPOCH)
         assertEquals(1, scheduler.scheduled.size)
 
@@ -642,7 +643,7 @@ class GameNotificationsTest {
         val target = state.surveys.single().target
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -663,7 +664,7 @@ class GameNotificationsTest {
         val state = surveyingSomething(settleable = false)
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -677,7 +678,7 @@ class GameNotificationsTest {
         val state = surveyingSomething(settleable = true)
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then
         val notification = scheduler.scheduled.single()
@@ -702,7 +703,7 @@ class GameNotificationsTest {
             if (started !is StartSurveyResult.Started) continue
             val landing = futureEvents(started.state, now = EPOCH).filterIsInstance<FutureEvent.SurveyLands>().single()
             val scheduler = FakeNotificationScheduler()
-            GameNotifications(scheduler).sync(started.state, now = EPOCH)
+            GameNotifications(scheduler, English).sync(started.state, now = EPOCH)
             val body = scheduler.scheduled.single().body
             landings++
             val saysNone = "none settleable" in body
@@ -726,7 +727,7 @@ class GameNotificationsTest {
             .let { toggleAlert(it, WatchTarget.Facility(BuildingType.NANITE_FACTORY)) }
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then — the cap is ours to spend rather than the platform's to apply
         assertTrue(scheduler.scheduled.size <= IOS_PENDING_REQUEST_LIMIT, "was ${scheduler.scheduled.size}")
@@ -743,7 +744,7 @@ class GameNotificationsTest {
         val state = swarming(probes = 90)
 
         // when
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         // then the soonest survive: they fire first, and every one of them re-derives the whole
         // set on the transition it causes, so a dropped far landing is re-booked long before it
@@ -767,7 +768,7 @@ class GameNotificationsTest {
         )
         assertTrue(state.subscribed.isEmpty())
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(1, scheduler.scheduled.size)
         assertTrue("Skiff" in scheduler.scheduled.single().title, scheduler.scheduled.single().title)
@@ -781,7 +782,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
         val state = wealthy().copy(yard = queueOf(hulls = 5))
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(5, scheduler.scheduled.size)
         assertEquals(5, scheduler.scheduled.map { it.id }.toSet().size)
@@ -795,7 +796,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
         val state = wealthy().copy(yard = queueOf(hulls = IOS_PENDING_REQUEST_LIMIT + 20))
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
     }
@@ -811,7 +812,7 @@ class GameNotificationsTest {
             runs = listOf(fleetReturningAt(EPOCH + 500.hours)),
         )
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(IOS_PENDING_REQUEST_LIMIT, scheduler.scheduled.size)
         assertTrue(
@@ -837,7 +838,7 @@ class GameNotificationsTest {
                 yard = listOf(YardJob(ship = type, startedAt = EPOCH, completesAt = EPOCH + 2.hours)),
             )
 
-            GameNotifications(scheduler).sync(state, now = EPOCH)
+            GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
             assertEquals("A $expected has left the yard", scheduler.scheduled.single().title)
         }
@@ -862,8 +863,8 @@ class GameNotificationsTest {
         val state = building(BuildingType.METAL_MINE).copy(runs = listOf(fleetReturningAt(EPOCH + 3.hours)))
 
         // when
-        GameNotifications(first).sync(state, now = EPOCH)
-        GameNotifications(second).sync(state, now = EPOCH)
+        GameNotifications(first, English).sync(state, now = EPOCH)
+        GameNotifications(second, English).sync(state, now = EPOCH)
 
         // then
         assertEquals(first.scheduled, second.scheduled)
@@ -876,7 +877,7 @@ class GameNotificationsTest {
         val scheduler = FakeNotificationScheduler()
         val state = building(BuildingType.METAL_MINE)
 
-        GameNotifications(scheduler).sync(state, now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(state.builds.getValue(BuildingType.METAL_MINE).completesAt, scheduler.scheduled.single().at)
     }
@@ -893,7 +894,7 @@ class GameNotificationsTest {
         val state = building(BuildingType.METAL_MINE, at = gameNow)
         val completesAt = state.builds.getValue(BuildingType.METAL_MINE).completesAt
 
-        GameNotifications(scheduler).sync(state, now = gameNow, toRealTime = { it - skippedBy })
+        GameNotifications(scheduler, English).sync(state, now = gameNow, toRealTime = { it - skippedBy })
 
         assertEquals(completesAt - skippedBy, scheduler.scheduled.single().at)
     }
@@ -908,8 +909,8 @@ class GameNotificationsTest {
         val skipped = FakeNotificationScheduler()
         val state = building(BuildingType.METAL_MINE, BuildingType.CRYSTAL_MINE)
 
-        GameNotifications(plain).sync(state, now = EPOCH)
-        GameNotifications(skipped).sync(state, now = EPOCH, toRealTime = { it - 4.hours })
+        GameNotifications(plain, English).sync(state, now = EPOCH)
+        GameNotifications(skipped, English).sync(state, now = EPOCH, toRealTime = { it - 4.hours })
 
         assertEquals(plain.scheduled.map { it.id }, skipped.scheduled.map { it.id })
         assertEquals(plain.scheduled.map { it.at - 4.hours }, skipped.scheduled.map { it.at })
@@ -939,7 +940,7 @@ class GameNotificationsTest {
             // names can actually be rendered — the gate is the tech tree, not the subject here.
             val state = building(building, on = withNaniteGate())
             val toLevel = state.builds.getValue(building).toLevel.value
-            GameNotifications(scheduler).sync(state, now = EPOCH)
+            GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
             val notification = scheduler.scheduled.single()
             assertEquals("$name reached level $toLevel", notification.title)
@@ -965,7 +966,7 @@ class GameNotificationsTest {
             )
             val state = researching(technology, on = gated)
             val toLevel = checkNotNull(state.activeResearch).toLevel.value
-            GameNotifications(scheduler).sync(state, now = EPOCH)
+            GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
             assertEquals("$name reached level $toLevel", scheduler.scheduled.single().title)
         }
@@ -986,7 +987,7 @@ class GameNotificationsTest {
 
         for ((technology, name) in expected) {
             val scheduler = FakeNotificationScheduler()
-            GameNotifications(scheduler).sync(adapting(technology), now = EPOCH)
+            GameNotifications(scheduler, English).sync(adapting(technology), now = EPOCH)
 
             val notification = scheduler.scheduled.single()
             assertEquals("$name reached level 1", notification.title)
@@ -1003,8 +1004,8 @@ class GameNotificationsTest {
         val research = FakeNotificationScheduler()
         val adaptation = FakeNotificationScheduler()
 
-        GameNotifications(research).sync(researching(Technology.EXTRACTION), now = EPOCH)
-        GameNotifications(adaptation).sync(adapting(AdaptationTechnology.THERMAL), now = EPOCH)
+        GameNotifications(research, English).sync(researching(Technology.EXTRACTION), now = EPOCH)
+        GameNotifications(adaptation, English).sync(adapting(AdaptationTechnology.THERMAL), now = EPOCH)
 
         assertTrue(research.scheduled.single().id.startsWith("research-"))
         assertTrue(adaptation.scheduled.single().id.startsWith("adaptation-"))

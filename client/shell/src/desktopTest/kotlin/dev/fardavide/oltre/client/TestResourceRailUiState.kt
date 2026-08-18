@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.client.design.text.TextRes
+
 // A mid-game colony's stocks. The scaffold's tests are about the frame rather than the numbers in
 // it, so they all share one rail instead of each inventing its own.
 //
@@ -42,4 +44,4 @@ internal val lopsidedResourceRailUiState = ResourceRailUiState(
 
 // A cell with nothing to announce: what the player last saw is what the colony holds.
 private fun settled(stock: Long, ratePerHour: String) =
-    ResourceStockUiState(stock = stock, lastSeenStock = stock, ratePerHour = ratePerHour)
+    ResourceStockUiState(stock = stock, lastSeenStock = stock, ratePerHour = TextRes(ratePerHour))

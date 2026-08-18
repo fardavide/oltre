@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.research.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.Technology
@@ -43,7 +44,7 @@ class ResearchWatchBehaviourTest {
     // here, on a screen with no facility on it.
     @Test
     fun `the heading names a watched facility from the other tab`() {
-        researchScreen(nothingRunningUiState.copy(watching = "watching Metal Mine")) {
+        researchScreen(nothingRunningUiState.copy(watching = TextRes("watching Metal Mine"))) {
             assertReads("watching Metal Mine")
             assertNothingReads("one project at a time")
         }
@@ -72,7 +73,7 @@ class ResearchWatchBehaviourTest {
     fun `the watched row says the instant it named`() {
         val watched = nothingRunningUiState.copy(
             technologies = nothingRunningUiState.technologies.map { row ->
-                if (row.watch == null) row else row.copy(watch = WatchUiState.Booked("→ affordable 19:51"))
+                if (row.watch == null) row else row.copy(watch = WatchUiState.Booked(TextRes("→ affordable 19:51")))
             },
         )
         researchScreen(watched) {

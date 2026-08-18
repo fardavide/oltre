@@ -3656,3 +3656,70 @@ entries have (no seam any test can reach) and this one does not.
 kind of test that could reach this, and does the file contain anything that kind could catch.* A
 pointer handler in a file with no drawing in it answers no and no. A composable that emits anything
 does not, and belongs back in `DispatchSheet.kt`.
+## Every word the game says is a `TextRes` (2026-08-18, issue #86)
+
+Davide's requirements, 2026-08-16, verbatim: *"I want them typed"*, *"no bare strings across UI,
+till DS components"*, *"the super type is a sealed interface so we can create from Strings as well,
+like a name from BE for example"*, *"args and quantities are compile-time safe: we can't pass a
+String if a number is required"*. And the API, his: the type is **`TextRes`** (because Compose's
+`Text` is in scope in every file that would use it), a bare string is `TextRes(value)`, and every
+translated string is `Strings.<id>(args)`.
+
+**`Strings` is the factory and `Translations` is the table**, and keeping them apart is the whole
+design rather than a tidiness. A `presentation` module builds its text long before anything knows
+which language will draw it — and `GameNotifications` builds text the OS will draw hours later with
+nothing composing at all, which is why `stringResource()` was never a candidate: it is a
+`@Composable`. So `:client:design:text` has no Compose in it, exactly as `:client:design:format` has
+none, and the seam to rendering is one line — `LocalTranslations` in `:client:design:core`.
+
+Four things fall out, and they are what the framework was bought for:
+
+- **A new `StringId` fails to compile in every language until it is translated.** `Translations`
+  resolves an exhaustive `when` with no `else`, which is `core`'s own discipline applied to copy.
+- **`Strings.hullsInFleet("two")` does not compile.** `Message`'s constructor is `internal` (and its
+  `copy` with it), so the signature written in `Strings` *is* the contract rather than a convention.
+- **A test asserts on meaning.** `assertEquals(Strings.hullsInFleet(3), head.rule)` survives a
+  rewording and fails on a rewrite; the words are pinned once, in `EnglishTest`.
+- **Equality is the `String`'s**, so every ui-state comparison, fixture and frame kept working.
+
+**Stage 3 came with stage 1, on Davide's call** — the ticket staged the grammar helpers for later
+and the alternative was worse: `:client:design:format` returning `TextRes` while two hundred call
+sites still interpolated it into a `String` is a defect the compiler cannot see, and it bit twice in
+the test tree before it was hunted out. So the split is now clean: **that module decides *which*
+numbers to show and `Translations` writes them down.** Rounding a duration up so a chip never reads
+0m is the same in every language; the unit letters, the thousands separator and the decimal point
+are not.
+
+Two places where the decision moved rather than just the strings:
+
+- **A width decision cannot be made before the language is known.** The astronomy line dropped its
+  "from here" clause when the built string passed 54 characters — a measurement of *English*. The
+  mapper now states both readings and `SystemHead` measures the one it is about to draw.
+- **Case is not a transformation a language shares.** Labels that were literals in a composable and
+  then `uppercase()`d are catalogued in the case they are drawn in. Where the source is a *generated*
+  name — a star, a region — the composable still uppercases the resolved string, because a name from
+  the seed has no translation to be wrong about.
+
+**No baseline moved and no version was bumped**, which is the promise the ticket made: every English
+string is the one that was already there, character for character.
+
+**The coverage gate needed one exclusion and one frame, and both are Davide's call recorded here.**
+The catalogue is 309 one-line `Strings` entries and a `when` with a branch per `StringId`, so left in
+the screenshot and behaviour denominators it makes those rows measure *what fraction of the table a
+set of frames happens to quote* — the defect the two existing pass-scoped exclusions were already
+written about. `*.design.text` is excluded from those two passes and fully covered in the unit and
+unfiltered ones, by `CatalogueTest`, which resolves every entry the catalogue can produce.
+
+What that left was a uniform tax of about forty branches: **one Compose skipping branch per two
+`.resolve()` call sites**, spread across every composable that draws text. No frame can reach those —
+a screenshot renders once, so the skip side of the branch is never taken — and the first diagnosis of
+them here was wrong, which is worth recording because it sent one round of work at the wrong target.
+It was recovered instead by photographing a state that had no baseline: the discovery card's *full*
+form, three labelled axes in a column, which a system holding one world produces and which the
+existing frame (two or more discoveries, so the compact form) never drew.
+
+**One finding to hand back rather than fix.** Three files said in as many words that a U+00A0 binds
+a value to its unit so a wrapping line never leaves "atm" alone on one — and all three shipped an
+ordinary space. Only the Galaxy screen's `NBSP` constant held the real character, and nothing
+referenced it. `English.UNIT_GAP` reproduces the space deliberately: changing it changes what four
+screens render, which is Davide's call and a two-character diff once he has made it.

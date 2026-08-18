@@ -48,6 +48,7 @@ kotlin {
             // No `:client:design:icon` — the galaxy draws its own map, and a star and fifteen
             // orbit dots are this screen's geometry rather than a glyph any other screen wants.
             implementation(projects.client.design.component)
+            api(projects.client.design.text)
             implementation(projects.client.design.core)
 
             // No `:client:design:format` and no `kotlinx-datetime`. Both went up with the mappers:

@@ -25,16 +25,22 @@ when_to_use: >
   where there is nothing to decide, as on `:client:debug`.
   `:client:shell` is the only module that sees all features; features never depend on each other —
   shared needs go down into `core` or the design family.
-- **`:client:design` is a directory, not a module.** Its layers are `:core` (tokens, theme, font),
-  `:icon` (drawn glyphs), `:component` (styled widgets with no single feature owner), `:format`
-  (how numbers and durations are written — no Compose in it) and `:testing` (test helpers, in the
-  *main* source set). Declare only the ones you use. A component moves here when it has **no single
+- **`:client:design` is a directory, not a module.** Its layers are `:core` (tokens, theme, font,
+  and `LocalTranslations`), `:icon` (drawn glyphs), `:component` (styled widgets with no single
+  feature owner), `:format` (which numbers and durations to show — no Compose in it), `:text`
+  (what the game says: `TextRes`, `Strings`, `Translations` — no Compose either) and `:testing`
+  (test helpers, in the *main* source set). Declare only the ones you use. A component moves here when it has **no single
   owner**, which is not the same as being used twice — the threshold is still two callers do not
   justify sharing, a third does, and a component whose one owner is obvious stays with it.
 - **New module checklist:** add to `settings.gradle.kts`; copy the target set from
   `:client:design:core`; namespace `dev.fardavide.oltre.client.<feature>.<layer>`; wire into
   `:client:shell`; **add it to the root `build.gradle.kts` `kover {}` list** — a module missing
   there is silently absent from the coverage report.
+- **No bare strings anywhere a player can read.** Every word the game says is a `TextRes` built
+  through `Strings`, resolved once at the leaf by `Translations`. A `UiState` field is a `TextRes`
+  and never a `String`; `TextRes(value)` is for text that came from outside the catalogue and
+  therefore cannot be translated — a generated world name, a value from a server. A test asserts
+  `Strings.hullsInFleet(3)`, not `"3 hulls"`.
 - **Placeholder balance numbers live in one marked place in `core`** — never scattered
   literals. Decided values come from Notion or Davide.
 - **State changes are events appended to a log**, not mutations. If a change can't be expressed

@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.presentation.toDispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
@@ -59,7 +61,10 @@ class DispatchUiStateTest {
         // is the address and the hazards now, because the address had to go somewhere when the name
         // took the title slot and the chips were already printing both readings. So what the head
         // still has to lead with is the world's address.
-        assertTrue(offer.head.startsWith(target.label()), offer.head)
+        assertTrue(
+            English.resolve(offer.head).startsWith(English.resolve(target.label())),
+            English.resolve(offer.head),
+        )
     }
 
     @Test
@@ -90,7 +95,7 @@ class DispatchUiStateTest {
 
         assertEquals(3, many.shipCount)
         assertTrue(many.atMost)
-        assertEquals("of 3 idle", many.pool)
+        assertEquals("of 3 idle", English.resolve(many.pool))
         assertEquals(1, none.shipCount)
         assertTrue(none.atFewest)
     }
@@ -103,7 +108,7 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), withSkiffs(4)))
 
         assertEquals(4, offer.shipCount)
-        assertEquals("4 skiffs", offer.ships)
+        assertEquals("4 skiffs", English.resolve(offer.ships))
         assertTrue(offer.atMost)
     }
 
@@ -119,8 +124,8 @@ class DispatchUiStateTest {
             dispatchAt(target, state = withSkiffs(fleet), selection = selection(target).copy(window = 24.hours)),
         )
 
-        assertTrue(offer.shipCount < fleet, "the sheet opened on the whole pool: ${offer.ships}")
-        assertEquals("of $fleet idle", offer.pool, "the pool is still stated in full")
+        assertTrue(offer.shipCount < fleet, "the sheet opened on the whole pool: ${English.resolve(offer.ships)}")
+        assertEquals(Strings.ofIdle(fleet), offer.pool, "the pool is still stated in full")
         assertTrue(!offer.atMost)
         // And the note that names the wasted hulls is gone, because at the suggestion there are none
         // — it is earned rather than standing, so a default that earns it would be furniture.
@@ -140,7 +145,10 @@ class DispatchUiStateTest {
             dispatchAt(target, withSkiffs(40), asked.copy(ships = suggested - 1)),
         )
 
-        assertTrue(fewer.perShip.orEmpty().endsWith(" each"), "one hull fewer still emptied it: ${fewer.perShip}")
+        assertTrue(
+            fewer.perShip?.let { English.resolve(it).endsWith(" each") } == true,
+            "one hull fewer still emptied it: ${fewer.perShip}",
+        )
     }
 
     @Test
@@ -176,7 +184,7 @@ class DispatchUiStateTest {
 
         assertEquals(1, waiting.shipCount)
         // ...which is what turns "no world this size ever holds that much" into a date.
-        assertNotNull(waiting.wait, waiting.note)
+        assertNotNull(waiting.wait, English.resolve(waiting.note))
     }
 
     @Test
@@ -188,8 +196,8 @@ class DispatchUiStateTest {
 
         // "132 each" beside "132 metal" is the same number printed twice.
         assertNull(one.perShip)
-        assertEquals("1 skiff", one.ships)
-        assertTrue(several.perShip.orEmpty().endsWith(" each"), several.perShip.orEmpty())
+        assertEquals("1 skiff", English.resolve(one.ships))
+        assertTrue(English.resolve(checkNotNull(several.perShip)).orEmpty().endsWith(" each"), English.resolve(checkNotNull(several.perShip)).orEmpty())
     }
 
     @Test
@@ -213,7 +221,7 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, surveying(target)))
 
         assertTrue(offer.windows.size < FleetBalance.WINDOWS.size, offer.windows.toString())
-        assertTrue(offer.ladderNote.orEmpty().endsWith("minutes on the surface."), offer.ladderNote.orEmpty())
+        assertTrue(English.resolve(checkNotNull(offer.ladderNote)).orEmpty().endsWith("minutes on the surface."), English.resolve(checkNotNull(offer.ladderNote)).orEmpty())
         // The shortest rung that survived, never the longest — or the frontier would open on a day
         // away, which is not a tap anyone meant to make.
         assertEquals(offer.windows.first().window, offer.window)
@@ -225,7 +233,7 @@ class DispatchUiStateTest {
 
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere)))
 
-        assertTrue(refusal.title.endsWith("nobody has looked at."), refusal.title)
+        assertTrue(English.resolve(refusal.title).endsWith("nobody has looked at."), English.resolve(refusal.title))
         // The one refusal in the app that hands back a verb — and only when the card above would
         // honour it, so the two can never disagree about whether a probe can be sent.
         assertIs<RefuseActionUiState.Probe>(refusal.action)
@@ -244,12 +252,12 @@ class DispatchUiStateTest {
             withSkiffs(1).toDispatchUiState(selection = selection(target), probe = null, now = EPOCH),
         )
 
-        assertTrue(refusal.title.endsWith("nobody has looked at."), refusal.title)
+        assertTrue(English.resolve(refusal.title).endsWith("nobody has looked at."), English.resolve(refusal.title))
         assertNull(refusal.action)
         // The sentence keeps its own half — how many worlds a probe would survey — and drops the
         // clause that quotes a price nobody quoted.
-        assertTrue("A probe surveys all" in refusal.note, refusal.note)
-        assertTrue("metal ·" !in refusal.note, refusal.note)
+        assertTrue("A probe surveys all" in English.resolve(refusal.note), English.resolve(refusal.note))
+        assertTrue("metal ·" !in English.resolve(refusal.note), English.resolve(refusal.note))
     }
 
     @Test
@@ -259,16 +267,16 @@ class DispatchUiStateTest {
 
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(target, away))
 
-        assertEquals("Every skiff is away.", refusal.title)
+        assertEquals("Every skiff is away.", English.resolve(refusal.title))
         // A countdown rather than a dead button — the idiom the unaffordable probe already spends.
-        assertEquals("in 03:00:00", assertIs<RefuseActionUiState.Waiting>(refusal.action).label)
+        assertEquals("in 03:00:00", English.resolve(assertIs<RefuseActionUiState.Waiting>(refusal.action).label))
     }
 
     @Test
     fun `a fleet that is away with nothing on its way back says so and offers nothing`() {
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(runnable(), state.copy(ships = Ships.NONE)))
 
-        assertEquals("Every skiff is away.", refusal.title)
+        assertEquals("Every skiff is away.", English.resolve(refusal.title))
         assertNull(refusal.action)
     }
 
@@ -285,8 +293,11 @@ class DispatchUiStateTest {
 
         // **The name leads and the address is in the head** since 0.13 — Claude Design, so that a
         // tap from a list of named worlds lands on a sheet that looks like the row it came from.
-        assertEquals(worldNameAt(seed, target), sheet.name)
-        assertTrue(sheet.head.startsWith(target.label()), sheet.head)
+        assertEquals(worldNameAt(seed, target), English.resolve(sheet.name))
+        assertTrue(
+            English.resolve(sheet.head).startsWith(English.resolve(target.label())),
+            English.resolve(sheet.head),
+        )
     }
 
     @Test
@@ -319,9 +330,9 @@ class DispatchUiStateTest {
 
         // Two strings rather than one: the card owns the word "richness" and prints it above this,
         // so a chip string that carried the word too rendered "richness richness 1.15".
-        assertTrue(offer.metalRichness.first().isDigit(), offer.metalRichness)
-        assertEquals("deposit full", offer.metalDeposit)
-        assertEquals("deposit full", offer.crystalDeposit)
+        assertTrue(English.resolve(offer.metalRichness).first().isDigit(), English.resolve(offer.metalRichness))
+        assertEquals("deposit full", English.resolve(offer.metalDeposit))
+        assertEquals("deposit full", English.resolve(offer.crystalDeposit))
     }
 
     @Test
@@ -334,8 +345,8 @@ class DispatchUiStateTest {
 
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, state = worked))
 
-        assertTrue(offer.metalDeposit.contains("/"), offer.metalDeposit)
-        assertEquals("deposit full", offer.crystalDeposit)
+        assertTrue(English.resolve(offer.metalDeposit).contains("/"), English.resolve(offer.metalDeposit))
+        assertEquals("deposit full", English.resolve(offer.crystalDeposit))
     }
 
     @Test
@@ -344,8 +355,8 @@ class DispatchUiStateTest {
         // map, because the vein and the rate carry one multiplier.
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
 
-        assertTrue(offer.legs.contains("· working "), offer.legs)
-        assertTrue(offer.compactLegs.contains("· working "), offer.compactLegs)
+        assertTrue(English.resolve(offer.legs).contains("· working "), English.resolve(offer.legs))
+        assertTrue(English.resolve(offer.compactLegs).contains("· working "), English.resolve(offer.compactLegs))
     }
 
     @Test
@@ -358,9 +369,9 @@ class DispatchUiStateTest {
             dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
         )
 
-        assertEquals("the whole deposit", offer.perShip)
+        assertEquals("the whole deposit", English.resolve(checkNotNull(offer.perShip)))
         // The headline figure already *is* the deposit, so nothing restates it.
-        assertTrue(!offer.figure.contains("deposit"), offer.figure)
+        assertTrue(!English.resolve(offer.figure).contains("deposit"), English.resolve(offer.figure))
     }
 
     @Test
@@ -371,8 +382,12 @@ class DispatchUiStateTest {
         )
 
         val note = assertNotNull(offer.clampNote)
-        assertTrue(note.contains("empt"), note)
-        assertTrue(note.endsWith("brings nothing.") || note.endsWith("bring nothing."), note)
+        assertTrue(English.resolve(note).contains("empt"), English.resolve(note))
+        assertTrue(
+            English.resolve(note).endsWith("brings nothing.") ||
+                English.resolve(note).endsWith("bring nothing."),
+            English.resolve(note),
+        )
     }
 
     @Test
@@ -404,7 +419,7 @@ class DispatchUiStateTest {
         )
 
         val note = assertNotNull(offer.rungNote)
-        assertTrue(note.endsWith("window brings the same."), note)
+        assertTrue(English.resolve(note).endsWith("window brings the same."), English.resolve(note))
     }
 
     @Test
@@ -423,10 +438,10 @@ class DispatchUiStateTest {
             dispatchAt(target, state = stripped, selection = selection(target).copy(gathering = ResourceKind.METAL)),
         )
 
-        assertEquals("This deposit is empty.", waiting.title)
+        assertEquals("This deposit is empty.", English.resolve(waiting.title))
         assertTrue(waiting.windows.isNotEmpty(), "the ladder is still live")
-        assertTrue(waiting.note.endsWith("Fewer skiffs, or a shorter window, is sooner."), waiting.note)
-        assertEquals("deposit empty", waiting.metalDeposit)
+        assertTrue(English.resolve(waiting.note).endsWith("Fewer skiffs, or a shorter window, is sooner."), English.resolve(waiting.note))
+        assertEquals("deposit empty", English.resolve(waiting.metalDeposit))
     }
 
     @Test
@@ -456,7 +471,7 @@ class DispatchUiStateTest {
         )
 
         assertNull(big.wait, "a fleet's ask is bigger than the world: ${big.note}")
-        assertNotNull(small.wait, small.note)
+        assertNotNull(small.wait, English.resolve(small.note))
     }
 
     @Test
@@ -480,7 +495,7 @@ class DispatchUiStateTest {
             ),
         )
 
-        assertEquals("1 skiff empties it. The 2nd brings nothing.", offer.clampNote)
+        assertEquals("1 skiff empties it. The 2nd brings nothing.", English.resolve(checkNotNull(offer.clampNote)))
     }
 
     @Test
@@ -504,8 +519,8 @@ class DispatchUiStateTest {
             dispatchAt(target, state = stripped, selection = selection(target).copy(gathering = ResourceKind.METAL)),
         )
 
-        assertEquals("Both deposits are empty.", waiting.title)
-        assertEquals("deposit empty", waiting.crystalDeposit)
+        assertEquals("Both deposits are empty.", English.resolve(waiting.title))
+        assertEquals("deposit empty", English.resolve(waiting.crystalDeposit))
     }
 
     @Test
@@ -539,7 +554,7 @@ class DispatchUiStateTest {
 
         // The danger line names the crossing rather than a number of systems: from here, "how far"
         // stops being a count and becomes a different galaxy.
-        assertTrue("another galaxy" in offer.danger, offer.danger)
+        assertTrue("another galaxy" in English.resolve(offer.danger), English.resolve(offer.danger))
         // And the ladder narrows rather than greying out — a round trip this long has no short
         // rungs to offer, which is the thing that teaches distance before any copy does.
         assertNotNull(offer.ladderNote)
@@ -568,9 +583,9 @@ class DispatchUiStateTest {
 
         // One run is a sentence about a run; two is a sentence about a queue, and the second one
         // has to say how much is behind the first or the count reads as the whole fleet.
-        assertTrue("run is" in withOne.note, withOne.note)
-        assertTrue("runs are" in withSeveral.note, withSeveral.note)
-        assertTrue("more behind it" in withSeveral.note, withSeveral.note)
+        assertTrue("run is" in English.resolve(withOne.note), English.resolve(withOne.note))
+        assertTrue("runs are" in English.resolve(withSeveral.note), English.resolve(withSeveral.note))
+        assertTrue("more behind it" in English.resolve(withSeveral.note), English.resolve(withSeveral.note))
     }
 
     @Test
@@ -588,10 +603,10 @@ class DispatchUiStateTest {
         assertEquals(ResourceKind.CRYSTAL, offer.gathering)
         // The chip is where both readings live, and it is the one place they sit together — which is
         // what makes the currency choice a comparison rather than a memory test.
-        assertTrue(offer.crystalRichness.first().isDigit(), offer.crystalRichness)
+        assertTrue(English.resolve(offer.crystalRichness).first().isDigit(), English.resolve(offer.crystalRichness))
         // **Neither richness is in the head at either width.** The head is the address and the
         // hazards, so there is nothing left for 320dp to drop.
-        assertTrue("metal" !in offer.head, offer.head)
+        assertTrue("metal" !in English.resolve(offer.head), English.resolve(offer.head))
         assertEquals(offer.head, offer.compactHead)
     }
 
@@ -608,12 +623,12 @@ class DispatchUiStateTest {
 
         // A hazard is named in words, because it is memorable that way and a count is not.
         val risky = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(hazardous)))
-        assertTrue(risky.danger.isNotEmpty())
+        assertTrue(English.resolve(risky.danger).isNotEmpty())
         // "no hazards" is a fact worth printing rather than an absence worth hiding: a clean world
         // is the one you want to find, and silence would read as missing information.
         clean?.let {
             val safe = assertIs<DispatchUiState.Offer>(dispatchAt(homeSystemAt(it)))
-            assertTrue("no hazards" in safe.danger, safe.danger)
+            assertTrue("no hazards" in English.resolve(safe.danger), English.resolve(safe.danger))
         }
     }
 

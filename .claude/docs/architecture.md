@@ -13,7 +13,11 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
     :core          Tokens: palette (from docs/ui-mockup.html), theme, bundled font, layout caps
     :icon          Drawn glyphs (Canvas paths, never an icon font — see screenshot-testing)
     :component     Styled widgets with no single feature owner (cost chip, progress bar, …)
-    :format        How numbers and durations are written. No Compose reaches it
+    :format        Which numbers and durations to show, and how to round them. No Compose
+    :text          What the game *says*: `TextRes`, the `Strings` catalogue, `Translations` and
+                   `English`. No Compose either, and for a stronger reason — a string is built in
+                   a presentation module hours before it is drawn, and a notification's string is
+                   built outside composition entirely
     :screenshot-testing  Roborazzi options, shared by every screenshot test; main source set
   :client:dispatch/  The dispatch sheet, which belongs to no tab: Galaxy raises it from a world
                      row and Fleets raises it from a landing, and features may not see each

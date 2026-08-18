@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
 import dev.fardavide.oltre.client.fleets.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.fleets.ui.SLIDE_OVER_WIDTH
@@ -268,10 +269,10 @@ class FleetsFromStateBehaviourTest {
         val card = uiState.runs.single()
 
         fleets(uiState = uiState, width = PHONE_WIDTH) {
-            assertRunReads(0, card.legs)
+            assertRunReads(0, English.resolve(card.legs))
         }
         fleets(uiState = uiState, width = SLIDE_OVER_WIDTH) {
-            assertRunReads(0, card.compactLegs)
+            assertRunReads(0, English.resolve(card.compactLegs))
             assertRunDoesNotRead(0, "on station")
         }
     }

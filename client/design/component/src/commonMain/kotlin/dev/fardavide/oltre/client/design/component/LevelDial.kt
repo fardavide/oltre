@@ -17,6 +17,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.rememberOneShotFill
 
@@ -92,7 +94,7 @@ fun LevelDial(level: Int, percent: Int, modifier: Modifier = Modifier) {
             )
         }
         Text(
-            text = "$level",
+            text = Strings.plainNumber(level).resolve(),
             color = OltreColors.text,
             fontFamily = oltreMono(),
             fontSize = 10.sp,

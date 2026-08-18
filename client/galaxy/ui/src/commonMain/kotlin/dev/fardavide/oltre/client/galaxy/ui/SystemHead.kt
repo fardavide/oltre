@@ -22,6 +22,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.settlingColor
 
@@ -70,7 +72,7 @@ internal fun SystemHead(
             // Takes its intrinsic width and the strip absorbs the remainder, which is what keeps the
             // caption's right edge flush without a text alignment anywhere in the row.
             Text(
-                text = uiState.scope.uppercase(),
+                text = uiState.scope.resolve().uppercase(),
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 9.5.sp,
@@ -102,7 +104,7 @@ private fun GalaxyStrip(galaxies: List<GalaxyTabUiState>, onSelectGalaxy: (Int) 
     ) {
         galaxies.forEach { galaxy ->
             Text(
-                text = galaxy.label,
+                text = galaxy.label.resolve(),
                 color = settlingColor(if (galaxy.selected) OltreColors.accent else OltreColors.textTertiary),
                 fontFamily = mono,
                 fontSize = 9.5.sp,
@@ -150,7 +152,7 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
             // The only 15sp string and the only `text` one in the component. Not uppercased and not
             // tracked: it is a name, and tracking a name is what turns it back into a label.
             Text(
-                text = uiState.system,
+                text = uiState.system.resolve(),
                 color = OltreColors.text,
                 fontFamily = mono,
                 fontSize = 15.sp,
@@ -166,7 +168,7 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
             // measured at its full width first and the ellipsis lands in the name — a truncated
             // `Calianov…` is still a place, where `3:16…` is a wrong answer.
             Text(
-                text = uiState.coordinate,
+                text = uiState.coordinate.resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 10.5.sp,
@@ -197,7 +199,7 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
             // rather than fudged — the expansion is a layout decision above this component, and
             // there is no tag for it in `GalaxyTestTags` either.
             Text(
-                text = uiState.region.uppercase(),
+                text = uiState.region.resolve().uppercase(),
                 color = OltreColors.accent,
                 fontFamily = mono,
                 fontSize = 9.5.sp,
@@ -205,14 +207,14 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
                 modifier = Modifier.testTag(GalaxyTestTags.REGION).clickable(onClick = onOpenRegion),
             )
             Text(
-                text = "·",
+                text = Strings.middot().resolve(),
                 color = OltreColors.textTertiary,
                 fontFamily = mono,
                 fontSize = 9.5.sp,
                 letterSpacing = 1.sp,
             )
             Text(
-                text = uiState.detail.uppercase(),
+                text = uiState.detail.resolve().uppercase(),
                 color = OltreColors.textSecondary,
                 fontFamily = mono,
                 fontSize = 9.5.sp,
@@ -229,7 +231,13 @@ private fun Identity(uiState: SystemHeadUiState, onOpenRegion: () -> Unit) {
         // metric the design's 104dp budget was measured against, and the single easiest place in
         // this file to drift by declaring something tidier.
         Text(
-            text = uiState.astronomy,
+            // **The line the mapper built for the width it fits in.** The full form drops its
+            // least load-bearing clause when it will not fit, and *whether it fits* is a fact
+            // about the resolved string — so it is measured here, after the language is known,
+            // rather than in the mapper where it used to be. See `astronomyFor`.
+            text = uiState.astronomy.resolve()
+                .takeIf { it.length <= ASTRONOMY_BUDGET_CHARS }
+                ?: uiState.shortAstronomy.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 10.5.sp,
@@ -248,3 +256,13 @@ private val CELL_SHAPE = RoundedCornerShape(3.dp)
 // declared anywhere here, for the reason nothing else in the app declares them: the family is
 // JetBrains Mono, every glyph is already one advance wide, and a `tnum` feature on a monospaced
 // font asks for what it already has.
+
+// What one line of the astronomy column holds. The content column is capped at `maxContentWidth`
+// and padded 16dp a side, so at a phone's 393dp it is 361dp wide; JetBrains Mono advances 0.6em,
+// which at the 10.5sp this line is set in makes 57 characters exactly 359dp. That is inside 361 on
+// paper and wrapped in practice, so the budget is the measured figure with the rounding taken off
+// rather than the arithmetic one.
+//
+// **It lives here rather than in the mapper since #86**, because it is a measurement of the string
+// that is about to be drawn — and which string that is depends on the language.
+private const val ASTRONOMY_BUDGET_CHARS = 54

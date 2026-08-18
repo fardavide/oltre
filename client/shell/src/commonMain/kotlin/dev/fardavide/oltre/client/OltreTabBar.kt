@@ -25,6 +25,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -87,9 +89,9 @@ private fun RowScope.TabItem(tab: OltreTab, selected: Boolean, onSelect: () -> U
 }
 
 @Composable
-private fun TabLabel(text: String, tint: Color) {
+private fun TabLabel(text: TextRes, tint: Color) {
     Text(
-        text = text,
+        text = text.resolve(),
         color = tint,
         fontFamily = oltreMono(),
         fontSize = 9.5.sp,

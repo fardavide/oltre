@@ -37,6 +37,7 @@ kotlin {
             // No `:client:design:icon` — research draws no glyph. The energy bolt belongs to the
             // two screens that report power, and this is not one of them.
             implementation(projects.client.design.component)
+            api(projects.client.design.text)
             implementation(projects.client.design.core)
 
             // No `:client:design:format` here and no `kotlinx-datetime`: by the time a duration

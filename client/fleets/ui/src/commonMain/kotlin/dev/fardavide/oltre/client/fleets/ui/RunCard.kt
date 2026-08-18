@@ -26,6 +26,7 @@ import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
+import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.rememberOneShotFill
 import kotlin.math.roundToInt
 
@@ -45,7 +46,7 @@ internal fun RunCard(uiState: RunCardUiState, index: Int, compact: Boolean) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = uiState.coordinate,
+                    text = uiState.coordinate.resolve(),
                     color = OltreColors.text,
                     fontFamily = mono,
                     fontSize = 13.5.sp,
@@ -54,7 +55,7 @@ internal fun RunCard(uiState: RunCardUiState, index: Int, compact: Boolean) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = uiState.manifest,
+                    text = uiState.manifest.resolve(),
                     color = OltreColors.textSecondary,
                     fontFamily = mono,
                     fontSize = 10.5.sp,
@@ -65,7 +66,7 @@ internal fun RunCard(uiState: RunCardUiState, index: Int, compact: Boolean) {
             }
             Column(horizontalAlignment = Alignment.End, modifier = Modifier.padding(start = 11.dp)) {
                 Text(
-                    text = uiState.countdown,
+                    text = uiState.countdown.resolve(),
                     // The countdown takes the phase's colour, which is what makes the card readable
                     // at a glance without a badge: the number you are already looking at is the one
                     // carrying the state.
@@ -75,7 +76,7 @@ internal fun RunCard(uiState: RunCardUiState, index: Int, compact: Boolean) {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = uiState.lands,
+                    text = uiState.lands.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = mono,
                     fontSize = 10.sp,
@@ -87,7 +88,7 @@ internal fun RunCard(uiState: RunCardUiState, index: Int, compact: Boolean) {
         Text(
             // The three legs lose their nouns at 320dp and keep every figure — a run card is three
             // columns of durations, and their order is what says which leg is which.
-            text = if (compact) uiState.compactLegs else uiState.legs,
+            text = (if (compact) uiState.compactLegs else uiState.legs).resolve(),
             color = OltreColors.textTertiary,
             fontFamily = mono,
             fontSize = 10.sp,

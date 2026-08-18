@@ -3,6 +3,8 @@ package dev.fardavide.oltre.client.design.component
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.core.ResourceKind
@@ -13,7 +15,7 @@ import dev.fardavide.oltre.core.ResourceKind
 // whole point.
 data class CostChipUiState(
     val kind: ResourceKind,
-    val amount: String,
+    val amount: TextRes,
     val short: Boolean,
 )
 
@@ -29,7 +31,7 @@ fun CostChip(chip: CostChipUiState) {
         ResourceKind.DEUTERIUM -> OltreColors.deuterium
     }
     Text(
-        text = chip.amount,
+        text = chip.amount.resolve(),
         color = if (chip.short) OltreColors.danger else tint,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,

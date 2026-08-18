@@ -35,6 +35,12 @@ kotlin {
             // buy independence from `core` by making every caller translate `ResourceKind` into it
             // — reintroducing, per feature, exactly the drift this module exists to remove.
             implementation(projects.core)
+            // `api`, unlike every other edge in this file, and the exception is the point of #86:
+            // a component's *models* name `TextRes` — `CostChipUiState.amount`, `SheetAction.Ghost`,
+            // `WatchUiState.Booked` — so a feature cannot build one without the type. The tokens
+            // below are used *inside* the composables and appear in none of their signatures, which
+            // is exactly the distinction `api` is for.
+            api(projects.client.design.text)
             // `implementation`, not `api`: the tokens are used inside these composables and appear
             // in none of their signatures, so a caller gets the component without inheriting the
             // palette. Every consumer already declares `:client:design:core` for itself.

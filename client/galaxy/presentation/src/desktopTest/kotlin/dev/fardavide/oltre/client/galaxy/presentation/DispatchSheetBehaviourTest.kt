@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.foundation.ScrollState
 import androidx.compose.ui.test.ExperimentalTestApi
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
@@ -54,7 +55,7 @@ class DispatchSheetBehaviourTest {
 
         galaxyPage(uiState = dispatchOfferUiState) {
             assertTheSheetIsUp()
-            assertTheSheetReads(coordinate)
+            assertTheSheetReads(English.resolve(coordinate))
         }
     }
 
@@ -108,7 +109,7 @@ class DispatchSheetBehaviourTest {
             // The one figure, and it is a payout rather than a price: what this run brings home, in
             // the resource the player picked, at the window they picked. Read off the offer rather
             // than typed, because the amount is `FleetBalance.cargo` to the unit.
-            assertTheSheetReads(offer.figure)
+            assertTheSheetReads(English.resolve(offer.figure))
         }
     }
 
@@ -119,12 +120,19 @@ class DispatchSheetBehaviourTest {
         // generator's own units rather than in the priced basket, because the player is choosing
         // between two columns of the same number.
         val offer = assertIs<DispatchUiState.Offer>(dispatchOfferUiState.dispatch)
-        val richer = if (offer.metalRichness >= offer.crystalRichness) ResourceKind.METAL else ResourceKind.CRYSTAL
+        val richer = if (English.resolve(offer.metalRichness) >= English.resolve(offer.crystalRichness)) {
+            ResourceKind.METAL
+        } else {
+            ResourceKind.CRYSTAL
+        }
 
         assertEquals(richer, offer.gathering)
         // ...and the chip for that resource is the one drawn as selected, which is where the reading
         // lives since 0.13. The head is the address and the hazards now — see `DispatchUiState`.
-        assertTrue(offer.head.startsWith(offer.at.label()), offer.head)
+        assertTrue(
+            English.resolve(offer.head).startsWith(English.resolve(offer.at.label())),
+            English.resolve(offer.head),
+        )
     }
 
     @Test
@@ -406,7 +414,7 @@ class DispatchSheetBehaviourTest {
             onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
         ) {
             tapTheWorld(elsewhere)
-            assertTheSheetReads(elsewhere.label())
+            assertTheSheetReads(English.resolve(elsewhere.label()))
             send()
         }
 
@@ -441,7 +449,7 @@ class DispatchSheetBehaviourTest {
 
             homeIn(24.hours)
 
-            assertTheSheetReads(onTheLongRung.ships)
+            assertTheSheetReads(English.resolve(onTheLongRung.ships))
         }
     }
 
@@ -460,7 +468,7 @@ class DispatchSheetBehaviourTest {
 
             bringBack(ResourceKind.CRYSTAL)
 
-            assertTheSheetReads(onCrystal.ships)
+            assertTheSheetReads(English.resolve(onCrystal.ships))
         }
     }
 
@@ -471,7 +479,7 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(state = bigFleetState, landing = GalaxyLanding.WORLDS) {
             tapTheWorld(RUNNABLE)
 
-            assertTheSheetReads(suggestionFor().ships)
+            assertTheSheetReads(English.resolve(suggestionFor().ships))
             assertTheSheetReads("of 55 idle")
             assertTheSheetDoesNotRead("55 skiffs")
         }

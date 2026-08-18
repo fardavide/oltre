@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.dispatch.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
 import kotlin.time.Duration
@@ -20,22 +21,22 @@ sealed interface DispatchUiState {
     //
     // `name` rather than `title`, because both refusals already have a title and it is a sentence:
     // *"Every skiff is away."* Two fields called title on one sheet is one of them being read wrong.
-    val name: String
+    val name: TextRes
 
     // "[3:185:4] · metal 1.24 · crystal 0.74 · no hazards", richer resource first after the address
     // — the head is the world in one line, so the sheet answers "which world is this" before it
     // answers anything else.
-    val head: String
+    val head: TextRes
 
     // 320dp drops the lesser resource rather than ellipsising the pair. A width decision, not a
     // change of voice: what goes is the number you were not going to pick. **The address stays**,
     // because it is now the only thing on the sheet that says where this world is.
-    val compactHead: String
+    val compactHead: TextRes
 
     data class Offer(
-        override val name: String,
-        override val head: String,
-        override val compactHead: String,
+        override val name: TextRes,
+        override val head: TextRes,
+        override val compactHead: TextRes,
         // **The three subjects of the run, resolved.** These are what `startRun` is actually called
         // with, and they are on the ui-state rather than left in `DispatchSelection` for one reason:
         // the mapper is what filled in the three defaults and what clamped the hull count to the
@@ -51,23 +52,23 @@ sealed interface DispatchUiState {
         // permanence. What your colony is short of changes over days, how many hulls you have
         // changes over hours, and how long you will be away changes every check-in.
         val gathering: ResourceKind,
-        val metalRichness: String,
-        val crystalRichness: String,
+        val metalRichness: TextRes,
+        val crystalRichness: TextRes,
         // What each chip says about the world, under its currency: "richness 1.24 · deposit full",
         // "richness 0.74 · deposit 620/1,798", "richness 0.74 · deposit empty". **Richness lives here
         // now rather than on the row** — Design moved it when the stocks took the row's headline, and
         // the chip is where there is prose room for both.
-        val metalDeposit: String,
-        val crystalDeposit: String,
-        val ships: String,
+        val metalDeposit: TextRes,
+        val crystalDeposit: TextRes,
+        val ships: TextRes,
         val shipCount: Int,
         val atFewest: Boolean,
         val atMost: Boolean,
-        val pool: String,
+        val pool: TextRes,
         val windows: List<WindowRungUiState>,
         // Present only when the ladder has narrowed. The rung that vanished is the copy — this
         // sentence exists so a player who never saw the full ladder still learns why.
-        val ladderNote: String?,
+        val ladderNote: TextRes?,
         // "The 12h window brings the same." — the shortest rung that still takes everything there is,
         // named only when a shorter one exists and the chosen one is wasting hours. **Earned rather
         // than standing**: on a rung that is already the shortest that empties the vein there is
@@ -76,26 +77,26 @@ sealed interface DispatchUiState {
         // No new control and no new state on the rungs. A rung whose extra hours bring nothing is not
         // locked and not disabled — inventing a state for *not better* would be the first greyed thing
         // in the app, and the ladder narrows by absence everywhere else.
-        val rungNote: String?,
+        val rungNote: TextRes?,
         // "3 skiffs empty it. The 4th brings nothing." Present only when the clamp bites *and* there
         // is a remedy: at `atFewest` there is no smaller fleet to send, so the sheet shows the figure
         // and stops. Under the cliff the marginal hull is worth exactly zero, so this is arithmetic
         // stated before the tap rather than a scold.
-        val clampNote: String?,
+        val clampNote: TextRes?,
         // The only thing on the sheet that moves when a control is touched, which is why it sits
         // under a rule and above the verb.
-        val figure: String,
+        val figure: TextRes,
         // "449 each" on an unclamped run, "the whole deposit" when the vein is what stopped it —
         // one token in a slot that already exists, and the only marker the clamped state needs.
         // **The figure is never restated**: when the clamp bites the headline number already *is* the
         // deposit, and printing it twice is the defect the null-on-a-single-hull rule below exists to
         // prevent. Null on a single unclamped hull, because "132 each" beside "132 metal" is the same
         // number twice.
-        val perShip: String?,
-        val legs: String,
-        val compactLegs: String,
-        val danger: String,
-        val compactDanger: String,
+        val perShip: TextRes?,
+        val legs: TextRes,
+        val compactLegs: TextRes,
+        val danger: TextRes,
+        val compactDanger: TextRes,
     ) : DispatchUiState
 
     // **A mode rather than a refusal, and that distinction is Design's.** A dry world keeps its whole
@@ -109,42 +110,42 @@ sealed interface DispatchUiState {
     // same world is worth visiting in 2d 04h. The countdown is only honest because the controls above
     // it still move.
     data class Waiting(
-        override val name: String,
-        override val head: String,
-        override val compactHead: String,
+        override val name: TextRes,
+        override val head: TextRes,
+        override val compactHead: TextRes,
         val at: GalaxyCoordinate,
         val window: Duration,
         val gathering: ResourceKind,
-        val metalRichness: String,
-        val crystalRichness: String,
-        val metalDeposit: String,
-        val crystalDeposit: String,
-        val ships: String,
+        val metalRichness: TextRes,
+        val crystalRichness: TextRes,
+        val metalDeposit: TextRes,
+        val crystalDeposit: TextRes,
+        val ships: TextRes,
         val shipCount: Int,
         val atFewest: Boolean,
         val atMost: Boolean,
-        val pool: String,
+        val pool: TextRes,
         val windows: List<WindowRungUiState>,
-        val ladderNote: String?,
-        val title: String,
-        val note: String,
+        val ladderNote: TextRes?,
+        val title: TextRes,
+        val note: TextRes,
         // "in 18d 13h", or null when no amount of waiting covers this ask and only a smaller one will.
-        val wait: String?,
-        val legs: String,
-        val compactLegs: String,
-        val danger: String,
-        val compactDanger: String,
+        val wait: TextRes?,
+        val legs: TextRes,
+        val compactLegs: TextRes,
+        val danger: TextRes,
+        val compactDanger: TextRes,
     ) : DispatchUiState
 
     // The sheet refuses the sale and says why, in the words of the thing that refused it — the same
     // shape `ProbeActionUiState.NothingToSurvey` already has. Both refusals are reachable on a first
     // check-in, and neither is an error state.
     data class Refuse(
-        override val name: String,
-        override val head: String,
-        override val compactHead: String,
-        val title: String,
-        val note: String,
+        override val name: TextRes,
+        override val head: TextRes,
+        override val compactHead: TextRes,
+        val title: TextRes,
+        val note: TextRes,
         val action: RefuseActionUiState?,
     ) : DispatchUiState
 }
@@ -152,15 +153,15 @@ sealed interface DispatchUiState {
 // A rung of the ladder. Keyed by its own duration rather than by its index, because the ladder
 // **narrows** on a distant target rather than greying rungs out — so the rung at index 0 is a
 // different window depending on how far away the world is.
-data class WindowRungUiState(val label: String, val window: Duration, val selected: Boolean)
+data class WindowRungUiState(val label: TextRes, val window: Duration, val selected: Boolean)
 
 sealed interface RefuseActionUiState {
 
     // The one refusal in the app that hands back a verb. It also chains the two: a probe used to buy
     // a verdict and stop, and now it buys the right to send a ship.
-    data class Probe(val label: String) : RefuseActionUiState
+    data class Probe(val label: TextRes) : RefuseActionUiState
 
     // A reading, not a control — the idiom the unaffordable probe already spends. There is nothing
     // to send, so there is no button to grey out.
-    data class Waiting(val label: String) : RefuseActionUiState
+    data class Waiting(val label: TextRes) : RefuseActionUiState
 }

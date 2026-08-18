@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.fleets.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.Gravity
@@ -19,8 +20,8 @@ import dev.fardavide.oltre.core.Temperature
 // radiation halo, a heavy grey rock, a frozen one, a small temperate one, a tidally locked one — and
 // the eye recognises before it reads, which is the whole argument for the fold.
 internal val day21 = WorkedListUiState(
-    trailing = "11 runs · newest first",
-    compactTrailing = "11 runs",
+    trailing = TextRes("11 runs · newest first"),
+    compactTrailing = TextRes("11 runs"),
     rows = listOf(
         worked(
             at = GalaxyCoordinate(3, 185, 4),
@@ -89,7 +90,7 @@ internal val day21 = WorkedListUiState(
             hazards = setOf(Hazard.TIDALLY_LOCKED),
         ),
     ),
-    unrecorded = "3 earlier runs · 402 metal · no target recorded",
+    unrecorded = TextRes("3 earlier runs · 402 metal · no target recorded"),
 )
 
 @Suppress("LongParameterList")
@@ -108,7 +109,7 @@ private fun worked(
     hazards: Set<Hazard> = emptySet(),
 ): WorkedWorldUiState = WorkedWorldUiState(
     at = at,
-    name = name,
+    name = TextRes(name),
     portrait = WorldPortraitUiState.Surveyed(
         temperature = Temperature(celsius),
         gravity = Gravity(milliG),
@@ -118,47 +119,47 @@ private fun worked(
         // a baseline never turns on a mark the mapper did not ask for.
         hasRing = false,
     ),
-    total = total,
+    total = TextRes(total),
     kind = kind,
-    prefix = "[${at.galaxy}:${at.system}:${at.slot}] · $runs",
-    compactPrefix = runs,
-    deposit = deposit,
+    prefix = TextRes("[${at.galaxy}:${at.system}:${at.slot}] · $runs"),
+    compactPrefix = TextRes(runs),
+    deposit = TextRes(deposit),
     depositIsEmpty = isEmpty,
-    landed = landed,
+    landed = landed?.let { TextRes(it) },
 )
 
 // The frame the whole design decision is for: three runs, one in each phase, so the three-hue
 // vocabulary is in one picture and the two hairline ticks are visible at three different offsets.
 internal val threeRunsUiState = FleetsUiState(
-    away = "5 of 6 away",
+    away = TextRes("5 of 6 away"),
     runs = listOf(
         RunCardUiState(
-            coordinate = "[3:171:13]",
-            manifest = "1 skiff · 52 crystal",
-            countdown = "00:08:41",
-            lands = "home 14:22",
-            legs = "out 13m · on station 5h 34m · home 13m",
-            compactLegs = "13m · 5h 34m · 13m",
+            coordinate = TextRes("[3:171:13]"),
+            manifest = TextRes("1 skiff · 52 crystal"),
+            countdown = TextRes("00:08:41"),
+            lands = TextRes("home 14:22"),
+            legs = TextRes("out 13m · on station 5h 34m · home 13m"),
+            compactLegs = TextRes("13m · 5h 34m · 13m"),
             phase = RunPhase.INBOUND,
             bar = RunBarUiState(progress = 0.97f, outboundEndsAt = 0.036f, inboundBeginsAt = 0.964f),
         ),
         RunCardUiState(
-            coordinate = "[3:185:4]",
-            manifest = "3 skiffs · 882 crystal",
-            countdown = "08:12:44",
-            lands = "home 19:04",
-            legs = "out 29m · on station 11h 02m · home 29m",
-            compactLegs = "29m · 11h 02m · 29m",
+            coordinate = TextRes("[3:185:4]"),
+            manifest = TextRes("3 skiffs · 882 crystal"),
+            countdown = TextRes("08:12:44"),
+            lands = TextRes("home 19:04"),
+            legs = TextRes("out 29m · on station 11h 02m · home 29m"),
+            compactLegs = TextRes("29m · 11h 02m · 29m"),
             phase = RunPhase.ON_STATION,
             bar = RunBarUiState(progress = 0.32f, outboundEndsAt = 0.040f, inboundBeginsAt = 0.960f),
         ),
         RunCardUiState(
-            coordinate = "[3:171:8]",
-            manifest = "1 skiff · 132 metal",
-            countdown = "02:41:07",
-            lands = "home 22:41",
-            legs = "out 10m · on station 2h 40m · home 10m",
-            compactLegs = "10m · 2h 40m · 10m",
+            coordinate = TextRes("[3:171:8]"),
+            manifest = TextRes("1 skiff · 132 metal"),
+            countdown = TextRes("02:41:07"),
+            lands = TextRes("home 22:41"),
+            legs = TextRes("out 10m · on station 2h 40m · home 10m"),
+            compactLegs = TextRes("10m · 2h 40m · 10m"),
             phase = RunPhase.OUTBOUND,
             bar = RunBarUiState(progress = 0.04f, outboundEndsAt = 0.056f, inboundBeginsAt = 0.944f),
         ),
@@ -170,15 +171,15 @@ internal val threeRunsUiState = FleetsUiState(
 // The first sitting: the granted skiff, out for the first time, and nothing has ever come back — so
 // the ledger is absent rather than an empty heading.
 internal val firstRunUiState = FleetsUiState(
-    away = "1 of 1 away",
+    away = TextRes("1 of 1 away"),
     runs = listOf(
         RunCardUiState(
-            coordinate = "[3:171:8]",
-            manifest = "1 skiff · 66 metal",
-            countdown = "02:41:07",
-            lands = "home 10:41",
-            legs = "out 10m · on station 2h 40m · home 10m",
-            compactLegs = "10m · 2h 40m · 10m",
+            coordinate = TextRes("[3:171:8]"),
+            manifest = TextRes("1 skiff · 66 metal"),
+            countdown = TextRes("02:41:07"),
+            lands = TextRes("home 10:41"),
+            legs = TextRes("out 10m · on station 2h 40m · home 10m"),
+            compactLegs = TextRes("10m · 2h 40m · 10m"),
             phase = RunPhase.OUTBOUND,
             bar = RunBarUiState(progress = 0.04f, outboundEndsAt = 0.056f, inboundBeginsAt = 0.944f),
         ),
@@ -191,7 +192,7 @@ internal val firstRunUiState = FleetsUiState(
 // nothing out, so this is what the tab says on a first launch — drawn in the idiom the Shipyard's
 // footnote already spends rather than invented.
 internal val nothingOutUiState = FleetsUiState(
-    away = "0 of 1 away",
+    away = TextRes("0 of 1 away"),
     runs = emptyList(),
     worked = null,
     dispatch = null,

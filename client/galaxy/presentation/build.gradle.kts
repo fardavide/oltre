@@ -53,6 +53,7 @@ kotlin {
             // `api`, so the composition root names this feature once — see `:client:colony:presentation`.
             api(projects.client.galaxy.ui)
             implementation(projects.client.design.component)
+            implementation(projects.client.design.text)
             // `:client:design:format` was declined at 0.0.15 on the grounds that the one thing this
             // screen formats — a milli-unit as a decimal — had a single caller. It has two since
             // the adaptation branch put the same three axes on Research: a band there is read

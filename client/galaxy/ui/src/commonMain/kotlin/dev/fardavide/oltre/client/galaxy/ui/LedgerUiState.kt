@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.world.ui.WorldPortraitUiState
 
 // **The worlds list keeps the two jobs a list is better at than a map, and lost the three it was
@@ -27,9 +28,13 @@ data class LedgerHeadUiState(
     // **Always visible, never a mode.** Names are unique inside a galaxy, so a full name returns one
     // row and a system name returns its worlds — the only place in the app where typing beats
     // tapping, and the literal answer to "two pages before".
+    //
+    // **A `String` and not a `TextRes`, which is not an exception to #86 but the rule read the right
+    // way round**: this is what the *player* typed, on its way back to a text field. `TextRes` is
+    // what the game says.
     val query: String,
     // Null on the orbit page, which is a reading of one system rather than a list with a length.
-    val count: String?,
+    val count: TextRes?,
 )
 
 enum class LedgerMode { WORLDS, MAP }
@@ -53,7 +58,7 @@ data class LedgerBodyUiState(
     val emptiness: LedgerEmptinessUiState?,
 )
 
-data class LedgerEmptinessUiState(val headline: String, val detail: String)
+data class LedgerEmptinessUiState(val headline: TextRes, val detail: TextRes)
 
 // The survey moment. **A section of the ledger rather than a layer over it** — a card you must
 // dismiss is a tax on the one thing the app promises, and three of them is that tax three times.
@@ -62,16 +67,19 @@ data class LedgerEmptinessUiState(val headline: String, val detail: String)
 // One discovery gets the large portrait and the labelled axis column; **two or more degrade to the
 // compact card**, because at three the thing to protect is the scroll rather than the ceremony.
 data class DiscoveryCardUiState(
-    val world: String,
-    val coordinate: String,
-    val epithet: String,
+    val world: TextRes,
+    val coordinate: TextRes,
+    val epithet: TextRes,
     val portrait: WorldPortraitUiState.Surveyed,
-    val temperature: String,
-    val gravity: String,
-    val pressure: String,
-    val note: String,
+    val temperature: TextRes,
+    val gravity: TextRes,
+    val pressure: TextRes,
+    // The three readings as the one line the compact card draws. Composed by the mapper for the
+    // reason every other sentence is: a `ui` module draws what it is handed.
+    val readings: TextRes,
+    val note: TextRes,
     // "found 5 days ago", and **not** "found day 9": nothing in `GameState` carries a genesis
     // instant, so a day number is not derivable — where elapsed-since is, straight off the
     // `SurveyCompleted` event that put the world in the set.
-    val found: String,
+    val found: TextRes,
 )

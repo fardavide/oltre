@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.colony.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
@@ -29,7 +30,7 @@ class WatchBehaviourTest {
     fun `tapping the lit square sends the same message as tapping an unlit one`() {
         facilityList(
             listOf(
-                waiting(BuildingType.METAL_MINE, watch = WatchUiState.Booked("→ affordable 19:51")),
+                waiting(BuildingType.METAL_MINE, watch = WatchUiState.Booked(TextRes("→ affordable 19:51"))),
                 waiting(BuildingType.CRYSTAL_MINE),
             ),
         ) {
@@ -42,7 +43,7 @@ class WatchBehaviourTest {
 
     @Test
     fun `the watched row says the instant it named`() {
-        facilityRow(waiting(BuildingType.METAL_MINE, watch = WatchUiState.Booked("→ affordable 19:51"))) {
+        facilityRow(waiting(BuildingType.METAL_MINE, watch = WatchUiState.Booked(TextRes("→ affordable 19:51")))) {
             assertReads("→ affordable 19:51")
         }
     }
@@ -97,9 +98,9 @@ class WatchBehaviourTest {
     ) = waiting(building, watch).copy(
         action = FacilityActionUiState.Upgrading(
             toLevel = BuildingLevel(11),
-            countdown = "00:27:14",
+            countdown = TextRes("00:27:14"),
             progressPercent = 78,
-            doneAt = "done 11:23",
+            doneAt = TextRes("done 11:23"),
         ),
         level = BuildingLevel(10),
     )
@@ -112,16 +113,16 @@ class WatchBehaviourTest {
         watch: WatchUiState? = WatchUiState.Offered,
     ) = FacilityRowUiState(
         building = building,
-        name = if (building == BuildingType.ROBOTICS_FACTORY) "Robotics Factory" else "Metal Mine",
-        compactName = if (building == BuildingType.ROBOTICS_FACTORY) "Robotics" else "Metal Mine",
+        name = TextRes(if (building == BuildingType.ROBOTICS_FACTORY) "Robotics Factory" else "Metal Mine"),
+        compactName = TextRes(if (building == BuildingType.ROBOTICS_FACTORY) "Robotics" else "Metal Mine"),
         level = BuildingLevel(12),
-        costs = listOf(CostChipUiState(kind = ResourceKind.METAL, amount = "12,458", short = true)),
-        duration = "6h 12m",
-        action = FacilityActionUiState.AffordableIn("in 8h 13m"),
+        costs = listOf(CostChipUiState(kind = ResourceKind.METAL, amount = TextRes("12,458"), short = true)),
+        duration = TextRes("6h 12m"),
+        action = FacilityActionUiState.AffordableIn(TextRes("in 8h 13m")),
         power = null,
         fix = null,
         watch = watch,
-        verdict = VerdictUiState(label = "+281/h metal · back in 6h 40m", compactLabel = "+281/h metal"),
+        verdict = VerdictUiState(label = TextRes("+281/h metal · back in 6h 40m"), compactLabel = TextRes("+281/h metal")),
         detail = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null),
         finishedWhileAway = false,
     )

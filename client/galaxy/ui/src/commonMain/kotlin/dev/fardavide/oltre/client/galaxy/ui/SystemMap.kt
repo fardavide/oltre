@@ -25,6 +25,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.core.oltreMono
 
 // The system, drawn as what it is: a star with things going round it, seen from just above the
@@ -89,7 +91,7 @@ internal fun SystemMap(map: SystemMapUiState, modifier: Modifier = Modifier) {
                     .width(LABEL_WIDTH),
             ) {
                 Text(
-                    text = "${body.slot}",
+                    text = Strings.orbitSlot(body.slot).resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 9.5.sp,
@@ -104,7 +106,7 @@ internal fun SystemMap(map: SystemMapUiState, modifier: Modifier = Modifier) {
         // arrives beside the dot at every width instead of drifting away from it.
         map.trajectory?.let { trajectory ->
             Text(
-                text = trajectory.label,
+                text = trajectory.label.resolve(),
                 color = OltreColors.accent,
                 fontFamily = oltreMono(),
                 fontSize = 9.5.sp,

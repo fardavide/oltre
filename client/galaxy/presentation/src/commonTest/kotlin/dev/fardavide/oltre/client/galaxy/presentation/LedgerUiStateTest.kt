@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.LedgerHeadUiState
@@ -68,7 +69,7 @@ class LedgerUiStateTest {
         val body = state.ledgerBody(nav = state.nav(query = name), now = EPOCH)
 
         // then
-        assertEquals(listOf(name), body.rows.map { it.name })
+        assertEquals(listOf(name), body.rows.map { English.resolve(it.name) })
     }
 
     @Test
@@ -110,8 +111,8 @@ class LedgerUiStateTest {
         // typed half a name needs to know that halves work and that whole ones are unambiguous
         assertTrue(body.rows.isEmpty())
         val emptiness = checkNotNull(body.emptiness)
-        assertEquals("No world you know is called that.", emptiness.headline)
-        assertEquals("Names are unique in a galaxy, so a full name finds one place.", emptiness.detail)
+        assertEquals("No world you know is called that.", English.resolve(emptiness.headline))
+        assertEquals("Names are unique in a galaxy, so a full name finds one place.", English.resolve(emptiness.detail))
     }
 
     @Test
@@ -130,7 +131,7 @@ class LedgerUiStateTest {
 
         // then the round trip rather than the distance, because the trip is what the player is
         // spending and it is the figure the row itself prints
-        val trips = rows.map { FleetBalance.roundTrip(from = state.galaxy.home, to = worlds.getValue(it.coordinate).at) }
+        val trips = rows.map { FleetBalance.roundTrip(from = state.galaxy.home, to = worlds.getValue(English.resolve(it.coordinate)).at) }
         // Stated rather than trusted: an ordering assertion over a list that holds one figure is
         // green whichever way the mapper sorts, so the fixture has to be checked for the spread it
         // claims to have before the order below means anything.
@@ -171,9 +172,9 @@ class LedgerUiStateTest {
         // then both end on the next thing to do rather than on an apology, and the query alone is
         // what tells them apart — an empty ledger with an empty field is a player who has flown
         // nothing yet, and the sentence says what would change that
-        assertEquals("Every world a probe reaches lands here.", checkNotNull(unsurveyed.emptiness).headline)
-        assertEquals("You have surveyed nothing yet.", checkNotNull(unsurveyed.emptiness).detail)
-        assertEquals("No world you know is called that.", checkNotNull(unmatched.emptiness).headline)
+        assertEquals("Every world a probe reaches lands here.", English.resolve(checkNotNull(unsurveyed.emptiness).headline))
+        assertEquals("You have surveyed nothing yet.", English.resolve(checkNotNull(unsurveyed.emptiness).detail))
+        assertEquals("No world you know is called that.", English.resolve(checkNotNull(unmatched.emptiness).headline))
     }
 
     @Test
@@ -200,11 +201,14 @@ class LedgerUiStateTest {
         // then one card per world the system holds
         assertEquals(
             genesis.galaxy.surveyed.map { worldNameAt(state.galaxy.seed, it) }.toSet(),
-            body.discoveries.map { it.world }.toSet(),
+            body.discoveries.map { English.resolve(it.world) }.toSet(),
         )
         // "found 3h 00m ago" and **not** "found day 9": nothing in `GameState` carries a genesis
         // instant, so a day number is not derivable where elapsed-since is.
-        assertTrue(body.discoveries.all { it.found == "found 3h 00m ago" }, "was ${body.discoveries.map { it.found }}")
+        assertTrue(
+            body.discoveries.all { English.resolve(it.found) == "found 3h 00m ago" },
+            "was ${body.discoveries.map { English.resolve(it.found) }}",
+        )
     }
 
     @Test
@@ -271,9 +275,9 @@ class LedgerUiStateTest {
         // handed the matched list rather than searching the surveyed set a second time to agree with
         // itself. Since 0.12 the query is the only thing that can make the two numbers differ.
         assertEquals(LedgerMode.WORLDS, all.mode)
-        assertEquals("${state.galaxy.surveyed.size} worlds", all.count)
+        assertEquals("${state.galaxy.surveyed.size} worlds", English.resolve(checkNotNull(all.count)))
         // Never "1 worlds": the count sits under the search field and is read as a sentence.
-        assertEquals("1 world", one.count)
+        assertEquals("1 world", English.resolve(checkNotNull(one.count)))
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────
@@ -331,7 +335,7 @@ class LedgerUiStateTest {
     // reads the metric back off the seed through this.
     private fun GameState.surveyedWorldsByLabel(): Map<String, World> = galaxy.surveyed
         .mapNotNull { worldAt(galaxy.seed, it) }
-        .associateBy { it.at.label() }
+        .associateBy { English.resolve(it.at.label()) }
 
     // A name no other name in the ledger contains. **The match is `contains` rather than an
     // equality**, and the slot numerals are substrings of each other — `Calanova I` is inside

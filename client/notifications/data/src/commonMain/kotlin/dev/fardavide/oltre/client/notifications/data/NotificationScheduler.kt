@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.client.design.text.TextRes
 import kotlin.time.Instant
 
 // One alert the platform is asked to raise at a future instant, while the app is not running.
@@ -9,6 +10,17 @@ data class LocalNotification(
     val id: String,
     val title: String,
     val body: String,
+    val at: Instant,
+)
+
+// The same alert before its language is chosen. **The split is #86's, and it is the one place in
+// the app where the seam is a type rather than a call**: everything the game derives is built here,
+// in `TextRes`, and `GameNotifications.sync` resolves the pair the instant before it hands the set
+// to the platform — which is the last moment at which a `String` is the right thing to have.
+data class PendingNotification(
+    val id: String,
+    val title: TextRes,
+    val body: TextRes,
     val at: Instant,
 )
 

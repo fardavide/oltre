@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyHeadsUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRowUiState
@@ -42,8 +43,8 @@ class GalaxyUiStateTest {
 
         // then — the headline is the place and the coordinate is demoted rather than deleted: the
         // arithmetic, the ledger's key and the eventual multiplayer chat all still need the address.
-        assertEquals("Elyotis", header.system)
-        assertEquals("3:171", header.coordinate)
+        assertEquals("Elyotis", English.resolve(header.system))
+        assertEquals("3:171", English.resolve(header.coordinate))
         // **The same string against a different destination, which is the one thing 0.12 moved on
         // this page.** Until the fold arrived the region name was the way *into* the region index —
         // a list of ten rows that no longer exists — and it is now the way back *out* to the map,
@@ -51,8 +52,12 @@ class GalaxyUiStateTest {
         // is pinned here is unchanged and what it means is not: it is still the header's only accent
         // string, and accent still says "go tap this", but where it lands is the drawing rather than
         // a screen that has been deleted.
-        assertEquals("Elyutis Reach", header.region)
-        assertEquals("STANDARD · 7 worlds", header.detail)
+        assertEquals("Elyutis Reach", English.resolve(header.region))
+        // Lower case in the model since #86 and drawn in capitals by `SystemHead`, which is what
+        // it always did — the star class used to arrive here as the enum's own `STANDARD` and be
+        // uppercased again on the way out. Which is also what the map caption had to lower-case to
+        // use, so the two surfaces now read one entry.
+        assertEquals("standard · 7 worlds", English.resolve(header.detail))
         assertTrue(header.isHome)
     }
 
@@ -64,16 +69,19 @@ class GalaxyUiStateTest {
         // is the whole reason this line can live under the header instead of on fifteen rows.
         val state = fresh()
 
-        val home = state.systemAt(state.homeSelection()).header.astronomy
-        val away = state.systemAt(state.unsurveyedSelection()).header.astronomy
+        val home = state.systemAt(state.homeSelection()).header.shortAstronomy
+        val away = state.systemAt(state.unsurveyedSelection()).header.shortAstronomy
 
         // Both of these overflow the 54-character budget — home because it states a range and this
-        // neighbour because its flight is hours — so both drop "from here". What goes is always a
-        // noun and never a figure, and the first clause has already said what the band is measured
-        // from.
-        assertEquals("Your own system · danger 0 · 20–26m out and back", home)
-        assertEquals("945 units out · danger 2 · 3h 28m out and back", away)
-        assertTrue('–' !in away, "only home spreads the trip across its slots: $away")
+        // neighbour because its flight is hours — so both are drawn in the short form, which drops
+        // "from here". What goes is always a noun and never a figure, and the first clause has
+        // already said what the band is measured from.
+        //
+        // **Which of the two the screen picks is `SystemHead`'s since #86**, so what is asserted here
+        // is the reading it picks rather than the picking — see `astronomyFor`.
+        assertEquals("Your own system · danger 0 · 20–26m out and back", English.resolve(home))
+        assertEquals("945 units out · danger 2 · 3h 28m out and back", English.resolve(away))
+        assertTrue('–' !in English.resolve(away), "only home spreads the trip across its slots: $away")
     }
 
     @Test
@@ -88,14 +96,18 @@ class GalaxyUiStateTest {
         // then the name carries the system and the slot's numeral, which is the one numbering on the
         // screen — the map already spaces bodies by rank and labels them by slot, so a second ordinal
         // would make those two disagree.
-        assertEquals("Elyotis I", row.name)
-        assertEquals("[3:171:1]", row.coordinate)
+        assertEquals("Elyotis I", English.resolve(row.name))
+        assertEquals("[3:171:1]", English.resolve(row.coordinate))
         // The address is rendered once. It moves between the subtitle line and the headline's tail
         // depending on whether there is an epithet, and a row that printed it in both places would be
         // saying the same thing twice on the tightest line in the app.
         val printed = listOfNotNull(row.name, row.coordinate, row.epithet, row.note) +
             row.requirements.map { it.label }
-        assertEquals(1, printed.count { row.coordinate in it }, printed.toString())
+        assertEquals(
+            1,
+            printed.count { English.resolve(row.coordinate) in English.resolve(it) },
+            printed.toString(),
+        )
     }
 
     @Test
@@ -142,7 +154,7 @@ class GalaxyUiStateTest {
         val row = state.rowAt(state.aNeighbourOfHome())
 
         assertIs<WorldPortraitUiState.Surveyed>(row.portrait)
-        assertEquals("veiled furnace", row.epithet)
+        assertEquals("veiled furnace", English.resolve(checkNotNull(row.epithet)))
     }
 
     @Test
@@ -194,21 +206,21 @@ class GalaxyUiStateTest {
         // rather than one a fixture had to arrange.
         val state = fresh()
         val row = state.worldRowsAt(state.homeSelection()).first { world ->
-            world.requirements.any { it.axis == "gravity" }
+            world.requirements.any { English.resolve(it.axis) == "gravity" }
         }
 
         // then — the four parts, in the order the line prints them
-        val gravity = row.requirements.first { it.axis == "gravity" }
+        val gravity = row.requirements.first { English.resolve(it.axis) == "gravity" }
         assertEquals(WorldVerdictUiState.BLOCKED, row.verdict)
-        assertEquals("1.53", gravity.reading)
+        assertEquals("1.53", English.resolve(gravity.reading))
         // The unit is written once and on the tolerance: both numbers are the same axis, and the four
         // characters that saves are what keep the technology on the line at 393dp. The space before it
         // is U+00A0 so a wrap never leaves "g" alone, normalised here so the expectation is legible.
-        assertEquals("1.40 g", gravity.tolerated.breakable())
+        assertEquals("1.40 g", English.resolve(gravity.tolerated).breakable())
         // "Gravitic 2", never "Gravitic Adaptation 2": all three ladders end in the same word, so it
         // carries nothing and costs eleven characters the row does not have.
-        assertEquals("Gravitic 2", gravity.label)
-        assertTrue(row.requirements.none { "Adaptation" in it.label }, row.requirements.toString())
+        assertEquals("Gravitic 2", English.resolve(gravity.label))
+        assertTrue(row.requirements.none { "Adaptation" in English.resolve(it.label)}, row.requirements.toString())
     }
 
     @Test
@@ -258,8 +270,8 @@ class GalaxyUiStateTest {
         val row = state.worldRowsAt(state.homeSelection()).first { it.deposits != null }
         val deposits = assertNotNull(row.deposits)
 
-        assertEquals("full", assertNotNull(deposits.metal).reading)
-        assertEquals("full", assertNotNull(deposits.crystal).reading)
+        assertEquals("full", English.resolve(assertNotNull(deposits.metal).reading))
+        assertEquals("full", English.resolve(assertNotNull(deposits.crystal).reading))
     }
 
     @Test
@@ -306,7 +318,7 @@ class GalaxyUiStateTest {
         val inLedger = state.ledgerRows().first { it.coordinate == inSystem.coordinate }
 
         assertNull(inSystem.trailing)
-        assertEquals("26m", inLedger.trailing)
+        assertEquals("26m", English.resolve(checkNotNull(inLedger.trailing)))
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────

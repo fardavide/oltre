@@ -25,6 +25,9 @@ import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.ProgressBar
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.oltreMono
 
 // The footer of the system card, under the orbits and behind a hairline. One probe affordance per
@@ -64,7 +67,7 @@ internal fun ProbeAction(
                         faceModifier = Modifier.background(OltreColors.accent, oltreActionShape),
                     ) {
                         Text(
-                            text = if (compact) uiState.compactLabel else uiState.label,
+                            text = (if (compact) uiState.compactLabel else uiState.label).resolve(),
                             color = Color.White,
                             fontFamily = oltreMono(),
                             fontSize = 11.sp,
@@ -81,7 +84,7 @@ internal fun ProbeAction(
                 compact = compact,
                 action = {
                     Text(
-                        text = uiState.availableIn,
+                        text = uiState.availableIn.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 11.sp,
@@ -101,7 +104,7 @@ internal fun ProbeAction(
             ) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     Text(
-                        text = uiState.countdown,
+                        text = uiState.countdown.resolve(),
                         color = OltreColors.accent,
                         fontFamily = oltreMono(),
                         fontSize = 14.sp,
@@ -110,13 +113,13 @@ internal fun ProbeAction(
                         softWrap = false,
                     )
                     Text(
-                        text = "·",
+                        text = Strings.middot().resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
                     )
                     Text(
-                        text = uiState.lands,
+                        text = uiState.lands.resolve(),
                         color = OltreColors.textTertiary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -131,7 +134,7 @@ internal fun ProbeAction(
                 modifier = Modifier.fillMaxWidth().testTag(GalaxyTestTags.PROBE_FOOTER),
             ) {
                 Text(
-                    text = uiState.landedAt,
+                    text = uiState.landedAt.resolve(),
                     color = OltreColors.text,
                     fontFamily = oltreMono(),
                     fontSize = 12.5.sp,
@@ -141,16 +144,21 @@ internal fun ProbeAction(
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
                     Text(
-                        text = uiState.summary,
+                        text = uiState.summary.resolve(),
                         color = OltreColors.textSecondary,
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
                     )
-                    Text(text = "·", color = OltreColors.textTertiary, fontFamily = oltreMono(), fontSize = 10.5.sp)
+                    Text(
+                        text = Strings.middot().resolve(),
+                        color = OltreColors.textTertiary,
+                        fontFamily = oltreMono(),
+                        fontSize = 10.5.sp,
+                    )
                     // Green once, and only on the count. The row below carries the world and its
                     // yield; the summary does not repeat them.
                     Text(
-                        text = uiState.find,
+                        text = uiState.find.resolve(),
                         color = uiState.findKind.hue(),
                         fontFamily = oltreMono(),
                         fontSize = 10.5.sp,
@@ -183,15 +191,20 @@ private fun Offer(offer: ProbeOfferUiState, compact: Boolean, action: @Composabl
             // colour does the work the word did.
             if (!compact) {
                 Text(
-                    text = offer.costWord,
+                    text = offer.costWord.resolve(),
                     color = OltreColors.textTertiary,
                     fontFamily = oltreMono(),
                     fontSize = 10.5.sp,
                 )
             }
-            Text(text = "·", color = OltreColors.textTertiary, fontFamily = oltreMono(), fontSize = 10.5.sp)
             Text(
-                text = if (compact) offer.compactFlight else offer.flight,
+                text = Strings.middot().resolve(),
+                color = OltreColors.textTertiary,
+                fontFamily = oltreMono(),
+                fontSize = 10.5.sp,
+            )
+            Text(
+                text = (if (compact) offer.compactFlight else offer.flight).resolve(),
                 color = OltreColors.textSecondary,
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
@@ -208,10 +221,10 @@ private fun Offer(offer: ProbeOfferUiState, compact: Boolean, action: @Composabl
 // would carry the string itself and every assertion written against the other five states would
 // quietly miss it.
 @Composable
-private fun Note(text: String) {
+private fun Note(text: TextRes) {
     Column(modifier = Modifier.fillMaxWidth().testTag(GalaxyTestTags.PROBE_FOOTER)) {
         Text(
-            text = text,
+            text = text.resolve(),
             color = OltreColors.textTertiary,
             fontFamily = oltreMono(),
             fontSize = 10.5.sp,

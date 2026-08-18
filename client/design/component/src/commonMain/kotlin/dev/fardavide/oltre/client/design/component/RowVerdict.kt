@@ -7,6 +7,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.core.resolve
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 
@@ -25,7 +27,7 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 @Composable
 fun RowVerdict(verdict: VerdictUiState, compact: Boolean, modifier: Modifier = Modifier) {
     Text(
-        text = if (compact) verdict.compactLabel else verdict.label,
+        text = (if (compact) verdict.compactLabel else verdict.label).resolve(),
         color = OltreColors.textSecondary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
@@ -44,4 +46,4 @@ fun RowVerdict(verdict: VerdictUiState, compact: Boolean, modifier: Modifier = M
 // Nothing a dropped clause said is lost: it is repeated in the sheet the row opens. That is the one
 // place this design leaks, and it is a knowing leak — the alternative is a "more" glyph on thirteen
 // rows, which costs more than the leak does.
-data class VerdictUiState(val label: String, val compactLabel: String)
+data class VerdictUiState(val label: TextRes, val compactLabel: TextRes)
