@@ -2,11 +2,14 @@ package dev.fardavide.oltre.client.design.text
 
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.EpithetAdjective
+import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WorldEpithet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -316,6 +319,11 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.pressureReading(TextRes("x")))
     add(Strings.foundAgo(TextRes("x")))
     HostilityAxis.entries.forEach { add(Strings.axisName(it)) }
+    // Every pair the galaxy can produce, rather than one of them: the adjective is inflected against
+    // the noun in Italian, so a pair is where that can go wrong and a single sample would miss it.
+    EpithetAdjective.entries.forEach { adjective ->
+        EpithetNoun.entries.forEach { noun -> add(Strings.worldEpithet(WorldEpithet(adjective, noun))) }
+    }
     add(Strings.noteHome())
     add(Strings.noteOccupied(TextRes("x")))
     add(Strings.noteSettleable())

@@ -477,6 +477,40 @@ object Italian : Translations {
         StringId.AxisTemperature -> "temperatura"
         StringId.AxisGravity -> "gravità"
         StringId.AxisPressure -> "pressione"
+        // **Noun first, and the adjective agrees with it** — which is the whole reason `WorldEpithet`
+        // is one entry over two arguments rather than a joined pair. English writes "veiled furnace";
+        // Italian writes "fornace velata", and would write "gelo ferreo" for the same adjective
+        // against a masculine noun.
+        //
+        // The agreement is a rule rather than a second column of words: Italian's first-class
+        // adjectives end `-o` in the masculine and `-a` in the feminine, and its second class ends
+        // `-e` and does not decline at all. So the table holds the masculine — the form a dictionary
+        // holds — and `feminised` applies the rule. `fragile` and `irrespirabile` pass through it
+        // untouched, which is the rule working rather than an exception to it.
+        StringId.WorldEpithet ->
+            "${args.text(1)} ${args.text(0).feminised(args.epithetNounIsFeminine(1))}"
+        StringId.EpithetNounFurnace -> "fornace"
+        StringId.EpithetNounFrost -> "gelo"
+        StringId.EpithetNounGiant -> "gigante"
+        StringId.EpithetNounHusk -> "guscio"
+        // *Coltre* rather than *sudario*: a shroud here is a smothering blanket of atmosphere, not a
+        // burial cloth, and the world it names is the one you cannot breathe on rather than a grave.
+        StringId.EpithetNounShroud -> "coltre"
+        StringId.EpithetNounWaste -> "landa"
+        StringId.EpithetNounWorld -> "mondo"
+        StringId.EpithetAdjectiveScorched -> "riarso"
+        StringId.EpithetAdjectiveFrozen -> "ghiacciato"
+        StringId.EpithetAdjectiveIron -> "ferreo"
+        StringId.EpithetAdjectiveHollow -> "cavo"
+        StringId.EpithetAdjectiveVeiled -> "velato"
+        StringId.EpithetAdjectiveAirless -> "irrespirabile"
+        StringId.EpithetAdjectiveAshen -> "cinereo"
+        StringId.EpithetAdjectiveDeep -> "profondo"
+        StringId.EpithetAdjectiveBrittle -> "fragile"
+        StringId.EpithetAdjectiveDrowned -> "sommerso"
+        StringId.EpithetAdjectiveBare -> "spoglio"
+        StringId.EpithetAdjectiveTemperate -> "temperato"
+
         // Every one of these describes a world, and *mondo* is masculine — which is what makes the
         // participles below safe where the same word next to a hull's name would not be.
         StringId.NoteHome -> "La tua colonia."
@@ -595,6 +629,25 @@ object Italian : Translations {
             StringId.ShipNameSettler -> StringId.ShipsSettler
             else -> error("a ship tally was handed something that is not a ship name")
         }
+
+    // Three of the seven epithet nouns are feminine, and there is no reading them off the words: the
+    // ones ending `-e` split both ways — `fornace` is feminine and `gigante` is masculine — which is
+    // exactly why gender is carried by the entry rather than inferred from the string. Read by id for
+    // `shipCountId`'s reason: `Strings.worldEpithet` takes an `EpithetNoun`, so what arrives is one of
+    // these seven.
+    private fun List<Arg>.epithetNounIsFeminine(index: Int): Boolean =
+        when (((this[index] as Arg.Text).value as TextRes.Message).id) {
+            StringId.EpithetNounFurnace,
+            StringId.EpithetNounShroud,
+            StringId.EpithetNounWaste,
+            -> true
+            else -> false
+        }
+
+    // The rule, and it is the whole of Italian adjective agreement for this class: `-o` becomes `-a`,
+    // and a word that does not end in `-o` does not decline for gender at all.
+    private fun String.feminised(feminine: Boolean): String =
+        if (feminine && endsWith('o')) dropLast(1) + "a" else this
 
     // Italian has English's two forms and picks between them on the same number, so this reads the
     // same. What differs is what the callers hand it: no Italian noun pluralises by adding a letter,

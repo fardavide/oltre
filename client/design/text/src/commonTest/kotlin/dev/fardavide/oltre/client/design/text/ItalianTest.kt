@@ -1,8 +1,11 @@
 package dev.fardavide.oltre.client.design.text
 
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.EpithetAdjective
+import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WorldEpithet
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -211,6 +214,66 @@ class ItalianTest {
         assertEquals(
             "Il prossimo livello di Sintetizz. Deuterio richiede ",
             Italian.resolve(Strings.sheetNextBuildTakes(Strings.buildingName(BuildingType.DEUTERIUM_SYNTHESIZER))),
+        )
+    }
+
+    // **The one place gender could not be designed around**, because both words come out of `core`
+    // and the pairing is a fact about the world rather than a sentence anybody wrote: `fornace` is
+    // feminine and `gelo` is masculine, and the same adjective has to sit beside either.
+    //
+    // The word order goes with it. English writes the adjective first and Italian writes it second,
+    // which is why the epithet is one entry over two arguments rather than a joined pair.
+    @Test
+    fun `should put the epithet's adjective after its noun and agree with it`() {
+        assertEquals(
+            "fornace velata",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.VEILED, EpithetNoun.FURNACE))),
+        )
+        assertEquals(
+            "gelo ferreo",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.IRON, EpithetNoun.FROST))),
+        )
+        assertEquals(
+            "gigante ghiacciato",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.FROZEN, EpithetNoun.GIANT))),
+        )
+        assertEquals(
+            "landa spoglia",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.BARE, EpithetNoun.WASTE))),
+        )
+        assertEquals(
+            "mondo temperato",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.TEMPERATE, EpithetNoun.WORLD))),
+        )
+    }
+
+    // The second class of Italian adjective ends `-e` and does not decline for gender at all, so the
+    // same word stands beside a feminine noun and a masculine one. That is the agreement rule
+    // working rather than an exception to it — and it is why the table holds one form per adjective
+    // instead of two.
+    @Test
+    fun `should leave an adjective that does not decline alone`() {
+        assertEquals(
+            "coltre irrespirabile",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.AIRLESS, EpithetNoun.SHROUD))),
+        )
+        assertEquals(
+            "guscio fragile",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.BRITTLE, EpithetNoun.HUSK))),
+        )
+    }
+
+    // The gender cannot be read off the word, which is the reason it is carried by the entry: three
+    // of the seven nouns end `-e` and they do not all go the same way.
+    @Test
+    fun `should not infer a noun's gender from how it ends`() {
+        assertEquals(
+            "fornace cinerea",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.ASHEN, EpithetNoun.FURNACE))),
+        )
+        assertEquals(
+            "gigante cinereo",
+            Italian.resolve(Strings.worldEpithet(WorldEpithet(EpithetAdjective.ASHEN, EpithetNoun.GIANT))),
         )
     }
 

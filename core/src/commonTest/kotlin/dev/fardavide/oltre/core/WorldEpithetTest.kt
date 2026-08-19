@@ -15,12 +15,12 @@ class WorldEpithetTest {
 
     @Test
     fun `the noun comes from the axis a world is most extreme on`() {
-        assertEquals("giant", epithetFor(traits(gravityMilliG = 2_600)).noun)
-        assertEquals("husk", epithetFor(traits(gravityMilliG = 200)).noun)
-        assertEquals("frost", epithetFor(traits(celsius = -180)).noun)
-        assertEquals("furnace", epithetFor(traits(celsius = 210)).noun)
-        assertEquals("shroud", epithetFor(traits(pressureMilliAtm = 9_000)).noun)
-        assertEquals("waste", epithetFor(traits(pressureMilliAtm = 10)).noun)
+        assertEquals(EpithetNoun.GIANT, epithetFor(traits(gravityMilliG = 2_600)).noun)
+        assertEquals(EpithetNoun.HUSK, epithetFor(traits(gravityMilliG = 200)).noun)
+        assertEquals(EpithetNoun.FROST, epithetFor(traits(celsius = -180)).noun)
+        assertEquals(EpithetNoun.FURNACE, epithetFor(traits(celsius = 210)).noun)
+        assertEquals(EpithetNoun.SHROUD, epithetFor(traits(pressureMilliAtm = 9_000)).noun)
+        assertEquals(EpithetNoun.WASTE, epithetFor(traits(pressureMilliAtm = 10)).noun)
     }
 
     @Test
@@ -28,8 +28,14 @@ class WorldEpithetTest {
         // A heavy world that is also very cold is a frozen giant; the same world with the two
         // magnitudes swapped is an iron frost. Same two facts, and the word order says which one is
         // the headline.
-        assertEquals("frozen giant", epithetFor(traits(gravityMilliG = 2_700, celsius = -120)).toString())
-        assertEquals("iron frost", epithetFor(traits(gravityMilliG = 1_600, celsius = -250)).toString())
+        assertEquals(
+            WorldEpithet(EpithetAdjective.FROZEN, EpithetNoun.GIANT),
+            epithetFor(traits(gravityMilliG = 2_700, celsius = -120)),
+        )
+        assertEquals(
+            WorldEpithet(EpithetAdjective.IRON, EpithetNoun.FROST),
+            epithetFor(traits(gravityMilliG = 1_600, celsius = -250)),
+        )
     }
 
     @Test
@@ -38,12 +44,15 @@ class WorldEpithetTest {
         // **from a second table**. Reusing the first one shipped `frozen frost`, `hollow husk` and
         // `veiled shroud` across 10% of the galaxy: two word lists can be disjoint as strings and
         // identical in sense, and only the second of those is what a reader sees.
-        assertEquals("iron giant", epithetFor(traits(gravityMilliG = 2_700)).toString())
-        assertEquals("deep frost", epithetFor(traits(celsius = -250)).toString())
-        assertEquals("brittle husk", epithetFor(traits(gravityMilliG = 200)).toString())
-        assertEquals("drowned shroud", epithetFor(traits(pressureMilliAtm = 9_000)).toString())
-        assertEquals("bare waste", epithetFor(traits(pressureMilliAtm = 10)).toString())
-        assertEquals("ashen furnace", epithetFor(traits(celsius = 210)).toString())
+        assertEquals(WorldEpithet(EpithetAdjective.IRON, EpithetNoun.GIANT), epithetFor(traits(gravityMilliG = 2_700)))
+        assertEquals(WorldEpithet(EpithetAdjective.DEEP, EpithetNoun.FROST), epithetFor(traits(celsius = -250)))
+        assertEquals(WorldEpithet(EpithetAdjective.BRITTLE, EpithetNoun.HUSK), epithetFor(traits(gravityMilliG = 200)))
+        assertEquals(
+            WorldEpithet(EpithetAdjective.DROWNED, EpithetNoun.SHROUD),
+            epithetFor(traits(pressureMilliAtm = 9_000)),
+        )
+        assertEquals(WorldEpithet(EpithetAdjective.BARE, EpithetNoun.WASTE), epithetFor(traits(pressureMilliAtm = 10)))
+        assertEquals(WorldEpithet(EpithetAdjective.ASHEN, EpithetNoun.FURNACE), epithetFor(traits(celsius = 210)))
     }
 
     @Test
@@ -51,19 +60,26 @@ class WorldEpithetTest {
         // 1.5% of the map, and the only worlds a settler can take. Naming them for what they are
         // rather than for an extreme they do not have is the honest answer — and it is the one
         // epithet a player should be pleased to read.
-        assertEquals("temperate world", epithetFor(traits()).toString())
+        assertEquals(WorldEpithet(EpithetAdjective.TEMPERATE, EpithetNoun.WORLD), epithetFor(traits()))
     }
 
     @Test
-    fun `every world in a galaxy gets an epithet`() {
-        // No coordinate may render as an empty string on a row. Cheap to assert and impossible to
-        // notice by hand across 4,700 worlds.
+    fun `the temperate pair is reserved for worlds that are actually temperate`() {
+        // **What "every world gets an epithet" became once the words were typed.** The old assertion
+        // was that neither string was blank, which a pair of enums cannot be — so what is left to
+        // check is the thing it was really guarding: `world` and `temperate` are the fallback, and a
+        // world outside any band reaching them would be an extreme one described as mild.
+        val unaided = GalaxyBalance.tolerance(AdaptationLevels.NONE)
         for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             for (slot in 1..GalaxyBalance.SLOTS_PER_SYSTEM) {
                 val world = worldAt(TEST_GALAXY_SEED, GalaxyCoordinate(1, system, slot)) ?: continue
-                val epithet = epithetFor(world.traits)
+                val traits = world.traits
+                val inside = HostilityAxis.entries.all {
+                    traits.axisValue(it) in unaided.bandOf(it).min..unaided.bandOf(it).max
+                }
 
-                assertTrue(epithet.adjective.isNotBlank() && epithet.noun.isNotBlank(), "$world has no epithet")
+                assertEquals(inside, epithetFor(traits).noun == EpithetNoun.WORLD, "$world")
+                assertEquals(inside, epithetFor(traits).adjective == EpithetAdjective.TEMPERATE, "$world")
             }
         }
     }
@@ -79,13 +95,16 @@ class WorldEpithetTest {
                 val world = worldAt(TEST_GALAXY_SEED, GalaxyCoordinate(1, system, slot)) ?: continue
                 val traits = world.traits
 
+                // Exhaustive now that the noun is an enum, which is the second thing typing it
+                // bought: a seventh noun would fail to compile here rather than pass unchecked.
                 when (epithetFor(traits).noun) {
-                    "frost" -> assertTrue(traits.temperature.celsius < unaided.temperature.min, "$world")
-                    "furnace" -> assertTrue(traits.temperature.celsius > unaided.temperature.max, "$world")
-                    "giant" -> assertTrue(traits.gravity.milliG > unaided.gravity.max, "$world")
-                    "husk" -> assertTrue(traits.gravity.milliG < unaided.gravity.min, "$world")
-                    "shroud" -> assertTrue(traits.pressure.milliAtm > unaided.pressure.max, "$world")
-                    "waste" -> assertTrue(traits.pressure.milliAtm < unaided.pressure.min, "$world")
+                    EpithetNoun.FROST -> assertTrue(traits.temperature.celsius < unaided.temperature.min, "$world")
+                    EpithetNoun.FURNACE -> assertTrue(traits.temperature.celsius > unaided.temperature.max, "$world")
+                    EpithetNoun.GIANT -> assertTrue(traits.gravity.milliG > unaided.gravity.max, "$world")
+                    EpithetNoun.HUSK -> assertTrue(traits.gravity.milliG < unaided.gravity.min, "$world")
+                    EpithetNoun.SHROUD -> assertTrue(traits.pressure.milliAtm > unaided.pressure.max, "$world")
+                    EpithetNoun.WASTE -> assertTrue(traits.pressure.milliAtm < unaided.pressure.min, "$world")
+                    EpithetNoun.WORLD -> Unit
                 }
             }
         }

@@ -221,12 +221,15 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   technologies, the three adaptation ladders and the hulls all have Italian names — a Scialuppa
   leaves the Cantiere, a Miniera di Metallo reaches its next livello, and the Galaxy tab reports a
   world as Colonizzabile or Bloccato.
+- **Worlds are named in Italian too.** The two words every surveyed world carries — *veiled
+  furnace*, *iron frost*, *temperate world* — are computed from its temperature, gravity and
+  pressure rather than written down, so they used to stay English whatever the phone was set to.
+  Now a world is a *fornace velata* or a *gelo ferreo*, with the adjective after the noun and
+  agreeing with it, the way Italian puts it.
 - **One line does not fit yet, and the game will show you.** The Shipyard's pool line — how many
   hulls you own, how many are in port, how many are out — runs off the end of a 320dp window in
   Italian where it fits in English. It is recorded rather than papered over; the fix belongs to the
   layout, not to worse Italian.
-- A world's two-word epithet — *veiled furnace*, *temperate world* — is still English on every row
-  of the ledger. It is generated rather than written down, and its vocabulary is not settled yet.
 
 ### 0.13.2 — 2026-08-18
 
