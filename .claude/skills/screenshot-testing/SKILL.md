@@ -59,3 +59,27 @@ when_to_use: >
   `verifyRoborazziDesktop` fails after a pure move, the move changed the drawing, and that is a bug
   in the move rather than a baseline that needs updating. Record *before* such a change so it has
   something honest to verify against.
+
+## Baselines in a second language
+
+- **Name a locale baseline `<frame>_it.png`, beside the English frame, and leave English
+  unsuffixed.** Set with Italian (#87, 0.14.0), and it is the convention for every language after
+  it: the language subtag appended to the name of the frame it is a translation of. A sibling
+  directory was the alternative and it splits the one pair that is only ever read together — a
+  locale frame means nothing except next to the frame it differs from, and the "Record screenshots"
+  job's before/after comment is where that comparison actually happens.
+- **A frame is *told* its language; it never reads the device's.** Pass `OltreTheme(Italian)`
+  explicitly and leave the default `English`. `App` reads the system locale; a screenshot test that
+  did the same would record on an Italian Mac and fail on an English runner, for a reason nothing in
+  the diff would explain.
+- **Baseline a handful at 320dp rather than the whole suite** (Davide, 2026-08-16) — the frames whose
+  text is measured to the character, which is where a 15–30% longer language actually breaks. Every
+  frame in a second language is also a frame to re-record whenever its English twin moves.
+- **Only a frame built from the catalogue can see a language at all.** A fixture written as
+  `TextRes("Metal Mine")` resolves to itself in every locale, so a locale baseline over it asserts
+  that English is still English. Check the fixture first: the mapper-driven tests
+  (`galaxy/presentation`, `fleets/presentation`) and any `Test…UiState` built through `Strings` —
+  `TestShipyardUiState` is the one that is — are what is worth photographing twice.
+- **A locale frame that truncates is a finding, not a baseline to fix by shortening the copy.**
+  Record what happens, say so in the PR, and let the layout answer it. The alternative is worse
+  words chosen to fit a width nobody measured on purpose.

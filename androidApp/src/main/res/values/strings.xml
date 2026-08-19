@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- The launcher label. Not translated: the game is English-only, and a name is a name. -->
+    <!-- The launcher label, and the one string in the app that stays out of the catalogue. The
+         game stopped being English-only at 0.14.0 and this did not move: a name is a name
+         (Davide, 2026-08-16), and "Oltre" is already the Italian word. There is no values-it/
+         beside this file and there should not be one — a second copy of an untranslated string is
+         a second thing to keep in step. -->
     <string name="app_name">Oltre</string>
 </resources>

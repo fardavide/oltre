@@ -11,6 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.intl.Locale
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
 import dev.fardavide.oltre.client.colony.ui.ColonyScreen
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
@@ -20,8 +21,8 @@ import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.ui.DebugSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
-import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Translations
+import dev.fardavide.oltre.client.design.text.translationsFor
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
@@ -88,11 +89,22 @@ fun App(
     // out of `GameStore` deliberately: a preference must never be able to cost somebody a colony,
     // and separate files mean a corrupt one of either kind takes only its own down.
     preferences: PreferencesStore = remember { PreferencesStore(defaultPreferencesFile()) },
-    // **The one place the game's language is chosen**, and it is chosen once. `English` is the only
-    // table there is — #87 is what adds a second and a device locale to pick between them — so what
-    // this parameter buys today is the seam rather than a choice: a test can hand in a different
-    // table, and the pseudo-locale suite will.
-    translations: Translations = English,
+    // **The one place the game's language is chosen**, and it is chosen once — from the device,
+    // with no picker and no settings surface anywhere in the app (Davide, 2026-08-16). The shell
+    // reads the locale because it is the only place both halves are in scope: the UI half reaches
+    // the table through `OltreTheme`'s ambient, and `GameNotifications` takes it as a parameter
+    // because it writes copy into the OS's own database hours before anything is composing.
+    //
+    // **Neither half needs a locale-change event, and that is the call paying for itself.** Both
+    // platforms restart the app when the system language changes — Android recreates the activity on
+    // the configuration change, iOS relaunches the process — so this is re-read and the `commit`
+    // below re-books every alert on the way back in, through the path that already exists. What is
+    // left is that alerts already sitting with the OS keep their old wording until the next
+    // foreground, which is the same window every other number in this game lives with.
+    //
+    // Still a parameter, and still for the reason it was one before there was a second table: a test
+    // hands in whichever language the frame is about.
+    translations: Translations = remember { translationsFor(Locale.current.toLanguageTag()) },
     notifications: GameNotifications = remember(translations) {
         GameNotifications(defaultNotificationScheduler(), translations)
     },
