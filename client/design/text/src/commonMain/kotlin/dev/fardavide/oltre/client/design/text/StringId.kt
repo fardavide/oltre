@@ -352,6 +352,37 @@ enum class StringId {
     AxisTemperature,
     AxisGravity,
     AxisPressure,
+    // ── What a world is called, in two words ────────────────────────────────────────────────
+    //
+    // **The entry that made a second language a `core` change.** These were English literals inside
+    // `WorldEpithet` until 0.14.0, reaching the UI as a `TextRes.Raw` and therefore untranslatable by
+    // construction — which is exactly what the Italian ledger showed, a column of `veiled furnace`
+    // under Italian headings. What `core` knows is the *distinction* between six nouns and twelve
+    // adjectives; which words those are, and in which order they go, is this table's.
+    //
+    // `WorldEpithet` is one entry over two arguments rather than a joined pair, because the order is
+    // the language's: English writes "veiled furnace" and Italian writes "fornace velata".
+    WorldEpithet,
+    EpithetNounFurnace,
+    EpithetNounFrost,
+    EpithetNounGiant,
+    EpithetNounHusk,
+    EpithetNounShroud,
+    EpithetNounWaste,
+    EpithetNounWorld,
+    EpithetAdjectiveScorched,
+    EpithetAdjectiveFrozen,
+    EpithetAdjectiveIron,
+    EpithetAdjectiveHollow,
+    EpithetAdjectiveVeiled,
+    EpithetAdjectiveAirless,
+    EpithetAdjectiveAshen,
+    EpithetAdjectiveDeep,
+    EpithetAdjectiveBrittle,
+    EpithetAdjectiveDrowned,
+    EpithetAdjectiveBare,
+    EpithetAdjectiveTemperate,
+
     NoteHome,
     NoteOccupied,
     NoteSettleable,

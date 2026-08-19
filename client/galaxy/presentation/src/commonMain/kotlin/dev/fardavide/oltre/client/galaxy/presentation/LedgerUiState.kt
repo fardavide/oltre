@@ -152,7 +152,7 @@ private fun GameState.toDiscoveryCard(world: World, foundAt: Instant, now: Insta
     return DiscoveryCardUiState(
         world = TextRes(worldNameAt(galaxy.seed, world.at)),
         coordinate = world.at.label(),
-        epithet = TextRes(epithetFor(traits).toString()),
+        epithet = Strings.worldEpithet(epithetFor(traits)),
         portrait = WorldPortraitUiState.Surveyed(
             temperature = traits.temperature,
             gravity = traits.gravity,

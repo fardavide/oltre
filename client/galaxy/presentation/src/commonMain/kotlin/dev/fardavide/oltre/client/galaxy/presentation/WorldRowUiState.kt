@@ -52,7 +52,7 @@ internal fun GameState.toWorldRow(
         // condition is what makes it impossible for the picture and the word to disagree about what
         // the player has paid for.
         portrait = world.toPortrait(surveyed),
-        epithet = if (surveyed) TextRes(epithetFor(traits).toString()) else null,
+        epithet = if (surveyed) Strings.worldEpithet(epithetFor(traits)) else null,
         verdict = verdict.toUiState(),
         trailing = if (withTrailing) FleetBalance.roundTrip(from = galaxy.home, to = world.at).toChipLabel() else null,
         deposits = if (verdict.pricesAHold()) toDepositReading(world.at, now) else null,

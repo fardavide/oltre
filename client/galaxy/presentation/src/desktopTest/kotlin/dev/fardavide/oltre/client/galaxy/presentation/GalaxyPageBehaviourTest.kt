@@ -206,7 +206,7 @@ class GalaxyPageBehaviourTest {
                 blocked.at,
                 name,
                 English.resolve(checkNotNull(WorldVerdictUiState.BLOCKED.word)).orEmpty().uppercase(),
-                epithetFor(world(blocked.at).traits).toString(),
+                English.resolve(Strings.worldEpithet(epithetFor(world(blocked.at).traits))),
                 English.resolve(blocked.coordinate),
             )
         }
@@ -312,12 +312,12 @@ class GalaxyPageBehaviourTest {
         // Derived from `core` rather than read off the frame, so what has to reach the screen is the
         // generator's epithet rather than whatever the mapper felt like putting there.
         galaxyPage(uiState = homeSystemUiState) {
-            assertRowReads(blocked.at, epithetFor(world(blocked.at).traits).toString())
+            assertRowReads(blocked.at, English.resolve(Strings.worldEpithet(epithetFor(world(blocked.at).traits))))
         }
         galaxyPage(uiState = unsurveyedSystemUiState) {
             // The row is really on the screen, or the absence below is the absence of a row.
             assertRowReads(unsurveyed.at, English.resolve(unsurveyed.coordinate))
-            assertNothingReads(epithetFor(world(unsurveyed.at).traits).toString())
+            assertNothingReads(English.resolve(Strings.worldEpithet(epithetFor(world(unsurveyed.at).traits))))
         }
     }
 

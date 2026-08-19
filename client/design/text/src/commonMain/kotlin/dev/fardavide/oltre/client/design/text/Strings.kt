@@ -2,11 +2,14 @@ package dev.fardavide.oltre.client.design.text
 
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.EpithetAdjective
+import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.HostilityAxis
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WorldEpithet
 
 // **The factory, and the whole of the type safety.** `Message`'s constructor is `internal`, so this
 // object is the only way to name a catalogue entry — which means the signature written here *is* the
@@ -879,6 +882,47 @@ object Strings {
             HostilityAxis.TEMPERATURE -> StringId.AxisTemperature
             HostilityAxis.GRAVITY -> StringId.AxisGravity
             HostilityAxis.PRESSURE -> StringId.AxisPressure
+        },
+    )
+
+    // "veiled furnace" — what a world *is*, in two words derived from its three axes. One entry over
+    // two arguments rather than a `clauses` of them, because the order is the language's: English
+    // puts the adjective first and Italian puts it second, agreeing with the noun.
+    fun worldEpithet(epithet: WorldEpithet): TextRes = message(
+        StringId.WorldEpithet,
+        Arg.Text(epithetAdjective(epithet.adjective)),
+        Arg.Text(epithetNoun(epithet.noun)),
+    )
+
+    // Separate entries rather than one per pair, because there are six nouns and twelve adjectives
+    // and only about seventy of the seventy-two combinations occur — and a catalogue of pairs would
+    // be a catalogue nobody could check against the galaxy.
+    private fun epithetNoun(noun: EpithetNoun): TextRes = message(
+        when (noun) {
+            EpithetNoun.FURNACE -> StringId.EpithetNounFurnace
+            EpithetNoun.FROST -> StringId.EpithetNounFrost
+            EpithetNoun.GIANT -> StringId.EpithetNounGiant
+            EpithetNoun.HUSK -> StringId.EpithetNounHusk
+            EpithetNoun.SHROUD -> StringId.EpithetNounShroud
+            EpithetNoun.WASTE -> StringId.EpithetNounWaste
+            EpithetNoun.WORLD -> StringId.EpithetNounWorld
+        },
+    )
+
+    private fun epithetAdjective(adjective: EpithetAdjective): TextRes = message(
+        when (adjective) {
+            EpithetAdjective.SCORCHED -> StringId.EpithetAdjectiveScorched
+            EpithetAdjective.FROZEN -> StringId.EpithetAdjectiveFrozen
+            EpithetAdjective.IRON -> StringId.EpithetAdjectiveIron
+            EpithetAdjective.HOLLOW -> StringId.EpithetAdjectiveHollow
+            EpithetAdjective.VEILED -> StringId.EpithetAdjectiveVeiled
+            EpithetAdjective.AIRLESS -> StringId.EpithetAdjectiveAirless
+            EpithetAdjective.ASHEN -> StringId.EpithetAdjectiveAshen
+            EpithetAdjective.DEEP -> StringId.EpithetAdjectiveDeep
+            EpithetAdjective.BRITTLE -> StringId.EpithetAdjectiveBrittle
+            EpithetAdjective.DROWNED -> StringId.EpithetAdjectiveDrowned
+            EpithetAdjective.BARE -> StringId.EpithetAdjectiveBare
+            EpithetAdjective.TEMPERATE -> StringId.EpithetAdjectiveTemperate
         },
     )
 

@@ -206,6 +206,31 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.14.0 — 2026-08-19
+
+- **The game speaks Italian.** Every word it says — five screens, both sheets, the resource rail,
+  the tab bar and every lock-screen alert — now has an Italian form, and a phone set to Italian gets
+  it with nothing to switch on. There is no language picker and there is not meant to be one: the
+  game follows the system, so changing your phone's language changes the game's, and the alerts it
+  had already booked are rewritten the next time you open it. Every other language still gets
+  English.
+- **Numbers are written the way the language writes them.** Italian groups thousands with a point
+  and marks decimals with a comma, so a price reads `12.150` and a gravity reads `2,62`. Durations
+  keep `h` and `m` and count days in `g`.
+- **The fleet is Italian too, and so is everything in it.** The six facilities, the four
+  technologies, the three adaptation ladders and the hulls all have Italian names — a Scialuppa
+  leaves the Cantiere, a Miniera di Metallo reaches its next livello, and the Galaxy tab reports a
+  world as Colonizzabile or Bloccato.
+- **Worlds are named in Italian too.** The two words every surveyed world carries — *veiled
+  furnace*, *iron frost*, *temperate world* — are computed from its temperature, gravity and
+  pressure rather than written down, so they used to stay English whatever the phone was set to.
+  Now a world is a *fornace velata* or a *gelo ferreo*, with the adjective after the noun and
+  agreeing with it, the way Italian puts it.
+- **One line does not fit yet, and the game will show you.** The Shipyard's pool line — how many
+  hulls you own, how many are in port, how many are out — runs off the end of a 320dp window in
+  Italian where it fits in English. It is recorded rather than papered over; the fix belongs to the
+  layout, not to worse Italian.
+
 ### 0.13.2 — 2026-08-18
 
 - **Buttons no longer flash a square.** Every rounded card, button, pill and chip in the game drew

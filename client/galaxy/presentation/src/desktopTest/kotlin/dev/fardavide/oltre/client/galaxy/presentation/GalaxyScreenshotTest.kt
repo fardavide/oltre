@@ -9,6 +9,9 @@ import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Italian
+import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
@@ -362,13 +365,83 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // ── Italian, at the one width where a longer language has nowhere to go ──────────────────
+    //
+    // **This tab and the Shipyard are the only two places in the repository where a baseline can see
+    // a language at all**, and that is worth knowing before reading the handful below as thin. Twelve
+    // of the fifteen screenshot tests photograph hand-written `TextRes("…")` fixtures, which resolve
+    // to themselves in every locale — so a full Italian suite over them would assert that English is
+    // still English. These frames are the real mapper's output over a real `GameState`, so every word
+    // in them comes out of the catalogue.
+    //
+    // Four rather than every 320dp frame, per Davide's call (2026-08-16): the frames with the tightest
+    // text, not all 92. Each of these was picked because a *named* measurement runs through it —
+    //
+    // - the map's caption drops "from here" past a 54-character monospace budget, and Italian's
+    //   "pericolo 2 da qui" is shorter than English's while the star line above it is longer;
+    // - the ledger's verdict word sits hard against the right edge, and `Colonizzabile` is thirteen
+    //   characters where `Settleable` is ten — the widest single word this translation adds;
+    // - the dispatch sheet's legs line is measured to the character, and it is four clauses;
+    // - the stripped world draws the only compact legs pair that sits under a countdown.
+    //
+    // The naming is `<frame>_it.png` beside the English frame rather than a directory of its own, and
+    // the `screenshot-testing` skill now says so: a locale baseline is only ever read next to the one
+    // it is a translation of, and a sibling directory splits the pair that the diff has to compare.
+
+    @Test
+    fun `the map in a Slide Over window in Italian`() {
+        capture(
+            width = 320,
+            height = DESTINATION_HEIGHT,
+            uiState = frame(state = pinnedState),
+            name = "galaxy_map_slide_over_it",
+            translations = Italian,
+        )
+    }
+
+    @Test
+    fun `the ledger in a Slide Over window in Italian`() {
+        capture(
+            width = 320,
+            height = 1600,
+            uiState = frame(state = pinnedState, view = GalaxyView.WORLDS),
+            name = "galaxy_ledger_slide_over_it",
+            translations = Italian,
+        )
+    }
+
+    @Test
+    fun `the sheet in a Slide Over window in Italian`() {
+        captureSheet(
+            width = 320,
+            uiState = dispatchOfferUiState,
+            name = "galaxy_dispatch_slide_over_it",
+            translations = Italian,
+        )
+    }
+
+    @Test
+    fun `a stripped world in a Slide Over window in Italian`() {
+        captureSheet(
+            width = 320,
+            uiState = dispatchWaitingUiState,
+            name = "galaxy_dispatch_waiting_slide_over_it",
+            translations = Italian,
+        )
+    }
+
     // The sheet is a popup and a popup is a root of its own, so `onRoot` finds two and refuses to
     // choose. The one to photograph is named by what is inside it rather than by the order the two
     // arrive in.
-    private fun captureSheet(width: Int = 393, uiState: GalaxyUiState, name: String) {
+    private fun captureSheet(
+        width: Int = 393,
+        uiState: GalaxyUiState,
+        name: String,
+        translations: Translations = English,
+    ) {
         runDesktopComposeUiTest(width = width, height = 852) {
             mainClock.autoAdvance = false
-            setContent { OltreTheme { Surface { Page(uiState) } } }
+            setContent { OltreTheme(translations) { Surface { Page(uiState) } } }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onNode(isRoot() and hasAnyDescendant(hasTestTag(DispatchTestTags.SHEET))).captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
@@ -377,10 +450,20 @@ class GalaxyScreenshotTest {
         }
     }
 
-    private fun capture(width: Int, height: Int, uiState: GalaxyUiState, name: String) {
+    // **English by default rather than the device's language**, which is the one thing a screenshot
+    // test must not read: a baseline recorded on an Italian Mac and verified on an English runner
+    // would fail on every frame, and for a reason nothing in the diff would explain. The shell reads
+    // the locale; a frame is told which language it is about.
+    private fun capture(
+        width: Int,
+        height: Int,
+        uiState: GalaxyUiState,
+        name: String,
+        translations: Translations = English,
+    ) {
         runDesktopComposeUiTest(width = width, height = height) {
             mainClock.autoAdvance = false
-            setContent { OltreTheme { Surface { Page(uiState) } } }
+            setContent { OltreTheme(translations) { Surface { Page(uiState) } } }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/$name.png",
