@@ -255,7 +255,7 @@ private fun Offer(
             )
             // Absent on a single hull, because "132 each" beside "132 metal" is the same number
             // printed twice.
-            uiState.perShip?.let { each ->
+            uiState.vein?.let { each ->
                 Text(
                     text = each.resolve(),
                     color = OltreColors.textTertiary,

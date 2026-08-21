@@ -399,12 +399,8 @@ fun GameState.toDispatchUiState(
         //
         // The clamp marker stays whatever the manifest is: `the whole deposit` is a fact about the
         // ground rather than about the hulls, and it is the only marker the clamped state needs.
-        perShip = when {
-            clamped -> Strings.theWholeDeposit()
-            sent.counts.size > 1 -> null
-            hulls > 1 -> Strings.eachShip((haul / hulls).groupedByThousands())
-            else -> null
-        },
+        // The vein, in the two forms Design gives it: what is left after this run, or all of it.
+        vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands()),
         legs = legsLine(flight = flight, station = station, working = working, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),

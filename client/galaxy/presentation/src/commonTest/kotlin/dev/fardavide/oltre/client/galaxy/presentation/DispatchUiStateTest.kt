@@ -145,9 +145,11 @@ class DispatchUiStateTest {
             dispatchAt(target, withSkiffs(40), asked.copy(ships = suggested - 1)),
         )
 
+        // One hull fewer leaves something in the ground, which is what "smallest that empties it"
+        // means — read off the vein now that it is what the slot beside the figure holds.
         assertTrue(
-            fewer.perShip?.let { English.resolve(it).endsWith(" each") } == true,
-            "one hull fewer still emptied it: ${fewer.perShip}",
+            fewer.vein?.let { English.resolve(it).endsWith("left in the ground") } == true,
+            "one hull fewer still emptied it: ${fewer.vein}",
         )
     }
 
@@ -188,16 +190,24 @@ class DispatchUiStateTest {
     }
 
     @Test
-    fun `the each line appears only when there is more than one hull to divide by`() {
+    fun `the slot beside the figure is the vein whatever the manifest is`() {
+        // **This asserted `449 each` until 0.15.0, and Design retired it** — *"the per-ship reading,
+        // which a mix has no answer for."* What replaced it answers whatever the manifest is,
+        // because it is a fact about the ground rather than about the hulls: what this run leaves.
         val target = runnable()
 
         val one = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(1)))
         val several = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(4)))
+        val mixed = assertIs<DispatchUiState.Offer>(dispatchAt(target, withFleet(haulers = 1, skiffs = 2)))
 
-        // "132 each" beside "132 metal" is the same number printed twice.
-        assertNull(one.perShip)
-        assertEquals("1 skiff", English.resolve(one.ships))
-        assertTrue(English.resolve(checkNotNull(several.perShip)).orEmpty().endsWith(" each"), English.resolve(checkNotNull(several.perShip)).orEmpty())
+        for (offer in listOf(one, several, mixed)) {
+            val reading = English.resolve(checkNotNull(offer.vein))
+            assertTrue(
+                reading.endsWith("left in the ground") || reading == "the whole deposit",
+                "the slot said something else: $reading",
+            )
+            assertTrue(!reading.endsWith(" each"), "the retired per-ship reading came back: $reading")
+        }
     }
 
     @Test
@@ -488,7 +498,7 @@ class DispatchUiStateTest {
             dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
         )
 
-        assertEquals("the whole deposit", English.resolve(checkNotNull(offer.perShip)))
+        assertEquals("the whole deposit", English.resolve(checkNotNull(offer.vein)))
         // The headline figure already *is* the deposit, so nothing restates it.
         assertTrue(!English.resolve(offer.figure).contains("deposit"), English.resolve(offer.figure))
     }

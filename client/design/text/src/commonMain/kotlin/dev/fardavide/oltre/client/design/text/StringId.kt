@@ -113,6 +113,7 @@ enum class StringId {
     ClampRestOthers,
     TheWholeDeposit,
     EachShip,
+    VeinLeft,
     LegOut,
     LegOnStation,
     LegStation,

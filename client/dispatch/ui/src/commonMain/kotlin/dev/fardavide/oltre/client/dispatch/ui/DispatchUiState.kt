@@ -111,13 +111,18 @@ sealed interface DispatchUiState {
         // The only thing on the sheet that moves when a control is touched, which is why it sits
         // under a rule and above the verb.
         val figure: TextRes,
-        // "449 each" on an unclamped run, "the whole deposit" when the vein is what stopped it —
-        // one token in a slot that already exists, and the only marker the clamped state needs.
-        // **The figure is never restated**: when the clamp bites the headline number already *is* the
-        // deposit, and printing it twice is the defect the null-on-a-single-hull rule below exists to
-        // prevent. Null on a single unclamped hull, because "132 each" beside "132 metal" is the same
-        // number twice.
-        val perShip: TextRes?,
+        // **What this run leaves behind** — `870 left in the ground`, or `the whole deposit` when
+        // the vein is what stopped it. One token in a slot that already existed.
+        //
+        // **It held the per-ship reading until 0.15.0**, and Design retired that: `449 each` is under
+        // its *Retired* heading with the reason in five words — *"the per-ship reading, which a mix
+        // has no answer for."* A hauler and two skiffs do not lift the same amount each, and a berth
+        // is not a thing a player sends, so "each" names nothing the moment the manifest is mixed.
+        //
+        // The vein answers whatever the manifest is, which is why it is the replacement rather than a
+        // second slot: it is a fact about the ground. **The figure is never restated** — when the
+        // clamp bites, the headline number already *is* the deposit.
+        val vein: TextRes?,
         val legs: TextRes,
         val compactLegs: TextRes,
         val danger: TextRes,

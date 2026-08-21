@@ -183,6 +183,7 @@ object Italian : Translations {
             if (it == 1) "L'altra non porta nulla." else "Le altre $it non portano nulla."
         }
         StringId.TheWholeDeposit -> "l'intero giacimento"
+        StringId.VeinLeft -> "${args.text(0)} rimasti nel terreno"
         StringId.EachShip -> "${args.text(0)} ciascuna"
         StringId.LegOut -> "andata ${args.text(0)}"
         StringId.LegOnStation -> "in stazione ${args.text(0)}"

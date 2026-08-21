@@ -314,6 +314,10 @@ object Strings {
 
     fun theWholeDeposit(): TextRes = message(StringId.TheWholeDeposit)
 
+    // "870 left in the ground" — the slot beside the figure, which the per-ship reading used to
+    // hold. What a run *leaves*, so the two forms are one sentence: this much left, or all of it.
+    fun veinLeft(amount: TextRes): TextRes = message(StringId.VeinLeft, Arg.Text(amount))
+
     // "449 each"
     fun eachShip(amount: TextRes): TextRes = message(StringId.EachShip, Arg.Text(amount))
 

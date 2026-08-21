@@ -134,6 +134,10 @@ object English : Translations {
         StringId.ClampRestOthers ->
             args.count(0).let { "The other $it ${it.plural("brings", "bring")} nothing." }
         StringId.TheWholeDeposit -> "the whole deposit"
+        // **What the slot beside the figure says since 0.15.0** — Design's copy list moves it from
+        // the per-ship reading to the vein: what this run would leave behind. `449 each` is under
+        // its *Retired* heading, because a mixed manifest has no answer for "each".
+        StringId.VeinLeft -> "${args.text(0)} left in the ground"
         StringId.EachShip -> "${args.text(0)} each"
         StringId.LegOut -> "out ${args.text(0)}"
         StringId.LegOnStation -> "on station ${args.text(0)}"

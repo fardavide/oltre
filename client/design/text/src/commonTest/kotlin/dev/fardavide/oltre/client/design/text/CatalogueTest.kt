@@ -146,6 +146,7 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.clampRestOrdinal(3))
     add(Strings.clampRestOthers(3))
     add(Strings.theWholeDeposit())
+    add(Strings.veinLeft(TextRes("x")))
     add(Strings.eachShip(TextRes("x")))
     add(Strings.legOut(TextRes("x")))
     add(Strings.legOnStation(TextRes("x")))
