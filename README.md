@@ -206,6 +206,32 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.15.0 — 2026-08-21
+
+- **Distance takes real time now, and a new technology buys it back.** Flying anywhere costs twice
+  what it used to, so the far end of the map is genuinely out of reach: a colony that has researched
+  nothing cannot order a run to the next galaxy at all, because no window is long enough to get
+  there and back. **Propulsion** is the answer — a fifth row on the Research screen that makes every
+  fleet faster, and each level hands window rungs back to worlds that had refused them. The first
+  level alone returns your ships to the speed they flew at before this release.
+- **It pays where you are going, not where you live.** Propulsion is worth nothing on the rock next
+  door and everything at the frontier: a hop to the next galaxy goes from eighteen hours and twenty
+  minutes down to nine and a half on the first level, while a neighbour in your own system stays the
+  ten minutes it always was.
+- **Surveying costs a ship.** A probe now flies a hull and takes it out of your fleet until it lands,
+  so ten systems can no longer be surveyed in one tap-and-wait: they need ten ships, or ten trips.
+- **The Scout is that ship, and it is the cheapest thing in the game.** 200 metal and 50 crystal —
+  affordable in your first check-in, out of the stock a new colony wakes up with. It carries no
+  cargo and has exactly one job. A skiff cannot survey and a scout cannot gather, so what you own
+  decides what you can do, and the Galaxy tab says which you are short of before you tap.
+- **A scout comes home.** It is spent for the flight rather than used up by it, so one scout will
+  survey the galaxy given time — the cost is the waiting, not the hull.
+- **The Hauler has a price at last: 2,400 metal and 600 crystal.** Four holds for what three skiffs
+  cost, traded against half the speed. It is not on sale yet — the dispatch sheet can only send one
+  kind of ship at a time, and letting you mix them is the next piece of work.
+- **A colony already in play keeps everything it had** and picks up one scout for each probe already
+  in the air. Its ships are slower until it researches Propulsion, which is the point.
+
 ### 0.14.0 — 2026-08-19
 
 - **The game speaks Italian.** Every word it says — five screens, both sheets, the resource rail,

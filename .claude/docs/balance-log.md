@@ -3503,3 +3503,136 @@ unable to afford the next thing. The wait moved from a rule to a price.
 - **Watch the Nanite Factory.** If a fortnight of real play also never reaches it, the branch is
   eating the late opening rather than running beside it, and the first thing to try is raising the
   adaptation base — not restoring the shared slot, which Davide has ruled on.
+
+---
+
+## Round 30 — distance costs what it says, and a probe costs a ship (0.15.0, 2026-08-21)
+
+Issue #71, all three of its items, and the first two of them shipped. Davide's ask, three times in
+five days — 2026-08-12 (*"travel towards far planes to be way more time consuming, and require
+upgraded fleets to get there faster"*), 2026-08-15, and 2026-08-16 (*"navigating distance takes way
+more time, without powered up ships"*).
+
+**Two constants moved and one appeared.** `UNITS_PER_MINUTE_BASE` 10 → 5, `Technology.PROPULSION`
+with a linear `1 + level` effect, and `SCOUT` at 200 metal / 50 crystal. The hauler's price was
+re-taken at 2,400 / 600 and is not on sale.
+
+### The halving is a calibration rather than a slowdown
+
+`unitsPerMinute` is `base × (1 + level)`, so **drive 0 is half of 0.14's speed and drive 1 is 0.14 to
+the minute.** That is the whole reason 5 rather than 4 or 6: the first level does not make a player
+faster than they have ever been, it gives back the game they had, and everything past it is new
+ground. `BASE_FLIGHT_MINUTES` stays outside the division, so the neighbourhood does not move at all.
+
+| target | drive 0 | drive 1 | drive 3 | drive 5 |
+|---|---|---|---|---|
+| the next slot | 32m | 26m | 22m | 22m |
+| 60 systems out | 2h 58m | 1h 38m | 58m | 46m |
+| across your own galaxy | 6h 38m | 3h 28m | 1h 54m | 1h 22m |
+| the next galaxy | 18h 20m | 9h 20m | 4h 50m | 3h 20m |
+| **two galaxy hops** | **out of reach** | 18h 20m | 9h 40m | 6h 40m |
+
+Round trips, from the benchmark's new `[drive]` section, which prints the ladder each level offers
+rather than only the clock. **The bottom row is the change a player will actually notice**: at drive
+0 no window on the ladder covers two galaxy hops, so `windowsFor` returns nothing and the far end of
+the map is not orderable at all. `exploration-rewards-sheet.md` §8.5 raised that as an open call and
+this is the answer — the frontier is bought, not given.
+
+### The sheet's thesis reproduces from the shipped formulas
+
+§4's crossover was arithmetic in a document. It is now a row on the page, and it lands where the
+sheet said it would:
+
+| target, 24h rung, one richness | hold | vs the rock next door |
+|---|---|---|
+| the next slot | 1,964 metal | 1.00× |
+| 60 systems out | 2,217 | 1.12× |
+| across your own galaxy | 2,207 | 1.12× |
+| **the next galaxy, drive 0** | **843** | **0.42×** |
+| **the next galaxy, drive 1** | **2,182** | **1.11×** |
+
+**Read the last two rows.** At drive 0 another galaxy returns four tenths of what the rock next door
+does, and one level turns it into a better buy than the rock. That is the sheet's whole argument in
+two numbers, and it is the first time it has been measured rather than asserted.
+
+### Where the sheet was wrong, and Davide's ruling on it
+
+§2.3 had this technology carrying the **hold** as well as the speed, on the argument that *"it is
+the growth term the fleet has never had."* **That premise expired at 0.10.0**, when `PROSPECTING`
+shipped and gave the fleet exactly that. Two rows multiplying one term against the same ×1.5 cost
+curve is not a choice: the steeper wins from some level on and never loses again, so at ×1.25
+against Prospecting's ×1.10 the older row becomes a trap nobody should ever buy.
+
+Davide's call, 2026-08-21: **speed only.** The drive is reach, Prospecting is yield, and the
+benchmark's second `[drive]` block is the check — at the adjacent galaxy a drive level is worth
+2,182 metal against Prospecting's 927, and next door the drive is worth nothing at all while
+Prospecting is worth the same everywhere. They compete without dominating, which is §6.5's merge
+condition met rather than argued.
+
+It is also the one **linear** row in a branch that compounds, and that is not a softening: every
+other technology multiplies a rate, this one divides a *distance*, and a compounding divisor deletes
+the map by level eight.
+
+### What the fixed player did — 61 rows moved
+
+The same greedy player on the same seed, flying at half speed and buying Propulsion last (it is the
+dearest row, and the bot buys cheapest-first).
+
+| Reading | Was | Now |
+|---|---|---|
+| day 7 — income/h | 4,361 | **4,301** |
+| day 7 — metal banked | 54,673 | **58,027** |
+| day 14 — building levels | 71 | **71** |
+| day 14 — metal banked | 302,878 | **240,711** |
+| day 14 — metal mine | 17 | **18** |
+| day 14 — robotics factory | 9 | **8** |
+| robotics factory 9 | hour 298 (day 12) | **not within the run** |
+| first skiff affordable | hour 34 | **hour 27** |
+| hours with nothing building and no research | 16.91% | **11.86%** |
+| the next galaxy, 24h rung | 1.10× | **0.42×** |
+
+**The fleet delivers less, which is the change working rather than a regression.** Day-14 crystal
+falls a fifth because every run spends longer in flight and less on the surface, and the colony trades
+a Robotics level for a Metal Mine level to make up for it. What the bot does *not* do is buy the drive
+— it is the most expensive row on the screen, so a cheapest-first player meets the slowdown and never
+buys the cure. **That is the reading to be suspicious of**, and it is a fact about the bot rather than
+about a person: a real player who has just been told their fleet is slow has one obvious thing to buy.
+
+`robotics factory 9: not within the run` is the sharpest single line. It is the same money going into
+mines instead, and it is worth watching rather than fixing: if a fortnight of real play also stops
+short of it, the drive's base cost (1,000 / 400 / 200) is the dial, not the flight curve.
+
+### The probe, and the scarcity a price could not buy
+
+Davide, 2026-08-16, having played 0.12.2: *"Surveying other systems seems way too easy… Exploring the
+world must feel rewarding, not just a tap away."*
+
+**The price was never what made it a tap.** `startSurvey` capped nothing but one-probe-per-target, so
+ten probes dispatched in one check-in all landed together and the marginal wall-clock cost of the
+tenth was zero. No constant fixes that. A finite pool of hulls does: the tenth probe waits for the
+first to come home.
+
+The scout is **spent for the flight rather than consumed by it** — `advance` hands it back at the
+landing, exactly as a run's hulls return — so what surveying costs is a hull's absence and the
+scarcity is the clock rather than attrition. One scout surveys the galaxy given time.
+
+**200 / 50 is an opening constant and the genesis stock is what sizes it.** A colony owns no hulls
+(round 28), so this is the first thing it buys, and #83 flagged the danger in as many words: a
+fleet-second player who cannot afford a hull would have had *no exploration of any kind* for two
+days. 200 metal for the hull plus 150 for the flight against a 500-metal opening stock is what keeps
+that from happening, and `StartSurveyTest` pins it as arithmetic rather than as a hope.
+
+### What it should feel like, so round 31 can tell
+
+- **The first check-in should still contain a probe.** If a new colony's Galaxy tab sits empty while
+  it saves up, the scout is too dear and 200 is the dial.
+- **A drive level should feel like a door opening rather than a number going up.** The rung
+  reappearing on a world that refused it yesterday is the whole design, and it is delivered by a
+  control appearing with no copy at all. If a player buys a level and cannot tell what changed, that
+  is the finding.
+- **Watch whether anyone buys Propulsion at all.** The bot does not, because it buys cheapest-first,
+  and a real player might not either if the slowdown reads as the game being broken rather than as a
+  thing to fix. If it goes unbought, the base cost comes down before the flight curve does.
+- **Two galaxy hops being unorderable is intended.** If it instead reads as a bug — a world you can
+  see, a sheet with no windows on it — that is a copy problem on the dispatch sheet, not a balance
+  one.
