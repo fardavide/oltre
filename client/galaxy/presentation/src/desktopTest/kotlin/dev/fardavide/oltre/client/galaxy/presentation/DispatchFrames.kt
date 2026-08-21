@@ -223,33 +223,33 @@ internal val relaySystemUiState: GalaxyUiState = frame(view = GalaxyView.SYSTEM,
 // from `10 + u/10`, the curve 0.14 shipped, and 0.15 halved the base — so drive 1 is what makes
 // these frames the frames Design published rather than the same shape with every number doubled. It
 // is also an ordinary colony on day 21, which is the premise its own provenance note states.
-private val TWO_HULLS: GameState = frameState.copy(
+internal val TWO_HULL_STATE: GameState = frameState.copy(
     ships = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)),
     research = frameState.research.withLevel(Technology.PROPULSION, TechLevel(1)),
 )
 
 // **a · the default, at the doorstep.** Six berths is the whole idle pool, because no manifest
 // empties a full vein inside 3h — so the stepper opens at the top of its range and the `+` dims.
-internal val dispatchPickerUiState: GalaxyUiState = sheet(state = TWO_HULLS)
+internal val dispatchPickerUiState: GalaxyUiState = sheet(state = TWO_HULL_STATE)
 
 // **b · after the skiff cell is tapped.** The cell said two skiffs while the stepper said six, so
 // the clamp to two berths was printed before the tap — which is what makes it not a dead control.
-internal val dispatchPickerSkiffsUiState: GalaxyUiState = sheet(state = TWO_HULLS, ships = 2)
+internal val dispatchPickerSkiffsUiState: GalaxyUiState = sheet(state = TWO_HULL_STATE, ships = 2)
 
 // **the ladder narrowed by distance, 69 systems out.** 1h is already absent there for any hull, and
 // the hauler's 3h 36m round trip needs 6h — so 3h is drawn *locked*, at 42%, with `skiffs` under it.
 // That is the whole of Design's second ruling: absent means never, dim means not with these hulls.
 // Read off the seed rather than written down, exactly as `RUNNABLE` is: 69 systems out is Design's
 // distance, but *which slot there holds a world* is the generator's business and not this file's.
-private val FAR: GalaxyCoordinate = TWO_HULLS.let { state ->
+private val FAR: GalaxyCoordinate = TWO_HULL_STATE.let { state ->
     val system = state.galaxy.home.system + 69
     (1..GalaxyBalance.SLOTS_PER_SYSTEM)
         .map { slot -> GalaxyCoordinate(galaxy = state.galaxy.home.galaxy, system = system, slot = slot) }
         .first { at -> worldAt(state.galaxy.seed, at) != null }
 }
 
-private val FAR_SURVEYED: GameState = TWO_HULLS.copy(
-    galaxy = TWO_HULLS.galaxy.copy(surveyed = TWO_HULLS.galaxy.surveyed + FAR),
+private val FAR_SURVEYED: GameState = TWO_HULL_STATE.copy(
+    galaxy = TWO_HULL_STATE.galaxy.copy(surveyed = TWO_HULL_STATE.galaxy.surveyed + FAR),
 )
 
 internal val dispatchPickerNarrowedUiState: GalaxyUiState = sheet(

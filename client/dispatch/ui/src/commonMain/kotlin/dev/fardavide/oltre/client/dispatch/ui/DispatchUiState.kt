@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.dispatch.ui
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Ships
 import kotlin.time.Duration
 
 // Raised from a world row on Galaxy, and from a landing on Fleets. Three controls, one figure — and
@@ -48,6 +49,16 @@ sealed interface DispatchUiState {
         // be guessed from whatever the map was last parked on.
         val at: GalaxyCoordinate,
         val window: Duration,
+        // **The manifest itself, and not a count the screen rebuilds.** Both screens used to make
+        // `Ships.of(SKIFF, shipCount)` from the number beside the stepper, which was true while every
+        // sendable hull was a skiff and became a silent refusal the moment that number turned into a
+        // *berth* count: six berths is not six skiffs, and `startRun` would answer `NoSuchShips` to a
+        // fleet the player does not own while the tap appeared to do nothing.
+        //
+        // It belongs here for the reason the three fields around it do — the mapper resolved the
+        // defaults and did the clamping, so **the offer is what the player was shown**, and
+        // dispatching anything else would send a run the sheet never described.
+        val manifest: Ships,
         // Bring back, send, home in — in that order, because it is the order of decreasing
         // permanence. What your colony is short of changes over days, how many hulls you have
         // changes over hours, and how long you will be away changes every check-in.

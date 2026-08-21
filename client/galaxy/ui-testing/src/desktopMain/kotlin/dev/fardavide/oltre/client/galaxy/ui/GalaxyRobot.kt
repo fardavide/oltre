@@ -402,6 +402,29 @@ class GalaxyRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes)).assertDoesNotExist()
     }
 
+    // **A rung that is drawn but not flyable with this mix.** Distinguished from an absent one by
+    // the requirement under it — Design: *"Absent means never. Dim means not with these hulls."* —
+    // and it is a `hasAnyDescendant` rather than a state flag because the requirement *is* the state.
+    fun assertRungIsLocked(window: Duration, requirement: String) = apply {
+        test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes), useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(requirement, substring = true)))
+    }
+
+    fun assertRungIsNotLocked(window: Duration, requirement: String) = apply {
+        test.onNodeWithTag(DispatchTestTags.window(window.inWholeMinutes), useUnmergedTree = true)
+            .assert(hasAnyDescendant(hasText(requirement, substring = true)).not())
+    }
+
+    // The two cells under the stepper, tapped by the hold they would fly — which is what the cell
+    // sends, so the tap and the tag are one fact.
+    fun sendWith(berths: Int) = apply {
+        // No `performScrollTo`: the sheet is a bottom sheet rather than a scroller, and the cells
+        // sit above the fold in every state that has them — the same reason `homeIn` taps a rung
+        // directly. Asking to scroll raises "no parent layout with a Scroll SemanticsAction".
+        test.onNodeWithTag(DispatchTestTags.hullCell(berths)).performClick()
+        test.waitForIdle()
+    }
+
     fun send() = apply {
         test.onNodeWithTag(DispatchTestTags.SEND).performClick()
     }

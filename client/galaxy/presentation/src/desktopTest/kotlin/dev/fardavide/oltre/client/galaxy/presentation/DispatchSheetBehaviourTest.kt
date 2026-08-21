@@ -135,6 +135,88 @@ class DispatchSheetBehaviourTest {
         )
     }
 
+    // ── *Twice the Flight*: the picker's two rules, driven from the screen ───────────────────
+
+    @Test
+    fun `the last tap wins — adding the hauler yields the rung it cannot fly`() {
+        // Design's rule for both controls in one sentence: *"Add a hull and the rung yields; tap a
+        // locked rung and the hull yields."* Here it is the first half. The refusal is drawn where
+        // the decision is instead of after it, so `WindowTooShort` is unreachable from this sheet.
+        galaxyPage(uiState = dispatchPickerMovedUiState) {
+            // The rung the player had is still on screen — dimmed, with the hull that would fly it —
+            // because it is the undo rather than a disabled control.
+            assertRungIsLocked(3.hours, "skiffs")
+            // ...and the selection moved *up*, which is the only direction: a window too short for a
+            // flight is too short for every shorter window.
+            homeIn(6.hours)
+            assertTheSheetReads("The hauler moved this run to 6h")
+        }
+    }
+
+    @Test
+    fun `a rung the distance refuses is absent where a rung the mix refuses is dimmed`() {
+        // **The distinction the whole ruling turns on**, asserted as the two renderings side by side
+        // on one sheet: 1h is not drawn at all at 69 systems out because no hull can fly it, and 3h
+        // is drawn at 42% because *these* hulls cannot. Absence keeps one cause, which is what lets
+        // it go on teaching distance.
+        galaxyPage(uiState = dispatchPickerMovedUiState) {
+            assertNoRungFor(1.hours)
+            assertRungIsLocked(3.hours, "skiffs")
+        }
+    }
+
+    @Test
+    fun `with the skiffs chosen the same rung is open rather than locked`() {
+        // The mirror, and it is what makes the assertion above a claim about the *mix* rather than
+        // about the distance: the same world, the same ladder, the skiffs selected — and 3h carries
+        // no requirement at all.
+        galaxyPage(uiState = dispatchPickerNarrowedUiState) {
+            assertNoRungFor(1.hours)
+            assertRungIsNotLocked(3.hours, "skiffs")
+        }
+    }
+
+    @Test
+    fun `tapping a cell clamps the hold to what that clock can carry`() {
+        // The cell says what it would do before it is tapped — *"2 skiffs"* against a stepper reading
+        // six berths — so the clamp is printed rather than sprung, and nothing here is a dead
+        // control. What comes back is the manifest, not a hull count: the offer carries what
+        // `startRun` is called with.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = TWO_HULL_STATE,
+            landing = GalaxyLanding.WORLDS,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(RUNNABLE)
+            sendWith(berths = 2)
+            send()
+        }
+
+        assertEquals(Ships.of(ShipType.SKIFF, 2), sent.single().ships)
+    }
+
+    @Test
+    fun `the default sends the hauler and the skiffs together`() {
+        // Design's third ruling, from the screen: *"the fewest berths that empty the vein at the rung
+        // already selected, packed with the hauler first."* At one hauler and two skiffs on a full
+        // vein nothing empties it inside 3h, so the default is the whole idle pool — and the manifest
+        // that reaches `startRun` is the mixed one rather than six skiffs the colony does not own.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = TWO_HULL_STATE,
+            landing = GalaxyLanding.WORLDS,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(RUNNABLE)
+            send()
+        }
+
+        assertEquals(Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)), sent.single().ships)
+    }
+
     @Test
     fun `a window is missing rather than dead when the trip will not fit inside it`() {
         // The only way to show "too far" without a control that refuses its own tap — and the rung

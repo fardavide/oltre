@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.client.dispatch.ui
 
-import dev.fardavide.oltre.client.design.text.TextRes
 
 import dev.fardavide.oltre.core.ResourceKind
 
@@ -38,9 +37,10 @@ object DispatchTestTags {
     // different window depending on how far away the world is.
     fun window(minutes: Long): String = "dispatch-window-$minutes"
 
-    // **Keyed by the manifest the cell would fly rather than by its index**, for `window`'s own
-    // reason one line up: which cell is first depends on what is idle, so an index would name a
-    // different control on a different colony. The `TextRes` is the cell's own label, which is the
-    // only thing about it that is stable and is what a Robot would read anyway.
-    fun hullCell(ships: TextRes): String = "dispatch-hull-$ships"
+    // **Keyed by the hold the cell would fly rather than by its index**, for `window`'s own reason
+    // one line up: which cell is first depends on what is idle, so an index would name a different
+    // control on a different colony. The berth count is also what the cell *sends*, so the tag and
+    // the tap are the same fact — where a label would be a `TextRes` whose `toString` differs
+    // between a catalogued value and the raw one a test would write.
+    fun hullCell(berths: Int): String = "dispatch-hull-$berths"
 }

@@ -618,7 +618,7 @@ private fun HullCell(cell: HullCellUiState, onClick: () -> Unit, modifier: Modif
                 CONTROL_SHAPE,
             )
             .background(settlingColor(if (cell.selected) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
-            .testTag(DispatchTestTags.hullCell(cell.label))
+            .testTag(DispatchTestTags.hullCell(cell.berths))
             .clip(CONTROL_SHAPE)
             .clickable(onClick = onClick)
             // **3dp rather than Design's 5dp, and 10sp rather than 11.** Measured rather than
