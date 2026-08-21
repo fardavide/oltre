@@ -235,6 +235,10 @@ object Strings {
 
     fun dispatchEverySkiffAwayTitle(): TextRes = message(StringId.DispatchEverySkiffAwayTitle)
 
+    fun dispatchOutOfReachTitle(): TextRes = message(StringId.DispatchOutOfReachTitle)
+
+    fun dispatchOutOfReachNote(): TextRes = message(StringId.DispatchOutOfReachNote)
+
     // "3 runs are out. [3:185:4] is inbound with 1,240 metal."
     fun dispatchAwayNote(runs: Int, target: TextRes, cargo: TextRes, kind: ResourceKind): TextRes =
         message(
@@ -292,6 +296,8 @@ object Strings {
         message(StringId.CellRungConsequence, Arg.Text(lift), Arg.Text(rung))
 
     fun cellClamped(idle: TextRes): TextRes = message(StringId.CellClamped, Arg.Text(idle))
+
+    fun cellClampedOne(): TextRes = message(StringId.CellClampedOne)
 
     // "of 4 idle" — the pool the stepper is clamped to.
     fun ofIdle(count: Int): TextRes = message(StringId.OfIdle, Arg.Count(count))

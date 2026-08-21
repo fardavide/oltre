@@ -115,8 +115,20 @@ fun GameState.toDispatchUiState(
     // cut kept both and clipped the hazard clause off the end of a 393dp sheet.
     val head = Strings.clauses(listOf(address, world.hazardClause()))
     val compactHead = head
+    // **One derived list, and the whole picker falls out of it** — Claude Design, *Twice the Flight*.
+    // Every manifest the idle pool can fly, ordered by hold, packed hauler-first. The stepper is an
+    // index into it, the two cells are the first manifest of each clock, and the ladder is the same
+    // legality test the sheet already ran, once per rung, against the selected manifest.
+    //
+    // **It is also the refusal**, and it is read before anything else asks a question about hulls.
+    // Until 0.15 the gate was `countOf(SKIFF) <= 0`, which was the same sentence while the skiff was
+    // the only hull that gathered; with the hauler it stopped being one. A colony that sent both its
+    // skiffs out and kept a hauler home has an empty *skiff* count and a fleet that can fly, and it
+    // was told every hull was away while the hauler sat in the pool — the sheet refusing on behalf of
+    // a hull it was not asked about.
+    val manifests = FleetBalance.reachableManifests(ships)
     val idle = ships.countOf(ShipType.SKIFF)
-    if (idle <= 0) {
+    if (manifests.isEmpty()) {
         return DispatchUiState.Refuse(
             name = name,
             // **A refusal has no gather cards, so the richness has nowhere else to be said** — and
@@ -134,17 +146,32 @@ fun GameState.toDispatchUiState(
     val gathering = selection.gathering ?: world.richerOf()
     val danger = FleetBalance.danger(from = home, world = world)
 
-    // **One derived list, and the whole picker falls out of it** — Claude Design, *Twice the Flight*.
-    // Every manifest the idle pool can fly, ordered by hold, packed hauler-first. The stepper is an
-    // index into it, the two cells are the first manifest of each clock, and the ladder is the same
-    // legality test the sheet already ran, once per rung, against the selected manifest.
-    val manifests = FleetBalance.reachableManifests(ships)
     // **Absent means never; dim means not with these hulls.** The union is what any manifest could
     // reach, so a rung outside it is one *distance* refuses and is still not drawn — which is what
     // keeps 0.13.1's teaching working now that a second cause exists.
     val everReachable = FleetBalance.WINDOWS.filter { rung ->
         manifests.any { rung in FleetBalance.windowsFor(home, target, research, it.ships) }
     }
+    // **An empty ladder is a refusal, and 0.15 is what made it one worth writing.** It was reachable
+    // before — three galaxy hops from home, at the very edge of a map nothing had surveyed — and the
+    // sheet crashed on it, `last()` on an empty list, because a rung nothing can fly is a rung that
+    // is simply not drawn and drawing none of them was never reached. Halving the base speed brought
+    // it in to **two** hops, which every colony can survey from its first day: the probe costs a flat
+    // 150 metal with no distance gate, so the first sheet a player opens on a far world is this one.
+    //
+    // The remedy is named rather than the distance, because the distance is not the thing that can
+    // change. A 24h round trip at drive 0 is 12h at drive 3, and the note is where the sheet says so.
+    if (everReachable.isEmpty()) {
+        return DispatchUiState.Refuse(
+            name = name,
+            head = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            compactHead = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            title = Strings.dispatchOutOfReachTitle(),
+            note = Strings.dispatchOutOfReachNote(),
+            action = null,
+        )
+    }
+
     // What is actually in the ground, and the cap behind it. Both are read once and shared by the
     // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
     val inTheGround = galaxy.remaining(target, gathering, now)
@@ -277,7 +304,8 @@ fun GameState.toDispatchUiState(
         val other = manifests.lastOrNull { it.flightFactor != chosen.flightFactor }
         when {
             other == null -> null
-            clamped && chosen.flightFactor > 1 -> Strings.cellClamped(Strings.skiffCount(idle))
+            clamped && chosen.flightFactor > 1 ->
+                if (idle == 1) Strings.cellClampedOne() else Strings.cellClamped(Strings.skiffCount(idle))
             else -> {
                 val otherRungs = FleetBalance.windowsFor(home, target, research, other.ships)
                 val otherLift = otherLift(
@@ -382,11 +410,16 @@ fun GameState.toDispatchUiState(
         cellNote = cellNote,
         ladderNote = ladderNote,
         rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
-        // Skiff-only for the same reason the per-ship reading is: *"3 skiffs empty it. The 4th
-        // brings nothing"* counts hulls that lift the same amount, and a mix does not. On a mixed
-        // manifest the clamp is stated by the figure's own `the whole deposit` and by the cell note,
-        // which is Design's rule that each control gets at most one note.
-        clampNote = if (sent.counts.size > 1) {
+        // **Skiffs and nothing else**, for the same reason the per-ship reading is: *"3 skiffs empty
+        // it. The 4th brings nothing"* counts hulls that lift the same amount, and neither a mix nor
+        // a hauler does. Anything else states its clamp through the figure's own `the whole deposit`
+        // and the cell note, which is Design's rule that each control gets at most one note.
+        //
+        // **The first cut tested `counts.size > 1` and let a hauler through** — one entry in the map,
+        // so "not a mix", and the note then read *"3 skiffs empty it. The 4th brings nothing"* about a
+        // single hauler, counting its four berths as four skiffs. Two notes under SEND and the louder
+        // one false. The test is which hull, not how many kinds.
+        clampNote = if (sent.counts.keys != setOf(ShipType.SKIFF)) {
             null
         } else {
             clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround)
@@ -528,7 +561,14 @@ private fun waitingNote(
 // would send the first skiff of a new colony away for a day on a tap the player had not thought
 // about yet; a default of the shortest would make the frontier look worthless, because the frontier
 // only pays at the long end.
-private fun List<Duration>.defaultRung(): Duration = firstOrNull { it >= PREFERRED_WINDOW } ?: last()
+//
+// **Total only against a ladder that has rungs**, and it says so rather than falling off `last()`:
+// an empty ladder means nothing this colony owns can be back inside a day, which is a refusal the
+// sheet returns above and not a default this can invent.
+private fun List<Duration>.defaultRung(): Duration {
+    require(isNotEmpty()) { "no rung is reachable — the sheet refuses before it defaults" }
+    return firstOrNull { it >= PREFERRED_WINDOW } ?: last()
+}
 
 // "18h 20m out and back. No shorter window leaves 20 minutes on the surface." Present only when
 // something has actually been dropped: on a neighbour every rung is offered and the sentence would

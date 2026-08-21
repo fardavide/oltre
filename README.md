@@ -206,6 +206,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.15.1 — 2026-08-21
+
+- **Fixed a crash on distant worlds.** Opening the dispatch sheet on a world nothing you own can
+  reach inside a day closed the app. It now says so, and points at Propulsion — the technology that
+  shortens the trip. With the drive at zero this is any world two galaxies out, which is well inside
+  what a probe can survey on your first day.
+- **A fleet of haulers alone can be sent again.** Send your skiffs out, keep a hauler home, and the
+  sheet used to tell you every hull was away.
+- **Fixed the note under SEND on a lone hauler**, which counted its four berths as four skiffs and
+  told you the fourth was bringing nothing.
+- Older saves carried into 0.15 no longer receive twice the scouts they should.
+
 ### 0.15.0 — 2026-08-21
 
 - **Distance takes real time now, and a new technology buys it back.** Flying anywhere costs twice

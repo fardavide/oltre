@@ -56,10 +56,10 @@ object GameSave {
     // is worse than admitting the save is unreadable.
     //
     // 13 — the scout and the drive: `SCOUT` becomes a hull a probe consumes, and `propulsion` joins
-    //     the research record. One hop for two fields, schema 9's precedent — they shipped together,
-    //     so no save can hold one without the other. The drive is the truthful zero; the scout is
-    //     granted once per probe already in the air, because those probes paid no hull and the
-    //     landing now hands one back.
+    //     the research record. One key, and the truthful zero — a colony that has researched nothing
+    //     has no drive level. **No scout is granted**: `advance` returns one at every landing, so a
+    //     save with three probes in the air ends up owning three scouts, which is what a 0.15 colony
+    //     in that state would own. Granting as well doubled it — see the hop.
     // 12 — pins: which worlds the player marked in the ledger. The galaxy identity slice's only
     //     on-disk cost, and additive — a colony saved before the ledger existed pinned nothing.
     // 11 — deposits, and the fourth technology's level beside them: what has been taken out of each
@@ -275,41 +275,22 @@ object GameSave {
         // research row where it is meant to be met. The 7 -> 8 hop's granted skiff is the one gift in
         // this table and it stays a exception, not a precedent.
         //
-        // **The scout is granted, once per probe already in the air, and that is not a gift.** A
-        // survey saved by an earlier build paid no hull for its flight, and `advance` now hands a
-        // scout back at every landing — so without this the migration would mint hulls out of nothing
-        // the moment the save was opened. Granting the hull the probe is retroactively flying is what
-        // makes the arithmetic balance: one out, one back. A colony with nothing in flight gets
-        // nothing, which is the truthful zero every other hop writes.
+        // **No scout is granted, and the reasoning that said otherwise was inverted.** A survey saved
+        // by an earlier build paid no hull, and `advance` hands a scout back at every landing — which
+        // I first read as *"the migration must pay for that or the landing mints a hull out of
+        // nothing"*. The landing **is** the payment: it produces exactly the hull the probe is
+        // retroactively flying, so a colony with three probes in the air ends up owning three scouts,
+        // which is what a 0.15 colony in that state would own.
+        //
+        // Granting as well doubled it. A schema-12 save with three probes out became three scouts in
+        // the *pool* plus three more at their landings — six hulls for a colony that bought none, and
+        // three of them usable immediately, so the player could put six concurrent probes in the air.
+        // That is the "survey ten systems in one check-in" this release exists to stop, handed out by
+        // the migration meant to be careful about it.
         12 to { root ->
             val state = root["state"] as? JsonObject ?: return@to root
-            val inFlight = (state["surveys"] as? JsonArray)?.size ?: 0
-            val ships = state["ships"] as? JsonObject ?: JsonObject(emptyMap())
-            val counts = ships["counts"] as? JsonObject ?: JsonObject(emptyMap())
             val research = state["research"] as? JsonObject ?: JsonObject(emptyMap())
-            root.withState(
-                // **Added to whatever is there rather than written over it.** No save at schema 12
-                // can hold a `SCOUT` — the constant did not exist — so in practice this reads zero
-                // and the two forms agree. It sums anyway, because a migration that assigns a hull
-                // count is one that confiscates a fleet the first time the assumption behind it
-                // stops being true, and that is the failure the 7 -> 8 hop's own note is about.
-                //
-                // `Ships` requires every count to be positive, so the key is absent rather than zero
-                // when there is nothing to grant — the same canonical-representation rule the type's
-                // own `init` guard states, and the reason `minus` drops zeroed entries.
-                "ships" to buildJsonObject {
-                    val held = (counts[ShipType.SCOUT.name] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
-                    put(
-                        "counts",
-                        if (held + inFlight > 0) {
-                            JsonObject(counts + (ShipType.SCOUT.name to JsonPrimitive(held + inFlight)))
-                        } else {
-                            counts
-                        },
-                    )
-                },
-                "research" to JsonObject(research + ("propulsion" to JsonPrimitive(0))),
-            )
+            root.withState("research" to JsonObject(research + ("propulsion" to JsonPrimitive(0))))
         },
     )
 

@@ -97,7 +97,13 @@ object English : Translations {
             "Richness and hazards need a survey. A probe surveys all ${args.number(0)} slots at " +
                 "once, and this system holds ${args.count(1)} ${args.count(1).plural("world", "worlds")}."
         StringId.DispatchProbeOffer -> "${args.text(0)} metal · ${args.text(1)}."
-        StringId.DispatchEverySkiffAwayTitle -> "Every skiff is away."
+        StringId.DispatchEverySkiffAwayTitle -> "Every hull is away."
+        // **A world no window can reach**, which 0.15 made ordinary rather than exotic: base
+        // flight speed halved, so two galaxy hops is 36h 20m out and back and the longest rung is
+        // 24h. It is a refusal with a remedy, and the remedy is the drive — which is why the note
+        // names it rather than the distance.
+        StringId.DispatchOutOfReachTitle -> "Too far for any window."
+        StringId.DispatchOutOfReachNote -> "No fleet can be back inside a day. Propulsion is what shortens the trip."
         StringId.DispatchAwayNote ->
             "${args.count(0)} ${args.count(0).plural("run is", "runs are")} out. " +
                 "${args.text(1)} is inbound with ${args.text(2)} ${args.text(3)}."
@@ -124,6 +130,11 @@ object English : Translations {
         StringId.CellCounterfactual -> "Skiffs only lift ${args.text(0)}, and only skiffs fly ${args.text(1)}."
         StringId.CellRungConsequence -> "The hauler lifts ${args.text(0)} and lands at ${args.text(1)}."
         StringId.CellClamped -> "The hauler empties it. The ${args.text(0)} bring nothing."
+        // **A count of one needs its own sentence, not the same one with a smaller number in it.**
+        // The plural form reads "The 1 skiff bring nothing" at a pool of one hauler and one skiff —
+        // which is a pool a colony passes through on its way to any mixed fleet, so it is the common
+        // case rather than the edge. Dropping the digit is what makes it a sentence again.
+        StringId.CellClampedOne -> "The hauler empties it. The skiff brings nothing."
         StringId.OfIdle -> "of ${args.count(0)} idle"
         StringId.LadderNote ->
             "${args.text(0)} out and back. No shorter window leaves ${args.number(1)} minutes on the surface."

@@ -923,30 +923,33 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a probe already in the air is granted the scout it is retroactively flying`() {
-        // **Not a gift — arithmetic.** A survey dispatched by 0.14 paid no hull, and `advance` now
-        // hands a scout back at every landing. Without this the first probe to come home would mint a
-        // hull out of nothing. One out, one back, and the ledger closes.
+    fun `a probe already in the air is granted no scout because its landing is the grant`() {
+        // **This hop granted one per probe until an audit caught the double-count.** The reasoning
+        // was inverted: `advance` returns a scout at every landing, so a save with three probes in
+        // the air already ends up owning three — which is what a 0.15 colony in that state owns.
+        // Granting as well made it six, three of them usable at once, which is the "ten systems in
+        // one check-in" this whole release exists to stop, handed out by the careful migration.
         val flying = GameState.initial().let { state ->
             state.copy(
                 resources = Resources.of(metal = 10_000),
-                ships = Ships.of(ShipType.SCOUT, 2),
                 surveys = listOf(
                     SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours),
-                    SystemAddress(state.galaxy.home.galaxy, 2).let { SurveyJob(it, EPOCH, EPOCH + 2.hours) },
+                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 2), EPOCH, EPOCH + 2.hours),
                 ),
             )
         }
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(flying))).snapshot
 
-        // the two it already had, plus one for each probe the old build let fly for free
-        assertEquals(4, decoded.state.ships.countOf(ShipType.SCOUT))
-        assertEquals(2, decoded.state.surveys.size)
+        assertEquals(0, decoded.state.ships.countOf(ShipType.SCOUT), "the migration minted hulls")
+        // ...and the landings are what pay for them: two probes out, two scouts home, no more.
+        val landed = advance(decoded.state, from = EPOCH, to = EPOCH + 24.hours)
+        assertEquals(2, landed.ships.countOf(ShipType.SCOUT))
+        assertEquals(emptyList(), landed.surveys)
     }
 
     @Test
-    fun `the granted scouts do not disturb the fleet the colony already owned`() {
+    fun `the hop leaves the fleet the colony already owned exactly as it was`() {
         val flying = GameState.initial().let { state ->
             state.copy(
                 ships = Ships.of(ShipType.SKIFF, 3),
@@ -956,8 +959,7 @@ class GameSaveTest {
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(flying))).snapshot
 
-        assertEquals(3, decoded.state.ships.countOf(ShipType.SKIFF))
-        assertEquals(1, decoded.state.ships.countOf(ShipType.SCOUT))
+        assertEquals(Ships.of(ShipType.SKIFF, 3), decoded.state.ships)
     }
 
     @Test
