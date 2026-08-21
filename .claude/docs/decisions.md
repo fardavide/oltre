@@ -3832,3 +3832,84 @@ verb."* What differs is the **note**, and it differs in the way that matters —
 unaffordable state in this game is answered by standing still, and this one is answered at the
 Shipyard. So a scout genuinely on its way home gets a countdown, and no scout at all gets *"needs a
 scout"*, because a countdown to nothing is a lie however well it renders.
+
+---
+
+## Twice the Flight: one stepper on berths, and a rung that dims rather than vanishes (2026-08-21, 0.15.0, issue #71)
+
+Claude Design's round trip for slice 4's manifest picker, which `fleet-sheet.md` §10 had flagged as
+an open frame since the slice was written. Its three rulings, and what each is actually for.
+
+### The fact the shape rests on
+
+**A manifest has one clock, and the slowest hull sets it.** A hauler's flight is `20 + 2u/U` against
+a skiff's `10 + u/U`, so with two hull types there are only ever *two* answers however many hulls go.
+That is what makes the picker one stepper and a two-cell row rather than two steppers: **the stepper
+says how much hold, the cells say which clock carries it**, and both move one cursor along one
+ordered list of reachable manifests.
+
+Two steppers was the obvious shape and Design rejected it on two grounds worth keeping: it puts the
+packing arithmetic on the player, and it invites the strictly-dominated manifest — a hauler with one
+skiff flies at the hauler's clock and lifts less than a hauler with two.
+
+**The design says "exactly double" and its own frames say 2.1× at the doorstep**, because the flat
+base term doubles while the distance rounds away. Nothing turns on it; the shape needs *one* clock,
+not a particular ratio. Pinned as a test so the next reader meets the frame rather than the sentence.
+
+**Its figures are drive-1 figures.** It was drawn against the curve 0.14 shipped and 0.15 halves base
+speed. The shape is untouched — the drive scales the distance term, the hull factor scales the whole
+flight, so a level is worth the same *share* of a trip to either hull — and the picker's frames are
+held at Propulsion 1 so they are the frames Design published rather than the same shape doubled.
+
+### Absent means never; dim means not with these hulls
+
+The shipped ladder teaches distance by absence, **and that lesson only survives if absence keeps one
+cause.** So the two causes get two renderings, and the difference between them is exactly whether the
+player can do anything about it: a rung no manifest can fly is not drawn, and a rung *this* manifest
+cannot fly is drawn at 42% with the hull that would fly it underneath.
+
+**It is not a disabled control — this app has none — it is the undo.** One tap takes the hauler out
+and selects the rung. The alternative, refusing the tap or silently dropping the hauler back out,
+makes the control the player just touched the one that did nothing.
+
+Up is the only direction when a mix removes the selected rung, and that is arithmetic rather than a
+preference: legality is monotone, so a window too short for a flight is too short for every shorter
+window. **Body weight is the whole announcement** — no animation, no toast, no highlight, because the
+app has none of those and a moved selection does not earn the first.
+
+### The default is a berth count, not a hull count
+
+The fewest berths that empty the vein at the rung already selected, packed hauler-first, with one
+constraint binding it: **it may never lock the rung it is defaulting to.** Expressed by filtering the
+candidates to the manifests that fly that rung rather than by re-checking afterwards.
+
+What it gives up, in Design's own words: *"the default will put the hauler in the manifest on the
+first open and take the short rungs with it."* Both costs are paid for by the rung being dimmed
+rather than gone — which makes the default's cost visible and one tap away.
+
+### What the round cost, and it is the finding
+
+**Four dead controls in one release, all the same shape**: `core` grew a requirement and everything
+deriving *"can I?"* from the old inputs went on saying yes. The Shipyard sold no scout; the map's
+caption offered a probe with no hull; `:sim:run` stopped surveying and reported plausible numbers;
+and both screens rebuilt the dispatch manifest as `Ships.of(SKIFF, count)` from a number that had
+become a *berth* count — six berths is not six skiffs, so `startRun` would have refused a fleet the
+colony does not own while the button appeared to do nothing.
+
+**The verb refuses correctly in every one of them**, which is why nothing crashed and nothing was
+caught. Three were found by reading a screenshot or a report; none by a failing test. The guard that
+now exists for the first is a test holding the Shipyard's card list against `FleetBalance.FOR_SALE`;
+the guard for the last is that the offer carries its manifest rather than a number a screen
+re-interprets.
+
+### Raised by Design, not decided
+
+- **Two clocks in one header.** The system header's astronomy line quotes one round trip and there
+  are now two. Design's cheapest fix is to drop the reach from the header, since the sheet one tap
+  away prints both. Left alone; every such reading now names `FleetBalance.FASTEST_HULL` explicitly,
+  so the day it is decided they are one grep.
+- **A run card needs a mixed manifest.** `RunCard` prints `3 skiffs`; it will need `1 hauler · 2
+  skiffs`, nineteen characters into a slot sharing a line with a coordinate and a countdown.
+- **One number to check before this ships.** Design measures the hauler as worth 630 metal at exactly
+  one rung on a doorstep world and nothing at four of the five. If `:sim:run` agrees, the hull pays
+  only on deep veins far out, and the Shipyard's copy is where that has to be said.

@@ -885,15 +885,12 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending, from 0.15.0
 
-- **The hauler is decided and unsellable, and one thing unblocks it: the manifest picker.** Its
-  price, its four berths and its `buildDuration` are in `FleetBalance` with tests; `FOR_SALE` and
-  `GATHERING_HULLS` deliberately exclude it, so `buildShips` still answers `NotForSale` and the
-  Shipyard still draws it dimmed. What is missing is not code but a **frame**: the shipped dispatch
-  sheet steppers one hull type, a hauler flies at half speed so the window ladder narrows differently
-  for every mix, and `hullsToLift` — "the smallest fleet that takes everything" — stops having one
-  answer once four skiffs and one hauler lift the same and cost differently. A Claude Design round
-  trip owns all three. `fleet-sheet.md` §10 has flagged the picker as an open frame since slice 4 was
-  written.
+- **The hauler ships, and slice 4 is closed** — Claude Design's *Twice the Flight* came back and is
+  built: one stepper on berths, a two-cell hull row, and a rung the mix removed drawn at 42% with its
+  requirement rather than absent. See `decisions.md`. Three things it raised and did **not** decide
+  are open: the two clocks in the system header's astronomy line, a run card that needs to print a
+  mixed manifest, and whether `:sim:run` agrees that the hauler pays at only one rung on a doorstep
+  world.
 - **Nobody has installed 0.15.** The drive's whole case is that a level feels like a door opening,
   and that is a claim about a hand holding a phone. Balance-log round 30 lists what to watch; the
   sharpest is whether a real player buys Propulsion at all — the benchmark's bot does not, because it

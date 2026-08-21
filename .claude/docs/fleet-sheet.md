@@ -1379,6 +1379,12 @@ the first thing to add if the arrival turns out to feel like nothing.**
   — and what changed is only which number expresses it now that there is one rung rather than a
   curve. Round 27's lesson a third time: a constant carries its rule's premise, and a later round can
   invalidate the premise without touching the constant.
+- ~~**Slice 4's manifest picker has no frame**~~ — **designed and built 2026-08-21**, Claude Design's
+  *Twice the Flight*. One stepper on berths and a two-cell hull row; a rung the mix removed is locked
+  at 42% with its requirement rather than absent, because absence has to keep one cause or it stops
+  teaching distance; and the default is the fewest berths that empty the vein, hauler first. The one
+  fact the shape rests on falls out of §4: a manifest has **one** clock and the slowest hull sets it,
+  so there are only ever two answers however many hulls go.
 - ~~**The hauler's extraction constant**~~ — **settled 2026-08-21, and it was in this sheet all
   along.** Four berths is the rate: `FleetBalance.berths` weights a manifest, so one hauler lifts
   exactly what four skiffs lift and the trade is speed alone. What is genuinely still owed is the

@@ -226,9 +226,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   decides what you can do, and the Galaxy tab says which you are short of before you tap.
 - **A scout comes home.** It is spent for the flight rather than used up by it, so one scout will
   survey the galaxy given time — the cost is the waiting, not the hull.
-- **The Hauler has a price at last: 2,400 metal and 600 crystal.** Four holds for what three skiffs
-  cost, traded against half the speed. It is not on sale yet — the dispatch sheet can only send one
-  kind of ship at a time, and letting you mix them is the next piece of work.
+- **The Hauler is on sale: 2,400 metal and 600 crystal.** Four holds for what three skiffs cost,
+  traded against half the speed — it flies every run at its own pace, so a hauler in the fleet is a
+  slower trip for all of it.
+- **The dispatch sheet can send two kinds of ship at once.** One stepper, counting *holds* rather
+  than hulls, and two cells under it naming the two speeds you can fly at — because however many
+  ships go, a run has one clock and the slowest ship sets it. Tapping a cell says what it would do
+  before you tap it.
+- **A window the hauler cannot reach is dimmed rather than gone, and tapping it is the undo.** A
+  window that is simply too far away is still absent, which is how the ladder has always taught
+  distance. The difference is whether you can do anything about it: dim means *not with these ships*,
+  and one tap leaves the hauler at home and takes the window back. Add the hauler and the window
+  yields; tap the window and the hauler yields — and the sheet says which happened, in one line.
+- **The sheet opens on the smallest fleet that empties the world**, the hauler packed first so your
+  skiffs stay home for somewhere else.
 - **A colony already in play keeps everything it had** and picks up one scout for each probe already
   in the air. Its ships are slower until it researches Propulsion, which is the point.
 
