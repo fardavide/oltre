@@ -566,7 +566,14 @@ class DispatchSheetBehaviourTest {
         val elsewhere: GalaxyCoordinate = wellTravelledState.galaxy.let { galaxy ->
             galaxy.surveyed
                 .filter { it.system != galaxy.home.system }
-                .minBy { FleetBalance.roundTrip(from = galaxy.home, to = it, research = wellTravelledState.research) }
+                .minBy {
+                    FleetBalance.roundTrip(
+                        from = galaxy.home,
+                        to = it,
+                        research = wellTravelledState.research,
+                        ships = FleetBalance.FASTEST_HULL,
+                    )
+                }
         }
     }
 }

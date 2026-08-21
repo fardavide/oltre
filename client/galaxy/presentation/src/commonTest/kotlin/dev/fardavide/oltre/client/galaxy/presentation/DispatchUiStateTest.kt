@@ -94,10 +94,10 @@ class DispatchUiStateTest {
         val none = assertIs<DispatchUiState.Offer>(dispatchAt(target, state, selection(target).copy(ships = 0)))
 
         assertEquals(3, many.shipCount)
-        assertTrue(many.atMost)
+        assertTrue(many.more == null)
         assertEquals("of 3 idle", English.resolve(many.pool))
         assertEquals(1, none.shipCount)
-        assertTrue(none.atFewest)
+        assertTrue(none.fewer == null)
     }
 
     @Test
@@ -109,7 +109,7 @@ class DispatchUiStateTest {
 
         assertEquals(4, offer.shipCount)
         assertEquals("4 skiffs", English.resolve(offer.ships))
-        assertTrue(offer.atMost)
+        assertTrue(offer.more == null)
     }
 
     @Test
@@ -126,7 +126,7 @@ class DispatchUiStateTest {
 
         assertTrue(offer.shipCount < fleet, "the sheet opened on the whole pool: ${English.resolve(offer.ships)}")
         assertEquals(Strings.ofIdle(fleet), offer.pool, "the pool is still stated in full")
-        assertTrue(!offer.atMost)
+        assertTrue(offer.more != null)
         // And the note that names the wasted hulls is gone, because at the suggestion there are none
         // — it is earned rather than standing, so a default that earns it would be furniture.
         assertNull(offer.clampNote)
@@ -221,7 +221,8 @@ class DispatchUiStateTest {
         val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, surveying(target)))
 
         assertTrue(offer.windows.size < FleetBalance.WINDOWS.size, offer.windows.toString())
-        assertTrue(English.resolve(checkNotNull(offer.ladderNote)).orEmpty().endsWith("minutes on the surface."), English.resolve(checkNotNull(offer.ladderNote)).orEmpty())
+        val note = English.resolve(checkNotNull(offer.ladderNote).label)
+        assertTrue(note.endsWith("minutes on the surface."), note)
         // The shortest rung that survived, never the longest — or the frontier would open on a day
         // away, which is not a tap anyone meant to make.
         assertEquals(offer.windows.first().window, offer.window)
@@ -531,7 +532,12 @@ class DispatchUiStateTest {
         // Earned rather than standing, the same rule the clamp clause follows: on the shortest rung
         // there is no shorter one to name, and a note on every dispatch would be furniture.
         val target = runnable()
-        val shortest = FleetBalance.windowsFor(from = state.galaxy.home, to = target, research = state.research).first()
+        val shortest = FleetBalance.windowsFor(
+            from = state.galaxy.home,
+            to = target,
+            research = state.research,
+            ships = FleetBalance.FASTEST_HULL,
+        ).first()
 
         val offer = assertIs<DispatchUiState.Offer>(
             dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = shortest)),

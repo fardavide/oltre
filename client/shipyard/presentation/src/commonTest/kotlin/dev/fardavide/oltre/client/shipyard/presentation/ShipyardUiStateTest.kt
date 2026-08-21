@@ -173,13 +173,20 @@ class ShipyardUiStateTest {
     }
 
     @Test
-    fun `the hull that has no price yet is drawn and cannot be bought`() {
-        // Design's sixth call: the Hauler ships from this slice as a dimmed card carrying its one
-        // line. It has no cost chips and no verb, because `FleetBalance.shipCost` refuses to guess.
-        val coming = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC).comingHulls
+    fun `the promise the coming section carried has been kept and it carries nothing`() {
+        // Design's sixth call was that *"the Hauler ships from slice 3 as a dimmed card carrying its
+        // one line"*, and this test asserted the card. **The Hauler has now shipped**, so the promise
+        // is kept and the section is empty — which is a state the tab has never been in.
+        //
+        // The escort and the settler are deliberately not drawn in its place. A card for either would
+        // advertise a slice nobody has scheduled, which is the same reason the ship set has five
+        // constants rather than a dozen; they join the list on the day their slice is scheduled and
+        // not on the day their constant exists.
+        val yard = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC)
 
-        assertEquals(listOf(ShipType.HAULER), coming.map { it.type })
-        assertEquals(Strings.haulerPurpose(), coming.single().purpose)
+        assertEquals(emptyList(), yard.comingHulls.map { it.type })
+        // ...and it is *sold* rather than merely gone from the promise.
+        assertTrue(ShipType.HAULER in yard.hulls.map { it.type })
     }
 
     @Test

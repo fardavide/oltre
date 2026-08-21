@@ -172,14 +172,20 @@ private class HullCopy(val type: ShipType, val name: TextRes, val purpose: TextR
 private val FOR_SALE: List<HullCopy> = listOf(
     HullCopy(ShipType.SCOUT, Strings.scoutName(), Strings.scoutPurpose()),
     HullCopy(ShipType.SKIFF, Strings.skiffName(), Strings.skiffPurpose()),
-)
-
-// **Only the Hauler is drawn**, not all three unbuilt hulls. Design's call names it by name — *"the
-// Hauler ships from slice 3 as a dimmed card carrying its one line"* — and the reason it is not the
-// whole remainder is the same reason the ship set has four constants rather than a dozen: the escort
-// is a combat model and the settler is colonisation, so a card for either would be advertising a
-// slice nobody has scheduled. The Hauler is next.
-private val COMING: List<HullCopy> = listOf(
     HullCopy(ShipType.HAULER, Strings.haulerName(), Strings.haulerPurpose()),
 )
+
+// **Empty since 0.15.0, and it is meant to be.** Design's call named the Hauler by name — *"the
+// Hauler ships from slice 3 as a dimmed card carrying its one line"* — and the Hauler has now
+// shipped, so the promise is kept and the section has nothing left to promise.
+//
+// The escort and the settler are deliberately not here, which is the same reason the ship set has
+// five constants rather than a dozen: one is a combat model and the other is colonisation, so a card
+// for either would be advertising a slice nobody has scheduled. **They join this list on the day
+// their slice is scheduled, not on the day their constant exists.**
+//
+// The section is absent rather than empty on the screen — see `ShipyardScreen`. That is a state the
+// tab has never been in and Design has not drawn; it is the honest rendering of a list with nothing
+// in it, and it is flagged rather than settled.
+private val COMING: List<HullCopy> = emptyList()
 

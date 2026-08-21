@@ -529,10 +529,17 @@ class ColonyUiStateTest {
     @Test
     fun `the strip names whichever event lands first even when it belongs to the later run`() {
         // given a near run home in twenty hours and already on station, and a far one dispatched just
-        // now — the longest flight anywhere on the map is 9h 20m, so its arrival is inside those
-        // twenty hours whatever galaxy this colony's seed put it in
+        // now, whose arrival is inside those twenty hours.
+        //
+        // **The premise this used to state is no longer true and that is the whole of the edit.** It
+        // read *"the longest flight anywhere on the map is 9h 20m"*, which was a skiff at the speed
+        // 0.14 shipped at. This fixture's manifest carries a hauler, a hauler flies at half speed,
+        // and 0.15 halved the base — so the far corner is now 36h 20m one way and its *arrival*
+        // falls outside the near run's return, which makes the near run the next event and the test
+        // a statement about the opposite thing. Same galaxy, 170 systems out: 6h 38m, which is what
+        // the fixture always meant by "far".
         val now = Instant.fromEpochMilliseconds(0)
-        val far = GalaxyCoordinate(galaxy = 1, system = 42, slot = 7)
+        val far = GalaxyCoordinate(galaxy = 3, system = 1, slot = 7)
         val state = colony().copy(
             runs = listOf(
                 fleetRun(returnsAt = now + 20.hours, leftDaysAgo = 1),
@@ -544,7 +551,7 @@ class ColonyUiStateTest {
         val strip = checkNotNull(state.toColonyUiState(now = now, timeZone = TimeZone.UTC).returningFleet)
 
         // then it is the far run's arrival that is named, not the near run's return
-        assertEquals("On station at [1:42:7]", English.resolve(strip.title))
+        assertEquals("On station at [3:1:7]", English.resolve(strip.title))
         assertTrue(English.resolve(strip.countdown) < "20:00:00", English.resolve(strip.countdown))
     }
 

@@ -45,7 +45,12 @@ class FleetsUiStateTest {
     fun `a run whose flight has ended is on station`() {
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target, research = state.research)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.ON_STATION, state.cardAt(EPOCH + flight + 1.minutes).phase)
     }
@@ -54,7 +59,12 @@ class FleetsUiStateTest {
     fun `a run that has turned for home is inbound`() {
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target, research = state.research)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.INBOUND, state.cardAt(run.returnsAt - flight + 1.minutes).phase)
     }
@@ -65,7 +75,12 @@ class FleetsUiStateTest {
         // the same convention `advance` uses for a job completing at its own boundary.
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target, research = state.research)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.ON_STATION, state.cardAt(EPOCH + flight).phase)
     }
@@ -98,7 +113,12 @@ class FleetsUiStateTest {
         // arrival — the same change of scope the Colony strip took at 0.7.0.
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target, research = state.research)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         // Outbound: counting down to the landing, which is sooner than the whole window.
         val outbound = state.cardAt(EPOCH).countdown

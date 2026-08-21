@@ -136,6 +136,7 @@ class LedgerUiStateTest {
                 from = state.galaxy.home,
                 to = worlds.getValue(English.resolve(it.coordinate)).at,
                 research = state.research,
+                ships = FleetBalance.FASTEST_HULL,
             )
         }
         // Stated rather than trusted: an ordering assertion over a list that holds one figure is
