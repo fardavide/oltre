@@ -195,6 +195,23 @@ internal object BalanceBenchmarkGolden {
           the next galaxy at drive 1                      9h 20m · 12h 00m · 24h 00m
           the next galaxy at drive 3                      4h 50m · 6h 00m · 12h 00m · 24h 00m
           the next galaxy at drive 5                      3h 20m · 6h 00m · 12h 00m · 24h 00m
+        [hauler] per berth — four skiffs against one hauler, which the hauler always loses
+          per berth, the next slot at 1h 00m              156 without · the hauler cannot fly it
+          per berth, the next slot at 3h 00m              826 without · 647 with · -179 to the hauler
+          per berth, the next slot at 6h 00m              1830 without · 1652 with · -178 to the hauler
+          per berth, the next slot at 12h 00m             3839 without · 3661 with · -178 to the hauler
+          per berth, the next slot at 24h 00m             7858 without · 7679 with · -179 to the hauler
+        [hauler] per pool — Design's own cells: two skiffs against a hauler and two skiffs
+          per pool, the next slot at 1h 00m               78 without · the hauler cannot fly it
+          per pool, the next slot at 3h 00m               413 without · 971 with · +558 to the hauler
+          per pool, the next slot at 6h 00m               915 without · 2478 with · +1563 to the hauler
+          per pool, the next slot at 12h 00m              1919 without · 5491 with · +3572 to the hauler
+          per pool, the next slot at 24h 00m              3929 without · 8092 with · +4163 to the hauler · the vein, not the window
+          per pool, the next galaxy at 1h 00m             neither flies it
+          per pool, the next galaxy at 3h 00m             neither flies it
+          per pool, the next galaxy at 6h 00m             neither flies it
+          per pool, the next galaxy at 12h 00m            neither flies it
+          per pool, the next galaxy at 24h 00m            1686 without · the hauler cannot fly it
         [drive] one skiff on the 24h rung at the adjacent galaxy, by level
           level 0                                         drive 843 metal · prospecting 843 metal
           level 1                                         drive 2182 metal · prospecting 927 metal

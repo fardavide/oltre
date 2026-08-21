@@ -444,6 +444,37 @@ internal object BalanceBenchmark {
             }
         }
 
+        // **Design's one number to check before this ships** — *Twice the Flight*, closing line:
+        // *"The hauler is worth 630 metal at exactly one rung on a doorstep world and nothing at four
+        // of the five. If `:sim:run` agrees, the hull is a purchase that pays only on deep veins far
+        // out."* This is that reading, from the shipped formulas rather than from the design's
+        // arithmetic, and it is on the page permanently rather than checked once.
+        //
+        // **Two rows, because there are two questions and only one of them is the design's.**
+        //
+        // *Per berth* a hauler is strictly worse and always will be: `cargo` is berths x rate x
+        // station, four skiffs and one hauler carry the same four berths, and the hauler spends more
+        // of the window flying. That is `fleet-sheet.md` §8's own long-standing claim — *"strictly
+        // worse per berth at every target and window"* — and it is why the hull's entire case is
+        // price. Printed so nobody re-derives it as a defect.
+        //
+        // *Per pool* is the question the sheet actually asks, and it is the one Design's cells put
+        // in front of the player: **what your idle hulls carry with the hauler against without it.**
+        // Their fixture is one hauler and two skiffs, so the two cells are 2 berths and 6 berths —
+        // three times the hold for double the flight — and the rung where that stops paying is the
+        // crossover the hull is bought for.
+        add("[hauler] per berth — four skiffs against one hauler, which the hauler always loses")
+        for (rung in FleetBalance.WINDOWS) {
+            add(row("  per berth, the next slot at ${clock(rung)}", pairing(neighbour, rung, unresearched, average, EQUAL_BERTHS)))
+        }
+        add("[hauler] per pool — Design's own cells: two skiffs against a hauler and two skiffs")
+        val adjacentGalaxy = frontierTargets(home).last().second
+        for ((name, target) in listOf("the next slot" to neighbour, "the next galaxy" to adjacentGalaxy)) {
+            for (rung in FleetBalance.WINDOWS) {
+                add(row("  per pool, $name at ${clock(rung)}", pairing(target, rung, unresearched, average, DESIGNS_POOL)))
+            }
+        }
+
         // **The row that decides whether the drive competes rather than dominates** — §6.5's merge
         // condition, stated as a hold. It is the same 24h rung at the same richness as `[frontier]`,
         // so the two sections read against each other: what a level of reach is worth at a target,
@@ -461,6 +492,59 @@ internal object BalanceBenchmark {
                 ),
             )
         }
+    }
+
+    // The two manifests each row compares, as pairs so the reading and its label cannot drift.
+    private val EQUAL_BERTHS: Pair<Ships, Ships> =
+        Ships.of(ShipType.SKIFF, 4) to Ships.of(ShipType.HAULER, 1)
+
+    private val DESIGNS_POOL: Pair<Ships, Ships> =
+        Ships.of(ShipType.SKIFF, 2) to Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2))
+
+    // One rung, one pair, one sentence — including the two ways a rung can have no answer, which are
+    // the ladder's own two states: neither manifest flies it, or only the fast one does.
+    private fun pairing(
+        target: GalaxyCoordinate,
+        rung: kotlin.time.Duration,
+        research: Research,
+        sample: World,
+        pair: Pair<Ships, Ships>,
+    ): String {
+        val (without, with) = pair
+        val home = GalaxyState.initial(TEST_GALAXY_SEED).home
+        val fits = { ships: Ships -> rung in FleetBalance.windowsFor(home, target, research, ships) }
+        if (!fits(without)) return "neither flies it"
+        val world = sample.copy(at = target)
+        val bare = veinedHold(world, home, target, rung, without, research)
+        if (!fits(with)) return "$bare without · the hauler cannot fly it"
+        val loaded = veinedHold(world, home, target, rung, with, research)
+        val delta = loaded - bare
+        // **The clamp is the crossover.** A hauler buys hold, so it is worth nothing the moment the
+        // *vein* rather than the window is what stops the run — which is why the answer moves with
+        // the depth of the world and not only with the rung. Design's closing figure was measured on
+        // a 1,798 vein where the skiffs alone strip it from 6h up; on a deep world the hauler goes on
+        // paying at every rung it can fly. Saying which case a row is in is what makes the two
+        // readings comparable at all.
+        val cap = DepositBalance.cap(world, ResourceKind.METAL, FleetBalance.danger(home, world))
+        val note = if (loaded >= cap) " · the vein, not the window" else ""
+        return "$bare without · $loaded with · ${if (delta >= 0) "+" else ""}$delta to the hauler$note"
+    }
+
+    // What a manifest actually lands at a rung, clamped by the vein exactly as a run is — an
+    // unclamped figure would credit the hauler for hold the world cannot supply, which is precisely
+    // the crossover this section exists to locate.
+    private fun veinedHold(
+        world: World,
+        home: GalaxyCoordinate,
+        target: GalaxyCoordinate,
+        rung: kotlin.time.Duration,
+        ships: Ships,
+        research: Research,
+    ): Long {
+        val station = FleetBalance.stationFor(home, target, rung, research, ships)
+        val danger = FleetBalance.danger(home, world)
+        val lift = FleetBalance.cargo(world, ResourceKind.METAL, ships, station, danger, research).metal
+        return minOf(lift, DepositBalance.cap(world, ResourceKind.METAL, danger))
     }
 
     // Held at one richness on purpose — the generator has no positional gradient, so a far world is

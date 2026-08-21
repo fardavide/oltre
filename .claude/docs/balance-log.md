@@ -3661,3 +3661,92 @@ that from happening, and `StartSurveyTest` pins it as arithmetic rather than as 
 - **Two galaxy hops being unorderable is intended.** If it instead reads as a bug — a world you can
   see, a sheet with no windows on it — that is a copy problem on the dispatch sheet, not a balance
   one.
+
+
+---
+
+## Round 31 — the hauler, and the question Design asked us to check (0.15.0, 2026-08-21)
+
+Claude Design closed *Twice the Flight* with one number to verify before it shipped:
+
+> *"The hauler is worth 630 metal at exactly one rung on a doorstep world and nothing at four of the
+> five. If `:sim:run` agrees, the hull is a purchase that pays only on deep veins far out."*
+
+**The benchmark disagrees, and the disagreement is instructive rather than a defect on either side.**
+It is now a permanent `[hauler]` section rather than a check somebody ran once.
+
+### Two comparisons, and only one of them is the question
+
+The first cut of this section compared **four skiffs against one hauler** — equal berths — and
+reported that the hauler never pays. That is true and it is not the question: `cargo` is
+`berths × rate × station`, the two manifests carry the same four berths, and the hauler spends more
+of the window flying. It loses by 178 metal at every rung it can fly, at every distance, for ever.
+
+| per berth, the next slot | without | with | to the hauler |
+|---|---|---|---|
+| 1h | 156 | cannot fly it | — |
+| 3h | 826 | 647 | **−179** |
+| 24h | 7,858 | 7,679 | **−179** |
+
+That is `fleet-sheet.md` §8's own long-standing claim — *"strictly worse per berth at every target
+and window"* — reproduced from the shipped formulas, and it is why the hull's **entire case is
+price**. It is on the page so nobody re-derives it as a bug.
+
+**The question is per *pool*, which is what Design's own cells put in front of the player**: what your
+idle hulls carry with the hauler against without it. Their fixture is one hauler and two skiffs, so
+the two cells are 2 berths and 6 berths.
+
+| per pool, the next slot | without | with | to the hauler |
+|---|---|---|---|
+| 1h | 78 | cannot fly it | — |
+| 3h | 413 | 971 | **+558** |
+| 6h | 915 | 2,478 | **+1,563** |
+| 12h | 1,919 | 5,491 | **+3,572** |
+| 24h | 3,929 | 8,092 | **+4,163** · the vein, not the window |
+
+### Where Design's closing line went wrong, and it is a good mistake
+
+It says the hauler pays at *one* rung and nothing at four. Here it pays at **every rung it can fly**,
+and by more the longer the window. Both readings are correct about their own world, and the thing
+that separates them is **how deep the vein is**.
+
+A hauler buys hold, so it is worth exactly nothing the moment the **vein** rather than the window is
+what stops the run. Design's Calianova VIII holds 1,798, which two skiffs strip from 6h up — so past
+that rung the hauler adds berths to a world with nothing left to give them. The benchmark's world is
+far deeper, and the clamp does not bite until 24h. The row says which case it is in, because that is
+the only way the two are comparable.
+
+**So the honest sentence is Design's own §2 rather than its closing line**: *"The hauler pays where
+the window is short enough that the vein still holds more than the fleet can lift."* That is right.
+What does not follow is *"pays only on deep veins far out"* — the depth is the variable, and *far
+out* is the opposite of true, which is the next finding.
+
+### The finding neither of us was looking for: at drive 0 a hauler cannot leave the galaxy
+
+| per pool, the next galaxy | |
+|---|---|
+| 1h · 3h · 6h · 12h | neither flies it |
+| **24h** | **1,686 without · the hauler cannot fly it** |
+
+A hauler's round trip to the adjacent galaxy is **36h 40m** at drive 0 — past the longest window
+there is. So the two hulls this release added are **coupled**, and neither sheet says so:
+
+- **A hauler is a near-rock hull until Propulsion is bought.** §2's *"haulers work the near rocks and
+  the long stays"* is half true at drive 0 — the near rocks, and no long stays at all, because the
+  long stays are all far away.
+- **The drive is what makes the hauler a frontier hull**, and it does it in one level: at drive 1 the
+  same round trip is 18h 20m and the 24h rung opens.
+
+That is a genuinely good interaction and it was not designed — it falls out of two independent
+multipliers meeting. It is also the answer to *"the hull is a purchase that pays only on deep veins
+far out"*: at drive 0 it cannot **reach** far out, so what it is for on the day you buy it is the
+deep world next door.
+
+### What to check on the install
+
+- **Whether anyone buys a hauler before Propulsion.** If the sim's four-times-a-day player takes the
+  drive on day 2, the coupling above resolves itself; if a person buys the hauler first and finds it
+  cannot reach anything interesting, the Shipyard's card is where that has to be said — Design put
+  that out of scope and it is now a live question rather than a hypothetical one.
+- **Whether the +558 at 3h reads as worth 2,400 metal.** It is the rung the check-in rhythm defaults
+  to, so it is the number most players will actually meet, and it repays the hull in about four runs.
