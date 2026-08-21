@@ -315,6 +315,121 @@ class DispatchUiStateTest {
         assertNull(dispatchAt(homeSystemAt(empty)))
     }
 
+    // ── *Twice the Flight*: the picker's arithmetic, with no sheet in front of it ────────────
+
+    @Test
+    fun `the stepper walks the reachable hold and the gaps are the point`() {
+        // Design's own list at one hauler and two skiffs: 1, 2, then 4, 5, 6. There is no three-berth
+        // manifest because a hauler is four berths and it does not divide, and a stepper that
+        // pretended otherwise would offer a hold no fleet can carry.
+        val state = withFleet(haulers = 1, skiffs = 2)
+        val target = runnable()
+
+        val holds = listOf(1, 2, 3, 4, 5, 6, 7).map { asked ->
+            assertIs<DispatchUiState.Offer>(
+                dispatchAt(target, state, selection(target).copy(ships = asked)),
+            ).shipCount
+        }
+
+        // 3 snaps down to 2 and 7 snaps down to 6: a hold the list does not hold clamps to the
+        // nearest at or below it, which is what the cells promise before they are tapped.
+        assertEquals(listOf(1, 2, 2, 4, 5, 6, 6), holds)
+    }
+
+    @Test
+    fun `the stepper counts berths with two hull types and skiffs with one`() {
+        // A berth is a distinction only a second hull type creates, so with skiffs alone the unit is
+        // unchanged from 0.13.1 — the same sheet a player has always seen.
+        val target = runnable()
+        val mixed = assertIs<DispatchUiState.Offer>(dispatchAt(target, withFleet(haulers = 1, skiffs = 2)))
+        val skiffsOnly = assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(2)))
+
+        assertEquals("6 berths", English.resolve(mixed.ships))
+        assertEquals("2 skiffs", English.resolve(skiffsOnly.ships))
+    }
+
+    @Test
+    fun `two cells appear only when a second hull type is idle`() {
+        // *"A control with one option is not a control."* This is also every sheet before the hauler
+        // is bought and every sheet where it is already in the sky.
+        val target = runnable()
+
+        assertEquals(emptyList(), assertIs<DispatchUiState.Offer>(dispatchAt(target, withSkiffs(3))).hullCells)
+        assertEquals(
+            2,
+            assertIs<DispatchUiState.Offer>(dispatchAt(target, withFleet(haulers = 1, skiffs = 2))).hullCells.size,
+        )
+    }
+
+    @Test
+    fun `a cell names the whole of its clock and the selected one names the run`() {
+        val target = runnable()
+        val state = withFleet(haulers = 1, skiffs = 2)
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, state))
+        val (fast, slow) = offer.hullCells
+
+        assertEquals("2 skiffs", English.resolve(fast.label))
+        assertEquals(2, fast.berths)
+        assertEquals("1 hauler · 2 skiffs", English.resolve(slow.label))
+        assertEquals(6, slow.berths)
+        assertTrue(slow.selected, "the default packs the hauler, so the slow cell is the one lit")
+    }
+
+    @Test
+    fun `the hauler's cell quotes the hauler's clock`() {
+        // Two cells, two clocks, and the slow one is the whole reason the control exists.
+        val target = runnable()
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, withFleet(haulers = 1, skiffs = 2)))
+        val (fast, slow) = offer.hullCells
+
+        assertTrue(
+            English.resolve(fast.trip) != English.resolve(slow.trip),
+            "both cells quoted one clock: ${English.resolve(fast.trip)}",
+        )
+    }
+
+    @Test
+    fun `the default packs the hauler first so the skiffs stay home`() {
+        // Design's third ruling. On a part-worked vein one hauler empties it, so the two skiffs are
+        // left for the second target the sheet cannot see.
+        val target = runnable()
+        val state = withFleet(haulers = 1, skiffs = 2)
+        val whole = state.galaxy.remaining(target, ResourceKind.METAL, EPOCH)
+        val worked = state.copy(
+            galaxy = state.galaxy.withTaken(target, ResourceKind.METAL, whole - whole / 12, EPOCH),
+        )
+
+        val offer = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, worked, selection(target).copy(gathering = ResourceKind.METAL)),
+        )
+
+        // **The property rather than a manifest**, because which one empties a given vein depends on
+        // the world the seed produced and the rung the sheet defaulted to — asserting a particular
+        // pair would be pinning this fixture's arithmetic rather than the packing rule. What the rule
+        // says is that the hauler goes in first and the skiffs are what is left over, so on a vein a
+        // partial fleet can empty, at least one skiff stays home.
+        assertEquals(1, offer.manifest.countOf(ShipType.HAULER), "the hauler was not packed first")
+        assertTrue(
+            offer.manifest.countOf(ShipType.SKIFF) < 2,
+            "every skiff went anyway: ${offer.manifest}",
+        )
+        // ...and it really is the *fewest* berths that empty it: one berth less leaves something.
+        assertTrue(offer.shipCount < 6, "the default took the whole pool: ${offer.shipCount}")
+    }
+
+    @Test
+    fun `the offer carries the manifest rather than a count a screen would rebuild`() {
+        // The defect this field exists to prevent: six berths is not six skiffs, and a screen that
+        // rebuilt `Ships.of(SKIFF, shipCount)` would hand `startRun` a fleet nobody owns.
+        val target = runnable()
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(target, withFleet(haulers = 1, skiffs = 2)))
+
+        assertEquals(Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)), offer.manifest)
+        assertEquals(6, offer.shipCount)
+    }
+
     // ── The fixture ──────────────────────────────────────────────────────────────────────────
 
     private val galaxy: GalaxyState = GalaxyState.initial(GalaxySeed(SEED))
@@ -645,6 +760,10 @@ class DispatchUiStateTest {
     // unsurveyed world hands back a probe offer, and that offer is only made when the footer above
     // would honour it — so a helper that emptied the scout out of the pool would silently turn every
     // one of those assertions into a test of the sheet with no verb on it.
+    // A pool with both hull types, which is the smallest fleet in which the picker exists at all.
+    private fun withFleet(haulers: Int, skiffs: Int): GameState =
+        state.copy(ships = state.ships + Ships(mapOf(ShipType.HAULER to haulers, ShipType.SKIFF to skiffs)))
+
     private fun withSkiffs(count: Int): GameState =
         state.copy(ships = state.ships + Ships.of(ShipType.SKIFF, count))
 
