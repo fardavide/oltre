@@ -37,9 +37,38 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew check
 
+  # **The one job that does not run on Linux, and the reason is the whole point of it.** A
+  # screenshot test asserts that a drawing has not moved; it can only do that if the machine that
+  # records and the machine that verifies draw the same thing. Recording happens on a Mac, so this
+  # verifies on a Mac.
+  #
+  # It used to verify on Linux, and the cost of that was not the odd red build — it was the loop it
+  # forced. A locally recorded baseline could fail CI for a reason no diff explained, so a visual
+  # change went out through the manual "Record screenshots" job instead: dispatch, wait for a
+  # runner, take its commit, re-dispatch CI. **PR #92 spent 38 workflow runs in one day that way**
+  # (30 CI, 8 record dispatches).
+  #
+  # Measured across the whole corpus on 2026-08-21 rather than from one CI artifact. Re-rendering
+  # `main`'s committed baselines on a Mac reports **5–7.5% of pixels changed on nearly every one of
+  # the 102 frames**, with `facility_sheet_locked` (9.4%) and `research_sheet_inert_slide_over`
+  # (8.7%) — the two carrying the most wrapped prose — spilling past the 8% budget outright. So the
+  # drift was pervasive and the budget was a tight fit around it, not slack left over from a fixed
+  # problem.
+  #
+  # Those two spilling over are what made a local record unusable: it produced a corpus that failed
+  # here, which taught every session to dispatch the manual job instead of recording on the machine
+  # already in front of it.
+  #
+  # The difference is the two operating systems and nothing else — two consecutive
+  # `recordRoborazziDesktop` runs on the same Mac produced **byte-identical output for all 102
+  # frames**. One OS at both ends leaves nothing to budget for, which is what lets
+  # `oltreRoborazziOptions()` hold `ThresholdValidator(0f)`.
+  #
+  # macOS runners are free on a public repo. If that ever stops being true, the fallback is a
+  # measured per-frame tolerance on Linux, not a return to an 8% blanket.
   screenshot:
     name: Screenshot tests
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
