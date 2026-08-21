@@ -517,67 +517,99 @@ class FleetBalanceTest {
     // ── The fleet the deposit is worth sending ───────────────────────────────────────────────
 
     @Test
-    fun `the fleet that empties a vein is the smallest one whose hold covers it`() {
-        // **Derived from `cargo`'s own expression rather than from a second rate**, exactly as
-        // `DepositBalance.workingTime` is — so the two can never disagree about a hull. The property
-        // is the definition: this many hulls take everything there is and one fewer does not.
+    fun `the default is the fewest berths that empty the vein`() {
+        // The definition asserted rather than restated: the manifest it picks lifts the whole vein,
+        // and the one below it in the list does not. **In berths since 0.15**, because "smallest"
+        // stopped meaning a hull count the day four skiffs and one hauler lifted the same.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
-        fun lift(hulls: Int): Long =
-            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.SKIFF, hulls), 160.minutes, 2, NONE).metal
+        // Deep enough to answer every vein below: `hullsToLift` returned an unbounded count, where
+        // this picks from a real pool, so the fixture has to own the hulls it is asked about.
+        val pool = FleetBalance.reachableManifests(Ships(mapOf(ShipType.HAULER to 8, ShipType.SKIFF to 8)))
+        fun lift(ships: Ships): Long =
+            FleetBalance.cargo(rich, ResourceKind.METAL, ships, 160.minutes, 2, NONE).metal
 
-        for (remaining in listOf(1L, 100L, 1_000L, 4_321L, 12_000L, 25_000L)) {
-            val hulls = assertNotNull(
-                FleetBalance.hullsToLift(rich, ResourceKind.METAL, remaining, 160.minutes, 2, NONE),
+        for (remaining in listOf(1L, 100L, 1_000L, 4_321L)) {
+            val picked = assertNotNull(
+                FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.METAL, remaining, { 160.minutes }, 2, NONE),
+                "nothing in the pool empties $remaining",
             )
-            assertTrue(lift(hulls) >= remaining, "$hulls hulls lift ${lift(hulls)} of $remaining")
-            assertTrue(hulls == 1 || lift(hulls - 1) < remaining, "${hulls - 1} hulls already lift $remaining")
+            assertTrue(lift(picked.ships) >= remaining, "${picked.ships} lifts ${lift(picked.ships)} of $remaining")
+            val below = pool.lastOrNull { it.berths < picked.berths }
+            assertTrue(
+                below == null || lift(below.ships) < remaining,
+                "${below?.ships} already lifts $remaining",
+            )
         }
     }
 
     @Test
-    fun `a vein with nothing left in it takes one hull rather than none`() {
-        // One is the floor because a fleet of nothing is not an offer. The dispatch sheet opens on
-        // this number on a stripped world — which is what makes its countdown the soonest one there
-        // is rather than a date no world will ever reach.
+    fun `where two manifests empty it the hauler-first one is the one offered`() {
+        // The packing rule, seen through the default: `reachableManifests` is already ordered
+        // hauler-first at each hold, so the rule falls out of the list rather than being applied
+        // twice. Four berths is one hauler or four skiffs, and it is the hauler that goes.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        val pool = FleetBalance.reachableManifests(Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 4)))
+        val fourBerths =
+            FleetBalance.cargo(rich, ResourceKind.METAL, Ships.of(ShipType.HAULER, 1), 160.minutes, 0, NONE).metal
 
-        assertEquals(1, FleetBalance.hullsToLift(rich, ResourceKind.METAL, 0, 160.minutes, 0, NONE))
+        val picked = assertNotNull(
+            FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.METAL, fourBerths, { 160.minutes }, 0, NONE),
+        )
+
+        assertEquals(4, picked.berths)
+        assertEquals(1, picked.ships.countOf(ShipType.HAULER))
+        assertEquals(0, picked.ships.countOf(ShipType.SKIFF))
+    }
+
+    @Test
+    fun `a vein deeper than the whole pool has no answer rather than a wrong one`() {
+        // Null is *nothing here empties it*, which is what lets the sheet fall back to the whole idle
+        // pool — where the vein outlasts the fleet nothing is wasted, so every hull is the right ask.
+        val target = home.copy(slot = 6)
+        val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        val pool = FleetBalance.reachableManifests(Ships.of(ShipType.SKIFF, 2))
+
+        assertNull(
+            FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.METAL, 10_000_000, { 160.minutes }, 0, NONE),
+        )
     }
 
     @Test
     fun `a window that leaves no time on the surface is one no fleet can empty`() {
-        // Null rather than a number, because the answer is *none of them*: `cargo` is zero at every
-        // fleet size when the station is, so any figure here would be a lie with a plausible face.
+        // `cargo` is zero at every fleet size when the station is, so there is no manifest to name.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        val pool = FleetBalance.reachableManifests(Ships.of(ShipType.SKIFF, 8))
 
-        assertNull(FleetBalance.hullsToLift(rich, ResourceKind.METAL, 500, 0.minutes, 0, NONE))
-        assertNull(FleetBalance.hullsToLift(rich, ResourceKind.METAL, 500, (-30).minutes, 0, NONE))
+        assertNull(FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.METAL, 500, { 0.minutes }, 0, NONE))
+        assertNull(FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.METAL, 500, { (-30).minutes }, 0, NONE))
     }
 
     @Test
-    fun `a longer window and a richer world both want fewer hulls`() {
-        // The two reasons the sheet re-derives the number when a rung is tapped: the same vein wants
-        // a smaller fleet the longer the fleet is allowed to stay.
+    fun `a longer window and a richer world both want a smaller fleet`() {
+        // The two reasons the sheet re-derives the manifest when a rung is tapped: the same vein
+        // wants less hold the longer the fleet is allowed to stay, and less again where it is richer.
         val target = home.copy(slot = 6)
         val poor = world(target, metalPerMillion = 600_000, hazards = emptySet())
         val rich = world(target, metalPerMillion = 1_600_000, hazards = emptySet())
-        fun hulls(on: World, station: Duration): Int? =
-            FleetBalance.hullsToLift(on, ResourceKind.METAL, 8_000, station, 0, NONE)
+        val pool = FleetBalance.reachableManifests(Ships.of(ShipType.SKIFF, 40))
+        fun berths(on: World, station: Duration): Int? =
+            FleetBalance.smallestThatEmpties(pool, on, ResourceKind.METAL, 2_000, { station }, 0, NONE)?.berths
 
-        assertTrue(hulls(poor, 160.minutes)!! > hulls(poor, 700.minutes)!!)
-        assertTrue(hulls(poor, 160.minutes)!! > hulls(rich, 160.minutes)!!)
+        assertTrue(berths(poor, 160.minutes)!! > berths(poor, 700.minutes)!!)
+        assertTrue(berths(poor, 160.minutes)!! > berths(rich, 160.minutes)!!)
     }
 
     @Test
     fun `no fleet is ever sent to gather deuterium`() {
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
+        val pool = FleetBalance.reachableManifests(Ships.of(ShipType.SKIFF, 2))
 
         assertFailsWith<IllegalArgumentException> {
-            FleetBalance.hullsToLift(rich, ResourceKind.DEUTERIUM, 500, 160.minutes, 0, NONE)
+            FleetBalance.smallestThatEmpties(pool, rich, ResourceKind.DEUTERIUM, 500, { 160.minutes }, 0, NONE)
         }
     }
 

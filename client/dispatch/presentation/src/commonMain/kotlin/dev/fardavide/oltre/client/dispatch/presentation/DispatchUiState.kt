@@ -155,17 +155,21 @@ fun GameState.toDispatchUiState(
     // then taken from the manifests that fit it.
     val window = selection.window?.takeIf { it in everReachable } ?: everReachable.defaultRung()
     val fits = manifests.filter { window in FleetBalance.windowsFor(home, target, research, it.ships) }
-    val suggested = defaultManifest(
-        fits = fits,
+    // **The rule is `core`'s**, because every term in it is arithmetic — a berth count, a hold, a
+    // vein. `fits` is what carries the one constraint that binds it: it may never lock the rung it
+    // is defaulting to, which is expressed by the list rather than re-checked inside.
+    //
+    // Null is *nothing here empties it*, and then the whole idle pool goes: where the vein outlasts
+    // the fleet nothing is wasted, which is the same rule seen from the other end.
+    val suggested = FleetBalance.smallestThatEmpties(
+        candidates = fits,
         world = world,
         gathering = gathering,
         remaining = inTheGround,
-        home = home,
-        target = target,
-        window = window,
+        station = { FleetBalance.stationFor(home, target, window, research, it) },
         danger = danger,
         research = research,
-    )
+    ) ?: fits.lastOrNull() ?: manifests.first()
     // The stepper's value is a **berth count**, and the cells send one too — both controls move one
     // cursor along one ordered list. A count the list does not hold snaps to the nearest hold at or
     // below it, which is the clamp the cells promise before they are tapped.
@@ -657,37 +661,6 @@ private const val DANGER_BONUS_PERCENT: Int = 35
 private const val MILLIS_PER_SECOND: Long = 1_000
 
 
-
-// **The fewest berths that empty the vein at the rung already selected, packed with the hauler
-// first; if nothing empties it, every idle hull.** Design's third ruling, unchanged in intent from
-// 0.13.1 — the default exists to stop you locking hulls away behind a vein that cannot fill them —
-// and now measured in berths.
-//
-// **The one constraint that binds it: it may never lock the rung it is defaulting to.** `fits` is
-// already filtered to the manifests that can fly the chosen rung, so the rule is expressed by the
-// list it is given rather than re-checked here.
-//
-// *"Fewest hulls and cheapest-to-own are the same answer at two hulls and this is it; fastest-home
-// is the one real rival and it loses, because it leaves berths you own on the ground."*
-private fun defaultManifest(
-    fits: List<ReachableManifest>,
-    world: World,
-    gathering: ResourceKind,
-    remaining: Long,
-    home: GalaxyCoordinate,
-    target: GalaxyCoordinate,
-    window: Duration,
-    danger: Int,
-    research: Research,
-): ReachableManifest {
-    val empties = fits.firstOrNull { manifest ->
-        val station = FleetBalance.stationFor(home, target, window, research, manifest.ships)
-        FleetBalance.cargo(world, gathering, manifest.ships, station, danger, research).of(gathering) >= remaining
-    }
-    // Nothing empties it, so the whole idle pool goes — nothing is wasted where the vein outlasts
-    // the fleet, which is the same rule seen from the other end.
-    return empties ?: fits.lastOrNull() ?: ReachableManifest(Ships.NONE, 0, 1)
-}
 
 // What the *other* clock would bring home at its own nearest rung, clamped by the vein exactly as
 // the headline figure is — a note that quoted an unclamped lift would promise more than the run

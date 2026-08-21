@@ -29,13 +29,15 @@ class ShipyardScreenBehaviourTest {
     }
 
     @Test
-    fun `the hull that is coming is drawn and cannot be pressed`() {
-        // Design's sixth call: the Hauler ships from this slice as a dimmed card carrying its one
-        // line, which is the system's rule for a thing that is coming and is not here.
+    fun `the hull that was coming is a purchase now`() {
+        // Design's sixth call was that *"the Hauler ships from slice 3 as a dimmed card carrying its
+        // one line"* — the system's rule for a thing that is coming and is not here — and this test
+        // asserted the dim card. **It has shipped**, so the same card is a verb and the `NOT YET
+        // BUILT` section it used to sit in is empty.
         shipyard(uiState = oneHullUiState) {
             assertShowsCard(ShipType.HAULER)
             assertCardReads(ShipType.HAULER, "Four berths of hold")
-            assertNothingToPress(ShipType.HAULER)
+            assertOffersToBuild(ShipType.HAULER)
         }
     }
 
@@ -48,7 +50,7 @@ class ShipyardScreenBehaviourTest {
         shipyard(uiState = sixHullsUiState) {
             assertCardReads(ShipType.SKIFF, "6 owned · 1 idle · 5 away")
             assertCardReads(ShipType.SCOUT, "2 owned · 1 idle · 1 away")
-            assertReads("8 hulls")
+            assertReads("9 hulls")
         }
     }
 
@@ -60,8 +62,9 @@ class ShipyardScreenBehaviourTest {
         shipyard(uiState = oneHullUiState) {
             assertShowsCard(ShipType.SCOUT)
             assertShowsCard(ShipType.SKIFF)
+            assertShowsCard(ShipType.HAULER)
             assertCardReads(ShipType.SKIFF, "1 owned · 1 idle")
-            assertReads("2 hulls")
+            assertReads("3 hulls")
         }
     }
 
@@ -70,6 +73,17 @@ class ShipyardScreenBehaviourTest {
         shipyard(uiState = oneHullUiState, width = SLIDE_OVER_WIDTH) {
             assertCardReads(ShipType.SKIFF, "One berth of hold")
             assertOffersToBuild(ShipType.SKIFF)
+        }
+    }
+
+    @Test
+    fun `the hauler is a card you can buy rather than a promise`() {
+        // The section that carried it as a dimmed promise is empty now, because the promise is kept:
+        // *"the Hauler ships from slice 3 as a dimmed card carrying its one line"*, and it has.
+        shipyard(uiState = sixHullsUiState) {
+            assertShowsCard(ShipType.HAULER)
+            assertOffersToBuild(ShipType.HAULER)
+            assertCardReads(ShipType.HAULER, "Four berths of hold")
         }
     }
 }

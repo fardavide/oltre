@@ -218,6 +218,35 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
+    fun `the stepper counts berths with a hauler idle and skiffs without one`() {
+        // A berth is a distinction only a second hull type creates, so the sheet a player has always
+        // seen is unchanged until they buy one — asserted from the screen, because the unit is the
+        // first thing they read on that control.
+        galaxyPage(uiState = dispatchPickerUiState) {
+            assertTheSheetReads("6 berths")
+            assertTheSheetReads("1 hauler · 2 skiffs idle")
+        }
+        galaxyPage(uiState = dispatchOfferUiState) {
+            assertTheSheetReads("1 skiff")
+        }
+    }
+
+    @Test
+    fun `the note under the cells says what the other clock would do`() {
+        // One slot, three forms, and the precedence is Design's — the clamp wins where both are
+        // earned, because it is about the run being sent rather than one that is not.
+        galaxyPage(uiState = dispatchPickerUiState) {
+            assertTheSheetReads("Skiffs only lift")
+        }
+        galaxyPage(uiState = dispatchPickerNarrowedUiState) {
+            assertTheSheetReads("The hauler lifts")
+        }
+        galaxyPage(uiState = dispatchPickerClampedUiState) {
+            assertTheSheetReads("The hauler empties it.")
+        }
+    }
+
+    @Test
     fun `a window is missing rather than dead when the trip will not fit inside it`() {
         // The only way to show "too far" without a control that refuses its own tap — and the rung
         // that vanishes is the copy: a ladder narrowing on a distant target teaches distance before

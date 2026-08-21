@@ -404,51 +404,41 @@ object FleetBalance {
         return gathered.holding(numerator / denominator)
     }
 
-    // **The smallest fleet that takes everything there is, and null when no fleet would.** The
-    // dispatch sheet opens on this number rather than on the whole idle pool — Davide, 2026-08-17,
-    // having counted the taps: *"going from 55 to 3 is a lot of taps"*. A hull past this one is
-    // locked away for the whole window and brings back exactly zero, which the sheet has said out
-    // loud in a note since 0.10 and now says by defaulting to the number instead.
+    // ── The smallest fleet that empties the vein — RETIRED 2026-08-21, REPLACED ──────────────
     //
-    // **Derived from `cargo`'s own expression rather than from a second rate**, for the reason
-    // `DepositBalance.workingTime` states one file over: `cargo(n)` is `floor(n x K)`, so
-    // `cargo(n) >= remaining` for an integer `remaining` is exactly `n >= remaining / K` — one
-    // ceiling division, and the two can never disagree about a hull. A second copy of the rate here
-    // would be a second rounding convention.
+    // `hullsToLift` lived here from 0.13.1 and answered *"the smallest fleet that takes everything
+    // there is"* as a **hull count**. It had exactly one caller, the dispatch sheet's default, and it
+    // stopped having a single answer the day the picker landed: four skiffs and one hauler lift the
+    // same and cost different things, so *"smallest"* became a question about a **composition**.
     //
-    // Null is *no fleet size lifts this in this window*, which is the honest answer when the window
-    // leaves nothing on the surface: `cargo` is zero at every fleet size there, so any figure would
-    // be a wrong answer wearing a plausible face. One is the floor, because a fleet of nothing is
-    // not an offer — a vein with nothing left in it takes one hull to take nothing.
+    // Claude Design saw it coming and said so — *"hullsToLift stops having one answer once four
+    // skiffs and one hauler lift the same and cost differently. Widening this is the picker's slice,
+    // not a tidy-up: what it should return is a composition, and which composition is a design
+    // question rather than an arithmetic one."* That question is answered — fewest berths, hauler
+    // first — so this is the widening rather than a deletion, and `smallestThatEmpties` below is what
+    // it became.
     //
-    // **It answers in *skiffs*, and that is a limit rather than a unit.** The dispatch sheet steppers
-    // one hull type, so a hull and a berth are the same thing to every caller there is — and the
-    // day the manifest picker offers two, "the smallest fleet that takes everything" stops having a
-    // single answer (four skiffs and one hauler lift the same and cost different things). Widening
-    // this is the picker's slice, not a tidy-up: what it should return is a *composition*, and which
-    // composition is a design question rather than an arithmetic one.
-    fun hullsToLift(
+    // Recorded rather than silently dropped, for `FRONTIER_PERCENT`'s reason one section up: the
+    // argument that produced it is still the right argument, and it is now carried in berths.
+
+    // **The fewest berths that empty the vein, packed hauler-first** — Claude Design's third ruling,
+    // *Twice the Flight*. Null when no manifest here can, which is the honest answer for a window
+    // with no surface time and for a vein deeper than the whole pool: the caller sends everything.
+    //
+    // `candidates` is filtered by the caller rather than here, and that is the one constraint the
+    // rule carries — *"it may never lock the rung it is defaulting to"* — expressed as the list it is
+    // handed instead of as a second check it would have to repeat.
+    fun smallestThatEmpties(
+        candidates: List<ReachableManifest>,
         world: World,
         gathering: ResourceKind,
         remaining: Long,
-        station: Duration,
+        station: (Ships) -> Duration,
         danger: Int,
         research: Research,
-    ): Int? {
-        val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
-        require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
-        val stationMinutes = station.inWholeMinutes
-        if (stationMinutes <= 0) return null
-        if (remaining == 0L) return 1
-        val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(remaining, MINUTES_PER_HOUR * GalaxyBalance.RICHNESS_BASIS) { "hulls remaining" }
-        numerator = checkedTimes(numerator, PERCENT * gathered.pricePerUnit) { "hulls price" }
-        var denominator = checkedTimes(extractionPerHour(research), stationMinutes) { "hulls station" }
-        denominator = checkedTimes(denominator, gathered.richnessOf(world).perMillion.toLong()) { "hulls richness" }
-        denominator = checkedTimes(denominator, paid) { "hulls danger" }
-        // Ceiled: a fleet that lifts a fraction less than the vein holds has not emptied it.
-        val hulls = (numerator + denominator - 1) / denominator
-        return hulls.coerceIn(1, Int.MAX_VALUE.toLong()).toInt()
+    ): ReachableManifest? = candidates.firstOrNull { manifest ->
+        val onStation = station(manifest.ships)
+        cargo(world, gathering, manifest.ships, onStation, danger, research).of(gathering) >= remaining
     }
 
     // ── The hull ─────────────────────────────────────────────────────────────────────────────
@@ -707,3 +697,11 @@ object FleetBalance {
 // It lives in `core` because every term in it is arithmetic — a pool, a berth count, a flight — and
 // none of it is a rendering. What the sheet adds is which entry is selected and what the cells say.
 data class ReachableManifest(val ships: Ships, val berths: Int, val flightFactor: Int)
+
+// The one resource a run is out to fetch, read off a basket. Private because `Resources` is the
+// game's one shape for a stock and a public reader would invite a second `when` per caller.
+private fun Resources.of(kind: ResourceKind): Long = when (kind) {
+    ResourceKind.METAL -> metal
+    ResourceKind.CRYSTAL -> crystal
+    ResourceKind.DEUTERIUM -> deuterium
+}
