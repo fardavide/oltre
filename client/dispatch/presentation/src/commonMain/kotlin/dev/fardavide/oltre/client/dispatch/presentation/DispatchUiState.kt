@@ -382,10 +382,26 @@ fun GameState.toDispatchUiState(
         cellNote = cellNote,
         ladderNote = ladderNote,
         rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
-        clampNote = clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround),
+        // Skiff-only for the same reason the per-ship reading is: *"3 skiffs empty it. The 4th
+        // brings nothing"* counts hulls that lift the same amount, and a mix does not. On a mixed
+        // manifest the clamp is stated by the figure's own `the whole deposit` and by the cell note,
+        // which is Design's rule that each control gets at most one note.
+        clampNote = if (sent.counts.size > 1) {
+            null
+        } else {
+            clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround)
+        },
         figure = Strings.amountOfResource(haul.groupedByThousands(), gathering),
+        // **Retired on a mixed manifest** — Design lists `449 each` under *Retired* with its reason
+        // in five words: *"the per-ship reading, which a mix has no answer for."* A hauler and two
+        // skiffs do not lift the same amount each, so "each" names nothing; and it cannot be per
+        // *berth* either, because a berth is not a thing a player sends.
+        //
+        // The clamp marker stays whatever the manifest is: `the whole deposit` is a fact about the
+        // ground rather than about the hulls, and it is the only marker the clamped state needs.
         perShip = when {
             clamped -> Strings.theWholeDeposit()
+            sent.counts.size > 1 -> null
             hulls > 1 -> Strings.eachShip((haul / hulls).groupedByThousands())
             else -> null
         },
