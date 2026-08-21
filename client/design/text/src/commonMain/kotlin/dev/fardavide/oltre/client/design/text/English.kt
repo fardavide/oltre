@@ -102,6 +102,13 @@ object English : Translations {
         // flight speed halved, so two galaxy hops is 36h 20m out and back and the longest rung is
         // 24h. It is a refusal with a remedy, and the remedy is the drive — which is why the note
         // names it rather than the distance.
+        // **The ordinary first check-in of a 0.15 colony**, not an edge case. Genesis grants no
+        // hulls, the Shipyard puts the scout first because it is the cheapest and the only thing
+        // that surveys, and a scout gathers nothing — so the first sheet a player opens on the
+        // world their first probe charted is this one. It used to read "Every hull is away" over a
+        // scout sitting idle in the yard, and then "Nothing is idle and nothing is out" under it.
+        StringId.DispatchNoGatheringHullTitle -> "Nothing here can gather."
+        StringId.DispatchNoGatheringHullNote -> "A scout charts a world; a skiff or a hauler is what lifts anything off it."
         StringId.DispatchOutOfReachTitle -> "Too far for any window."
         StringId.DispatchOutOfReachNote -> "No fleet can be back inside a day. Propulsion is what shortens the trip."
         StringId.DispatchAwayNote ->
@@ -109,7 +116,6 @@ object English : Translations {
                 "${args.text(1)} is inbound with ${args.text(2)} ${args.text(3)}."
         StringId.DispatchAwayMore -> "${args.count(0)} more behind it."
         StringId.DispatchAwayTail -> "A hull is idle only once it is home."
-        StringId.DispatchNothingIdle -> "Nothing is idle and nothing is out."
         StringId.DepositFull -> "deposit full"
         StringId.DepositEmpty -> "deposit empty"
         StringId.DepositStock -> "deposit ${args.text(0)}/${args.text(1)}"
@@ -127,8 +133,8 @@ object English : Translations {
         StringId.RungRequiresSkiffs -> "skiffs"
         StringId.LadderRungMoved -> "The hauler moved this run to ${args.text(0)}, the shortest window it fits."
         StringId.LadderShortestFit -> "${args.text(0)} is the shortest window the hauler fits."
-        StringId.CellCounterfactual -> "Skiffs only lift ${args.text(0)}, and only skiffs fly ${args.text(1)}."
-        StringId.CellRungConsequence -> "The hauler lifts ${args.text(0)} and lands at ${args.text(1)}."
+        StringId.CellCounterfactual -> "Skiffs only lift ${args.text(0)} ${args.text(1)}, and only skiffs fly ${args.text(2)}."
+        StringId.CellRungConsequence -> "The hauler lifts ${args.text(0)} ${args.text(1)} and lands at ${args.text(2)}."
         StringId.CellClamped -> "The hauler empties it. The ${args.text(0)} bring nothing."
         // **A count of one needs its own sentence, not the same one with a smaller number in it.**
         // The plural form reads "The 1 skiff bring nothing" at a pool of one hauler and one skiff —

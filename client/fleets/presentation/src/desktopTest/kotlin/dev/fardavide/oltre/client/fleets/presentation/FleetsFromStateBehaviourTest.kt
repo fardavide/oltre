@@ -221,7 +221,10 @@ class FleetsFromStateBehaviourTest {
 
             assertTheSheetIsUp()
             assertOffersNoRun()
-            assertTheSheetReads("Every hull is away.")
+            // **Nothing is away here — the colony owns nothing**, which is a different sentence and
+            // the fixture always was that state. "Every hull is away" is now kept for a pool that
+            // really does have something in flight.
+            assertTheSheetReads("Nothing here can gather.")
         }
     }
 

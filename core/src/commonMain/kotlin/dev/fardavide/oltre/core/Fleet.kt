@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.core
 
 import kotlinx.serialization.Serializable
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 // Five constants, and **each one exists because a slice needs it** — Davide's call, 2026-08-10,
@@ -136,11 +137,27 @@ data class FleetRun(
     // from both ends, it can never escape the window, and it is gone the moment the run lands.
     // The run's *own* manifest sets its clock — a hauler in it flies the whole run at the hauler's
     // pace — so unlike the research this needs no parameter: it is already stored.
-    fun flightEndsAt(from: GalaxyCoordinate, research: Research): Instant =
-        dispatchedAt + FleetBalance.flight(from, target, research, ships)
+    // **A leg is recomputed from today's research, and a run in the air was priced under
+    // yesterday's.** `returnsAt` is stored, the flight is not — so anything that changes the rate
+    // under a run already in flight moves the two legs without moving the window they sit inside.
+    // 0.15 did exactly that, twice over: `UNITS_PER_MINUTE_BASE` halved, and `PROPULSION` starts at
+    // zero, so a run dispatched under 0.14 on the tightest rung it was offered came back with legs
+    // longer than its own span. The Fleets card then printed `out 9h 10m · on station -19m · home
+    // 9h 10m`, and its two ticks crossed — outbound after inbound — which is the one thing the card
+    // draws that has to be monotone.
+    //
+    // **Clamped to half the stored span, which is the run's own truth.** `returnsAt - dispatchedAt`
+    // is what the player was promised and what `advance` will honour; a leg cannot be longer than
+    // half of it without the fleet arriving home before it left. The clamp binds only on a run whose
+    // rate changed underneath it — for every run dispatched at the current rate, `flight * 2` is
+    // already inside the window by `MINIMUM_STATION` — so it is a migration that needs no schema
+    // version rather than a fudge, and it costs a live run nothing.
+    private fun leg(from: GalaxyCoordinate, research: Research): Duration =
+        minOf(FleetBalance.flight(from, target, research, ships), (returnsAt - dispatchedAt) / 2)
 
-    fun inboundBeginsAt(from: GalaxyCoordinate, research: Research): Instant =
-        returnsAt - FleetBalance.flight(from, target, research, ships)
+    fun flightEndsAt(from: GalaxyCoordinate, research: Research): Instant = dispatchedAt + leg(from, research)
+
+    fun inboundBeginsAt(from: GalaxyCoordinate, research: Research): Instant = returnsAt - leg(from, research)
 }
 
 // One hull on the slipway, and the sixth kind of job — Davide's call, 2026-08-13, overruling the

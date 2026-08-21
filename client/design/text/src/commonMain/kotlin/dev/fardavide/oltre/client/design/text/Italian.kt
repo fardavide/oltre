@@ -148,6 +148,8 @@ object Italian : Translations {
                 "${args.count(1).plural("mondo", "mondi")}."
         StringId.DispatchProbeOffer -> "${args.text(0)} metallo · ${args.text(1)}."
         StringId.DispatchEverySkiffAwayTitle -> "Ogni scafo è in missione."
+        StringId.DispatchNoGatheringHullTitle -> "Niente qui può raccogliere."
+        StringId.DispatchNoGatheringHullNote -> "Un esploratore mappa un mondo; una scialuppa o un cargo è ciò che ne solleva qualcosa."
         StringId.DispatchOutOfReachTitle -> "Troppo lontano per qualsiasi finestra."
         StringId.DispatchOutOfReachNote -> "Nessuna flotta può tornare entro un giorno. La Propulsione accorcia il viaggio."
         StringId.DispatchAwayNote ->
@@ -155,7 +157,6 @@ object Italian : Translations {
                 "${args.text(1)} sta rientrando con ${args.text(2)} di ${args.text(3)}."
         StringId.DispatchAwayMore -> "Altre ${args.count(0)} dietro."
         StringId.DispatchAwayTail -> "Uno scafo è in porto solo quando è rientrato."
-        StringId.DispatchNothingIdle -> "Niente è in porto e niente è in missione."
         StringId.DepositFull -> "giacimento pieno"
         StringId.DepositEmpty -> "giacimento vuoto"
         StringId.DepositStock -> "giacimento ${args.text(0)}/${args.text(1)}"
@@ -168,10 +169,10 @@ object Italian : Translations {
         StringId.RungRequiresSkiffs -> "scialuppe"
         StringId.LadderRungMoved -> "Il cargo ha spostato questa corsa a ${args.text(0)}, la finestra più breve in cui entra."
         StringId.LadderShortestFit -> "${args.text(0)} è la finestra più breve in cui entra il cargo."
-        StringId.CellCounterfactual -> "Le scialuppe sollevano solo ${args.text(0)}, e solo loro volano in ${args.text(1)}."
-        StringId.CellRungConsequence -> "Il cargo solleva ${args.text(0)} e atterra a ${args.text(1)}."
-        StringId.CellClamped -> "Il cargo la svuota. Le ${args.text(0)} non portano nulla."
-        StringId.CellClampedOne -> "Il cargo la svuota. La scialuppa non porta nulla."
+        StringId.CellCounterfactual -> "Le scialuppe sollevano solo ${args.text(0)} di ${args.text(1)}, e solo loro volano in ${args.text(2)}."
+        StringId.CellRungConsequence -> "Il cargo solleva ${args.text(0)} di ${args.text(1)} e atterra a ${args.text(2)}."
+        StringId.CellClamped -> "Il cargo lo svuota. Le ${args.text(0)} non portano nulla."
+        StringId.CellClampedOne -> "Il cargo lo svuota. La scialuppa non porta nulla."
         StringId.OfIdle -> "di ${args.count(0)} in porto"
         StringId.LadderNote ->
             "${args.text(0)} andata e ritorno. Nessuna finestra più corta lascia " +
@@ -186,7 +187,7 @@ object Italian : Translations {
             if (it == 1) "L'altra non porta nulla." else "Le altre $it non portano nulla."
         }
         StringId.TheWholeDeposit -> "l'intero giacimento"
-        StringId.VeinLeft -> "${args.text(0)} rimasti nel terreno"
+        StringId.VeinLeft -> "${args.text(0)} ${args.count(1).plural("rimasto", "rimasti")} nel terreno"
         StringId.EachShip -> "${args.text(0)} ciascuna"
         StringId.LegOut -> "andata ${args.text(0)}"
         StringId.LegOnStation -> "in stazione ${args.text(0)}"
