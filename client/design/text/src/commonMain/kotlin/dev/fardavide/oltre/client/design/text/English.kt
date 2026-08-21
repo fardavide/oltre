@@ -73,8 +73,14 @@ object English : Translations {
         // names the shop rather than a wait, because unlike every other unaffordable state in
         // the game this one is not answered by standing still.
         StringId.ProbeNeedsScout -> "needs a scout"
+        StringId.ScoutName -> "Scout"
+        StringId.ScoutPurpose -> "No hold · the only hull that can survey"
         StringId.SkiffName -> "Skiff"
-        StringId.SkiffPurpose -> "One berth of hold · 10m + 1m per 10 units, one way"
+        // **The rate went when the drive arrived.** This read "10m + 1m per 10 units, one way"
+        // until 0.15, which was true of a flight curve that had no research term in it. Propulsion
+        // put one there, so any absolute figure on this card is wrong at every level but one — and
+        // the clause the card is for is the *trade*, which is what the hauler beneath it answers.
+        StringId.SkiffPurpose -> "One berth of hold · full speed"
         StringId.HaulerName -> "Hauler"
         StringId.HaulerPurpose -> "Four berths of hold, at half a skiff's speed."
 

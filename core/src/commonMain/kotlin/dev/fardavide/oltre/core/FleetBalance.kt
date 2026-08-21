@@ -499,6 +499,21 @@ object FleetBalance {
     const val HAULER_METAL: Long = 2_400
     const val HAULER_CRYSTAL: Long = 600
 
+    // **The hulls a slice has actually given a job to, and the one list that says so.** `buildShips`
+    // refuses anything outside it and the Shipyard draws a card for everything inside it — two
+    // statements of one fact, which is why they may not be two lists.
+    //
+    // **They were two, and it shipped a hull nobody could buy.** At 0.15 this gained the scout and
+    // the Shipyard's own copy list did not, so a colony that owns no hulls could not buy the one hull
+    // that surveys: the Galaxy tab was dead for the whole game rather than for the first check-in.
+    // Nothing in `core` could catch it — every test here calls the verb directly — so the guard is a
+    // test in `:client:shipyard:presentation` holding its card list against this one.
+    //
+    // The **hauler is deliberately absent** although `shipCost` prices it: the dispatch sheet cannot
+    // send a two-hull manifest yet, so a purchasable hauler would be a hull a player can own and
+    // never use. It joins this set on the day the manifest picker lands, and not before.
+    val FOR_SALE: Set<ShipType> = setOf(ShipType.SCOUT, ShipType.SKIFF)
+
     fun shipCost(type: ShipType): Resources = when (type) {
         ShipType.SCOUT -> Resources.of(metal = SCOUT_METAL, crystal = SCOUT_CRYSTAL)
         ShipType.SKIFF -> Resources.of(metal = HULL_BASE_METAL, crystal = HULL_BASE_CRYSTAL)

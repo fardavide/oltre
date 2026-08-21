@@ -198,6 +198,10 @@ object Strings {
     fun probeNeedsScout(): TextRes = message(StringId.ProbeNeedsScout)
 
     // PLACEHOLDER copy, like every string the app says: content is Davide's.
+    fun scoutName(): TextRes = message(StringId.ScoutName)
+
+    fun scoutPurpose(): TextRes = message(StringId.ScoutPurpose)
+
     fun skiffName(): TextRes = message(StringId.SkiffName)
 
     fun skiffPurpose(): TextRes = message(StringId.SkiffPurpose)

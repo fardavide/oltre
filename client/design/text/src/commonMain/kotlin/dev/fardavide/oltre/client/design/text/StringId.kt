@@ -71,6 +71,8 @@ enum class StringId {
     AvailableIn,
     AvailableNever,
     ProbeNeedsScout,
+    ScoutName,
+    ScoutPurpose,
     SkiffName,
     SkiffPurpose,
     HaulerName,

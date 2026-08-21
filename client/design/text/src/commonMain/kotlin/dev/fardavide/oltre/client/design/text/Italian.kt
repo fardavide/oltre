@@ -125,8 +125,10 @@ object Italian : Translations {
         StringId.AvailableIn -> "tra ${args.text(0)}"
         StringId.AvailableNever -> "—"
         StringId.ProbeNeedsScout -> "serve un esploratore"
+        StringId.ScoutName -> "Esploratore"
+        StringId.ScoutPurpose -> "Nessuna stiva · l'unico scafo che può esplorare"
         StringId.SkiffName -> "Scialuppa"
-        StringId.SkiffPurpose -> "Una stiva di carico · 10m + 1m ogni 10 unità, solo andata"
+        StringId.SkiffPurpose -> "Una stiva di carico · velocità piena"
         StringId.HaulerName -> "Cargo"
         StringId.HaulerPurpose -> "Quattro stive di carico, a metà della velocità di una scialuppa."
 

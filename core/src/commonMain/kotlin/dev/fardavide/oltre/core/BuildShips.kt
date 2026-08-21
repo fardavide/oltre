@@ -52,7 +52,7 @@ sealed interface BuildShipsResult {
 // re-sync.
 fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
     if (ships.isEmpty) return BuildShipsResult.NothingToBuild
-    if (ships.counts.keys.any { it !in FOR_SALE }) return BuildShipsResult.NotForSale
+    if (ships.counts.keys.any { it !in FleetBalance.FOR_SALE }) return BuildShipsResult.NotForSale
     val cost = state.priceOf(ships)
     if (!state.resources.covers(cost)) return BuildShipsResult.InsufficientResources
     return BuildShipsResult.Started(
@@ -146,8 +146,3 @@ private fun laidDown(ships: Ships, buildings: Buildings, from: Instant): List<Ya
     }
     return jobs
 }
-
-// The hulls a slice has actually given a job to. A set rather than a `when` inside the loop, so the
-// day the Hauler ships this file changes in one place and `FleetBalance.shipCost` in the other —
-// and until then the two agree about which of the five constants is a product.
-private val FOR_SALE: Set<ShipType> = setOf(ShipType.SCOUT, ShipType.SKIFF)

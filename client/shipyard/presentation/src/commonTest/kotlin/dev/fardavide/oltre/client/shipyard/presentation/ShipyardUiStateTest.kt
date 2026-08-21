@@ -43,6 +43,33 @@ class ShipyardUiStateTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)
 
+    // **The seam that let the scout ship unbuyable, as a test.** The Shipyard's card list is
+    // hand-maintained copy — a name and a purpose per hull, which cannot be derived — and
+    // `buildShips` has its own list of what it will actually sell. Those are two statements of one
+    // fact, and at 0.15 they disagreed: `FleetBalance.FOR_SALE` gained the scout and the screen did
+    // not, so a colony that owns no hulls could not buy the one hull that surveys, and the Galaxy tab
+    // was dead for the whole game rather than for the first day.
+    //
+    // Nothing in `core` could catch it: every test there calls the verb directly. This is the only
+    // place the two lists can be held against each other.
+    @Test
+    fun `every hull the verb will sell has a card and every card is a hull the verb will sell`() {
+        val onScreen = fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).hulls.map { it.type }
+
+        assertEquals(FleetBalance.FOR_SALE, onScreen.toSet())
+        assertEquals(FleetBalance.FOR_SALE.size, onScreen.size, "a hull is drawn twice: $onScreen")
+    }
+
+    @Test
+    fun `a hull that is only coming is not one the verb would sell`() {
+        // The dimmed cards are a promise about a later slice, so the one thing they must not be is
+        // buyable — and `shipCost` raises for a hull with no price, which would crash the tab rather
+        // than dim it.
+        val coming = fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).comingHulls.map { it.type }
+
+        assertTrue(coming.none { it in FleetBalance.FOR_SALE }, "a coming hull is already on sale: $coming")
+    }
+
     @Test
     fun `the section rule counts the whole fleet rather than the idle pool`() {
         // given a colony with one skiff out and two in dock

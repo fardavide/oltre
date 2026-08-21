@@ -107,6 +107,8 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.availableIn(TextRes("x")))
     add(Strings.availableNever())
     add(Strings.probeNeedsScout())
+    add(Strings.scoutName())
+    add(Strings.scoutPurpose())
     add(Strings.skiffName())
     add(Strings.skiffPurpose())
     add(Strings.haulerName())
