@@ -1158,12 +1158,33 @@ private fun openingReport(withProbes: Boolean) {
         // check-in, so it is measured against the end of the window.
         val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
         val probeTarget = if (withProbes) probeTargetFor(state, gapMinutes) else null
-        if (probeTarget != null && state.resources.covers(SurveyBalance.cost())) {
+        // What the check-in *could* have done. The hull counts as much as the metal now: a colony
+        // with a bank and an empty slipway cannot probe, and a census that read the stores alone
+        // would report an offer the verb refuses.
+        if (probeTarget != null && state.canProbe()) {
             couldBuy += "probe ${probeTarget.galaxy}:${probeTarget.system}"
             kinds += "survey"
         }
 
         val bought = mutableListOf<String>()
+        // **A scout before the probe, since 0.15, and the harness stops measuring the moment it
+        // forgets.** A probe flies a hull now, so a bot that only ever bought skiffs had
+        // `startSurvey` refuse it silently — `dispatched` would sit at zero and the opening report's
+        // whole probe half would read as a design finding rather than as a harness that had stopped
+        // playing the game.
+        //
+        // Bought ahead of the probe for the same reason the probe is bought ahead of the buildings:
+        // a player who has decided to cover the gap buys what covering it takes, and what it costs
+        // them in levels belongs in the count below rather than hidden behind a queue. One at a
+        // time, and only when none is idle and none is on the slipway — a scout comes home, so the
+        // steady state is one hull and the purchase is a day-one event rather than a running cost.
+        if (probeTarget != null && !state.ships.covers(SurveyBalance.SHIPS) && !state.yard.any { it.ship == ShipType.SCOUT }) {
+            (buildShips(state, SurveyBalance.SHIPS, at = now) as? BuildShipsResult.Started)?.let { started ->
+                state = started.state
+                bought += "scout"
+                kinds += "build"
+            }
+        }
         // The probe is bought **first**, which is the pessimistic ordering on purpose: it models a
         // player who decides to cover the gap and then spends what is left, so the levels it costs
         // show up in the count below rather than being hidden behind a full building queue. If
@@ -1628,6 +1649,12 @@ private fun bestDispatch(
 
 private fun ownedSkiffs(state: GameState): Int =
     state.ships.countOf(ShipType.SKIFF) + state.runs.sumOf { it.ships.countOf(ShipType.SKIFF) }
+
+// Both halves of what a probe costs, asked once — the metal and the hull. Two call sites read it
+// (the census and the check-in's own `couldBuy`) and a second copy is how they would come to
+// disagree about the same colony.
+private fun GameState.canProbe(): Boolean =
+    ships.covers(SurveyBalance.SHIPS) && resources.covers(SurveyBalance.cost())
 
 // One hull, bought the way the player buys it. Null when the colony cannot pay, which is the loop's
 // stop condition.
@@ -2670,7 +2697,11 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
     // the same decision with a different number on it. Counting them as a thousand actions would
     // drown every other row in this table and would make "add more systems" read as "add more to
     // do", which is precisely the mistake round 8 caught in the old options column.
-    census.add("survey", if (state.resources.covers(SurveyBalance.cost())) Barrier.OFFERED else Barrier.PRICE)
+    // **`PRICE` covers the hull as well as the metal**, and folding them is honest rather than lazy:
+    // both are answered by having spent less on something else, which is what the barrier means. A
+    // scout that is *away* is a different thing and is not this — see the probe footer, which tells
+    // the two apart because it has room to.
+    census.add("survey", if (state.canProbe()) Barrier.OFFERED else Barrier.PRICE)
 
     // **One verb, not twenty-seven**, which is the same lesson applied to the newest verb rather than
     // the oldest: a dispatch is one decision with a different number on each world, so counting the

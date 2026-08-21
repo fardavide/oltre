@@ -3593,14 +3593,38 @@ dearest row, and the bot buys cheapest-first).
 
 **The fleet delivers less, which is the change working rather than a regression.** Day-14 crystal
 falls a fifth because every run spends longer in flight and less on the surface, and the colony trades
-a Robotics level for a Metal Mine level to make up for it. What the bot does *not* do is buy the drive
-— it is the most expensive row on the screen, so a cheapest-first player meets the slowdown and never
-buys the cure. **That is the reading to be suspicious of**, and it is a fact about the bot rather than
-about a person: a real player who has just been told their fleet is slow has one obvious thing to buy.
+a Robotics level for a Metal Mine level to make up for it. What the benchmark's bot does *not* do is
+buy the drive — it is the most expensive row on the screen, and that bot buys strictly cheapest-first,
+so it meets the slowdown and never buys the cure.
+
+**That is a fact about *that* bot and not about the game, and `:sim:run` is the check that says so.**
+The sim's player acts four times a day and buys everything it can afford rather than only the cheapest
+thing, and it takes **Propulsion on day 2** — right after Prospecting, and before Robotics 4. So the
+drive is not priced out of reach; it is priced above a bot whose whole rule is to buy the cheapest row
+on the screen. Worth having both readings on the page, because the pessimistic one is the interesting
+one and it would be easy to quote alone.
 
 `robotics factory 9: not within the run` is the sharpest single line. It is the same money going into
 mines instead, and it is worth watching rather than fixing: if a fortnight of real play also stops
 short of it, the drive's base cost (1,000 / 400 / 200) is the dial, not the flight curve.
+
+### One instrument broke on this change, and it broke silently
+
+**`:sim:run`'s bot only ever bought skiffs**, so the moment a probe needed a `SCOUT` every
+`startSurvey` in the harness was refused and `Probes dispatched` went to **zero**. Nothing failed:
+the sim's probe branch reads `as? StartSurveyResult.Started` and does nothing on a refusal, which is
+correct for a harness and invisible in a report.
+
+That is the same shape as the two dead controls this release found in the client — *core grew a
+requirement, and everything that had been deriving "can I?" from the old inputs went on saying yes* —
+and it is the most dangerous instance of the three, because the other two would have been found by a
+player and this one produces a **plausible page of numbers**. A round written off it would have read
+the missing probes as a finding about the drive.
+
+Fixed by teaching the bot to buy a scout before its first probe, which is what a person does. It
+dispatches **7** where it dispatched 8, the difference being the metal the hull costs. The
+`[opening]` and `[progression]` tables above are `BalanceBenchmark`'s, which never surveyed, so they
+are unaffected — checked rather than assumed.
 
 ### The probe, and the scarcity a price could not buy
 
@@ -3630,9 +3654,10 @@ that from happening, and `StartSurveyTest` pins it as arithmetic rather than as 
   reappearing on a world that refused it yesterday is the whole design, and it is delivered by a
   control appearing with no copy at all. If a player buys a level and cannot tell what changed, that
   is the finding.
-- **Watch whether anyone buys Propulsion at all.** The bot does not, because it buys cheapest-first,
-  and a real player might not either if the slowdown reads as the game being broken rather than as a
-  thing to fix. If it goes unbought, the base cost comes down before the flight curve does.
+- **Watch whether anyone buys Propulsion at all.** The two bots disagree — the benchmark's
+  cheapest-first player never reaches it, the sim's four-times-a-day player takes it on day 2 — and a
+  person might do either. If the slowdown reads as the game being broken rather than as a thing to
+  fix, the base cost comes down before the flight curve does.
 - **Two galaxy hops being unorderable is intended.** If it instead reads as a bug — a world you can
   see, a sheet with no windows on it — that is a copy problem on the dispatch sheet, not a balance
   one.
