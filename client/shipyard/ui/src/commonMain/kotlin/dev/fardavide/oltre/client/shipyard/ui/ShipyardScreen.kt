@@ -82,14 +82,6 @@ fun ShipyardScreen(
                 lineHeight = 17.sp,
                 modifier = Modifier.padding(top = 11.dp),
             )
-            if (uiState.comingHulls.isNotEmpty()) {
-                // 22dp — the value that clears the fleet strip on Colony and separates the two
-                // branches on Research, which is what the system already spends to mean "different
-                // subject". Not a divider: these are one list of hulls with a seam in it.
-                Spacer(modifier = Modifier.height(22.dp))
-                SectionLabel(text = Strings.shipyardNotYetBuiltHeading())
-                ComingHullList(hulls = uiState.comingHulls)
-            }
         }
     }
 }

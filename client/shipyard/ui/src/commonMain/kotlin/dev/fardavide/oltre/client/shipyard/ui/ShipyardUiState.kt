@@ -16,10 +16,6 @@ data class ShipyardUiState(
     // on the card that can act on it.
     val fleet: TextRes,
     val hulls: List<HullUiState>,
-    // The hulls a slice has not reached yet, drawn as dimmed cards carrying one line each: the
-    // system's own rule for a thing that is coming and is not here. Never empty while the ship set
-    // is scheduled to grow, which it is twice.
-    val comingHulls: List<ComingHullUiState>,
 )
 
 data class HullUiState(
@@ -61,7 +57,6 @@ data class YardUiState(
 // A card that is drawn and cannot be bought, because the slice that gives the hull a job has not
 // landed. It carries a name and a sentence and no price at all — inventing one would be
 // indistinguishable, to a reader, from a number somebody chose. See `FleetBalance.shipCost`.
-data class ComingHullUiState(val type: ShipType, val name: TextRes, val purpose: TextRes)
 
 sealed interface BuildActionUiState {
 

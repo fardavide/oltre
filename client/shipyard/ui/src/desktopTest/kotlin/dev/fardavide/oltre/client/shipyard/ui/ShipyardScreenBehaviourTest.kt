@@ -29,19 +29,6 @@ class ShipyardScreenBehaviourTest {
     }
 
     @Test
-    fun `the hull that was coming is a purchase now`() {
-        // Design's sixth call was that *"the Hauler ships from slice 3 as a dimmed card carrying its
-        // one line"* — the system's rule for a thing that is coming and is not here — and this test
-        // asserted the dim card. **It has shipped**, so the same card is a verb and the `NOT YET
-        // BUILT` section it used to sit in is empty.
-        shipyard(uiState = oneHullUiState) {
-            assertShowsCard(ShipType.HAULER)
-            assertCardReads(ShipType.HAULER, "Four berths of hold")
-            assertOffersToBuild(ShipType.HAULER)
-        }
-    }
-
-    @Test
     fun `the pool is on the card and the fleet is on the heading`() {
         // **The heading counts every hull and a card counts its own type**, which is the whole of
         // the split and only became observable at 0.15: until the scout there was one card, so "the

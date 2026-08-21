@@ -61,16 +61,6 @@ class ShipyardUiStateTest {
     }
 
     @Test
-    fun `a hull that is only coming is not one the verb would sell`() {
-        // The dimmed cards are a promise about a later slice, so the one thing they must not be is
-        // buyable — and `shipCost` raises for a hull with no price, which would crash the tab rather
-        // than dim it.
-        val coming = fleetOf(1).toShipyardUiState(now = t0, timeZone = TimeZone.UTC).comingHulls.map { it.type }
-
-        assertTrue(coming.none { it in FleetBalance.FOR_SALE }, "a coming hull is already on sale: $coming")
-    }
-
-    @Test
     fun `the section rule counts the whole fleet rather than the idle pool`() {
         // given a colony with one skiff out and two in dock
         val state = fleetOf(3).dispatchOne()
@@ -173,19 +163,13 @@ class ShipyardUiStateTest {
     }
 
     @Test
-    fun `the promise the coming section carried has been kept and it carries nothing`() {
-        // Design's sixth call was that *"the Hauler ships from slice 3 as a dimmed card carrying its
-        // one line"*, and this test asserted the card. **The Hauler has now shipped**, so the promise
-        // is kept and the section is empty — which is a state the tab has never been in.
-        //
-        // The escort and the settler are deliberately not drawn in its place. A card for either would
-        // advertise a slice nobody has scheduled, which is the same reason the ship set has five
-        // constants rather than a dozen; they join the list on the day their slice is scheduled and
-        // not on the day their constant exists.
+    fun `the hauler is sold rather than promised`() {
+        // The `NOT YET BUILT` section is gone with the promise it carried: Design named one card for
+        // it and that hull has shipped. It comes back with the first hull that has a date — the
+        // escort and the settler are still slices nobody has scheduled, and a card for either would
+        // advertise one.
         val yard = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC)
 
-        assertEquals(emptyList(), yard.comingHulls.map { it.type })
-        // ...and it is *sold* rather than merely gone from the promise.
         assertTrue(ShipType.HAULER in yard.hulls.map { it.type })
     }
 

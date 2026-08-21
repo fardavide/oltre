@@ -7,7 +7,6 @@ import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
-import dev.fardavide.oltre.client.shipyard.ui.ComingHullUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
@@ -39,9 +38,6 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
         // with. What it *does* count against is the price, one line down.
         fleet = Strings.hullsInFleet(owned.total),
         hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
-        comingHulls = COMING.map {
-            ComingHullUiState(type = it.type, name = it.name, purpose = it.purpose)
-        },
     )
 }
 
@@ -175,17 +171,14 @@ private val FOR_SALE: List<HullCopy> = listOf(
     HullCopy(ShipType.HAULER, Strings.haulerName(), Strings.haulerPurpose()),
 )
 
-// **Empty since 0.15.0, and it is meant to be.** Design's call named the Hauler by name — *"the
-// Hauler ships from slice 3 as a dimmed card carrying its one line"* — and the Hauler has now
-// shipped, so the promise is kept and the section has nothing left to promise.
+// **`NOT YET BUILT` is gone, and it is the promise being kept rather than a section being lost.**
+// Design named one card for it — *"the Hauler ships from slice 3 as a dimmed card carrying its one
+// line"* — and the Hauler has now shipped, so there was nothing left for the section to promise.
 //
-// The escort and the settler are deliberately not here, which is the same reason the ship set has
-// five constants rather than a dozen: one is a combat model and the other is colonisation, so a card
-// for either would be advertising a slice nobody has scheduled. **They join this list on the day
-// their slice is scheduled, not on the day their constant exists.**
-//
-// The section is absent rather than empty on the screen — see `ShipyardScreen`. That is a state the
-// tab has never been in and Design has not drawn; it is the honest rendering of a list with nothing
-// in it, and it is flagged rather than settled.
-private val COMING: List<HullCopy> = emptyList()
+// **It is deleted rather than left empty**, which is this file's own rule about the `when`s it
+// replaced: *"copy written before its slice is copy nobody chose — and it is a branch no test can
+// reach."* An empty list, a component nothing renders and a type nothing constructs are the same
+// speculation wearing a different shape, and the escort and the settler are still slices nobody has
+// scheduled. The section comes back with the first hull that has a date, and `git log` is where its
+// drawing is.
 

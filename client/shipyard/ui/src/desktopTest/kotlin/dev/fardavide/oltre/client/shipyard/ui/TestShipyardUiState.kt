@@ -25,10 +25,6 @@ import dev.fardavide.oltre.core.ShipType
 // and are written down in exactly one place. What the frames photograph is unchanged, which is why
 // none of the four baselines moved.
 
-// **`NOT YET BUILT` is empty since 0.15.0, and that is the promise being kept.** It carried one
-// card — the Hauler — and the Hauler ships now, so the section has nothing left to promise. The
-// escort and the settler are deliberately not drawn in its place: a card for either would advertise
-// a slice nobody has scheduled. The screen omits the section when the list is empty.
 
 // **The card a colony buys first, and the one these frames had no reason to draw until 0.15.** A
 // probe flies a `SCOUT` now and genesis grants no hull, so this is the first thing on the first
@@ -88,7 +84,6 @@ internal val oneHullUiState = ShipyardUiState(
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = emptyList(),
 )
 
 // A fleet at depth, five of it away, and the seventh hull priced where the curve has got to. This is
@@ -111,7 +106,6 @@ internal val sixHullsUiState = ShipyardUiState(
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = emptyList(),
 )
 
 // **The state this tab owns.** The dispatch sheet has no affordability state because a run is free;
@@ -135,7 +129,6 @@ internal val cannotAffordUiState = ShipyardUiState(
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = emptyList(),
 )
 
 // **The state 0.9.0 added, and the only one on this tab where something is happening.** A hull on
@@ -196,5 +189,4 @@ internal val buildingUiState: ShipyardUiState = ShipyardUiState(
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = emptyList(),
 )
