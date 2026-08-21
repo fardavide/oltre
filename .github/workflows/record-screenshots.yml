@@ -1,5 +1,12 @@
 name: Record screenshots
 
+# **This runner is Linux and the gate is a Mac, so what this job commits will fail CI.** Since
+# 2026-08-21 `oltreRoborazziOptions()` allows zero changed pixels and the screenshot job verifies on
+# macOS, and a Linux render differs from a Mac one on 5–7.5% of the pixels of nearly every frame.
+# Dispatching this is therefore a commitment to re-recording those frames on a Mac afterwards — it
+# is the escape hatch for a machine that cannot build, not the way to update a baseline. On a Mac,
+# `./gradlew recordRoborazziDesktop` takes about a minute and shows you the same before/after.
+#
 # Manual only, on purpose. Recording is the one thing CI must never do by itself: a job that
 # re-records on every red build turns the screenshot test into a recorder of whatever the code
 # happens to draw. Triggering this by hand is the human decision "the visual change is intended";
