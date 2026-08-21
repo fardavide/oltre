@@ -19,6 +19,8 @@ import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.YardJob
+import dev.fardavide.oltre.client.design.format.toChipLabel
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -122,6 +124,50 @@ class ProbeActionUiStateTest {
         )
 
         assertTrue(English.resolve(short.availableIn).startsWith("in "), "was '${short.availableIn}'")
+    }
+
+    @Test
+    fun `a scout on the slipway beats a probe that lands later`() {
+        // **The elvis consulted the yard only when nothing was out**, and the two are alternative
+        // sources of the same hull. Own one scout, send it far, then buy another: the footer quoted
+        // the probe's landing while the purchase was hours nearer. Always in the overstating
+        // direction, on the screen whose whole job is an honest countdown.
+        val sent = assertIs<StartSurveyResult.Started>(
+            startSurvey(wealthy(), awayFromHome(wealthy(), systemsAway = 200), at = EPOCH),
+        ).state
+        val landing = sent.surveys.single().completesAt
+        val buying = sent.copy(
+            yard = listOf(YardJob(ship = ShipType.SCOUT, startedAt = EPOCH, completesAt = EPOCH + 30.minutes)),
+        )
+        assertTrue(landing > EPOCH + 30.minutes, "the fixture's probe lands before the purchase")
+
+        val short = assertIs<ProbeActionUiState.Unaffordable>(
+            buying.probeActionAt(awayFromHome(buying, systemsAway = 9)),
+        )
+
+        assertEquals("in 30m", English.resolve(short.availableIn))
+    }
+
+    @Test
+    fun `a probe that lands before the slipway finishes is still the answer`() {
+        // The other side of the minimum, so neither source wins by default.
+        val sent = assertIs<StartSurveyResult.Started>(
+            startSurvey(wealthy(), awayFromHome(wealthy(), systemsAway = 1), at = EPOCH),
+        ).state
+        val landing = sent.surveys.single().completesAt
+        val buying = sent.copy(
+            yard = listOf(YardJob(ship = ShipType.SCOUT, startedAt = EPOCH, completesAt = EPOCH + 20.days)),
+        )
+        assertTrue(landing < EPOCH + 20.days)
+
+        val short = assertIs<ProbeActionUiState.Unaffordable>(
+            buying.probeActionAt(awayFromHome(buying, systemsAway = 9)),
+        )
+
+        assertEquals(
+            English.resolve(Strings.availableIn((landing - EPOCH).toChipLabel())),
+            English.resolve(short.availableIn),
+        )
     }
 
     @Test
