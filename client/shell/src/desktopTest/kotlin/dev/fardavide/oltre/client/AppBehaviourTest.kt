@@ -11,7 +11,6 @@ import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.startResearch
 import kotlin.test.Test
 import kotlin.test.assertIs
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -47,7 +46,7 @@ class AppBehaviourTest {
         val funded = colony(resources = Resources.of(metal = 100_000, crystal = 100_000, deuterium = 100_000))
             .let { it.copy(buildings = it.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1))) }
         val started = assertIs<StartResearchResult.Started>(
-            startResearch(funded, Technology.PHOTOVOLTAICS, at = Clock.System.now() - 1.days),
+            startResearch(funded, Technology.PHOTOVOLTAICS, at = TEST_NOW - 1.days),
         ).state
 
         app(saved = snapshot(state = started, agedBy = 1.days)) {
@@ -124,7 +123,7 @@ class AppBehaviourTest {
     // wall clock is the real one — there is no seam in `App` to inject a clock through, and putting
     // one there for a test would be inventing an API the game does not need.
     private fun snapshot(state: GameState, agedBy: kotlin.time.Duration): GameSnapshot =
-        GameSnapshot(lastUpdatedAt = Clock.System.now() - agedBy, debugUsed = false, state = state)
+        GameSnapshot(lastUpdatedAt = TEST_NOW - agedBy, debugUsed = false, state = state)
 
     private fun colony(resources: Resources = Resources.of()): GameState =
         GameState.initial(GalaxySeed(20_260_807)).copy(resources = resources)

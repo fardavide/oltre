@@ -114,6 +114,21 @@ fun App(
     // The other device service, and a parameter for the same reason: a test or an entry point can
     // hand in a different one, and desktop's `actual` reports a sky that never leans.
     tiltSource: TiltSource = remember { defaultTiltSource() },
+    // **The last seam, and the one the suite was measurably wrong without.** Every other parameter
+    // here exists so a test is not at the mercy of the machine it runs on; the clock was the hole in
+    // that, and it cost more than the others would have.
+    //
+    // A launch with no save mints its galaxy from the instant it happened — `resume` derives the seed
+    // from `now`, deliberately, so that a new colony gets a new map. Read through the wall clock,
+    // that made `app(saved = null)` generate **a different galaxy on every run**, and `homeFor`'s walk
+    // covered a different set of branches each time. Measured 2026-08-21: `GalaxyGeneration.kt` line
+    // 342 flipped between covered and missed across runs of identical code, moving behaviour branch
+    // coverage across the 66.85% rounding line — and the coverage gate is a ratchet with no slack, so
+    // roughly every other pull request failed it for a number that was never about the code.
+    //
+    // `Clock.System` in production, a fixed instant in a test. Note this is the *wall* clock, still
+    // read through `DebugClock` below, so a skip behaves exactly as it did.
+    wallClock: Clock = Clock.System,
     modifier: Modifier = Modifier,
 ) {
     // Handed to the theme rather than provided around it: `OltreTheme` is what every frame, preview
@@ -185,7 +200,7 @@ fun App(
 
             LaunchedEffect(Unit) {
                 val saved = store.load()
-                val wall = Clock.System.now()
+                val wall = wallClock.now()
                 // The offset comes out of the save's own instant, which is the whole reason the
                 // debug clock needs no file of its own: a colony written down in the future was
                 // skipped there, and resuming at ×1 would freeze it until the wall clock caught up.
@@ -225,7 +240,7 @@ fun App(
                     while (true) {
                         delay(1.seconds)
                         val previous = session ?: continue
-                        val next = previous.ticked(debugClock, wallClock = Clock.System.now())
+                        val next = previous.ticked(debugClock, wallClock = wallClock.now())
                         session = next
                         if (next.hasNewEventsSince(previous)) next.commit(store, notifications, debugClock)
                     }
@@ -239,7 +254,7 @@ fun App(
                     // Whatever landed while the app was closed stops being news the moment the
                     // player changes the colony themselves.
                     finishedWhileAway = null
-                    val next = current.acting(debugClock, wallClock = Clock.System.now(), transition = transition)
+                    val next = current.acting(debugClock, wallClock = wallClock.now(), transition = transition)
                     session = next
                     if (next.hasNewEventsSince(current)) {
                         scope.launch { next.commit(store, notifications, debugClock) }
@@ -258,7 +273,7 @@ fun App(
                 // See `toggleAlert`, and `alerting` for why this one verb transitions before it
                 // advances where every other one does the opposite.
                 fun alert(target: WatchTarget) {
-                    val next = current.alerting(debugClock, wallClock = Clock.System.now(), target = target)
+                    val next = current.alerting(debugClock, wallClock = wallClock.now(), target = target)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
                 }
@@ -269,7 +284,7 @@ fun App(
                 // the colony's clock, and the offset only survives a relaunch because the save
                 // records the instant it reached.
                 fun skip() {
-                    val outcome = current.skipped(debugClock, wallClock = Clock.System.now())
+                    val outcome = current.skipped(debugClock, wallClock = wallClock.now())
                     debugClock = outcome.clock
                     session = outcome.session
                     scope.launch { outcome.session.commit(store, notifications, outcome.clock) }
@@ -280,7 +295,7 @@ fun App(
                 fun reset() {
                     scope.launch {
                         store.clear()
-                        val outcome = resetColony(wallClock = Clock.System.now())
+                        val outcome = resetColony(wallClock = wallClock.now())
                         debugClock = outcome.clock
                         session = outcome.session
                         outcome.session.commit(store, notifications, outcome.clock)

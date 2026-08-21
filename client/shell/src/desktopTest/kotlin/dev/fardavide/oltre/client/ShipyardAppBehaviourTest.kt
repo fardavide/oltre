@@ -13,7 +13,6 @@ import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.startRun
 import kotlin.test.Test
 import kotlin.test.assertIs
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 
 // **The sixth verb, driven through the composition root.** `BuildShipsTest` proves what `core` does
@@ -68,7 +67,7 @@ class ShipyardAppBehaviourTest {
         val state = rich()
         val target = state.galaxy.surveyed.filter { it != state.galaxy.home }.minByOrNull { it.slot }
             ?: error("the test seed's home system holds no world but home")
-        val now = Clock.System.now()
+        val now = TEST_NOW
         val dispatched = assertIs<StartRunResult.Started>(
             startRun(state, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, at = now),
         ).state
@@ -89,11 +88,11 @@ class ShipyardAppBehaviourTest {
         // saved instant to now, which is the only path in the app that runs `advance` over a yard
         // job — the tap above cannot, because a purchase and its delivery are hours apart now.
         val ordered = assertIs<BuildShipsResult.Started>(
-            buildShips(rich(), Ships.of(ShipType.SKIFF, 1), at = Clock.System.now() - 12.hours),
+            buildShips(rich(), Ships.of(ShipType.SKIFF, 1), at = TEST_NOW - 12.hours),
         ).state
         // Twelve hours covers the second skiff's 2h 32m at Robotics 0 several times over, so this
         // does not become a test about the duration curve.
-        val closed = GameSnapshot(lastUpdatedAt = Clock.System.now() - 12.hours, state = ordered)
+        val closed = GameSnapshot(lastUpdatedAt = TEST_NOW - 12.hours, state = ordered)
 
         app(saved = closed) {
             open(OltreTab.SHIPYARD)
@@ -113,9 +112,9 @@ class ShipyardAppBehaviourTest {
         // not the rest — so the launch has to apply one completion, leave two, and re-book the
         // alerts for them.
         val ordered = assertIs<BuildShipsResult.Started>(
-            buildShips(veryRich(), Ships.of(ShipType.SKIFF, 3), at = Clock.System.now() - 3.hours),
+            buildShips(veryRich(), Ships.of(ShipType.SKIFF, 3), at = TEST_NOW - 3.hours),
         ).state
-        val closed = GameSnapshot(lastUpdatedAt = Clock.System.now() - 3.hours, state = ordered)
+        val closed = GameSnapshot(lastUpdatedAt = TEST_NOW - 3.hours, state = ordered)
 
         app(saved = closed) {
             open(OltreTab.SHIPYARD)
@@ -164,5 +163,5 @@ class ShipyardAppBehaviourTest {
         .copy(resources = Resources.of(metal = 100_000, crystal = 100_000), ships = Ships.of(ShipType.SKIFF, 1))
 
     private fun snapshot(state: GameState): GameSnapshot =
-        GameSnapshot(lastUpdatedAt = Clock.System.now(), state = state)
+        GameSnapshot(lastUpdatedAt = TEST_NOW, state = state)
 }
