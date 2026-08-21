@@ -220,10 +220,43 @@ kover {
                 // steps once, a hold repeats, a hold on a disabled control does nothing. This
                 // removes a number no test of this kind could ever move; it removes nothing the gate
                 // could see.
+                // **`App.kt` is the same rule again, reaching the composition root** — Davide's
+                // call, 2026-08-21, on a failing report, and the fourth entry this block's own
+                // condition asks to be earned.
+                //
+                // A screenshot test renders a *frame*. It cannot **launch the app**: `App` reads the
+                // save, resumes the colony, books alerts and holds the session, none of which a
+                // capture can drive. Nothing calls it — the shell's own baselines render
+                // `MainScaffold`, `Starfield` and `TabBar` directly — so all **124** of its branches
+                // are unreachable by this kind, for exactly the reason a mapper and a gesture are.
+                //
+                // **The trailing `*` is load-bearing and reaches nothing else**, which was checked
+                // rather than assumed: 112 of those branches are `AppKt` itself and the remaining 12
+                // are three of its own lambdas (`AppKt$App$7$1$4$1` and two siblings), the suspending
+                // handlers behind act, alert, skip and reset. Every class the pattern removes is
+                // `App`'s own body.
+                //
+                // **What made it load-bearing is that it taxes the seams.** Every parameter on `App`
+                // is a seam that lets a test stop depending on the machine it runs on, and the
+                // Compose compiler emits `$changed` bookkeeping per parameter — so *adding one costs
+                // six uncoverable branches here*, whether it is defaulted or required (both were
+                // measured). The screenshot row fell 51.6% → 51.4% on the change that gave the shell
+                // a clock, a change whose whole purpose was to make the coverage numbers
+                // reproducible at all. Left as it was, this row charges a fee for every future seam
+                // and pays it out of a number that was never measuring the drawings.
+                //
+                // Scoped to the pass like the three above, which is what keeps it safe: the
+                // behaviour and unfiltered passes still see every line of `App`, and the behaviour
+                // pass is where it is actually driven — `AppBehaviourTest` launches it end to end.
+                // This removes a number no test of this kind could ever move.
+                //
+                // **It steps the row up**, 51.4% → ~54.1%, because 112 branches leave the
+                // denominator at once. That is the new baseline, not a gain.
                 if (testCategory == "screenshot") {
                     packages("*.presentation", "*.domain", "*.data")
                     classes("dev.fardavide.oltre.core.**")
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
+                    classes("dev.fardavide.oltre.client.AppKt*")
                 }
                 // ── The catalogue, and **only while measuring a pass that renders** ──────────
                 //

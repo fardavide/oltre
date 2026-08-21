@@ -218,3 +218,19 @@ parameter — store, preferences, translations, notifications, shake detector, t
 clock — because *a behaviour test whose result depends on the machine or the moment it runs on is the
 one failure mode those seams exist to prevent*. The clock was the last hole in that, and it was the
 expensive one, because it failed as a statistic rather than as an assertion.
+
+### A seam on `App` is charged to the screenshot row
+
+**Every parameter added to `App` costs six uncoverable branches in the screenshot pass**, because the
+Compose compiler emits `$changed` bookkeeping per parameter and no screenshot test calls `App` — the
+shell's baselines render `MainScaffold`, `Starfield` and `TabBar` directly. Measured 2026-08-21:
+`AppKt` went 0/106 → 0/112 missed and the row fell 51.6% → 51.4%, on the change that gave the shell a
+clock. **Defaulted or required makes no difference** — both were measured, both cost six.
+
+That row was charging a fee for the seams that make the suite honest, out of a number that was never
+measuring the drawings, so `AppKt*` became the block's fourth screenshot-pass exclusion (Davide,
+2026-08-21). The row stepped 51.4% → 54.4% when 124 branches left the denominator at once.
+
+**So when a red gate names a row your change has no business touching, check the denominator before
+the tests.** A per-category ratchet penalises adding a parameter to a function that category cannot
+reach, and the fix is scoping the measurement, never weakening the seam.
