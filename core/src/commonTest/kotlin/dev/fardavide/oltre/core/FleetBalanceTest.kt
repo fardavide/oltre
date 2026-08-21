@@ -9,6 +9,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 // The fleet's curves, pinned value by value. Every world here is **constructed**, never generated:
 // the generator's own numbers are `GalaxyGenerationTest`'s subject, and a balance test that read them
@@ -27,6 +28,8 @@ class FleetBalanceTest {
     // The fifth technology's is a term in these tables, because it is the only one that moves a
     // clock — so the drive gets a fixture here rather than a file of its own.
     private fun drive(level: Int): Research = NONE.withLevel(Technology.PROPULSION, TechLevel(level))
+
+    private val EPOCH: Instant = Instant.fromEpochMilliseconds(0)
 
     // ── Distance: three rules and not one metric ─────────────────────────────────────────────
 
@@ -961,6 +964,58 @@ class FleetBalanceTest {
 
     // Constructed rather than generated, deliberately: these curves have to be pinned against numbers
     // a reader can check by hand, and the generator's distributions are another test's subject.
+    // ── A run whose rate moved underneath it ──────────────────────────────────────────────────
+
+    @Test
+    fun `a run in flight when the rate halves keeps its legs inside its own window`() {
+        // **0.15 changed the rate under live runs twice over** — the base speed halved and the drive
+        // starts at zero — and `returnsAt` is stored while the flight is recomputed. So a run
+        // dispatched under 0.14 on the tightest rung it was offered came back with legs longer than
+        // its own span, and the Fleets card printed `on station -19m` with its two ticks crossed.
+        val target = at(galaxy = 1, system = 70, slot = 1)
+        val home = at(galaxy = 1, system = 1, slot = 1)
+        val ships = Ships.of(ShipType.SKIFF, 1)
+        // What 0.14 would have offered: flight 54m at the old rate, so a 3h window was legal.
+        val run = FleetRun(
+            target = target,
+            ships = ships,
+            gathering = ResourceKind.METAL,
+            cargo = Resources.of(metal = 100),
+            dispatchedAt = EPOCH,
+            returnsAt = EPOCH + 3.hours,
+        )
+        // ...and what this build computes for the same flight, which no longer fits twice over.
+        assertTrue(FleetBalance.flight(home, target, NONE, ships) * 2 > 3.hours, "the fixture is not the case")
+
+        val outbound = run.flightEndsAt(home, NONE)
+        val inbound = run.inboundBeginsAt(home, NONE)
+
+        assertTrue(outbound <= inbound, "the ticks crossed: out $outbound, back $inbound")
+        assertEquals(EPOCH + 90.minutes, outbound, "a leg is half the stored span when the rate moved")
+        assertEquals(outbound, inbound)
+    }
+
+    @Test
+    fun `a run dispatched at the current rate is not clamped at all`() {
+        // The other side: the clamp binds only on a run whose rate changed underneath it. Anything
+        // dispatched now has `flight * 2` inside its window by `MINIMUM_STATION` already.
+        val target = at(galaxy = 1, system = 70, slot = 1)
+        val home = at(galaxy = 1, system = 1, slot = 1)
+        val ships = Ships.of(ShipType.SKIFF, 1)
+        val flight = FleetBalance.flight(home, target, NONE, ships)
+        val run = FleetRun(
+            target = target,
+            ships = ships,
+            gathering = ResourceKind.METAL,
+            cargo = Resources.of(metal = 100),
+            dispatchedAt = EPOCH,
+            returnsAt = EPOCH + 24.hours,
+        )
+
+        assertEquals(EPOCH + flight, run.flightEndsAt(home, NONE))
+        assertEquals(EPOCH + 24.hours - flight, run.inboundBeginsAt(home, NONE))
+    }
+
     private fun world(
         at: GalaxyCoordinate,
         metalPerMillion: Int,

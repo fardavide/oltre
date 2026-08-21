@@ -67,10 +67,15 @@ private fun FleetRun.toCard(
     timeZone: TimeZone,
     research: Research,
 ): RunCardUiState {
-    val flight = FleetBalance.flight(from = home, to = target, research = research, ships = ships)
-    val station = returnsAt - dispatchedAt - flight * 2
+    // **Read off the run's own clock rather than recomputed beside it**, so the legs and the ticks
+    // cannot disagree: `flightEndsAt` clamps a leg to half the stored span, and a `station` derived
+    // from an unclamped flight went negative for every run that was in the air when 0.15 halved the
+    // base speed — `on station -19m`, rendered through a truncating division that made it -19 out of
+    // -380.
     val onStationAt = flightEndsAt(home, research)
     val inboundAt = inboundBeginsAt(home, research)
+    val flight = onStationAt - dispatchedAt
+    val station = inboundAt - onStationAt
     val at = nextEventAt(home, now, research)
     val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val landsLocal = returnsAt.toLocalDateTime(timeZone)

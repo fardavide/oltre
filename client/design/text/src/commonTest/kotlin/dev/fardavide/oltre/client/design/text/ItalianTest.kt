@@ -6,6 +6,8 @@ import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WorldEpithet
+import dev.fardavide.oltre.core.ResourceKind
+import kotlin.test.assertTrue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -283,5 +285,44 @@ class ItalianTest {
             "La ricerca Fotovoltaico moltiplica la fornitura, e non è la fornitura a limitarti. A ",
             Italian.resolve(Strings.sheetMultipliesSupply(Strings.technologyName(Technology.PHOTOVOLTAICS))),
         )
+    }
+
+    // ── The dispatch sheet's new sentences, which are where 0.15's Italian broke ────────────────
+
+    @Test
+    fun `should agree the vein's participle with what is left in it`() {
+        // A deposit regenerates continuously, so a remainder of exactly one is ordinary arithmetic
+        // rather than an edge — and the entry had only a plural participle: "1 rimasti nel terreno".
+        assertEquals("1 rimasto nel terreno", Italian.resolve(Strings.veinLeft(TextRes("1"), 1)))
+        assertEquals("870 rimasti nel terreno", Italian.resolve(Strings.veinLeft(TextRes("870"), 870)))
+    }
+
+    @Test
+    fun `should keep the deposit masculine when the hauler empties it`() {
+        // *Il giacimento* is masculine in every other sentence on this sheet, and the rule is written
+        // out eight lines below the two entries that broke it, at `ClampSubject`.
+        assertTrue("lo svuota" in Italian.resolve(Strings.cellClampedOne()))
+        assertTrue("lo svuota" in Italian.resolve(Strings.cellClamped(TextRes("2 scialuppe"))))
+    }
+
+    @Test
+    fun `should put di between a figure and a resource inside a sentence`() {
+        // `amountOfResource` glues the two with a bare space on purpose — that is chip grammar, and
+        // this file says so. Inside a sentence Italian needs the preposition, which is why these two
+        // take the amount and the kind apart the way `waitingAsk` already does.
+        assertEquals(
+            "Il cargo solleva 2.400 di metallo e atterra a 6h.",
+            Italian.resolve(Strings.cellRungConsequence(Strings.groupedNumber(2_400), ResourceKind.METAL, TextRes("6h"))),
+        )
+        assertEquals(
+            "Le scialuppe sollevano solo 449 di cristallo, e solo loro volano in 3h.",
+            Italian.resolve(Strings.cellCounterfactual(Strings.groupedNumber(449), ResourceKind.CRYSTAL, TextRes("3h"))),
+        )
+    }
+
+    @Test
+    fun `should name the hull a colony is missing rather than call its scout away`() {
+        assertTrue("scialuppa" in Italian.resolve(Strings.dispatchNoGatheringHullNote()))
+        assertEquals("Niente qui può raccogliere.", Italian.resolve(Strings.dispatchNoGatheringHullTitle()))
     }
 }

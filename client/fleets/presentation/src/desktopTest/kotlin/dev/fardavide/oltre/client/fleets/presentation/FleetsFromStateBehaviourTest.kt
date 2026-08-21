@@ -8,6 +8,7 @@ import dev.fardavide.oltre.client.fleets.ui.fleets
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
@@ -221,7 +222,60 @@ class FleetsFromStateBehaviourTest {
 
             assertTheSheetIsUp()
             assertOffersNoRun()
-            assertTheSheetReads("Every skiff is away.")
+            // **Nothing is away here — the colony owns nothing**, which is a different sentence and
+            // the fixture always was that state. "Every hull is away" is now kept for a pool that
+            // really does have something in flight.
+            assertTheSheetReads("Nothing here can gather.")
+        }
+    }
+
+    @Test
+    fun `a fleet that really is away is told so rather than told it owns nothing`() {
+        // The other side of the refusal's split, through the screen: something *is* out, so the
+        // sentence is about the run and the footer counts the first hull home. Until 0.15.2 both
+        // states shared one sentence, and the one they shared was true of only this one.
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.NONE,
+            // The row is drawn from the log, so the colony has worked this world before; the run is
+            // what makes the refusal say "away" rather than "nothing here can gather".
+            eventLog = listOf(landing(Resources.of(metal = 132))),
+            runs = listOf(
+                FleetRun(
+                    target = worked,
+                    ships = Ships.of(ShipType.SKIFF, 1),
+                    gathering = ResourceKind.METAL,
+                    cargo = Resources.of(metal = 400),
+                    dispatchedAt = Instant.fromEpochMilliseconds(0),
+                    returnsAt = Instant.fromEpochMilliseconds(0) + 3.hours,
+                ),
+            ),
+        )
+
+        fleetsScreen(state = state) {
+            tapTheWorld(worked)
+
+            assertTheSheetIsUp()
+            assertOffersNoRun()
+            assertTheSheetReads("Every hull is away.")
+        }
+    }
+
+    @Test
+    fun `a colony whose only hull is a scout is told what it is missing`() {
+        // The 0.15 first check-in, through the screen: a scout charts a world and gathers nothing, so
+        // the gathering pool is empty while a hull sits idle at home. The old sentence claimed both
+        // that every hull was away and that nothing was idle.
+        val state = GameState.initial(SEED).copy(
+            ships = Ships.of(ShipType.SCOUT, 1),
+            eventLog = listOf(landing(Resources.of(metal = 132))),
+        )
+
+        fleetsScreen(state = state) {
+            tapTheWorld(worked)
+
+            assertTheSheetIsUp()
+            assertOffersNoRun()
+            assertTheSheetReads("Nothing here can gather.")
         }
     }
 

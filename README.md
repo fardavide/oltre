@@ -206,6 +206,33 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.15.2 — 2026-08-21
+
+- **Fixed a second crash on the dispatch sheet.** Picking a hauler for a target it is too slow to
+  reach closed the app. The hauler is no longer offered for a world no window lets it fly to.
+- **A fleet of haulers is counted in berths again**, rather than being described as skiffs the
+  colony does not own and a pool of "0 idle".
+- **A colony whose only ship is a scout is told so**, instead of being told every hull is away while
+  the scout sits in the yard.
+- **The probe countdown notices a scout being built.** With one probe already out and another scout
+  on the slipway, it quoted the probe's landing and overstated the wait.
+- **Runs that were in flight during the 0.15 update print their legs correctly** — they were reading
+  a negative time on station.
+- Italian: the deposit is masculine, quantities inside sentences get their *di*, and a vein with one
+  unit left agrees with itself.
+
+### 0.15.1 — 2026-08-21
+
+- **Fixed a crash on distant worlds.** Opening the dispatch sheet on a world nothing you own can
+  reach inside a day closed the app. It now says so, and points at Propulsion — the technology that
+  shortens the trip. With the drive at zero this is any world two galaxies out, which is well inside
+  what a probe can survey on your first day.
+- **A fleet of haulers alone can be sent again.** Send your skiffs out, keep a hauler home, and the
+  sheet used to tell you every hull was away.
+- **Fixed the note under SEND on a lone hauler**, which counted its four berths as four skiffs and
+  told you the fourth was bringing nothing.
+- Older saves carried into 0.15 no longer receive twice the scouts they should.
+
 ### 0.15.0 — 2026-08-21
 
 - **Distance takes real time now, and a new technology buys it back.** Flying anywhere costs twice

@@ -115,8 +115,20 @@ fun GameState.toDispatchUiState(
     // cut kept both and clipped the hazard clause off the end of a 393dp sheet.
     val head = Strings.clauses(listOf(address, world.hazardClause()))
     val compactHead = head
+    // **One derived list, and the whole picker falls out of it** — Claude Design, *Twice the Flight*.
+    // Every manifest the idle pool can fly, ordered by hold, packed hauler-first. The stepper is an
+    // index into it, the two cells are the first manifest of each clock, and the ladder is the same
+    // legality test the sheet already ran, once per rung, against the selected manifest.
+    //
+    // **It is also the refusal**, and it is read before anything else asks a question about hulls.
+    // Until 0.15 the gate was `countOf(SKIFF) <= 0`, which was the same sentence while the skiff was
+    // the only hull that gathered; with the hauler it stopped being one. A colony that sent both its
+    // skiffs out and kept a hauler home has an empty *skiff* count and a fleet that can fly, and it
+    // was told every hull was away while the hauler sat in the pool — the sheet refusing on behalf of
+    // a hull it was not asked about.
+    val manifests = FleetBalance.reachableManifests(ships)
     val idle = ships.countOf(ShipType.SKIFF)
-    if (idle <= 0) {
+    if (manifests.isEmpty()) {
         return DispatchUiState.Refuse(
             name = name,
             // **A refusal has no gather cards, so the richness has nowhere else to be said** — and
@@ -124,7 +136,12 @@ fun GameState.toDispatchUiState(
             // the address costs the room the lesser resource had.
             head = Strings.clauses(listOf(address) + world.headLine(compact = true)),
             compactHead = Strings.clauses(listOf(address) + world.headLine(compact = true)),
-            title = Strings.dispatchEverySkiffAwayTitle(),
+            // **"Away" is a claim about runs, and until 0.15 an empty gathering pool implied one.**
+            // It does not any more: a scout is a hull that gathers nothing, so a colony can own one,
+            // have nothing in flight, and still reach here — which is the ordinary first check-in
+            // rather than an edge, because the scout is what the Shipyard sells first and the probe
+            // is what charts the world this sheet is about.
+            title = if (runs.isEmpty()) Strings.dispatchNoGatheringHullTitle() else Strings.dispatchEverySkiffAwayTitle(),
             note = awayNote(),
             action = nextReturn(now)?.let { RefuseActionUiState.Waiting(Strings.availableIn(it.toCountdown())) },
         )
@@ -134,17 +151,32 @@ fun GameState.toDispatchUiState(
     val gathering = selection.gathering ?: world.richerOf()
     val danger = FleetBalance.danger(from = home, world = world)
 
-    // **One derived list, and the whole picker falls out of it** — Claude Design, *Twice the Flight*.
-    // Every manifest the idle pool can fly, ordered by hold, packed hauler-first. The stepper is an
-    // index into it, the two cells are the first manifest of each clock, and the ladder is the same
-    // legality test the sheet already ran, once per rung, against the selected manifest.
-    val manifests = FleetBalance.reachableManifests(ships)
     // **Absent means never; dim means not with these hulls.** The union is what any manifest could
     // reach, so a rung outside it is one *distance* refuses and is still not drawn — which is what
     // keeps 0.13.1's teaching working now that a second cause exists.
     val everReachable = FleetBalance.WINDOWS.filter { rung ->
         manifests.any { rung in FleetBalance.windowsFor(home, target, research, it.ships) }
     }
+    // **An empty ladder is a refusal, and 0.15 is what made it one worth writing.** It was reachable
+    // before — three galaxy hops from home, at the very edge of a map nothing had surveyed — and the
+    // sheet crashed on it, `last()` on an empty list, because a rung nothing can fly is a rung that
+    // is simply not drawn and drawing none of them was never reached. Halving the base speed brought
+    // it in to **two** hops, which every colony can survey from its first day: the probe costs a flat
+    // 150 metal with no distance gate, so the first sheet a player opens on a far world is this one.
+    //
+    // The remedy is named rather than the distance, because the distance is not the thing that can
+    // change. A 24h round trip at drive 0 is 12h at drive 3, and the note is where the sheet says so.
+    if (everReachable.isEmpty()) {
+        return DispatchUiState.Refuse(
+            name = name,
+            head = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            compactHead = Strings.clauses(listOf(address) + world.headLine(compact = true)),
+            title = Strings.dispatchOutOfReachTitle(),
+            note = Strings.dispatchOutOfReachNote(),
+            action = null,
+        )
+    }
+
     // What is actually in the ground, and the cap behind it. Both are read once and shared by the
     // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
     val inTheGround = galaxy.remaining(target, gathering, now)
@@ -173,8 +205,22 @@ fun GameState.toDispatchUiState(
     // The stepper's value is a **berth count**, and the cells send one too — both controls move one
     // cursor along one ordered list. A count the list does not hold snaps to the nearest hold at or
     // below it, which is the clamp the cells promise before they are tapped.
+    //
+    // **The list is `flyable` and not `manifests`, and that is the second empty-collection crash in
+    // this file rather than a tidy-up.** `everReachable` asks whether *any* manifest can fly a rung;
+    // it says nothing about whether *this* one can. A hauler flies at half a skiff's speed, so one
+    // galaxy hop at drive 0 is 18h 20m for a skiff — inside the 24h rung — and 36h 40m for a hauler,
+    // which is outside every rung there is. The sheet drew the hauler's cell anyway, labelled with
+    // that round trip, and enabled the stepper's `+` for its four berths; the tap snapped `chosen`
+    // onto a manifest whose `offered` ladder is empty, and `offered.last()` twelve lines down threw.
+    //
+    // Filtering here fixes it at the one funnel both controls go through, and the four readings
+    // below take the same list so the sheet stops offering the tap at all — which is `everReachable`'s
+    // own rule (*"absent means never"*) applied to hulls instead of rungs. `flyable` is non-empty
+    // exactly when `everReachable` is, and the refusal above has already established that.
+    val flyable = manifests.filter { FleetBalance.windowsFor(home, target, research, it.ships).isNotEmpty() }
     val chosen = selection.ships
-        ?.let { asked -> manifests.lastOrNull { it.berths <= asked } ?: manifests.first() }
+        ?.let { asked -> flyable.lastOrNull { it.berths <= asked } ?: flyable.first() }
         ?: suggested
     val sent = chosen.ships
     val hulls = chosen.berths
@@ -218,15 +264,24 @@ fun GameState.toDispatchUiState(
     )
     // **The unit changes with the fleet**, because a berth is a distinction only a second hull type
     // creates: with skiffs alone the stepper counts skiffs, exactly as 0.13.1 shipped it.
-    val mixedFleet = manifests.any { it.flightFactor > 1 } && manifests.any { it.flightFactor == 1 }
-    val below = manifests.lastOrNull { it.berths < chosen.berths }
-    val above = manifests.firstOrNull { it.berths > chosen.berths }
+    //
+    // **Two questions, and they were one test until a hauler-only pool answered them differently.**
+    // `mixedFleet` asks whether there is a *choice of clock* — which is what the two cells are for,
+    // and it needs both. The unit asks whether a berth is a distinction at all, which needs only a
+    // hauler. Testing the first for the second sent a pool of haulers down the skiff branch, and it
+    // read one hauler's four berths as `4 skiffs` and its pool as `of 0 idle` — the same
+    // berths-counted-as-hulls error that came out of the clamp note, still live in the control above
+    // it, and pointing at a hull the colony does not own while the one it does sits in the yard.
+    val berthUnits = flyable.any { it.flightFactor > 1 }
+    val mixedFleet = berthUnits && flyable.any { it.flightFactor == 1 }
+    val below = flyable.lastOrNull { it.berths < chosen.berths }
+    val above = flyable.firstOrNull { it.berths > chosen.berths }
     val stepper = SteppedFleet(
-        ships = if (mixedFleet) Strings.berthCount(chosen.berths) else Strings.skiffCount(chosen.berths),
+        ships = if (berthUnits) Strings.berthCount(chosen.berths) else Strings.skiffCount(chosen.berths),
         shipCount = chosen.berths,
         fewer = below?.berths,
         more = above?.berths,
-        pool = if (mixedFleet) Strings.poolIdle(manifestLabel(ships)) else Strings.ofIdle(idle),
+        pool = if (berthUnits) Strings.poolIdle(manifestLabel(ships)) else Strings.ofIdle(idle),
     )
     // **Four cell states, and the fourth is the new one.** A rung this manifest cannot fly is drawn
     // at 42% with the hull that would fly it under it, and tapping it is the undo; a rung *no*
@@ -245,13 +300,13 @@ fun GameState.toDispatchUiState(
         emptyList()
     } else {
         listOf(1, 2).mapNotNull { factor ->
-            manifests.firstOrNull { it.flightFactor == factor }?.let { _ ->
+            flyable.firstOrNull { it.flightFactor == factor }?.let { _ ->
                 // **The whole of that clock, which is what tapping it gives you** — Design's frames
                 // label the cells `2 skiffs` and `1 hauler · 2 skiffs` on a pool of one and two, so
                 // it is the largest manifest of the clock rather than the smallest. (Its prose says
                 // *"the first manifest of each clock"*; the frames are unambiguous and they win, as
                 // they did over *"exactly double"*.)
-                val whole = manifests.last { it.flightFactor == factor }
+                val whole = flyable.last { it.flightFactor == factor }
                 val selected = chosen.flightFactor == factor
                 HullCellUiState(
                     // **The selected cell names the run; the other names what tapping it would give.**
@@ -274,10 +329,16 @@ fun GameState.toDispatchUiState(
     // precedence is Design's — where the clamp would also be earned the clamp wins, *"because it is
     // about the run being sent rather than a run that is not."*
     val cellNote = cells.takeIf { it.isNotEmpty() }?.let {
-        val other = manifests.lastOrNull { it.flightFactor != chosen.flightFactor }
+        val other = flyable.lastOrNull { it.flightFactor != chosen.flightFactor }
         when {
             other == null -> null
-            clamped && chosen.flightFactor > 1 -> Strings.cellClamped(Strings.skiffCount(idle))
+            // **Only when the hauler is flying alone**, which is the packing the sentence describes.
+            // *"The hauler empties it. The 2 skiffs bring nothing"* names skiffs that stayed home —
+            // and once the stepper moves off Design's hauler-alone default to six berths, those same
+            // skiffs are *in* the run and bringing back exactly what the hauler could not. Both
+            // halves of the sentence go false together, and nothing re-checked it after the tap.
+            clamped && chosen.flightFactor > 1 && chosen.ships.countOf(ShipType.SKIFF) == 0 ->
+                if (idle == 1) Strings.cellClampedOne() else Strings.cellClamped(Strings.skiffCount(idle))
             else -> {
                 val otherRungs = FleetBalance.windowsFor(home, target, research, other.ships)
                 val otherLift = otherLift(
@@ -296,13 +357,15 @@ fun GameState.toDispatchUiState(
                     otherRung == null -> null
                     // The hauler is not selected, so the note is what taking it would cost in rungs.
                     chosen.flightFactor == 1 -> Strings.cellRungConsequence(
-                        Strings.amountOfResource(otherLift.groupedByThousands(), gathering),
+                        otherLift.groupedByThousands(),
+                        gathering,
                         otherRung.rungLabel(),
                     )
                     // The hauler is selected, so the note is what the skiffs alone would lift — and
                     // the rung they alone can still fly, which is the whole of what was given up.
                     else -> Strings.cellCounterfactual(
-                        Strings.amountOfResource(otherLift.groupedByThousands(), gathering),
+                        otherLift.groupedByThousands(),
+                        gathering,
                         otherRungs.first().rungLabel(),
                     )
                 }
@@ -351,7 +414,7 @@ fun GameState.toDispatchUiState(
             cellNote = cellNote,
             ladderNote = ladderNote,
             title = waitingTitle(target, now),
-            note = waitingNote(ships = stepper.ships, window = window, lift = lift, gathering = gathering, wait = wait),
+            note = waitingNote(ships = stepper.ships, window = flownWindow, lift = lift, gathering = gathering, wait = wait),
             wait = wait?.let { Strings.availableIn(it.toWaitLabel()) },
             legs = legsLine(flight = flight, station = station, working = Duration.ZERO, clamped = false, compact = false),
             compactLegs = legsLine(flight = flight, station = station, working = Duration.ZERO, clamped = false, compact = true),
@@ -382,11 +445,16 @@ fun GameState.toDispatchUiState(
         cellNote = cellNote,
         ladderNote = ladderNote,
         rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
-        // Skiff-only for the same reason the per-ship reading is: *"3 skiffs empty it. The 4th
-        // brings nothing"* counts hulls that lift the same amount, and a mix does not. On a mixed
-        // manifest the clamp is stated by the figure's own `the whole deposit` and by the cell note,
-        // which is Design's rule that each control gets at most one note.
-        clampNote = if (sent.counts.size > 1) {
+        // **Skiffs and nothing else**, for the same reason the per-ship reading is: *"3 skiffs empty
+        // it. The 4th brings nothing"* counts hulls that lift the same amount, and neither a mix nor
+        // a hauler does. Anything else states its clamp through the figure's own `the whole deposit`
+        // and the cell note, which is Design's rule that each control gets at most one note.
+        //
+        // **The first cut tested `counts.size > 1` and let a hauler through** — one entry in the map,
+        // so "not a mix", and the note then read *"3 skiffs empty it. The 4th brings nothing"* about a
+        // single hauler, counting its four berths as four skiffs. Two notes under SEND and the louder
+        // one false. The test is which hull, not how many kinds.
+        clampNote = if (sent.counts.keys != setOf(ShipType.SKIFF)) {
             null
         } else {
             clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround)
@@ -400,7 +468,7 @@ fun GameState.toDispatchUiState(
         // The clamp marker stays whatever the manifest is: `the whole deposit` is a fact about the
         // ground rather than about the hulls, and it is the only marker the clamped state needs.
         // The vein, in the two forms Design gives it: what is left after this run, or all of it.
-        vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands()),
+        vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands(), inTheGround - haul),
         legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),
@@ -528,7 +596,14 @@ private fun waitingNote(
 // would send the first skiff of a new colony away for a day on a tap the player had not thought
 // about yet; a default of the shortest would make the frontier look worthless, because the frontier
 // only pays at the long end.
-private fun List<Duration>.defaultRung(): Duration = firstOrNull { it >= PREFERRED_WINDOW } ?: last()
+//
+// **Total only against a ladder that has rungs**, and it says so rather than falling off `last()`:
+// an empty ladder means nothing this colony owns can be back inside a day, which is a refusal the
+// sheet returns above and not a default this can invent.
+private fun List<Duration>.defaultRung(): Duration {
+    require(isNotEmpty()) { "no rung is reachable — the sheet refuses before it defaults" }
+    return firstOrNull { it >= PREFERRED_WINDOW } ?: last()
+}
 
 // "18h 20m out and back. No shorter window leaves 20 minutes on the surface." Present only when
 // something has actually been dropped: on a neighbour every rung is offered and the sentence would
@@ -621,10 +696,15 @@ private fun World.hazardClause(): TextRes = Strings.hazards(traits.hazards.size)
 // off the soonest return rather than the list's order, for the reason `advance` sorts its arrivals
 // on an intrinsic key: `runs` is unordered.
 private fun GameState.awayNote(): TextRes {
-    // Unreachable through the sheet — the branch above only asks when the idle pool is empty, and a
-    // colony with no idle hull and no run in flight owns no hulls at all, which genesis forbids. It
-    // is a sentence rather than an `error` because a refusal is the wrong place to crash a screen.
-    val soonest = runs.minByOrNull { it.returnsAt } ?: return Strings.dispatchNothingIdle()
+    // **This fallback was documented as unreachable and both halves of the reasoning have since
+    // gone.** It said a colony with no idle hull and no run in flight owns no hulls at all, *"which
+    // genesis forbids"* — but 0.11.3 stopped granting hulls at genesis, and 0.15 added a hull that
+    // leaves the gathering pool empty while sitting in the yard. So it is not merely reachable, it is
+    // where a new colony arrives on its first survey, and the sentence it used to return — "Nothing
+    // is idle and nothing is out" — was false in both clauses with a scout at home. That entry is
+    // gone from the catalogue rather than left unused: an id nothing can build is a branch in every
+    // language that no caller will ever reach, which is what `CatalogueTest` exists to forbid.
+    val soonest = runs.minByOrNull { it.returnsAt } ?: return Strings.dispatchNoGatheringHullNote()
     val kind = soonest.gathering
     return Strings.sentences(
         listOfNotNull(

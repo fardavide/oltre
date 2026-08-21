@@ -235,6 +235,14 @@ object Strings {
 
     fun dispatchEverySkiffAwayTitle(): TextRes = message(StringId.DispatchEverySkiffAwayTitle)
 
+    fun dispatchNoGatheringHullTitle(): TextRes = message(StringId.DispatchNoGatheringHullTitle)
+
+    fun dispatchNoGatheringHullNote(): TextRes = message(StringId.DispatchNoGatheringHullNote)
+
+    fun dispatchOutOfReachTitle(): TextRes = message(StringId.DispatchOutOfReachTitle)
+
+    fun dispatchOutOfReachNote(): TextRes = message(StringId.DispatchOutOfReachNote)
+
     // "3 runs are out. [3:185:4] is inbound with 1,240 metal."
     fun dispatchAwayNote(runs: Int, target: TextRes, cargo: TextRes, kind: ResourceKind): TextRes =
         message(
@@ -249,7 +257,6 @@ object Strings {
 
     fun dispatchAwayTail(): TextRes = message(StringId.DispatchAwayTail)
 
-    fun dispatchNothingIdle(): TextRes = message(StringId.DispatchNothingIdle)
 
     fun depositFull(): TextRes = message(StringId.DepositFull)
 
@@ -285,13 +292,20 @@ object Strings {
 
     // The one slot below the cells, in its three forms: what the other cell would lift, what it
     // would cost in rungs, and — winning over both — the clamp.
-    fun cellCounterfactual(lift: TextRes, rung: TextRes): TextRes =
-        message(StringId.CellCounterfactual, Arg.Text(lift), Arg.Text(rung))
+    // **The amount and the kind stay apart**, the way `waitingAsk` and `dispatchAwayNote` already
+    // keep them. `amountOfResource` glues them with a bare space because it is a *chip*, and this
+    // file says so at `AmountOfResource` — but these two are sentences, and Italian puts a `di`
+    // between a figure and a noun inside one. Handed the pre-composed chip they read "sollevano solo
+    // 449 metallo", which is the grammar of a label pasted into prose.
+    fun cellCounterfactual(lift: TextRes, kind: ResourceKind, rung: TextRes): TextRes =
+        message(StringId.CellCounterfactual, Arg.Text(lift), Arg.Text(resourceName(kind)), Arg.Text(rung))
 
-    fun cellRungConsequence(lift: TextRes, rung: TextRes): TextRes =
-        message(StringId.CellRungConsequence, Arg.Text(lift), Arg.Text(rung))
+    fun cellRungConsequence(lift: TextRes, kind: ResourceKind, rung: TextRes): TextRes =
+        message(StringId.CellRungConsequence, Arg.Text(lift), Arg.Text(resourceName(kind)), Arg.Text(rung))
 
     fun cellClamped(idle: TextRes): TextRes = message(StringId.CellClamped, Arg.Text(idle))
+
+    fun cellClampedOne(): TextRes = message(StringId.CellClampedOne)
 
     // "of 4 idle" — the pool the stepper is clamped to.
     fun ofIdle(count: Int): TextRes = message(StringId.OfIdle, Arg.Count(count))
@@ -316,7 +330,12 @@ object Strings {
 
     // "870 left in the ground" — the slot beside the figure, which the per-ship reading used to
     // hold. What a run *leaves*, so the two forms are one sentence: this much left, or all of it.
-    fun veinLeft(amount: TextRes): TextRes = message(StringId.VeinLeft, Arg.Text(amount))
+    // The count rides along unread by English and agreed with by Italian — the same shape
+    // `CellClampedOne` needed one defect earlier, on the other new entry of this release. A vein
+    // regenerates continuously, so a remainder of exactly one is ordinary arithmetic rather than an
+    // edge, and "1 rimasti nel terreno" is what it read.
+    fun veinLeft(amount: TextRes, left: Long): TextRes =
+        message(StringId.VeinLeft, Arg.Text(amount), Arg.Count(left.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()))
 
     // "449 each"
     fun eachShip(amount: TextRes): TextRes = message(StringId.EachShip, Arg.Text(amount))

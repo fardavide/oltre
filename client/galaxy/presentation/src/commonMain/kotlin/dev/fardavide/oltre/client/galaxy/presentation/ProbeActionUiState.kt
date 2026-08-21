@@ -97,8 +97,15 @@ internal fun GameState.toProbeActionUiState(
     // scout is genuinely on its way home the countdown is the honest answer, and when none is coming
     // a countdown would be a lie however well it rendered.
     if (!ships.covers(SurveyBalance.SHIPS)) {
-        val soonest = surveys.minOfOrNull { it.completesAt }
-            ?: yard.firstOrNull { it.ship == ShipType.SCOUT }?.completesAt
+        // **The minimum of both, not the yard as a fallback.** A probe in flight and a scout on the
+        // slipway are two sources of the same hull, and the elvis consulted the yard only when
+        // nothing was out — so a player who owns one scout, sends it, and then buys another was
+        // quoted the probe's landing while the purchase was an hour away. The error only ever ran in
+        // the overstating direction, on the screen whose whole job is an honest countdown.
+        val soonest = listOfNotNull(
+            surveys.minOfOrNull { it.completesAt },
+            yard.filter { it.ship == ShipType.SCOUT }.minOfOrNull { it.completesAt },
+        ).minOrNull()
         return ProbeActionUiState.Unaffordable(
             offer = offer,
             availableIn = soonest
