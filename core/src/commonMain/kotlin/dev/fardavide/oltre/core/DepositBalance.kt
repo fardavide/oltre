@@ -103,7 +103,7 @@ object DepositBalance {
     ): Duration {
         require(gathering != ResourceKind.DEUTERIUM) { "a run never gathers deuterium" }
         require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
-        if (remaining == 0L || ships.isEmpty) return Duration.ZERO
+        if (remaining == 0L || FleetBalance.berths(ships) == 0) return Duration.ZERO
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
         // No zero guard on the rate: `extractionPerHour` is 60 multiplied by a technology multiplier
         // that starts at 1, so it cannot reach zero — and a branch that cannot be taken is a branch
@@ -112,9 +112,17 @@ object DepositBalance {
         var numerator = checkedTimes(remaining, GalaxyBalance.RICHNESS_BASIS.toLong()) { "working remaining" }
         numerator = checkedTimes(numerator, PERCENT * pricePerUnit(gathering)) { "working price" }
         numerator = checkedTimes(numerator, MINUTES_PER_HOUR) { "working hour" }
-        var denominator = checkedTimes(ships.total.toLong(), richnessOf(world, gathering).perMillion.toLong()) {
-            "working fleet"
-        }
+        // **Berths, not hulls — the same unit `cargo` spends.** These two are inverses of one
+        // expression: `cargo` is how much a fleet lifts in a given time and this is how long a fleet
+        // takes to lift a given amount, so a denominator that disagreed with `cargo`'s would make the
+        // sheet contradict itself about one run. It did, briefly: `cargo` moved to berths with the
+        // hauler and this did not, so a manifest of one hauler and two skiffs — three hulls, six
+        // berths — reported *twice* the working time it really needs, and the legs line read
+        // "on station 2h 24m · working 4h 48m" about a run that cannot work longer than it stays.
+        var denominator = checkedTimes(
+            FleetBalance.berths(ships).toLong(),
+            richnessOf(world, gathering).perMillion.toLong(),
+        ) { "working fleet" }
         denominator = checkedTimes(denominator, paid) { "working danger" }
         denominator = checkedTimes(denominator, rate) { "working rate" }
         // Ceiled: a partial minute is still a minute the fleet is on the surface.

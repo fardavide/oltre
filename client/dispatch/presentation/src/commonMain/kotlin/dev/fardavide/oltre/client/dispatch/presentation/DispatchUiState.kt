@@ -353,8 +353,8 @@ fun GameState.toDispatchUiState(
             title = waitingTitle(target, now),
             note = waitingNote(ships = stepper.ships, window = window, lift = lift, gathering = gathering, wait = wait),
             wait = wait?.let { Strings.availableIn(it.toWaitLabel()) },
-            legs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = false),
-            compactLegs = legsLine(flight = flight, station = station, working = Duration.ZERO, compact = true),
+            legs = legsLine(flight = flight, station = station, working = Duration.ZERO, clamped = false, compact = false),
+            compactLegs = legsLine(flight = flight, station = station, working = Duration.ZERO, clamped = false, compact = true),
             danger = dangerLine(world = world, danger = danger, compact = false),
             compactDanger = dangerLine(world = world, danger = danger, compact = true),
         )
@@ -401,8 +401,8 @@ fun GameState.toDispatchUiState(
         // ground rather than about the hulls, and it is the only marker the clamped state needs.
         // The vein, in the two forms Design gives it: what is left after this run, or all of it.
         vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands()),
-        legs = legsLine(flight = flight, station = station, working = working, compact = false),
-        compactLegs = legsLine(flight = flight, station = station, working = working, compact = true),
+        legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
+        compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),
         compactDanger = dangerLine(world = world, danger = danger, compact = true),
     )
@@ -437,7 +437,13 @@ private fun GameState.depositChip(target: GalaxyCoordinate, kind: ResourceKind, 
 // made visible with no copy at all** — because the vein and the rate carry one multiplier, `working`
 // reads the same on the doorstep as in the next galaxy, so the rule teaches itself off this line
 // rather than out of a tooltip. Absent when there is nothing to work.
-private fun legsLine(flight: Duration, station: Duration, working: Duration, compact: Boolean): TextRes =
+private fun legsLine(
+    flight: Duration,
+    station: Duration,
+    working: Duration,
+    clamped: Boolean,
+    compact: Boolean,
+): TextRes =
     Strings.clauses(
         listOfNotNull(
             Strings.legOut(flight.toChipLabel()),
@@ -446,7 +452,16 @@ private fun legsLine(flight: Duration, station: Duration, working: Duration, com
             } else {
                 Strings.legOnStation(station.toChipLabel())
             },
-            Strings.legWorking(working.toChipLabel()).takeIf { working > Duration.ZERO },
+            // **Only when the vein clamps the run** — Design: *"the working leg keeps its 0.9 rule…
+            // its presence is the clamp and its absence needs no words."* On a run nothing stops, the
+            // fleet works the whole station, so the leg would print the number beside it twice; when
+            // the vein stops it early the gap between the two *is* the reading.
+            //
+            // **Asked of the clamp rather than inferred from the two durations.** `working < station`
+            // looks like the same question and is not: `cargo` floors the lift, so working the
+            // *floored* amount comes in a minute under the station on almost every run, and the leg
+            // would go on printing itself for a rounding error.
+            Strings.legWorking(working.toChipLabel()).takeIf { clamped && working > Duration.ZERO },
             Strings.legHome(flight.toChipLabel()),
         ),
     )

@@ -479,13 +479,23 @@ class DispatchUiStateTest {
     }
 
     @Test
-    fun `the legs line says how long the fleet is actually working`() {
+    fun `the working leg is the clamp and is absent when nothing clamps`() {
         // The invariant made visible with no copy at all — `working` reads the same everywhere on the
         // map, because the vein and the rate carry one multiplier.
-        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
+        //
+        // **Its presence is the clamp**, which is Design's own rule for it and was not what this
+        // test asserted: it asked for the leg on an *unclamped* run, and got it because the leg used
+        // to be drawn whenever the fleet worked at all — which is always. On a run nothing stops,
+        // the fleet works the whole station and the leg prints the number beside it twice.
+        val target = runnable()
+        val unclamped = assertIs<DispatchUiState.Offer>(dispatchAt(target))
+        val clamped = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(ships = 8, window = 24.hours)),
+        )
 
-        assertTrue(English.resolve(offer.legs).contains("· working "), English.resolve(offer.legs))
-        assertTrue(English.resolve(offer.compactLegs).contains("· working "), English.resolve(offer.compactLegs))
+        assertTrue(!English.resolve(unclamped.legs).contains("· working "), English.resolve(unclamped.legs))
+        assertTrue(English.resolve(clamped.legs).contains("· working "), English.resolve(clamped.legs))
+        assertTrue(English.resolve(clamped.compactLegs).contains("· working "), English.resolve(clamped.compactLegs))
     }
 
     @Test

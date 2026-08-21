@@ -419,11 +419,24 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
-    fun `the sheet says how long the fleet is actually working`() {
+    fun `the working leg is the clamp, so it is absent when nothing clamps`() {
         // The invariant made visible with no copy at all: because the vein and the rate carry one
         // multiplier, this segment reads the same on the doorstep as in the next galaxy.
-        galaxyPage(uiState = dispatchClampedUiState) {
+        //
+        // **Its presence *is* the clamp** — Design: *"the working leg keeps its 0.9 rule… its
+        // absence needs no words."* On a run nothing stops, the fleet works the whole station and the
+        // leg would print the number beside it twice; when the vein stops it early, the gap between
+        // the two is the reading.
+        //
+        // **This asserted the leg on `dispatchClampedUiState`, which is the wrong fixture** — that
+        // one is clamped by the *pool* (99 asked of six idle), not by the vein, so nothing stops the
+        // run early there. It passed because the leg used to be unconditional, which is the same
+        // thing as not being asserted at all.
+        galaxyPage(uiState = dispatchWholeDepositUiState) {
             assertTheSheetReads("working")
+        }
+        galaxyPage(uiState = dispatchOfferUiState) {
+            assertTheSheetDoesNotRead("working")
         }
     }
 
