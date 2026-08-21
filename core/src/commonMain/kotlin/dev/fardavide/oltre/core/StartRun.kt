@@ -81,7 +81,13 @@ fun startRun(
     if (target !in state.galaxy.surveyed) return StartRunResult.Unsurveyed
 
     val home = state.galaxy.home
-    val station = FleetBalance.stationFor(from = home, to = target, window = window, research = state.research)
+    val station = FleetBalance.stationFor(
+        from = home,
+        to = target,
+        window = window,
+        research = state.research,
+        ships = ships,
+    )
     if (station < FleetBalance.MINIMUM_STATION) return StartRunResult.WindowTooShort
 
     // What is actually in the ground, now. A world nobody has worked answers with its whole cap, so
@@ -138,7 +144,7 @@ fun startRun(
 // **It is a whitelist and not `!= SCOUT`, deliberately.** The escort and the settler are coming, and
 // exactly one of them will have a hold; a blacklist would send the other two gathering on the day
 // their constants land, silently and with a plausible number behind it.
-private val GATHERING_HULLS: Set<ShipType> = setOf(ShipType.SKIFF)
+private val GATHERING_HULLS: Set<ShipType> = setOf(ShipType.SKIFF, ShipType.HAULER)
 
 private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal

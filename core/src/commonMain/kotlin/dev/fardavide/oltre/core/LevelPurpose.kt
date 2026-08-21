@@ -166,11 +166,18 @@ fun GameState.purposeOfNextLevel(technology: Technology): LevelPurpose {
         val home = galaxy.home
         val nextGalaxy = home.copy(galaxy = if (home.galaxy == 1) 2 else home.galaxy - 1)
         return LevelPurpose.Reach(
-            from = FleetBalance.roundTrip(from = home, to = nextGalaxy, research = research),
+            // The fast clock, because the row has no manifest selected — see `FASTEST_HULL`.
+            from = FleetBalance.roundTrip(
+                from = home,
+                to = nextGalaxy,
+                research = research,
+                ships = FleetBalance.FASTEST_HULL,
+            ),
             to = FleetBalance.roundTrip(
                 from = home,
                 to = nextGalaxy,
                 research = research.withLevel(technology, toLevel),
+                ships = FleetBalance.FASTEST_HULL,
             ),
         )
     }

@@ -279,11 +279,15 @@ class BuildShipsTest {
 
     @Test
     fun `a hull with no price yet is refused rather than priced at a guess`() {
-        // `shipCost` raises for the other three, and a verb reachable from a finger may not throw:
-        // the Shipyard draws the Hauler as a dimmed card and the refusal is what that card means.
+        // `shipCost` raises for the two that have no slice, and a verb reachable from a finger may
+        // not throw: the Shipyard draws them as dimmed cards and the refusal is what that card means.
+        //
+        // **The hauler left this list at 0.15.0**, with the manifest picker — which is what it was
+        // waiting for. Until the dispatch sheet could send a two-hull manifest, a purchasable hauler
+        // was a hull a player could own and never use.
         val state = wealthy(GameState.initial())
 
-        for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
+        for (type in listOf(ShipType.ESCORT, ShipType.SETTLER)) {
             assertEquals(
                 BuildShipsResult.NotForSale,
                 buildShips(state, Ships.of(type, 1), at = t0),
@@ -300,7 +304,7 @@ class BuildShipsTest {
             BuildShipsResult.NotForSale,
             buildShips(
                 state,
-                Ships(mapOf(ShipType.SKIFF to 1, ShipType.HAULER to 1)),
+                Ships(mapOf(ShipType.SKIFF to 1, ShipType.ESCORT to 1)),
                 at = t0,
             ),
         )

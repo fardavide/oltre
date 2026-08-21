@@ -95,11 +95,14 @@ class FleetBalanceTest {
     fun `a flight is ten minutes plus one minute per five units at drive zero`() {
         // The nearest target in the sky is a flat ten minutes — five units buys one minute now, and
         // nothing under five buys any — which is the base term doing the job it exists for.
-        assertEquals(11.minutes, FleetBalance.flight(home, at(2, 125, 6), NONE))
-        assertEquals(24.minutes, FleetBalance.flight(at(2, 125, 1), at(2, 125, 15), NONE))
-        assertEquals(30.minutes, FleetBalance.flight(home, at(2, 126, 5), NONE))
-        assertEquals(49.minutes, FleetBalance.flight(home, at(2, 145, 5), NONE))
-        assertEquals(550.minutes, FleetBalance.flight(home, at(3, 125, 5), NONE))
+        assertEquals(11.minutes, FleetBalance.flight(home, at(2, 125, 6), NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(
+            24.minutes,
+            FleetBalance.flight(at(2, 125, 1), at(2, 125, 15), NONE, FleetBalance.FASTEST_HULL),
+        )
+        assertEquals(30.minutes, FleetBalance.flight(home, at(2, 126, 5), NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(49.minutes, FleetBalance.flight(home, at(2, 145, 5), NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(550.minutes, FleetBalance.flight(home, at(3, 125, 5), NONE, FleetBalance.FASTEST_HULL))
     }
 
     @Test
@@ -116,9 +119,9 @@ class FleetBalanceTest {
             at(3, 125, 5) to 280.minutes,
         )
         for ((target, was) in shipped) {
-            assertEquals(was, FleetBalance.flight(home, target, drive(1)), "drive 1 to $target")
+            assertEquals(was, FleetBalance.flight(home, target, drive(1), FleetBalance.FASTEST_HULL), "drive 1 to $target")
         }
-        assertEquals(17.minutes, FleetBalance.flight(at(2, 125, 1), at(2, 125, 15), drive(1)))
+        assertEquals(17.minutes, FleetBalance.flight(at(2, 125, 1), at(2, 125, 15), drive(1), FleetBalance.FASTEST_HULL))
     }
 
     @Test
@@ -127,9 +130,9 @@ class FleetBalanceTest {
         // of why it is a *reach* technology rather than a speed bonus. `BASE_FLIGHT_MINUTES` is
         // outside the division, so a target five units away is ten minutes at every level there is.
         val nextDoor = at(2, 125, 6)
-        assertEquals(11.minutes, FleetBalance.flight(home, nextDoor, NONE))
+        assertEquals(11.minutes, FleetBalance.flight(home, nextDoor, NONE, FleetBalance.FASTEST_HULL))
         for (level in 1..6) {
-            assertEquals(10.minutes, FleetBalance.flight(home, nextDoor, drive(level)), "drive $level")
+            assertEquals(10.minutes, FleetBalance.flight(home, nextDoor, drive(level), FleetBalance.FASTEST_HULL), "drive $level")
         }
     }
 
@@ -151,7 +154,7 @@ class FleetBalanceTest {
         val near = at(2, 126, 5)
         val far = at(3, 125, 5)
         fun saved(target: GalaxyCoordinate): Duration =
-            FleetBalance.flight(home, target, NONE) - FleetBalance.flight(home, target, drive(1))
+            FleetBalance.flight(home, target, NONE, FleetBalance.FASTEST_HULL) - FleetBalance.flight(home, target, drive(1), FleetBalance.FASTEST_HULL)
 
         assertTrue(saved(far) > saved(near) * 10, "the drive bought the frontier no more than the next street")
     }
@@ -161,8 +164,8 @@ class FleetBalanceTest {
         // 100 units and 105 units are the same flight: the division floors, and that is what keeps
         // a published table of minutes true to the unit.
         assertEquals(
-            FleetBalance.flight(home, at(2, 126, 5), drive(1)),
-            FleetBalance.flight(home, at(2, 127, 5), drive(1)),
+            FleetBalance.flight(home, at(2, 126, 5), drive(1), FleetBalance.FASTEST_HULL),
+            FleetBalance.flight(home, at(2, 127, 5), drive(1), FleetBalance.FASTEST_HULL),
         )
     }
 
@@ -171,8 +174,8 @@ class FleetBalanceTest {
         for (target in listOf(at(2, 125, 6), at(2, 145, 5), at(3, 125, 5), at(4, 1, 1))) {
             for (level in 0..3) {
                 assertEquals(
-                    FleetBalance.flight(home, target, drive(level)) * 2,
-                    FleetBalance.roundTrip(home, target, drive(level)),
+                    FleetBalance.flight(home, target, drive(level), FleetBalance.FASTEST_HULL) * 2,
+                    FleetBalance.roundTrip(home, target, drive(level), FleetBalance.FASTEST_HULL),
                 )
             }
         }
@@ -187,11 +190,11 @@ class FleetBalanceTest {
         //
         // This is what makes `WindowTooShort` reachable in ordinary play for the first time — the
         // result's own comment used to say it waited on the hauler.
-        assertEquals(2_180.minutes, FleetBalance.roundTrip(home, at(4, 1, 1), NONE))
-        assertTrue(FleetBalance.roundTrip(home, at(4, 1, 1), NONE) > 24.hours)
+        assertEquals(2_180.minutes, FleetBalance.roundTrip(home, at(4, 1, 1), NONE, FleetBalance.FASTEST_HULL))
+        assertTrue(FleetBalance.roundTrip(home, at(4, 1, 1), NONE, FleetBalance.FASTEST_HULL) > 24.hours)
 
-        assertEquals(1_100.minutes, FleetBalance.roundTrip(home, at(4, 1, 1), drive(1)))
-        assertTrue(FleetBalance.roundTrip(home, at(4, 1, 1), drive(1)) < 24.hours)
+        assertEquals(1_100.minutes, FleetBalance.roundTrip(home, at(4, 1, 1), drive(1), FleetBalance.FASTEST_HULL))
+        assertTrue(FleetBalance.roundTrip(home, at(4, 1, 1), drive(1), FleetBalance.FASTEST_HULL) < 24.hours)
     }
 
     // ── The window ladder ───────────────────────────────────────────────────────────────────
@@ -204,14 +207,14 @@ class FleetBalanceTest {
 
     @Test
     fun `a target next door offers every rung`() {
-        assertEquals(FleetBalance.WINDOWS, FleetBalance.windowsFor(home, at(2, 125, 6), NONE))
+        assertEquals(FleetBalance.WINDOWS, FleetBalance.windowsFor(home, at(2, 125, 6), NONE, FleetBalance.FASTEST_HULL))
     }
 
     @Test
     fun `a rung is absent rather than disabled once the trip no longer fits`() {
         // The whole ladder minus its shortest rung. What the screen shows is four controls, not five
         // with one greyed out — which is how a narrowing ladder teaches distance before any copy does.
-        val narrowed = FleetBalance.windowsFor(home, at(2, 126, 5), NONE)
+        val narrowed = FleetBalance.windowsFor(home, at(2, 126, 5), NONE, FleetBalance.FASTEST_HULL)
         assertEquals(listOf(3.hours, 6.hours, 12.hours, 24.hours), narrowed)
         assertTrue(1.hours !in narrowed)
     }
@@ -224,8 +227,8 @@ class FleetBalanceTest {
         // so the whole lesson is delivered by a control appearing.
         val target = at(2, 126, 5)
 
-        assertEquals(listOf(3.hours, 6.hours, 12.hours, 24.hours), FleetBalance.windowsFor(home, target, NONE))
-        assertEquals(FleetBalance.WINDOWS, FleetBalance.windowsFor(home, target, drive(1)))
+        assertEquals(listOf(3.hours, 6.hours, 12.hours, 24.hours), FleetBalance.windowsFor(home, target, NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(FleetBalance.WINDOWS, FleetBalance.windowsFor(home, target, drive(1), FleetBalance.FASTEST_HULL))
     }
 
     @Test
@@ -234,8 +237,8 @@ class FleetBalanceTest {
         // level that took one away would be a technology that made a target harder to reach.
         for (target in listOf(at(2, 125, 6), at(2, 126, 5), at(3, 125, 5), at(4, 1, 1))) {
             for (level in 0..5) {
-                val shallow = FleetBalance.windowsFor(home, target, drive(level))
-                val deeper = FleetBalance.windowsFor(home, target, drive(level + 1))
+                val shallow = FleetBalance.windowsFor(home, target, drive(level), FleetBalance.FASTEST_HULL)
+                val deeper = FleetBalance.windowsFor(home, target, drive(level + 1), FleetBalance.FASTEST_HULL)
                 assertTrue(deeper.containsAll(shallow), "drive ${level + 1} to $target lost a rung: $shallow -> $deeper")
             }
         }
@@ -247,15 +250,15 @@ class FleetBalanceTest {
         // inclusive — five units further pushes the round trip to 42m and the rung disappears.
         assertEquals(
             1.hours,
-            FleetBalance.roundTrip(home, at(2, 125, 15), NONE) + FleetBalance.MINIMUM_STATION,
+            FleetBalance.roundTrip(home, at(2, 125, 15), NONE, FleetBalance.FASTEST_HULL) + FleetBalance.MINIMUM_STATION,
         )
-        assertTrue(1.hours in FleetBalance.windowsFor(home, at(2, 125, 15), NONE))
+        assertTrue(1.hours in FleetBalance.windowsFor(home, at(2, 125, 15), NONE, FleetBalance.FASTEST_HULL))
     }
 
     @Test
     fun `a very distant target offers only the longest rung`() {
-        assertEquals(listOf(24.hours), FleetBalance.windowsFor(home, at(3, 125, 5), NONE))
-        assertEquals(listOf(12.hours, 24.hours), FleetBalance.windowsFor(home, at(3, 125, 5), drive(1)))
+        assertEquals(listOf(24.hours), FleetBalance.windowsFor(home, at(3, 125, 5), NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(listOf(12.hours, 24.hours), FleetBalance.windowsFor(home, at(3, 125, 5), drive(1), FleetBalance.FASTEST_HULL))
     }
 
     @Test
@@ -263,17 +266,17 @@ class FleetBalanceTest {
         // At drive 0 that is now two galaxy hops rather than three — the far end of the map from a
         // mid-galaxy home — which is the reach half of *"navigating distance takes way more time,
         // without powered up ships"* stated as an empty ladder.
-        assertTrue(FleetBalance.windowsFor(home, at(4, 1, 1), NONE).isEmpty())
-        assertTrue(FleetBalance.windowsFor(at(1, 1, 1), at(4, 250, 15), NONE).isEmpty())
+        assertTrue(FleetBalance.windowsFor(home, at(4, 1, 1), NONE, FleetBalance.FASTEST_HULL).isEmpty())
+        assertTrue(FleetBalance.windowsFor(at(1, 1, 1), at(4, 250, 15), NONE, FleetBalance.FASTEST_HULL).isEmpty())
     }
 
     @Test
     fun `every rung the ladder offers leaves at least the minimum station`() {
         for (target in listOf(at(2, 125, 6), at(2, 128, 5), at(3, 125, 5), at(4, 1, 1))) {
             for (level in 0..4) {
-                for (window in FleetBalance.windowsFor(home, target, drive(level))) {
+                for (window in FleetBalance.windowsFor(home, target, drive(level), FleetBalance.FASTEST_HULL)) {
                     assertTrue(
-                        FleetBalance.stationFor(home, target, window, drive(level)) >= FleetBalance.MINIMUM_STATION,
+                        FleetBalance.stationFor(home, target, window, drive(level), FleetBalance.FASTEST_HULL) >= FleetBalance.MINIMUM_STATION,
                         "window $window to $target at drive $level left too little station",
                     )
                 }
@@ -285,11 +288,11 @@ class FleetBalanceTest {
     fun `flight eats the window rather than extending it`() {
         // The shape decision of the whole mechanic: a far world delivers fewer station-hours out of
         // the same absence, so it has to be richer to be worth it.
-        assertEquals(158.minutes, FleetBalance.stationFor(home, at(2, 125, 6), 3.hours, NONE))
-        assertEquals(120.minutes, FleetBalance.stationFor(home, at(2, 126, 5), 3.hours, NONE))
+        assertEquals(158.minutes, FleetBalance.stationFor(home, at(2, 125, 6), 3.hours, NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(120.minutes, FleetBalance.stationFor(home, at(2, 126, 5), 3.hours, NONE, FleetBalance.FASTEST_HULL))
         assertTrue(
-            FleetBalance.stationFor(home, at(3, 125, 5), 24.hours, NONE) <
-                FleetBalance.stationFor(home, at(2, 125, 6), 24.hours, NONE),
+            FleetBalance.stationFor(home, at(3, 125, 5), 24.hours, NONE, FleetBalance.FASTEST_HULL) <
+                FleetBalance.stationFor(home, at(2, 125, 6), 24.hours, NONE, FleetBalance.FASTEST_HULL),
         )
     }
 
@@ -300,9 +303,9 @@ class FleetBalanceTest {
         // window that was almost all flight into one that is mostly work.
         val far = at(3, 125, 5)
 
-        assertEquals(340.minutes, FleetBalance.stationFor(home, far, 24.hours, NONE))
-        assertEquals(880.minutes, FleetBalance.stationFor(home, far, 24.hours, drive(1)))
-        assertEquals(1_060.minutes, FleetBalance.stationFor(home, far, 24.hours, drive(2)))
+        assertEquals(340.minutes, FleetBalance.stationFor(home, far, 24.hours, NONE, FleetBalance.FASTEST_HULL))
+        assertEquals(880.minutes, FleetBalance.stationFor(home, far, 24.hours, drive(1), FleetBalance.FASTEST_HULL))
+        assertEquals(1_060.minutes, FleetBalance.stationFor(home, far, 24.hours, drive(2), FleetBalance.FASTEST_HULL))
     }
 
     // ── Danger ──────────────────────────────────────────────────────────────────────────────
@@ -349,7 +352,7 @@ class FleetBalanceTest {
         // check on `flight`, which has its own section above.
         val target = home.copy(slot = 6)
         val rich = world(target, metalPerMillion = 1_240_000, hazards = emptySet())
-        val station = FleetBalance.stationFor(home, target, 3.hours, drive(1))
+        val station = FleetBalance.stationFor(home, target, 3.hours, drive(1), FleetBalance.FASTEST_HULL)
         assertEquals(160.minutes, station)
 
         // when
@@ -661,6 +664,138 @@ class FleetBalanceTest {
         for (type in listOf(ShipType.ESCORT, ShipType.SETTLER)) {
             assertFailsWith<IllegalStateException> { FleetBalance.shipCost(type) }
         }
+    }
+
+    // ── The hauler's clock, and the manifest that sets it ────────────────────────────────────
+
+    @Test
+    fun `the design's own frames reproduce to the minute`() {
+        // **Claude Design, *Twice the Flight*, checked against its published figures rather than its
+        // prose.** Both frames are drawn at drive 1, which is the speed 0.14 shipped at and the
+        // curve the design had — so the level is held here and the numbers are its own:
+        //
+        // | target | skiffs | with a hauler |
+        // |---|---|---|
+        // | the doorstep, 5 units | 20m out and back | 42m |
+        // | Ashkur IX, 440 units | 1h 48m | 3h 36m |
+        val skiffs = Ships.of(ShipType.SKIFF, 2)
+        val mixed = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2))
+        val doorstep = home.copy(slot = 6)
+        val ashkur = home.copy(system = home.system + 69, slot = 1)
+        assertEquals(440, FleetBalance.distanceUnits(home, ashkur))
+
+        assertEquals(20.minutes, FleetBalance.roundTrip(home, doorstep, drive(1), skiffs))
+        assertEquals(42.minutes, FleetBalance.roundTrip(home, doorstep, drive(1), mixed))
+        assertEquals(108.minutes, FleetBalance.roundTrip(home, ashkur, drive(1), skiffs))
+        assertEquals(216.minutes, FleetBalance.roundTrip(home, ashkur, drive(1), mixed))
+    }
+
+    @Test
+    fun `a manifest has one clock and the slowest hull sets it`() {
+        // **The fact the whole picker is built on** — Design: *"the run has one clock with two
+        // settings and never more, however many hulls go."* One hauler among ten skiffs flies the
+        // hauler's clock, which is what lets a run store one `returnsAt`.
+        val target = home.copy(system = home.system + 30, slot = 1)
+        val skiffs = Ships.of(ShipType.SKIFF, 10)
+        val one = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 10))
+        val many = Ships(mapOf(ShipType.HAULER to 4, ShipType.SKIFF to 10))
+
+        assertEquals(
+            FleetBalance.flight(home, target, NONE, one),
+            FleetBalance.flight(home, target, NONE, many),
+            "a second hauler is not slower than the first",
+        )
+        assertTrue(FleetBalance.flight(home, target, NONE, one) > FleetBalance.flight(home, target, NONE, skiffs))
+    }
+
+    @Test
+    fun `the hauler is about double rather than exactly double and the base term is why`() {
+        // The design's prose says exactly and its own doorstep frame says 2.1x — 20m against 42m,
+        // where the flat ten minutes doubles and the distance rounds away to nothing. Pinned as the
+        // discrepancy it is, because a later reader will meet the sentence before the frame.
+        val doorstep = home.copy(slot = 6)
+        val far = home.copy(galaxy = home.galaxy + 1)
+        fun ratio(to: GalaxyCoordinate): Double {
+            val skiff = FleetBalance.flight(home, to, drive(1), Ships.of(ShipType.SKIFF, 1))
+            val hauler = FleetBalance.flight(home, to, drive(1), Ships.of(ShipType.HAULER, 1))
+            return hauler.inWholeMinutes.toDouble() / skiff.inWholeMinutes
+        }
+
+        assertEquals(2.1, ratio(doorstep))
+        // ...and it converges on two as the distance term swamps the base.
+        assertTrue(ratio(far) < 2.001, "a galaxy hop should be within a rounding error of double")
+    }
+
+    @Test
+    fun `the drive speeds a hauler and a skiff by the same proportion`() {
+        // The two changes are orthogonal by construction — the factor scales the whole flight and the
+        // drive scales the distance term — so a level is worth the same *share* of a trip to either
+        // hull. A drive that favoured one would be a second composition dial nobody designed.
+        val target = home.copy(galaxy = home.galaxy + 1)
+        val skiff = Ships.of(ShipType.SKIFF, 1)
+        val hauler = Ships.of(ShipType.HAULER, 1)
+
+        assertEquals(
+            FleetBalance.flight(home, target, drive(1), skiff) * 2,
+            FleetBalance.flight(home, target, drive(1), hauler),
+        )
+        assertEquals(
+            FleetBalance.flight(home, target, drive(3), skiff) * 2,
+            FleetBalance.flight(home, target, drive(3), hauler),
+        )
+    }
+
+    @Test
+    fun `a hauler narrows the ladder where a skiff still fits`() {
+        // Design §2, and the state the whole locked-rung idiom exists for: at 69 systems out a
+        // skiff's 1h 48m fits the 3h rung and a hauler's 3h 36m does not.
+        val ashkur = home.copy(system = home.system + 69, slot = 1)
+        val skiffs = FleetBalance.windowsFor(home, ashkur, drive(1), Ships.of(ShipType.SKIFF, 2))
+        val mixed = FleetBalance.windowsFor(home, ashkur, drive(1), Ships(mapOf(ShipType.HAULER to 1)))
+
+        assertTrue(3.hours in skiffs)
+        assertTrue(3.hours !in mixed)
+        assertTrue(6.hours in mixed, "the hauler's shortest rung there is 6h")
+    }
+
+    // ── The reachable manifests ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the hold climbs one two four five six at one hauler and two skiffs`() {
+        // **The design's own list**, and the gaps are the point: a hauler is four berths and it does
+        // not divide, so there is no three-berth manifest to offer.
+        val idle = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2))
+
+        assertEquals(listOf(1, 2, 4, 5, 6), FleetBalance.reachableManifests(idle).map { it.berths })
+    }
+
+    @Test
+    fun `where two manifests carry the same hold the hauler-first one wins`() {
+        // Four berths is one hauler or four skiffs, and the rule packs the hauler — which is what
+        // keeps the skiffs at home for the second target the sheet cannot see.
+        val idle = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 4))
+
+        val atFour = FleetBalance.reachableManifests(idle).first { it.berths == 4 }
+        assertEquals(1, atFour.ships.countOf(ShipType.HAULER))
+        assertEquals(0, atFour.ships.countOf(ShipType.SKIFF))
+    }
+
+    @Test
+    fun `every reachable manifest is one the pool can actually cover`() {
+        val idle = Ships(mapOf(ShipType.HAULER to 2, ShipType.SKIFF to 3))
+
+        for (manifest in FleetBalance.reachableManifests(idle)) {
+            assertTrue(idle.covers(manifest.ships), "the pool cannot cover ${manifest.ships}")
+            assertTrue(!manifest.ships.isEmpty, "an empty manifest is not an offer")
+        }
+    }
+
+    @Test
+    fun `a pool with nothing that gathers reaches no manifest at all`() {
+        // The refusal the sheet draws is this emptiness rather than a count — a colony whose hulls
+        // are all out, or all scouts, has nothing to offer and says so once.
+        assertEquals(emptyList(), FleetBalance.reachableManifests(Ships.NONE))
+        assertEquals(emptyList(), FleetBalance.reachableManifests(Ships.of(ShipType.SCOUT, 4)))
     }
 
     // ── Berths ───────────────────────────────────────────────────────────────────────────────

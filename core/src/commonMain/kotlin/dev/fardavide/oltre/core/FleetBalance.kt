@@ -83,15 +83,64 @@ object FleetBalance {
             ResearchBalance.multiplier(Technology.PROPULSION, research.levelOf(Technology.PROPULSION)) /
             ResearchBalance.MULTIPLIER_BASIS
 
+    // ── The clock a manifest flies on ────────────────────────────────────────────────────────
+    //
+    // **A hull's whole cost, in one integer.** A skiff is 1; a hauler is 2, which is the ship set's
+    // *"half speed"* said once rather than as a base and a divisor that have to be kept in step. The
+    // factor scales the base term **and** the distance term, so a hauler is `20 + 2u/U` against a
+    // skiff's `10 + u/U` — which is the design's own formula, and it reproduces its frames to the
+    // minute: 20m and 42m out and back at the doorstep, 1h 48m and 3h 36m at 69 systems out.
+    //
+    // **It is *about* double rather than exactly double**, and the difference is the base term. The
+    // design's prose says exactly and its own frames say 2.1x at the doorstep, where the flat ten
+    // minutes doubles but the distance rounds to nothing. Nothing turns on the exactness — what the
+    // shape needs is that a manifest has **one** clock and that the slowest hull sets it, which is
+    // true of any number of hulls drawn from two types.
+    //
+    // A `SCOUT` has no factor because it cannot be in a gathering manifest; `startRun` refuses it at
+    // the door. Zero would be a division by nothing and one would be a lie about a hull that has no
+    // clock at all, so the map simply has no entry and `maxOf` never sees one.
+    private fun ShipType.flightFactor(): Int = when (this) {
+        ShipType.SKIFF -> 1
+        ShipType.HAULER -> 2
+        ShipType.SCOUT, ShipType.ESCORT, ShipType.SETTLER -> 0
+    }
+
+    // **The slowest hull sets the clock for all of them**, which is what makes a run have one
+    // `returnsAt` however mixed its manifest. One is the floor, so an empty or scout-only manifest
+    // still answers with a flight rather than a division by zero — `cargo` is what refuses those,
+    // and it refuses them by returning nothing rather than by raising.
+    fun flightFactor(ships: Ships): Int =
+        ships.counts.keys.maxOfOrNull { it.flightFactor() }?.coerceAtLeast(1) ?: 1
+
     // **`BASE_FLIGHT_MINUTES` is outside the division, so the drive is worthless next door and
     // transformative at the frontier.** A target five units away is ten minutes at every level there
     // is; another galaxy goes from 9h 10m to 4h 40m on the first one. That asymmetry is the whole
     // design — the technology pays exactly where the sheet wants the player to go.
-    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): Duration =
-        (BASE_FLIGHT_MINUTES + distanceUnits(from, to) / unitsPerMinute(research)).minutes
+    //
+    // **The factor multiplies the numerator rather than dividing the denominator**, which is the same
+    // arithmetic wherever `unitsPerMinute` is even and better where it is odd — and it is odd at
+    // drive 0, where the base is 5. `20 + 2u/5` is the honest half-speed; `20 + u/(5/2)` would floor
+    // the *speed* to 2 and make a hauler slower than the design says.
+    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research, ships: Ships): Duration {
+        val factor = flightFactor(ships)
+        return (BASE_FLIGHT_MINUTES * factor + factor * distanceUnits(from, to) / unitsPerMinute(research)).minutes
+    }
 
-    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): Duration =
-        flight(from, to, research) * 2
+    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research, ships: Ships): Duration =
+        flight(from, to, research, ships) * 2
+
+    // **The fast clock, for every reading that is not about a manifest.** The galaxy map's caption,
+    // a world row's trailing chip and the ledger's sort all quote a round trip before any hulls are
+    // chosen, and they have quoted the skiff's since 0.7.0 — so this keeps those numbers exactly
+    // where they were rather than moving them for a hull the reader has not picked.
+    //
+    // **The design raised this and did not decide it**, and it is worth quoting because it is the
+    // open call rather than an oversight: *"an unlabelled time that belongs to a hull nobody named…
+    // Cheapest fix is to drop the reach from the header and leave `69 systems out · 440 units`, since
+    // the sheet one tap away prints both. Raised, not decided."* Until Davide answers, these readings
+    // stay the fast clock and this constant is what makes every one of them greppable.
+    val FASTEST_HULL: Ships = Ships.of(ShipType.SKIFF, 1)
 
     // ── The window ladder ────────────────────────────────────────────────────────────────────
     //
@@ -117,8 +166,13 @@ object FleetBalance {
     // The drive is also what makes a *narrowing* ladder into a teaching device that runs both ways.
     // A rung is absent rather than disabled when the trip does not fit, so a level bought is a
     // control reappearing on a world the player already knows — no copy required.
-    fun windowsFor(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): List<Duration> {
-        val floor = roundTrip(from, to, research) + MINIMUM_STATION
+    fun windowsFor(
+        from: GalaxyCoordinate,
+        to: GalaxyCoordinate,
+        research: Research,
+        ships: Ships,
+    ): List<Duration> {
+        val floor = roundTrip(from, to, research, ships) + MINIMUM_STATION
         return WINDOWS.filter { it >= floor }
     }
 
@@ -127,7 +181,8 @@ object FleetBalance {
         to: GalaxyCoordinate,
         window: Duration,
         research: Research,
-    ): Duration = window - roundTrip(from, to, research)
+        ships: Ships,
+    ): Duration = window - roundTrip(from, to, research, ships)
 
     // ── Danger ───────────────────────────────────────────────────────────────────────────────
     //
@@ -509,10 +564,10 @@ object FleetBalance {
     // Nothing in `core` could catch it — every test here calls the verb directly — so the guard is a
     // test in `:client:shipyard:presentation` holding its card list against this one.
     //
-    // The **hauler is deliberately absent** although `shipCost` prices it: the dispatch sheet cannot
-    // send a two-hull manifest yet, so a purchasable hauler would be a hull a player can own and
-    // never use. It joins this set on the day the manifest picker lands, and not before.
-    val FOR_SALE: Set<ShipType> = setOf(ShipType.SCOUT, ShipType.SKIFF)
+    // The **hauler joined at 0.15.0**, with the manifest picker — *Twice the Flight* — which is what
+    // it was waiting for: until the dispatch sheet could send a two-hull manifest, a purchasable
+    // hauler was a hull a player could own and never use.
+    val FOR_SALE: Set<ShipType> = setOf(ShipType.SCOUT, ShipType.SKIFF, ShipType.HAULER)
 
     fun shipCost(type: ShipType): Resources = when (type) {
         ShipType.SCOUT -> Resources.of(metal = SCOUT_METAL, crystal = SCOUT_CRYSTAL)
@@ -596,4 +651,59 @@ object FleetBalance {
     // section up. It is what makes the yard queue's strictly-increasing invariant provable rather
     // than merely observed.
     val MINIMUM_YARD_DURATION: Duration = 5.minutes
+
+    // Every manifest the idle pool can actually fly, ordered by hold.
+    //
+    // **Packed hauler-first, which is the design's default rule and not a convenience.** *"Fewest
+    // berths, hauler first"* — so the hold climbs 1, 2, then 4, 5, 6 at one hauler and two skiffs,
+    // because a hauler is four berths and it does not divide. The gaps are the point: a cell whose hold
+    // is smaller than the stepper asked for says so before it is tapped, and tapping it clamps.
+    //
+    // **Skiffs are fungible and haulers are not**, which is why this enumerates hauler *counts* and lets
+    // the skiffs fill in: you never care which skiff, and the design rejected a per-skiff control for
+    // exactly that reason — *"false precision"*.
+    //
+    // Empty when the pool holds nothing that can gather, which is the honest answer for a colony whose
+    // hulls are all out or all scouts. The sheet draws its refusal from that emptiness rather than from
+    // a count.
+    fun reachableManifests(idle: Ships): List<ReachableManifest> {
+        val skiffs = idle.countOf(ShipType.SKIFF)
+        val haulers = idle.countOf(ShipType.HAULER)
+        val all = buildList {
+            for (hauler in 0..haulers) {
+                for (skiff in 0..skiffs) {
+                    if (hauler == 0 && skiff == 0) continue
+                    val counts = buildMap {
+                        if (hauler > 0) put(ShipType.HAULER, hauler)
+                        if (skiff > 0) put(ShipType.SKIFF, skiff)
+                    }
+                    val ships = Ships(counts)
+                    add(
+                        ReachableManifest(
+                            ships = ships,
+                            berths = berths(ships),
+                            flightFactor = flightFactor(ships),
+                        ),
+                    )
+                }
+            }
+        }
+        // One entry per hold, and where two manifests carry the same berths the **hauler-first** one
+        // wins — which at four berths is one hauler against four skiffs, and is the rule that keeps the
+        // skiffs at home for the second target the sheet cannot see.
+        return all
+            .groupBy { it.berths }
+            .map { (_, sameHold) -> sameHold.maxBy { it.ships.countOf(ShipType.HAULER) } }
+            .sortedBy { it.berths }
+    }
 }
+
+// **The one derived list the whole manifest picker falls out of** — Claude Design, *Twice the
+// Flight*, 2026-08-21: *"The reachable manifests, ordered by berths, each with its round trip and
+// its clamped cargo. The stepper is an index into it, the two cells are the first manifest of each
+// clock, and the ladder is the same legality test the sheet already runs, once per rung, against the
+// selected manifest."*
+//
+// It lives in `core` because every term in it is arithmetic — a pool, a berth count, a flight — and
+// none of it is a rendering. What the sheet adds is which entry is selected and what the cells say.
+data class ReachableManifest(val ships: Ships, val berths: Int, val flightFactor: Int)

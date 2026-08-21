@@ -133,6 +133,7 @@ class StartRunTest {
                     to = target,
                     window = threeHours,
                     research = state.research,
+                    ships = ships,
                 ),
                 danger = FleetBalance.danger(from = state.galaxy.home, world = world),
                 research = Research.initial(),
@@ -178,7 +179,7 @@ class StartRunTest {
         // ladder offers and the verb refuses would be a dead control by another route.
         val state = fleetOf(1)
         val target = neighbourOfHome(state)
-        val ladder = FleetBalance.windowsFor(state.galaxy.home, target, state.research)
+        val ladder = FleetBalance.windowsFor(state.galaxy.home, target, state.research, Ships.of(ShipType.SKIFF, 1))
         assertEquals(FleetBalance.WINDOWS, ladder, "a target in the home system offers every rung")
 
         for (rung in ladder) {
@@ -391,7 +392,12 @@ class StartRunTest {
         // given the boundary itself
         val state = fleetOf(1)
         val target = neighbourOfHome(state)
-        val exact = FleetBalance.roundTrip(state.galaxy.home, target, state.research) + FleetBalance.MINIMUM_STATION
+        val exact = FleetBalance.roundTrip(
+            state.galaxy.home,
+            target,
+            state.research,
+            Ships.of(ShipType.SKIFF, 1),
+        ) + FleetBalance.MINIMUM_STATION
 
         // then it is inclusive at the boundary and refuses one minute short of it
         assertIs<StartRunResult.Started>(

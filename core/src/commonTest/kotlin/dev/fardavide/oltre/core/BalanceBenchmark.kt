@@ -371,8 +371,13 @@ internal object BalanceBenchmark {
         val neighbour = home.copy(slot = if (home.slot == 1) 2 else 1)
         val window = 6.hours
         val unresearched = Research.initial()
-        add(row("6h run to the next slot, round trip", clock(FleetBalance.roundTrip(home, neighbour, unresearched))))
-        add(row("  station time", clock(FleetBalance.stationFor(home, neighbour, window, unresearched))))
+        add(row("6h run to the next slot, round trip", clock(FleetBalance.roundTrip(home, neighbour, unresearched, FleetBalance.FASTEST_HULL))))
+        add(
+            row(
+                "  station time",
+                clock(FleetBalance.stationFor(home, neighbour, window, unresearched, FleetBalance.FASTEST_HULL)),
+            ),
+        )
         val average = World(
             at = neighbour,
             starClass = StarClass.STANDARD,
@@ -383,7 +388,7 @@ internal object BalanceBenchmark {
             world = average,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 1),
-            station = FleetBalance.stationFor(home, neighbour, window, unresearched),
+            station = FleetBalance.stationFor(home, neighbour, window, unresearched, FleetBalance.FASTEST_HULL),
             danger = 0,
             research = unresearched,
         )
@@ -417,7 +422,7 @@ internal object BalanceBenchmark {
         for ((name, target) in frontierTargets(home)) {
             val hold = frontierHold(home, target, average)
             val band = FleetBalance.distanceBand(home, target)
-            val trip = clock(FleetBalance.roundTrip(home, target, unresearched))
+            val trip = clock(FleetBalance.roundTrip(home, target, unresearched, FleetBalance.FASTEST_HULL))
             add(row("  $name", "band $band · round trip $trip · ${hold} metal · ${ratio(hold, nearHold)}x"))
         }
 
@@ -433,9 +438,9 @@ internal object BalanceBenchmark {
         for ((name, target) in frontierTargets(home)) {
             for (level in listOf(0, 1, 3, 5)) {
                 val research = unresearched.withLevel(Technology.PROPULSION, TechLevel(level))
-                val rungs = FleetBalance.windowsFor(home, target, research)
+                val rungs = FleetBalance.windowsFor(home, target, research, FleetBalance.FASTEST_HULL)
                 val ladder = if (rungs.isEmpty()) "out of reach" else rungs.joinToString(" · ") { clock(it) }
-                add(row("  $name at drive $level", "${clock(FleetBalance.roundTrip(home, target, research))} · $ladder"))
+                add(row("  $name at drive $level", "${clock(FleetBalance.roundTrip(home, target, research, FleetBalance.FASTEST_HULL))} · $ladder"))
             }
         }
 
@@ -466,7 +471,7 @@ internal object BalanceBenchmark {
         sample: World,
         research: Research = Research.initial(),
     ): Long {
-        val station = FleetBalance.stationFor(home, target, 24.hours, research)
+        val station = FleetBalance.stationFor(home, target, 24.hours, research, FleetBalance.FASTEST_HULL)
         val world = sample.copy(at = target)
         return FleetBalance.cargo(
             world = world,

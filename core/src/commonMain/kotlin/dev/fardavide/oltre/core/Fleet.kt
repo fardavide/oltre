@@ -134,11 +134,13 @@ data class FleetRun(
     // existing save, which is real save-format weight bought for a progress bar. **The error is
     // bounded and self-correcting** — levels only ever go up, so the split only ever moves inward
     // from both ends, it can never escape the window, and it is gone the moment the run lands.
+    // The run's *own* manifest sets its clock — a hauler in it flies the whole run at the hauler's
+    // pace — so unlike the research this needs no parameter: it is already stored.
     fun flightEndsAt(from: GalaxyCoordinate, research: Research): Instant =
-        dispatchedAt + FleetBalance.flight(from, target, research)
+        dispatchedAt + FleetBalance.flight(from, target, research, ships)
 
     fun inboundBeginsAt(from: GalaxyCoordinate, research: Research): Instant =
-        returnsAt - FleetBalance.flight(from, target, research)
+        returnsAt - FleetBalance.flight(from, target, research, ships)
 }
 
 // One hull on the slipway, and the sixth kind of job — Davide's call, 2026-08-13, overruling the
