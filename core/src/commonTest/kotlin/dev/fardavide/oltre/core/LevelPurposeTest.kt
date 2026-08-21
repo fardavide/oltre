@@ -10,6 +10,64 @@ import kotlin.time.Duration.Companion.minutes
 
 class LevelPurposeTest {
 
+    // ── The two purposes measured away from home ─────────────────────────────────────────────
+
+    @Test
+    fun `the drive's row is priced as a round trip to the next galaxy`() {
+        // **The numbers the Research screen actually prints**, taken from the function that prints
+        // them rather than from the hand-built frame beside it. That distinction is not pedantic: at
+        // 0.15 the Shipyard's card list and `FleetBalance.FOR_SALE` disagreed for exactly this reason
+        // — a fixture is a drawing of a screen and cannot verify the mapper it stands in for.
+        //
+        // A galaxy hop is a fixed distance, so a round trip over it is a property of the technology
+        // alone — no fleet, no window, no target — which is what lets a row with nothing selected
+        // quote it at all. 18h 20m at drive 0, and the first level halves it.
+        val reach = assertIs<LevelPurpose.Reach>(GameState.initial().purposeOfNextLevel(Technology.PROPULSION))
+
+        assertEquals(1_100.minutes, reach.from)
+        assertEquals(560.minutes, reach.to)
+    }
+
+    @Test
+    fun `every drive level shortens the trip and none of them lengthens it`() {
+        // The monotonicity the row's own sentence promises. A level that made the next galaxy further
+        // away would be a technology whose card lies about what it does.
+        var state = GameState.initial()
+        for (level in 0 until 6) {
+            val reach = assertIs<LevelPurpose.Reach>(state.purposeOfNextLevel(Technology.PROPULSION))
+            assertTrue(reach.to < reach.from, "drive $level did not shorten the trip: $reach")
+            state = state.copy(
+                research = state.research.withLevel(Technology.PROPULSION, TechLevel(level + 1)),
+            )
+        }
+    }
+
+    @Test
+    fun `Prospecting is a hold and never a flight and the drive is the other way round`() {
+        // **The split Davide ruled on, 2026-08-21, as two assertions.** The sheet had one row
+        // carrying both; two rows multiplying one term against the same cost curve is not a choice,
+        // so each of these has to answer for exactly one thing and refuse the other.
+        val state = GameState.initial()
+
+        assertIs<LevelPurpose.Haul>(state.purposeOfNextLevel(Technology.PROSPECTING))
+        assertIs<LevelPurpose.Reach>(state.purposeOfNextLevel(Technology.PROPULSION))
+
+        // Prospecting moves the hold and leaves the clock alone...
+        val prospecting = state.research.withLevel(Technology.PROSPECTING, TechLevel(3))
+        assertEquals(
+            FleetBalance.unitsPerMinute(state.research),
+            FleetBalance.unitsPerMinute(prospecting),
+        )
+        // ...and the drive moves the clock and leaves the hold alone.
+        val propulsion = state.research.withLevel(Technology.PROPULSION, TechLevel(3))
+        assertEquals(
+            FleetBalance.extractionPerHour(state.research),
+            FleetBalance.extractionPerHour(propulsion),
+        )
+        assertTrue(FleetBalance.unitsPerMinute(propulsion) > FleetBalance.unitsPerMinute(state.research))
+        assertTrue(FleetBalance.extractionPerHour(prospecting) > FleetBalance.extractionPerHour(state.research))
+    }
+
     // ── What a level hands you ───────────────────────────────────────────────────────────────
 
     @Test
