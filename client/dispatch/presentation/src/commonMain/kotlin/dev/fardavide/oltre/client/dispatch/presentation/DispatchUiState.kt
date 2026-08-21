@@ -241,15 +241,27 @@ fun GameState.toDispatchUiState(
         emptyList()
     } else {
         listOf(1, 2).mapNotNull { factor ->
-            manifests.firstOrNull { it.flightFactor == factor }?.let { manifest ->
+            manifests.firstOrNull { it.flightFactor == factor }?.let { _ ->
+                // **The whole of that clock, which is what tapping it gives you** — Design's frames
+                // label the cells `2 skiffs` and `1 hauler · 2 skiffs` on a pool of one and two, so
+                // it is the largest manifest of the clock rather than the smallest. (Its prose says
+                // *"the first manifest of each clock"*; the frames are unambiguous and they win, as
+                // they did over *"exactly double"*.)
                 val whole = manifests.last { it.flightFactor == factor }
+                val selected = chosen.flightFactor == factor
                 HullCellUiState(
-                    label = manifestLabel(whole.ships),
+                    // **The selected cell names the run; the other names what tapping it would give.**
+                    // Design's own default packs the hauler *alone* on a part-worked vein — *"620 left
+                    // at Calianova VIII defaults to the hauler alone, with the two skiffs staying
+                    // home"* — and a lit cell reading `1 hauler · 2 skiffs` over a run of one hauler
+                    // is the highlighted control describing something else. Unselected it still
+                    // states its whole hold, which is the promise the clamp keeps before the tap.
+                    label = manifestLabel(if (selected) chosen.ships else whole.ships),
                     trip = Strings.outAndBack(
                         FleetBalance.roundTrip(home, target, research, whole.ships).toChipLabel(),
                     ),
                     berths = whole.berths,
-                    selected = chosen.flightFactor == factor,
+                    selected = selected,
                 )
             }
         }

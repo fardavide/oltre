@@ -412,6 +412,11 @@ class GalaxyScreenshotTest {
     }
 
     @Test
+    fun `the picker on a part-worked vein the hauler alone empties`() {
+        captureSheet(width = 393, uiState = dispatchPickerClampedUiState, name = "galaxy_picker_clamped")
+    }
+
+    @Test
     fun `a landed probe is a receipt`() {
         capture(width = 393, height = 1200, uiState = probeLandedUiState, name = "galaxy_probe_landed")
     }

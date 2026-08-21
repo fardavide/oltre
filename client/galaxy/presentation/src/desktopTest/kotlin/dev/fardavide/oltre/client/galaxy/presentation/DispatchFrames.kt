@@ -270,3 +270,23 @@ internal val dispatchPickerMovedUiState: GalaxyUiState = sheet(
     ships = 6,
     window = 3.hours,
 )
+
+
+// **c · the clamp, on a part-worked vein.** Design's third form of the note under the cells, and the
+// one its own default rule points at: *"on a part-worked vein it is already live: 620 left at
+// Calianova VIII defaults to the hauler alone, with the two skiffs staying home."*
+//
+// The vein is worked down until one hauler empties it, so the default packs the hauler and leaves
+// the skiffs at home — and the note stops being a counterfactual and becomes the clamp, which wins
+// over it because it is about the run being sent rather than one that is not.
+internal val dispatchPickerClampedUiState: GalaxyUiState = TWO_HULL_STATE.let { state ->
+    val whole = state.galaxy.remaining(RUNNABLE, ResourceKind.METAL, FIXTURE_NOW)
+    val worked = state.galaxy.withTaken(
+        target = RUNNABLE,
+        gathering = ResourceKind.METAL,
+        // All but a sliver, so a single hauler's hold is more than the ground can supply.
+        taken = whole - whole / 12,
+        at = FIXTURE_NOW,
+    )
+    sheet(state = state.copy(galaxy = worked), gathering = ResourceKind.METAL)
+}
