@@ -73,13 +73,19 @@ internal val dispatchUnsurveyedUiState: GalaxyUiState =
 // Every hull away, so the sheet has nothing to commit **and can say when one is back** — which is
 // the whole of the refusal. An empty fleet would refuse too and have no date to give, so the state
 // is built by actually sending the skiff rather than by deleting it.
+//
+// **Every hull *with a hold*, and the distinction arrived with the scout.** This used to send
+// `state.ships` outright, which was the same thing while every hull in the pool could gather; a
+// manifest carrying the fixture's scout is now refused at the door by `NotAGatheringHull`, and it is
+// refused rather than stripped precisely so a fixture cannot drift into describing a fleet nobody
+// chose. The sheet counts skiffs, so skiffs are what have to be away for it to have nothing left.
 internal val dispatchNoShipsUiState: GalaxyUiState = frameState.let { state ->
     val away = assertIs<StartRunResult.Started>(
         startRun(
             state = state,
             target = RUNNABLE,
             gathering = ResourceKind.METAL,
-            ships = state.ships,
+            ships = Ships.of(ShipType.SKIFF, state.ships.countOf(ShipType.SKIFF)),
             window = 6.hours,
             at = FIXTURE_NOW,
         ),

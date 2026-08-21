@@ -13,8 +13,10 @@ class AdvanceSurveyTest {
 
     private val t0 = Instant.fromEpochMilliseconds(0)
 
-    private fun rich(): GameState =
-        GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 10_000, deuterium = 10_000))
+    private fun rich(): GameState = GameState.initial().copy(
+        resources = Resources.of(metal = 100_000, crystal = 10_000, deuterium = 10_000),
+        ships = Ships.of(ShipType.SCOUT, 4),
+    )
 
     // Away from home in whichever direction the map has room for, so a fixture cannot fall off the
     // edge of the coordinate space when the seed's home moves.
@@ -34,6 +36,32 @@ class AdvanceSurveyTest {
 
     private fun GameState.dispatch(to: SystemAddress, at: Instant = t0): GameState =
         assertIs<StartSurveyResult.Started>(startSurvey(this, to, at = at)).state
+
+    @Test
+    fun `the scout comes home when its probe lands`() {
+        // **A scout is spent for the flight, not consumed by it** — the same shape a gathering run
+        // has, where the pool is the *idle* count and an arrival puts the hull back. What surveying
+        // costs is therefore a hull's absence rather than a hull, so the scarcity is the wall clock
+        // and not attrition: buy one and you may survey forever, one system at a time.
+        val state = rich()
+        val dispatched = state.dispatch(target(state, systemsAway = 4))
+        assertEquals(3, dispatched.ships.countOf(ShipType.SCOUT))
+
+        val landed = advance(dispatched, from = t0, to = t0 + 2.hours)
+
+        assertEquals(4, landed.ships.countOf(ShipType.SCOUT))
+    }
+
+    @Test
+    fun `a probe still in flight has not given its scout back`() {
+        val state = rich()
+        val dispatched = state.dispatch(target(state, systemsAway = 40))
+
+        val partway = advance(dispatched, from = t0, to = t0 + 5.minutes)
+
+        assertEquals(1, partway.surveys.size, "the fixture needs a probe still out at five minutes")
+        assertEquals(3, partway.ships.countOf(ShipType.SCOUT))
+    }
 
     @Test
     fun `a probe that lands surveys every world of its target`() {

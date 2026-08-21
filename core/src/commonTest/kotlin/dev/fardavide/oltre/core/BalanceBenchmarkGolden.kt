@@ -22,13 +22,13 @@ internal object BalanceBenchmarkGolden {
         [opening] the hour each landmark lands, for a colony that checks in hourly
         robotics factory 1                                hour 3 (day 0)
         robotics factory 2                                hour 7 (day 0)
-        robotics factory 4                                hour 40 (day 1)
-        robotics factory 9                                hour 298 (day 12)
+        robotics factory 4                                hour 46 (day 1)
+        robotics factory 9                                not within the run
         robotics factory 10                               not within the run
-        mines past the opening discount (level 9)         hour 39 (day 1)
+        mines past the opening discount (level 9)         hour 36 (day 1)
         first applied technology finished                 hour 5 (day 0)
         first adaptation level finished                   hour 10 (day 0)
-        first skiff affordable                            hour 34 (day 1)
+        first skiff affordable                            hour 27 (day 1)
         metal mine when the nanite unlocks                level 0 (ramp starts at 18)
 
         [session] completions a player is present for, minute by minute
@@ -44,29 +44,29 @@ internal object BalanceBenchmarkGolden {
 
         [progression] where the colony stands, day by day
         day                                               levels   income/h        metal    crystal      deut
-          day 1                                              30        828          401        187        33
-          day 2                                              38       1414          986        580       310
-          day 3                                              42       1901         3257         52       344
-          day 7                                              56       4361        54673       2893       693
-          day 14                                             71      11696       302878       3950      1952
+          day 1                                              30        848          297        173        13
+          day 2                                              37       1260           67        419       187
+          day 3                                              42       1856         6659        958       273
+          day 7                                              56       4301        58027       3452       575
+          day 14                                             71      11581       240711       3448      1183
         the tree at day 14
-          metal mine                                      17
+          metal mine                                      18
           crystal mine                                    16
           deuterium synthesizer                           13
           solar plant                                     16
-          robotics factory                                9
+          robotics factory                                8
           nanite factory                                  0
 
         [pressure] over 14 days, which resource blocks the cheapest unbuilt row
-        hours opening with the cheapest row unaffordable  32.93%
-          of which short of metal                         18.91%
-          of which short of crystal                       35.13%
-          of which short of deuterium                     65.76%
-        hours with nothing building and no research       16.91%
+        hours opening with the cheapest row unaffordable  32.04%
+          of which short of metal                         11.11%
+          of which short of crystal                       27.77%
+          of which short of deuterium                     75.92%
+        hours with nothing building and no research       11.86%
         over the fortnight, per resource                  earned       spent     placed
-          metal                                              906240      603862     66.00%
-          crystal                                            275343      271693     98.00%
-          deuterium                                           70420       68468     97.00%
+          metal                                              900008      659797     73.00%
+          crystal                                            284722      281574     98.00%
+          deuterium                                           66055       64872     98.00%
 
         [economy] cost, wait and payback per level, at robotics factory 4
         building / level                                  priced    build     +income/h   payback
@@ -94,8 +94,8 @@ internal object BalanceBenchmarkGolden {
           nanite factory 5                                   144784   1h 01m           -         -
           nanite factory 10                                 1999032  14h 18m           -         -
           nanite factory 20                               115274107 169h 53m           -         -
-        day-2 colony energy                               532 produced / 330 consumed
-        day-2 colony energy headroom                      20 levels
+        day-2 colony energy                               532 produced / 320 consumed
+        day-2 colony energy headroom                      21 levels
 
         [research] cost, wait and effect per level, at robotics factory 4
         technology / level                                priced    wait      effect   payback
@@ -119,6 +119,11 @@ internal object BalanceBenchmarkGolden {
           prospecting 3                                        3149    3h 10m     +33%         -
           prospecting 4                                        6751    6h 03m     +46%         -
           prospecting 5                                       10127    7h 34m     +61%         -
+          propulsion 1                                          240       11m    +100%         -
+          propulsion 2                                         1440    1h 30m    +200%         -
+          propulsion 3                                         3780    3h 58m    +300%         -
+          propulsion 4                                         8100    7h 34m    +400%         -
+          propulsion 5                                        12152    9h 28m    +500%         -
 
         [adaptation] cost and wait per level, at the gate's own robotics level
         ladder / level                                    priced    wait      x priciest applied
@@ -163,26 +168,48 @@ internal object BalanceBenchmarkGolden {
           every skiff                                     800 metal / 200 crystal, priced 1200
           every skiff takes                               2h 04m at robotics 0 · 24m at robotics 4
           five in one order take                          10h 20m at robotics 0 · 2h 04m at robotics 4
-        6h run to the next slot, round trip               26m
-          station time                                    5h 34m
-          one skiff brings home                           345 metal
-          as hours of a genesis colony's metal            3.83h
+        6h run to the next slot, round trip               32m
+          station time                                    5h 28m
+          one skiff brings home                           339 metal
+          as hours of a genesis colony's metal            3.76h
           a skiff repays itself in                        20 station-hours
         [frontier] the 24h rung at one richness — what distance and danger are worth
-          the next slot                                   band 0 · round trip 26m · 1972 metal · 1.00x
-          60 systems out                                  band 1 · round trip 1h 38m · 2357 metal · 1.19x
-          across your own galaxy                          band 2 · round trip 3h 28m · 2610 metal · 1.32x
-          the next galaxy                                 band 3 · round trip 9h 20m · 2182 metal · 1.10x
+          the next slot                                   band 0 · round trip 32m · 1964 metal · 1.00x
+          60 systems out                                  band 1 · round trip 2h 58m · 2217 metal · 1.12x
+          across your own galaxy                          band 2 · round trip 6h 38m · 2207 metal · 1.12x
+          the next galaxy                                 band 3 · round trip 18h 20m · 843 metal · 0.42x
+        [drive] what a Propulsion level buys, per target — round trip · rungs the ladder offers
+          the next slot at drive 0                        32m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 1                        26m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 3                        22m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next slot at drive 5                        22m · 1h 00m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          60 systems out at drive 0                       2h 58m · 6h 00m · 12h 00m · 24h 00m
+          60 systems out at drive 1                       1h 38m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          60 systems out at drive 3                       58m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          60 systems out at drive 5                       46m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 0               6h 38m · 12h 00m · 24h 00m
+          across your own galaxy at drive 1               3h 28m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 3               1h 54m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          across your own galaxy at drive 5               1h 22m · 3h 00m · 6h 00m · 12h 00m · 24h 00m
+          the next galaxy at drive 0                      18h 20m · 24h 00m
+          the next galaxy at drive 1                      9h 20m · 12h 00m · 24h 00m
+          the next galaxy at drive 3                      4h 50m · 6h 00m · 12h 00m · 24h 00m
+          the next galaxy at drive 5                      3h 20m · 6h 00m · 12h 00m · 24h 00m
+        [drive] one skiff on the 24h rung at the adjacent galaxy, by level
+          level 0                                         drive 843 metal · prospecting 843 metal
+          level 1                                         drive 2182 metal · prospecting 927 metal
+          level 2                                         drive 2629 metal · prospecting 1012 metal
+          level 3                                         drive 2852 metal · prospecting 1110 metal
 
         [horizon] the same fixed player, out to 90 days
         day                                               levels     mine   income/h         metal     placed
-          day 7                                              56       14       4361         54673     73.00%
-          day 14                                             71       17      11696        302878     66.00%
-          day 30                                             98       21      42396       2190698     64.00%
-          day 60                                            126       26     187020      10000000     73.00%
-          day 90                                            146       29     474761       9440573     91.00%
-        hours resting on the metal storage cap            323 of 2161
-          first reached                                   hour 1238 (day 51)
+          day 7                                              56       14       4301         58027     72.00%
+          day 14                                             71       18      11581        240711     73.00%
+          day 30                                             99       21      39868       1971325     66.00%
+          day 60                                            125       26     164729       9508871     74.00%
+          day 90                                            142       29     419927       7511919     92.00%
+        hours resting on the metal storage cap            322 of 2161
+          first reached                                   hour 1271 (day 52)
 
         [late game] metal mine wait at robotics 15, by nanite level
         level                                             nanite 0   nanite 2   nanite 4   nanite 6     0 -> 6  vs income

@@ -13,6 +13,7 @@ import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.World
@@ -83,6 +84,28 @@ internal fun GameState.toProbeActionUiState(
         flight = Strings.probeFlightLabel(flight.toChipLabel()),
         compactFlight = flight.toChipLabel(),
     )
+    // **The hull is asked about before the metal, because that is the order the verb checks in** —
+    // and the footer's whole job is that the button is absent wherever `startSurvey` would refuse.
+    // A probe flies a `SCOUT` since 0.15, so a colony with a full bank and an empty pool is refused,
+    // and this is where it finds that out rather than by tapping.
+    //
+    // **It reuses `Unaffordable` rather than earning a state of its own.** That treatment is already
+    // "here is the offer, here is why you cannot take it, and there is no verb" — which is exactly
+    // this — and a seventh state would be a new drawing for a sentence the sixth already frames. The
+    // note is what differs, and it differs in the way that matters: every other unaffordable state in
+    // the game is answered by *standing still*, and this one is answered at the Shipyard. So when a
+    // scout is genuinely on its way home the countdown is the honest answer, and when none is coming
+    // a countdown would be a lie however well it rendered.
+    if (!ships.covers(SurveyBalance.SHIPS)) {
+        val soonest = surveys.minOfOrNull { it.completesAt }
+            ?: yard.firstOrNull { it.ship == ShipType.SCOUT }?.completesAt
+        return ProbeActionUiState.Unaffordable(
+            offer = offer,
+            availableIn = soonest
+                ?.let { Strings.availableIn((it - now).coerceAtLeast(Duration.ZERO).toChipLabel()) }
+                ?: Strings.probeNeedsScout(),
+        )
+    }
     if (resources.covers(cost)) {
         // "Dispatch probe" at 393dp and "Dispatch" at 320dp. Nothing else on the card says the word
         // probe, so at full width the verb carries its object.

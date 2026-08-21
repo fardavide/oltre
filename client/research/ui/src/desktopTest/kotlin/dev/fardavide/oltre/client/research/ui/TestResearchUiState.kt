@@ -80,6 +80,17 @@ internal val beforeTheGateUiState = ResearchUiState(
             action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
+        technologyRow(
+            technology = Technology.PROPULSION,
+            name = "Propulsion",
+            level = 0,
+            effect = propulsionEffect(current = null, next = "+100%"),
+            verdict = reachVerdict(from = TextRes("18h 20m"), to = TextRes("9h 20m")),
+            costs = costs(metal = "1,000", crystal = "400", deuterium = "200", short = null),
+            duration = "2h 30m",
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
+            watch = null,
+        ),
     ),
 )
 
@@ -135,6 +146,17 @@ internal val nothingRunningUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROPULSION,
+            name = "Propulsion",
+            level = 0,
+            effect = propulsionEffect(current = null, next = "+100%"),
+            verdict = reachVerdict(from = TextRes("18h 20m"), to = TextRes("9h 20m")),
+            costs = costs(metal = "1,000", crystal = "400", deuterium = "200", short = null),
+            duration = "2h 30m",
             action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
@@ -197,6 +219,17 @@ internal val gateOpenUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
+            action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROPULSION,
+            name = "Propulsion",
+            level = 0,
+            effect = propulsionEffect(current = null, next = "+100%"),
+            verdict = reachVerdict(from = TextRes("18h 20m"), to = TextRes("9h 20m")),
+            costs = costs(metal = "1,000", crystal = "400", deuterium = "200", short = null),
+            duration = "2h 30m",
             action = ResearchActionUiState.Locked(TextRes("Requires Extraction 1")),
             watch = null,
         ),
@@ -335,6 +368,17 @@ internal val oneProjectInFlightUiState = ResearchUiState(
             verdict = haulVerdict(from = 60, to = 66),
             costs = costs(metal = "800", crystal = "300", deuterium = "200", short = null),
             duration = "2h 00m",
+            action = ResearchActionUiState.AvailableIn(TextRes("in 1h 13m")),
+            watch = null,
+        ),
+        technologyRow(
+            technology = Technology.PROPULSION,
+            name = "Propulsion",
+            level = 0,
+            effect = propulsionEffect(current = null, next = "+100%"),
+            verdict = reachVerdict(from = TextRes("18h 20m"), to = TextRes("9h 20m")),
+            costs = costs(metal = "1,000", crystal = "400", deuterium = "200", short = null),
+            duration = "2h 30m",
             action = ResearchActionUiState.AvailableIn(TextRes("in 1h 13m")),
             watch = null,
         ),
@@ -763,6 +807,20 @@ private fun prospectingEffect(current: String?, next: String) = EffectUiState(
 private fun haulVerdict(from: Long, to: Long): VerdictUiState = VerdictUiState(
     label = Strings.haulGain((to - from).groupedByThousands()),
     compactLabel = Strings.haulGainCompact((to - from).groupedByThousands()),
+)
+
+private fun propulsionEffect(current: String?, next: String) = EffectUiState(
+    current = current?.let { TextRes(it) },
+    next = TextRes(next),
+    subject = TextRes("fleet speed"),
+)
+
+// Quoted as a round trip to the adjacent galaxy — the one figure a reach technology can state with
+// no target selected, and the thing the drive is actually for. The pair rather than a delta: hours
+// off a flight only read against the flight they came off.
+private fun reachVerdict(from: TextRes, to: TextRes): VerdictUiState = VerdictUiState(
+    label = Strings.reachGain(to = to, from = from),
+    compactLabel = Strings.reachGainCompact(to = to),
 )
 
 private fun costs(

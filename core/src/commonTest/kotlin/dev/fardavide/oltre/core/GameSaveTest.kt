@@ -65,12 +65,13 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":12,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":13,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
                 """"builds":{},"research":{"photovoltaics":0,"extraction":0,"enrichment":0,""" +
-                """"prospecting":0,""" +
+                // The two fleet rows, on one gate: what a hull pulls out, and how far it goes.
+                """"prospecting":0,"propulsion":0,""" +
                 // The three adaptation ladders, in the same record as the three applied
                 // technologies: what the empire knows is one thing however it was learned.
                 """"thermal":0,"gravitic":0,"atmospheric":0},""" +
@@ -873,11 +874,12 @@ class GameSaveTest {
         // empty pool and passed without touching the thing it is about.
         val owned = GameState.initial().copy(ships = Ships.of(ShipType.SKIFF, 1))
         val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = owned))
-            .replace(""""schemaVersion":12""", """"schemaVersion":9""")
+            .replace(""""schemaVersion":13""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
             .replace(""","deposits":[]""", "")
             .replace(""","pinned":[]""", "")
             .replace(""""prospecting":0,""", "")
+            .replace(""""propulsion":0,""", "")
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(beforeTheYard)).snapshot
 
@@ -887,6 +889,75 @@ class GameSaveTest {
         // that added this key, and a migration that re-priced a fleet the player earned under the
         // old rules would be confiscating it.
         assertEquals(Ships.of(ShipType.SKIFF, 1), decoded.state.ships)
+    }
+
+    // ── 12 -> 13: the scout, and the drive ──────────────────────────────────────────────────
+
+    // A save written by 0.14, in the one shape that matters here: `SCOUT` did not exist as a hull a
+    // probe consumed, and `propulsion` was not a key. Built by stripping the current encoding rather
+    // than pasted, so the fixture cannot silently drift into a *current* save wearing an old number.
+    private fun schema12(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":13""", """"schemaVersion":12""")
+            .replace(""","propulsion":0""", "")
+
+    @Test
+    fun `a colony carried forward has no drive level and its map is honestly further away`() {
+        // **Davide's call, 2026-08-21: no free level.** The truthful zero every hop but one writes,
+        // and here it has teeth — base flight speed halved in this version, so an existing colony
+        // wakes to a fleet at half the speed it had. That is the point rather than the cost: it is
+        // *"navigating distance takes way more time, without powered up ships"* met at the research
+        // row where it is meant to be met, and one level buys the old game straight back.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(GameState.initial()))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(TechLevel(0), decoded.state.research.levelOf(Technology.PROPULSION))
+    }
+
+    @Test
+    fun `a colony with nothing in the air is granted no scout`() {
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(GameState.initial()))).snapshot
+
+        assertEquals(0, decoded.state.ships.countOf(ShipType.SCOUT))
+        assertEquals(Ships.NONE, decoded.state.ships)
+    }
+
+    @Test
+    fun `a probe already in the air is granted the scout it is retroactively flying`() {
+        // **Not a gift — arithmetic.** A survey dispatched by 0.14 paid no hull, and `advance` now
+        // hands a scout back at every landing. Without this the first probe to come home would mint a
+        // hull out of nothing. One out, one back, and the ledger closes.
+        val flying = GameState.initial().let { state ->
+            state.copy(
+                resources = Resources.of(metal = 10_000),
+                ships = Ships.of(ShipType.SCOUT, 2),
+                surveys = listOf(
+                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours),
+                    SystemAddress(state.galaxy.home.galaxy, 2).let { SurveyJob(it, EPOCH, EPOCH + 2.hours) },
+                ),
+            )
+        }
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(flying))).snapshot
+
+        // the two it already had, plus one for each probe the old build let fly for free
+        assertEquals(4, decoded.state.ships.countOf(ShipType.SCOUT))
+        assertEquals(2, decoded.state.surveys.size)
+    }
+
+    @Test
+    fun `the granted scouts do not disturb the fleet the colony already owned`() {
+        val flying = GameState.initial().let { state ->
+            state.copy(
+                ships = Ships.of(ShipType.SKIFF, 3),
+                surveys = listOf(SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours)),
+            )
+        }
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(flying))).snapshot
+
+        assertEquals(3, decoded.state.ships.countOf(ShipType.SKIFF))
+        assertEquals(1, decoded.state.ships.countOf(ShipType.SCOUT))
     }
 
     @Test

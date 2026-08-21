@@ -319,7 +319,10 @@ class DispatchUiStateTest {
     private val galaxy: GalaxyState = GalaxyState.initial(GalaxySeed(SEED))
     private val seed: GalaxySeed = galaxy.seed
     private val home: GalaxyCoordinate = galaxy.home
-    private val state: GameState = GameState.initial(seed).copy(galaxy = galaxy)
+    // A scout in the pool, because the sheet's *refusal* offers a probe as the way out of it — and
+    // an offer it cannot honour is the dead control this whole layer exists to prevent.
+    private val state: GameState =
+        GameState.initial(seed).copy(galaxy = galaxy, ships = Ships.of(ShipType.SCOUT, 1))
     private val homeSelection = SystemSelection(galaxy = home.galaxy, system = home.system)
 
     // ── The vein, which is where this sheet's mechanic actually lives ────────────────────────
@@ -528,7 +531,7 @@ class DispatchUiStateTest {
         // Earned rather than standing, the same rule the clamp clause follows: on the shortest rung
         // there is no shorter one to name, and a note on every dispatch would be furniture.
         val target = runnable()
-        val shortest = FleetBalance.windowsFor(from = state.galaxy.home, to = target).first()
+        val shortest = FleetBalance.windowsFor(from = state.galaxy.home, to = target, research = state.research).first()
 
         val offer = assertIs<DispatchUiState.Offer>(
             dispatchAt(target, state = withSkiffs(8), selection = selection(target).copy(window = shortest)),
@@ -632,7 +635,12 @@ class DispatchUiStateTest {
         }
     }
 
-    private fun withSkiffs(count: Int): GameState = state.copy(ships = Ships.of(ShipType.SKIFF, count))
+    // **Skiffs *added to* the fixture's scout rather than replacing the pool.** The refusal on an
+    // unsurveyed world hands back a probe offer, and that offer is only made when the footer above
+    // would honour it — so a helper that emptied the scout out of the pool would silently turn every
+    // one of those assertions into a test of the sheet with no verb on it.
+    private fun withSkiffs(count: Int): GameState =
+        state.copy(ships = state.ships + Ships.of(ShipType.SKIFF, count))
 
     private fun surveying(target: GalaxyCoordinate): GameState =
         withSkiffs(1).let { it.copy(galaxy = it.galaxy.copy(surveyed = it.galaxy.surveyed + target)) }

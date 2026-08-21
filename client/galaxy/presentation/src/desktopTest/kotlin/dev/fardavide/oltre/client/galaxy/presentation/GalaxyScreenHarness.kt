@@ -73,5 +73,10 @@ internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 // baseline recorded from one, would have quietly become a picture of a screen that cannot send a
 // run. One hull is what these frames have always described, so this states it instead of receiving
 // it, and no baseline moves.
-internal val testGameState: GameState =
-    GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SKIFF, 1))
+//
+// **The scout joins it for exactly the same reason at 0.15**, one version later in the same story: a
+// probe flies a hull now, so a fixture with no `SCOUT` would draw every probe footer on this tab in
+// its *"needs a scout"* state. These frames have always described a colony that can send a probe —
+// several of them are of a probe already in the air — so the pool has to say so.
+internal val testGameState: GameState = GameState.initial(GalaxySeed(20_260_807))
+    .copy(ships = Ships(mapOf(ShipType.SKIFF to 1, ShipType.SCOUT to 1)))

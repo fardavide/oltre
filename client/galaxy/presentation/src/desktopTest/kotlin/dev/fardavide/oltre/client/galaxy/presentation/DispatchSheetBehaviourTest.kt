@@ -139,20 +139,26 @@ class DispatchSheetBehaviourTest {
     fun `a window is missing rather than dead when the trip will not fit inside it`() {
         // The only way to show "too far" without a control that refuses its own tap — and the rung
         // that vanishes is the copy: a ladder narrowing on a distant target teaches distance before
-        // any sentence does. One galaxy hop is 4h 40m each way, so the three short rungs cannot
-        // leave the twenty minutes on the surface that make the trip worth taking.
+        // any sentence does. One galaxy hop is 9h 10m each way at drive 0, so **only the longest rung
+        // survives** — the four below it cannot leave the twenty minutes on the surface that make
+        // the trip worth taking.
+        //
+        // **It used to be two rungs and 4h 40m, which is what drive 1 costs.** The fixture has
+        // researched nothing, so this is the ladder a new colony really meets: the frontier is a
+        // 24h-rung-only proposition until the drive is bought, and buying it hands the 12h rung
+        // back. That is the whole teaching device, and it needs no copy at all.
         //
         // **The first assertion is that there is a ladder at all**, and it is here because the first
         // version of this fixture was unsurveyed: the sheet refused before it priced anything, so
         // every `assertNoRungFor` below passed against a sheet with no rungs on it whatever.
         val far = assertIs<DispatchUiState.Offer>(dispatchFarUiState.dispatch)
-        assertEquals(listOf(12.hours, 24.hours), far.windows.map { it.window })
+        assertEquals(listOf(24.hours), far.windows.map { it.window })
 
         galaxyPage(uiState = dispatchFarUiState) {
             assertNoRungFor(1.hours)
             assertNoRungFor(3.hours)
             assertNoRungFor(6.hours)
-            homeIn(12.hours)
+            assertNoRungFor(12.hours)
             homeIn(24.hours)
             // ...and the sentence that says why, so a player who never saw the full ladder can still
             // find out that one is missing.
@@ -560,7 +566,7 @@ class DispatchSheetBehaviourTest {
         val elsewhere: GalaxyCoordinate = wellTravelledState.galaxy.let { galaxy ->
             galaxy.surveyed
                 .filter { it.system != galaxy.home.system }
-                .minBy { FleetBalance.roundTrip(from = galaxy.home, to = it) }
+                .minBy { FleetBalance.roundTrip(from = galaxy.home, to = it, research = wellTravelledState.research) }
         }
     }
 }

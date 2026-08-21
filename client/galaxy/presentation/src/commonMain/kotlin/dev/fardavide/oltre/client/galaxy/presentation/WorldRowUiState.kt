@@ -54,7 +54,11 @@ internal fun GameState.toWorldRow(
         portrait = world.toPortrait(surveyed),
         epithet = if (surveyed) Strings.worldEpithet(epithetFor(traits)) else null,
         verdict = verdict.toUiState(),
-        trailing = if (withTrailing) FleetBalance.roundTrip(from = galaxy.home, to = world.at).toChipLabel() else null,
+        trailing = if (withTrailing) {
+            FleetBalance.roundTrip(from = galaxy.home, to = world.at, research = research).toChipLabel()
+        } else {
+            null
+        },
         deposits = if (verdict.pricesAHold()) toDepositReading(world.at, now) else null,
         requirements = (verdict as? WorldVerdict.Blocked)?.failures.orEmpty().map { it.toUiState() },
         note = verdict.toNote(traits),

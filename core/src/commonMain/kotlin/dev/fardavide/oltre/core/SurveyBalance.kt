@@ -57,6 +57,20 @@ object SurveyBalance {
 
     fun cost(): Resources = Resources.of(metal = COST_METAL)
 
+    // **What a probe flies, and the constant that answers "way too easy".** Davide's call,
+    // 2026-08-16: a survey consumes an idle hull for its flight, exactly as a gathering run does.
+    //
+    // One `SCOUT`, as a constant rather than as a field on `SurveyJob`. What a probe brings back is
+    // *not a quantity* — the verb refuses a second probe to the same star for that reason — so a
+    // manifest here would be a dial with one setting, and every reader of a save would have to
+    // answer for the day somebody turned it. The day a probe wants two hulls, this is what moves.
+    //
+    // It rhymes with `COST_METAL` above and does a different job: metal is what the flight costs the
+    // colony, and this is what it costs the fleet. **The second is the one that bit** — the price
+    // was flat and parallel probes were unlimited, so ten of them landed together and the tenth cost
+    // no wall-clock at all. A pool cannot be spent that way.
+    val SHIPS: Ships = Ships.of(ShipType.SCOUT, 1)
+
     // Crossing to a neighbouring galaxy costs as much as crossing a whole one end to end, so the
     // four galaxies read as genuinely separate places rather than as one strip of a thousand
     // systems. Nothing in 0.2 makes the other three worth reaching; the constant is here so the

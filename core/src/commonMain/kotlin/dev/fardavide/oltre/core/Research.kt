@@ -29,6 +29,23 @@ enum class Technology {
     // not relief from depletion. Where the binding constraint is a vein rather than a clock, a faster
     // hull drains the same vein sooner. What it buys is reach — the frontier at a shorter window.
     PROSPECTING,
+
+    // **The fifth, the first whose effect is a divisor rather than a multiplier, and the one Davide
+    // asked for three times** — 2026-08-12 (*"travel towards far planes to be way more time
+    // consuming, and require upgraded fleets to get there faster"*), 2026-08-15 and 2026-08-16
+    // (*"navigating distance takes way more time, without powered up ships"*).
+    //
+    // It buys **speed and nothing else**, which is where it departs from
+    // `exploration-rewards-sheet.md` §2.3 — that section had this row carrying the hold as well, on
+    // the argument that *"it is the growth term the fleet has never had"*. **That premise expired at
+    // 0.10.0**, when `PROSPECTING` shipped and gave the fleet exactly that. Two rows multiplying one
+    // term against the same x1.5 cost curve is not a choice: the steeper one wins from some level on
+    // and never loses again, so the gentler row becomes a trap a player should never buy. Davide's
+    // call, 2026-08-21: the drive is reach, Prospecting is yield, and neither can delete the other.
+    //
+    // The name was his too, and it had to be: an enum constant is an on-disk identifier from the
+    // first merge, so it is free exactly once.
+    PROPULSION,
 }
 
 @Serializable
@@ -65,6 +82,7 @@ data class Research(
     val extraction: TechLevel,
     val enrichment: TechLevel,
     val prospecting: TechLevel,
+    val propulsion: TechLevel,
     val thermal: TechLevel,
     val gravitic: TechLevel,
     val atmospheric: TechLevel,
@@ -74,6 +92,7 @@ data class Research(
         Technology.EXTRACTION -> extraction
         Technology.ENRICHMENT -> enrichment
         Technology.PROSPECTING -> prospecting
+        Technology.PROPULSION -> propulsion
     }
 
     fun levelOf(technology: AdaptationTechnology): TechLevel = when (technology) {
@@ -87,6 +106,7 @@ data class Research(
         Technology.EXTRACTION -> copy(extraction = level)
         Technology.ENRICHMENT -> copy(enrichment = level)
         Technology.PROSPECTING -> copy(prospecting = level)
+        Technology.PROPULSION -> copy(propulsion = level)
     }
 
     fun withLevel(technology: AdaptationTechnology, level: TechLevel): Research = when (technology) {
@@ -110,6 +130,7 @@ data class Research(
             extraction = TechLevel(0),
             enrichment = TechLevel(0),
             prospecting = TechLevel(0),
+            propulsion = TechLevel(0),
             thermal = TechLevel(0),
             gravitic = TechLevel(0),
             atmospheric = TechLevel(0),

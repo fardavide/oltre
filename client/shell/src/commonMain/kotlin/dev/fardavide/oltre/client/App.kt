@@ -314,12 +314,15 @@ fun App(
                                     )
                                 ) {
                                     is StartRunResult.Started -> result.state
-                                    // None of the five is reachable from a finger: both sheets are
+                                    // None of the six is reachable from a finger: both sheets are
                                     // built so the verb is absent wherever the model would refuse.
-                                    // This `when` says so out loud rather than trusting it.
+                                    // This `when` says so out loud rather than trusting it — and
+                                    // `NotAGatheringHull` is the newest of them, unreachable because
+                                    // the manifest picker only ever offers hulls that have a hold.
                                     StartRunResult.Unsurveyed,
                                     StartRunResult.NotAValidTarget,
                                     StartRunResult.NoSuchShips,
+                                    StartRunResult.NotAGatheringHull,
                                     StartRunResult.WindowTooShort,
                                     StartRunResult.Depleted,
                                     -> state
@@ -444,6 +447,7 @@ fun App(
                                             is StartSurveyResult.Started -> result.state
                                             StartSurveyResult.AlreadySurveying,
                                             StartSurveyResult.AlreadySurveyed,
+                                            StartSurveyResult.NoIdleScout,
                                             StartSurveyResult.InsufficientResources,
                                             -> state
                                         }

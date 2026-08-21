@@ -54,12 +54,44 @@ object FleetBalance {
     // it is the same failure `SurveyBalance.BASE_MINUTES` exists to prevent: *"without it the nearest
     // targets would land inside the check-in that ordered them."*
     private const val BASE_FLIGHT_MINUTES: Int = 10
-    private const val UNITS_PER_FLIGHT_MINUTE: Int = 10
 
-    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate): Duration =
-        (BASE_FLIGHT_MINUTES + distanceUnits(from, to) / UNITS_PER_FLIGHT_MINUTE).minutes
+    // **Halved from 10, and the halving is the change Davide asked for three times.** 2026-08-12:
+    // *"travel towards far planes to be way more time consuming, and require upgraded fleets to get
+    // there faster."* 2026-08-16: *"navigating distance takes way more time, without powered up
+    // ships."* The first half of that sentence is this constant; the second half is `PROPULSION`.
+    //
+    // **5 is not an arbitrary "slower", it is a calibration.** Because `unitsPerMinute` is
+    // `base x (1 + level)`, drive 1 lands on exactly 10 — so **drive 0 is half of what 0.14 flew at
+    // and drive 1 is 0.14 to the minute.** That is what makes the technology read as an unlock rather
+    // than as a bonus: the first level does not make the player faster than they were, it gives them
+    // back the game they had, and everything past it is new ground.
+    //
+    // The cost of that, stated plainly because it is the thing an install has to judge: a colony
+    // that has researched nothing has a map that is honestly smaller than it looks. Two galaxy hops
+    // out and back is 36h 20m at drive 0, past the longest window there is, so `windowsFor` offers
+    // nothing at all for the far end of the map until the first level lands. That is intended —
+    // `exploration-rewards-sheet.md` §8.5 raised it as an open call and the answer is that the
+    // frontier is *bought*, not given.
+    private const val UNITS_PER_MINUTE_BASE: Long = 5
 
-    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate): Duration = flight(from, to) * 2
+    // How far a hull covers in a minute, which is the only thing the drive touches. Routed through
+    // `ResearchBalance.multiplier` rather than reading the level directly, for `extractionPerHour`'s
+    // own reason one section down: **there is no second place for the effect to be forgotten**, and
+    // the Research screen's percentage is read off the same function that flies the ship.
+    fun unitsPerMinute(research: Research): Long =
+        UNITS_PER_MINUTE_BASE *
+            ResearchBalance.multiplier(Technology.PROPULSION, research.levelOf(Technology.PROPULSION)) /
+            ResearchBalance.MULTIPLIER_BASIS
+
+    // **`BASE_FLIGHT_MINUTES` is outside the division, so the drive is worthless next door and
+    // transformative at the frontier.** A target five units away is ten minutes at every level there
+    // is; another galaxy goes from 9h 10m to 4h 40m on the first one. That asymmetry is the whole
+    // design — the technology pays exactly where the sheet wants the player to go.
+    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): Duration =
+        (BASE_FLIGHT_MINUTES + distanceUnits(from, to) / unitsPerMinute(research)).minutes
+
+    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): Duration =
+        flight(from, to, research) * 2
 
     // ── The window ladder ────────────────────────────────────────────────────────────────────
     //
@@ -77,13 +109,25 @@ object FleetBalance {
     // at its own boundary would re-enter `advance` at the same instant and recurse forever.
     val MINIMUM_STATION: Duration = 20.minutes
 
-    fun windowsFor(from: GalaxyCoordinate, to: GalaxyCoordinate): List<Duration> {
-        val floor = roundTrip(from, to) + MINIMUM_STATION
+    // **These three are three readings of one flight and must be given the same research**, or the
+    // sheet offers a rung whose station time it then prices differently. The drive parameter carries
+    // no default for exactly that reason: every call site is a compile error until somebody looks at
+    // it, which is how all four of them were found.
+    //
+    // The drive is also what makes a *narrowing* ladder into a teaching device that runs both ways.
+    // A rung is absent rather than disabled when the trip does not fit, so a level bought is a
+    // control reappearing on a world the player already knows — no copy required.
+    fun windowsFor(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research): List<Duration> {
+        val floor = roundTrip(from, to, research) + MINIMUM_STATION
         return WINDOWS.filter { it >= floor }
     }
 
-    fun stationFor(from: GalaxyCoordinate, to: GalaxyCoordinate, window: Duration): Duration =
-        window - roundTrip(from, to)
+    fun stationFor(
+        from: GalaxyCoordinate,
+        to: GalaxyCoordinate,
+        window: Duration,
+        research: Research,
+    ): Duration = window - roundTrip(from, to, research)
 
     // ── Danger ───────────────────────────────────────────────────────────────────────────────
     //
@@ -396,16 +440,35 @@ object FleetBalance {
     const val HULL_BASE_METAL: Long = 800
     const val HULL_BASE_CRYSTAL: Long = 200
 
-    // **Only the skiff has a price this slice, and the other three raise rather than guess.** Each of
-    // them waits on exactly one design call — the hauler on slice 4's speed-against-hold axis, the
-    // escort on a combat model, the settler on colonisation — and a plausible number invented here
-    // would be indistinguishable, to every later reader, from one somebody chose.
+    // ── The scout — DAVIDE'S CALL, 2026-08-21 ────────────────────────────────────────────────
+    //
+    // **200 metal / 50 crystal, and what sizes it is the genesis stock rather than the mid game.** A
+    // colony owns no hulls (0.11.3) and this is the first thing it buys, so the constant is an
+    // *opening* number capped by the 500 metal a colony wakes up with — which is what makes it the
+    // one price in this object that a player meets before they have produced anything.
+    //
+    // 300 priced units against the skiff's 1,200: **a quarter of a skiff**, which is the legible half
+    // of the number. The ratio is the part to defend. A scout that drifts towards a skiff stops being
+    // the thing you buy before anything else, and the Galaxy tab — which 0.12.0 made the screen a
+    // player lands on — goes back to having nothing behind it for the first two days.
+    //
+    // **It is deliberately not free, and not granted at genesis.** Davide, 2026-08-16: a colony owns
+    // nothing and buys this first. A starter scout would have made the hull a formality rather than
+    // the first decision, and the first decision is what the price is for.
+    const val SCOUT_METAL: Long = 200
+    const val SCOUT_CRYSTAL: Long = 50
+
+    // **Two hulls have a price and the other three raise rather than guess.** Each of those waits on
+    // exactly one design call — the hauler on slice 4's speed-against-hold axis, the escort on a
+    // combat model, the settler on colonisation — and a plausible number invented here would be
+    // indistinguishable, to every later reader, from one somebody chose.
     //
     // **There is no `alreadyOwned` parameter, deliberately.** Carrying one that every branch ignores
     // would leave the callers threading a fleet count through to a price that does not read it — and
     // the day somebody restores the curve, a live parameter is exactly how it comes back without a
     // decision. The day it *is* a decision, this signature is the thing that has to change.
     fun shipCost(type: ShipType): Resources = when (type) {
+        ShipType.SCOUT -> Resources.of(metal = SCOUT_METAL, crystal = SCOUT_CRYSTAL)
         ShipType.SKIFF -> Resources.of(metal = HULL_BASE_METAL, crystal = HULL_BASE_CRYSTAL)
         ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
             error("$type has no price until the slice that gives it a job")

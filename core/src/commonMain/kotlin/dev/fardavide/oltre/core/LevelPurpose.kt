@@ -63,6 +63,19 @@ sealed interface LevelPurpose {
     // must not imply one.
     data class Haul(val from: Long, val to: Long) : LevelPurpose
 
+    // The level raises no rate at all, at home or away: it shortens a *flight*. `Haul`'s sibling and
+    // the second purpose measured away from home, for the same reason and against the same trap —
+    // `purposeOfRaise` diffs three production rates, `Technology.PROPULSION` moves none of them, and
+    // the row would report a truthful zero about the wrong quantity.
+    //
+    // **Quoted as a round trip to the next galaxy rather than in units per minute**, and the choice
+    // is the whole of what makes this member useful. Units per minute is the honest raw effect and
+    // means nothing to anybody; a galaxy hop is a fixed distance, so a round trip over it is just as
+    // much a property of the technology alone — no fleet, no window, no target — and it is the one
+    // number a player can feel. It is also what the technology is *for*: the frontier is what the
+    // drive buys, and the row says so in hours.
+    data class Reach(val from: Duration, val to: Duration) : LevelPurpose
+
     // There is no next level to price. Reached only at a ceiling — a facility at 40 or a
     // technology at 30 — where the row has no upgrade to offer either.
     data object Unmeasured : LevelPurpose
@@ -143,6 +156,22 @@ fun GameState.purposeOfNextLevel(technology: Technology): LevelPurpose {
         return LevelPurpose.Haul(
             from = FleetBalance.extractionPerHour(research),
             to = FleetBalance.extractionPerHour(research.withLevel(technology, toLevel)),
+        )
+    }
+    // The second one, routed here for the same reason and against the same trap. **Measured on this
+    // colony's own home rather than on an abstract distance**: `roundTrip` needs two coordinates, and
+    // the honest pair is "from where you live, to the galaxy next door" — the shortest hop that is
+    // genuinely a frontier, which is also what the balance benchmark's `[drive]` section reads.
+    if (technology == Technology.PROPULSION) {
+        val home = galaxy.home
+        val nextGalaxy = home.copy(galaxy = if (home.galaxy == 1) 2 else home.galaxy - 1)
+        return LevelPurpose.Reach(
+            from = FleetBalance.roundTrip(from = home, to = nextGalaxy, research = research),
+            to = FleetBalance.roundTrip(
+                from = home,
+                to = nextGalaxy,
+                research = research.withLevel(technology, toLevel),
+            ),
         )
     }
     return purposeOfRaise(

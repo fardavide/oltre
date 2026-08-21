@@ -131,7 +131,13 @@ class LedgerUiStateTest {
 
         // then the round trip rather than the distance, because the trip is what the player is
         // spending and it is the figure the row itself prints
-        val trips = rows.map { FleetBalance.roundTrip(from = state.galaxy.home, to = worlds.getValue(English.resolve(it.coordinate)).at) }
+        val trips = rows.map {
+            FleetBalance.roundTrip(
+                from = state.galaxy.home,
+                to = worlds.getValue(English.resolve(it.coordinate)).at,
+                research = state.research,
+            )
+        }
         // Stated rather than trusted: an ordering assertion over a list that holds one figure is
         // green whichever way the mapper sorts, so the fixture has to be checked for the spread it
         // claims to have before the order below means anything.

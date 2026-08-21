@@ -55,6 +55,13 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 13 — the scout and the drive: `SCOUT` becomes a hull a probe consumes, and `propulsion` joins
+    //     the research record. One hop for two fields, schema 9's precedent — they shipped together,
+    //     so no save can hold one without the other. The drive is the truthful zero; the scout is
+    //     granted once per probe already in the air, because those probes paid no hull and the
+    //     landing now hands one back.
+    // 12 — pins: which worlds the player marked in the ledger. The galaxy identity slice's only
+    //     on-disk cost, and additive — a colony saved before the ledger existed pinned nothing.
     // 11 — deposits, and the fourth technology's level beside them: what has been taken out of each
     //     world, and when that was last true. Nested inside `galaxy` rather than beside it, because
     //     it is the third thing in the same family as `surveyed` and `ownership` — what the player
@@ -88,7 +95,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 12
+    const val SCHEMA_VERSION: Int = 13
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -256,6 +263,53 @@ object GameSave {
         11 to { root ->
             val galaxy = (root["state"] as? JsonObject)?.get("galaxy") as? JsonObject ?: return@to root
             root.withState("galaxy" to JsonObject(galaxy + ("pinned" to JsonArray(emptyList()))))
+        },
+        // 12 -> 13: the scout, and the drive. **Two fields and one version, schema 9's precedent** —
+        // they ship together, so no save can ever hold one without the other and a second version
+        // would be a migration nobody could run.
+        //
+        // **The drive writes the truthful zero, and that is a decision rather than a default.**
+        // Davide's call, 2026-08-21: no free level. An existing colony wakes to a fleet at half the
+        // speed it had, because base flight time doubled and only `PROPULSION` buys it back — which
+        // is exactly *"navigating distance takes way more time, without powered up ships"* met at the
+        // research row where it is meant to be met. The 7 -> 8 hop's granted skiff is the one gift in
+        // this table and it stays a exception, not a precedent.
+        //
+        // **The scout is granted, once per probe already in the air, and that is not a gift.** A
+        // survey saved by an earlier build paid no hull for its flight, and `advance` now hands a
+        // scout back at every landing — so without this the migration would mint hulls out of nothing
+        // the moment the save was opened. Granting the hull the probe is retroactively flying is what
+        // makes the arithmetic balance: one out, one back. A colony with nothing in flight gets
+        // nothing, which is the truthful zero every other hop writes.
+        12 to { root ->
+            val state = root["state"] as? JsonObject ?: return@to root
+            val inFlight = (state["surveys"] as? JsonArray)?.size ?: 0
+            val ships = state["ships"] as? JsonObject ?: JsonObject(emptyMap())
+            val counts = ships["counts"] as? JsonObject ?: JsonObject(emptyMap())
+            val research = state["research"] as? JsonObject ?: JsonObject(emptyMap())
+            root.withState(
+                // **Added to whatever is there rather than written over it.** No save at schema 12
+                // can hold a `SCOUT` — the constant did not exist — so in practice this reads zero
+                // and the two forms agree. It sums anyway, because a migration that assigns a hull
+                // count is one that confiscates a fleet the first time the assumption behind it
+                // stops being true, and that is the failure the 7 -> 8 hop's own note is about.
+                //
+                // `Ships` requires every count to be positive, so the key is absent rather than zero
+                // when there is nothing to grant — the same canonical-representation rule the type's
+                // own `init` guard states, and the reason `minus` drops zeroed entries.
+                "ships" to buildJsonObject {
+                    val held = (counts[ShipType.SCOUT.name] as? JsonPrimitive)?.content?.toIntOrNull() ?: 0
+                    put(
+                        "counts",
+                        if (held + inFlight > 0) {
+                            JsonObject(counts + (ShipType.SCOUT.name to JsonPrimitive(held + inFlight)))
+                        } else {
+                            counts
+                        },
+                    )
+                },
+                "research" to JsonObject(research + ("propulsion" to JsonPrimitive(0))),
+            )
         },
     )
 

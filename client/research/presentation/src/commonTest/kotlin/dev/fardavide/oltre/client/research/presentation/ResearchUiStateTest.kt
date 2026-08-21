@@ -67,7 +67,7 @@ import kotlinx.datetime.toLocalDateTime
 class ResearchUiStateTest {
 
     @Test
-    fun `the branch is four rows in a fixed order`() {
+    fun `the branch is five rows in a fixed order`() {
         // given
         val uiState = freshState().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
@@ -78,11 +78,12 @@ class ResearchUiStateTest {
                 Technology.EXTRACTION,
                 Technology.ENRICHMENT,
                 Technology.PROSPECTING,
+                Technology.PROPULSION,
             ),
             uiState.technologies.map { it.technology },
         )
         assertEquals(
-            listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting"),
+            listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting", "Propulsion"),
             uiState.technologies.map { English.resolve(it.name) },
         )
     }
@@ -1193,9 +1194,14 @@ class ResearchUiStateTest {
 
         // then - the level already held is on the ladder too; it is how you learn that gating is a
         // thing this technology does at all
+        //
+        // **Level 1 summarises rather than names, since 0.15**, and that is the ladder's own rule
+        // arriving rather than a new one: Extraction 1 opens Prospecting *and* Propulsion, and a step
+        // that named one of two would be wrong about the other. Level 3 still opens exactly one row
+        // and still names it.
         assertEquals(
             listOf(
-                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.PROSPECTING)), held = true),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.gateSummaryResearchLong()), held = true),
                 SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.ENRICHMENT)), held = true),
             ),
             row.sheet.ladder,
@@ -1210,7 +1216,7 @@ class ResearchUiStateTest {
         // then
         assertEquals(
             listOf(
-                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.technologyName(Technology.PROSPECTING), held = false),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.gateSummaryResearchLong(), held = false),
                 SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.technologyName(Technology.ENRICHMENT), held = false),
             ),
             row.sheet.ladder,

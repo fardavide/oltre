@@ -69,6 +69,10 @@ object English : Translations {
         StringId.Build -> "Build"
         StringId.AvailableIn -> "in ${args.text(0)}"
         StringId.AvailableNever -> "—"
+        // The probe footer's answer when the fleet rather than the bank is what is short. It
+        // names the shop rather than a wait, because unlike every other unaffordable state in
+        // the game this one is not answered by standing still.
+        StringId.ProbeNeedsScout -> "needs a scout"
         StringId.SkiffName -> "Skiff"
         StringId.SkiffPurpose -> "One berth of hold · 10m + 1m per 10 units, one way"
         StringId.HaulerName -> "Hauler"
@@ -151,6 +155,7 @@ object English : Translations {
         StringId.BuildingCompactNameSolarPlant -> "Solar Plant"
         StringId.BuildingCompactNameRoboticsFactory -> "Robotics"
         StringId.BuildingCompactNameNaniteFactory -> "Nanite Factory"
+        StringId.ShipNameScout -> "scout"
         StringId.ShipNameSkiff -> "skiff"
         StringId.ShipNameHauler -> "hauler"
         StringId.ShipNameEscort -> "escort"
@@ -246,6 +251,7 @@ object English : Translations {
         StringId.TechnologyNameExtraction -> "Extraction"
         StringId.TechnologyNameEnrichment -> "Enrichment"
         StringId.TechnologyNameProspecting -> "Prospecting"
+        StringId.TechnologyNamePropulsion -> "Propulsion"
         StringId.AdaptationNameThermal -> "Thermal"
         StringId.AdaptationNameGravitic -> "Gravitic"
         StringId.AdaptationNameAtmospheric -> "Atmospheric"
@@ -255,6 +261,10 @@ object English : Translations {
         // PLACEHOLDER, and the one string this version owes: every other row names a rate the
         // colony produces, and this is the first whose payoff is measured in a run.
         StringId.TechnologySubjectProspecting -> "what a fleet lifts"
+        // The one subject that is a *divisor* rather than a rate: the percentage is how much
+        // further a hull travels in the same minute, which is why the noun is a speed and not an
+        // output. Same standing as the row above — a placeholder until Davide names it.
+        StringId.TechnologySubjectPropulsion -> "fleet speed"
         StringId.AdaptationUnitThermal -> "°C"
         StringId.AdaptationUnitGravitic -> "g"
         StringId.AdaptationUnitAtmospheric -> "atm"
@@ -276,6 +286,11 @@ object English : Translations {
         StringId.VerdictNothingSurplusCompact -> "nothing while in surplus"
         StringId.HaulGain -> "+${args.text(0)} a hull an hour on station"
         StringId.HaulGainCompact -> "+${args.text(0)} a hull an hour"
+        // The drive's row, and the one verdict on this screen measured in hours saved rather
+        // than units gained. Same standing as the two above: the figure is exact, the noun is
+        // provisional until Davide names it.
+        StringId.ReachGain -> "the next galaxy in ${args.text(0)}, from ${args.text(1)}"
+        StringId.ReachGainCompact -> "next galaxy ${args.text(0)}"
         StringId.PlusPercent -> "+${args.number(0)}%"
         StringId.ToleranceBand -> "${args.text(0)} … ${args.text(1)}"
         StringId.Requires -> "Requires ${args.text(0)}"
@@ -299,6 +314,9 @@ object English : Translations {
         StringId.SheetEachHullLifts -> "Each hull lifts "
         StringId.SheetAnHourOnStation -> " an hour on station and would lift "
         StringId.SheetPaysOnNextRun -> "It pays on the next run rather than on a clock at home."
+        StringId.SheetTheNextGalaxyIs -> "The next galaxy is "
+        StringId.SheetAwayAndWouldBe -> " away and would be "
+        StringId.SheetPaysTheFurtherYouAim -> "It buys nothing next door and everything at the frontier."
         StringId.SheetColonyDrawsAnd -> " energy and the colony draws "
         StringId.SheetAtThatRatio -> "At that ratio ${args.text(0)}'s "
         StringId.SheetRoundsAway -> " rounds away before it reaches your stores."
@@ -309,6 +327,7 @@ object English : Translations {
         StringId.SheetRequiresPrefix -> "Requires "
 
         // ── The Fleets tab ───────────────────────────────────────────────────────────────────
+        StringId.ShipsScout -> args.count(0).let { "$it ${it.plural("scout", "scouts")}" }
         StringId.ShipsSkiff -> args.count(0).let { "$it ${it.plural("skiff", "skiffs")}" }
         StringId.ShipsHauler -> args.count(0).let { "$it ${it.plural("hauler", "haulers")}" }
         StringId.ShipsEscort -> args.count(0).let { "$it ${it.plural("escort", "escorts")}" }
@@ -473,6 +492,7 @@ object English : Translations {
         StringId.BuildingFullNameSolarPlant -> "Solar Plant"
         StringId.BuildingFullNameRoboticsFactory -> "Robotics Factory"
         StringId.BuildingFullNameNaniteFactory -> "Nanite Factory"
+        StringId.ShipTitleNameScout -> "Scout"
         StringId.ShipTitleNameSkiff -> "Skiff"
         StringId.ShipTitleNameHauler -> "Hauler"
         StringId.ShipTitleNameEscort -> "Escort"

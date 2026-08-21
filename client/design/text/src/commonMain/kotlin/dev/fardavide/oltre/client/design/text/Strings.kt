@@ -194,6 +194,9 @@ object Strings {
     // nothing.
     fun availableNever(): TextRes = message(StringId.AvailableNever)
 
+    // "needs a scout" — the probe footer, when the hull rather than the metal is what is short.
+    fun probeNeedsScout(): TextRes = message(StringId.ProbeNeedsScout)
+
     // PLACEHOLDER copy, like every string the app says: content is Davide's.
     fun skiffName(): TextRes = message(StringId.SkiffName)
 
@@ -372,6 +375,7 @@ object Strings {
     // "skiff" — lower case, because it is a word inside a manifest rather than a heading.
     fun shipName(ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipNameScout
             ShipType.SKIFF -> StringId.ShipNameSkiff
             ShipType.HAULER -> StringId.ShipNameHauler
             ShipType.ESCORT -> StringId.ShipNameEscort
@@ -568,6 +572,7 @@ object Strings {
             Technology.EXTRACTION -> StringId.TechnologyNameExtraction
             Technology.ENRICHMENT -> StringId.TechnologyNameEnrichment
             Technology.PROSPECTING -> StringId.TechnologyNameProspecting
+            Technology.PROPULSION -> StringId.TechnologyNamePropulsion
         },
     )
 
@@ -586,6 +591,7 @@ object Strings {
             Technology.EXTRACTION -> StringId.TechnologySubjectExtraction
             Technology.ENRICHMENT -> StringId.TechnologySubjectEnrichment
             Technology.PROSPECTING -> StringId.TechnologySubjectProspecting
+            Technology.PROPULSION -> StringId.TechnologySubjectPropulsion
         },
     )
 
@@ -640,6 +646,14 @@ object Strings {
     fun haulGain(amount: TextRes): TextRes = message(StringId.HaulGain, Arg.Text(amount))
 
     fun haulGainCompact(amount: TextRes): TextRes = message(StringId.HaulGainCompact, Arg.Text(amount))
+
+    // "the next galaxy in 9h 20m, from 18h 20m" — the drive's row. The *new* figure leads and the
+    // old one trails, unlike the two above which state a delta: a delta of hours off a flight is a
+    // number with nothing to be a fraction of, where the pair says the whole thing at a glance.
+    fun reachGain(to: TextRes, from: TextRes): TextRes =
+        message(StringId.ReachGain, Arg.Text(to), Arg.Text(from))
+
+    fun reachGainCompact(to: TextRes): TextRes = message(StringId.ReachGainCompact, Arg.Text(to))
 
     // "+14%" — always signed positive, unlike `signed`: an effect is a gain or it is not printed.
     fun plusPercent(value: Int): TextRes = message(StringId.PlusPercent, Arg.Number(value.toLong()))
@@ -699,6 +713,14 @@ object Strings {
 
     fun sheetPaysOnNextRun(): TextRes = message(StringId.SheetPaysOnNextRun)
 
+    // The drive's three sheet clauses. A round trip rather than a one-way flight, because a run is
+    // what the player commits to and the window is what it eats.
+    fun sheetTheNextGalaxyIs(): TextRes = message(StringId.SheetTheNextGalaxyIs)
+
+    fun sheetAwayAndWouldBe(): TextRes = message(StringId.SheetAwayAndWouldBe)
+
+    fun sheetPaysTheFurtherYouAim(): TextRes = message(StringId.SheetPaysTheFurtherYouAim)
+
     fun sheetColonyDrawsAnd(): TextRes = message(StringId.SheetColonyDrawsAnd)
 
     fun sheetAtThatRatio(name: TextRes): TextRes = message(StringId.SheetAtThatRatio, Arg.Text(name))
@@ -721,6 +743,7 @@ object Strings {
     // with the noun as an argument, because a plural is a property of the noun.
     fun ships(count: Int, ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipsScout
             ShipType.SKIFF -> StringId.ShipsSkiff
             ShipType.HAULER -> StringId.ShipsHauler
             ShipType.ESCORT -> StringId.ShipsEscort
@@ -1129,6 +1152,7 @@ object Strings {
     // Capitalised, unlike the Colony strip's lower-case tally: this one opens a lock-screen title.
     fun shipTitleName(ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipTitleNameScout
             ShipType.SKIFF -> StringId.ShipTitleNameSkiff
             ShipType.HAULER -> StringId.ShipTitleNameHauler
             ShipType.ESCORT -> StringId.ShipTitleNameEscort

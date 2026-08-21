@@ -370,8 +370,9 @@ internal object BalanceBenchmark {
         val home = GalaxyState.initial(TEST_GALAXY_SEED).home
         val neighbour = home.copy(slot = if (home.slot == 1) 2 else 1)
         val window = 6.hours
-        add(row("6h run to the next slot, round trip", clock(FleetBalance.roundTrip(home, neighbour))))
-        add(row("  station time", clock(FleetBalance.stationFor(home, neighbour, window))))
+        val unresearched = Research.initial()
+        add(row("6h run to the next slot, round trip", clock(FleetBalance.roundTrip(home, neighbour, unresearched))))
+        add(row("  station time", clock(FleetBalance.stationFor(home, neighbour, window, unresearched))))
         val average = World(
             at = neighbour,
             starClass = StarClass.STANDARD,
@@ -382,9 +383,9 @@ internal object BalanceBenchmark {
             world = average,
             gathering = ResourceKind.METAL,
             ships = Ships.of(ShipType.SKIFF, 1),
-            station = FleetBalance.stationFor(home, neighbour, window),
+            station = FleetBalance.stationFor(home, neighbour, window, unresearched),
             danger = 0,
-            research = Research.initial(),
+            research = unresearched,
         )
         add(row("  one skiff brings home", "${cargo.metal} metal"))
         add(row("  as hours of a genesis colony's metal", ratio(cargo.metal, PlaceholderBalance.metalProductionPerHour(BuildingLevel(1))) + "h"))
@@ -416,15 +417,56 @@ internal object BalanceBenchmark {
         for ((name, target) in frontierTargets(home)) {
             val hold = frontierHold(home, target, average)
             val band = FleetBalance.distanceBand(home, target)
-            val trip = clock(FleetBalance.roundTrip(home, target))
+            val trip = clock(FleetBalance.roundTrip(home, target, unresearched))
             add(row("  $name", "band $band · round trip $trip · ${hold} metal · ${ratio(hold, nearHold)}x"))
+        }
+
+        // **The drive, and the reading that says whether it is worth a research slot.** Distance is
+        // the only thing this technology touches, so the page has to show it where distance lives:
+        // the same four targets, at four levels, in round trip and in the rungs the ladder will
+        // offer. A row whose ladder is empty is a target the player cannot reach at all.
+        //
+        // `exploration-rewards-sheet.md` §6.3 asks for exactly this table, *"reproduced from the
+        // shipped formulas rather than from this document's arithmetic"* — so it is computed here
+        // and never copied.
+        add("[drive] what a Propulsion level buys, per target — round trip · rungs the ladder offers")
+        for ((name, target) in frontierTargets(home)) {
+            for (level in listOf(0, 1, 3, 5)) {
+                val research = unresearched.withLevel(Technology.PROPULSION, TechLevel(level))
+                val rungs = FleetBalance.windowsFor(home, target, research)
+                val ladder = if (rungs.isEmpty()) "out of reach" else rungs.joinToString(" · ") { clock(it) }
+                add(row("  $name at drive $level", "${clock(FleetBalance.roundTrip(home, target, research))} · $ladder"))
+            }
+        }
+
+        // **The row that decides whether the drive competes rather than dominates** — §6.5's merge
+        // condition, stated as a hold. It is the same 24h rung at the same richness as `[frontier]`,
+        // so the two sections read against each other: what a level of reach is worth at a target,
+        // against what a level of Prospecting is worth everywhere.
+        add("[drive] one skiff on the 24h rung at the adjacent galaxy, by level")
+        val hop = frontierTargets(home).last().second
+        for (level in 0..3) {
+            val drive = unresearched.withLevel(Technology.PROPULSION, TechLevel(level))
+            val prospect = unresearched.withLevel(Technology.PROSPECTING, TechLevel(level))
+            add(
+                row(
+                    "  level $level",
+                    "drive ${frontierHold(home, hop, average, drive)} metal · " +
+                        "prospecting ${frontierHold(home, hop, average, prospect)} metal",
+                ),
+            )
         }
     }
 
     // Held at one richness on purpose — the generator has no positional gradient, so a far world is
     // *not* richer and reading these rows against a richer one would be reading a coincidence.
-    private fun frontierHold(home: GalaxyCoordinate, target: GalaxyCoordinate, sample: World): Long {
-        val station = FleetBalance.stationFor(home, target, 24.hours)
+    private fun frontierHold(
+        home: GalaxyCoordinate,
+        target: GalaxyCoordinate,
+        sample: World,
+        research: Research = Research.initial(),
+    ): Long {
+        val station = FleetBalance.stationFor(home, target, 24.hours, research)
         val world = sample.copy(at = target)
         return FleetBalance.cargo(
             world = world,
@@ -432,7 +474,7 @@ internal object BalanceBenchmark {
             ships = Ships.of(ShipType.SKIFF, 1),
             station = station,
             danger = FleetBalance.danger(home, world),
-            research = Research.initial(),
+            research = research,
         ).metal
     }
 

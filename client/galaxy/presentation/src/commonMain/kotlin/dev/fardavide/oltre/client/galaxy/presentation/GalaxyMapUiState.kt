@@ -198,6 +198,7 @@ private fun GameState.trailingFor(
     val trip = FleetBalance.roundTrip(
         from = galaxy.home,
         to = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = 1),
+        research = research,
     )
     return when {
         // A system with nothing in it is the one case where neither verb applies, and saying so is
@@ -281,6 +282,7 @@ internal fun GameState.toUniverseCaptionUiState(at: SystemSelection): MapCaption
 private fun GameState.galaxyHopFrom(galaxyIndex: Int) = FleetBalance.roundTrip(
     from = galaxy.home,
     to = GalaxyCoordinate(galaxy = galaxyIndex, system = galaxy.home.system, slot = galaxy.home.slot),
+    research = research,
 )
 
 private fun GameState.probeHopTo(galaxyIndex: Int) = SurveyBalance.duration(

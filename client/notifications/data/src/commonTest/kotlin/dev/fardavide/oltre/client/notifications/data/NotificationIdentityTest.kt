@@ -216,6 +216,11 @@ private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
 private fun wealthy(): GameState = freshState().copy(
     resources = Resources.of(metal = 5_000_000, crystal = 500_000, deuterium = 500_000),
     buildings = freshState().buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)),
+    // **And scouts, since 0.15**, for the same reason the gate above is a level rather than a job:
+    // a probe flies a hull now, so a colony with only money raises no survey alert at all and the
+    // `survey` kind quietly leaves the fixture. That is the exact failure mode the comment above
+    // records — `a crowded colony is actually crowded` caught it a second time, one version later.
+    ships = Ships.of(ShipType.SCOUT, 8),
 )
 
 // Every kind of alert the game can raise, in flight at once, with several of each unbounded kind.

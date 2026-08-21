@@ -32,13 +32,19 @@ class GatesTest {
     }
 
     @Test
-    fun `extraction opens two rows and they are listed in the order they unlock`() {
+    fun `extraction opens three rows and they are listed in the order they unlock`() {
         // Extraction became a fork at 0.9: level 1 opens the away half of the same idea, level 3 the
         // deuterium one. The order is the level order rather than the enum's, which is what makes the
         // row readable as a ladder.
+        //
+        // **Level 1 opens two rows since 0.15**, and they are the pair the fleet is made of — what a
+        // hull pulls out of a world, and how far it can go to find one. They share a gate on purpose:
+        // a chain would have put three research levels between a player and the row that answers
+        // *"navigating distance takes way more time"*.
         assertEquals(
             listOf(
                 Gate(level = 1, opens = GateSubject.Project(Technology.PROSPECTING)),
+                Gate(level = 1, opens = GateSubject.Project(Technology.PROPULSION)),
                 Gate(level = 3, opens = GateSubject.Project(Technology.ENRICHMENT)),
             ),
             gatesOf(Technology.EXTRACTION),

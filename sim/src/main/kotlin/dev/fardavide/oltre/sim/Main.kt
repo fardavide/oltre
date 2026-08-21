@@ -1603,11 +1603,11 @@ private fun bestDispatch(
     for (target in candidates) {
         if (target == home || state.galaxy.holderOf(target) != null) continue
         val world = worldAt(state.galaxy.seed, target) ?: continue
-        val offered = FleetBalance.windowsFor(home, target)
+        val offered = FleetBalance.windowsFor(home, target, state.research)
         // A target that cannot be reached inside the chosen absence is simply not on the list, which
         // is what the narrowing ladder says on the screen.
         if (window !in offered) continue
-        val station = FleetBalance.stationFor(home, target, window)
+        val station = FleetBalance.stationFor(home, target, window, state.research)
         // `state.research` rather than nothing researched: the bot buys Prospecting like any other
         // row, and a replica that ignored it would price every hold below what `startRun` charges.
         val cargo = cargoAt(
@@ -2683,7 +2683,7 @@ private fun censusOf(state: GameState, fleet: FleetTuning?): Census {
         val reachable = state.galaxy.surveyed.any { at ->
             at != state.galaxy.home &&
                 state.galaxy.holderOf(at) == null &&
-                FleetBalance.windowsFor(state.galaxy.home, at).isNotEmpty()
+                FleetBalance.windowsFor(state.galaxy.home, at, state.research).isNotEmpty()
         }
         census.add("gather", when {
             !reachable -> Barrier.GATE
@@ -3378,9 +3378,9 @@ private fun standingAt(
     for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
         if (target == home || state.galaxy.holderOf(target) != null) continue
         val world = worldAt(state.galaxy.seed, target) ?: continue
-        if (window !in FleetBalance.windowsFor(home, target)) continue
+        if (window !in FleetBalance.windowsFor(home, target, state.research)) continue
         reachable++
-        val station = FleetBalance.stationFor(home, target, window)
+        val station = FleetBalance.stationFor(home, target, window, state.research)
         val lift = cargoAt(
             fleet,
             world,
@@ -3428,8 +3428,8 @@ private fun bestVein(
     for (target in state.galaxy.surveyed.sortedWith(compareBy({ it.galaxy }, { it.system }, { it.slot }))) {
         if (target == home || state.galaxy.holderOf(target) != null) continue
         val world = worldAt(state.galaxy.seed, target) ?: continue
-        if (window !in FleetBalance.windowsFor(home, target)) continue
-        val station = FleetBalance.stationFor(home, target, window)
+        if (window !in FleetBalance.windowsFor(home, target, state.research)) continue
+        val station = FleetBalance.stationFor(home, target, window, state.research)
         val lift = cargoAt(
             fleet,
             world,

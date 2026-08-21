@@ -127,11 +127,11 @@ fun GameState.toDispatchUiState(
     }
 
     val home = galaxy.home
-    val offered = FleetBalance.windowsFor(from = home, to = target)
+    val offered = FleetBalance.windowsFor(from = home, to = target, research = research)
     val window = selection.window?.takeIf { it in offered } ?: offered.defaultRung()
     val gathering = selection.gathering ?: world.richerOf()
-    val flight = FleetBalance.flight(from = home, to = target)
-    val station = FleetBalance.stationFor(from = home, to = target, window = window)
+    val flight = FleetBalance.flight(from = home, to = target, research = research)
+    val station = FleetBalance.stationFor(from = home, to = target, window = window, research = research)
     val danger = FleetBalance.danger(from = home, world = world)
     // What is actually in the ground, and the cap behind it. Both are read once and shared by the
     // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
