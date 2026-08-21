@@ -377,6 +377,25 @@ class DispatchUiStateTest {
     }
 
     @Test
+    fun `a hauler flying with skiffs aboard is never told those skiffs bring nothing`() {
+        // *"The hauler empties it. The 2 skiffs bring nothing"* describes Design's hauler-alone
+        // default packing. Step the stepper up to six berths and those same skiffs are **in** the
+        // run, bringing back exactly what the hauler could not — so both halves of the sentence go
+        // false together, and nothing re-checked it after the tap.
+        val state = withFleet(haulers = 1, skiffs = 2)
+        val target = runnable()
+
+        val whole = assertIs<DispatchUiState.Offer>(
+            dispatchAt(target, state, selection(target).copy(ships = 6)),
+        )
+
+        assertEquals(1, whole.manifest.countOf(ShipType.HAULER))
+        assertEquals(2, whole.manifest.countOf(ShipType.SKIFF), "the fixture is not the whole-pool packing")
+        val note = whole.cellNote?.let { English.resolve(it) }
+        assertTrue(note == null || "bring nothing" !in note, "was '$note'")
+    }
+
+    @Test
     fun `a hauler alone is never told that its fourth skiff brings nothing`() {
         // Design's §5: each control gets at most one note. The clamp note is *"3 skiffs empty it. The
         // 4th brings nothing"* — a sentence about hulls that lift the same amount each, so it was
