@@ -67,7 +67,7 @@ private fun FleetRun.toCard(
     timeZone: TimeZone,
     research: Research,
 ): RunCardUiState {
-    val flight = FleetBalance.flight(from = home, to = target, research = research)
+    val flight = FleetBalance.flight(from = home, to = target, research = research, ships = ships)
     val station = returnsAt - dispatchedAt - flight * 2
     val onStationAt = flightEndsAt(home, research)
     val inboundAt = inboundBeginsAt(home, research)

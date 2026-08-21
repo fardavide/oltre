@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.client.dispatch.ui
 
+import dev.fardavide.oltre.client.design.text.TextRes
+
 import dev.fardavide.oltre.core.ResourceKind
 
 // The sheet's own handles, split out of `GalaxyTestTags` when the sheet stopped belonging to the
@@ -35,4 +37,10 @@ object DispatchTestTags {
     // *narrows* on a distant target rather than disabling rungs, so the rung at index 0 is a
     // different window depending on how far away the world is.
     fun window(minutes: Long): String = "dispatch-window-$minutes"
+
+    // **Keyed by the manifest the cell would fly rather than by its index**, for `window`'s own
+    // reason one line up: which cell is first depends on what is idle, so an index would name a
+    // different control on a different colony. The `TextRes` is the cell's own label, which is the
+    // only thing about it that is stable and is what a Robot would read anyway.
+    fun hullCell(ships: TextRes): String = "dispatch-hull-$ships"
 }

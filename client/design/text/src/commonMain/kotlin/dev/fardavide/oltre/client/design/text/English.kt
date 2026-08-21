@@ -109,6 +109,21 @@ object English : Translations {
         StringId.DepositStock -> "deposit ${args.text(0)}/${args.text(1)}"
         StringId.Richness -> "richness ${args.text(0)}"
         StringId.SkiffCount -> args.count(0).let { "$it ${it.plural("skiff", "skiffs")}" }
+        // **The eleven strings of *Twice the Flight*.** Two rules hold across all of them — muted
+        // states a rule that was already true, body states something that just changed; and each
+        // control gets at most one note, where the clamp wins because it is about the run being sent.
+        StringId.BerthCount -> args.count(0).let { "$it ${it.plural("berth", "berths")}" }
+        StringId.PoolIdle -> "${args.text(0)} idle"
+        StringId.ManifestPair -> "${args.text(0)} · ${args.text(1)}"
+        StringId.OutAndBack -> "${args.text(0)} out and back"
+        // The locked rung's second line: the hull that would fly it. Not a sentence — it is the
+        // locked-facility idiom's requirement, in the same 9.5 caption.
+        StringId.RungRequiresSkiffs -> "skiffs"
+        StringId.LadderRungMoved -> "The hauler moved this run to ${args.text(0)}, the shortest window it fits."
+        StringId.LadderShortestFit -> "${args.text(0)} is the shortest window the hauler fits."
+        StringId.CellCounterfactual -> "Skiffs only lift ${args.text(0)}, and only skiffs fly ${args.text(1)}."
+        StringId.CellRungConsequence -> "The hauler lifts ${args.text(0)} and lands at ${args.text(1)}."
+        StringId.CellClamped -> "The hauler empties it. The ${args.text(0)} bring nothing."
         StringId.OfIdle -> "of ${args.count(0)} idle"
         StringId.LadderNote ->
             "${args.text(0)} out and back. No shorter window leaves ${args.number(1)} minutes on the surface."

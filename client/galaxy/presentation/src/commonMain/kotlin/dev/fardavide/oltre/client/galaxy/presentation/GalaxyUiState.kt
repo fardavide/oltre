@@ -259,7 +259,7 @@ private fun GameState.astronomyFor(
     }
     val trips = worlds.map { it.at }
         .filter { it != home }
-        .map { FleetBalance.roundTrip(from = home, to = it, research = research) }
+        .map { FleetBalance.roundTrip(from = home, to = it, research = research, ships = FleetBalance.FASTEST_HULL) }
         .sorted()
     val reach = trips.reachLabel()
     // **"from here" goes when the line will not fit** — two cases overflow and both are ordinary:

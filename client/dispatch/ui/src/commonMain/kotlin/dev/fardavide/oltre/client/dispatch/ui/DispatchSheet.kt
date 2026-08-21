@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
@@ -181,9 +182,9 @@ private fun Offer(
         ) {
             Stepper(
                 glyph = Strings.stepperFewer(),
-                enabled = !uiState.atFewest,
+                enabled = uiState.fewer != null,
                 tag = DispatchTestTags.SHIPS_FEWER,
-                onClick = { onSelectShips(uiState.shipCount - 1) },
+                onClick = { uiState.fewer?.let(onSelectShips) },
             )
             Text(
                 text = uiState.ships.resolve(),
@@ -196,15 +197,33 @@ private fun Offer(
             )
             Stepper(
                 glyph = Strings.stepperMore(),
-                enabled = !uiState.atMost,
+                enabled = uiState.more != null,
                 tag = DispatchTestTags.SHIPS_MORE,
-                onClick = { onSelectShips(uiState.shipCount + 1) },
+                onClick = { uiState.more?.let(onSelectShips) },
             )
         }
         // "3 skiffs empty it. The 4th brings nothing." Present only when the vein is what stopped the
         // run *and* there is a smaller fleet to send: under the cliff the marginal hull is worth
         // exactly zero and is locked away for the whole window, which is arithmetic rather than a
         // scold. At one hull there is no remedy here and the ladder carries the only one there is.
+        // **Two cells, and they are absent rather than disabled when only one clock is available** —
+        // a control with one option is not a control. That is 0.13.1 unchanged, and it is most
+        // sheets: every one before the hauler is bought, and every one where it is already in the sky.
+        if (uiState.hullCells.isNotEmpty()) {
+            Row(horizontalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
+                uiState.hullCells.forEach { cell ->
+                    HullCell(
+                        cell = cell,
+                        onClick = { onSelectShips(cell.berths) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        // One slot below the cells, one job: what the *other* cell would do. Where the clamp would
+        // also be earned the clamp wins, because it is about the run being sent rather than one that
+        // is not — so these two are one slot and never two.
+        uiState.cellNote?.let { note -> Aside(text = note) }
         uiState.clampNote?.let { note -> Aside(text = note) }
     }
     Control(label = Strings.controlHomeIn()) {
@@ -215,7 +234,7 @@ private fun Offer(
         }
         // Only when the ladder has actually narrowed. The rung that vanished is the copy — this
         // sentence is for the player who never saw the full ladder and cannot know one is missing.
-        uiState.ladderNote?.let { note -> Aside(text = note) }
+        uiState.ladderNote?.let { note -> Aside(text = note.label, emphasised = note.emphasised) }
         // "The 12h window brings the same." The rung is not locked and not greyed — inventing a state
         // for *not better* would be the first disabled control in the app — so the note is the whole
         // of the mechanism, and it is absent when the chosen rung is already the shortest that empties
@@ -331,9 +350,9 @@ private fun Waiting(
         ) {
             Stepper(
                 glyph = Strings.stepperFewer(),
-                enabled = !uiState.atFewest,
+                enabled = uiState.fewer != null,
                 tag = DispatchTestTags.SHIPS_FEWER,
-                onClick = { onSelectShips(uiState.shipCount - 1) },
+                onClick = { uiState.fewer?.let(onSelectShips) },
             )
             Text(
                 text = uiState.ships.resolve(),
@@ -346,9 +365,9 @@ private fun Waiting(
             )
             Stepper(
                 glyph = Strings.stepperMore(),
-                enabled = !uiState.atMost,
+                enabled = uiState.more != null,
                 tag = DispatchTestTags.SHIPS_MORE,
-                onClick = { onSelectShips(uiState.shipCount + 1) },
+                onClick = { uiState.more?.let(onSelectShips) },
             )
         }
     }
@@ -358,7 +377,7 @@ private fun Waiting(
                 WindowRung(rung = rung, onClick = { onSelectWindow(rung.window) }, modifier = Modifier.weight(1f))
             }
         }
-        uiState.ladderNote?.let { note -> Aside(text = note) }
+        uiState.ladderNote?.let { note -> Aside(text = note.label, emphasised = note.emphasised) }
     }
     Rule()
     Text(
@@ -388,11 +407,15 @@ private fun Waiting(
 
 // One faint sentence under a control, which is the shape every earned note on this sheet takes —
 // the narrowed ladder, the rung that brings the same, and the hull that brings nothing.
+//
+// **The weight is the whole announcement** — Design: *"muted states a rule that was already true,
+// body states something that just changed."* No animation, no toast, no highlight: the app has none
+// of those, and a moved selection does not earn the first.
 @Composable
-private fun Aside(text: TextRes) {
+private fun Aside(text: TextRes, emphasised: Boolean = false) {
     Text(
         text = text.resolve(),
-        color = OltreColors.textTertiary,
+        color = if (emphasised) OltreColors.textSecondary else OltreColors.textTertiary,
         fontFamily = oltreMono(),
         fontSize = 10.5.sp,
         lineHeight = 15.sp,
@@ -524,12 +547,22 @@ private fun Stepper(glyph: TextRes, enabled: Boolean, tag: String, onClick: () -
     }
 }
 
+// **Four states, and the locked one is the only tap that puts a hull back in the hangar.** Open is a
+// hairline; selected is accent at 45% over a 10% fill; locked is the whole cell at 42% with the hull
+// that would fly it on a second line; absent is never rendered at all, which is the ladder's own way
+// of teaching distance and is the mapper's business rather than this composable's.
+//
+// **The locked cell carries no colour.** Red is short of exactly that resource and amber is in
+// transit, and a rung is neither — so it dims, exactly as a locked facility row does. It is 38dp
+// where the others are 32dp, which is Design's number and is what the second line costs.
 @Composable
 private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(
-        contentAlignment = Alignment.Center,
+    val locked = rung.requirement != null
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
         modifier = modifier
-            .height(32.dp)
+            .height(if (locked) 38.dp else 32.dp)
             .border(
                 1.dp,
                 settlingColor(if (rung.selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f)),
@@ -538,7 +571,11 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
             .background(settlingColor(if (rung.selected) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
             .testTag(DispatchTestTags.window(rung.window.inWholeMinutes))
             .clip(CONTROL_SHAPE)
-            .clickable(onClick = onClick),
+            // **Locked is clickable, and that is the point rather than an oversight.** It is the undo:
+            // one tap takes the hauler out and selects the rung. A disabled control here would be the
+            // first in the app and would strand the player on a mix they cannot back out of.
+            .clickable(onClick = onClick)
+            .alpha(if (locked) LOCKED_ALPHA else 1f),
     ) {
         Text(
             text = rung.label.resolve(),
@@ -546,6 +583,55 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
             fontFamily = oltreMono(),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
+        )
+        rung.requirement?.let { requirement ->
+            Text(
+                text = requirement.resolve(),
+                color = OltreColors.textTertiary,
+                fontFamily = oltreMono(),
+                fontSize = 9.5.sp,
+            )
+        }
+    }
+}
+
+// The locked-facility idiom's own dim, shared so a rung and a row cannot drift apart.
+private const val LOCKED_ALPHA: Float = 0.42f
+
+// One of the two clocks a manifest can fly on. The window ladder's idiom at two rungs wide, because
+// it is the same kind of choice — and it names its hulls, which is why the row needs no label.
+@Composable
+private fun HullCell(cell: HullCellUiState, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+        modifier = modifier
+            .height(38.dp)
+            .border(
+                1.dp,
+                settlingColor(if (cell.selected) SELECTED_EDGE else Color.White.copy(alpha = 0.09f)),
+                CONTROL_SHAPE,
+            )
+            .background(settlingColor(if (cell.selected) SELECTED_FILL else Color.Transparent), CONTROL_SHAPE)
+            .testTag(DispatchTestTags.hullCell(cell.label))
+            .clip(CONTROL_SHAPE)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 5.dp),
+    ) {
+        Text(
+            text = cell.label.resolve(),
+            color = settlingColor(if (cell.selected) OltreColors.accent else OltreColors.textSecondary),
+            fontFamily = oltreMono(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+        Text(
+            text = cell.trip.resolve(),
+            color = OltreColors.textTertiary,
+            fontFamily = oltreMono(),
+            fontSize = 9.5.sp,
+            maxLines = 1,
         )
     }
 }

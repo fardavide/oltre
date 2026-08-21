@@ -159,6 +159,16 @@ object Italian : Translations {
         StringId.DepositStock -> "giacimento ${args.text(0)}/${args.text(1)}"
         StringId.Richness -> "ricchezza ${args.text(0)}"
         StringId.SkiffCount -> args.count(0).let { "$it ${it.plural("scialuppa", "scialuppe")}" }
+        StringId.BerthCount -> args.count(0).let { "$it ${it.plural("stiva", "stive")}" }
+        StringId.PoolIdle -> "${args.text(0)} in porto"
+        StringId.ManifestPair -> "${args.text(0)} · ${args.text(1)}"
+        StringId.OutAndBack -> "${args.text(0)} andata e ritorno"
+        StringId.RungRequiresSkiffs -> "scialuppe"
+        StringId.LadderRungMoved -> "Il cargo ha spostato questa corsa a ${args.text(0)}, la finestra più breve in cui entra."
+        StringId.LadderShortestFit -> "${args.text(0)} è la finestra più breve in cui entra il cargo."
+        StringId.CellCounterfactual -> "Le scialuppe sollevano solo ${args.text(0)}, e solo loro volano in ${args.text(1)}."
+        StringId.CellRungConsequence -> "Il cargo solleva ${args.text(0)} e atterra a ${args.text(1)}."
+        StringId.CellClamped -> "Il cargo la svuota. Le ${args.text(0)} non portano nulla."
         StringId.OfIdle -> "di ${args.count(0)} in porto"
         StringId.LadderNote ->
             "${args.text(0)} andata e ritorno. Nessuna finestra più corta lascia " +

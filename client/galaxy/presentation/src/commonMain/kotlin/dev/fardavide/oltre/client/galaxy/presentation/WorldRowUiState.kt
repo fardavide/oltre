@@ -55,7 +55,12 @@ internal fun GameState.toWorldRow(
         epithet = if (surveyed) Strings.worldEpithet(epithetFor(traits)) else null,
         verdict = verdict.toUiState(),
         trailing = if (withTrailing) {
-            FleetBalance.roundTrip(from = galaxy.home, to = world.at, research = research).toChipLabel()
+            FleetBalance.roundTrip(
+                from = galaxy.home,
+                to = world.at,
+                research = research,
+                ships = FleetBalance.FASTEST_HULL,
+            ).toChipLabel()
         } else {
             null
         },

@@ -199,6 +199,7 @@ private fun GameState.trailingFor(
         from = galaxy.home,
         to = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = 1),
         research = research,
+        ships = FleetBalance.FASTEST_HULL,
     )
     return when {
         // A system with nothing in it is the one case where neither verb applies, and saying so is
@@ -298,6 +299,7 @@ private fun GameState.galaxyHopFrom(galaxyIndex: Int) = FleetBalance.roundTrip(
     from = galaxy.home,
     to = GalaxyCoordinate(galaxy = galaxyIndex, system = galaxy.home.system, slot = galaxy.home.slot),
     research = research,
+    ships = FleetBalance.FASTEST_HULL,
 )
 
 private fun GameState.probeHopTo(galaxyIndex: Int) = SurveyBalance.duration(

@@ -264,6 +264,35 @@ object Strings {
 
     fun skiffCount(count: Int): TextRes = message(StringId.SkiffCount, Arg.Count(count))
 
+    // "6 berths" — the stepper's value once a second hull type is idle, because a berth is a
+    // distinction only two hulls create. With skiffs alone it counts skiffs, as it always did.
+    fun berthCount(count: Int): TextRes = message(StringId.BerthCount, Arg.Count(count))
+
+    // "1 hauler · 2 skiffs idle" — the pool beside SEND, which names hulls where the stepper names
+    // hold, because those are the two different things a player has to hold in mind at once.
+    fun poolIdle(manifest: TextRes): TextRes = message(StringId.PoolIdle, Arg.Text(manifest))
+
+    fun manifestPair(first: TextRes, second: TextRes): TextRes =
+        message(StringId.ManifestPair, Arg.Text(first), Arg.Text(second))
+
+    fun outAndBack(trip: TextRes): TextRes = message(StringId.OutAndBack, Arg.Text(trip))
+
+    fun rungRequiresSkiffs(): TextRes = message(StringId.RungRequiresSkiffs)
+
+    fun ladderRungMoved(rung: TextRes): TextRes = message(StringId.LadderRungMoved, Arg.Text(rung))
+
+    fun ladderShortestFit(rung: TextRes): TextRes = message(StringId.LadderShortestFit, Arg.Text(rung))
+
+    // The one slot below the cells, in its three forms: what the other cell would lift, what it
+    // would cost in rungs, and — winning over both — the clamp.
+    fun cellCounterfactual(lift: TextRes, rung: TextRes): TextRes =
+        message(StringId.CellCounterfactual, Arg.Text(lift), Arg.Text(rung))
+
+    fun cellRungConsequence(lift: TextRes, rung: TextRes): TextRes =
+        message(StringId.CellRungConsequence, Arg.Text(lift), Arg.Text(rung))
+
+    fun cellClamped(idle: TextRes): TextRes = message(StringId.CellClamped, Arg.Text(idle))
+
     // "of 4 idle" — the pool the stepper is clamped to.
     fun ofIdle(count: Int): TextRes = message(StringId.OfIdle, Arg.Count(count))
 

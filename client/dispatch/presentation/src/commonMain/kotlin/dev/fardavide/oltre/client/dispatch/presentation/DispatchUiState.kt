@@ -11,7 +11,11 @@ import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.dispatch.ui.WindowRungUiState
 import dev.fardavide.oltre.core.DepositBalance
+import dev.fardavide.oltre.client.dispatch.ui.HullCellUiState
+import dev.fardavide.oltre.client.dispatch.ui.LadderNoteUiState
+import dev.fardavide.oltre.core.ReachableManifest
 import dev.fardavide.oltre.core.FleetBalance
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
@@ -127,34 +131,64 @@ fun GameState.toDispatchUiState(
     }
 
     val home = galaxy.home
-    val offered = FleetBalance.windowsFor(from = home, to = target, research = research)
-    val window = selection.window?.takeIf { it in offered } ?: offered.defaultRung()
     val gathering = selection.gathering ?: world.richerOf()
-    val flight = FleetBalance.flight(from = home, to = target, research = research)
-    val station = FleetBalance.stationFor(from = home, to = target, window = window, research = research)
     val danger = FleetBalance.danger(from = home, world = world)
+
+    // **One derived list, and the whole picker falls out of it** — Claude Design, *Twice the Flight*.
+    // Every manifest the idle pool can fly, ordered by hold, packed hauler-first. The stepper is an
+    // index into it, the two cells are the first manifest of each clock, and the ladder is the same
+    // legality test the sheet already ran, once per rung, against the selected manifest.
+    val manifests = FleetBalance.reachableManifests(ships)
+    // **Absent means never; dim means not with these hulls.** The union is what any manifest could
+    // reach, so a rung outside it is one *distance* refuses and is still not drawn — which is what
+    // keeps 0.13.1's teaching working now that a second cause exists.
+    val everReachable = FleetBalance.WINDOWS.filter { rung ->
+        manifests.any { rung in FleetBalance.windowsFor(home, target, research, it.ships) }
+    }
     // What is actually in the ground, and the cap behind it. Both are read once and shared by the
     // chips, the figure and the countdown, so the sheet cannot contradict itself about one world.
     val inTheGround = galaxy.remaining(target, gathering, now)
-    // **The fleet that empties the vein, not every hull you own** — Davide, 2026-08-17, having
-    // counted the taps on a 55-hull pool a world could absorb three of. A hull past the cliff is
-    // locked away for the whole window and brings back exactly zero, and until now the sheet said so
-    // in a note and then made the player walk the stepper down anyway.
-    //
-    // **It is a suggestion rather than a cap.** The pool is still stated in full beside the label,
-    // the `+` still reaches every idle hull, and a deep vein still opens on the whole fleet — which
-    // is the same rule, since there nothing is wasted. Null is a window with no surface time, which
-    // the ladder never offers; the pool is the honest fallback because no fleet size would empty it.
-    val suggested = FleetBalance.hullsToLift(
+    // **The rung is resolved against the default manifest, and the manifest against the rung.** The
+    // knot is untied the way Design ties it: the rung default does not move — 3h, the check-in
+    // rhythm — and *"one constraint binds the packing: it may never lock the rung it is defaulting
+    // to."* So the rung is chosen first, from what any hull could fly, and the default packing is
+    // then taken from the manifests that fit it.
+    val window = selection.window?.takeIf { it in everReachable } ?: everReachable.defaultRung()
+    val fits = manifests.filter { window in FleetBalance.windowsFor(home, target, research, it.ships) }
+    val suggested = defaultManifest(
+        fits = fits,
         world = world,
         gathering = gathering,
         remaining = inTheGround,
-        station = station,
+        home = home,
+        target = target,
+        window = window,
         danger = danger,
         research = research,
-    ) ?: idle
-    val hulls = (selection.ships ?: suggested).coerceIn(1, idle)
-    val sent = Ships.of(ShipType.SKIFF, hulls)
+    )
+    // The stepper's value is a **berth count**, and the cells send one too — both controls move one
+    // cursor along one ordered list. A count the list does not hold snaps to the nearest hold at or
+    // below it, which is the clamp the cells promise before they are tapped.
+    val chosen = selection.ships
+        ?.let { asked -> manifests.lastOrNull { it.berths <= asked } ?: manifests.first() }
+        ?: suggested
+    val sent = chosen.ships
+    val hulls = chosen.berths
+    // **Up is the only direction, and the last tap wins.** Legality is monotone — a window too short
+    // for a flight is too short for every shorter window — so the shortest rung this manifest fits is
+    // the smallest change available. Design: *"Add a hull and the rung yields; tap a locked rung and
+    // the hull yields."*
+    val offered = FleetBalance.windowsFor(home, target, research, sent)
+    val rungMoved = window !in offered
+    val flownWindow = if (rungMoved) offered.firstOrNull { it > window } ?: offered.last() else window
+    val flight = FleetBalance.flight(from = home, to = target, research = research, ships = sent)
+    val station = FleetBalance.stationFor(
+        from = home,
+        to = target,
+        window = flownWindow,
+        research = research,
+        ships = sent,
+    )
     val cargo = FleetBalance.cargo(
         world = world,
         gathering = gathering,
@@ -178,15 +212,99 @@ fun GameState.toDispatchUiState(
         metal = depositChip(target, ResourceKind.METAL, now),
         crystal = depositChip(target, ResourceKind.CRYSTAL, now),
     )
+    // **The unit changes with the fleet**, because a berth is a distinction only a second hull type
+    // creates: with skiffs alone the stepper counts skiffs, exactly as 0.13.1 shipped it.
+    val mixedFleet = manifests.any { it.flightFactor > 1 } && manifests.any { it.flightFactor == 1 }
+    val below = manifests.lastOrNull { it.berths < chosen.berths }
+    val above = manifests.firstOrNull { it.berths > chosen.berths }
     val stepper = SteppedFleet(
-        ships = Strings.skiffCount(hulls),
-        shipCount = hulls,
-        atFewest = hulls <= 1,
-        atMost = hulls >= idle,
-        pool = Strings.ofIdle(idle),
+        ships = if (mixedFleet) Strings.berthCount(chosen.berths) else Strings.skiffCount(chosen.berths),
+        shipCount = chosen.berths,
+        fewer = below?.berths,
+        more = above?.berths,
+        pool = if (mixedFleet) Strings.poolIdle(manifestLabel(ships)) else Strings.ofIdle(idle),
     )
-    val rungs = offered.map { WindowRungUiState(label = it.rungLabel(), window = it, selected = it == window) }
-    val ladderNote = ladderNoteFor(offered = offered, roundTrip = flight * 2)
+    // **Four cell states, and the fourth is the new one.** A rung this manifest cannot fly is drawn
+    // at 42% with the hull that would fly it under it, and tapping it is the undo; a rung *no*
+    // manifest can fly is not drawn at all, which is unchanged and is what teaches distance.
+    val rungs = everReachable.map { rung ->
+        WindowRungUiState(
+            label = rung.rungLabel(),
+            window = rung,
+            selected = rung == flownWindow,
+            requirement = if (rung in offered) null else Strings.rungRequiresSkiffs(),
+        )
+    }
+    // Two cells, one per clock, each showing the *first* manifest that flies on it — which is the
+    // fastest reading of that clock rather than the biggest, because the cell is a choice of time.
+    val cells = if (!mixedFleet) {
+        emptyList()
+    } else {
+        listOf(1, 2).mapNotNull { factor ->
+            manifests.firstOrNull { it.flightFactor == factor }?.let { manifest ->
+                val whole = manifests.last { it.flightFactor == factor }
+                HullCellUiState(
+                    label = manifestLabel(whole.ships),
+                    trip = Strings.outAndBack(
+                        FleetBalance.roundTrip(home, target, research, whole.ships).toChipLabel(),
+                    ),
+                    berths = whole.berths,
+                    selected = chosen.flightFactor == factor,
+                )
+            }
+        }
+    }
+    // **One slot below the cells, one job: what the *other* cell would do.** Three forms, and the
+    // precedence is Design's — where the clamp would also be earned the clamp wins, *"because it is
+    // about the run being sent rather than a run that is not."*
+    val cellNote = cells.takeIf { it.isNotEmpty() }?.let {
+        val other = manifests.lastOrNull { it.flightFactor != chosen.flightFactor }
+        when {
+            other == null -> null
+            clamped && chosen.flightFactor > 1 -> Strings.cellClamped(Strings.skiffCount(idle))
+            else -> {
+                val otherRungs = FleetBalance.windowsFor(home, target, research, other.ships)
+                val otherLift = otherLift(
+                    world = world,
+                    gathering = gathering,
+                    manifest = other,
+                    home = home,
+                    target = target,
+                    window = otherRungs.firstOrNull { it >= flownWindow } ?: otherRungs.lastOrNull() ?: flownWindow,
+                    danger = danger,
+                    research = research,
+                    remaining = inTheGround,
+                )
+                val otherRung = otherRungs.firstOrNull { it >= flownWindow } ?: otherRungs.lastOrNull()
+                when {
+                    otherRung == null -> null
+                    // The hauler is not selected, so the note is what taking it would cost in rungs.
+                    chosen.flightFactor == 1 -> Strings.cellRungConsequence(
+                        Strings.amountOfResource(otherLift.groupedByThousands(), gathering),
+                        otherRung.rungLabel(),
+                    )
+                    // The hauler is selected, so the note is what the skiffs alone would lift — and
+                    // the rung they alone can still fly, which is the whole of what was given up.
+                    else -> Strings.cellCounterfactual(
+                        Strings.amountOfResource(otherLift.groupedByThousands(), gathering),
+                        otherRungs.first().rungLabel(),
+                    )
+                }
+            }
+        }
+    }
+    val ladderNote = when {
+        rungMoved -> LadderNoteUiState(
+            label = Strings.ladderRungMoved(flownWindow.rungLabel()),
+            emphasised = true,
+        )
+        offered.size < FleetBalance.WINDOWS.size && cells.isNotEmpty() -> LadderNoteUiState(
+            label = Strings.ladderShortestFit(offered.first().rungLabel()),
+            emphasised = false,
+        )
+        else -> ladderNoteFor(offered = everReachable, roundTrip = flight * 2)
+            ?.let { LadderNoteUiState(label = it, emphasised = false) }
+    }
 
     if (inTheGround <= 0) {
         val wait = galaxy.timeUntil(target, gathering, wanted = lift, now = now)
@@ -203,10 +321,12 @@ fun GameState.toDispatchUiState(
             crystalDeposit = chips.crystal,
             ships = stepper.ships,
             shipCount = stepper.shipCount,
-            atFewest = stepper.atFewest,
-            atMost = stepper.atMost,
+            fewer = stepper.fewer,
+            more = stepper.more,
             pool = stepper.pool,
             windows = rungs,
+            hullCells = cells,
+            cellNote = cellNote,
             ladderNote = ladderNote,
             title = waitingTitle(target, now),
             note = waitingNote(ships = stepper.ships, window = window, lift = lift, gathering = gathering, wait = wait),
@@ -231,10 +351,12 @@ fun GameState.toDispatchUiState(
         crystalDeposit = chips.crystal,
         ships = stepper.ships,
         shipCount = stepper.shipCount,
-        atFewest = stepper.atFewest,
-        atMost = stepper.atMost,
+        fewer = stepper.fewer,
+        more = stepper.more,
         pool = stepper.pool,
         windows = rungs,
+        hullCells = cells,
+        cellNote = cellNote,
         ladderNote = ladderNote,
         rungNote = rungNoteFor(offered = offered, chosen = window, roundTrip = flight * 2, working = working),
         clampNote = clampNoteFor(clamped = clamped, hulls = hulls, perShip = lift / hulls, inTheGround = inTheGround),
@@ -256,8 +378,8 @@ private class DepositChips(val metal: TextRes, val crystal: TextRes)
 private class SteppedFleet(
     val ships: TextRes,
     val shipCount: Int,
-    val atFewest: Boolean,
-    val atMost: Boolean,
+    val fewer: Int?,
+    val more: Int?,
     val pool: TextRes,
 )
 
@@ -515,3 +637,67 @@ private const val DANGER_BONUS_PERCENT: Int = 35
 
 private const val MILLIS_PER_SECOND: Long = 1_000
 
+
+
+// **The fewest berths that empty the vein at the rung already selected, packed with the hauler
+// first; if nothing empties it, every idle hull.** Design's third ruling, unchanged in intent from
+// 0.13.1 — the default exists to stop you locking hulls away behind a vein that cannot fill them —
+// and now measured in berths.
+//
+// **The one constraint that binds it: it may never lock the rung it is defaulting to.** `fits` is
+// already filtered to the manifests that can fly the chosen rung, so the rule is expressed by the
+// list it is given rather than re-checked here.
+//
+// *"Fewest hulls and cheapest-to-own are the same answer at two hulls and this is it; fastest-home
+// is the one real rival and it loses, because it leaves berths you own on the ground."*
+private fun defaultManifest(
+    fits: List<ReachableManifest>,
+    world: World,
+    gathering: ResourceKind,
+    remaining: Long,
+    home: GalaxyCoordinate,
+    target: GalaxyCoordinate,
+    window: Duration,
+    danger: Int,
+    research: Research,
+): ReachableManifest {
+    val empties = fits.firstOrNull { manifest ->
+        val station = FleetBalance.stationFor(home, target, window, research, manifest.ships)
+        FleetBalance.cargo(world, gathering, manifest.ships, station, danger, research).of(gathering) >= remaining
+    }
+    // Nothing empties it, so the whole idle pool goes — nothing is wasted where the vein outlasts
+    // the fleet, which is the same rule seen from the other end.
+    return empties ?: fits.lastOrNull() ?: ReachableManifest(Ships.NONE, 0, 1)
+}
+
+// What the *other* clock would bring home at its own nearest rung, clamped by the vein exactly as
+// the headline figure is — a note that quoted an unclamped lift would promise more than the run
+// would land.
+@Suppress("LongParameterList")
+private fun otherLift(
+    world: World,
+    gathering: ResourceKind,
+    manifest: ReachableManifest,
+    home: GalaxyCoordinate,
+    target: GalaxyCoordinate,
+    window: Duration,
+    danger: Int,
+    research: Research,
+    remaining: Long,
+): Long {
+    val station = FleetBalance.stationFor(home, target, window, research, manifest.ships)
+    val lift = FleetBalance.cargo(world, gathering, manifest.ships, station, danger, research).of(gathering)
+    return minOf(lift, remaining)
+}
+
+// "1 hauler · 2 skiffs", or just "2 skiffs" when there is one kind. The pair is a string rather than
+// a join so a language can put its own separator and its own order round it.
+private fun manifestLabel(ships: Ships): TextRes {
+    val haulers = ships.countOf(ShipType.HAULER)
+    val skiffs = ships.countOf(ShipType.SKIFF)
+    return when {
+        haulers > 0 && skiffs > 0 -> Strings.manifestPair(Strings.ships(haulers, ShipType.HAULER), Strings.skiffCount(skiffs))
+        haulers > 0 -> Strings.ships(haulers, ShipType.HAULER)
+        else -> Strings.skiffCount(skiffs)
+    }
+}
