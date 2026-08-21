@@ -625,13 +625,97 @@ class FleetBalanceTest {
     }
 
     @Test
+    fun `the hauler is three skiffs of price for four skiffs of hold`() {
+        // **Davide's call, 2026-08-21, and it is a re-decision rather than a first one.** The
+        // 2026-08-10 ruling priced it at 1,000 / 250 on its own x1.5 curve; 0.10.1 made hull prices
+        // flat and 0.9.0 had already raised the skiff base tenfold, so against today's 800 / 200 that
+        // number would be **1.25x a skiff for four berths** — which deletes the skiff outright.
+        //
+        // Three, and the ratio is the decision: four berths for the price of three hulls is a 25%
+        // discount on hold, paid for in half speed and in putting everything in one basket. Four
+        // would make the hauler strictly worse than the four skiffs it replaces — same hold, half
+        // speed, no splitting across targets — so nobody would ever buy one.
+        assertEquals(Resources.of(metal = 2_400, crystal = 600), FleetBalance.shipCost(ShipType.HAULER))
+
+        fun priced(type: ShipType): Long = FleetBalance.shipCost(type).let { it.metal + 2 * it.crystal }
+        assertEquals(3 * priced(ShipType.SKIFF), priced(ShipType.HAULER))
+    }
+
+    @Test
+    fun `the yard takes longer over a hauler than over a skiff`() {
+        // The wait is taken from the price and the price is flat, so this follows rather than being
+        // chosen — 4 x root(3,000) against 4 x root(1,000). Pinned because it is the second half of
+        // what a hauler costs and the only part of it that is not money.
+        assertEquals(216.minutes, FleetBalance.buildDuration(ShipType.HAULER, roboticsFactory = BuildingLevel(0)))
+        assertTrue(
+            FleetBalance.buildDuration(ShipType.HAULER, BuildingLevel(0)) >
+                FleetBalance.buildDuration(ShipType.SKIFF, BuildingLevel(0)),
+        )
+    }
+
+    @Test
     fun `the hulls with no job yet have no price`() {
-        // Each waits on exactly one design call — the hauler on slice 4, the escort on a combat
-        // model, the settler on colonisation — and a made-up price for one of them would be a number
-        // nobody chose sitting in a balance object that forbids exactly that.
-        for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
+        // Each waits on exactly one design call — the escort on a combat model, the settler on
+        // colonisation — and a made-up price for one of them would be a number nobody chose sitting
+        // in a balance object that forbids exactly that.
+        for (type in listOf(ShipType.ESCORT, ShipType.SETTLER)) {
             assertFailsWith<IllegalStateException> { FleetBalance.shipCost(type) }
         }
+    }
+
+    // ── Berths ───────────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a hold is counted in berths rather than in hulls`() {
+        // The ship set's own table, as a number: a skiff is one berth, a hauler is four, and a scout
+        // has no hold at all. Until the hauler this was `ships.total` and the two were the same
+        // thing — which is exactly the kind of coincidence that stops being true without a test.
+        assertEquals(1, FleetBalance.berths(Ships.of(ShipType.SKIFF, 1)))
+        assertEquals(3, FleetBalance.berths(Ships.of(ShipType.SKIFF, 3)))
+        assertEquals(4, FleetBalance.berths(Ships.of(ShipType.HAULER, 1)))
+        assertEquals(0, FleetBalance.berths(Ships.of(ShipType.SCOUT, 9)))
+        assertEquals(6, FleetBalance.berths(Ships(mapOf(ShipType.SKIFF to 2, ShipType.HAULER to 1))))
+    }
+
+    @Test
+    fun `one hauler lifts exactly what four skiffs lift`() {
+        // **The composition axis, in the one number it turns on.** The hauler trades speed for hold
+        // and nothing else, so at a fixed station time the two manifests are worth the same — what
+        // separates them is what the flight costs, which is the picker's slice.
+        val target = home.copy(slot = 6)
+        val rock = world(target, metalPerMillion = 1_000_000, hazards = emptySet())
+        fun lift(ships: Ships): Long = FleetBalance.cargo(
+            world = rock,
+            gathering = ResourceKind.METAL,
+            ships = ships,
+            station = 6.hours,
+            danger = 0,
+            research = NONE,
+        ).metal
+
+        assertEquals(lift(Ships.of(ShipType.SKIFF, 4)), lift(Ships.of(ShipType.HAULER, 1)))
+        assertTrue(lift(Ships.of(ShipType.HAULER, 1)) > lift(Ships.of(ShipType.SKIFF, 3)))
+    }
+
+    @Test
+    fun `a scout in a manifest adds no hold`() {
+        // It cannot reach `cargo` from `startRun`, which refuses the manifest at the door — but the
+        // arithmetic must not be the thing standing between a scout and a berth it does not have.
+        val target = home.copy(slot = 6)
+        val rock = world(target, metalPerMillion = 1_000_000, hazards = emptySet())
+        fun lift(ships: Ships): Long = FleetBalance.cargo(
+            world = rock,
+            gathering = ResourceKind.METAL,
+            ships = ships,
+            station = 6.hours,
+            danger = 0,
+            research = NONE,
+        ).metal
+
+        assertEquals(
+            lift(Ships.of(ShipType.SKIFF, 2)),
+            lift(Ships(mapOf(ShipType.SKIFF to 2, ShipType.SCOUT to 5))),
+        )
     }
 
     // ── The yard clock ───────────────────────────────────────────────────────────────────────
@@ -701,7 +785,7 @@ class FleetBalanceTest {
 
     @Test
     fun `a hull with no price has no wait either`() {
-        for (type in listOf(ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER)) {
+        for (type in listOf(ShipType.ESCORT, ShipType.SETTLER)) {
             assertFailsWith<IllegalStateException> {
                 FleetBalance.buildDuration(type, roboticsFactory = BuildingLevel(0))
             }

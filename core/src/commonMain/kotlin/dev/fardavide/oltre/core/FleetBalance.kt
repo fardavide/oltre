@@ -331,9 +331,14 @@ object FleetBalance {
     ): Resources {
         val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
-        if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
+        // **Berths rather than hulls**, which is the same number for a skiff-only manifest and the
+        // whole of the hauler's side of the composition trade for any other. A manifest of nothing
+        // but scouts has no berths at all and returns here, which is the `isEmpty` guard generalised
+        // rather than replaced.
+        val carrying = berths(ships)
+        if (stationMinutes <= 0 || carrying <= 0) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(ships.total.toLong(), extractionPerHour(research)) { "cargo hulls" }
+        var numerator = checkedTimes(carrying.toLong(), extractionPerHour(research)) { "cargo berths" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
         numerator = checkedTimes(numerator, gathered.richnessOf(world).perMillion.toLong()) { "cargo richness" }
         numerator = checkedTimes(numerator, paid) { "cargo danger" }
@@ -360,6 +365,13 @@ object FleetBalance {
     // leaves nothing on the surface: `cargo` is zero at every fleet size there, so any figure would
     // be a wrong answer wearing a plausible face. One is the floor, because a fleet of nothing is
     // not an offer — a vein with nothing left in it takes one hull to take nothing.
+    //
+    // **It answers in *skiffs*, and that is a limit rather than a unit.** The dispatch sheet steppers
+    // one hull type, so a hull and a berth are the same thing to every caller there is — and the
+    // day the manifest picker offers two, "the smallest fleet that takes everything" stops having a
+    // single answer (four skiffs and one hauler lift the same and cost different things). Widening
+    // this is the picker's slice, not a tidy-up: what it should return is a *composition*, and which
+    // composition is a design question rather than an arithmetic one.
     fun hullsToLift(
         world: World,
         gathering: ResourceKind,
@@ -467,12 +479,55 @@ object FleetBalance {
     // would leave the callers threading a fleet count through to a price that does not read it — and
     // the day somebody restores the curve, a live parameter is exactly how it comes back without a
     // decision. The day it *is* a decision, this signature is the thing that has to change.
+    // ── The hauler — DAVIDE'S CALL, 2026-08-21, AND IT IS A RE-DECISION ──────────────────────
+    //
+    // **The 2026-08-10 ruling expired without being wrong.** It priced the hauler at 1,000 metal /
+    // 250 crystal *on its own x1.5 curve*, against a skiff base of 80 / 20 — twelve and a half times
+    // a skiff, which was the whole of its case: *"its entire case is price; 240 would delete the
+    // skiff."* Two later calls took the ground out from under that number without touching it.
+    // 0.9.0 raised the skiff base tenfold, and 0.10.1 deleted the compounding curve outright — so
+    // 1,000 / 250 is now **1.25x a skiff for four berths**, which deletes the skiff instead. Same
+    // failure shape round 27 named: *a constant derived from a rule carries the rule's premise, and
+    // a later round can invalidate the premise without touching the constant.*
+    //
+    // **Three skiffs of price for four skiffs of hold.** The ratio is the decision and the absolute
+    // number follows it: a 25% discount on hold, paid for in half speed and in putting a whole
+    // window's cargo in one basket. Four would make the hauler strictly worse than the four skiffs
+    // it replaces — same hold, half speed, and no splitting across targets — so nobody would buy
+    // one; two would leave the skiff nothing but speed, which the drive is about to make more
+    // valuable but not by enough to carry a hull on its own.
+    const val HAULER_METAL: Long = 2_400
+    const val HAULER_CRYSTAL: Long = 600
+
     fun shipCost(type: ShipType): Resources = when (type) {
         ShipType.SCOUT -> Resources.of(metal = SCOUT_METAL, crystal = SCOUT_CRYSTAL)
         ShipType.SKIFF -> Resources.of(metal = HULL_BASE_METAL, crystal = HULL_BASE_CRYSTAL)
-        ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
+        ShipType.HAULER -> Resources.of(metal = HAULER_METAL, crystal = HAULER_CRYSTAL)
+        ShipType.ESCORT, ShipType.SETTLER ->
             error("$type has no price until the slice that gives it a job")
     }
+
+    // ── Berths — what a manifest can actually carry ──────────────────────────────────────────
+    //
+    // **The hold is counted in berths and not in hulls, and until the hauler those were the same
+    // number.** `cargo` summed `ships.total` because every hull that could be sent had exactly one
+    // berth; the ship set's own table has always said otherwise — *"HAULER: four berths of hold,
+    // half speed"* — and this is where that stops being a comment.
+    //
+    // A `SCOUT` has none, which is what makes it not a fleet asset. It cannot reach `cargo` through
+    // `startRun`, which refuses the manifest at the door, but the arithmetic must not be the thing
+    // standing between a scout and a berth it does not have.
+    //
+    // The escort and the settler are zero **pending their slices** rather than by design: one of
+    // them will have a hold and neither has a number. A hull with no price cannot be bought, so no
+    // manifest can contain one, and the day either ships this line is what has to move with it.
+    private fun ShipType.berthsEach(): Int = when (this) {
+        ShipType.SKIFF -> 1
+        ShipType.HAULER -> 4
+        ShipType.SCOUT, ShipType.ESCORT, ShipType.SETTLER -> 0
+    }
+
+    fun berths(ships: Ships): Int = ships.counts.entries.sumOf { (type, count) -> type.berthsEach() * count }
 
     // ── The yard clock — DAVIDE'S CALL, 2026-08-13 ───────────────────────────────────────────
     //
