@@ -164,6 +164,14 @@ class GalaxyRobot(private val test: ComposeUiTest) {
             .assert(hasAnyDescendant(hasText(text, substring = true)))
     }
 
+    // Scoped to the footer for `assertTheFooterReads`' own reason: the words this asks about — a
+    // hull, a wait — appear elsewhere on the page, and an unscoped absence would be asserting
+    // something about the whole screen.
+    fun assertTheFooterDoesNotRead(text: String) = apply {
+        test.onNodeWithTag(GalaxyTestTags.PROBE_FOOTER)
+            .assert(hasAnyDescendant(hasText(text, substring = true)).not())
+    }
+
     // ── The fold, which is what the tab opens on since 0.12 ─────────────────────────────────
 
     fun assertTheGalaxyIsDrawn() = apply {

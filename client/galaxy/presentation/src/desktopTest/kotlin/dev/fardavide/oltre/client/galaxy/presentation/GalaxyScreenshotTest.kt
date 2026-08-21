@@ -348,6 +348,29 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // **The state every colony opens on, since a probe needs a hull.** Genesis grants none, so this
+    // is the first thing the tab says about surveying — and the frame that would catch the metal chip
+    // reddening for a shortage that is not metal.
+    @Test
+    fun `a colony with no scout is told what it needs rather than when`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = probeNeedsScoutUiState,
+            name = "galaxy_probe_needs_scout",
+        )
+    }
+
+    @Test
+    fun `a scout on its way home turns the refusal into a countdown`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = probeScoutComingHomeUiState,
+            name = "galaxy_probe_scout_coming_home",
+        )
+    }
+
     @Test
     fun `a landed probe is a receipt`() {
         capture(width = 393, height = 1200, uiState = probeLandedUiState, name = "galaxy_probe_landed")

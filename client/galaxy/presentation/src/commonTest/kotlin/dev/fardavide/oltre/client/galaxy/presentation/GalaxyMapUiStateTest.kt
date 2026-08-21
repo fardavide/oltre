@@ -356,6 +356,29 @@ class GalaxyMapUiStateTest {
     }
 
     @Test
+    fun `the caption offers no probe without a hull to fly it`() {
+        // **The dead control this whole layer exists to prevent, on the screen the tab lands on.**
+        // A probe flies a `SCOUT` since 0.15 and a colony owns none at genesis, so a caption that
+        // read the stores alone would make the *first* thing a new player could tap the one the
+        // model refuses. It falls back to the same note a shortage of metal produces: the caption is
+        // one line in a corner and has no room to say why — the orbit page's footer is where the
+        // reason lives, and this caption's own tap is what takes you there.
+        val unknown = SystemSelection(galaxy = HOME_GALAXY, system = 1)
+        val moneyed = wealthy().copy(ships = Ships.NONE)
+
+        val trailing = moneyed.mapAt(unknown).caption.trailing
+
+        assertIs<MapCaptionTrailingUiState.Note>(trailing)
+        // The same flight it would have offered, so nothing is hidden — only the verb is withheld.
+        assertEquals(
+            MapCaptionTrailingUiState.Note(Strings.probeFlight(Strings.durationHoursMinutes(3, 20))),
+            trailing,
+        )
+        // ...and with a scout in the pool the very same colony is offered the flight.
+        assertIs<MapCaptionTrailingUiState.Dispatch>(wealthy().mapAt(unknown).caption.trailing)
+    }
+
+    @Test
     fun `the caption is never empty and never says nothing is selected`() {
         // The map opens on home and a tap can only move the selection, so there is no "nothing
         // selected" state to design: no placeholder copy, no dead bar at the foot of the screen, and

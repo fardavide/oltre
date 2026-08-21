@@ -171,6 +171,42 @@ class GalaxyFromStateBehaviourTest {
     }
 
     @Test
+    fun `a colony with no scout is told what it needs rather than offered a probe`() {
+        // **The state a colony opens in**, since genesis grants no hull and a probe flies a `SCOUT`.
+        // The footer must not draw a verb the model would refuse — that is the whole of what this
+        // layer is for — and the note names the *Shipyard* rather than a wait, because unlike every
+        // other unaffordable state in the game this one is not answered by standing still.
+        val broke = testGameState.copy(ships = Ships.NONE, resources = Resources.of(metal = 100_000))
+
+        galaxyScreen(state = broke) {
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
+            assertTheFooterReads("needs a scout")
+            // The offer is still stated — a refusal has to say what it is refusing — and the metal
+            // chip must not redden, because the metal is not what is short.
+            assertTheFooterReads("${SurveyBalance.COST_METAL}")
+        }
+    }
+
+    @Test
+    fun `a scout on its way home turns the refusal into a countdown`() {
+        // The other half of the same refusal. A hull genuinely coming back is a wait, so a countdown
+        // is the honest answer and the Shipyard is not the advice — and a countdown to a hull that
+        // is *not* coming would be a lie however well it rendered.
+        val elsewhere = SystemAddress(galaxy = home.galaxy, system = home.system + 40)
+        val out = assertIs<StartSurveyResult.Started>(
+            startSurvey(testGameState.copy(resources = Resources.of(metal = 100_000)), elsewhere, at = EPOCH),
+        ).state
+
+        galaxyScreen(state = out) {
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
+            assertTheFooterDoesNotRead("needs a scout")
+            assertTheFooterReads("in ")
+        }
+    }
+
+    @Test
     fun `a probe in flight counts down in the footer of the system it is aimed at`() {
         val target = neighbour()
         val launched = assertIs<StartSurveyResult.Started>(

@@ -116,7 +116,14 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
     // verb the app uses on more than one surface and an unscoped query would be ambiguous the day a
     // second one appears.
     fun buyAHull() = apply {
-        test.onNodeWithTag(ShipyardTestTags.action(ShipType.SKIFF), useUnmergedTree = true).performClick()
+        buyAHull(ShipType.SKIFF)
+    }
+
+    // Overloaded rather than widened, so the no-argument call keeps reading as "the hull" on the
+    // tests written before there were two — and so a caller has to name the hull the moment naming
+    // it is the point.
+    fun buyAHull(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.action(type), useUnmergedTree = true).performScrollTo().performClick()
         test.waitForIdle()
     }
 
