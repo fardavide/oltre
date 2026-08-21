@@ -583,6 +583,7 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
             fontFamily = oltreMono(),
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
+            lineHeight = 14.sp,
         )
         rung.requirement?.let { requirement ->
             Text(
@@ -590,6 +591,10 @@ private fun WindowRung(rung: WindowRungUiState, onClick: () -> Unit, modifier: M
                 color = OltreColors.textTertiary,
                 fontFamily = oltreMono(),
                 fontSize = 9.5.sp,
+                // Explicit and tight, on both lines: the default leading on a 11sp and a 9.5sp line
+                // overflows a 38dp box and clips the requirement to a sliver. Design's 38dp is the
+                // number; this is what makes two lines fit inside it.
+                lineHeight = 12.sp,
             )
         }
     }
@@ -616,15 +621,23 @@ private fun HullCell(cell: HullCellUiState, onClick: () -> Unit, modifier: Modif
             .testTag(DispatchTestTags.hullCell(cell.label))
             .clip(CONTROL_SHAPE)
             .clickable(onClick = onClick)
-            .padding(horizontal = 5.dp),
+            // **3dp rather than Design's 5dp, and 10sp rather than 11.** Measured rather than
+            // chosen: at 320dp a cell has ~120dp of room and "1 hauler · 2 skiffs" is nineteen
+            // characters, which Compose lays out wider than the design's own HTML did — its note
+            // budgets *"131dp of room for 125dp of type"* and the real figure is over that. The copy
+            // is untouched, which is the part that matters: Design's rule is that nothing is reduced
+            // at 320dp and nothing invented, and a label that truncated to "1 hauler · 2" would read
+            // as a different manifest.
+            .padding(horizontal = 3.dp),
     ) {
         Text(
             text = cell.label.resolve(),
             color = settlingColor(if (cell.selected) OltreColors.accent else OltreColors.textSecondary),
             fontFamily = oltreMono(),
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
+            lineHeight = 14.sp,
         )
         Text(
             text = cell.trip.resolve(),
@@ -632,6 +645,7 @@ private fun HullCell(cell: HullCellUiState, onClick: () -> Unit, modifier: Modif
             fontFamily = oltreMono(),
             fontSize = 9.5.sp,
             maxLines = 1,
+            lineHeight = 12.sp,
         )
     }
 }

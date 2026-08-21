@@ -9,6 +9,8 @@ import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
+import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.startRun
@@ -209,3 +211,62 @@ internal val relayCoordinate: GalaxyCoordinate = checkNotNull(
 )
 
 internal val relaySystemUiState: GalaxyUiState = frame(view = GalaxyView.SYSTEM, at = relaySystem)
+
+
+// ── *Twice the Flight*: the two-hull picker, in the three states Design drew ─────────────────
+//
+// **The pool is one hauler and two idle skiffs throughout**, which is Design's own fixture — and it
+// is the smallest fleet in which the control exists at all: a second hull *type* is what creates a
+// berth, a clock and a cell, and one of each is what a control needs to be a control.
+//
+// **Held at Propulsion 1, which is the speed the design was drawn against.** It computed its figures
+// from `10 + u/10`, the curve 0.14 shipped, and 0.15 halved the base — so drive 1 is what makes
+// these frames the frames Design published rather than the same shape with every number doubled. It
+// is also an ordinary colony on day 21, which is the premise its own provenance note states.
+private val TWO_HULLS: GameState = frameState.copy(
+    ships = Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)),
+    research = frameState.research.withLevel(Technology.PROPULSION, TechLevel(1)),
+)
+
+// **a · the default, at the doorstep.** Six berths is the whole idle pool, because no manifest
+// empties a full vein inside 3h — so the stepper opens at the top of its range and the `+` dims.
+internal val dispatchPickerUiState: GalaxyUiState = sheet(state = TWO_HULLS)
+
+// **b · after the skiff cell is tapped.** The cell said two skiffs while the stepper said six, so
+// the clamp to two berths was printed before the tap — which is what makes it not a dead control.
+internal val dispatchPickerSkiffsUiState: GalaxyUiState = sheet(state = TWO_HULLS, ships = 2)
+
+// **the ladder narrowed by distance, 69 systems out.** 1h is already absent there for any hull, and
+// the hauler's 3h 36m round trip needs 6h — so 3h is drawn *locked*, at 42%, with `skiffs` under it.
+// That is the whole of Design's second ruling: absent means never, dim means not with these hulls.
+// Read off the seed rather than written down, exactly as `RUNNABLE` is: 69 systems out is Design's
+// distance, but *which slot there holds a world* is the generator's business and not this file's.
+private val FAR: GalaxyCoordinate = TWO_HULLS.let { state ->
+    val system = state.galaxy.home.system + 69
+    (1..GalaxyBalance.SLOTS_PER_SYSTEM)
+        .map { slot -> GalaxyCoordinate(galaxy = state.galaxy.home.galaxy, system = system, slot = slot) }
+        .first { at -> worldAt(state.galaxy.seed, at) != null }
+}
+
+private val FAR_SURVEYED: GameState = TWO_HULLS.copy(
+    galaxy = TWO_HULLS.galaxy.copy(surveyed = TWO_HULLS.galaxy.surveyed + FAR),
+)
+
+internal val dispatchPickerNarrowedUiState: GalaxyUiState = sheet(
+    state = FAR_SURVEYED,
+    target = FAR,
+    selection = SystemSelection(FAR.galaxy, FAR.system),
+    ships = 2,
+)
+
+// **the rung just went.** The player was on 3h with skiffs and took the hauler, so the rung it
+// cannot fly is gone from under their finger and the selection moved *up* to 6h — the only direction
+// available, since a window too short for a flight is too short for every shorter one. One line in
+// body weight says the hauler did it, and the dim 3h is the undo.
+internal val dispatchPickerMovedUiState: GalaxyUiState = sheet(
+    state = FAR_SURVEYED,
+    target = FAR,
+    selection = SystemSelection(FAR.galaxy, FAR.system),
+    ships = 6,
+    window = 3.hours,
+)

@@ -293,15 +293,21 @@ fun GameState.toDispatchUiState(
             }
         }
     }
+    // The shortest rung the slow clock fits, which is what the standing ladder note names.
+    val slowestFirstRung = manifests.lastOrNull { it.flightFactor > 1 }
+        ?.let { FleetBalance.windowsFor(home, target, research, it.ships).firstOrNull() }
     val ladderNote = when {
         rungMoved -> LadderNoteUiState(
             label = Strings.ladderRungMoved(flownWindow.rungLabel()),
             emphasised = true,
         )
-        offered.size < FleetBalance.WINDOWS.size && cells.isNotEmpty() -> LadderNoteUiState(
-            label = Strings.ladderShortestFit(offered.first().rungLabel()),
-            emphasised = false,
-        )
+        // **The note is about the *hauler*, whichever cell is selected.** It read `offered.first()` —
+        // the selected manifest's shortest rung — which is right only when the hauler happens to be
+        // the selection: with skiffs chosen at 69 systems out it said *"3h is the shortest window the
+        // hauler fits"* over a hauler whose shortest is 6h. The clock the sentence names is the clock
+        // it has to be computed from.
+        slowestFirstRung != null && cells.isNotEmpty() && slowestFirstRung != everReachable.firstOrNull() ->
+            LadderNoteUiState(label = Strings.ladderShortestFit(slowestFirstRung.rungLabel()), emphasised = false)
         else -> ladderNoteFor(offered = everReachable, roundTrip = flight * 2)
             ?.let { LadderNoteUiState(label = it, emphasised = false) }
     }

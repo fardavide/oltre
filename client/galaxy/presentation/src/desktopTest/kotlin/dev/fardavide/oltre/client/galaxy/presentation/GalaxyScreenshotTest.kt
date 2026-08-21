@@ -371,6 +371,46 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // ── *Twice the Flight*: the picker, in Design's own three states at both widths ──────────
+    //
+    // **Nothing is reduced at 320dp and nothing is invented**: the same four sections, the same
+    // strings, the same rungs. The hull cells hold two nineteen-character manifests at 320 because
+    // their padding is 5dp rather than the card's 11.
+    @Test
+    fun `the picker at the doorstep, with the hauler in the default`() {
+        captureSheet(width = 393, uiState = dispatchPickerUiState, name = "galaxy_picker")
+    }
+
+    @Test
+    fun `the picker at the doorstep in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerUiState, name = "galaxy_picker_slide_over")
+    }
+
+    @Test
+    fun `the picker after the skiff cell is tapped`() {
+        captureSheet(width = 393, uiState = dispatchPickerSkiffsUiState, name = "galaxy_picker_skiffs")
+    }
+
+    @Test
+    fun `the picker narrowed at sixty nine systems out, with a locked rung`() {
+        captureSheet(width = 393, uiState = dispatchPickerNarrowedUiState, name = "galaxy_picker_narrowed")
+    }
+
+    @Test
+    fun `the picker narrowed in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerNarrowedUiState, name = "galaxy_picker_narrowed_slide_over")
+    }
+
+    @Test
+    fun `the rung the hauler just took`() {
+        captureSheet(width = 393, uiState = dispatchPickerMovedUiState, name = "galaxy_picker_moved")
+    }
+
+    @Test
+    fun `the rung the hauler just took in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerMovedUiState, name = "galaxy_picker_moved_slide_over")
+    }
+
     @Test
     fun `a landed probe is a receipt`() {
         capture(width = 393, height = 1200, uiState = probeLandedUiState, name = "galaxy_probe_landed")
