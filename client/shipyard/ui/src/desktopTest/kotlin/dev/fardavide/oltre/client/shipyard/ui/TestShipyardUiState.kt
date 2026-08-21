@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 
@@ -32,11 +33,33 @@ private val HAULER = ComingHullUiState(
     purpose = Strings.haulerPurpose(),
 )
 
+// **The card a colony buys first, and the one these frames had no reason to draw until 0.15.** A
+// probe flies a `SCOUT` now and genesis grants no hull, so this is the first thing on the first
+// screen a new player has a reason to tap — which is why it leads rather than follows the skiff.
+//
+// Its numbers are the shipped ones rather than invented, unlike the skiff's beside it: 200 metal and
+// 50 crystal is a flat price, so there is no curve for a frame to stand at a point on. The pool is
+// stated per state, because "how many scouts, and how many are out surveying" is the reading the
+// card is *for*.
+private fun scoutCard(pool: TextRes, action: BuildActionUiState, yard: YardUiState? = null) = HullUiState(
+    type = ShipType.SCOUT,
+    name = Strings.scoutName(),
+    pool = pool,
+    purpose = Strings.scoutPurpose(),
+    costs = listOf(
+        CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(200), short = false),
+        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(50), short = false),
+    ),
+    action = action,
+    yard = yard,
+)
+
 // The first sitting: one granted skiff, idle, and 500 metal in the store — which buys the second at
 // 120 metal and 30 crystal. The frame Design drew for this slice, at one hull.
 internal val oneHullUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(1),
+    fleet = Strings.hullsInFleet(2),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -56,8 +79,9 @@ internal val oneHullUiState = ShipyardUiState(
 // A fleet at depth, five of it away, and the seventh hull priced where the curve has got to. This is
 // the frame Design published — `6 owned · 1 idle · 5 away`, 910 metal and 225 crystal.
 internal val sixHullsUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(6),
+    fleet = Strings.hullsInFleet(8),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(2), Strings.shipsIdle(1), Strings.shipsAway(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -78,8 +102,9 @@ internal val sixHullsUiState = ShipyardUiState(
 // this is where "cannot afford" is drawn, in the shipped idiom — the metal chip reddens and the verb
 // becomes a ghost carrying the wait.
 internal val cannotAffordUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(6),
+    fleet = Strings.hullsInFleet(7),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -124,8 +149,9 @@ internal val cannotAffordUiState = ShipyardUiState(
 internal val buildingUiState: ShipyardUiState = ShipyardUiState(
     // Two owned and three on the slipway: the heading counts the fleet that exists, and the pool
     // line is the only place the order is visible.
-    fleet = Strings.hullsInFleet(2),
+    fleet = Strings.hullsInFleet(3),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),

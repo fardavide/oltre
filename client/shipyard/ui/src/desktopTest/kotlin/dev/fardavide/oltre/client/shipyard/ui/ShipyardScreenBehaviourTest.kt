@@ -41,19 +41,27 @@ class ShipyardScreenBehaviourTest {
 
     @Test
     fun `the pool is on the card and the fleet is on the heading`() {
+        // **The heading counts every hull and a card counts its own type**, which is the whole of
+        // the split and only became observable at 0.15: until the scout there was one card, so "the
+        // pool" and "the fleet" were the same six. Eight now — six skiffs and two scouts — and the
+        // skiff's card still says six.
         shipyard(uiState = sixHullsUiState) {
             assertCardReads(ShipType.SKIFF, "6 owned · 1 idle · 5 away")
-            assertReads("6 hulls")
+            assertCardReads(ShipType.SCOUT, "2 owned · 1 idle · 1 away")
+            assertReads("8 hulls")
         }
     }
 
     @Test
     fun `at one hull the tab is a single card and a sentence`() {
         // The tab has to be honest about being small rather than dress one row up as a facility.
+        // Two cards since 0.15 — the scout is what a colony buys first — so the smallest the tab
+        // gets is two, and the sentence under them is unchanged.
         shipyard(uiState = oneHullUiState) {
+            assertShowsCard(ShipType.SCOUT)
             assertShowsCard(ShipType.SKIFF)
             assertCardReads(ShipType.SKIFF, "1 owned · 1 idle")
-            assertReads("1 hull")
+            assertReads("2 hulls")
         }
     }
 
