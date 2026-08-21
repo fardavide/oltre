@@ -13,6 +13,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import kotlin.time.Clock
+import kotlin.time.Instant
 import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.colony.ui.ColonyTestTags
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
@@ -158,6 +160,25 @@ internal class RecordingNotifications : NotificationScheduler {
     }
 }
 
+// The instant every launch in these tests happens at, and the reason it is a constant rather than
+// `Clock.System.now()`.
+//
+// A launch with no save mints its galaxy from the instant it happened, so reading the real clock
+// gave `app(saved = null)` a different map on every run — and a different map walks a different set
+// of branches in `GalaxyGeneration`. That is invisible in the assertions, which never mention a
+// world, and loud in the coverage report: behaviour branch coverage moved across the 66.85% rounding
+// line between runs of identical code, and the gate that compares it to `main` has no slack, so
+// pull requests failed over a number that was never about their diff.
+//
+// Any fixed instant would do. This one is the day the tests stopped depending on which one it was.
+internal val TEST_NOW: Instant = Instant.parse("2026-08-21T12:00:00Z")
+
+// Handwritten rather than a mocking framework, per the project's test-double convention — and there
+// is nothing to configure here beyond the one instant.
+private class FixedClock(private val at: Instant) : Clock {
+    override fun now(): Instant = at
+}
+
 @OptIn(ExperimentalTestApi::class)
 internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -184,6 +205,9 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.
                 shakeDetector = ShakeDetector { emptyFlow<Unit>() as Flow<Unit> },
+                // See `TEST_NOW`. The one seam that stops these tests depending on the second they
+                // happen to run in.
+                wallClock = FixedClock(TEST_NOW),
             )
         }
         waitForIdle()

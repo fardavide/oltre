@@ -192,3 +192,29 @@ Details that matter when it fires:
   own verification rules only know about absolute numbers.
 - The `protect-main` ruleset payload lists `Coverage` among the required contexts. Keep the
   committed payload and the applied ruleset in sync.
+
+## A test that reads the wall clock makes the gate a coin flip
+
+**No behaviour test may call `Clock.System.now()`.** `App` takes a `wallClock` and `AppRobot` hands
+it the fixed `TEST_NOW`; build every snapshot's `lastUpdatedAt` from that constant too, so a colony
+"aged by two days" is aged from a known instant rather than from whenever the suite happened to run.
+
+**What it costs when one does, measured 2026-08-21.** A launch with no save mints its galaxy from the
+instant it happened — `resume` derives the seed from `now`, deliberately, so a new colony gets a new
+map. `app(saved = null)` therefore generated a *different galaxy every run*, `homeFor` walked a
+different set of systems, and `GalaxyGeneration.kt` line 342 flipped between covered and missed.
+Behaviour branch coverage measured **66.826%, 66.849% and 66.894% on three runs of identical code** —
+straddling the 66.85% rounding line, so the table printed 66.8% or 66.9% at random. Against a ratchet
+with no slack, that fails roughly every other pull request for a reason no diff contains. Pinning the
+clock took two consecutive passes to **identical counters across all 494 classes**.
+
+**The tell is a red gate on a value the PR cannot explain**, especially a *branch* number moving while
+lines and test counts hold at `±0`. Before touching a threshold, run the category twice on one commit
+and diff the per-class counters out of `build/reports/kover/report.xml` — if they differ, the gate is
+not what is broken.
+
+**And the general rule the seams already encode:** everything `App` reaches outside itself is a
+parameter — store, preferences, translations, notifications, shake detector, tilt source, and now the
+clock — because *a behaviour test whose result depends on the machine or the moment it runs on is the
+one failure mode those seams exist to prevent*. The clock was the last hole in that, and it was the
+expensive one, because it failed as a statistic rather than as an assertion.
