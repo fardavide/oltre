@@ -35,9 +35,31 @@ number, no `GalaxyDistributionTest` band, no `verdictFor` case and no generation
 > | §2.1 danger multiplies | **SHIPPED** 0.7.2 | unchanged by the rate coming back down |
 > | §4 the rate | **SHIPPED** 0.7.2 at 60, swept 0.8.0, **60 stands** | §6.4 vetoed it; Davide overruled the veto |
 > | §9 Slice A — the Shipyard | **SHIPPED** 0.8.0 | `buildShips`, both tabs, hull count is a growth term at last |
-> | §9 Slice C — the drive | **NOT BUILT** | travel time is untouched; this is the whole of what is left |
+> | §9 Slice C — the drive | **SHIPPED 0.15.0** | speed only — see below; balance-log round 30 |
 > | §2.5 the screen says a `Blocked` world is gatherable | **NOT BUILT** | still the cheapest item here |
 > | §2.4 a fleet payoff for the ladders | open, recommended *no* | |
+>
+> ### Slice C shipped, and §2.3 was wrong by the time it did
+>
+> **The drive carries speed and not the hold.** Davide's call, 2026-08-21. §2.3's argument for
+> bundling them was *"it is the growth term the fleet has never had"* — and that premise **expired at
+> 0.10.0**, when `Technology.PROSPECTING` shipped and gave the fleet exactly that. Two rows
+> multiplying one term against the same ×1.5 cost curve is not a choice: the steeper one wins from
+> some level on and never loses again, so a ×1.25 drive would have turned Prospecting into a row a
+> player should never buy. Reach and yield instead, and neither can delete the other.
+>
+> Round 27's lesson, for the third time in this repository: *a constant derived from a rule carries
+> the rule's premise, and a later round can invalidate the premise without touching the constant.*
+> §2.3 is left standing as written above, because it is the argument the ruling answers.
+>
+> **The effect is linear where the sheet's `holdMultiplier` compounded**, and that follows from the
+> same split: `unitsPerMinute` is a *divisor* of a distance, so a compounding effect deletes the map
+> by level eight. `1 + level` is also what makes §2.2's calibration exact — drive 0 is half of
+> 0.14's speed, drive 1 is 0.14 to the minute.
+>
+> **§8's four open calls are all answered**, 2026-08-21: the name is `PROPULSION`; one row, carrying
+> speed alone; the frontier is **not** reachable at drive 0 (two galaxy hops leave the ladder empty);
+> and existing saves get **no** free level.
 >
 > **Both of the open calls that mattered are answered.** The Shipyard did go first, and it was right
 > to: every constant here is a per-hull rate, and a per-hull rate against a fleet of one is a single

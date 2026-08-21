@@ -129,6 +129,20 @@ internal class ResearchRobot(private val test: ComposeUiTest) {
         test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true).assertDoesNotExist()
     }
 
+    // **A row that has an action node but not the verb.** `assertOffersNothing` is for a *locked*
+    // row, which draws no action at all; a running row and a waiting row both draw one — a countdown,
+    // a ghost time — and what has to be true of them is that neither is the word a player can press.
+    //
+    // It reads rather than taps, deliberately. Tapping a row with no button on it lands on the card,
+    // which opens the sheet, and every tap after that is aimed at whatever the sheet put under the
+    // finger — so a test that "tapped every row and asserted nothing started" was asserting something
+    // about a modal it did not know was open.
+    fun assertDoesNotOfferResearch(technology: AdaptationTechnology) = apply {
+        scrollTo(ResearchTestTags.row(technology))
+        test.onNodeWithTag(ResearchTestTags.action(technology), useUnmergedTree = true)
+            .assert(hasText("Research").not())
+    }
+
     fun assertRowReads(technology: AdaptationTechnology, text: String) = apply {
         scrollTo(ResearchTestTags.row(technology))
         test.onNodeWithTag(ResearchTestTags.row(technology), useUnmergedTree = true)

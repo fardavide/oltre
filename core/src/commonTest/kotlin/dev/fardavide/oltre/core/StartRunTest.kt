@@ -128,7 +128,13 @@ class StartRunTest {
                 world = world,
                 gathering = ResourceKind.METAL,
                 ships = ships,
-                station = FleetBalance.stationFor(from = state.galaxy.home, to = target, window = threeHours),
+                station = FleetBalance.stationFor(
+                    from = state.galaxy.home,
+                    to = target,
+                    window = threeHours,
+                    research = state.research,
+                    ships = ships,
+                ),
                 danger = FleetBalance.danger(from = state.galaxy.home, world = world),
                 research = Research.initial(),
             ),
@@ -173,7 +179,7 @@ class StartRunTest {
         // ladder offers and the verb refuses would be a dead control by another route.
         val state = fleetOf(1)
         val target = neighbourOfHome(state)
-        val ladder = FleetBalance.windowsFor(state.galaxy.home, target)
+        val ladder = FleetBalance.windowsFor(state.galaxy.home, target, state.research, Ships.of(ShipType.SKIFF, 1))
         assertEquals(FleetBalance.WINDOWS, ladder, "a target in the home system offers every rung")
 
         for (rung in ladder) {
@@ -231,6 +237,57 @@ class StartRunTest {
             StartRunResult.NoSuchShips,
             startRun(once, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), threeHours, t0),
         )
+    }
+
+    // ── NotAGatheringHull ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a scout cannot be sent to gather`() {
+        // **The one rule a fifth `ShipType` costs.** `Ships` is a map and every other consumer of it
+        // assumes a hull is something you can dispatch on a run — the scout is the first that is not,
+        // and this is where that is said. It is refused although the colony owns it, which is why it
+        // cannot be `NoSuchShips`: the pool is not the problem, the hull is.
+        val state = GameState.initial().copy(ships = Ships.of(ShipType.SCOUT, 1))
+
+        assertEquals(
+            StartRunResult.NotAGatheringHull,
+            startRun(state, neighbourOfHome(state), ResourceKind.METAL, Ships.of(ShipType.SCOUT, 1), threeHours, t0),
+        )
+    }
+
+    @Test
+    fun `a manifest carrying one scout is refused whole`() {
+        // The same shape `buildShips` uses for a hull with no price: a mixed manifest is refused
+        // rather than quietly stripped, because a run that left the scout at home would be a fleet
+        // the player did not choose.
+        val state = GameState.initial().copy(ships = Ships(mapOf(ShipType.SKIFF to 2, ShipType.SCOUT to 1)))
+
+        assertEquals(
+            StartRunResult.NotAGatheringHull,
+            startRun(
+                state,
+                neighbourOfHome(state),
+                ResourceKind.METAL,
+                Ships(mapOf(ShipType.SKIFF to 1, ShipType.SCOUT to 1)),
+                threeHours,
+                t0,
+            ),
+        )
+    }
+
+    @Test
+    fun `owning a scout does not make a skiff run any richer`() {
+        // The trap a fifth hull opens: `cargo` sums `ships.total`, so a scout that reached a manifest
+        // would be paid as a berth. It cannot reach one — but the pool sitting beside the manifest
+        // must not reach it either.
+        val alone = fleetOf(1)
+        val alongside = alone.copy(ships = alone.ships + Ships.of(ShipType.SCOUT, 3))
+        val target = neighbourOfHome(alone)
+
+        val without = dispatch(alone, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1))
+        val with = dispatch(alongside, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1))
+
+        assertEquals(without.runs.single().cargo, with.runs.single().cargo)
     }
 
     // ── Unsurveyed ──────────────────────────────────────────────────────────────────────────
@@ -335,7 +392,12 @@ class StartRunTest {
         // given the boundary itself
         val state = fleetOf(1)
         val target = neighbourOfHome(state)
-        val exact = FleetBalance.roundTrip(state.galaxy.home, target) + FleetBalance.MINIMUM_STATION
+        val exact = FleetBalance.roundTrip(
+            state.galaxy.home,
+            target,
+            state.research,
+            Ships.of(ShipType.SKIFF, 1),
+        ) + FleetBalance.MINIMUM_STATION
 
         // then it is inclusive at the boundary and refuses one minute short of it
         assertIs<StartRunResult.Started>(

@@ -274,6 +274,40 @@ request.** A balancing session stays a balancing session.
 
 Note the asymmetry: cloud→local is a hand-off, local→design is a **round trip**.
 
+### "Waits" means waits, and it means no PR either — Davide, 2026-08-21
+
+*"Why did you open PR when you didn't have design ready??? This should never happen!"*
+
+The 0.15.0 session read *"it does not end there — it waits"* as a rule about **ending** and found a
+way round it: it built the two slices that needed no frame, wrote the design prompt, opened a PR for
+what it had, and flagged the missing picker in the body. Every individual step was defensible and
+the whole was the thing this rule exists to prevent.
+
+**So the rule is about the PR and not only about the session.** A local session blocked on Claude
+Design does not open a pull request for the half it could build. It commits, it pushes a branch if
+it likes, it emits the prompt — **and then it stops and waits.** One ticket, one round trip, one PR,
+one release.
+
+Three reasons it matters more here than it would elsewhere, and the third is the one that bites:
+
+- **A PR on this repo is a release.** Merging to `main` archives to TestFlight and cuts a GitHub
+  Release, so an open PR is a thing that can be merged by accident, and half a ticket cannot be
+  un-published.
+- **A flag in a PR body is not a gate.** The checks go green, the body reads like a summary, and the
+  one sentence saying *"the hauler is not on sale"* is the easiest line in it to skim past.
+- **It spends the review twice.** The picker will move the dispatch sheet, the window ladder and
+  `hullsToLift`, so the diff Davide would have read before the design is not the diff he has to read
+  after it — and the screenshot baselines get recorded twice for one slice.
+
+**What the session should have done:** built the same two slices, committed them on the branch,
+emitted the prompt, and waited. What it should do *now*, if it finds itself here anyway: convert the
+PR to draft immediately, because a draft cannot be merged, and that is the only part of the mistake
+that is reversible.
+
+**And the prompt goes to Davide, in the session, in a code block.** The same session also posted it
+as a comment on the ticket, which is a fine record and is not the delivery: he pastes it, so it has
+to be in front of him.
+
 A hand-off prompt names: the branch to work on, the docs to read first, what is in scope, what is
 explicitly out of scope, and what "done" means. Never a summary of the work — a specification of
 it. The prompt-writing rule from the Notion page applies: *a spec plus context, not a leash.*

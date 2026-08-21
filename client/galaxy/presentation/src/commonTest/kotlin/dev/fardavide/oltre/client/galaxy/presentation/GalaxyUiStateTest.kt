@@ -79,8 +79,10 @@ class GalaxyUiStateTest {
         //
         // **Which of the two the screen picks is `SystemHead`'s since #86**, so what is asserted here
         // is the reading it picks rather than the picking — see `astronomyFor`.
-        assertEquals("Your own system · danger 0 · 20–26m out and back", English.resolve(home))
-        assertEquals("945 units out · danger 2 · 3h 28m out and back", English.resolve(away))
+        // Drive 0 figures since 0.15 — the honest price for a colony that has researched nothing,
+        // and the first Propulsion level takes each of them back to what 0.14 printed here.
+        assertEquals("Your own system · danger 0 · 22–32m out and back", English.resolve(home))
+        assertEquals("945 units out · danger 2 · 6h 38m out and back", English.resolve(away))
         assertTrue('–' !in English.resolve(away), "only home spreads the trip across its slots: $away")
     }
 
@@ -318,7 +320,7 @@ class GalaxyUiStateTest {
         val inLedger = state.ledgerRows().first { it.coordinate == inSystem.coordinate }
 
         assertNull(inSystem.trailing)
-        assertEquals("26m", English.resolve(checkNotNull(inLedger.trailing)))
+        assertEquals("32m", English.resolve(checkNotNull(inLedger.trailing)))
     }
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────

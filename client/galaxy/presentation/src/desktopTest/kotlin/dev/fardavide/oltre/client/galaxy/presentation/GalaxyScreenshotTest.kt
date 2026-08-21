@@ -348,6 +348,74 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // **The state every colony opens on, since a probe needs a hull.** Genesis grants none, so this
+    // is the first thing the tab says about surveying — and the frame that would catch the metal chip
+    // reddening for a shortage that is not metal.
+    @Test
+    fun `a colony with no scout is told what it needs rather than when`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = probeNeedsScoutUiState,
+            name = "galaxy_probe_needs_scout",
+        )
+    }
+
+    @Test
+    fun `a scout on its way home turns the refusal into a countdown`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = probeScoutComingHomeUiState,
+            name = "galaxy_probe_scout_coming_home",
+        )
+    }
+
+    // ── *Twice the Flight*: the picker, in Design's own three states at both widths ──────────
+    //
+    // **Nothing is reduced at 320dp and nothing is invented**: the same four sections, the same
+    // strings, the same rungs. The hull cells hold two nineteen-character manifests at 320 because
+    // their padding is 5dp rather than the card's 11.
+    @Test
+    fun `the picker at the doorstep, with the hauler in the default`() {
+        captureSheet(width = 393, uiState = dispatchPickerUiState, name = "galaxy_picker")
+    }
+
+    @Test
+    fun `the picker at the doorstep in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerUiState, name = "galaxy_picker_slide_over")
+    }
+
+    @Test
+    fun `the picker after the skiff cell is tapped`() {
+        captureSheet(width = 393, uiState = dispatchPickerSkiffsUiState, name = "galaxy_picker_skiffs")
+    }
+
+    @Test
+    fun `the picker narrowed at sixty nine systems out, with a locked rung`() {
+        captureSheet(width = 393, uiState = dispatchPickerNarrowedUiState, name = "galaxy_picker_narrowed")
+    }
+
+    @Test
+    fun `the picker narrowed in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerNarrowedUiState, name = "galaxy_picker_narrowed_slide_over")
+    }
+
+    @Test
+    fun `the rung the hauler just took`() {
+        captureSheet(width = 393, uiState = dispatchPickerMovedUiState, name = "galaxy_picker_moved")
+    }
+
+    @Test
+    fun `the rung the hauler just took in a Slide Over window`() {
+        captureSheet(width = 320, uiState = dispatchPickerMovedUiState, name = "galaxy_picker_moved_slide_over")
+    }
+
+    @Test
+    fun `the picker on a part-worked vein the hauler alone empties`() {
+        captureSheet(width = 393, uiState = dispatchPickerClampedUiState, name = "galaxy_picker_clamped")
+    }
+
     @Test
     fun `a landed probe is a receipt`() {
         capture(width = 393, height = 1200, uiState = probeLandedUiState, name = "galaxy_probe_landed")

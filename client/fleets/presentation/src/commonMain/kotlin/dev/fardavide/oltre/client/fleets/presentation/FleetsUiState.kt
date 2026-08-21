@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.ownedShips
@@ -48,8 +49,10 @@ fun GameState.toFleetsUiState(
         // key, and a list whose order depended on the sequence of taps that produced it is one a
         // reloaded save reproduces only by accident.
         runs = runs
-            .sortedWith(compareBy({ it.nextEventAt(galaxy.home, now) }, { it.dispatchedAt }, { it.target.slot }))
-            .map { it.toCard(home = galaxy.home, now = now, timeZone = timeZone) },
+            .sortedWith(
+                compareBy({ it.nextEventAt(galaxy.home, now, research) }, { it.dispatchedAt }, { it.target.slot }),
+            )
+            .map { it.toCard(home = galaxy.home, now = now, timeZone = timeZone, research = research) },
         worked = toWorkedListUiState(now = now, since = since, timeZone = timeZone),
         // **No probe offer, and null is the honest answer rather than a shortcut.** A world a fleet
         // has already been sent to was surveyed in order to be dispatched to, and `surveyed` is
@@ -58,12 +61,17 @@ fun GameState.toFleetsUiState(
     )
 }
 
-private fun FleetRun.toCard(home: GalaxyCoordinate, now: Instant, timeZone: TimeZone): RunCardUiState {
-    val flight = FleetBalance.flight(from = home, to = target)
+private fun FleetRun.toCard(
+    home: GalaxyCoordinate,
+    now: Instant,
+    timeZone: TimeZone,
+    research: Research,
+): RunCardUiState {
+    val flight = FleetBalance.flight(from = home, to = target, research = research, ships = ships)
     val station = returnsAt - dispatchedAt - flight * 2
-    val onStationAt = flightEndsAt(home)
-    val inboundAt = inboundBeginsAt(home)
-    val at = nextEventAt(home, now)
+    val onStationAt = flightEndsAt(home, research)
+    val inboundAt = inboundBeginsAt(home, research)
+    val at = nextEventAt(home, now, research)
     val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val landsLocal = returnsAt.toLocalDateTime(timeZone)
     val composition = ShipType.entries
@@ -115,8 +123,8 @@ private fun fractionOf(from: Instant, to: Instant, at: Instant): Float {
 // Whichever of a run's two moments has not happened yet — the same derivation the Colony strip
 // makes, and it is duplicated rather than shared for the reason two `presentation` modules cannot
 // see each other. That is rule 5, and what it costs here is six lines.
-private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant {
-    val onStation = flightEndsAt(home)
+private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant, research: Research): Instant {
+    val onStation = flightEndsAt(home, research)
     return if (now < onStation) onStation else returnsAt
 }
 

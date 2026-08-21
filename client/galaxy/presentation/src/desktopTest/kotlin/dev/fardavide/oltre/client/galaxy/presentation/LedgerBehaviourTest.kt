@@ -380,7 +380,13 @@ class LedgerBehaviourTest {
                 .filter { (_, name) -> names.count { name in it } == 1 }
         }
 
-        fun GameState.tripTo(at: GalaxyCoordinate) = FleetBalance.roundTrip(from = galaxy.home, to = at)
+        fun GameState.tripTo(at: GalaxyCoordinate) =
+            FleetBalance.roundTrip(
+                from = galaxy.home,
+                to = at,
+                research = research,
+                ships = FleetBalance.FASTEST_HULL,
+            )
 
         // Nearest first, so the probe in the discovery fixtures is a flight a player would really
         // buy. Exactly one world, because a landing on a system holding several degrades the card to

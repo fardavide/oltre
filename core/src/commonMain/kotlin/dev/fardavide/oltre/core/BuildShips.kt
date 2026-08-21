@@ -52,7 +52,7 @@ sealed interface BuildShipsResult {
 // re-sync.
 fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
     if (ships.isEmpty) return BuildShipsResult.NothingToBuild
-    if (ships.counts.keys.any { it !in FOR_SALE }) return BuildShipsResult.NotForSale
+    if (ships.counts.keys.any { it !in FleetBalance.FOR_SALE }) return BuildShipsResult.NotForSale
     val cost = state.priceOf(ships)
     if (!state.resources.covers(cost)) return BuildShipsResult.InsufficientResources
     return BuildShipsResult.Started(
@@ -74,7 +74,12 @@ fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
 // the slipway — existed for one job, *"without the yard term a queue would be a way round the
 // compounding price"*, and 0.10.1 deleted the compounding price, so it was deleted with it. Nothing is
 // priced against a fleet any more; see `FleetBalance.shipCost`.
-fun GameState.ownedShips(): Ships = runs.fold(ships) { total, run -> total + run.ships }
+//
+// **Probes count too, since a probe flies a scout.** A hull out on a survey is out in exactly the
+// sense a hull out on a run is, so leaving it out of this fold would make a colony's fleet appear to
+// shrink every time it looked at the map.
+fun GameState.ownedShips(): Ships =
+    surveys.fold(runs.fold(ships) { total, run -> total + run.ships }) { total, _ -> total + SurveyBalance.SHIPS }
 
 // When the slipway is next empty: the tail of the queue, or now if there is no queue. `maxOf` rather
 // than the tail outright, because a state carried forward from a stale span can hold a job whose
@@ -141,8 +146,3 @@ private fun laidDown(ships: Ships, buildings: Buildings, from: Instant): List<Ya
     }
     return jobs
 }
-
-// The hulls a slice has actually given a job to. A set rather than a `when` inside the loop, so the
-// day the Hauler ships this file changes in one place and `FleetBalance.shipCost` in the other —
-// and until then the two agree about which of the four constants is a product.
-private val FOR_SALE: Set<ShipType> = setOf(ShipType.SKIFF)

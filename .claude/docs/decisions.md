@@ -3723,3 +3723,193 @@ a value to its unit so a wrapping line never leaves "atm" alone on one — and a
 ordinary space. Only the Galaxy screen's `NBSP` constant held the real character, and nothing
 referenced it. `English.UNIT_GAP` reproduces the space deliberately: changing it changes what four
 screens render, which is Davide's call and a two-character diff once he has made it.
+
+---
+
+## The drive buys reach and never the hold (2026-08-21, 0.15.0, issue #71)
+
+`exploration-rewards-sheet.md` §2.3 specified one technology carrying **speed and hold together**,
+and argued it in one sentence: *"it is the growth term the fleet has never had."* That sentence was
+true when the sheet was written on 2026-08-12 and false by the time anybody built it.
+
+**`Technology.PROSPECTING` shipped at 0.10.0 and is a hold multiplier.** So the sheet's premise had
+expired, and the consequence is not cosmetic: two rows multiplying one term against the same ×1.5
+cost curve is not a choice a player gets to make. At ×1.25 against Prospecting's ×1.10 the drive wins
+from some level on and never loses again, which turns the older row into a trap — a thing on the
+Research screen that is always wrong to buy and says nothing about being so.
+
+**Davide's call: speed only.** The drive is reach, Prospecting is yield, and neither can delete the
+other. §6.5's merge condition — *"a drive level must not be strictly better than both on arrival"* —
+is met by measurement rather than by argument: at the adjacent galaxy a drive level is worth 2,182
+metal against Prospecting's 927, and next door the drive is worth **nothing at all** while
+Prospecting is worth the same everywhere.
+
+**This is round 27's lesson for the third time in this repository**, and it is worth naming as a
+pattern rather than as an incident: *a constant derived from a rule carries the rule's premise, and a
+later round can invalidate the premise without touching the constant.* Round 27 found it in the
+deposit cap, #83 found it in the probe's flat 150 metal, and it is here in a decision sheet's §2.3.
+**A sheet is not a plan that stays true.** The check that catches it is cheap and was not run twice:
+before implementing a section, re-read what it assumes and ask which of those things shipped since.
+
+### The effect is linear, and that follows from the split rather than softening it
+
+Every other row in the branch compounds, because each multiplies a **rate** — a stock's derivative,
+against an exponential cost, where a linear effect is dead by level 4. `PROPULSION` divides a
+**distance**: `unitsPerMinute` is the denominator of a flight, so 1.25 a level puts another galaxy
+inside twenty minutes by level eight and deletes the map rather than opening it.
+
+`1 + level` is also the calibration, which is the part to keep hold of. It makes level 1 exactly
+double the base, so `UNITS_PER_MINUTE_BASE` can be **half** what 0.14 flew at and drive 1 lands on
+0.14 to the minute. The first level does not make a player faster than they have ever been — it gives
+back the game they had. That is what makes the technology read as an *unlock* rather than as a bonus,
+and it is why the constant is 5 and not 4 or 6.
+
+### The frontier is not reachable at drive 0, and that is the answer to §8.5
+
+Two galaxy hops is 36h 20m out and back at drive 0, past the longest window there is, so `windowsFor`
+returns an **empty list** and the far end of the map cannot be ordered at all. The sheet raised this
+as an open call and worried that *"a new player's map is honestly smaller than it looks."* It is, and
+that is the point: the ladder narrowing and then widening again is the whole teaching device, and it
+needs no copy — a rung reappears on a world the player already knows.
+
+Existing saves get **no free level** (Davide's call). A colony mid-play wakes to a fleet at half the
+speed it had and meets the slice at a research row, which is *"navigating distance takes way more
+time, without powered up ships"* delivered where it was asked for. Schema 13 writes the truthful zero;
+the 7 → 8 hop's granted skiff stays the one gift in that table.
+
+---
+
+## A probe flies a hull, and the hull is a fifth ship type (2026-08-21, 0.15.0, issues #71 and #83)
+
+Davide, 2026-08-16, having played 0.12.2: *"Surveying other systems seems way too easy. A small bunch
+of metal, a few minutes of waiting, and you can even survey 10 systems from another galaxy for 1500
+metal in total, in less than one hour. Exploring the world must feel rewarding, not just a tap
+away."*
+
+**The price was never what made it a tap, and this is the finding worth keeping.** `startSurvey`
+capped nothing but one-probe-per-target: probes ran in parallel with each other and with everything
+else, limited by metal alone, so ten dispatched in one check-in **all landed together** and the
+marginal wall-clock cost of the tenth was zero. No value of `COST_METAL` changes that. A finite pool
+of hulls does — the tenth probe waits for the first to come home — which is why the answer is a
+*noun* and not a number.
+
+### `SCOUT` is a `ShipType`, and it is the first one that is not a fleet asset
+
+It carries no cargo, cannot be escorted and has exactly one verb, so every other consumer of that
+enum — all of which assume a hull is something you dispatch on a gathering run — is wrong about it.
+The alternative was a concept beside `Ships`: a second pool, a second price path, a second yard and a
+second save field, to say one word. **Davide's call: a fifth `ShipType`.** It reuses the Shipyard, the
+queue, the price, the idle pool and the save format for nothing, and what it costs is one guard —
+`StartRunResult.NotAGatheringHull` — placed where the assumption actually lives.
+
+That guard is a **whitelist and not `!= SCOUT`**, deliberately. The escort and the settler are coming
+and exactly one of them will have a hold; a blacklist would send the other two gathering on the day
+their constants land, silently and with a plausible number behind it.
+
+### Spent for the flight, not consumed by it
+
+`advance` hands the scout back at the landing, exactly as a run's hulls come home. So what surveying
+costs is a hull's **absence**, and the scarcity is the wall clock rather than attrition — one scout
+surveys the galaxy given time. Consumption was the alternative and it makes the yard a permanent tax
+on exploration, which is the opposite of a verb whose job is to exist at hour zero.
+
+### 200 metal / 50 crystal is an *opening* constant
+
+A colony owns no hulls since 0.11.3, so this is the first thing it buys, and #83 flagged the danger
+in as many words: a fleet-second player who cannot afford a hull would have had **no exploration of
+any kind for two days**, on the tab 0.12.0 had just made the landing screen. 200 for the hull plus
+150 for the flight, against a genesis stock of 500 metal, is what keeps that from happening — and
+`StartSurveyTest` pins it as arithmetic rather than as a hope.
+
+**It is a fifth type against Notion's "4 ship types", and that objection is withdrawn rather than
+overlooked** — Davide, 2026-08-16: *"Notion stuff is now very ancient."*
+
+### The footer says so before the tap
+
+The Galaxy tab's probe footer reuses its `Unaffordable` treatment rather than earning a seventh
+state: that shape is already *"here is the offer, here is why you cannot take it, and there is no
+verb."* What differs is the **note**, and it differs in the way that matters — every other
+unaffordable state in this game is answered by standing still, and this one is answered at the
+Shipyard. So a scout genuinely on its way home gets a countdown, and no scout at all gets *"needs a
+scout"*, because a countdown to nothing is a lie however well it renders.
+
+---
+
+## Twice the Flight: one stepper on berths, and a rung that dims rather than vanishes (2026-08-21, 0.15.0, issue #71)
+
+Claude Design's round trip for slice 4's manifest picker, which `fleet-sheet.md` §10 had flagged as
+an open frame since the slice was written. Its three rulings, and what each is actually for.
+
+### The fact the shape rests on
+
+**A manifest has one clock, and the slowest hull sets it.** A hauler's flight is `20 + 2u/U` against
+a skiff's `10 + u/U`, so with two hull types there are only ever *two* answers however many hulls go.
+That is what makes the picker one stepper and a two-cell row rather than two steppers: **the stepper
+says how much hold, the cells say which clock carries it**, and both move one cursor along one
+ordered list of reachable manifests.
+
+Two steppers was the obvious shape and Design rejected it on two grounds worth keeping: it puts the
+packing arithmetic on the player, and it invites the strictly-dominated manifest — a hauler with one
+skiff flies at the hauler's clock and lifts less than a hauler with two.
+
+**The design says "exactly double" and its own frames say 2.1× at the doorstep**, because the flat
+base term doubles while the distance rounds away. Nothing turns on it; the shape needs *one* clock,
+not a particular ratio. Pinned as a test so the next reader meets the frame rather than the sentence.
+
+**Its figures are drive-1 figures.** It was drawn against the curve 0.14 shipped and 0.15 halves base
+speed. The shape is untouched — the drive scales the distance term, the hull factor scales the whole
+flight, so a level is worth the same *share* of a trip to either hull — and the picker's frames are
+held at Propulsion 1 so they are the frames Design published rather than the same shape doubled.
+
+### Absent means never; dim means not with these hulls
+
+The shipped ladder teaches distance by absence, **and that lesson only survives if absence keeps one
+cause.** So the two causes get two renderings, and the difference between them is exactly whether the
+player can do anything about it: a rung no manifest can fly is not drawn, and a rung *this* manifest
+cannot fly is drawn at 42% with the hull that would fly it underneath.
+
+**It is not a disabled control — this app has none — it is the undo.** One tap takes the hauler out
+and selects the rung. The alternative, refusing the tap or silently dropping the hauler back out,
+makes the control the player just touched the one that did nothing.
+
+Up is the only direction when a mix removes the selected rung, and that is arithmetic rather than a
+preference: legality is monotone, so a window too short for a flight is too short for every shorter
+window. **Body weight is the whole announcement** — no animation, no toast, no highlight, because the
+app has none of those and a moved selection does not earn the first.
+
+### The default is a berth count, not a hull count
+
+The fewest berths that empty the vein at the rung already selected, packed hauler-first, with one
+constraint binding it: **it may never lock the rung it is defaulting to.** Expressed by filtering the
+candidates to the manifests that fly that rung rather than by re-checking afterwards.
+
+What it gives up, in Design's own words: *"the default will put the hauler in the manifest on the
+first open and take the short rungs with it."* Both costs are paid for by the rung being dimmed
+rather than gone — which makes the default's cost visible and one tap away.
+
+### What the round cost, and it is the finding
+
+**Four dead controls in one release, all the same shape**: `core` grew a requirement and everything
+deriving *"can I?"* from the old inputs went on saying yes. The Shipyard sold no scout; the map's
+caption offered a probe with no hull; `:sim:run` stopped surveying and reported plausible numbers;
+and both screens rebuilt the dispatch manifest as `Ships.of(SKIFF, count)` from a number that had
+become a *berth* count — six berths is not six skiffs, so `startRun` would have refused a fleet the
+colony does not own while the button appeared to do nothing.
+
+**The verb refuses correctly in every one of them**, which is why nothing crashed and nothing was
+caught. Three were found by reading a screenshot or a report; none by a failing test. The guard that
+now exists for the first is a test holding the Shipyard's card list against `FleetBalance.FOR_SALE`;
+the guard for the last is that the offer carries its manifest rather than a number a screen
+re-interprets.
+
+### Raised by Design, not decided
+
+- **Two clocks in one header.** The system header's astronomy line quotes one round trip and there
+  are now two. Design's cheapest fix is to drop the reach from the header, since the sheet one tap
+  away prints both. Left alone; every such reading now names `FleetBalance.FASTEST_HULL` explicitly,
+  so the day it is decided they are one grep.
+- **A run card needs a mixed manifest.** `RunCard` prints `3 skiffs`; it will need `1 hauler · 2
+  skiffs`, nineteen characters into a slot sharing a line with a coordinate and a countdown.
+- **One number to check before this ships.** Design measures the hauler as worth 630 metal at exactly
+  one rung on a doorstep world and nothing at four of the five. If `:sim:run` agrees, the hull pays
+  only on deep veins far out, and the Shipyard's copy is where that has to be said.

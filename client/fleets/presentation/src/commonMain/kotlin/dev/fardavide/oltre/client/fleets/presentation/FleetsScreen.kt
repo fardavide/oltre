@@ -74,7 +74,7 @@ fun FleetsScreen(
             // the player was actually shown — see `GalaxyScreen`, where the same three lines guard
             // the same mistake.
             (uiState.dispatch as? DispatchUiState.Offer)?.let { offer ->
-                onDispatchRun(offer.at, offer.gathering, Ships.of(ShipType.SKIFF, offer.shipCount), offer.window)
+                onDispatchRun(offer.at, offer.gathering, offer.manifest, offer.window)
                 // The state after the tap is its own receipt — a card appears in In flight above and
                 // the run count on the row goes up — so the sheet has nothing left to say.
                 open = null

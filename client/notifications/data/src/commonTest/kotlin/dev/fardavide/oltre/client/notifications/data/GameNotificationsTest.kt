@@ -954,6 +954,7 @@ class GameNotificationsTest {
             Technology.EXTRACTION to "Extraction",
             Technology.ENRICHMENT to "Enrichment",
             Technology.PROSPECTING to "Prospecting",
+            Technology.PROPULSION to "Propulsion",
         )
         assertEquals(Technology.entries.toSet(), expected.keys, "a technology was added without a name")
 
@@ -1108,7 +1109,12 @@ class GameNotificationsTest {
     // More probes in flight than the platform will hold. Dispatched outward, so their landings are
     // ordered by distance and a test can name which end a cap is expected to keep.
     private fun swarming(probes: Int): GameState {
-        var state = wealthy()
+        // **A hull per probe, stated here rather than in the shared fixture.** Since 0.15 the pool is
+        // what bounds simultaneous probes — which is the whole point of the change — so a swarm has
+        // to buy its own scarcity out. Keeping it local also keeps the number honest: this helper is
+        // the only thing in the file that wants ninety hulls, and a shared fixture carrying ninety
+        // would quietly make every other test here a test of an implausible colony.
+        var state = wealthy().let { it.copy(ships = it.ships + Ships.of(ShipType.SCOUT, probes)) }
         var away = 1
         while (state.surveys.size < probes) {
             check(away <= GalaxyBalance.SYSTEMS_PER_GALAXY) { "ran out of map before reaching $probes probes" }
@@ -1168,7 +1174,11 @@ class GameNotificationsTest {
 
     // `GameState.initial` takes a galaxy seed rather than defaulting one, so production cannot found
     // every colony in the same galaxy. Alerts do not care which map they are scheduled over.
-    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
+    // **Scouts in the pool, because a probe flies a hull since 0.15.** A fixture with an empty pool
+    // cannot dispatch a survey at all, so every probe-landing assertion in this file would be
+    // measuring a refusal. Eight, which is more than any single test here sends.
+    private fun freshState(): GameState =
+        GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SCOUT, 8))
 
     // A run out to one world and home again. `instant` is the landing — the only end an alert is
     // about — and the dispatch is an hour before it because `FleetRun` insists a run returns after

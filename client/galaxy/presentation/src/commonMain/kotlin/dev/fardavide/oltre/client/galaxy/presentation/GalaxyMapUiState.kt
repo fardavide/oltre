@@ -198,6 +198,8 @@ private fun GameState.trailingFor(
     val trip = FleetBalance.roundTrip(
         from = galaxy.home,
         to = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = 1),
+        research = research,
+        ships = FleetBalance.FASTEST_HULL,
     )
     return when {
         // A system with nothing in it is the one case where neither verb applies, and saying so is
@@ -210,7 +212,16 @@ private fun GameState.trailingFor(
         // has nothing left to aim — a run is chosen per world on the orbit page — so it quotes the
         // clock and the caption's own tap takes you there.
         known -> MapCaptionTrailingUiState.Note(Strings.reachSingle(trip.toChipLabel()))
-        !resources.covers(SurveyBalance.cost()) -> MapCaptionTrailingUiState.Note(
+        // **The hull as well as the money, since 0.15**, and the omission was a live defect for
+        // exactly as long as it existed: a probe flies a `SCOUT`, so a caption that read the stores
+        // alone offered a verb `startSurvey` would refuse — and a colony owns no hulls at genesis, so
+        // the *first* thing a new player could tap was the dead one.
+        //
+        // It falls back to the same `Note` a shortage of metal produces rather than earning a state
+        // of its own. The map's caption is one line in a corner: it has room to say what a trip
+        // costs or to offer it, and never room to say why it is not offering. The orbit page's
+        // footer is where the reason lives, and the caption's own tap is what takes you there.
+        !canSendAProbe() -> MapCaptionTrailingUiState.Note(
             Strings.probeFlight(
                 SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel(),
             ),
@@ -222,6 +233,12 @@ private fun GameState.trailingFor(
         )
     }
 }
+
+// Both halves of what a probe costs — the metal and the hull — asked as one question, because the
+// caption has one answer either way. `startSurvey` checks the hull *before* the metal, and this does
+// not have to agree about the order: it only has to agree about whether the verb would be refused.
+private fun GameState.canSendAProbe(): Boolean =
+    ships.covers(SurveyBalance.SHIPS) && resources.covers(SurveyBalance.cost())
 
 // **What four discs can mean today is one thing, and it is real: what it costs to get there.** The
 // four are not equidistant — two neighbours at a 9h 20m round trip and one far corner at 18h 20m,
@@ -281,6 +298,8 @@ internal fun GameState.toUniverseCaptionUiState(at: SystemSelection): MapCaption
 private fun GameState.galaxyHopFrom(galaxyIndex: Int) = FleetBalance.roundTrip(
     from = galaxy.home,
     to = GalaxyCoordinate(galaxy = galaxyIndex, system = galaxy.home.system, slot = galaxy.home.slot),
+    research = research,
+    ships = FleetBalance.FASTEST_HULL,
 )
 
 private fun GameState.probeHopTo(galaxyIndex: Int) = SurveyBalance.duration(

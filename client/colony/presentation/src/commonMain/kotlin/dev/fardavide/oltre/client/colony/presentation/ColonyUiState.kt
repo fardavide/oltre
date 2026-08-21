@@ -80,7 +80,7 @@ fun GameState.toColonyUiState(
             finishedWhileAway = it == finishedWhileAway,
         )
     },
-    returningFleet = runs.toStrip(home = galaxy.home, now = now),
+    returningFleet = runs.toStrip(home = galaxy.home, now = now, research = research),
     watching = watching,
 )
 
@@ -132,9 +132,13 @@ private fun EnergyBalance.verdict(headroomLevels: Long): TextRes = when {
 // reason `advance` sorts its arrivals on an intrinsic key instead of on list order. And it is sorted
 // by *event* rather than by return, which is not the same ordering: a run dispatched far away can
 // land on station after a nearer one has already started home.
-private fun List<FleetRun>.toStrip(home: GalaxyCoordinate, now: Instant): ReturningFleetUiState? {
-    val next = minByOrNull { it.nextEventAt(home, now) } ?: return null
-    val at = next.nextEventAt(home, now)
+private fun List<FleetRun>.toStrip(
+    home: GalaxyCoordinate,
+    now: Instant,
+    research: Research,
+): ReturningFleetUiState? {
+    val next = minByOrNull { it.nextEventAt(home, now, research) } ?: return null
+    val at = next.nextEventAt(home, now, research)
     val remainingMs = (at.toEpochMilliseconds() - now.toEpochMilliseconds()).coerceAtLeast(0)
     val composition = ShipType.entries
         .mapNotNull { type -> next.ships.counts[type]?.let { count -> Strings.shipsOfType(count, type) } }
@@ -155,8 +159,8 @@ private fun List<FleetRun>.toStrip(home: GalaxyCoordinate, now: Instant): Return
 // Whichever of a run's two moments has not happened yet. Derived from the one instant `core` stores
 // per end rather than from a third field — see `FleetRun.flightEndsAt`, which exists for exactly this
 // and is read by nothing in `advance`, because a run has one transition and it is the return.
-private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant): Instant {
-    val onStation = flightEndsAt(home)
+private fun FleetRun.nextEventAt(home: GalaxyCoordinate, now: Instant, research: Research): Instant {
+    val onStation = flightEndsAt(home, research)
     return if (now < onStation) onStation else returnsAt
 }
 
@@ -302,10 +306,12 @@ private fun LevelPurpose.toVerdict(
             compactLabel = saved,
         )
     }
-    // Two the colony screen cannot reach, kept as branches rather than folded into an `else` so a
-    // seventh purpose still has to answer here. `Haul` is a technology's answer and this screen
-    // prices facilities; `Unmeasured` is a ceiling, where the row has no upgrade to offer either.
+    // Three the colony screen cannot reach, kept as branches rather than folded into an `else` so an
+    // eighth purpose still has to answer here. `Haul` and `Reach` are technologies' answers — what a
+    // hull lifts and how far it flies — and this screen prices facilities; `Unmeasured` is a ceiling,
+    // where the row has no upgrade to offer either.
     is LevelPurpose.Haul,
+    is LevelPurpose.Reach,
     LevelPurpose.Unmeasured,
     -> null
 }
@@ -355,6 +361,7 @@ private fun LevelPurpose.toLines(
     is LevelPurpose.Throttled -> throttledLines()
     is LevelPurpose.Sooner -> factoryLines(building, level)
     is LevelPurpose.Haul,
+    is LevelPurpose.Reach,
     LevelPurpose.Unmeasured,
     -> emptyList()
 }

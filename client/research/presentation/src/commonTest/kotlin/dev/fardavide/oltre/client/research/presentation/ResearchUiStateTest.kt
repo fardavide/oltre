@@ -67,7 +67,7 @@ import kotlinx.datetime.toLocalDateTime
 class ResearchUiStateTest {
 
     @Test
-    fun `the branch is four rows in a fixed order`() {
+    fun `the branch is five rows in a fixed order`() {
         // given
         val uiState = freshState().toResearchUiState(now = EPOCH, timeZone = TimeZone.UTC)
 
@@ -78,11 +78,12 @@ class ResearchUiStateTest {
                 Technology.EXTRACTION,
                 Technology.ENRICHMENT,
                 Technology.PROSPECTING,
+                Technology.PROPULSION,
             ),
             uiState.technologies.map { it.technology },
         )
         assertEquals(
-            listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting"),
+            listOf("Photovoltaics", "Extraction", "Enrichment", "Prospecting", "Propulsion"),
             uiState.technologies.map { English.resolve(it.name) },
         )
     }
@@ -1193,9 +1194,14 @@ class ResearchUiStateTest {
 
         // then - the level already held is on the ladder too; it is how you learn that gating is a
         // thing this technology does at all
+        //
+        // **Level 1 summarises rather than names, since 0.15**, and that is the ladder's own rule
+        // arriving rather than a new one: Extraction 1 opens Prospecting *and* Propulsion, and a step
+        // that named one of two would be wrong about the other. Level 3 still opens exactly one row
+        // and still names it.
         assertEquals(
             listOf(
-                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.PROSPECTING)), held = true),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.ladderStepHeld(Strings.gateSummaryResearchLong()), held = true),
                 SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.ladderStepHeld(Strings.technologyName(Technology.ENRICHMENT)), held = true),
             ),
             row.sheet.ladder,
@@ -1210,7 +1216,7 @@ class ResearchUiStateTest {
         // then
         assertEquals(
             listOf(
-                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.technologyName(Technology.PROSPECTING), held = false),
+                SheetLadderStep(level = Strings.levelBadge(1), opens = Strings.gateSummaryResearchLong(), held = false),
                 SheetLadderStep(level = Strings.levelBadge(3), opens = Strings.technologyName(Technology.ENRICHMENT), held = false),
             ),
             row.sheet.ladder,
@@ -1279,6 +1285,90 @@ class ResearchUiStateTest {
                     figure(Strings.plainNumber(expected.worthTaking)),
                     words(Strings.sheetReachesSuffix()),
                 ),
+            ),
+            row.sheet.lines,
+        )
+    }
+
+    // ── The two rows measured away from home ────────────────────────────────────────────────
+
+    // Both fleet rows sit behind Extraction 1, and a *locked* row's sheet is its requirement rather
+    // than its purpose — so a fixture that only opened the Robotics gate would test the lock and
+    // call it the sheet.
+    private fun withTheFleetBranchOpen(): GameState = colony(
+        buildings = gated(),
+        research = Research.initial().withLevel(Technology.EXTRACTION, TechLevel(1)),
+    )
+
+    @Test
+    fun `the drive's sheet quotes a round trip rather than a rate`() {
+        // **The only sheet on this screen that talks about a clock.** Every other applied row answers
+        // "more per hour of what" with a rate the colony produces; this one cannot, because the level
+        // moves no rate at all — it divides a distance. So the second sentence is the trip, and the
+        // third is the whole design in a line: the base flight term sits outside the division, so a
+        // level buys nothing next door and everything at the frontier.
+        val state = withTheFleetBranchOpen()
+        val row = state.rowFor(Technology.PROPULSION)
+        val purpose = assertIs<LevelPurpose.Reach>(state.purposeOfNextLevel(Technology.PROPULSION))
+
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words(Strings.sheetSubjectPrefix(row.effect.subject)),
+                    figure(row.effect.next),
+                    words(Strings.sheetAtLevelOne()),
+                ),
+                sheetLine(
+                    words(Strings.sheetTheNextGalaxyIs()),
+                    figure(purpose.from.toChipLabel()),
+                    words(Strings.sheetAwayAndWouldBe()),
+                    figure(purpose.to.toChipLabel()),
+                    words(Strings.sheetFullStop()),
+                ),
+                sheetLine(words(Strings.sheetPaysTheFurtherYouAim())),
+            ),
+            row.sheet.lines,
+        )
+    }
+
+    @Test
+    fun `the drive's verdict is the trip it would buy and not the hours it saves`() {
+        // A delta of hours off a flight has nothing to be a fraction of — "9h 00m sooner" could be a
+        // tenth of the trip or half of it — so the row states the pair. Its neighbours state a delta,
+        // and the difference is deliberate.
+        val state = withTheFleetBranchOpen()
+        val purpose = assertIs<LevelPurpose.Reach>(state.purposeOfNextLevel(Technology.PROPULSION))
+        val verdict = checkNotNull(state.rowFor(Technology.PROPULSION).verdict)
+
+        assertEquals(Strings.reachGain(to = purpose.to.toChipLabel(), from = purpose.from.toChipLabel()), verdict.label)
+        assertEquals(Strings.reachGainCompact(to = purpose.to.toChipLabel()), verdict.compactLabel)
+    }
+
+    @Test
+    fun `Prospecting's sheet is the one that never names the colony`() {
+        // Its sibling, and untested until the drive arrived beside it — the branch was reachable only
+        // through a hand-built screenshot fixture, which is a drawing of a screen rather than a check
+        // on the mapper that fills it. See the Shipyard, which shipped a hull nobody could buy for
+        // exactly that reason.
+        val state = withTheFleetBranchOpen()
+        val row = state.rowFor(Technology.PROSPECTING)
+        val purpose = assertIs<LevelPurpose.Haul>(state.purposeOfNextLevel(Technology.PROSPECTING))
+
+        assertEquals(
+            listOf(
+                sheetLine(
+                    words(Strings.sheetSubjectPrefix(row.effect.subject)),
+                    figure(row.effect.next),
+                    words(Strings.sheetAtLevelOne()),
+                ),
+                sheetLine(
+                    words(Strings.sheetEachHullLifts()),
+                    figure(Strings.groupedNumber(purpose.from)),
+                    words(Strings.sheetAnHourOnStation()),
+                    figure(Strings.groupedNumber(purpose.to)),
+                    words(Strings.sheetFullStop()),
+                ),
+                sheetLine(words(Strings.sheetPaysOnNextRun())),
             ),
             row.sheet.lines,
         )

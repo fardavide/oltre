@@ -336,7 +336,15 @@ class ResearchScreenBehaviourTest {
             // first technology and clicking in one step drops that click, so a run that taps the
             // bottom of the list and then the top loses its first tap. Screen order avoids it.
             Technology.entries.forEach { startResearching(it) }
-            AdaptationTechnology.entries.forEach { startResearching(it) }
+            // **The stopped branch is read rather than tapped, and the change is a correction.** A
+            // ladder in flight draws a countdown where the verb was, so there is no button under the
+            // finger — a tap lands on the *card*, which opens the sheet, and every tap after it is
+            // aimed at whatever the modal put there. This loop used to tap all three and pass because
+            // the clicks were being swallowed by the scroll; adding a fifth technology row changed
+            // the scroll extent, one tap landed, and the sheet started the very ladder the test is
+            // about. What the test means is that no ladder offers a verb while one is running, and
+            // that is now what it says.
+            AdaptationTechnology.entries.forEach { assertDoesNotOfferResearch(it) }
         }
 
         // then

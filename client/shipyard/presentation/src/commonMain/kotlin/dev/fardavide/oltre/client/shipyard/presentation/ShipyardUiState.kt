@@ -7,7 +7,6 @@ import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
-import dev.fardavide.oltre.client.shipyard.ui.ComingHullUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
@@ -39,9 +38,6 @@ fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiSta
         // with. What it *does* count against is the price, one line down.
         fleet = Strings.hullsInFleet(owned.total),
         hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
-        comingHulls = COMING.map {
-            ComingHullUiState(type = it.type, name = it.name, purpose = it.purpose)
-        },
     )
 }
 
@@ -156,19 +152,33 @@ private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostC
 // can find and replace in one place, which is most of what the catalogue was bought for.
 private class HullCopy(val type: ShipType, val name: TextRes, val purpose: TextRes)
 
-// **What is on sale, and it must stay one hull behind `FleetBalance`.** `shipCost` raises for a hull
-// with no price, so a card drawn here for one the balance cannot price would crash the tab rather
-// than dim it.
+// **What is on sale, and it must agree with `FleetBalance.FOR_SALE` exactly.** `shipCost` raises for
+// a hull with no price, so a card drawn here for one the balance cannot price would crash the tab
+// rather than dim it — and the mirror failure is worse and quieter: a hull `buildShips` will sell
+// with no card is a hull nobody can buy. That shipped at 0.15 and is now a test, because it cannot
+// be caught in `core`: this list is *copy*, a name and a purpose per hull, which nothing can derive.
+// **The scout leads, because it is what a colony buys first.** It owns no hulls at genesis and a
+// probe needs one, so this card is the first thing on the first screen a new player has a reason to
+// tap — and it is a quarter of the price of the one under it.
+//
+// **The order of this list is the order of the cards**, and `ShipyardUiStateTest` holds the *set*
+// against `FleetBalance.FOR_SALE` rather than the sequence: which hulls are sellable is `core`'s to
+// say and cannot be got wrong twice, and which order they read in is a design decision this file
+// owns.
 private val FOR_SALE: List<HullCopy> = listOf(
+    HullCopy(ShipType.SCOUT, Strings.scoutName(), Strings.scoutPurpose()),
     HullCopy(ShipType.SKIFF, Strings.skiffName(), Strings.skiffPurpose()),
-)
-
-// **Only the Hauler is drawn**, not all three unbuilt hulls. Design's call names it by name — *"the
-// Hauler ships from slice 3 as a dimmed card carrying its one line"* — and the reason it is not the
-// whole remainder is the same reason the ship set has four constants rather than a dozen: the escort
-// is a combat model and the settler is colonisation, so a card for either would be advertising a
-// slice nobody has scheduled. The Hauler is next.
-private val COMING: List<HullCopy> = listOf(
     HullCopy(ShipType.HAULER, Strings.haulerName(), Strings.haulerPurpose()),
 )
+
+// **`NOT YET BUILT` is gone, and it is the promise being kept rather than a section being lost.**
+// Design named one card for it — *"the Hauler ships from slice 3 as a dimmed card carrying its one
+// line"* — and the Hauler has now shipped, so there was nothing left for the section to promise.
+//
+// **It is deleted rather than left empty**, which is this file's own rule about the `when`s it
+// replaced: *"copy written before its slice is copy nobody chose — and it is a branch no test can
+// reach."* An empty list, a component nothing renders and a type nothing constructs are the same
+// speculation wearing a different shape, and the escort and the settler are still slices nobody has
+// scheduled. The section comes back with the first hull that has a date, and `git log` is where its
+// drawing is.
 

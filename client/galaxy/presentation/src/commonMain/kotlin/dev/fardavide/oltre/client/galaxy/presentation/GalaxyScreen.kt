@@ -157,7 +157,7 @@ fun GalaxyScreen(
                 onDispatchRun(
                     offer.at,
                     offer.gathering,
-                    Ships.of(ShipType.SKIFF, offer.shipCount),
+                    offer.manifest,
                     offer.window,
                 )
                 // The state after the tap is its own receipt — the row's reach line, the map card

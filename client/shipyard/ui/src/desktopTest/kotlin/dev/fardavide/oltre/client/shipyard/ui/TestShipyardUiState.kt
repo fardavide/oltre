@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 
@@ -24,19 +25,51 @@ import dev.fardavide.oltre.core.ShipType
 // and are written down in exactly one place. What the frames photograph is unchanged, which is why
 // none of the four baselines moved.
 
-// Declared ahead of the four states that carry it, because a top-level `val` in Kotlin is
-// initialised in file order and a forward reference reads as null.
-private val HAULER = ComingHullUiState(
+
+// **The card a colony buys first, and the one these frames had no reason to draw until 0.15.** A
+// probe flies a `SCOUT` now and genesis grants no hull, so this is the first thing on the first
+// screen a new player has a reason to tap — which is why it leads rather than follows the skiff.
+//
+// Its numbers are the shipped ones rather than invented, unlike the skiff's beside it: 200 metal and
+// 50 crystal is a flat price, so there is no curve for a frame to stand at a point on. The pool is
+// stated per state, because "how many scouts, and how many are out surveying" is the reading the
+// card is *for*.
+// **The third card, and the section below it is empty because of it.** The Hauler was a dimmed
+// promise in `NOT YET BUILT` until 0.15.0 and is a purchase now, so the frames photograph it where
+// the promise used to be. Its price is the shipped one — flat, so there is no curve for a frame to
+// stand at a point on.
+private fun haulerCard(pool: TextRes, action: BuildActionUiState, yard: YardUiState? = null) = HullUiState(
     type = ShipType.HAULER,
     name = Strings.haulerName(),
+    pool = pool,
     purpose = Strings.haulerPurpose(),
+    costs = listOf(
+        CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(2_400), short = false),
+        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(600), short = false),
+    ),
+    action = action,
+    yard = yard,
+)
+
+private fun scoutCard(pool: TextRes, action: BuildActionUiState, yard: YardUiState? = null) = HullUiState(
+    type = ShipType.SCOUT,
+    name = Strings.scoutName(),
+    pool = pool,
+    purpose = Strings.scoutPurpose(),
+    costs = listOf(
+        CostChipUiState(kind = ResourceKind.METAL, amount = Strings.groupedNumber(200), short = false),
+        CostChipUiState(kind = ResourceKind.CRYSTAL, amount = Strings.groupedNumber(50), short = false),
+    ),
+    action = action,
+    yard = yard,
 )
 
 // The first sitting: one granted skiff, idle, and 500 metal in the store — which buys the second at
 // 120 metal and 30 crystal. The frame Design drew for this slice, at one hull.
 internal val oneHullUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(1),
+    fleet = Strings.hullsInFleet(3),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -49,15 +82,16 @@ internal val oneHullUiState = ShipyardUiState(
             action = BuildActionUiState.Build,
             yard = null,
         ),
+        haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = listOf(HAULER),
 )
 
 // A fleet at depth, five of it away, and the seventh hull priced where the curve has got to. This is
 // the frame Design published — `6 owned · 1 idle · 5 away`, 910 metal and 225 crystal.
 internal val sixHullsUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(6),
+    fleet = Strings.hullsInFleet(9),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(2), Strings.shipsIdle(1), Strings.shipsAway(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -70,16 +104,17 @@ internal val sixHullsUiState = ShipyardUiState(
             action = BuildActionUiState.Build,
             yard = null,
         ),
+        haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = listOf(HAULER),
 )
 
 // **The state this tab owns.** The dispatch sheet has no affordability state because a run is free;
 // this is where "cannot afford" is drawn, in the shipped idiom — the metal chip reddens and the verb
 // becomes a ghost carrying the wait.
 internal val cannotAffordUiState = ShipyardUiState(
-    fleet = Strings.hullsInFleet(6),
+    fleet = Strings.hullsInFleet(8),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -92,8 +127,8 @@ internal val cannotAffordUiState = ShipyardUiState(
             action = BuildActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(1, 6))),
             yard = null,
         ),
+        haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = listOf(HAULER),
 )
 
 // **The state 0.9.0 added, and the only one on this tab where something is happening.** A hull on
@@ -124,8 +159,9 @@ internal val cannotAffordUiState = ShipyardUiState(
 internal val buildingUiState: ShipyardUiState = ShipyardUiState(
     // Two owned and three on the slipway: the heading counts the fleet that exists, and the pool
     // line is the only place the order is visible.
-    fleet = Strings.hullsInFleet(2),
+    fleet = Strings.hullsInFleet(4),
     hulls = listOf(
+        scoutCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
         HullUiState(
             type = ShipType.SKIFF,
             name = Strings.skiffName(),
@@ -151,6 +187,6 @@ internal val buildingUiState: ShipyardUiState = ShipyardUiState(
                 ),
             ),
         ),
+        haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
-    comingHulls = listOf(HAULER),
 )

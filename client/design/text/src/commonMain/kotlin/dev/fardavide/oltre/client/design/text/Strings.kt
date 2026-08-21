@@ -194,7 +194,14 @@ object Strings {
     // nothing.
     fun availableNever(): TextRes = message(StringId.AvailableNever)
 
+    // "needs a scout" — the probe footer, when the hull rather than the metal is what is short.
+    fun probeNeedsScout(): TextRes = message(StringId.ProbeNeedsScout)
+
     // PLACEHOLDER copy, like every string the app says: content is Davide's.
+    fun scoutName(): TextRes = message(StringId.ScoutName)
+
+    fun scoutPurpose(): TextRes = message(StringId.ScoutPurpose)
+
     fun skiffName(): TextRes = message(StringId.SkiffName)
 
     fun skiffPurpose(): TextRes = message(StringId.SkiffPurpose)
@@ -257,6 +264,35 @@ object Strings {
 
     fun skiffCount(count: Int): TextRes = message(StringId.SkiffCount, Arg.Count(count))
 
+    // "6 berths" — the stepper's value once a second hull type is idle, because a berth is a
+    // distinction only two hulls create. With skiffs alone it counts skiffs, as it always did.
+    fun berthCount(count: Int): TextRes = message(StringId.BerthCount, Arg.Count(count))
+
+    // "1 hauler · 2 skiffs idle" — the pool beside SEND, which names hulls where the stepper names
+    // hold, because those are the two different things a player has to hold in mind at once.
+    fun poolIdle(manifest: TextRes): TextRes = message(StringId.PoolIdle, Arg.Text(manifest))
+
+    fun manifestPair(first: TextRes, second: TextRes): TextRes =
+        message(StringId.ManifestPair, Arg.Text(first), Arg.Text(second))
+
+    fun outAndBack(trip: TextRes): TextRes = message(StringId.OutAndBack, Arg.Text(trip))
+
+    fun rungRequiresSkiffs(): TextRes = message(StringId.RungRequiresSkiffs)
+
+    fun ladderRungMoved(rung: TextRes): TextRes = message(StringId.LadderRungMoved, Arg.Text(rung))
+
+    fun ladderShortestFit(rung: TextRes): TextRes = message(StringId.LadderShortestFit, Arg.Text(rung))
+
+    // The one slot below the cells, in its three forms: what the other cell would lift, what it
+    // would cost in rungs, and — winning over both — the clamp.
+    fun cellCounterfactual(lift: TextRes, rung: TextRes): TextRes =
+        message(StringId.CellCounterfactual, Arg.Text(lift), Arg.Text(rung))
+
+    fun cellRungConsequence(lift: TextRes, rung: TextRes): TextRes =
+        message(StringId.CellRungConsequence, Arg.Text(lift), Arg.Text(rung))
+
+    fun cellClamped(idle: TextRes): TextRes = message(StringId.CellClamped, Arg.Text(idle))
+
     // "of 4 idle" — the pool the stepper is clamped to.
     fun ofIdle(count: Int): TextRes = message(StringId.OfIdle, Arg.Count(count))
 
@@ -277,6 +313,10 @@ object Strings {
     fun clampRestOthers(count: Int): TextRes = message(StringId.ClampRestOthers, Arg.Count(count))
 
     fun theWholeDeposit(): TextRes = message(StringId.TheWholeDeposit)
+
+    // "870 left in the ground" — the slot beside the figure, which the per-ship reading used to
+    // hold. What a run *leaves*, so the two forms are one sentence: this much left, or all of it.
+    fun veinLeft(amount: TextRes): TextRes = message(StringId.VeinLeft, Arg.Text(amount))
 
     // "449 each"
     fun eachShip(amount: TextRes): TextRes = message(StringId.EachShip, Arg.Text(amount))
@@ -372,6 +412,7 @@ object Strings {
     // "skiff" — lower case, because it is a word inside a manifest rather than a heading.
     fun shipName(ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipNameScout
             ShipType.SKIFF -> StringId.ShipNameSkiff
             ShipType.HAULER -> StringId.ShipNameHauler
             ShipType.ESCORT -> StringId.ShipNameEscort
@@ -568,6 +609,7 @@ object Strings {
             Technology.EXTRACTION -> StringId.TechnologyNameExtraction
             Technology.ENRICHMENT -> StringId.TechnologyNameEnrichment
             Technology.PROSPECTING -> StringId.TechnologyNameProspecting
+            Technology.PROPULSION -> StringId.TechnologyNamePropulsion
         },
     )
 
@@ -586,6 +628,7 @@ object Strings {
             Technology.EXTRACTION -> StringId.TechnologySubjectExtraction
             Technology.ENRICHMENT -> StringId.TechnologySubjectEnrichment
             Technology.PROSPECTING -> StringId.TechnologySubjectProspecting
+            Technology.PROPULSION -> StringId.TechnologySubjectPropulsion
         },
     )
 
@@ -640,6 +683,14 @@ object Strings {
     fun haulGain(amount: TextRes): TextRes = message(StringId.HaulGain, Arg.Text(amount))
 
     fun haulGainCompact(amount: TextRes): TextRes = message(StringId.HaulGainCompact, Arg.Text(amount))
+
+    // "the next galaxy in 9h 20m, from 18h 20m" — the drive's row. The *new* figure leads and the
+    // old one trails, unlike the two above which state a delta: a delta of hours off a flight is a
+    // number with nothing to be a fraction of, where the pair says the whole thing at a glance.
+    fun reachGain(to: TextRes, from: TextRes): TextRes =
+        message(StringId.ReachGain, Arg.Text(to), Arg.Text(from))
+
+    fun reachGainCompact(to: TextRes): TextRes = message(StringId.ReachGainCompact, Arg.Text(to))
 
     // "+14%" — always signed positive, unlike `signed`: an effect is a gain or it is not printed.
     fun plusPercent(value: Int): TextRes = message(StringId.PlusPercent, Arg.Number(value.toLong()))
@@ -699,6 +750,14 @@ object Strings {
 
     fun sheetPaysOnNextRun(): TextRes = message(StringId.SheetPaysOnNextRun)
 
+    // The drive's three sheet clauses. A round trip rather than a one-way flight, because a run is
+    // what the player commits to and the window is what it eats.
+    fun sheetTheNextGalaxyIs(): TextRes = message(StringId.SheetTheNextGalaxyIs)
+
+    fun sheetAwayAndWouldBe(): TextRes = message(StringId.SheetAwayAndWouldBe)
+
+    fun sheetPaysTheFurtherYouAim(): TextRes = message(StringId.SheetPaysTheFurtherYouAim)
+
     fun sheetColonyDrawsAnd(): TextRes = message(StringId.SheetColonyDrawsAnd)
 
     fun sheetAtThatRatio(name: TextRes): TextRes = message(StringId.SheetAtThatRatio, Arg.Text(name))
@@ -721,6 +780,7 @@ object Strings {
     // with the noun as an argument, because a plural is a property of the noun.
     fun ships(count: Int, ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipsScout
             ShipType.SKIFF -> StringId.ShipsSkiff
             ShipType.HAULER -> StringId.ShipsHauler
             ShipType.ESCORT -> StringId.ShipsEscort
@@ -1129,6 +1189,7 @@ object Strings {
     // Capitalised, unlike the Colony strip's lower-case tally: this one opens a lock-screen title.
     fun shipTitleName(ship: ShipType): TextRes = message(
         when (ship) {
+            ShipType.SCOUT -> StringId.ShipTitleNameScout
             ShipType.SKIFF -> StringId.ShipTitleNameSkiff
             ShipType.HAULER -> StringId.ShipTitleNameHauler
             ShipType.ESCORT -> StringId.ShipTitleNameEscort

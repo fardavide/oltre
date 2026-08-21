@@ -18,6 +18,15 @@ sealed interface StartRunResult {
 
     data object NoSuchShips : StartRunResult
 
+    // A manifest carrying a hull that has no hold. **This is the one rule a fifth `ShipType` costs**,
+    // and it is separate from `NoSuchShips` because the pool is not what is wrong: a colony can own
+    // four scouts and still not be able to send one here.
+    //
+    // Refused whole rather than quietly stripped, the same shape `buildShips` uses for a hull with no
+    // price — a run that silently left the scout behind would be a fleet the player did not choose,
+    // and it would cost them a window to find out.
+    data object NotAGatheringHull : StartRunResult
+
     // The window does not leave `MINIMUM_STATION` on the surface after the round trip. Unreachable
     // with skiffs from a home in galaxy 2 or 3 — the longest trip on the map is two galaxy hops at
     // 18h 20m out and back, which the 24h rung still covers — so it first occurs with the hauler.
@@ -63,6 +72,7 @@ fun startRun(
     at: Instant,
 ): StartRunResult {
     if (ships.isEmpty || !state.ships.covers(ships)) return StartRunResult.NoSuchShips
+    if (ships.counts.keys.any { it !in GATHERING_HULLS }) return StartRunResult.NotAGatheringHull
     if (target == state.galaxy.home) return StartRunResult.NotAValidTarget
     if (gathering == ResourceKind.DEUTERIUM) return StartRunResult.NotAValidTarget
     val holder = state.galaxy.holderOf(target)
@@ -71,7 +81,13 @@ fun startRun(
     if (target !in state.galaxy.surveyed) return StartRunResult.Unsurveyed
 
     val home = state.galaxy.home
-    val station = FleetBalance.stationFor(from = home, to = target, window = window)
+    val station = FleetBalance.stationFor(
+        from = home,
+        to = target,
+        window = window,
+        research = state.research,
+        ships = ships,
+    )
     if (station < FleetBalance.MINIMUM_STATION) return StartRunResult.WindowTooShort
 
     // What is actually in the ground, now. A world nobody has worked answers with its whole cap, so
@@ -120,6 +136,15 @@ fun startRun(
         ),
     )
 }
+
+// The hulls that have a hold, which is the whole of what a gathering run wants from a `ShipType`.
+// A set rather than a `when`, mirroring `BuildShips.FOR_SALE` one file over, so the day the hauler
+// gets a berth count this line is the only thing that moves.
+//
+// **It is a whitelist and not `!= SCOUT`, deliberately.** The escort and the settler are coming, and
+// exactly one of them will have a hold; a blacklist would send the other two gathering on the day
+// their constants land, silently and with a plausible number behind it.
+private val GATHERING_HULLS: Set<ShipType> = setOf(ShipType.SKIFF, ShipType.HAULER)
 
 private fun Resources.of(kind: ResourceKind): Long = when (kind) {
     ResourceKind.METAL -> metal

@@ -140,6 +140,11 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
         val found = GalaxyState.occupiedWorldsIn(next.galaxy.seed, job.target)
         next = next.copy(
             galaxy = next.galaxy.copy(surveyed = next.galaxy.surveyed + found),
+            // **The scout comes home**, exactly as a run's hulls do two loops down: it was spent for
+            // the flight, not consumed by it, so what surveying costs is a hull's absence rather than
+            // a hull. Buy one and you may survey forever — one system at a time, which is the whole
+            // of the answer to "ten in one check-in".
+            ships = next.ships + SurveyBalance.SHIPS,
             surveys = next.surveys - job,
             eventLog = next.eventLog + Event.SurveyCompleted(
                 target = job.target,

@@ -15,6 +15,10 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.core.StartSurveyResult
+import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.startSurvey
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -41,7 +45,12 @@ class FleetsUiStateTest {
     fun `a run whose flight has ended is on station`() {
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.ON_STATION, state.cardAt(EPOCH + flight + 1.minutes).phase)
     }
@@ -50,7 +59,12 @@ class FleetsUiStateTest {
     fun `a run that has turned for home is inbound`() {
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.INBOUND, state.cardAt(run.returnsAt - flight + 1.minutes).phase)
     }
@@ -61,7 +75,12 @@ class FleetsUiStateTest {
         // the same convention `advance` uses for a job completing at its own boundary.
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         assertEquals(RunPhase.ON_STATION, state.cardAt(EPOCH + flight).phase)
     }
@@ -94,7 +113,12 @@ class FleetsUiStateTest {
         // arrival — the same change of scope the Colony strip took at 0.7.0.
         val state = dispatch(window = 3.hours)
         val run = state.runs.single()
-        val flight = FleetBalance.flight(from = state.galaxy.home, to = run.target)
+        val flight = FleetBalance.flight(
+            from = state.galaxy.home,
+            to = run.target,
+            research = state.research,
+            ships = run.ships,
+        )
 
         // Outbound: counting down to the landing, which is sooner than the whole window.
         val outbound = state.cardAt(EPOCH).countdown
@@ -159,6 +183,43 @@ class FleetsUiStateTest {
     @Test
     fun `no sheet is up until a world is tapped`() {
         assertNull(fleetOf(1).toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).dispatch)
+    }
+
+    // ── What the heading counts ─────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the heading counts every hull the colony owns and every one that is out`() {
+        // `ownedShips()` is the whole fleet — idle, on a run, and (since 0.15) out on a probe — so
+        // both figures are literally true: a scout surveying is a hull, and it is away.
+        val state = dispatch(window = 6.hours, hulls = 2)
+            .let { it.copy(ships = it.ships + Ships.of(ShipType.SCOUT, 1)) }
+
+        assertEquals(Strings.fleetsAwayOf(away = 2, owned = 3), state.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).away)
+    }
+
+    @Test
+    fun `a scout out on a probe is counted as away`() {
+        // **True, and the reading to watch.** This tab's list is *runs*, so a probe adds to the
+        // count above without adding a card below it — "2 of 3 away" over a single run card. The
+        // arithmetic is right either way; whether the sentence should be about the whole fleet or
+        // only about the hulls that gather is a content call, and it is flagged rather than taken.
+        val gathering = dispatch(window = 6.hours, hulls = 1)
+        val andSurveying = assertIs<StartSurveyResult.Started>(
+            startSurvey(
+                gathering.copy(
+                    ships = gathering.ships + Ships.of(ShipType.SCOUT, 1),
+                    resources = Resources.of(metal = 10_000),
+                ),
+                SystemAddress(galaxy = gathering.galaxy.home.galaxy, system = gathering.galaxy.home.system + 3),
+                at = EPOCH,
+            ),
+        ).state
+
+        assertEquals(1, andSurveying.runs.size, "one run, so one card")
+        assertEquals(
+            Strings.fleetsAwayOf(away = 2, owned = 2),
+            andSurveying.toFleetsUiState(now = EPOCH, timeZone = TimeZone.UTC).away,
+        )
     }
 
     // ── The fixture ─────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-17 (0.13.1)
+Updated: 2026-08-21 (0.15.0)
 
 ## Landed
 
@@ -393,6 +393,19 @@ Updated: 2026-08-17 (0.13.1)
   of the renderer, and `:client:save:data` gains a second file: the one thing this tab persists is
   which of its two lists it lands on, which is Davide's amendment to Claude Design's call and
   deliberately breaks Design's own rule about the save.
+
+- **0.15.0 the scout and the drive (issue #71, slices 1 and 2)** — `ShipType` grows to five and the
+  research branch to five rows. **`SCOUT`** is the first hull that is not a fleet asset: no cargo,
+  one verb, 200 metal / 50 crystal, and a probe now consumes one for its flight and gets it back at
+  the landing. That is #83's ruling landing here, and the price is what keeps its severe companion
+  concern from biting — the genesis stock covers the hull *and* the first probe. A skiff cannot
+  survey and a scout cannot gather (`StartRunResult.NotAGatheringHull`). **`PROPULSION`** halves base
+  flight speed and sells it back a level at a time, calibrated so drive 0 is half of 0.14's speed and
+  drive 1 is 0.14 exactly; two galaxy hops leave the window ladder *empty* until it is bought, which
+  is the frontier being bought rather than given. Speed only, not the hold — see the sheet's status
+  block for why §2.3 expired. Schema 13, granting one scout per probe already in the air and no free
+  drive level. The **hauler's price** is re-taken at 2,400 / 600 and the hold is counted in berths,
+  but it is **not on sale**: see the pending note below. Balance-log round 30.
 
 
 ## Roadmap — v1 in vertical slices
@@ -869,6 +882,19 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.15.0
+
+- **The hauler ships, and slice 4 is closed** — Claude Design's *Twice the Flight* came back and is
+  built: one stepper on berths, a two-cell hull row, and a rung the mix removed drawn at 42% with its
+  requirement rather than absent. See `decisions.md`. Three things it raised and did **not** decide
+  are open: the two clocks in the system header's astronomy line, a run card that needs to print a
+  mixed manifest, and whether `:sim:run` agrees that the hauler pays at only one rung on a doorstep
+  world.
+- **Nobody has installed 0.15.** The drive's whole case is that a level feels like a door opening,
+  and that is a claim about a hand holding a phone. Balance-log round 30 lists what to watch; the
+  sharpest is whether a real player buys Propulsion at all — the benchmark's bot does not, because it
+  buys cheapest-first and this is the dearest row on the screen.
 
 ## Pending, from 0.13.1
 

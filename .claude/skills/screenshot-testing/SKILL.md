@@ -60,6 +60,35 @@ when_to_use: >
   in the move rather than a baseline that needs updating. Record *before* such a change so it has
   something honest to verify against.
 
+## A hand-built fixture cannot verify the mapper it stands in for
+
+**A `Test…UiState` is a *drawing* of a screen.** It is written by hand, so it goes on rendering
+whatever it was last told — including a screen that no longer exists. The mapper can grow a card, a
+cell or a row and every screenshot will stay green, because the fixture was never asked.
+
+**This bit three times in one release (0.15.0) and each one was a real defect:**
+
+| | |
+|---|---|
+| `FleetBalance.FOR_SALE` gained `SCOUT`; the Shipyard's card list did not | the one hull that surveys was **unbuyable**, and the Galaxy tab dead for the whole game |
+| The mapper then sold the `HAULER`; the frames still drew it as *coming* | two nodes with one test tag, and a frame of a screen nobody would see |
+| `DispatchFrames` had no hauler in its pool | the picker's own frames photographed the sheet **without the picker** and passed |
+
+**So when `core` grows a concept a mapper renders, three things move and only two of them shout:**
+
+1. the mapper — the compiler finds it;
+2. a test holding the mapper against `core` — write one, and it is the only automatic guard here;
+3. **the hand-built fixture — nothing finds this but you.**
+
+The check costs one question before recording: *does the fixture own the thing the mapper now
+draws?* A pool with no hauler cannot photograph a hauler; a colony with no scout cannot photograph a
+scout card.
+
+**And it is why "read the diff" is a rule rather than advice.** All three were found by looking at a
+picture, none by a red test — the frames were internally consistent, just of the wrong screen. A
+re-record without reading banks the wrong screen as the assertion, which is exactly the failure the
+`workflow_dispatch`-only job and its before/after comment exist to prevent.
+
 ## Baselines in a second language
 
 - **Name a locale baseline `<frame>_it.png`, beside the English frame, and leave English

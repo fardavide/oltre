@@ -12,6 +12,8 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
@@ -85,6 +87,41 @@ class ProbeActionUiStateTest {
 
         assertTrue("in " !in English.resolve(short.offer.flight), "the flight must not read as a wait")
         assertTrue(English.resolve(short.availableIn).startsWith("in "))
+    }
+
+    // ── The hull, which is asked about before the money ─────────────────────────────────────
+
+    @Test
+    fun `a colony with no scout is told what it needs rather than when`() {
+        // **The dead control this whole layer exists to prevent.** `startSurvey` refuses without an
+        // idle `SCOUT`, so the footer must not draw a verb — and the note has to name the *Shipyard*
+        // rather than a wait, because unlike every other unaffordable state in the game this one is
+        // not answered by standing still.
+        val state = wealthy().copy(ships = Ships.NONE)
+
+        val action = state.probeActionAt(awayFromHome(state, systemsAway = 9))
+
+        val short = assertIs<ProbeActionUiState.Unaffordable>(action)
+        assertEquals("needs a scout", English.resolve(short.availableIn))
+        assertTrue(!short.offer.cost.short, "the metal is not what is short here")
+    }
+
+    @Test
+    fun `a scout on its way home is a wait and the footer gives the date`() {
+        // The other half: when a hull genuinely is coming back, a countdown is the honest answer and
+        // the Shipyard is not the advice. One scout, sent, so the pool is empty and the probe that
+        // emptied it is the thing being waited on.
+        val state = wealthy()
+        val out = assertIs<StartSurveyResult.Started>(
+            startSurvey(state, awayFromHome(state, systemsAway = 40), at = EPOCH),
+        ).state
+        assertEquals(Ships.NONE, out.ships)
+
+        val short = assertIs<ProbeActionUiState.Unaffordable>(
+            out.probeActionAt(awayFromHome(out, systemsAway = 9)),
+        )
+
+        assertTrue(English.resolve(short.availableIn).startsWith("in "), "was '${short.availableIn}'")
     }
 
     @Test
@@ -262,7 +299,11 @@ class ProbeActionUiStateTest {
         error("seed $seed generated no empty system at all")
     }
 
-    private fun fresh(): GameState = GameState.initial(GalaxySeed(20_260_807))
+    // **A scout, because the footer asks about the hull before the money.** Every test in this file
+    // that is about a *price* needs the hull check to have passed first, or it measures the wrong
+    // refusal — so the pool carries one here and the tests that are about the pool empty it.
+    private fun fresh(): GameState =
+        GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SCOUT, 1))
 
     private fun wealthy(): GameState = fresh().copy(resources = Resources.of(metal = 1_000_000))
 

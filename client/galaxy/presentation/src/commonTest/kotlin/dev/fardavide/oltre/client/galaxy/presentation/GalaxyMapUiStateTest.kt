@@ -13,6 +13,8 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
@@ -337,7 +339,9 @@ class GalaxyMapUiStateTest {
         val unknown = wealthy()
         val known = surveyed(TARGET)
 
-        // 170 systems from home at a minute each, plus the flat half hour.
+        // 170 systems from home at a minute each, plus the flat half hour. A *probe*'s clock, which
+        // the drive does not touch at all — `SurveyBalance` has its own metric and its own base — so
+        // this figure is the one that did not move at 0.15 while the run beside it doubled.
         assertEquals(
             MapCaptionTrailingUiState.Dispatch(Strings.probeFlight(Strings.durationHoursMinutes(3, 20))),
             unknown.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 1)).caption.trailing,
@@ -345,10 +349,33 @@ class GalaxyMapUiStateTest {
         // A note and not a second dispatch — and note that this state is *wealthier* than the one
         // above, which is the point: what closes the offer is the reading, never the price.
         assertEquals(
-            MapCaptionTrailingUiState.Note(Strings.reachSingle(Strings.durationHoursMinutes(1, 18))),
+            MapCaptionTrailingUiState.Note(Strings.reachSingle(Strings.durationHoursMinutes(2, 18))),
             known.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = TARGET.system), now = LANDED)
                 .caption.trailing,
         )
+    }
+
+    @Test
+    fun `the caption offers no probe without a hull to fly it`() {
+        // **The dead control this whole layer exists to prevent, on the screen the tab lands on.**
+        // A probe flies a `SCOUT` since 0.15 and a colony owns none at genesis, so a caption that
+        // read the stores alone would make the *first* thing a new player could tap the one the
+        // model refuses. It falls back to the same note a shortage of metal produces: the caption is
+        // one line in a corner and has no room to say why — the orbit page's footer is where the
+        // reason lives, and this caption's own tap is what takes you there.
+        val unknown = SystemSelection(galaxy = HOME_GALAXY, system = 1)
+        val moneyed = wealthy().copy(ships = Ships.NONE)
+
+        val trailing = moneyed.mapAt(unknown).caption.trailing
+
+        assertIs<MapCaptionTrailingUiState.Note>(trailing)
+        // The same flight it would have offered, so nothing is hidden — only the verb is withheld.
+        assertEquals(
+            MapCaptionTrailingUiState.Note(Strings.probeFlight(Strings.durationHoursMinutes(3, 20))),
+            trailing,
+        )
+        // ...and with a scout in the pool the very same colony is offered the flight.
+        assertIs<MapCaptionTrailingUiState.Dispatch>(wealthy().mapAt(unknown).caption.trailing)
     }
 
     @Test
@@ -414,9 +441,11 @@ class GalaxyMapUiStateTest {
     @Test
     fun `the universe is four discs priced by what a run costs to reach them`() {
         // **What four discs can mean today is one thing, and it is real: what it costs to get
-        // there.** The four are not equidistant — two neighbours and one far corner — against 3h 22m
-        // to cross your own galaxy end to end, so the near ones are already nearly three times the
-        // longest journey you can make at home.
+        // there.** The four are not equidistant — two neighbours and one far corner — and since 0.15
+        // these are the figures at **drive 0**, which is the honest price for a colony that has
+        // researched nothing. The first Propulsion level halves every one of them, which is exactly
+        // what the technology is for: two of these three discs are out of reach of any window until
+        // it is bought.
         //
         // A round trip rather than a flight, because a hop is a commitment rather than a journey: you
         // are deciding to be away, and the way back is half of what you are buying.
@@ -431,7 +460,7 @@ class GalaxyMapUiStateTest {
         // Home is priced as home: there is no run to where you already are, and a figure there would
         // be an offer the game does not make.
         assertEquals(
-            listOf("run 18h 20m", "run 9h 20m", null, "run 9h 20m"),
+            listOf("run 36h 20m", "run 18h 20m", null, "run 18h 20m"),
             discs.map { disc -> disc.cost?.let { English.resolve(it) } },
         )
         assertEquals(listOf(false, false, true, false), discs.map { it.home })
@@ -528,7 +557,10 @@ class GalaxyMapUiStateTest {
         error("seed $seed generated no empty system at all")
     }
 
-    private fun fresh(): GameState = GameState.initial(GalaxySeed(20_260_807))
+    // The scout is stated rather than inherited, for `GalaxyScreenHarness`'s own reason one source
+    // set over: a probe flies a hull now, and a fixture with none can never raise a probe offer.
+    private fun fresh(): GameState =
+        GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SCOUT, 1))
 
     private fun wealthy(): GameState = fresh().copy(resources = Resources.of(metal = 1_000_000))
 

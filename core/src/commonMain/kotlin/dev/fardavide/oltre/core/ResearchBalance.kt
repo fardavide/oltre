@@ -56,12 +56,32 @@ object ResearchBalance {
         // Level 1 rather than Enrichment's 3, because this is the away half of the same idea and a
         // chain a player can say out loud — pull more out of your own ground, then out of anyone's.
         Technology.PROSPECTING -> ResearchRequirement.Tech(Technology.EXTRACTION, TechLevel(1))
+        // **Beside Prospecting rather than behind it**, on the same gate, so the two fleet rows go
+        // live together as one thing: what a hull pulls out, and how far it can go to pull it. A
+        // chain would have read well — ground, then anyone's ground, then further — but it would put
+        // three research levels between a player and the row that answers their actual complaint,
+        // and the complaint is that travel is too slow *now*.
+        Technology.PROPULSION -> ResearchRequirement.Tech(Technology.EXTRACTION, TechLevel(1))
     }
 
     // What a level is worth, in parts of MULTIPLIER_BASIS. Compounds per level in the same curve
     // family as the buildings, floored at every step so it stays defined however deep a level is.
-    fun multiplier(technology: Technology, level: TechLevel): Long =
-        compound(MULTIPLIER_BASIS, level.value, technology.effectNumerator(), technology.effectDenominator())
+    //
+    // **Propulsion is linear and it is the only one, because it is the only one that divides.** Every
+    // other row multiplies a per-hour rate — a stock's derivative — where compounding is what keeps
+    // the branch alive against an exponential cost. This row divides a *distance*: `unitsPerMinute`
+    // is the denominator of a flight, so a compounding effect would delete the map rather than open
+    // it, and 1.25 a level puts another galaxy inside twenty minutes by level eight.
+    //
+    // `1 + level` is not merely "gentler", it is the shape the whole change is calibrated on: it
+    // makes level 1 exactly double the base, which is what lets `UNITS_PER_MINUTE_BASE` be half of
+    // what 0.14 flew at and drive 1 be 0.14 exactly. See `FleetBalance.unitsPerMinute`.
+    fun multiplier(technology: Technology, level: TechLevel): Long = when (technology) {
+        Technology.PROPULSION ->
+            checkedTimes(MULTIPLIER_BASIS, 1L + level.value) { "propulsion multiplier at level ${level.value}" }
+        Technology.PHOTOVOLTAICS, Technology.EXTRACTION, Technology.ENRICHMENT, Technology.PROSPECTING ->
+            compound(MULTIPLIER_BASIS, level.value, technology.effectNumerator(), technology.effectDenominator())
+    }
 
     // The same number as a percentage, which is what the row shows: "+36% -> +47%". Rounded half
     // up, which is how the sheet's EFFECT column is written.
@@ -111,6 +131,11 @@ object ResearchBalance {
             Technology.EXTRACTION -> 90
             Technology.ENRICHMENT -> 150
             Technology.PROSPECTING -> 120
+            // The longest base in the branch, and the only reason it is not longer: it shares a gate
+            // with Prospecting, so the two are read side by side the first time either is live, and a
+            // row that took twice as long would never be the one picked first. **A STARTING VALUE**,
+            // owed to the same sweep the effect below is.
+            Technology.PROPULSION -> 150
         }
         // "Cheaper **and quicker**" — and a building got the second half for nothing, because round
         // 11 made its duration a function of its cost. This one is a table times a level, so it has
@@ -133,6 +158,11 @@ object ResearchBalance {
         // condition: it is the one constant here that has never been measured against a fourteen-day
         // run, and it accelerates depletion as well as paying for it.
         Technology.PROSPECTING -> 11
+        // Unreachable, and it has to exist anyway: `multiplier` answers Propulsion linearly and never
+        // consults these two. Kept as a `when` arm rather than as an `error(...)` because an
+        // exhaustive `when` over the enum is what makes the sixth technology a compile error here
+        // rather than a silent zero — see the module's own rule about `else` arms.
+        Technology.PROPULSION -> 1
     }
 
     private fun Technology.effectDenominator(): Long = when (this) {
@@ -140,6 +170,7 @@ object ResearchBalance {
         Technology.EXTRACTION -> 25
         Technology.ENRICHMENT -> 50
         Technology.PROSPECTING -> 10
+        Technology.PROPULSION -> 1
     }
 
     // Metal and crystal are here to make the cost chips mean something; deuterium is the price.
@@ -155,6 +186,11 @@ object ResearchBalance {
         // deuterium column stays in line with the other three, because deuterium is what prices this
         // branch and a fleet technology is not an exception to that.
         Technology.PROSPECTING -> BaseCost(metal = 800, crystal = 300, deuterium = 200)
+        // Dearer than Prospecting, because it shares Prospecting's gate and buys the larger thing: a
+        // level of this opens targets the ladder had refused to offer at all, where a level of that
+        // makes a target already in reach pay more. Metal-led for the fleet's house style, deuterium
+        // in line with the branch. **A STARTING VALUE**, on the same footing as the effect.
+        Technology.PROPULSION -> BaseCost(metal = 1_000, crystal = 400, deuterium = 200)
     }
 
     private data class BaseCost(val metal: Long, val crystal: Long, val deuterium: Long)

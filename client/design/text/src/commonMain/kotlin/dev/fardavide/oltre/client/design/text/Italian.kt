@@ -124,8 +124,11 @@ object Italian : Translations {
         StringId.Build -> "Costruisci"
         StringId.AvailableIn -> "tra ${args.text(0)}"
         StringId.AvailableNever -> "—"
+        StringId.ProbeNeedsScout -> "serve un esploratore"
+        StringId.ScoutName -> "Esploratore"
+        StringId.ScoutPurpose -> "Nessuna stiva · l'unico scafo che può esplorare"
         StringId.SkiffName -> "Scialuppa"
-        StringId.SkiffPurpose -> "Una stiva di carico · 10m + 1m ogni 10 unità, solo andata"
+        StringId.SkiffPurpose -> "Una stiva di carico · velocità piena"
         StringId.HaulerName -> "Cargo"
         StringId.HaulerPurpose -> "Quattro stive di carico, a metà della velocità di una scialuppa."
 
@@ -156,6 +159,16 @@ object Italian : Translations {
         StringId.DepositStock -> "giacimento ${args.text(0)}/${args.text(1)}"
         StringId.Richness -> "ricchezza ${args.text(0)}"
         StringId.SkiffCount -> args.count(0).let { "$it ${it.plural("scialuppa", "scialuppe")}" }
+        StringId.BerthCount -> args.count(0).let { "$it ${it.plural("stiva", "stive")}" }
+        StringId.PoolIdle -> "${args.text(0)} in porto"
+        StringId.ManifestPair -> "${args.text(0)} · ${args.text(1)}"
+        StringId.OutAndBack -> "${args.text(0)} andata e ritorno"
+        StringId.RungRequiresSkiffs -> "scialuppe"
+        StringId.LadderRungMoved -> "Il cargo ha spostato questa corsa a ${args.text(0)}, la finestra più breve in cui entra."
+        StringId.LadderShortestFit -> "${args.text(0)} è la finestra più breve in cui entra il cargo."
+        StringId.CellCounterfactual -> "Le scialuppe sollevano solo ${args.text(0)}, e solo loro volano in ${args.text(1)}."
+        StringId.CellRungConsequence -> "Il cargo solleva ${args.text(0)} e atterra a ${args.text(1)}."
+        StringId.CellClamped -> "Il cargo la svuota. Le ${args.text(0)} non portano nulla."
         StringId.OfIdle -> "di ${args.count(0)} in porto"
         StringId.LadderNote ->
             "${args.text(0)} andata e ritorno. Nessuna finestra più corta lascia " +
@@ -170,6 +183,7 @@ object Italian : Translations {
             if (it == 1) "L'altra non porta nulla." else "Le altre $it non portano nulla."
         }
         StringId.TheWholeDeposit -> "l'intero giacimento"
+        StringId.VeinLeft -> "${args.text(0)} rimasti nel terreno"
         StringId.EachShip -> "${args.text(0)} ciascuna"
         StringId.LegOut -> "andata ${args.text(0)}"
         StringId.LegOnStation -> "in stazione ${args.text(0)}"
@@ -220,6 +234,7 @@ object Italian : Translations {
         StringId.BuildingCompactNameSolarPlant -> "Centrale Solare"
         StringId.BuildingCompactNameRoboticsFactory -> "Robotica"
         StringId.BuildingCompactNameNaniteFactory -> "Naniti"
+        StringId.ShipNameScout -> "esploratore"
         StringId.ShipNameSkiff -> "scialuppa"
         StringId.ShipNameHauler -> "cargo"
         StringId.ShipNameEscort -> "scorta"
@@ -338,6 +353,7 @@ object Italian : Translations {
         StringId.TechnologyNameExtraction -> "Estrazione"
         StringId.TechnologyNameEnrichment -> "Arricchimento"
         StringId.TechnologyNameProspecting -> "Prospezione"
+        StringId.TechnologyNamePropulsion -> "Propulsione"
         // *Adattamento* is masculine, so all three agree with it and none of them has to be told so.
         StringId.AdaptationNameThermal -> "Termico"
         StringId.AdaptationNameGravitic -> "Gravitico"
@@ -349,6 +365,8 @@ object Italian : Translations {
         // Claude Design left to Davide, so the Italian is a translation of a string that is itself
         // still open.
         StringId.TechnologySubjectProspecting -> "quanto solleva una flotta"
+        // Placeholder in English and therefore placeholder here, exactly as the row above.
+        StringId.TechnologySubjectPropulsion -> "velocità della flotta"
         StringId.AdaptationUnitThermal -> "°C"
         StringId.AdaptationUnitGravitic -> "g"
         StringId.AdaptationUnitAtmospheric -> "atm"
@@ -370,6 +388,8 @@ object Italian : Translations {
         StringId.VerdictNothingSurplusCompact -> "niente se in avanzo"
         StringId.HaulGain -> "+${args.text(0)} per scafo ogni ora in stazione"
         StringId.HaulGainCompact -> "+${args.text(0)} per scafo ogni ora"
+        StringId.ReachGain -> "la galassia accanto in ${args.text(0)}, da ${args.text(1)}"
+        StringId.ReachGainCompact -> "galassia accanto ${args.text(0)}"
         StringId.PlusPercent -> "+${args.number(0)}%"
         StringId.ToleranceBand -> "${args.text(0)} … ${args.text(1)}"
         StringId.Requires -> "Richiede ${args.text(0)}"
@@ -394,6 +414,9 @@ object Italian : Translations {
         StringId.SheetEachHullLifts -> "Ogni scafo solleva "
         StringId.SheetAnHourOnStation -> " all'ora in stazione e ne solleverebbe "
         StringId.SheetPaysOnNextRun -> "Rende alla prossima corsa invece che su un orologio a casa."
+        StringId.SheetTheNextGalaxyIs -> "La galassia accanto dista "
+        StringId.SheetAwayAndWouldBe -> " e disterebbe "
+        StringId.SheetPaysTheFurtherYouAim -> "Non compra nulla qui accanto e tutto alla frontiera."
         StringId.SheetColonyDrawsAnd -> " di energia e la colonia ne assorbe "
         // The head-noun rule again, on a technology this time: *ricerca* is feminine, it is chosen
         // here, and `Fotovoltaico` hangs off it without an article of its own.
@@ -411,6 +434,7 @@ object Italian : Translations {
         // Four entries and only three of them inflect: *cargo* is a loanword and Italian leaves those
         // alone, so "3 cargo" is the plural. That is the reason a plural is a property of the noun
         // rather than a rule the language applies to all of them.
+        StringId.ShipsScout -> args.count(0).let { "$it ${it.plural("esploratore", "esploratori")}" }
         StringId.ShipsSkiff -> args.count(0).let { "$it ${it.plural("scialuppa", "scialuppe")}" }
         StringId.ShipsHauler -> "${args.count(0)} cargo"
         StringId.ShipsEscort -> args.count(0).let { "$it ${it.plural("scorta", "scorte")}" }
@@ -598,6 +622,7 @@ object Italian : Translations {
         StringId.BuildingFullNameSolarPlant -> "Centrale Solare"
         StringId.BuildingFullNameRoboticsFactory -> "Fabbrica Robotica"
         StringId.BuildingFullNameNaniteFactory -> "Fabbrica di Naniti"
+        StringId.ShipTitleNameScout -> "Esploratore"
         StringId.ShipTitleNameSkiff -> "Scialuppa"
         StringId.ShipTitleNameHauler -> "Cargo"
         StringId.ShipTitleNameEscort -> "Scorta"
@@ -618,11 +643,12 @@ object Italian : Translations {
 
     private fun List<Arg>.text(index: Int): String = resolve((this[index] as Arg.Text).value)
 
-    // Which of the four hull nouns a tally was handed. Reading the argument's own id rather than its
+    // Which of the five hull nouns a tally was handed. Reading the argument's own id rather than its
     // resolved words is the same safety the casts above rely on: `Strings.shipsOfType` takes a
-    // `ShipType`, so what arrives here is always one of these four.
+    // `ShipType`, so what arrives here is always one of these five.
     private fun List<Arg>.shipCountId(index: Int): StringId =
         when (((this[index] as Arg.Text).value as TextRes.Message).id) {
+            StringId.ShipNameScout -> StringId.ShipsScout
             StringId.ShipNameSkiff -> StringId.ShipsSkiff
             StringId.ShipNameHauler -> StringId.ShipsHauler
             StringId.ShipNameEscort -> StringId.ShipsEscort

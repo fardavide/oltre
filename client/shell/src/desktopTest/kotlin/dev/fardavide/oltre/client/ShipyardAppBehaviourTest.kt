@@ -131,6 +131,32 @@ class ShipyardAppBehaviourTest {
     // that is already non-zero to be able to see it change: "the fleet has not grown" and "the hull
     // is out, so the Shipyard says so" are both readings against a pool, not against nothing. The
     // *opening* state, with no hull at all, is `ShipyardFromStateBehaviourTest`'s subject.
+    // **The day-one loop, end to end, and the one this slice exists for.** A colony owns no hulls;
+    // a probe flies a `SCOUT`; so the first thing a new player must be able to do is buy one and
+    // survey with it. Every half of that is tested somewhere — `BuildShipsTest` for the purchase,
+    // `StartSurveyTest` for the consumption, `ProbeActionUiState` for the footer — and none of them
+    // can see the wiring, which is exactly where 0.15 broke: `FleetBalance` sold the scout and the
+    // Shipyard drew no card for it, so the loop was unreachable with every other test green.
+    @Test
+    fun `a colony buys its first scout and the Galaxy tab stops asking for one`() {
+        app(saved = snapshot(GameState.initial(GalaxySeed(20_260_807L)))) {
+            // **The tab a new colony lands on offers no probe**, because it has nothing to fly one
+            // with. The map's caption withholds the verb and keeps the flight, so what is on screen
+            // is a price rather than a dead button — `GalaxyMapUiStateTest` pins which.
+            open(OltreTab.GALAXY)
+            assertDoesNotRead("Dispatch")
+
+            // The Shipyard is where that is answered, and the scout is the card it opens on.
+            open(OltreTab.SHIPYARD)
+            assertReads("Scout")
+            buyAHull(ShipType.SCOUT)
+
+            // Paid for and on the slipway — the fleet has not grown yet, which is what the yard is,
+            // and it is the same rule the skiff has followed since 0.9.0.
+            assertReads("1 building")
+        }
+    }
+
     private fun rich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
         .copy(resources = Resources.of(metal = 10_000, crystal = 10_000), ships = Ships.of(ShipType.SKIFF, 1))
 

@@ -69,8 +69,18 @@ object English : Translations {
         StringId.Build -> "Build"
         StringId.AvailableIn -> "in ${args.text(0)}"
         StringId.AvailableNever -> "—"
+        // The probe footer's answer when the fleet rather than the bank is what is short. It
+        // names the shop rather than a wait, because unlike every other unaffordable state in
+        // the game this one is not answered by standing still.
+        StringId.ProbeNeedsScout -> "needs a scout"
+        StringId.ScoutName -> "Scout"
+        StringId.ScoutPurpose -> "No hold · the only hull that can survey"
         StringId.SkiffName -> "Skiff"
-        StringId.SkiffPurpose -> "One berth of hold · 10m + 1m per 10 units, one way"
+        // **The rate went when the drive arrived.** This read "10m + 1m per 10 units, one way"
+        // until 0.15, which was true of a flight curve that had no research term in it. Propulsion
+        // put one there, so any absolute figure on this card is wrong at every level but one — and
+        // the clause the card is for is the *trade*, which is what the hauler beneath it answers.
+        StringId.SkiffPurpose -> "One berth of hold · full speed"
         StringId.HaulerName -> "Hauler"
         StringId.HaulerPurpose -> "Four berths of hold, at half a skiff's speed."
 
@@ -99,6 +109,21 @@ object English : Translations {
         StringId.DepositStock -> "deposit ${args.text(0)}/${args.text(1)}"
         StringId.Richness -> "richness ${args.text(0)}"
         StringId.SkiffCount -> args.count(0).let { "$it ${it.plural("skiff", "skiffs")}" }
+        // **The eleven strings of *Twice the Flight*.** Two rules hold across all of them — muted
+        // states a rule that was already true, body states something that just changed; and each
+        // control gets at most one note, where the clamp wins because it is about the run being sent.
+        StringId.BerthCount -> args.count(0).let { "$it ${it.plural("berth", "berths")}" }
+        StringId.PoolIdle -> "${args.text(0)} idle"
+        StringId.ManifestPair -> "${args.text(0)} · ${args.text(1)}"
+        StringId.OutAndBack -> "${args.text(0)} out and back"
+        // The locked rung's second line: the hull that would fly it. Not a sentence — it is the
+        // locked-facility idiom's requirement, in the same 9.5 caption.
+        StringId.RungRequiresSkiffs -> "skiffs"
+        StringId.LadderRungMoved -> "The hauler moved this run to ${args.text(0)}, the shortest window it fits."
+        StringId.LadderShortestFit -> "${args.text(0)} is the shortest window the hauler fits."
+        StringId.CellCounterfactual -> "Skiffs only lift ${args.text(0)}, and only skiffs fly ${args.text(1)}."
+        StringId.CellRungConsequence -> "The hauler lifts ${args.text(0)} and lands at ${args.text(1)}."
+        StringId.CellClamped -> "The hauler empties it. The ${args.text(0)} bring nothing."
         StringId.OfIdle -> "of ${args.count(0)} idle"
         StringId.LadderNote ->
             "${args.text(0)} out and back. No shorter window leaves ${args.number(1)} minutes on the surface."
@@ -109,6 +134,10 @@ object English : Translations {
         StringId.ClampRestOthers ->
             args.count(0).let { "The other $it ${it.plural("brings", "bring")} nothing." }
         StringId.TheWholeDeposit -> "the whole deposit"
+        // **What the slot beside the figure says since 0.15.0** — Design's copy list moves it from
+        // the per-ship reading to the vein: what this run would leave behind. `449 each` is under
+        // its *Retired* heading, because a mixed manifest has no answer for "each".
+        StringId.VeinLeft -> "${args.text(0)} left in the ground"
         StringId.EachShip -> "${args.text(0)} each"
         StringId.LegOut -> "out ${args.text(0)}"
         StringId.LegOnStation -> "on station ${args.text(0)}"
@@ -151,6 +180,7 @@ object English : Translations {
         StringId.BuildingCompactNameSolarPlant -> "Solar Plant"
         StringId.BuildingCompactNameRoboticsFactory -> "Robotics"
         StringId.BuildingCompactNameNaniteFactory -> "Nanite Factory"
+        StringId.ShipNameScout -> "scout"
         StringId.ShipNameSkiff -> "skiff"
         StringId.ShipNameHauler -> "hauler"
         StringId.ShipNameEscort -> "escort"
@@ -246,6 +276,7 @@ object English : Translations {
         StringId.TechnologyNameExtraction -> "Extraction"
         StringId.TechnologyNameEnrichment -> "Enrichment"
         StringId.TechnologyNameProspecting -> "Prospecting"
+        StringId.TechnologyNamePropulsion -> "Propulsion"
         StringId.AdaptationNameThermal -> "Thermal"
         StringId.AdaptationNameGravitic -> "Gravitic"
         StringId.AdaptationNameAtmospheric -> "Atmospheric"
@@ -255,6 +286,10 @@ object English : Translations {
         // PLACEHOLDER, and the one string this version owes: every other row names a rate the
         // colony produces, and this is the first whose payoff is measured in a run.
         StringId.TechnologySubjectProspecting -> "what a fleet lifts"
+        // The one subject that is a *divisor* rather than a rate: the percentage is how much
+        // further a hull travels in the same minute, which is why the noun is a speed and not an
+        // output. Same standing as the row above — a placeholder until Davide names it.
+        StringId.TechnologySubjectPropulsion -> "fleet speed"
         StringId.AdaptationUnitThermal -> "°C"
         StringId.AdaptationUnitGravitic -> "g"
         StringId.AdaptationUnitAtmospheric -> "atm"
@@ -276,6 +311,11 @@ object English : Translations {
         StringId.VerdictNothingSurplusCompact -> "nothing while in surplus"
         StringId.HaulGain -> "+${args.text(0)} a hull an hour on station"
         StringId.HaulGainCompact -> "+${args.text(0)} a hull an hour"
+        // The drive's row, and the one verdict on this screen measured in hours saved rather
+        // than units gained. Same standing as the two above: the figure is exact, the noun is
+        // provisional until Davide names it.
+        StringId.ReachGain -> "the next galaxy in ${args.text(0)}, from ${args.text(1)}"
+        StringId.ReachGainCompact -> "next galaxy ${args.text(0)}"
         StringId.PlusPercent -> "+${args.number(0)}%"
         StringId.ToleranceBand -> "${args.text(0)} … ${args.text(1)}"
         StringId.Requires -> "Requires ${args.text(0)}"
@@ -299,6 +339,9 @@ object English : Translations {
         StringId.SheetEachHullLifts -> "Each hull lifts "
         StringId.SheetAnHourOnStation -> " an hour on station and would lift "
         StringId.SheetPaysOnNextRun -> "It pays on the next run rather than on a clock at home."
+        StringId.SheetTheNextGalaxyIs -> "The next galaxy is "
+        StringId.SheetAwayAndWouldBe -> " away and would be "
+        StringId.SheetPaysTheFurtherYouAim -> "It buys nothing next door and everything at the frontier."
         StringId.SheetColonyDrawsAnd -> " energy and the colony draws "
         StringId.SheetAtThatRatio -> "At that ratio ${args.text(0)}'s "
         StringId.SheetRoundsAway -> " rounds away before it reaches your stores."
@@ -309,6 +352,7 @@ object English : Translations {
         StringId.SheetRequiresPrefix -> "Requires "
 
         // ── The Fleets tab ───────────────────────────────────────────────────────────────────
+        StringId.ShipsScout -> args.count(0).let { "$it ${it.plural("scout", "scouts")}" }
         StringId.ShipsSkiff -> args.count(0).let { "$it ${it.plural("skiff", "skiffs")}" }
         StringId.ShipsHauler -> args.count(0).let { "$it ${it.plural("hauler", "haulers")}" }
         StringId.ShipsEscort -> args.count(0).let { "$it ${it.plural("escort", "escorts")}" }
@@ -473,6 +517,7 @@ object English : Translations {
         StringId.BuildingFullNameSolarPlant -> "Solar Plant"
         StringId.BuildingFullNameRoboticsFactory -> "Robotics Factory"
         StringId.BuildingFullNameNaniteFactory -> "Nanite Factory"
+        StringId.ShipTitleNameScout -> "Scout"
         StringId.ShipTitleNameSkiff -> "Skiff"
         StringId.ShipTitleNameHauler -> "Hauler"
         StringId.ShipTitleNameEscort -> "Escort"

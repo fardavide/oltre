@@ -54,12 +54,93 @@ object FleetBalance {
     // it is the same failure `SurveyBalance.BASE_MINUTES` exists to prevent: *"without it the nearest
     // targets would land inside the check-in that ordered them."*
     private const val BASE_FLIGHT_MINUTES: Int = 10
-    private const val UNITS_PER_FLIGHT_MINUTE: Int = 10
 
-    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate): Duration =
-        (BASE_FLIGHT_MINUTES + distanceUnits(from, to) / UNITS_PER_FLIGHT_MINUTE).minutes
+    // **Halved from 10, and the halving is the change Davide asked for three times.** 2026-08-12:
+    // *"travel towards far planes to be way more time consuming, and require upgraded fleets to get
+    // there faster."* 2026-08-16: *"navigating distance takes way more time, without powered up
+    // ships."* The first half of that sentence is this constant; the second half is `PROPULSION`.
+    //
+    // **5 is not an arbitrary "slower", it is a calibration.** Because `unitsPerMinute` is
+    // `base x (1 + level)`, drive 1 lands on exactly 10 — so **drive 0 is half of what 0.14 flew at
+    // and drive 1 is 0.14 to the minute.** That is what makes the technology read as an unlock rather
+    // than as a bonus: the first level does not make the player faster than they were, it gives them
+    // back the game they had, and everything past it is new ground.
+    //
+    // The cost of that, stated plainly because it is the thing an install has to judge: a colony
+    // that has researched nothing has a map that is honestly smaller than it looks. Two galaxy hops
+    // out and back is 36h 20m at drive 0, past the longest window there is, so `windowsFor` offers
+    // nothing at all for the far end of the map until the first level lands. That is intended —
+    // `exploration-rewards-sheet.md` §8.5 raised it as an open call and the answer is that the
+    // frontier is *bought*, not given.
+    private const val UNITS_PER_MINUTE_BASE: Long = 5
 
-    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate): Duration = flight(from, to) * 2
+    // How far a hull covers in a minute, which is the only thing the drive touches. Routed through
+    // `ResearchBalance.multiplier` rather than reading the level directly, for `extractionPerHour`'s
+    // own reason one section down: **there is no second place for the effect to be forgotten**, and
+    // the Research screen's percentage is read off the same function that flies the ship.
+    fun unitsPerMinute(research: Research): Long =
+        UNITS_PER_MINUTE_BASE *
+            ResearchBalance.multiplier(Technology.PROPULSION, research.levelOf(Technology.PROPULSION)) /
+            ResearchBalance.MULTIPLIER_BASIS
+
+    // ── The clock a manifest flies on ────────────────────────────────────────────────────────
+    //
+    // **A hull's whole cost, in one integer.** A skiff is 1; a hauler is 2, which is the ship set's
+    // *"half speed"* said once rather than as a base and a divisor that have to be kept in step. The
+    // factor scales the base term **and** the distance term, so a hauler is `20 + 2u/U` against a
+    // skiff's `10 + u/U` — which is the design's own formula, and it reproduces its frames to the
+    // minute: 20m and 42m out and back at the doorstep, 1h 48m and 3h 36m at 69 systems out.
+    //
+    // **It is *about* double rather than exactly double**, and the difference is the base term. The
+    // design's prose says exactly and its own frames say 2.1x at the doorstep, where the flat ten
+    // minutes doubles but the distance rounds to nothing. Nothing turns on the exactness — what the
+    // shape needs is that a manifest has **one** clock and that the slowest hull sets it, which is
+    // true of any number of hulls drawn from two types.
+    //
+    // A `SCOUT` has no factor because it cannot be in a gathering manifest; `startRun` refuses it at
+    // the door. Zero would be a division by nothing and one would be a lie about a hull that has no
+    // clock at all, so the map simply has no entry and `maxOf` never sees one.
+    private fun ShipType.flightFactor(): Int = when (this) {
+        ShipType.SKIFF -> 1
+        ShipType.HAULER -> 2
+        ShipType.SCOUT, ShipType.ESCORT, ShipType.SETTLER -> 0
+    }
+
+    // **The slowest hull sets the clock for all of them**, which is what makes a run have one
+    // `returnsAt` however mixed its manifest. One is the floor, so an empty or scout-only manifest
+    // still answers with a flight rather than a division by zero — `cargo` is what refuses those,
+    // and it refuses them by returning nothing rather than by raising.
+    fun flightFactor(ships: Ships): Int =
+        ships.counts.keys.maxOfOrNull { it.flightFactor() }?.coerceAtLeast(1) ?: 1
+
+    // **`BASE_FLIGHT_MINUTES` is outside the division, so the drive is worthless next door and
+    // transformative at the frontier.** A target five units away is ten minutes at every level there
+    // is; another galaxy goes from 9h 10m to 4h 40m on the first one. That asymmetry is the whole
+    // design — the technology pays exactly where the sheet wants the player to go.
+    //
+    // **The factor multiplies the numerator rather than dividing the denominator**, which is the same
+    // arithmetic wherever `unitsPerMinute` is even and better where it is odd — and it is odd at
+    // drive 0, where the base is 5. `20 + 2u/5` is the honest half-speed; `20 + u/(5/2)` would floor
+    // the *speed* to 2 and make a hauler slower than the design says.
+    fun flight(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research, ships: Ships): Duration {
+        val factor = flightFactor(ships)
+        return (BASE_FLIGHT_MINUTES * factor + factor * distanceUnits(from, to) / unitsPerMinute(research)).minutes
+    }
+
+    fun roundTrip(from: GalaxyCoordinate, to: GalaxyCoordinate, research: Research, ships: Ships): Duration =
+        flight(from, to, research, ships) * 2
+
+    // **The fast clock, for every reading that is not about a manifest.** The galaxy map's caption,
+    // a world row's trailing chip and the ledger's sort all quote a round trip before any hulls are
+    // chosen, and they have quoted the skiff's since 0.7.0 — so this keeps those numbers exactly
+    // where they were rather than moving them for a hull the reader has not picked.
+    //
+    // **The design raised this and did not decide it**, and it is worth quoting because it is the
+    // open call rather than an oversight: *"an unlabelled time that belongs to a hull nobody named…
+    // Cheapest fix is to drop the reach from the header and leave `69 systems out · 440 units`, since
+    // the sheet one tap away prints both. Raised, not decided."* Until Davide answers, these readings
+    // stay the fast clock and this constant is what makes every one of them greppable.
+    val FASTEST_HULL: Ships = Ships.of(ShipType.SKIFF, 1)
 
     // ── The window ladder ────────────────────────────────────────────────────────────────────
     //
@@ -77,13 +158,31 @@ object FleetBalance {
     // at its own boundary would re-enter `advance` at the same instant and recurse forever.
     val MINIMUM_STATION: Duration = 20.minutes
 
-    fun windowsFor(from: GalaxyCoordinate, to: GalaxyCoordinate): List<Duration> {
-        val floor = roundTrip(from, to) + MINIMUM_STATION
+    // **These three are three readings of one flight and must be given the same research**, or the
+    // sheet offers a rung whose station time it then prices differently. The drive parameter carries
+    // no default for exactly that reason: every call site is a compile error until somebody looks at
+    // it, which is how all four of them were found.
+    //
+    // The drive is also what makes a *narrowing* ladder into a teaching device that runs both ways.
+    // A rung is absent rather than disabled when the trip does not fit, so a level bought is a
+    // control reappearing on a world the player already knows — no copy required.
+    fun windowsFor(
+        from: GalaxyCoordinate,
+        to: GalaxyCoordinate,
+        research: Research,
+        ships: Ships,
+    ): List<Duration> {
+        val floor = roundTrip(from, to, research, ships) + MINIMUM_STATION
         return WINDOWS.filter { it >= floor }
     }
 
-    fun stationFor(from: GalaxyCoordinate, to: GalaxyCoordinate, window: Duration): Duration =
-        window - roundTrip(from, to)
+    fun stationFor(
+        from: GalaxyCoordinate,
+        to: GalaxyCoordinate,
+        window: Duration,
+        research: Research,
+        ships: Ships,
+    ): Duration = window - roundTrip(from, to, research, ships)
 
     // ── Danger ───────────────────────────────────────────────────────────────────────────────
     //
@@ -287,9 +386,14 @@ object FleetBalance {
     ): Resources {
         val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
         val stationMinutes = station.inWholeMinutes
-        if (stationMinutes <= 0 || ships.isEmpty) return Resources.of()
+        // **Berths rather than hulls**, which is the same number for a skiff-only manifest and the
+        // whole of the hauler's side of the composition trade for any other. A manifest of nothing
+        // but scouts has no berths at all and returns here, which is the `isEmpty` guard generalised
+        // rather than replaced.
+        val carrying = berths(ships)
+        if (stationMinutes <= 0 || carrying <= 0) return Resources.of()
         val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(ships.total.toLong(), extractionPerHour(research)) { "cargo hulls" }
+        var numerator = checkedTimes(carrying.toLong(), extractionPerHour(research)) { "cargo berths" }
         numerator = checkedTimes(numerator, stationMinutes) { "cargo station" }
         numerator = checkedTimes(numerator, gathered.richnessOf(world).perMillion.toLong()) { "cargo richness" }
         numerator = checkedTimes(numerator, paid) { "cargo danger" }
@@ -300,44 +404,41 @@ object FleetBalance {
         return gathered.holding(numerator / denominator)
     }
 
-    // **The smallest fleet that takes everything there is, and null when no fleet would.** The
-    // dispatch sheet opens on this number rather than on the whole idle pool — Davide, 2026-08-17,
-    // having counted the taps: *"going from 55 to 3 is a lot of taps"*. A hull past this one is
-    // locked away for the whole window and brings back exactly zero, which the sheet has said out
-    // loud in a note since 0.10 and now says by defaulting to the number instead.
+    // ── The smallest fleet that empties the vein — RETIRED 2026-08-21, REPLACED ──────────────
     //
-    // **Derived from `cargo`'s own expression rather than from a second rate**, for the reason
-    // `DepositBalance.workingTime` states one file over: `cargo(n)` is `floor(n x K)`, so
-    // `cargo(n) >= remaining` for an integer `remaining` is exactly `n >= remaining / K` — one
-    // ceiling division, and the two can never disagree about a hull. A second copy of the rate here
-    // would be a second rounding convention.
+    // `hullsToLift` lived here from 0.13.1 and answered *"the smallest fleet that takes everything
+    // there is"* as a **hull count**. It had exactly one caller, the dispatch sheet's default, and it
+    // stopped having a single answer the day the picker landed: four skiffs and one hauler lift the
+    // same and cost different things, so *"smallest"* became a question about a **composition**.
     //
-    // Null is *no fleet size lifts this in this window*, which is the honest answer when the window
-    // leaves nothing on the surface: `cargo` is zero at every fleet size there, so any figure would
-    // be a wrong answer wearing a plausible face. One is the floor, because a fleet of nothing is
-    // not an offer — a vein with nothing left in it takes one hull to take nothing.
-    fun hullsToLift(
+    // Claude Design saw it coming and said so — *"hullsToLift stops having one answer once four
+    // skiffs and one hauler lift the same and cost differently. Widening this is the picker's slice,
+    // not a tidy-up: what it should return is a composition, and which composition is a design
+    // question rather than an arithmetic one."* That question is answered — fewest berths, hauler
+    // first — so this is the widening rather than a deletion, and `smallestThatEmpties` below is what
+    // it became.
+    //
+    // Recorded rather than silently dropped, for `FRONTIER_PERCENT`'s reason one section up: the
+    // argument that produced it is still the right argument, and it is now carried in berths.
+
+    // **The fewest berths that empty the vein, packed hauler-first** — Claude Design's third ruling,
+    // *Twice the Flight*. Null when no manifest here can, which is the honest answer for a window
+    // with no surface time and for a vein deeper than the whole pool: the caller sends everything.
+    //
+    // `candidates` is filtered by the caller rather than here, and that is the one constraint the
+    // rule carries — *"it may never lock the rung it is defaulting to"* — expressed as the list it is
+    // handed instead of as a second check it would have to repeat.
+    fun smallestThatEmpties(
+        candidates: List<ReachableManifest>,
         world: World,
         gathering: ResourceKind,
         remaining: Long,
-        station: Duration,
+        station: (Ships) -> Duration,
         danger: Int,
         research: Research,
-    ): Int? {
-        val gathered = requireNotNull(gathering.gathered()) { "a run never gathers deuterium" }
-        require(remaining >= 0) { "a deposit cannot be negative, was $remaining" }
-        val stationMinutes = station.inWholeMinutes
-        if (stationMinutes <= 0) return null
-        if (remaining == 0L) return 1
-        val paid = PERCENT + DANGER_BONUS_PERCENT * danger.coerceAtLeast(0)
-        var numerator = checkedTimes(remaining, MINUTES_PER_HOUR * GalaxyBalance.RICHNESS_BASIS) { "hulls remaining" }
-        numerator = checkedTimes(numerator, PERCENT * gathered.pricePerUnit) { "hulls price" }
-        var denominator = checkedTimes(extractionPerHour(research), stationMinutes) { "hulls station" }
-        denominator = checkedTimes(denominator, gathered.richnessOf(world).perMillion.toLong()) { "hulls richness" }
-        denominator = checkedTimes(denominator, paid) { "hulls danger" }
-        // Ceiled: a fleet that lifts a fraction less than the vein holds has not emptied it.
-        val hulls = (numerator + denominator - 1) / denominator
-        return hulls.coerceIn(1, Int.MAX_VALUE.toLong()).toInt()
+    ): ReachableManifest? = candidates.firstOrNull { manifest ->
+        val onStation = station(manifest.ships)
+        cargo(world, gathering, manifest.ships, onStation, danger, research).of(gathering) >= remaining
     }
 
     // ── The hull ─────────────────────────────────────────────────────────────────────────────
@@ -396,20 +497,97 @@ object FleetBalance {
     const val HULL_BASE_METAL: Long = 800
     const val HULL_BASE_CRYSTAL: Long = 200
 
-    // **Only the skiff has a price this slice, and the other three raise rather than guess.** Each of
-    // them waits on exactly one design call — the hauler on slice 4's speed-against-hold axis, the
-    // escort on a combat model, the settler on colonisation — and a plausible number invented here
-    // would be indistinguishable, to every later reader, from one somebody chose.
+    // ── The scout — DAVIDE'S CALL, 2026-08-21 ────────────────────────────────────────────────
+    //
+    // **200 metal / 50 crystal, and what sizes it is the genesis stock rather than the mid game.** A
+    // colony owns no hulls (0.11.3) and this is the first thing it buys, so the constant is an
+    // *opening* number capped by the 500 metal a colony wakes up with — which is what makes it the
+    // one price in this object that a player meets before they have produced anything.
+    //
+    // 300 priced units against the skiff's 1,200: **a quarter of a skiff**, which is the legible half
+    // of the number. The ratio is the part to defend. A scout that drifts towards a skiff stops being
+    // the thing you buy before anything else, and the Galaxy tab — which 0.12.0 made the screen a
+    // player lands on — goes back to having nothing behind it for the first two days.
+    //
+    // **It is deliberately not free, and not granted at genesis.** Davide, 2026-08-16: a colony owns
+    // nothing and buys this first. A starter scout would have made the hull a formality rather than
+    // the first decision, and the first decision is what the price is for.
+    const val SCOUT_METAL: Long = 200
+    const val SCOUT_CRYSTAL: Long = 50
+
+    // **Two hulls have a price and the other three raise rather than guess.** Each of those waits on
+    // exactly one design call — the hauler on slice 4's speed-against-hold axis, the escort on a
+    // combat model, the settler on colonisation — and a plausible number invented here would be
+    // indistinguishable, to every later reader, from one somebody chose.
     //
     // **There is no `alreadyOwned` parameter, deliberately.** Carrying one that every branch ignores
     // would leave the callers threading a fleet count through to a price that does not read it — and
     // the day somebody restores the curve, a live parameter is exactly how it comes back without a
     // decision. The day it *is* a decision, this signature is the thing that has to change.
+    // ── The hauler — DAVIDE'S CALL, 2026-08-21, AND IT IS A RE-DECISION ──────────────────────
+    //
+    // **The 2026-08-10 ruling expired without being wrong.** It priced the hauler at 1,000 metal /
+    // 250 crystal *on its own x1.5 curve*, against a skiff base of 80 / 20 — twelve and a half times
+    // a skiff, which was the whole of its case: *"its entire case is price; 240 would delete the
+    // skiff."* Two later calls took the ground out from under that number without touching it.
+    // 0.9.0 raised the skiff base tenfold, and 0.10.1 deleted the compounding curve outright — so
+    // 1,000 / 250 is now **1.25x a skiff for four berths**, which deletes the skiff instead. Same
+    // failure shape round 27 named: *a constant derived from a rule carries the rule's premise, and
+    // a later round can invalidate the premise without touching the constant.*
+    //
+    // **Three skiffs of price for four skiffs of hold.** The ratio is the decision and the absolute
+    // number follows it: a 25% discount on hold, paid for in half speed and in putting a whole
+    // window's cargo in one basket. Four would make the hauler strictly worse than the four skiffs
+    // it replaces — same hold, half speed, and no splitting across targets — so nobody would buy
+    // one; two would leave the skiff nothing but speed, which the drive is about to make more
+    // valuable but not by enough to carry a hull on its own.
+    const val HAULER_METAL: Long = 2_400
+    const val HAULER_CRYSTAL: Long = 600
+
+    // **The hulls a slice has actually given a job to, and the one list that says so.** `buildShips`
+    // refuses anything outside it and the Shipyard draws a card for everything inside it — two
+    // statements of one fact, which is why they may not be two lists.
+    //
+    // **They were two, and it shipped a hull nobody could buy.** At 0.15 this gained the scout and
+    // the Shipyard's own copy list did not, so a colony that owns no hulls could not buy the one hull
+    // that surveys: the Galaxy tab was dead for the whole game rather than for the first check-in.
+    // Nothing in `core` could catch it — every test here calls the verb directly — so the guard is a
+    // test in `:client:shipyard:presentation` holding its card list against this one.
+    //
+    // The **hauler joined at 0.15.0**, with the manifest picker — *Twice the Flight* — which is what
+    // it was waiting for: until the dispatch sheet could send a two-hull manifest, a purchasable
+    // hauler was a hull a player could own and never use.
+    val FOR_SALE: Set<ShipType> = setOf(ShipType.SCOUT, ShipType.SKIFF, ShipType.HAULER)
+
     fun shipCost(type: ShipType): Resources = when (type) {
+        ShipType.SCOUT -> Resources.of(metal = SCOUT_METAL, crystal = SCOUT_CRYSTAL)
         ShipType.SKIFF -> Resources.of(metal = HULL_BASE_METAL, crystal = HULL_BASE_CRYSTAL)
-        ShipType.HAULER, ShipType.ESCORT, ShipType.SETTLER ->
+        ShipType.HAULER -> Resources.of(metal = HAULER_METAL, crystal = HAULER_CRYSTAL)
+        ShipType.ESCORT, ShipType.SETTLER ->
             error("$type has no price until the slice that gives it a job")
     }
+
+    // ── Berths — what a manifest can actually carry ──────────────────────────────────────────
+    //
+    // **The hold is counted in berths and not in hulls, and until the hauler those were the same
+    // number.** `cargo` summed `ships.total` because every hull that could be sent had exactly one
+    // berth; the ship set's own table has always said otherwise — *"HAULER: four berths of hold,
+    // half speed"* — and this is where that stops being a comment.
+    //
+    // A `SCOUT` has none, which is what makes it not a fleet asset. It cannot reach `cargo` through
+    // `startRun`, which refuses the manifest at the door, but the arithmetic must not be the thing
+    // standing between a scout and a berth it does not have.
+    //
+    // The escort and the settler are zero **pending their slices** rather than by design: one of
+    // them will have a hold and neither has a number. A hull with no price cannot be bought, so no
+    // manifest can contain one, and the day either ships this line is what has to move with it.
+    private fun ShipType.berthsEach(): Int = when (this) {
+        ShipType.SKIFF -> 1
+        ShipType.HAULER -> 4
+        ShipType.SCOUT, ShipType.ESCORT, ShipType.SETTLER -> 0
+    }
+
+    fun berths(ships: Ships): Int = ships.counts.entries.sumOf { (type, count) -> type.berthsEach() * count }
 
     // ── The yard clock — DAVIDE'S CALL, 2026-08-13 ───────────────────────────────────────────
     //
@@ -463,4 +641,67 @@ object FleetBalance {
     // section up. It is what makes the yard queue's strictly-increasing invariant provable rather
     // than merely observed.
     val MINIMUM_YARD_DURATION: Duration = 5.minutes
+
+    // Every manifest the idle pool can actually fly, ordered by hold.
+    //
+    // **Packed hauler-first, which is the design's default rule and not a convenience.** *"Fewest
+    // berths, hauler first"* — so the hold climbs 1, 2, then 4, 5, 6 at one hauler and two skiffs,
+    // because a hauler is four berths and it does not divide. The gaps are the point: a cell whose hold
+    // is smaller than the stepper asked for says so before it is tapped, and tapping it clamps.
+    //
+    // **Skiffs are fungible and haulers are not**, which is why this enumerates hauler *counts* and lets
+    // the skiffs fill in: you never care which skiff, and the design rejected a per-skiff control for
+    // exactly that reason — *"false precision"*.
+    //
+    // Empty when the pool holds nothing that can gather, which is the honest answer for a colony whose
+    // hulls are all out or all scouts. The sheet draws its refusal from that emptiness rather than from
+    // a count.
+    fun reachableManifests(idle: Ships): List<ReachableManifest> {
+        val skiffs = idle.countOf(ShipType.SKIFF)
+        val haulers = idle.countOf(ShipType.HAULER)
+        val all = buildList {
+            for (hauler in 0..haulers) {
+                for (skiff in 0..skiffs) {
+                    if (hauler == 0 && skiff == 0) continue
+                    val counts = buildMap {
+                        if (hauler > 0) put(ShipType.HAULER, hauler)
+                        if (skiff > 0) put(ShipType.SKIFF, skiff)
+                    }
+                    val ships = Ships(counts)
+                    add(
+                        ReachableManifest(
+                            ships = ships,
+                            berths = berths(ships),
+                            flightFactor = flightFactor(ships),
+                        ),
+                    )
+                }
+            }
+        }
+        // One entry per hold, and where two manifests carry the same berths the **hauler-first** one
+        // wins — which at four berths is one hauler against four skiffs, and is the rule that keeps the
+        // skiffs at home for the second target the sheet cannot see.
+        return all
+            .groupBy { it.berths }
+            .map { (_, sameHold) -> sameHold.maxBy { it.ships.countOf(ShipType.HAULER) } }
+            .sortedBy { it.berths }
+    }
+}
+
+// **The one derived list the whole manifest picker falls out of** — Claude Design, *Twice the
+// Flight*, 2026-08-21: *"The reachable manifests, ordered by berths, each with its round trip and
+// its clamped cargo. The stepper is an index into it, the two cells are the first manifest of each
+// clock, and the ladder is the same legality test the sheet already runs, once per rung, against the
+// selected manifest."*
+//
+// It lives in `core` because every term in it is arithmetic — a pool, a berth count, a flight — and
+// none of it is a rendering. What the sheet adds is which entry is selected and what the cells say.
+data class ReachableManifest(val ships: Ships, val berths: Int, val flightFactor: Int)
+
+// The one resource a run is out to fetch, read off a basket. Private because `Resources` is the
+// game's one shape for a stock and a public reader would invite a second `when` per caller.
+private fun Resources.of(kind: ResourceKind): Long = when (kind) {
+    ResourceKind.METAL -> metal
+    ResourceKind.CRYSTAL -> crystal
+    ResourceKind.DEUTERIUM -> deuterium
 }

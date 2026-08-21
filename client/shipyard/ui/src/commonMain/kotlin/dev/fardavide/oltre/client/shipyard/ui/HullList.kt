@@ -175,44 +175,6 @@ private fun YardFooter(yard: YardUiState, type: ShipType) {
     }
 }
 
-// The hull a slice has not reached, drawn rather than hidden — a shop that only lists what is on
-// sale cannot teach the axis it is about to sell along. Two lines and no price, at the same 42% dim
-// a locked Research row takes, because the two mean the same thing: this exists and you cannot have
-// it yet.
-@Composable
-internal fun ComingHullList(hulls: List<ComingHullUiState>) {
-    val mono = oltreMono()
-    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        hulls.forEach { hull ->
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .oltreCard(OltreCardState.WAITING)
-                    .testTag(ShipyardTestTags.card(hull.type))
-                    // After the card and not before it: an alpha ahead of the fill dims the card
-                    // itself, which turns the one opaque thing on the screen translucent again and
-                    // lets the starfield through it. See the same ordering on a locked Research row.
-                    .alpha(0.42f)
-                    .padding(11.dp),
-                verticalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
-                Text(
-                    text = hull.name.resolve(),
-                    color = OltreColors.text,
-                    fontFamily = mono,
-                    fontSize = 13.5.sp,
-                    fontWeight = FontWeight.Medium,
-                )
-                Text(
-                    text = hull.purpose.resolve(),
-                    color = OltreColors.textSecondary,
-                    fontFamily = mono,
-                    fontSize = 10.5.sp,
-                )
-            }
-        }
-    }
-}
 
 // What the card is made of is the design system's; which of its three states a hull is in is this
 // feature's.

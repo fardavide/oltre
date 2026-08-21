@@ -1370,8 +1370,26 @@ the first thing to add if the arrival turns out to feel like nothing.**
   against 243 for the four skiffs it displaces — it would dominate on arrival and delete the
   composition decision. 1,000 puts the crossover in *ownership*: skiffs early, haulers at scale.
   Marked for the slice-4 sweep and **not implemented**, because the hauler is slice 4.
-- **The hauler's extraction constant** is still owed — the sheet gives it four berths and half a
-  skiff's speed and no rate.
+
+  **RE-TAKEN 2026-08-21 at 2,400 metal / 600 crystal, flat.** The 2026-08-10 number was not wrong; the
+  ground under it moved. It was twelve and a half times a skiff base of 80 / 20 on a curve — and
+  0.9.0 raised that base tenfold while 0.10.1 deleted the curve, which leaves 1,000 / 250 at **1.25×
+  a skiff for four berths**, deleting the skiff instead of protecting it. Davide's call: three skiffs
+  of price for four skiffs of hold. The reasoning above survives intact — *its entire case is price*
+  — and what changed is only which number expresses it now that there is one rung rather than a
+  curve. Round 27's lesson a third time: a constant carries its rule's premise, and a later round can
+  invalidate the premise without touching the constant.
+- ~~**Slice 4's manifest picker has no frame**~~ — **designed and built 2026-08-21**, Claude Design's
+  *Twice the Flight*. One stepper on berths and a two-cell hull row; a rung the mix removed is locked
+  at 42% with its requirement rather than absent, because absence has to keep one cause or it stops
+  teaching distance; and the default is the fewest berths that empty the vein, hauler first. The one
+  fact the shape rests on falls out of §4: a manifest has **one** clock and the slowest hull sets it,
+  so there are only ever two answers however many hulls go.
+- ~~**The hauler's extraction constant**~~ — **settled 2026-08-21, and it was in this sheet all
+  along.** Four berths is the rate: `FleetBalance.berths` weights a manifest, so one hauler lifts
+  exactly what four skiffs lift and the trade is speed alone. What is genuinely still owed is the
+  *speed* half — `flight` reads only a target, and a hauler needs it to read the manifest, which is
+  the same change the picker below needs. The two are one slice.
 - **Two hulls or one, and their names.** `SKIFF` and `HAULER` are the build's invention and become
   on-disk identifiers on the first merge. The four constants are free to rename **today and once**,
   because nothing has ever written one to disk; after the first hull a real player owns, a rename is a

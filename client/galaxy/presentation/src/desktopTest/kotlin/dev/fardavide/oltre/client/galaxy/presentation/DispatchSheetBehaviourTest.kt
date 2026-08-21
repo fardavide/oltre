@@ -135,24 +135,141 @@ class DispatchSheetBehaviourTest {
         )
     }
 
+    // ── *Twice the Flight*: the picker's two rules, driven from the screen ───────────────────
+
+    @Test
+    fun `the last tap wins — adding the hauler yields the rung it cannot fly`() {
+        // Design's rule for both controls in one sentence: *"Add a hull and the rung yields; tap a
+        // locked rung and the hull yields."* Here it is the first half. The refusal is drawn where
+        // the decision is instead of after it, so `WindowTooShort` is unreachable from this sheet.
+        galaxyPage(uiState = dispatchPickerMovedUiState) {
+            // The rung the player had is still on screen — dimmed, with the hull that would fly it —
+            // because it is the undo rather than a disabled control.
+            assertRungIsLocked(3.hours, "skiffs")
+            // ...and the selection moved *up*, which is the only direction: a window too short for a
+            // flight is too short for every shorter window.
+            homeIn(6.hours)
+            assertTheSheetReads("The hauler moved this run to 6h")
+        }
+    }
+
+    @Test
+    fun `a rung the distance refuses is absent where a rung the mix refuses is dimmed`() {
+        // **The distinction the whole ruling turns on**, asserted as the two renderings side by side
+        // on one sheet: 1h is not drawn at all at 69 systems out because no hull can fly it, and 3h
+        // is drawn at 42% because *these* hulls cannot. Absence keeps one cause, which is what lets
+        // it go on teaching distance.
+        galaxyPage(uiState = dispatchPickerMovedUiState) {
+            assertNoRungFor(1.hours)
+            assertRungIsLocked(3.hours, "skiffs")
+        }
+    }
+
+    @Test
+    fun `with the skiffs chosen the same rung is open rather than locked`() {
+        // The mirror, and it is what makes the assertion above a claim about the *mix* rather than
+        // about the distance: the same world, the same ladder, the skiffs selected — and 3h carries
+        // no requirement at all.
+        galaxyPage(uiState = dispatchPickerNarrowedUiState) {
+            assertNoRungFor(1.hours)
+            assertRungIsNotLocked(3.hours, "skiffs")
+        }
+    }
+
+    @Test
+    fun `tapping a cell clamps the hold to what that clock can carry`() {
+        // The cell says what it would do before it is tapped — *"2 skiffs"* against a stepper reading
+        // six berths — so the clamp is printed rather than sprung, and nothing here is a dead
+        // control. What comes back is the manifest, not a hull count: the offer carries what
+        // `startRun` is called with.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = TWO_HULL_STATE,
+            landing = GalaxyLanding.WORLDS,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(RUNNABLE)
+            sendWith(berths = 2)
+            send()
+        }
+
+        assertEquals(Ships.of(ShipType.SKIFF, 2), sent.single().ships)
+    }
+
+    @Test
+    fun `the default sends the hauler and the skiffs together`() {
+        // Design's third ruling, from the screen: *"the fewest berths that empty the vein at the rung
+        // already selected, packed with the hauler first."* At one hauler and two skiffs on a full
+        // vein nothing empties it inside 3h, so the default is the whole idle pool — and the manifest
+        // that reaches `startRun` is the mixed one rather than six skiffs the colony does not own.
+        val sent = mutableListOf<Quadruple>()
+
+        galaxyScreen(
+            state = TWO_HULL_STATE,
+            landing = GalaxyLanding.WORLDS,
+            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+        ) {
+            tapTheWorld(RUNNABLE)
+            send()
+        }
+
+        assertEquals(Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)), sent.single().ships)
+    }
+
+    @Test
+    fun `the stepper counts berths with a hauler idle and skiffs without one`() {
+        // A berth is a distinction only a second hull type creates, so the sheet a player has always
+        // seen is unchanged until they buy one — asserted from the screen, because the unit is the
+        // first thing they read on that control.
+        galaxyPage(uiState = dispatchPickerUiState) {
+            assertTheSheetReads("6 berths")
+            assertTheSheetReads("1 hauler · 2 skiffs idle")
+        }
+        galaxyPage(uiState = dispatchOfferUiState) {
+            assertTheSheetReads("1 skiff")
+        }
+    }
+
+    @Test
+    fun `the note under the cells says what the other clock would do`() {
+        // One slot, three forms, and the precedence is Design's — the clamp wins where both are
+        // earned, because it is about the run being sent rather than one that is not.
+        galaxyPage(uiState = dispatchPickerUiState) {
+            assertTheSheetReads("Skiffs only lift")
+        }
+        galaxyPage(uiState = dispatchPickerNarrowedUiState) {
+            assertTheSheetReads("The hauler lifts")
+        }
+        galaxyPage(uiState = dispatchPickerClampedUiState) {
+            assertTheSheetReads("The hauler empties it.")
+        }
+    }
+
     @Test
     fun `a window is missing rather than dead when the trip will not fit inside it`() {
         // The only way to show "too far" without a control that refuses its own tap — and the rung
         // that vanishes is the copy: a ladder narrowing on a distant target teaches distance before
-        // any sentence does. One galaxy hop is 4h 40m each way, so the three short rungs cannot
-        // leave the twenty minutes on the surface that make the trip worth taking.
+        // any sentence does. One galaxy hop is 9h 10m each way at drive 0, so **only the longest rung
+        // survives** — the four below it cannot leave the twenty minutes on the surface that make
+        // the trip worth taking.
+        //
+        // **It used to be two rungs and 4h 40m, which is what drive 1 costs.** The fixture has
+        // researched nothing, so this is the ladder a new colony really meets: the frontier is a
+        // 24h-rung-only proposition until the drive is bought, and buying it hands the 12h rung
+        // back. That is the whole teaching device, and it needs no copy at all.
         //
         // **The first assertion is that there is a ladder at all**, and it is here because the first
         // version of this fixture was unsurveyed: the sheet refused before it priced anything, so
         // every `assertNoRungFor` below passed against a sheet with no rungs on it whatever.
         val far = assertIs<DispatchUiState.Offer>(dispatchFarUiState.dispatch)
-        assertEquals(listOf(12.hours, 24.hours), far.windows.map { it.window })
+        assertEquals(listOf(24.hours), far.windows.map { it.window })
 
         galaxyPage(uiState = dispatchFarUiState) {
             assertNoRungFor(1.hours)
             assertNoRungFor(3.hours)
             assertNoRungFor(6.hours)
-            homeIn(12.hours)
+            assertNoRungFor(12.hours)
             homeIn(24.hours)
             // ...and the sentence that says why, so a player who never saw the full ladder can still
             // find out that one is missing.
@@ -302,11 +419,24 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
-    fun `the sheet says how long the fleet is actually working`() {
+    fun `the working leg is the clamp, so it is absent when nothing clamps`() {
         // The invariant made visible with no copy at all: because the vein and the rate carry one
         // multiplier, this segment reads the same on the doorstep as in the next galaxy.
-        galaxyPage(uiState = dispatchClampedUiState) {
+        //
+        // **Its presence *is* the clamp** — Design: *"the working leg keeps its 0.9 rule… its
+        // absence needs no words."* On a run nothing stops, the fleet works the whole station and the
+        // leg would print the number beside it twice; when the vein stops it early, the gap between
+        // the two is the reading.
+        //
+        // **This asserted the leg on `dispatchClampedUiState`, which is the wrong fixture** — that
+        // one is clamped by the *pool* (99 asked of six idle), not by the vein, so nothing stops the
+        // run early there. It passed because the leg used to be unconditional, which is the same
+        // thing as not being asserted at all.
+        galaxyPage(uiState = dispatchWholeDepositUiState) {
             assertTheSheetReads("working")
+        }
+        galaxyPage(uiState = dispatchOfferUiState) {
+            assertTheSheetDoesNotRead("working")
         }
     }
 
@@ -560,7 +690,14 @@ class DispatchSheetBehaviourTest {
         val elsewhere: GalaxyCoordinate = wellTravelledState.galaxy.let { galaxy ->
             galaxy.surveyed
                 .filter { it.system != galaxy.home.system }
-                .minBy { FleetBalance.roundTrip(from = galaxy.home, to = it) }
+                .minBy {
+                    FleetBalance.roundTrip(
+                        from = galaxy.home,
+                        to = it,
+                        research = wellTravelledState.research,
+                        ships = FleetBalance.FASTEST_HULL,
+                    )
+                }
         }
     }
 }

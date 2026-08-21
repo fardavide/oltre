@@ -56,7 +56,13 @@ class StartRunDepositTest {
         // given a fleet whose unclamped lift is bigger than the vein
         val world = worldAt(state.galaxy.seed, target)!!
         val danger = FleetBalance.danger(from = state.galaxy.home, world = world)
-        val station = FleetBalance.stationFor(from = state.galaxy.home, to = target, window = 24.hours)
+        val station = FleetBalance.stationFor(
+            from = state.galaxy.home,
+            to = target,
+            window = 24.hours,
+            research = state.research,
+            ships = ships,
+        )
         val unclamped = FleetBalance.cargo(world, ResourceKind.METAL, ships, station, danger, state.research).metal
         assertTrue(unclamped > vein, "the fleet would lift $unclamped from a vein of $vein")
 
@@ -95,7 +101,11 @@ class StartRunDepositTest {
         val leftOver = first.galaxy.remaining(target, ResourceKind.METAL, t0)
         assertTrue(leftOver > 0, "four hulls cannot quite strip a full world in a day")
 
-        val second = dispatch(first, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1))
+        // The second run gets a window big enough to over-lift the sliver, so what this measures is
+        // the clamp and not the hold. It used to be the 3h rung, and the drive's halved base speed
+        // took enough station time out of that rung for a lone skiff to fall *under* the sliver —
+        // at which point the test was passing on the hold rather than on the clamp it names.
+        val second = dispatch(first, target, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), window = 24.hours)
 
         assertEquals(leftOver, second.runs.last().cargo.metal)
         assertEquals(0, second.galaxy.remaining(target, ResourceKind.METAL, t0))

@@ -391,6 +391,14 @@ internal fun LevelPurpose.toVerdictUiState(throttled: Boolean): VerdictUiState? 
         label = Strings.haulGain((to - from).groupedByThousands()),
         compactLabel = Strings.haulGainCompact((to - from).groupedByThousands()),
     )
+    // The drive's row, on the same footing as `Haul` above and with the same PLACEHOLDER standing:
+    // exact figure, provisional noun. It states a *pair* where its neighbours state a delta, because
+    // hours off a flight are only legible against the flight they came off — "−9h 00m" on its own
+    // could be a tenth of the trip or half of it.
+    is LevelPurpose.Reach -> VerdictUiState(
+        label = Strings.reachGain(to = to.toChipLabel(), from = from.toChipLabel()),
+        compactLabel = Strings.reachGainCompact(to = to.toChipLabel()),
+    )
     is LevelPurpose.Throttled,
     is LevelPurpose.Sooner,
     LevelPurpose.Unmeasured,
@@ -505,6 +513,22 @@ private fun GameState.projectLines(purpose: LevelPurpose, effect: EffectUiState,
                 words(Strings.sheetFullStop()),
             ),
             sheetLine(words(Strings.sheetPaysOnNextRun())),
+        )
+        // `Haul`'s sibling and the same three-sentence shape: what the level does to the number on
+        // the row, what that number *is* in a unit the player spends, and when it pays. The unit
+        // here is a round trip rather than an hourly rate — the one figure a reach technology can
+        // quote without a target selected — and the third sentence is the whole design in a line,
+        // because the base flight term sits outside the division.
+        is LevelPurpose.Reach -> listOf(
+            effectSentence(effect),
+            sheetLine(
+                words(Strings.sheetTheNextGalaxyIs()),
+                figure(purpose.from.toChipLabel()),
+                words(Strings.sheetAwayAndWouldBe()),
+                figure(purpose.to.toChipLabel()),
+                words(Strings.sheetFullStop()),
+            ),
+            sheetLine(words(Strings.sheetPaysTheFurtherYouAim())),
         )
         // The row names itself rather than naming Photovoltaics, because in a deficit any of the
         // three lands here — see `toVerdictUiState`. The ledger sentence carries the percentage in

@@ -83,7 +83,9 @@ internal fun GameState.toLedgerBodyUiState(
 private fun GameState.knownWorlds(nav: GalaxyNavigation, now: Instant): List<World> = galaxy.surveyed
     .mapNotNull { worldAt(galaxy.seed, it) }
     .filter { matchesQuery(it, nav.query) }
-    .sortedBy { FleetBalance.roundTrip(from = galaxy.home, to = it.at) }
+    .sortedBy {
+        FleetBalance.roundTrip(from = galaxy.home, to = it.at, research = research, ships = FleetBalance.FASTEST_HULL)
+    }
 
 // A full name returns one row and a system name returns its worlds — which is what unique names
 // inside a galaxy buy, and the one place in the app where typing beats tapping.

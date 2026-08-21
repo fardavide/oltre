@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.advance
@@ -43,6 +44,33 @@ internal val probeLandedUiState: GalaxyUiState = wealthy.let { state ->
     )
     frame(
         state = landed,
+        view = GalaxyView.SYSTEM,
+        at = SystemSelection(probeTarget.galaxy, probeTarget.system),
+    )
+}
+
+// **The footer with the fleet short rather than the bank**, and a state every colony meets on day
+// one: genesis grants no hull, a probe flies a `SCOUT`, so this is what the tab says before the first
+// one is bought. Deep stores throughout — the metal chip must not redden, because the metal is not
+// what is missing, and that distinction is the whole of what this frame is for.
+//
+// It names the Shipyard rather than a wait, which is the one place the footer's *"available in"*
+// treatment carries something that is not a countdown: every other unaffordable state in the game is
+// answered by standing still and this one is not.
+internal val probeNeedsScoutUiState: GalaxyUiState = frame(
+    state = wealthy.copy(ships = Ships.NONE),
+    view = GalaxyView.SYSTEM,
+    at = SystemSelection(probeTarget.galaxy, probeTarget.system),
+)
+
+// The other half of the same refusal: a scout **is** coming back, so a countdown is the honest
+// answer and the Shipyard is not the advice. One scout, sent, so the pool is empty and the probe
+// that emptied it is the thing being waited on.
+internal val probeScoutComingHomeUiState: GalaxyUiState = wealthy.let { state ->
+    val elsewhere = state.galaxy.home.let { SystemAddress(galaxy = it.galaxy, system = it.system + 40) }
+    val out = assertIs<StartSurveyResult.Started>(startSurvey(state, elsewhere, at = FIXTURE_NOW)).state
+    frame(
+        state = out,
         view = GalaxyView.SYSTEM,
         at = SystemSelection(probeTarget.galaxy, probeTarget.system),
     )

@@ -3503,3 +3503,250 @@ unable to afford the next thing. The wait moved from a rule to a price.
 - **Watch the Nanite Factory.** If a fortnight of real play also never reaches it, the branch is
   eating the late opening rather than running beside it, and the first thing to try is raising the
   adaptation base — not restoring the shared slot, which Davide has ruled on.
+
+---
+
+## Round 30 — distance costs what it says, and a probe costs a ship (0.15.0, 2026-08-21)
+
+Issue #71, all three of its items, and the first two of them shipped. Davide's ask, three times in
+five days — 2026-08-12 (*"travel towards far planes to be way more time consuming, and require
+upgraded fleets to get there faster"*), 2026-08-15, and 2026-08-16 (*"navigating distance takes way
+more time, without powered up ships"*).
+
+**Two constants moved and one appeared.** `UNITS_PER_MINUTE_BASE` 10 → 5, `Technology.PROPULSION`
+with a linear `1 + level` effect, and `SCOUT` at 200 metal / 50 crystal. The hauler's price was
+re-taken at 2,400 / 600 and is not on sale.
+
+### The halving is a calibration rather than a slowdown
+
+`unitsPerMinute` is `base × (1 + level)`, so **drive 0 is half of 0.14's speed and drive 1 is 0.14 to
+the minute.** That is the whole reason 5 rather than 4 or 6: the first level does not make a player
+faster than they have ever been, it gives back the game they had, and everything past it is new
+ground. `BASE_FLIGHT_MINUTES` stays outside the division, so the neighbourhood does not move at all.
+
+| target | drive 0 | drive 1 | drive 3 | drive 5 |
+|---|---|---|---|---|
+| the next slot | 32m | 26m | 22m | 22m |
+| 60 systems out | 2h 58m | 1h 38m | 58m | 46m |
+| across your own galaxy | 6h 38m | 3h 28m | 1h 54m | 1h 22m |
+| the next galaxy | 18h 20m | 9h 20m | 4h 50m | 3h 20m |
+| **two galaxy hops** | **out of reach** | 18h 20m | 9h 40m | 6h 40m |
+
+Round trips, from the benchmark's new `[drive]` section, which prints the ladder each level offers
+rather than only the clock. **The bottom row is the change a player will actually notice**: at drive
+0 no window on the ladder covers two galaxy hops, so `windowsFor` returns nothing and the far end of
+the map is not orderable at all. `exploration-rewards-sheet.md` §8.5 raised that as an open call and
+this is the answer — the frontier is bought, not given.
+
+### The sheet's thesis reproduces from the shipped formulas
+
+§4's crossover was arithmetic in a document. It is now a row on the page, and it lands where the
+sheet said it would:
+
+| target, 24h rung, one richness | hold | vs the rock next door |
+|---|---|---|
+| the next slot | 1,964 metal | 1.00× |
+| 60 systems out | 2,217 | 1.12× |
+| across your own galaxy | 2,207 | 1.12× |
+| **the next galaxy, drive 0** | **843** | **0.42×** |
+| **the next galaxy, drive 1** | **2,182** | **1.11×** |
+
+**Read the last two rows.** At drive 0 another galaxy returns four tenths of what the rock next door
+does, and one level turns it into a better buy than the rock. That is the sheet's whole argument in
+two numbers, and it is the first time it has been measured rather than asserted.
+
+### Where the sheet was wrong, and Davide's ruling on it
+
+§2.3 had this technology carrying the **hold** as well as the speed, on the argument that *"it is
+the growth term the fleet has never had."* **That premise expired at 0.10.0**, when `PROSPECTING`
+shipped and gave the fleet exactly that. Two rows multiplying one term against the same ×1.5 cost
+curve is not a choice: the steeper wins from some level on and never loses again, so at ×1.25
+against Prospecting's ×1.10 the older row becomes a trap nobody should ever buy.
+
+Davide's call, 2026-08-21: **speed only.** The drive is reach, Prospecting is yield, and the
+benchmark's second `[drive]` block is the check — at the adjacent galaxy a drive level is worth
+2,182 metal against Prospecting's 927, and next door the drive is worth nothing at all while
+Prospecting is worth the same everywhere. They compete without dominating, which is §6.5's merge
+condition met rather than argued.
+
+It is also the one **linear** row in a branch that compounds, and that is not a softening: every
+other technology multiplies a rate, this one divides a *distance*, and a compounding divisor deletes
+the map by level eight.
+
+### What the fixed player did — 61 rows moved
+
+The same greedy player on the same seed, flying at half speed and buying Propulsion last (it is the
+dearest row, and the bot buys cheapest-first).
+
+| Reading | Was | Now |
+|---|---|---|
+| day 7 — income/h | 4,361 | **4,301** |
+| day 7 — metal banked | 54,673 | **58,027** |
+| day 14 — building levels | 71 | **71** |
+| day 14 — metal banked | 302,878 | **240,711** |
+| day 14 — metal mine | 17 | **18** |
+| day 14 — robotics factory | 9 | **8** |
+| robotics factory 9 | hour 298 (day 12) | **not within the run** |
+| first skiff affordable | hour 34 | **hour 27** |
+| hours with nothing building and no research | 16.91% | **11.86%** |
+| the next galaxy, 24h rung | 1.10× | **0.42×** |
+
+**The fleet delivers less, which is the change working rather than a regression.** Day-14 crystal
+falls a fifth because every run spends longer in flight and less on the surface, and the colony trades
+a Robotics level for a Metal Mine level to make up for it. What the benchmark's bot does *not* do is
+buy the drive — it is the most expensive row on the screen, and that bot buys strictly cheapest-first,
+so it meets the slowdown and never buys the cure.
+
+**That is a fact about *that* bot and not about the game, and `:sim:run` is the check that says so.**
+The sim's player acts four times a day and buys everything it can afford rather than only the cheapest
+thing, and it takes **Propulsion on day 2** — right after Prospecting, and before Robotics 4. So the
+drive is not priced out of reach; it is priced above a bot whose whole rule is to buy the cheapest row
+on the screen. Worth having both readings on the page, because the pessimistic one is the interesting
+one and it would be easy to quote alone.
+
+`robotics factory 9: not within the run` is the sharpest single line. It is the same money going into
+mines instead, and it is worth watching rather than fixing: if a fortnight of real play also stops
+short of it, the drive's base cost (1,000 / 400 / 200) is the dial, not the flight curve.
+
+### One instrument broke on this change, and it broke silently
+
+**`:sim:run`'s bot only ever bought skiffs**, so the moment a probe needed a `SCOUT` every
+`startSurvey` in the harness was refused and `Probes dispatched` went to **zero**. Nothing failed:
+the sim's probe branch reads `as? StartSurveyResult.Started` and does nothing on a refusal, which is
+correct for a harness and invisible in a report.
+
+That is the same shape as the two dead controls this release found in the client — *core grew a
+requirement, and everything that had been deriving "can I?" from the old inputs went on saying yes* —
+and it is the most dangerous instance of the three, because the other two would have been found by a
+player and this one produces a **plausible page of numbers**. A round written off it would have read
+the missing probes as a finding about the drive.
+
+Fixed by teaching the bot to buy a scout before its first probe, which is what a person does. It
+dispatches **7** where it dispatched 8, the difference being the metal the hull costs. The
+`[opening]` and `[progression]` tables above are `BalanceBenchmark`'s, which never surveyed, so they
+are unaffected — checked rather than assumed.
+
+### The probe, and the scarcity a price could not buy
+
+Davide, 2026-08-16, having played 0.12.2: *"Surveying other systems seems way too easy… Exploring the
+world must feel rewarding, not just a tap away."*
+
+**The price was never what made it a tap.** `startSurvey` capped nothing but one-probe-per-target, so
+ten probes dispatched in one check-in all landed together and the marginal wall-clock cost of the
+tenth was zero. No constant fixes that. A finite pool of hulls does: the tenth probe waits for the
+first to come home.
+
+The scout is **spent for the flight rather than consumed by it** — `advance` hands it back at the
+landing, exactly as a run's hulls return — so what surveying costs is a hull's absence and the
+scarcity is the clock rather than attrition. One scout surveys the galaxy given time.
+
+**200 / 50 is an opening constant and the genesis stock is what sizes it.** A colony owns no hulls
+(round 28), so this is the first thing it buys, and #83 flagged the danger in as many words: a
+fleet-second player who cannot afford a hull would have had *no exploration of any kind* for two
+days. 200 metal for the hull plus 150 for the flight against a 500-metal opening stock is what keeps
+that from happening, and `StartSurveyTest` pins it as arithmetic rather than as a hope.
+
+### What it should feel like, so round 31 can tell
+
+- **The first check-in should still contain a probe.** If a new colony's Galaxy tab sits empty while
+  it saves up, the scout is too dear and 200 is the dial.
+- **A drive level should feel like a door opening rather than a number going up.** The rung
+  reappearing on a world that refused it yesterday is the whole design, and it is delivered by a
+  control appearing with no copy at all. If a player buys a level and cannot tell what changed, that
+  is the finding.
+- **Watch whether anyone buys Propulsion at all.** The two bots disagree — the benchmark's
+  cheapest-first player never reaches it, the sim's four-times-a-day player takes it on day 2 — and a
+  person might do either. If the slowdown reads as the game being broken rather than as a thing to
+  fix, the base cost comes down before the flight curve does.
+- **Two galaxy hops being unorderable is intended.** If it instead reads as a bug — a world you can
+  see, a sheet with no windows on it — that is a copy problem on the dispatch sheet, not a balance
+  one.
+
+
+---
+
+## Round 31 — the hauler, and the question Design asked us to check (0.15.0, 2026-08-21)
+
+Claude Design closed *Twice the Flight* with one number to verify before it shipped:
+
+> *"The hauler is worth 630 metal at exactly one rung on a doorstep world and nothing at four of the
+> five. If `:sim:run` agrees, the hull is a purchase that pays only on deep veins far out."*
+
+**The benchmark disagrees, and the disagreement is instructive rather than a defect on either side.**
+It is now a permanent `[hauler]` section rather than a check somebody ran once.
+
+### Two comparisons, and only one of them is the question
+
+The first cut of this section compared **four skiffs against one hauler** — equal berths — and
+reported that the hauler never pays. That is true and it is not the question: `cargo` is
+`berths × rate × station`, the two manifests carry the same four berths, and the hauler spends more
+of the window flying. It loses by 178 metal at every rung it can fly, at every distance, for ever.
+
+| per berth, the next slot | without | with | to the hauler |
+|---|---|---|---|
+| 1h | 156 | cannot fly it | — |
+| 3h | 826 | 647 | **−179** |
+| 24h | 7,858 | 7,679 | **−179** |
+
+That is `fleet-sheet.md` §8's own long-standing claim — *"strictly worse per berth at every target
+and window"* — reproduced from the shipped formulas, and it is why the hull's **entire case is
+price**. It is on the page so nobody re-derives it as a bug.
+
+**The question is per *pool*, which is what Design's own cells put in front of the player**: what your
+idle hulls carry with the hauler against without it. Their fixture is one hauler and two skiffs, so
+the two cells are 2 berths and 6 berths.
+
+| per pool, the next slot | without | with | to the hauler |
+|---|---|---|---|
+| 1h | 78 | cannot fly it | — |
+| 3h | 413 | 971 | **+558** |
+| 6h | 915 | 2,478 | **+1,563** |
+| 12h | 1,919 | 5,491 | **+3,572** |
+| 24h | 3,929 | 8,092 | **+4,163** · the vein, not the window |
+
+### Where Design's closing line went wrong, and it is a good mistake
+
+It says the hauler pays at *one* rung and nothing at four. Here it pays at **every rung it can fly**,
+and by more the longer the window. Both readings are correct about their own world, and the thing
+that separates them is **how deep the vein is**.
+
+A hauler buys hold, so it is worth exactly nothing the moment the **vein** rather than the window is
+what stops the run. Design's Calianova VIII holds 1,798, which two skiffs strip from 6h up — so past
+that rung the hauler adds berths to a world with nothing left to give them. The benchmark's world is
+far deeper, and the clamp does not bite until 24h. The row says which case it is in, because that is
+the only way the two are comparable.
+
+**So the honest sentence is Design's own §2 rather than its closing line**: *"The hauler pays where
+the window is short enough that the vein still holds more than the fleet can lift."* That is right.
+What does not follow is *"pays only on deep veins far out"* — the depth is the variable, and *far
+out* is the opposite of true, which is the next finding.
+
+### The finding neither of us was looking for: at drive 0 a hauler cannot leave the galaxy
+
+| per pool, the next galaxy | |
+|---|---|
+| 1h · 3h · 6h · 12h | neither flies it |
+| **24h** | **1,686 without · the hauler cannot fly it** |
+
+A hauler's round trip to the adjacent galaxy is **36h 40m** at drive 0 — past the longest window
+there is. So the two hulls this release added are **coupled**, and neither sheet says so:
+
+- **A hauler is a near-rock hull until Propulsion is bought.** §2's *"haulers work the near rocks and
+  the long stays"* is half true at drive 0 — the near rocks, and no long stays at all, because the
+  long stays are all far away.
+- **The drive is what makes the hauler a frontier hull**, and it does it in one level: at drive 1 the
+  same round trip is 18h 20m and the 24h rung opens.
+
+That is a genuinely good interaction and it was not designed — it falls out of two independent
+multipliers meeting. It is also the answer to *"the hull is a purchase that pays only on deep veins
+far out"*: at drive 0 it cannot **reach** far out, so what it is for on the day you buy it is the
+deep world next door.
+
+### What to check on the install
+
+- **Whether anyone buys a hauler before Propulsion.** If the sim's four-times-a-day player takes the
+  drive on day 2, the coupling above resolves itself; if a person buys the hauler first and finds it
+  cannot reach anything interesting, the Shipyard's card is where that has to be said — Design put
+  that out of scope and it is now a live question rather than a hypothetical one.
+- **Whether the +558 at 3h reads as worth 2,400 metal.** It is the rung the check-in rhythm defaults
+  to, so it is the number most players will actually meet, and it repays the hull in about four runs.

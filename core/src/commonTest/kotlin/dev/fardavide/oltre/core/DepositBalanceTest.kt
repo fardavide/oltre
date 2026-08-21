@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -347,4 +348,63 @@ class DepositBalanceTest {
         ),
         hasRing = false,
     )
+
+    @Test
+    fun `working time and cargo are inverses of one expression in berths`() {
+        // **The invariant that broke when the hauler landed.** `cargo` answers *how much a fleet
+        // lifts in a given time* and `workingTime` answers *how long a fleet takes to lift a given
+        // amount*; they are one expression read from two ends, so they must spend the same unit.
+        //
+        // `cargo` moved to berths with the hauler and this did not, so a manifest of one hauler and
+        // two skiffs — three hulls, six berths — reported twice the working time it needs, and the
+        // dispatch sheet's legs line read "on station 2h 24m · working 4h 48m" about a run that
+        // cannot work longer than it stays. Asserted as the round trip rather than as a figure,
+        // because a figure would be this fixture's arithmetic rather than the relationship.
+        val target = GalaxyCoordinate(galaxy = 2, system = 125, slot = 6)
+        val world = world(target, hazards = emptySet(), metalPerMillion = 1_240_000, crystalPerMillion = 900_000)
+        val manifests = listOf(
+            Ships.of(ShipType.SKIFF, 1),
+            Ships.of(ShipType.SKIFF, 4),
+            Ships.of(ShipType.HAULER, 1),
+            Ships(mapOf(ShipType.HAULER to 1, ShipType.SKIFF to 2)),
+        )
+
+        for (ships in manifests) {
+            val station = 160.minutes
+            val lifts = FleetBalance.cargo(world, ResourceKind.METAL, ships, station, 0, Research.initial()).metal
+            val takes = DepositBalance.workingTime(
+                world = world,
+                gathering = ResourceKind.METAL,
+                ships = ships,
+                danger = 0,
+                remaining = lifts,
+                research = Research.initial(),
+            )
+
+            // What it lifts in the whole station takes it the whole station — to the rounding the
+            // ceiling adds, which is at most the minute a partial one is charged as.
+            assertTrue(
+                takes <= station && takes >= station - 1.minutes,
+                "$ships lifts $lifts in $station but says it takes $takes",
+            )
+        }
+    }
+
+    @Test
+    fun `one hauler works as fast as the four skiffs it replaces`() {
+        // The berth is the unit, so the two manifests that carry four of them are indistinguishable
+        // here — which is what makes the composition a trade about *speed* and nothing else.
+        val target = GalaxyCoordinate(galaxy = 2, system = 125, slot = 6)
+        val world = world(target, hazards = emptySet(), metalPerMillion = 1_240_000, crystalPerMillion = 900_000)
+        fun takes(ships: Ships): Duration = DepositBalance.workingTime(
+            world = world,
+            gathering = ResourceKind.METAL,
+            ships = ships,
+            danger = 0,
+            remaining = 2_000,
+            research = Research.initial(),
+        )
+
+        assertEquals(takes(Ships.of(ShipType.SKIFF, 4)), takes(Ships.of(ShipType.HAULER, 1)))
+    }
 }
