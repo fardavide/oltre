@@ -120,6 +120,8 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.dispatchUnsurveyedNote(3, 3))
     add(Strings.dispatchProbeOffer(TextRes("x"), TextRes("x")))
     add(Strings.dispatchEverySkiffAwayTitle())
+    add(Strings.dispatchOutOfReachTitle())
+    add(Strings.dispatchOutOfReachNote())
     ResourceKind.entries.forEach { add(Strings.dispatchAwayNote(3, TextRes("x"), TextRes("x"), it)) }
     add(Strings.dispatchAwayMore(3))
     add(Strings.dispatchAwayTail())
@@ -139,6 +141,7 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.cellCounterfactual(TextRes("x"), TextRes("y")))
     add(Strings.cellRungConsequence(TextRes("x"), TextRes("y")))
     add(Strings.cellClamped(TextRes("x")))
+    add(Strings.cellClampedOne())
     add(Strings.ofIdle(3))
     add(Strings.ladderNote(TextRes("x"), 3))
     add(Strings.rungNote(TextRes("x")))

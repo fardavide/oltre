@@ -21,7 +21,7 @@ sealed interface DispatchUiState {
     // this is the same fix on both doors rather than a concession to the new one.
     //
     // `name` rather than `title`, because both refusals already have a title and it is a sentence:
-    // *"Every skiff is away."* Two fields called title on one sheet is one of them being read wrong.
+    // *"Every hull is away."* Two fields called title on one sheet is one of them being read wrong.
     val name: TextRes
 
     // "[3:185:4] · metal 1.24 · crystal 0.74 · no hazards", richer resource first after the address

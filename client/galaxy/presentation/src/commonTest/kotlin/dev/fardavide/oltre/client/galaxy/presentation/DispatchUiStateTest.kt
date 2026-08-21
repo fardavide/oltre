@@ -278,7 +278,7 @@ class DispatchUiStateTest {
 
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(target, away))
 
-        assertEquals("Every skiff is away.", English.resolve(refusal.title))
+        assertEquals("Every hull is away.", English.resolve(refusal.title))
         // A countdown rather than a dead button — the idiom the unaffordable probe already spends.
         assertEquals("in 03:00:00", English.resolve(assertIs<RefuseActionUiState.Waiting>(refusal.action).label))
     }
@@ -287,8 +287,75 @@ class DispatchUiStateTest {
     fun `a fleet that is away with nothing on its way back says so and offers nothing`() {
         val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(runnable(), state.copy(ships = Ships.NONE)))
 
-        assertEquals("Every skiff is away.", English.resolve(refusal.title))
+        assertEquals("Every hull is away.", English.resolve(refusal.title))
         assertNull(refusal.action)
+    }
+
+    @Test
+    fun `a pool of haulers alone is a fleet that can fly rather than a fleet that is away`() {
+        // **The gate used to be `countOf(SKIFF) <= 0`**, which was the same sentence as *"nothing can
+        // gather"* only while the skiff was the only hull that gathered. A colony that sends both its
+        // skiffs out and keeps the hauler home has an empty skiff count and four berths in the pool,
+        // and it was told every hull was away — the sheet refusing on behalf of a hull nobody asked
+        // it about, with the answer sitting in the yard.
+        val haulerOnly = state.copy(ships = state.ships + Ships.of(ShipType.HAULER, 1))
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), haulerOnly))
+
+        assertEquals(1, offer.manifest.countOf(ShipType.HAULER))
+        assertEquals(0, offer.manifest.countOf(ShipType.SKIFF))
+    }
+
+    @Test
+    fun `a hauler alone is never told that its fourth skiff brings nothing`() {
+        // Design's §5: each control gets at most one note. The clamp note is *"3 skiffs empty it. The
+        // 4th brings nothing"* — a sentence about hulls that lift the same amount each, so it was
+        // gated on the manifest not being a mix. A lone hauler is not a mix: one entry in the map, so
+        // it passed, and the note then counted the hauler's four berths as four skiffs. The test is
+        // which hull, not how many kinds.
+        val haulerOnly = state.copy(ships = state.ships + Ships.of(ShipType.HAULER, 1))
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), haulerOnly))
+
+        assertNull(offer.clampNote, English.resolve(offer.clampNote ?: Strings.dispatchVerb()))
+    }
+
+    @Test
+    fun `a world no window can reach refuses instead of falling off the empty ladder`() {
+        // **A crash, and 0.15 is what made it an ordinary one.** Halving the base speed put two
+        // galaxy hops beyond the 24h rung, and a probe costs a flat 150 metal with no distance gate —
+        // so the first far world a new colony surveys opens this sheet. Every rung was undrawable,
+        // the ladder came out empty, and the rung default read `last()` off it.
+        val far = farthestSurveyableWorld()
+        val surveyed = withSkiffs(2).let { it.copy(galaxy = it.galaxy.copy(surveyed = it.galaxy.surveyed + far)) }
+        assertTrue(
+            FleetBalance.WINDOWS.none { rung ->
+                rung in FleetBalance.windowsFor(home, far, surveyed.research, Ships.of(ShipType.SKIFF, 2))
+            },
+            "the fixture found a world the fleet can reach, so it proves nothing",
+        )
+
+        val refusal = assertIs<DispatchUiState.Refuse>(dispatchAt(far, surveyed))
+
+        assertEquals("Too far for any window.", English.resolve(refusal.title))
+        // The remedy is named rather than the distance, because the distance cannot change.
+        assertTrue("Propulsion" in English.resolve(refusal.note), English.resolve(refusal.note))
+        assertNull(refusal.action)
+    }
+
+    // The first world in the galaxy furthest from home — far enough that nothing this colony owns is
+    // back inside a day. Read off the seed rather than written down, for the same reason `runnable()`
+    // is, and **the galaxy is chosen by distance rather than by number**: the seed decides where home
+    // is, so "the last galaxy" is the nearest one on a colony that started in it.
+    private fun farthestSurveyableWorld(): GalaxyCoordinate {
+        val galaxy = (1..GalaxyBalance.GALAXIES).maxBy { candidate ->
+            FleetBalance.distanceUnits(home, GalaxyCoordinate(galaxy = candidate, system = 1, slot = 1))
+        }
+        return (1..GalaxyBalance.SYSTEMS_PER_GALAXY).firstNotNullOf { system ->
+            (1..GalaxyBalance.SLOTS_PER_SYSTEM).firstNotNullOfOrNull { slot ->
+                GalaxyCoordinate(galaxy = galaxy, system = system, slot = slot).takeIf { worldAt(seed, it) != null }
+            }
+        }
     }
 
     @Test

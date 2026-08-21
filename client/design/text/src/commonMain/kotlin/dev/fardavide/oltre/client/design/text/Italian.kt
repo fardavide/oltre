@@ -147,7 +147,9 @@ object Italian : Translations {
                 "${args.number(0)} gli slot, e questo sistema contiene ${args.count(1)} " +
                 "${args.count(1).plural("mondo", "mondi")}."
         StringId.DispatchProbeOffer -> "${args.text(0)} metallo · ${args.text(1)}."
-        StringId.DispatchEverySkiffAwayTitle -> "Ogni scialuppa è in missione."
+        StringId.DispatchEverySkiffAwayTitle -> "Ogni scafo è in missione."
+        StringId.DispatchOutOfReachTitle -> "Troppo lontano per qualsiasi finestra."
+        StringId.DispatchOutOfReachNote -> "Nessuna flotta può tornare entro un giorno. La Propulsione accorcia il viaggio."
         StringId.DispatchAwayNote ->
             "${args.count(0)} ${args.count(0).plural("corsa è", "corse sono")} in volo. " +
                 "${args.text(1)} sta rientrando con ${args.text(2)} di ${args.text(3)}."
@@ -169,6 +171,7 @@ object Italian : Translations {
         StringId.CellCounterfactual -> "Le scialuppe sollevano solo ${args.text(0)}, e solo loro volano in ${args.text(1)}."
         StringId.CellRungConsequence -> "Il cargo solleva ${args.text(0)} e atterra a ${args.text(1)}."
         StringId.CellClamped -> "Il cargo la svuota. Le ${args.text(0)} non portano nulla."
+        StringId.CellClampedOne -> "Il cargo la svuota. La scialuppa non porta nulla."
         StringId.OfIdle -> "di ${args.count(0)} in porto"
         StringId.LadderNote ->
             "${args.text(0)} andata e ritorno. Nessuna finestra più corta lascia " +

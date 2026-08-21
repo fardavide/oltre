@@ -221,7 +221,7 @@ class FleetsFromStateBehaviourTest {
 
             assertTheSheetIsUp()
             assertOffersNoRun()
-            assertTheSheetReads("Every skiff is away.")
+            assertTheSheetReads("Every hull is away.")
         }
     }
 
