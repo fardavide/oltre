@@ -246,6 +246,41 @@ Details that matter when it fires:
 - The `protect-main` ruleset payload lists `Coverage` among the required contexts. Keep the
   committed payload and the applied ruleset in sync.
 
+### Reaching for a production constant from a unit test can *lower* the unit row
+
+Measured on 0.16.0, and it is the opposite of the obvious. A file whose top-level `val`s are only
+ever read by composables shows up in the unit pass as a handful of **uncovered property
+initialisers** — `PlayerStrip.kt` reported twenty missed lines and nothing else, because the
+`@Composable` exclusion had removed every function and no unit test had ever loaded the file class.
+
+The tempting fix is a unit test that asserts on one of those constants. **Do not.** Touching
+`STRIP_HEIGHT` from a `…Test` loads `PlayerStripKt`, and the whole class arrives in the report:
+twenty lines covered, **forty-one lines of composable body added to the denominator**. Measured
+both ways on the same branch — 91.42% without the test, 91.31% with it.
+
+The exclusion is `annotatedBy(Composable)`, which lands on annotated *functions*. Lambdas nested
+inside them, and the bodies that reach the report once the class is loaded, are not annotated and
+are not excluded. This is issue #100's shape reaching a second kind of code.
+
+**The fix is structural and it is a better file anyway: put the numbers in their own file.**
+`PlayerStripGeometry.kt` holds the strip's constants and the one piece of arithmetic that reads
+them (`experienceFraction`); `PlayerStrip.kt` holds only drawing. The geometry file is fully
+covered by a unit test, the drawing file is never loaded and contributes nothing, and the unit row
+went 91.42% → 91.81%. It is the same move `:client:design:icon` made when it lifted the bell out of
+its `Canvas { }` lambda so the ink could be measured.
+
+**Rule of thumb.** Before adding a unit test that names something in a file full of composables,
+ask what else loading that file drags in. If the answer is "a screen", move the thing being tested
+instead.
+
+### A defaulted parameter nothing overrides is untested surface
+
+Each one emits a `$default` branch that only a call site omitting it can cover — so a composable
+with one caller at one size carries branches no test can honestly reach. `PlayerMark` and
+`SettingsGlyph` each shipped a `size: Dp = …` that nothing ever passed; deleting it removed the
+branches rather than testing them, and read better. `WatchBell` keeps its `size` because it has two
+callers at two sizes, which is what makes the parameter real.
+
 ## A test that reads the wall clock makes the gate a coin flip
 
 **No behaviour test may call `Clock.System.now()`.** `App` takes a `wallClock` and `AppRobot` hands

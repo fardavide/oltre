@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // **The player's mark: a world, and something that has already left it.** It is the app icon's own
@@ -28,10 +27,12 @@ import androidx.compose.ui.unit.dp
 // behind it yet — and it would buy a generator, a property test and a baseline per variant for a
 // slice whose level is zero. The day identity earns variation it should be drawn for it.
 @Composable
-internal fun PlayerMark(color: Color, modifier: Modifier = Modifier, size: Dp = MARK_SIZE) {
-    Canvas(modifier = modifier.size(size)) {
-        // `this.size`, not `size`: the Dp parameter shadows the draw scope's own.
-        drawPlayerMark(unit = this.size.width / MARK_VIEWBOX, dx = 0f, dy = 0f, color = color)
+internal fun PlayerMark(color: Color, modifier: Modifier = Modifier) {
+    // **No `size` parameter**, unlike `WatchBell` which has two callers at two sizes. This has one,
+    // at one size, and a defaulted parameter nothing overrides is untested surface bought for
+    // nothing — the constant says the same thing and cannot be passed wrongly.
+    Canvas(modifier = modifier.size(MARK_SIZE)) {
+        drawPlayerMark(unit = size.width / MARK_VIEWBOX, dx = 0f, dy = 0f, color = color)
     }
 }
 

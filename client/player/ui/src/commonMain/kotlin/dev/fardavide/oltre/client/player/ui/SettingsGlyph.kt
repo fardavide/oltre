@@ -9,7 +9,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,10 +23,10 @@ import kotlin.math.sin
 // The teeth carry a heavier stroke than the two circles for the same reason: at 18dp, teeth at the
 // rim's own weight read as rays.
 @Composable
-internal fun SettingsGlyph(color: Color, modifier: Modifier = Modifier, size: Dp = GEAR_SIZE) {
-    Canvas(modifier = modifier.size(size)) {
-        // `this.size`, not `size`: the Dp parameter shadows the draw scope's own.
-        drawSettingsGlyph(unit = this.size.width / MARK_VIEWBOX, dx = 0f, dy = 0f, color = color)
+internal fun SettingsGlyph(color: Color, modifier: Modifier = Modifier) {
+    // One caller, one size — see `PlayerMark` for why there is no `size` parameter.
+    Canvas(modifier = modifier.size(GEAR_SIZE)) {
+        drawSettingsGlyph(unit = size.width / MARK_VIEWBOX, dx = 0f, dy = 0f, color = color)
     }
 }
 

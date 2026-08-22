@@ -23,12 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
@@ -209,46 +206,9 @@ private fun ExperienceGauge(percent: Int, compact: Boolean) {
     ) {
         Box(
             modifier = Modifier
-                .fillMaxWidth(percent.coerceIn(0, 100) / 100f * fill)
+                .fillMaxWidth(experienceFraction(percent) * fill)
                 .fillMaxHeight()
                 .background(OltreColors.accent, RoundedCornerShape(GAUGE_RADIUS)),
         )
     }
 }
-
-// 38dp: a 20dp mark with the rail's own 9dp of vertical padding above and below it, so the two tiers
-// of chrome rhyme rather than merely stack.
-internal val STRIP_HEIGHT = 38.dp
-
-// How long the notice stays. Long enough to read eleven characters and be sure they were meant,
-// short enough that it is gone before a player has decided to do something else.
-internal const val NOTICE_MILLIS = 2_000L
-
-private val EDGE = 11.dp
-private val GEAR_EDGE = 2.dp
-private val GAP = 7.dp
-
-private val GEAR_TARGET = 38.dp
-private val GEAR_RADIUS = 9.dp
-
-private val NAME_SIZE = 13.5.sp
-private val NOTICE_SIZE = 10.5.sp
-private val BADGE_SIZE = 10.sp
-private val BADGE_RADIUS = 4.dp
-private val BADGE_PAD_X = 5.dp
-private val BADGE_PAD_Y = 1.dp
-
-private val GAUGE_WIDTH = 72.dp
-
-// The one thing that gives below the compact width. The name ellipsises after it, which is the order
-// the design wants: a name half-read is worse than a gauge that is shorter.
-private val GAUGE_WIDTH_COMPACT = 48.dp
-private val GAUGE_HEIGHT = 3.dp
-private val GAUGE_RADIUS = 2.dp
-
-// The same white 9% the rail and the cards use, so every hairline, track and badge fill in the app
-// is one decision.
-private val HAIRLINE = Color.White.copy(alpha = 0.09f)
-private val HAIRLINE_WIDTH = 1.dp
-private val TRACK = Color.White.copy(alpha = 0.09f)
-private val BADGE_FILL = Color.White.copy(alpha = 0.09f)
