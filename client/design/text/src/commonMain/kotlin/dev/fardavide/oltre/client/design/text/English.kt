@@ -499,6 +499,11 @@ object English : Translations {
         StringId.NotificationChannelName -> "Colony events"
         StringId.NotificationChannelDescription ->
             "Tells you when a build or a research project has finished, and when a fleet lands."
+        // A navigation term: a position computed from a known start, an elapsed time and a speed —
+        // which is exactly and only what this game does to a colony on foreground. Title Case
+        // because it is a proper noun, which is the one thing this app capitalises.
+        StringId.PlayerDefaultName -> "Dead Reckoning"
+        StringId.SettingsComingSoon -> "Coming soon"
         StringId.Watching -> "watching ${args.text(0)}"
         StringId.RatePerHour -> "+${args.text(0)}/h"
         StringId.ResourceRailMetal -> "METAL"

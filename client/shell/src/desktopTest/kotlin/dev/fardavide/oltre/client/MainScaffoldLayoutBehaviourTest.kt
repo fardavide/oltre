@@ -14,6 +14,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
+import dev.fardavide.oltre.client.player.ui.playerStripUiState
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import kotlin.math.abs
 import kotlin.test.assertTrue
@@ -139,6 +140,7 @@ class MainScaffoldLayoutBehaviourTest {
                     MainScaffold(
                         // Desktop has no motion sensor, so this is also what the app itself passes here.
                         tilt = { Tilt.NONE },
+                        player = playerStripUiState(),
                         resources = testResourceRailUiState,
                         colony = { Text("colony-under-test") },
                         research = { Text("research-under-test") },

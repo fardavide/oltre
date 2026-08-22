@@ -3977,3 +3977,39 @@ could not take back. Nothing the colony holds moves.
 The gate reads the *event* rather than the colony's flag, and that is the whole of the per-flight
 promise: a gate consulting `announceFlights` would announce a run the player had already decided
 against and silence one they had asked for, both retroactively.
+
+## The frame gains a fourth tier: who is playing (0.16.0)
+
+Davide's ask, 2026-08-22, and the design and the implementation are in
+[`player-strip-sheet.md`](player-strip-sheet.md) rather than restated here. Four things from it are
+decisions rather than drawings, and belong in this file:
+
+**"Coming soon" is the copy, over the design system's own rule.** The Claude Design project lists it
+under *Never written* beside "Under construction" and "Oops", and the app's idiom for an unbuilt
+thing is a flat declarative sentence in the room where it would be. Put to Davide with
+`Settings land here.` beside it; he took the literal reading. So the string ships and the design
+system is what gets amended — recorded because the rule is still written down and the next session
+will read it and hesitate.
+
+**Nothing went into `core`.** Nothing awards experience and nothing renames the player, so a stored
+field could only ever hold the value it was migrated in with — and the 14→15 hop would have had to
+answer what an existing colony's experience is, which is neither zero nor a number worth inventing.
+The name, the level and the gauge are constants in `:client:player:ui`.
+
+**`:client:player:ui` and no `presentation`**, on `:client:debug`'s precedent — a feature with
+nothing to decide has no presentation at all. There is no `GameState` to map, and a module that only
+forwarded its arguments is the placeholder layer the rule exists to prevent. The slice that makes the
+numbers real adds the layer then.
+
+**`DESTINATION_HEIGHT` went 650 → 612 in the same commit**, because the strip is 38dp of chrome above
+the rail and that constant is the only thing telling the suite what a destination actually gets.
+0.12.0 shipped a map whose only control was off the bottom of the screen while every galaxy frame
+stayed green, for exactly this reason. Eight galaxy baselines and `main_scaffold` were re-recorded.
+
+### Raised and not decided
+
+- **The gear has nothing behind it.** It answers, and that is all it does. What a settings screen
+  holds is the follow-up task's question — and the language is not in it (see `TranslationsFor`).
+- **The mark is not seeded.** One drawing for every save, deliberately: a mark that varied with the
+  galaxy seed would assert an identity the save cannot back. The day identity earns variation it
+  should be drawn for it rather than derived from a number nobody chose.

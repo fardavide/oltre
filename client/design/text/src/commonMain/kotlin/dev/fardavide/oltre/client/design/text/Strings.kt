@@ -1232,6 +1232,20 @@ object Strings {
             AdaptationTechnology.ATMOSPHERIC -> StringId.AdaptationFullNameAtmospheric
         },
     )
+
+    // **What the player is called before anything has let them choose.** A catalogue entry rather
+    // than a `TextRes.Raw`, even though it is a proper noun and both tables spell it the same:
+    // `Raw` is for text from *outside* the catalogue — a generated system name, a world's epithet —
+    // and this is authored copy. A language that wants its own callsign changes one line here.
+    fun playerDefaultName(): TextRes = message(StringId.PlayerDefaultName)
+
+    // **The one string in this game that breaks its own voice rules, and it does so on the record.**
+    // The design system lists "Coming soon" under *Never written*, next to "Under construction" and
+    // "Oops", and the app's idiom for an unbuilt thing is a flat declarative sentence in the room
+    // where it would be — *"Every world a probe reaches lands here."* Put to Davide on 2026-08-22
+    // with `Settings land here.` beside it; he took the literal reading, so this is the copy and the
+    // design system is what gets amended. See `.claude/docs/player-strip-sheet.md` §2.
+    fun settingsComingSoon(): TextRes = message(StringId.SettingsComingSoon)
 }
 
 // `internal`, so the only route to a `Message` is a named entry above. Everything the catalogue can

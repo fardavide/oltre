@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-21 (0.15.0)
+Updated: 2026-08-22 (0.16.0)
 
 ## Landed
 
@@ -406,6 +406,13 @@ Updated: 2026-08-21 (0.15.0)
   block for why §2.3 expired. Schema 13, granting one scout per probe already in the air and no free
   drive level. The **hauler's price** is re-taken at 2,400 / 600 and the hold is counted in berths,
   but it is **not on sale**: see the pending note below. Balance-log round 30.
+- **0.16.0 the player strip** — a fourth tier of chrome above the rail in a new `:client:player:ui`:
+  a drawn mark, `Dead Reckoning`, a `LV 0` badge, a 72dp gauge and a settings gear that answers
+  `Coming soon` for two seconds and clears itself. 38dp, one row, no `presentation` module and no
+  `core` change — the name, the level and the experience are constants, and the sheet argues why a
+  migration for a constant is the wrong trade. `DESTINATION_HEIGHT` 650 → 612 in the same commit;
+  eight galaxy baselines and `main_scaffold` re-recorded. See
+  [`player-strip-sheet.md`](player-strip-sheet.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -882,6 +889,17 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.16.0
+
+- **Nothing fills the gauge.** Experience is a constant `0` and the strip draws an empty track. What
+  awards it — a fold over the event log, most likely, since it already records every completed build,
+  project, ladder, survey and run — is the follow-up task Davide named when he asked for the strip:
+  *"we will plan and populate the rest in a follow up task."*
+- **The gear has nothing behind it**, by design this slice. What a settings screen holds is undecided;
+  the language is not in it (`TranslationsFor`).
+- **Nobody has held it.** The strip is 38dp of chrome that every screen now pays for, and whether
+  that reads as a frame or as clutter is a question a phone answers. Same shape as the tilt loop.
 
 ## Pending, from 0.15.0
 

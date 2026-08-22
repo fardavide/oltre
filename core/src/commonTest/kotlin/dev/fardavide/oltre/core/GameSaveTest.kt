@@ -154,6 +154,60 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
     }
 
+    // **Every event kind, decoded rather than merely written.** The test above encodes five of the
+    // twelve and asserts their discriminators appear; nothing until now read a single one of them
+    // back. That is the wrong half to check on its own — an event that encodes and cannot decode is
+    // not a cosmetic fault, it is a save that will not open, and the colony behind it is gone. The
+    // six kinds nothing had ever deserialized were `BuildCompleted`, `ResearchCompleted`,
+    // `AdaptationCompleted`, `ShipsBuilt`, `SurveyStarted` and `SurveyCompleted` — which is to say
+    // most of what a real log is made of, because a log is mostly things finishing.
+    //
+    // Found by the coverage gate rather than by reading: the generated deserialization constructors
+    // were the largest never-executed thing left in `core`, which is the search the `test-coverage`
+    // skill prescribes.
+    //
+    // Asserted as the whole list in one comparison rather than kind by kind, so a thirteenth event
+    // added without a line here fails on the count instead of passing quietly.
+    @Test
+    fun `every kind of event survives a round trip`() {
+        // given one of each, with values that are not each other's defaults
+        val log = listOf(
+            Event.BuildStarted(building = BuildingType.SOLAR_PLANT, toLevel = BuildingLevel(2), at = EPOCH),
+            Event.BuildCompleted(building = BuildingType.METAL_MINE, newLevel = BuildingLevel(3), at = EPOCH + 1.hours),
+            Event.ResearchStarted(technology = Technology.EXTRACTION, toLevel = TechLevel(1), at = EPOCH + 2.hours),
+            Event.ResearchCompleted(technology = Technology.PHOTOVOLTAICS, newLevel = TechLevel(2), at = EPOCH + 3.hours),
+            Event.AdaptationStarted(technology = AdaptationTechnology.THERMAL, toLevel = TechLevel(1), at = EPOCH + 4.hours),
+            Event.AdaptationCompleted(technology = AdaptationTechnology.GRAVITIC, newLevel = TechLevel(2), at = EPOCH + 5.hours),
+            Event.FleetDispatched(
+                target = GalaxyCoordinate(galaxy = 2, system = 118, slot = 6),
+                gathering = ResourceKind.CRYSTAL,
+                ships = Ships.of(ShipType.SKIFF, 2),
+                at = EPOCH + 6.hours,
+            ),
+            Event.FleetReturned(
+                // Null rather than a coordinate, because the nullable half is the one a schema-8
+                // migration actually produces and therefore the one a save in the wild carries.
+                from = null,
+                ships = Ships.of(ShipType.SKIFF, 2),
+                cargo = Resources.of(metal = 400, crystal = 0, deuterium = 0),
+                at = EPOCH + 7.hours,
+            ),
+            Event.ShipsOrdered(ships = Ships.of(ShipType.SCOUT, 3), at = EPOCH + 8.hours),
+            Event.ShipsBuilt(ships = Ships.of(ShipType.SCOUT, 1), at = EPOCH + 9.hours),
+            Event.SurveyStarted(target = SystemAddress(galaxy = 2, system = 118), at = EPOCH + 10.hours),
+            Event.SurveyCompleted(target = SystemAddress(galaxy = 2, system = 118), worldsFound = 5, at = EPOCH + 11.hours),
+        )
+        val state = GameState.initial().copy(eventLog = log)
+
+        // when
+        val decoded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))),
+        ).snapshot
+
+        // then
+        assertEquals(log, decoded.state.eventLog)
+    }
+
     // The missing member of the family above, and it is the family that matters rather than the
     // assertion: `ShipType`'s constants are pinned through the fleet, the `Event` discriminators are
     // pinned by name, and both guards exist because renaming a constant in this file is a schema

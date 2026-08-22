@@ -5,7 +5,9 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -23,6 +25,7 @@ import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
+import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.save.data.GameStore
@@ -97,8 +100,16 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
     // from outside the feature that owns the row tags: five of Research's six rows are genuinely at
     // level 0, so "does a row read LV 0" cannot distinguish the sixth holding its old level from
     // the sixth having already taken its new one. The count can.
+    //
+    // **The player strip is subtracted, and that is the word `rows` being kept honest.** It draws a
+    // level badge of its own, in the same words, above every destination — so counting the whole
+    // tree would tie an assertion about how many technologies exist to a piece of chrome that is not
+    // a technology. `PlayerTestTags` is public for exactly this, as `ColonyTestTags` is.
     fun assertRowsReading(text: String, count: Int) = apply {
-        assertEquals(count, test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().size)
+        val rows = test.onAllNodes(
+            hasText(text, substring = true) and hasAnyAncestor(hasTestTag(PlayerTestTags.CONTENT)).not(),
+        )
+        assertEquals(count, rows.fetchSemanticsNodes().size)
     }
 
     fun letTheSweepFinish() = apply { test.mainClock.advanceTimeBy(SWEEP_TOTAL_MILLIS) }

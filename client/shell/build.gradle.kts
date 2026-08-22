@@ -68,6 +68,7 @@ kotlin {
             implementation(projects.client.fleets.presentation)
             implementation(projects.client.galaxy.presentation)
             implementation(projects.client.notifications.data)
+            implementation(projects.client.player.ui)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
             implementation(projects.client.shipyard.presentation)

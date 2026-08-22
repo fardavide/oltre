@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
 import dev.fardavide.oltre.client.design.core.OltreMotion
+import dev.fardavide.oltre.client.player.ui.PlayerStrip
+import dev.fardavide.oltre.client.player.ui.PlayerStripUiState
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 
 // The app's frame: the selected destination over the tab bar. Which destination is showing is the
@@ -56,6 +58,12 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // would make every tab scroll every other one.
 @Composable
 fun MainScaffold(
+    // Ahead of `resources` because it is drawn ahead of it, and a parameter here for the reason the
+    // rail is one: this signature is the honest list of what the frame carries. What it holds is a
+    // constant today — nothing awards experience and nothing renames anybody — and it arrives as a
+    // parameter anyway so that the day it is read off a `GameState` the only file that changes is
+    // the one that reads it.
+    player: PlayerStripUiState,
     resources: ResourceRailUiState,
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
@@ -85,6 +93,10 @@ fun MainScaffold(
         // and the bar has to clear the home indicator whatever is above it.
         modifier = modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
     ) {
+        // Inside the safe-area padding and above the rail. Outside it, the notch would eat the mark
+        // on every notched phone and nothing in the desktop suite could see that happen — insets are
+        // the frame's job, never a screen's, which is the whole reason this Column has exactly one.
+        PlayerStrip(uiState = player)
         ResourceRail(uiState = resources)
         Destination(
             selected = selected,

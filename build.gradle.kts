@@ -125,6 +125,7 @@ dependencies {
     kover(projects.client.galaxy.presentation)
     kover(projects.client.galaxy.ui)
     kover(projects.client.notifications.data)
+    kover(projects.client.player.ui)
     kover(projects.client.research.presentation)
     kover(projects.client.research.ui)
     kover(projects.client.save.data)

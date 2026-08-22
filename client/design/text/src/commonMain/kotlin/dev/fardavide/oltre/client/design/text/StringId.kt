@@ -494,4 +494,6 @@ enum class StringId {
     DepositGap,
     NotificationChannelName,
     NotificationChannelDescription,
+    PlayerDefaultName,
+    SettingsComingSoon,
 }

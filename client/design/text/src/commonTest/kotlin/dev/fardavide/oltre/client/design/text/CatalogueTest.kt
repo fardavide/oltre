@@ -411,4 +411,6 @@ private val everyEntry: List<TextRes> = buildList {
     BuildingType.entries.forEach { add(Strings.buildingFullName(it)) }
     ShipType.entries.forEach { add(Strings.shipTitleName(it)) }
     AdaptationTechnology.entries.forEach { add(Strings.adaptationFullName(it)) }
+    add(Strings.playerDefaultName())
+    add(Strings.settingsComingSoon())
 }
