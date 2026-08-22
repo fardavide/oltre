@@ -115,15 +115,25 @@ internal fun GameSession.alerting(clock: DebugClock, wallClock: Instant, target:
     return copy(state = advance(toggleAlert(state, target), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
 }
 
-// The Shipyard card's square, and it is `alerting`'s shape for `alerting`'s reason — cycle first,
-// then advance.
+// The Shipyard card's square, in `alerting`'s shape — cycle first, then advance.
 //
-// The failure it avoids is the same one a hull's length makes likelier rather than rarer.
-// `cycleHullAlert` refuses a card with nothing of its type on the slipway, so a tap on the last hull
-// of an order that landed 400ms ago would, advanced-first, find an empty yard and do nothing at all
-// — a square the player pressed and watched not change. Cycling first asks the question against the
-// state they were looking at; the advance that follows keeps the answer honest, because
-// `withoutFinishedHullAlerts` drops an ask whose order landed inside the span.
+// **It is the same shape and not for the same reason, and the difference is worth stating because
+// the first draft of this comment got it backwards.** That one claimed the ordering rescued a tap on
+// an order that landed 400ms ago. It does not: both orderings end with no entry, because
+// `withoutFinishedHullAlerts` prunes exactly what `cycleHullAlert`'s guard would have refused. The
+// ordering here is provably immaterial — `advance` only ever *removes* yard jobs, so a type present
+// after the span was present before it, and a type absent after it ends unasked either way.
+//
+// **What makes `alerting` genuinely order-sensitive is a branch this verb does not have.**
+// `toggleAlert` reads `isRunning(target)` and does one of two *different* things — subscribe, or
+// move the empire's single watch — so advancing first sends the tap down the other branch and
+// silently unbooks something. `cycleHullAlert` only ever decides between acting and not acting on
+// one hull type, and the prune makes those two answers converge.
+//
+// So this is consistency rather than a fix, and it is kept for that: the two squares in the app
+// should not be wired in opposite orders, and the day `cycleHullAlert` grows a second branch this is
+// already on the safe side of it. `a tap at the instant an order lands settles the same way whichever
+// end it is taken from` is the test that holds the claim above, rather than a comment asserting it.
 internal fun GameSession.alertingHull(clock: DebugClock, wallClock: Instant, ship: ShipType): GameSession {
     val at = maxOf(clock.now(wallClock), lastUpdatedAt)
     return copy(state = advance(cycleHullAlert(state, ship), from = lastUpdatedAt, to = at), lastUpdatedAt = at)

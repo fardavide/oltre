@@ -150,6 +150,43 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
     }
 
+    // The missing member of the family above, and it is the family that matters rather than the
+    // assertion: `ShipType`'s constants are pinned through the fleet, the `Event` discriminators are
+    // pinned by name, and both guards exist because renaming a constant in this file is a schema
+    // break wearing a refactor. `hullAlerts` puts **two** enums on disk at once — the ship as a map
+    // key and the ask as its value — and had neither guard until now.
+    @Test
+    fun `the yard's ask keeps its names on disk`() {
+        // given both constants, on two different hulls, so neither the key nor the value can be
+        // right by accident
+        val state = GameState.initial().copy(
+            hullAlerts = mapOf(
+                ShipType.SKIFF to HullAlert.EACH_HULL,
+                ShipType.HAULER to HullAlert.WHEN_ALL_DONE,
+            ),
+        )
+
+        // when
+        val encoded = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+
+        // then — an enum key encodes as its constant name, which is what makes this a plain JSON
+        // object rather than the structured-key encoding `surveys` had to avoid
+        assertTrue(encoded.contains(""""SKIFF":"EACH_HULL""""), encoded)
+        assertTrue(encoded.contains(""""HAULER":"WHEN_ALL_DONE""""), encoded)
+    }
+
+    @Test
+    fun `a colony that asked about its hulls survives a round trip`() {
+        // The other half: the names are one thing, reading them back as the same map is another.
+        val state = GameState.initial().copy(hullAlerts = mapOf(ShipType.SKIFF to HullAlert.EACH_HULL))
+
+        val decoded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))),
+        ).snapshot
+
+        assertEquals(mapOf(ShipType.SKIFF to HullAlert.EACH_HULL), decoded.state.hullAlerts)
+    }
+
     @Test
     fun `a colony with hulls on the slipway survives a round trip`() {
         // The queue is what a purchase moves now, and it is the schema-10 key. Two hulls rather than
