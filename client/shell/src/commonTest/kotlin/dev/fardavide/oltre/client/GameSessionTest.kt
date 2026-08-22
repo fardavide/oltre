@@ -225,6 +225,45 @@ class GameSessionTest {
         assertEquals(mapOf(ShipType.SKIFF to HullAlert.EACH_HULL), after.state.hullAlerts)
     }
 
+    @Test
+    fun `the sheet's bell moves the standing answer and brings the colony up to now`() {
+        // The third square, and the one with nothing to race against: it flips a flag no job is keyed
+        // to. What it still has to do is advance, because this action commits — and a save stamped at
+        // an instant the colony had not caught up to would be a colony that lost the span.
+        val session = GameSession(midBuild(), EPOCH)
+        val landed = checkNotNull(session.state.builds[BuildingType.METAL_MINE]).completesAt
+
+        val after = session.alertingFlights(DebugClock(), wallClock = landed)
+
+        assertTrue(after.state.announceFlights)
+        assertEquals(landed, after.lastUpdatedAt)
+        assertEquals(BuildingLevel(2), after.state.buildings.metalMine)
+    }
+
+    @Test
+    fun `a bell tapped on a clock that has stepped backwards still answers`() {
+        // The clamp every verb in this file carries, and it is load-bearing rather than defensive:
+        // a wall clock really does move backwards — NTP, or the player changing the device time —
+        // and `advance` requires `to >= from`, so without it the tap would crash the colony instead
+        // of booking an alert.
+        val session = GameSession(freshState(), EPOCH + 10.hours)
+
+        val after = session.alertingFlights(DebugClock(), wallClock = EPOCH)
+
+        assertTrue(after.state.announceFlights)
+        assertEquals(EPOCH + 10.hours, after.lastUpdatedAt, "the colony must not be dragged backwards")
+    }
+
+    @Test
+    fun `a second tap takes the standing answer back`() {
+        val session = GameSession(freshState(), EPOCH)
+            .alertingFlights(DebugClock(), wallClock = EPOCH + 1.seconds)
+
+        val after = session.alertingFlights(DebugClock(), wallClock = EPOCH + 2.seconds)
+
+        assertFalse(after.state.announceFlights)
+    }
+
     private fun midOrder(): GameState = assertIs<BuildShipsResult.Started>(
         buildShips(
             freshState().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),

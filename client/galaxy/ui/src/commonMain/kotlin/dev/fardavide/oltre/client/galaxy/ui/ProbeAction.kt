@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.resolve
@@ -37,6 +38,7 @@ internal fun ProbeAction(
     uiState: ProbeActionUiState,
     compact: Boolean,
     onDispatch: () -> Unit,
+    onToggleAnnounce: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -58,24 +60,46 @@ internal fun ProbeAction(
                     // always asking for: the click stays on the outer 44dp box and the ripple moves
                     // to the filled text, so the indication is the size of the button rather than
                     // the size of the area the button claims.
-                    PressableFace(
-                        onClick = onDispatch,
-                        shape = oltreActionShape,
-                        modifier = Modifier
-                            .heightIn(min = TOUCH_MINIMUM)
-                            .testTag(GalaxyTestTags.DISPATCH),
-                        faceModifier = Modifier.background(OltreColors.accent, oltreActionShape),
+                    //
+                    // **The bell goes to the left of the verb here and to its right on the sheet**,
+                    // and that is the row's doing rather than an inconsistency. The sheet's verb is
+                    // full-width, so the square is the trailing control; this footer's verb is
+                    // already the trailing control, and putting the square outside it would push the
+                    // one accent thing in the card off the edge it is aligned to. Both keep the
+                    // square adjacent to the verb it is about, which is what the eye is looking for.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(7.dp),
                     ) {
-                        Text(
-                            text = (if (compact) uiState.compactLabel else uiState.label).resolve(),
-                            color = Color.White,
-                            fontFamily = oltreMono(),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                        // `stacked = true` for the 29dp target rather than the 44dp one: the footer
+                        // row is the height of the verb beside it, and a taller hit box would
+                        // overhang the row it sits in — where Compose does not reliably deliver
+                        // touch.
+                        WatchSquare(
+                            state = uiState.announce,
+                            onClick = onToggleAnnounce,
+                            stacked = true,
+                            modifier = Modifier.testTag(GalaxyTestTags.ANNOUNCE),
                         )
+                        PressableFace(
+                            onClick = onDispatch,
+                            shape = oltreActionShape,
+                            modifier = Modifier
+                                .heightIn(min = TOUCH_MINIMUM)
+                                .testTag(GalaxyTestTags.DISPATCH),
+                            faceModifier = Modifier.background(OltreColors.accent, oltreActionShape),
+                        ) {
+                            Text(
+                                text = (if (compact) uiState.compactLabel else uiState.label).resolve(),
+                                color = Color.White,
+                                fontFamily = oltreMono(),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                maxLines = 1,
+                                softWrap = false,
+                                modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp),
+                            )
+                        }
                     }
                 },
             )

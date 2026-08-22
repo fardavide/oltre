@@ -72,6 +72,7 @@ fun galaxyPage(
     onSelectShips: (Int) -> Unit = {},
     onSelectWindow: (Duration) -> Unit = {},
     onDispatchRun: () -> Unit = {},
+    onToggleAnnounce: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = height) {
@@ -97,6 +98,7 @@ fun galaxyPage(
                         onSelectShips = onSelectShips,
                         onSelectWindow = onSelectWindow,
                         onDispatchRun = onDispatchRun,
+                        onToggleAnnounce = onToggleAnnounce,
                     )
                 }
             }
@@ -157,6 +159,16 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 
     fun assertOffersNoFlight() = apply {
         test.onNodeWithTag(GalaxyTestTags.DISPATCH).assertDoesNotExist()
+    }
+
+    // The bell beside that verb. Present only where the verb is, which is narrower than
+    // `assertOffersNoFlight` reads: the unaffordable state keeps `DISPATCH` and drops this.
+    fun tapTheBell() = apply {
+        test.onNodeWithTag(GalaxyTestTags.ANNOUNCE).performScrollTo().performClick()
+    }
+
+    fun assertTheFooterHasNoBell() = apply {
+        test.onNodeWithTag(GalaxyTestTags.ANNOUNCE).assertDoesNotExist()
     }
 
     fun assertTheFooterReads(text: String) = apply {
@@ -437,6 +449,17 @@ class GalaxyRobot(private val test: ComposeUiTest) {
 
     fun takeTheRefusalsOffer() = apply {
         test.onNodeWithTag(DispatchTestTags.SHEET_ACTION).performClick()
+    }
+
+    // The sheet's bell, and a different handle from `tapTheBell` above — that one is the map card's.
+    // Two names for what is one control to the player, because they are two nodes and a test that
+    // meant one and reached the other would pass for the wrong reason.
+    fun tapTheSheetsBell() = apply {
+        test.onNodeWithTag(DispatchTestTags.ANNOUNCE).performClick()
+    }
+
+    fun assertTheSheetHasNoBell() = apply {
+        test.onNodeWithTag(DispatchTestTags.ANNOUNCE).assertDoesNotExist()
     }
 
     // Under the system header, and the one place the distance band is stated: it is astronomy, so

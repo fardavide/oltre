@@ -162,6 +162,7 @@ class FutureEventsTest {
             cargo = cargo,
             dispatchedAt = t0,
             returnsAt = t0 + 3.hours,
+            announced = true,
         )
         val state = GameState.initial().copy(runs = listOf(run))
 
@@ -177,6 +178,9 @@ class FutureEventsTest {
                     ships = ships,
                     cargo = cargo,
                     dispatchedAt = t0,
+                    // The run's own ask, carried through so the notification layer can gate on it
+                    // without having to find its way back to a `FleetRun`.
+                    announced = true,
                     at = t0 + 3.hours,
                 ),
             ),
@@ -344,4 +348,5 @@ private fun inboundRun(returnsAt: Instant): FleetRun = FleetRun(
     cargo = Resources.of(metal = 10),
     dispatchedAt = returnsAt - 1.hours,
     returnsAt = returnsAt,
+    announced = false,
 )

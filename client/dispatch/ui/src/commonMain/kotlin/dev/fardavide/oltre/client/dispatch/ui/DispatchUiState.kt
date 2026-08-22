@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.dispatch.ui
 
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
@@ -127,6 +128,18 @@ sealed interface DispatchUiState {
         val compactLegs: TextRes,
         val danger: TextRes,
         val compactDanger: TextRes,
+        // **The bell beside the verb, and the only control on this sheet that does not change the
+        // run.** Everything above it moves the figure; this one decides whether the player hears
+        // about the flight when it is over — Davide's call, 2026-08-22.
+        //
+        // Two states and never three. The square's third state belongs to a *queue* — see
+        // `WatchSquareUiState.ASKED_SEVERAL` — and a run is one flight with one ending, so there is
+        // one question to ask about it.
+        //
+        // Non-null, unlike the square on a facility row. A row without a square is a row with
+        // nothing to wait for; the verb below this is always live in `Offer`, so there is always a
+        // flight to ask about.
+        val announce: WatchSquareUiState,
     ) : DispatchUiState
 
     // **A mode rather than a refusal, and that distinction is Design's.** A dry world keeps its whole
@@ -236,7 +249,11 @@ sealed interface RefuseActionUiState {
 
     // The one refusal in the app that hands back a verb. It also chains the two: a probe used to buy
     // a verdict and stop, and now it buys the right to send a ship.
-    data class Probe(val label: TextRes) : RefuseActionUiState
+    //
+    // It carries the bell for the same reason the offer does — a probe is a flight, and the sheet
+    // that sends one is the only place there is to ask about it. The same control and the same
+    // standing answer: what the player set on a run's sheet is what this one opens showing.
+    data class Probe(val label: TextRes, val announce: WatchSquareUiState) : RefuseActionUiState
 
     // A reading, not a control — the idiom the unaffordable probe already spends. There is nothing
     // to send, so there is no button to grey out.

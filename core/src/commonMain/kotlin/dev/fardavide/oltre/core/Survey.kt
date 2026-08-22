@@ -39,4 +39,13 @@ data class SurveyJob(
     val target: SystemAddress,
     val startedAt: Instant,
     val completesAt: Instant,
+    // Whether the player asked to be told when it lands — stamped at dispatch, for `FleetRun`'s own
+    // reason: a probe has no card to go back to either, so the ask rides on the job.
+    //
+    // **A probe is asked about even though its target is a subject that outlives it.** `surveys`
+    // holds one job per system, so a `SystemAddress` would have been a legal pointer — and it would
+    // have been the wrong one, because what the player is asking about is *this flight* rather than
+    // that star. `galaxy.surveyed` is monotone, so a system is only ever flown to once, and a
+    // pointer at it would be a pointer that can never be reused.
+    val announced: Boolean,
 )

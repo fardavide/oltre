@@ -118,6 +118,11 @@ fun startRun(
         cargo = hold(gathering, taken),
         dispatchedAt = at,
         returnsAt = at + window,
+        // **Copied off the control rather than taken as a seventh argument**, and that is what makes
+        // the promise checkable rather than merely intended. The bell the player was looking at *is*
+        // `announceFlights`, so a run whose ask disagreed with it would need a caller that passed
+        // something else — and there is no argument here to pass. See `toggleFlightAlerts`.
+        announced = state.announceFlights,
     )
     return StartRunResult.Started(
         state.copy(

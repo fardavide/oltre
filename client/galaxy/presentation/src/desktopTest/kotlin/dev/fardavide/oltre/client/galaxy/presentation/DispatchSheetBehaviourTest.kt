@@ -76,6 +76,52 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
+    fun `the bell beside the verb asks about the flight and commits nothing`() {
+        // **The fourth control on the sheet, and the only one that does not change the run.** The
+        // three above it move the figure; this one decides whether the player hears from the flight
+        // when it is over — Davide's call, 2026-08-22.
+        //
+        // It is a choice like the other three: tapping it sends nothing, and `startRun` is what
+        // stamps the answer onto the job. The pairing is what this asserts, because a bell that
+        // dispatched would be the worst possible way to get a control wrong.
+        var asked = 0
+        var sent = 0
+
+        galaxyPage(uiState = dispatchOfferUiState, onDispatchRun = { sent++ }, onToggleAnnounce = { asked++ }) {
+            tapTheSheetsBell()
+            assertEquals(0, sent, "the bell is a choice, not a commitment")
+            send()
+        }
+
+        assertEquals(1, asked)
+        assertEquals(1, sent)
+    }
+
+    @Test
+    fun `the refusal that offers a probe offers the bell with it`() {
+        // A probe is a flight, and this sheet is one of the two places one can be bought — so the
+        // ask has to be reachable from here as well, or which door a player came through would
+        // decide whether they hear about the landing.
+        var asked = 0
+
+        galaxyPage(uiState = dispatchUnsurveyedUiState, onToggleAnnounce = { asked++ }) {
+            tapTheSheetsBell()
+        }
+
+        assertEquals(1, asked)
+    }
+
+    @Test
+    fun `a refusal with nothing to send offers no bell`() {
+        // The other side, and it is the same assertion `assertOffersNoRun` makes about the verb: a
+        // control that booked an alert for a flight nobody can send would be asking about nothing.
+        galaxyPage(uiState = dispatchNoShipsUiState) {
+            assertOffersNoRun()
+            assertTheSheetHasNoBell()
+        }
+    }
+
+    @Test
     fun `a run brings back one resource and never deuterium`() {
         // The exclusion is load-bearing rather than cosmetic: deuterium buys the Robotics Factory
         // and Robotics 4 opens the adaptation ladders, so a fleet that could fetch it would undercut

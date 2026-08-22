@@ -58,6 +58,10 @@ fun GalaxyScreen(
     // because they are three facets of one commitment rather than three decisions — see `startRun`,
     // which takes them the same way and for the same reason.
     onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit,
+    // The bell beside both verbs this tab shows — the map card's probe and the sheet's Dispatch. It
+    // takes no subject, unlike the two above it: what it moves is the standing answer the next
+    // flight will be sent with, and the verb is what writes that onto a job. See `toggleFlightAlerts`.
+    onToggleAnnounce: () -> Unit,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -165,6 +169,7 @@ fun GalaxyScreen(
                 open = null
             }
         },
+        onToggleAnnounce = onToggleAnnounce,
         scrollState = scrollState,
         modifier = modifier,
     )

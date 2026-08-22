@@ -35,6 +35,7 @@ fun galaxyScreen(
     onOpenResearch: () -> Unit = {},
     onDispatchProbe: (SystemAddress) -> Unit = {},
     onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit = { _, _, _, _ -> },
+    onToggleAnnounce: () -> Unit = {},
     block: GalaxyRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
@@ -50,6 +51,7 @@ fun galaxyScreen(
                         onOpenResearch = onOpenResearch,
                         onDispatchProbe = onDispatchProbe,
                         onDispatchRun = onDispatchRun,
+                        onToggleAnnounce = onToggleAnnounce,
                     )
                 }
             }

@@ -1507,6 +1507,8 @@ class ResearchUiStateTest {
         // The yard's own ask, which lives on a Shipyard card. This screen draws no hull and asks no
         // question about one.
         hullAlerts = emptyMap(),
+        // The flights' ask, which lives on a dispatch sheet. This screen sends nothing anywhere.
+        announceFlights = false,
         eventLog = emptyList(),
     )
 

@@ -28,6 +28,7 @@ internal fun fleetsScreen(
     since: Instant = now,
     width: Int = PHONE_WIDTH,
     onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit = { _, _, _, _ -> },
+    onToggleAnnounce: () -> Unit = {},
     block: FleetsRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
@@ -40,6 +41,7 @@ internal fun fleetsScreen(
                         since = since,
                         timeZone = TimeZone.UTC,
                         onDispatchRun = onDispatchRun,
+                        onToggleAnnounce = onToggleAnnounce,
                     )
                 }
             }

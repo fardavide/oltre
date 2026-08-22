@@ -125,6 +125,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 // nothing and the assertions stay about the one journey under test.
                                 onDispatchProbe = {},
                                 onDispatchRun = { _, _, _, _ -> },
+                                onToggleAnnounce = {},
                             )
                         },
                         // The two tabs this harness never opens. Real screens rather than markers,
@@ -147,6 +148,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 // This harness is about the adaptation ladder reaching Research from
                                 // a Galaxy row; the Fleets tab is here to exist, not to be driven.
                                 onDispatchRun = { _, _, _, _ -> },
+                                onToggleAnnounce = {},
                             )
                         },
                     )

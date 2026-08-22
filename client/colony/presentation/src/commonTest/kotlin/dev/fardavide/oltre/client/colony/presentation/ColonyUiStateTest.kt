@@ -1434,6 +1434,8 @@ class ColonyUiStateTest {
         // The yard's own ask, which lives on a Shipyard card and reaches no facility row — the
         // slipway is invisible to this screen and so is the question about it.
         hullAlerts = emptyMap(),
+        // The flights' ask, which lives on a dispatch sheet and reaches no facility row either.
+        announceFlights = false,
         eventLog = emptyList(),
     )
 
@@ -1458,6 +1460,9 @@ class ColonyUiStateTest {
         cargo = Resources.of(metal = 500),
         dispatchedAt = Instant.fromEpochMilliseconds(0) - leftDaysAgo.days,
         returnsAt = returnsAt,
+        // Nothing this screen draws reads it: the strip names the next event, and whether the player
+        // asked to be buzzed about it is the notification layer's question.
+        announced = false,
     )
 
     private fun upgrading(building: BuildingType, at: Instant): GameState {

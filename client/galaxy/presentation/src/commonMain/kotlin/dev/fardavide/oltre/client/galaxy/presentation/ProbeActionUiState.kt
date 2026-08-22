@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
@@ -120,6 +121,10 @@ internal fun GameState.toProbeActionUiState(
             offer = offer,
             label = Strings.dispatchProbe(),
             compactLabel = Strings.dispatchProbeCompact(),
+            // The standing position of the bell rather than anything about *this* star: the ask is
+            // written onto the job when the verb is tapped, so what the square shows before the tap
+            // is the answer the flight would be sent with. See `GameState.announceFlights`.
+            announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
         )
     }
     val wait = timeUntilAffordable(resources, cost, buildings, research)

@@ -77,6 +77,11 @@ fun GalaxyPage(
     onSelectShips: (Int) -> Unit,
     onSelectWindow: (Duration) -> Unit,
     onDispatchRun: () -> Unit,
+    // **One callback for two bells**, because there is one answer: the map card's footer and the
+    // sheet's verb both ask whether the next flight should be heard from, and both write the same
+    // standing flag. Two callbacks would be two names for one tap, and the day they disagreed the
+    // player would have found a control that only half works.
+    onToggleAnnounce: () -> Unit,
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
@@ -179,6 +184,7 @@ fun GalaxyPage(
                             onGoHome = onGoHome,
                             onOpenResearch = onOpenResearch,
                             onDispatchProbe = onDispatchProbe,
+                            onToggleAnnounce = onToggleAnnounce,
                             onOpenWorld = onOpenWorld,
                         )
     
@@ -205,6 +211,7 @@ fun GalaxyPage(
                 onSelectWindow = onSelectWindow,
                 onDispatch = onDispatchRun,
                 onDispatchProbe = onDispatchProbe,
+                onToggleAnnounce = onToggleAnnounce,
             )
         }
     }
@@ -280,6 +287,7 @@ private fun SystemBody(
     onGoHome: () -> Unit,
     onOpenResearch: () -> Unit,
     onDispatchProbe: () -> Unit,
+    onToggleAnnounce: () -> Unit,
     onOpenWorld: (GalaxyCoordinate) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
@@ -302,7 +310,12 @@ private fun SystemBody(
             verticalArrangement = Arrangement.spacedBy(9.dp),
         ) {
             SystemMap(map = body.map)
-            ProbeAction(uiState = body.probe, compact = compact, onDispatch = onDispatchProbe)
+            ProbeAction(
+                uiState = body.probe,
+                compact = compact,
+                onDispatch = onDispatchProbe,
+                onToggleAnnounce = onToggleAnnounce,
+            )
         }
         WorldRows(rows = body.rows, onOpenResearch = onOpenResearch, onOpenWorld = onOpenWorld)
     }

@@ -59,6 +59,12 @@ object GalaxyTestTags {
     // model would say no.
     const val DISPATCH = "galaxy-dispatch"
 
+    // The bell beside that button, and present exactly where it is: only `Dispatch` sells a flight,
+    // so only `Dispatch` has something to ask about. `Unaffordable` carries `DISPATCH` and not this
+    // one, which is the assertion — a control that booked an alert for a probe the colony cannot
+    // afford would be asking about a flight that is not going anywhere.
+    const val ANNOUNCE = "galaxy-announce"
+
     // The astronomy line under the system header. Stated once because the distance band is
     // identical for all fifteen slots of a system — see `FleetBalance.danger`.
     const val ASTRONOMY = "galaxy-astronomy"

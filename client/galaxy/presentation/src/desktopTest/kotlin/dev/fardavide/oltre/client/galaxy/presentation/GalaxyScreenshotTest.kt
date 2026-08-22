@@ -195,6 +195,24 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // The map card's own lit bell, and the frame that says the two controls are one: this square and
+    // the sheet's are the same glyph in the same two states, and they are on opposite sides of their
+    // verbs — which is the row's doing rather than an inconsistency, and is exactly the kind of claim
+    // a picture settles and a sentence does not.
+    @Test
+    fun `a system nobody has looked at with the landing asked about`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = frame(
+                state = frameState.copy(announceFlights = true),
+                view = GalaxyView.SYSTEM,
+                at = frameState.neighbourSelection(),
+            ),
+            name = "galaxy_unsurveyed_announced",
+        )
+    }
+
     // The one row on the whole screen that is neither a card nor a target: a hairline, the address,
     // the word and the effect. It is drawn by a composable no other frame reaches — one system in
     // forty carries a relay and the home system does not — so without this the demotion from accent
@@ -270,6 +288,15 @@ class GalaxyScreenshotTest {
     @Test
     fun `the dispatch sheet as it opens`() {
         captureSheet(uiState = dispatchOfferUiState, name = "galaxy_dispatch")
+    }
+
+    // **The lit bell, and the only thing that changes is the square.** Booking an alert is the one
+    // action in the app whose whole result is that a control changed colour — there is no row to move
+    // and no number to update — so it is the one that most wants a frame of its own. Against
+    // `galaxy_dispatch` above, this is the whole diff.
+    @Test
+    fun `the dispatch sheet with the flight asked about`() {
+        captureSheet(uiState = dispatchAnnouncedUiState, name = "galaxy_dispatch_announced")
     }
 
     @Test
@@ -562,6 +589,7 @@ class GalaxyScreenshotTest {
             onSelectShips = {},
             onSelectWindow = {},
             onDispatchRun = {},
+            onToggleAnnounce = {},
         )
     }
 }
