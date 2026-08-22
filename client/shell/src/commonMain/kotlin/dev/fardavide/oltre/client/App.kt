@@ -29,6 +29,7 @@ import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
+import dev.fardavide.oltre.client.player.ui.playerStripUiState
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.save.data.GameStore
@@ -89,9 +90,11 @@ fun App(
     // out of `GameStore` deliberately: a preference must never be able to cost somebody a colony,
     // and separate files mean a corrupt one of either kind takes only its own down.
     preferences: PreferencesStore = remember { PreferencesStore(defaultPreferencesFile()) },
-    // **The one place the game's language is chosen**, and it is chosen once — from the device,
-    // with no picker and no settings surface anywhere in the app (Davide, 2026-08-16). The shell
-    // reads the locale because it is the only place both halves are in scope: the UI half reaches
+    // **The one place the game's language is chosen**, and it is chosen once — from the device, with
+    // no picker (Davide, 2026-08-16). That call read "no picker and no settings surface anywhere in
+    // the app" until 0.16.0 put a settings button on the frame; the language half is untouched, and
+    // `TranslationsFor` carries why. The shell reads the locale because it is the only place both
+    // halves are in scope: the UI half reaches
     // the table through `OltreTheme`'s ambient, and `GameNotifications` takes it as a parameter
     // because it writes copy into the OS's own database hours before anything is composing.
     //
@@ -373,6 +376,11 @@ fun App(
                         ?.watchingLabel(compact = maxWidth < OltreLayout.compactWidth)
 
                     MainScaffold(
+                        // A constant, and the composition root is where it is allowed to be one:
+                        // nothing in `core` knows the player has a name or a level yet, so there is
+                        // nothing to map and no `presentation` module to map it in. See
+                        // `.claude/docs/player-strip-sheet.md` §3 for why it is not in the save.
+                        player = playerStripUiState(),
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
                         tilt = { lean.value },
                         colony = { scroll ->

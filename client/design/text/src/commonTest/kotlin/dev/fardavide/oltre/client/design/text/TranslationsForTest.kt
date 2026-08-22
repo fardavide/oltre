@@ -4,8 +4,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 // **How the game chooses its language, and the whole of that decision.** Davide settled it on
-// 2026-08-16: the system locale, no picker, no settings surface — so what is left to get right is a
-// tag-to-table mapping, and this is it.
+// 2026-08-16: the system locale, no picker — so what is left to get right is a tag-to-table mapping,
+// and this is it. The *"no settings surface"* half of that call outlived its evidence at 0.16.0; see
+// `TranslationsFor` for why the language question is untouched by it.
 //
 // Deliberately coarse. Region is dropped rather than consulted: there is no per-region catalogue and
 // there should not be one, so `it-CH` is the same Italian as `it-IT` and asking a Swiss player to

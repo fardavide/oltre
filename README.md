@@ -206,6 +206,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.16.0 — 2026-08-22
+
+- **The game knows who is playing.** A strip above the resources carries your mark, your name, your
+  level and how far through it you are. It frames every screen, exactly as the resources and the tab
+  bar do.
+- **You are Dead Reckoning, at level 0.** The name is a navigation term — a position computed from a
+  known start, an elapsed time and a speed — which is precisely what this game does to your colony
+  while the app is closed.
+- Nothing awards experience yet, so the gauge reads empty and stays there. What fills it is the next
+  piece of work.
+- The settings button says it is coming soon, because it is.
+
 ### 0.15.4 — 2026-08-22
 
 - **Flights now tell you when they are over, if you ask them to.** There is a bell beside the

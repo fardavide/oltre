@@ -22,6 +22,7 @@ import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
+import dev.fardavide.oltre.client.player.ui.playerStripUiState
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
@@ -89,6 +90,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                     MainScaffold(
                         // Desktop has no motion sensor, so this is also what the app itself passes here.
                         tilt = { Tilt.NONE },
+                        player = playerStripUiState(),
                         resources = game.state.toResourceRailUiState(),
                         // The colony is not what this test is about, and a screen it does not drive
                         // is a screen whose text could collide with an assertion.

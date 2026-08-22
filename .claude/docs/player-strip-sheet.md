@@ -108,7 +108,77 @@ call, so the next reader finds a rule that matches the app.
 
 ---
 
-## 5. What came back
+## 5. The design, settled
 
-*Open.* Filled in when the design returns; the frames are archived per
-[`design/README.md`](design/README.md)'s default, which is not to copy them down.
+Drawn 2026-08-22 in the session, against the design system's own tokens, and looked at rather than
+reasoned about: four compositions were built into the real chrome — the shipped rail, destination and
+tab bar — rendered, and read side by side. What follows is the synthesis, and the numbers are the
+frame.
+
+**One row, 38dp.** Padding 9dp top and bottom, matching the rail's own, so the two tiers rhyme rather
+than merely stack. Content is a 20dp mark, the name, a `LV 0` badge, a 72dp gauge and the gear, all on
+one baseline row. 38dp of a ~650dp destination is 5.8%, and it takes the top chrome from ~55dp to
+~93dp — the honest price of the ask, and the reason nothing here is two lines.
+
+**Its own surface, with the rail's own edge repeated.** Same `OltreColors.surface`, a 1dp `white 9%`
+hairline between strip and rail, and the rail keeps its own below. Two tiers of one material: the
+player and the stockpile are different subjects and the same kind of thing. Opaque throughout — the
+starfield runs under every destination and an alpha fill would put stars inside chrome.
+
+**The mark is one drawing, the same for every save.** A world, and a trajectory that has already left
+it, and the one filled dot the icon rules permit for where it got to — the app icon's own idea at
+glyph scale. 24-unit viewBox, stroke 1.6, accent, 20dp. **The trajectory does not touch the limb**,
+and that gap is load-bearing rather than decorative: a stroke that meets the circle turns the whole
+mark into a magnifier, which was visible the moment it was rendered and invisible while it was being
+described.
+
+**It is deliberately not seeded.** A mark that varied with the galaxy seed would assert an identity
+the save cannot yet back, and would buy a generator, a property test and a baseline per variant for a
+slice whose level is zero. The day identity earns variation it should be drawn for it.
+
+**The gauge is 72dp × 3dp**, `white 9%` track, 2dp radius, accent fill, right of the badge. Borrowed
+measurements, not the component: `ProgressBar` bakes in `fillMaxWidth()` and a 10dp top padding and
+takes no width, so calling it here would be a fork. Borrowed knowingly — a track that visibly *ends*
+is a scale, where one running to the edge of a card is a timer, and this is the same instrument
+reading a standing quantity rather than a job.
+
+**At zero it is an empty track and nothing else is drawn.** The one-shot 900ms fill is wired exactly
+as everything else in the app wires it, and at experience 0 its target is 0 — so the animation has
+zero amplitude and the strip is motionless on every launch that ships. The first frame that ever moves
+here is the first frame after something awards experience.
+
+**The gear's target is 38 × 38dp, not 44.** `WatchSquare` settled this already and in as many words:
+*"a child placed outside its parent's bounds does not reliably receive touch, which is why Material's
+own `minimumInteractiveComponentSize` expands the layout rather than overflowing it"* — so a 44dp
+claim inside a 38dp band either fails to receive the tap or grows the band to 44dp. The same file's
+own remedy applies: claim the axis you can afford and say so. 38dp is larger than the 29dp square that
+already ships stacked.
+
+**The notice displaces rather than overlays.** Tapping the gear replaces the badge and the gauge —
+the two things that are not real yet — with `Coming soon` at 10.5sp `textSecondary`, in the slot
+immediately left of the gear that raised it, for 2,000ms. No pill, no border, no new surface, no
+scrim: the app has no snackbar and this does not become the first one. It is the arrival roll's shape
+— state with an explicit clearing rule — rather than a component with a duration.
+
+**At 320dp** the name ellipsises and the gauge shortens to 48dp; the height does not move. Measured:
+11 + 20 + 7 + name + 7 + 34 + 7 + 48 + 38 = 172dp of furniture, leaving 148dp for a name that needs
+113dp. `Prossimamente` at 10.5sp is 82dp against the 89dp cluster it replaces, so the notice fits at
+the narrow width in both languages.
+
+**The name is `Dead Reckoning`**, 13.5sp SemiBold `text`. It is a navigation term — a position
+computed from a known start, an elapsed time and a speed — which is precisely and only what this
+game's simulation does on foreground. Deliberately not the rail's 15sp SemiBold, so the strip does not
+read as a fourth statistic. Alternates offered and not taken: `Cold Start`, `Long Silence`,
+`Last Bearing`, `Slow Light`.
+
+**The level is `LevelBadge` unchanged** — `Strings.levelBadge(0)`, 10sp on `white 9%` at 4dp radius.
+
+### What this costs elsewhere
+
+`DESTINATION_HEIGHT` in `GalaxyRobot.kt` is a hand-derived constant, currently 650, and the strip
+moves it to 612. Every galaxy frame is captured at it, so those baselines are re-recorded as part of
+this slice rather than left describing a device that does not exist — which is the exact failure that
+shipped 0.12.0 with an unreachable map control while the suite stayed green.
+
+The frames are in the Claude Design project; per [`design/README.md`](design/README.md) the default is
+not to copy them down, and this section is the durable half.

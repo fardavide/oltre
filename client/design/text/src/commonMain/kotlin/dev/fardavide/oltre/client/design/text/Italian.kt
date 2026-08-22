@@ -584,6 +584,12 @@ object Italian : Translations {
         StringId.NotificationChannelName -> "Eventi della colonia"
         StringId.NotificationChannelDescription ->
             "Ti dice quando una costruzione o una ricerca è finita, e quando una flotta rientra."
+        // **Untranslated, deliberately.** It is a callsign rather than a sentence, and the Italian
+        // for the technique — *navigazione stimata* — is a description of a method, not a name
+        // anyone would answer to. The entry exists so a later language can disagree with that in
+        // one line rather than so this one has to.
+        StringId.PlayerDefaultName -> "Dead Reckoning"
+        StringId.SettingsComingSoon -> "Prossimamente"
         StringId.Watching -> "osservi ${args.text(0)}"
         StringId.RatePerHour -> "+${args.text(0)}/h"
         StringId.ResourceRailMetal -> "METALLO"

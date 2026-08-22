@@ -40,7 +40,14 @@ const val SLIDE_OVER_WIDTH = 320
 // destination about 650dp once the rail, the tab bar and the safe areas are paid for. Every frame and
 // every behaviour test that does not say otherwise gets that, because a screen the device cannot
 // produce is a screen no test should be asserting about.
-const val DESTINATION_HEIGHT = 650
+//
+// **612 since 0.16.0, and the 38dp came off the top.** The player strip is a fourth piece of chrome
+// above the rail, so a destination is that much shorter than it was — and this constant is the whole
+// reason the suite knows. It is hand-derived, which is exactly what made it dangerous once: 0.12.0
+// shipped a map whose only control was off the bottom of the screen while every galaxy frame stayed
+// green, because the number the frames were captured at described a device that did not exist. A
+// slice that adds or removes chrome moves this in the same commit or it repeats that.
+const val DESTINATION_HEIGHT = 612
 
 // The harness and the Robot, copying `ResearchRobot` — the worked example the taxonomy points at.
 // A behaviour test drives the screen through this and never queries a node in its own body.
