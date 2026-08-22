@@ -34,5 +34,21 @@ kotlin {
             implementation(libs.compose.foundation)
             implementation(libs.compose.ui)
         }
+        // **The icon set's first tests, and what made them possible is that the drawing stopped
+        // being a composable.** A glyph used to be four primitives inside a `Canvas { }` lambda,
+        // which nothing but a rendered screen could reach — so every mark in here was held up by
+        // whichever feature's baseline happened to draw it, at 17dp, inside a card. `drawBell` is a
+        // plain `DrawScope` function, so a test can hand it a bitmap and measure what it put there.
+        //
+        // **`desktopTest` and no `commonTest`**, on `:client:design:component`'s precedent and for
+        // its reasons: a `commonTest` in a module with iOS targets pulls Kotlin/Native compilation
+        // and linking into `check` for tests nothing needs to run on a device, and walks into the
+        // Native comma trap that backticked names there have to dodge.
+        val desktopTest by getting {
+            dependencies {
+                implementation(compose.desktop.currentOs)
+                implementation(libs.kotlin.test)
+            }
+        }
     }
 }
