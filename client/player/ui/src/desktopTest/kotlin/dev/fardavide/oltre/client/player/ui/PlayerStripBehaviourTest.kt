@@ -1,5 +1,17 @@
 package dev.fardavide.oltre.client.player.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.runDesktopComposeUiTest
+import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Italian
 import dev.fardavide.oltre.client.design.text.Strings
@@ -11,6 +23,7 @@ import kotlin.test.assertEquals
 //
 // The notice has a lifetime, so every test here runs on a paused clock and advances it deliberately.
 // A test that let the clock run would be asserting against whichever frame the machine got to.
+@OptIn(ExperimentalTestApi::class)
 class PlayerStripBehaviourTest {
 
     @Test
@@ -78,6 +91,40 @@ class PlayerStripBehaviourTest {
         playerStrip {
             assertShowing(English.resolve(Strings.playerDefaultName()))
             assertShowing(English.resolve(Strings.levelBadge(0)))
+        }
+    }
+
+    @Test
+    fun `should re-read the state it is handed when that state changes`() {
+        // **Nothing in the app can change this state yet**, which is exactly why it is worth
+        // pinning: the strip is composed once per launch and every test above hands it a value that
+        // never moves, so a strip that cached its first render would pass all of them. The slice
+        // that makes experience real will change this state on a tick, and this is the test that
+        // will already be there when it does.
+        var level by mutableStateOf(Strings.levelBadge(0))
+        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 80) {
+            setContent {
+                OltreTheme {
+                    Surface {
+                        PlayerStripContent(
+                            uiState = PlayerStripUiState(
+                                name = Strings.playerDefaultName(),
+                                level = level,
+                                experiencePercent = 0,
+                            ),
+                            noticeShown = false,
+                            onOpenSettings = {},
+                        )
+                    }
+                }
+            }
+            onNodeWithText(English.resolve(Strings.levelBadge(0)), useUnmergedTree = true).assertIsDisplayed()
+
+            level = Strings.levelBadge(3)
+            waitForIdle()
+
+            onNodeWithText(English.resolve(Strings.levelBadge(3)), useUnmergedTree = true).assertIsDisplayed()
+            onNodeWithText(English.resolve(Strings.levelBadge(0)), useUnmergedTree = true).assertDoesNotExist()
         }
     }
 

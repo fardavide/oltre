@@ -511,6 +511,40 @@ class DispatchSheetBehaviourTest {
     }
 
     @Test
+    fun `a waiting sheet still lets the ask be changed`() {
+        // **The claim `Waiting` is written on, finally pressed rather than read.** Its own comment
+        // says *"a mode, not a refusal — the chips, the stepper and the ladder are all still live,
+        // and they have to be: the wait is a function of the ask, so shrinking the ask is the
+        // remedy and the player has to be able to reach it without backing out of the sheet."*
+        // Two frames photograph that the controls are *drawn*; nothing until now established that
+        // they still *do* anything, and a chip that had quietly lost its callback in this state
+        // would look identical in every baseline.
+        //
+        // Found by the coverage gate: both gather chips' `onClick` lambdas were the only never-
+        // invoked branches left in the dispatch sheet, which is the search the `test-coverage`
+        // skill prescribes rather than a number being chased.
+        var asked: ResourceKind? = null
+        galaxyPage(uiState = dispatchWaitingUiState, onSelectGathering = { asked = it }) {
+            bringBack(ResourceKind.CRYSTAL)
+        }
+
+        assertEquals(ResourceKind.CRYSTAL, asked)
+    }
+
+    @Test
+    fun `an ask that can never be held still lets the ask be changed`() {
+        // The same property in the state that has no date to offer at all. Here the remedy is the
+        // only thing there is, so a dead chip would leave the player with a sheet that says "no
+        // world this size ever holds that much" and no way to ask for less.
+        var asked: ResourceKind? = null
+        galaxyPage(uiState = dispatchWaitingForeverUiState, onSelectGathering = { asked = it }) {
+            bringBack(ResourceKind.METAL)
+        }
+
+        assertEquals(ResourceKind.METAL, asked)
+    }
+
+    @Test
     fun `a worked world states a fraction rather than a word`() {
         galaxyPage(uiState = dispatchWorkedUiState) {
             assertTheSheetReads("/")
