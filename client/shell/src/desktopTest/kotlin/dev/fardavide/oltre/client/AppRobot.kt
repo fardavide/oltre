@@ -114,6 +114,22 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         assertEquals(count, booked.scheduled.size, "booked: ${booked.scheduled.map { it.id }}")
     }
 
+    // The Shipyard's other control, and the one with no words on it at all — so, like the colony's
+    // square, it is reached by tag. What it *shows* is a bell and no query can read a Canvas; what
+    // this can drive is the cycle, and what that cycle is worth is the alert count above.
+    fun tapTheAlertOn(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    fun assertOffersAlertOn(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertExists()
+    }
+
+    fun assertNoAlertOn(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertDoesNotExist()
+    }
+
     // The Shipyard's one control. Reached by tag rather than by its word, because "Build" is a
     // verb the app uses on more than one surface and an unscoped query would be ambiguous the day a
     // second one appears.

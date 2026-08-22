@@ -278,6 +278,17 @@ fun App(
                     scope.launch { next.commit(store, notifications, debugClock) }
                 }
 
+                // The Shipyard's square, and the same shape for the same reasons — a hull card is
+                // asked about with `cycleHullAlert` rather than `toggleAlert` because a queue has two
+                // questions where a row has one, and everything else about this verb is `alert`'s:
+                // it writes no event, so it has to commit unconditionally or the alert it just booked
+                // would never reach the platform.
+                fun alertHull(ship: ShipType) {
+                    val next = current.alertingHull(debugClock, wallClock = wallClock.now(), ship = ship)
+                    session = next
+                    scope.launch { next.commit(store, notifications, debugClock) }
+                }
+
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
                 // both are the point: the instant is chosen by the simulation rather than by the
                 // clock, and it commits unconditionally — a skip that changed no event still moved
@@ -517,6 +528,7 @@ fun App(
                                         }
                                     }
                                 },
+                                onToggleAlert = { type -> alertHull(type) },
                             )
                         },
                         // **It stopped being read-only at 0.13**, which is issue #62. A run in flight

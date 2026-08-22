@@ -1431,6 +1431,9 @@ class ColonyUiStateTest {
         // constant because it is the input half of the square: `watch` on a row is derived from it.
         watching = watching,
         subscribed = subscribed,
+        // The yard's own ask, which lives on a Shipyard card and reaches no facility row — the
+        // slipway is invisible to this screen and so is the question about it.
+        hullAlerts = emptyMap(),
         eventLog = emptyList(),
     )
 

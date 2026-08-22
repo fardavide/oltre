@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":13,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":14,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -113,7 +113,11 @@ class GameSaveTest {
                 // the jobs whose landing was asked about. Both empty at genesis and on every colony
                 // that has never tapped a bell. Neither is a job — they schedule nothing and
                 // `advance` applies neither.
-                """"watching":null,"subscribed":[],"eventLog":[]}}""",
+                """"watching":null,"subscribed":[],""" +
+                // The yard's ask, which schema 14 added as one hop: which hull types the player
+                // asked to hear about and in which of the two ways. Empty at genesis and on every
+                // colony carried forward — there was no control on the card to tap.
+                """"hullAlerts":{},"eventLog":[]}}""",
             encoded,
         )
     }
@@ -874,12 +878,13 @@ class GameSaveTest {
         // empty pool and passed without touching the thing it is about.
         val owned = GameState.initial().copy(ships = Ships.of(ShipType.SKIFF, 1))
         val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = owned))
-            .replace(""""schemaVersion":13""", """"schemaVersion":9""")
+            .replace(""""schemaVersion":14""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
             .replace(""","deposits":[]""", "")
             .replace(""","pinned":[]""", "")
             .replace(""""prospecting":0,""", "")
             .replace(""""propulsion":0,""", "")
+            .replace(""""hullAlerts":{},""", "")
 
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(beforeTheYard)).snapshot
 
@@ -898,8 +903,9 @@ class GameSaveTest {
     // than pasted, so the fixture cannot silently drift into a *current* save wearing an old number.
     private fun schema12(state: GameState): String =
         GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
-            .replace(""""schemaVersion":13""", """"schemaVersion":12""")
+            .replace(""""schemaVersion":14""", """"schemaVersion":12""")
             .replace(""","propulsion":0""", "")
+            .replace(""""hullAlerts":{},""", "")
 
     @Test
     fun `a colony carried forward has no drive level and its map is honestly further away`() {
@@ -960,6 +966,44 @@ class GameSaveTest {
         val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema12(flying))).snapshot
 
         assertEquals(Ships.of(ShipType.SKIFF, 3), decoded.state.ships)
+    }
+
+    // ── 13 -> 14: the yard's ask ────────────────────────────────────────────────────────────
+
+    // A save written by 0.15, in the one shape that matters: `hullAlerts` was not a key. Stripped
+    // from the current encoding rather than pasted, for `schema12`'s reason — a frozen fixture drifts
+    // into being a current save wearing an old number, and this one cannot.
+    private fun schema13(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":14""", """"schemaVersion":13""")
+            .replace(""""hullAlerts":{},""", "")
+
+    @Test
+    fun `a colony carried forward has asked about no hull type`() {
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema13(GameState.initial()))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(emptyMap(), decoded.state.hullAlerts)
+    }
+
+    @Test
+    fun `a colony mid-order keeps its queue and stops hearing about it`() {
+        // **The behavioural half, and it is schema 9's again.** That hop stopped an existing colony
+        // hearing about builds it never asked about; this one does the same for hulls. What the
+        // player finds is the order exactly where they left it, with a control on the card that was
+        // not there before — nothing the colony holds moves.
+        val mid = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),
+                Ships.of(ShipType.SKIFF, 2),
+                at = EPOCH,
+            ),
+        ).state
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema13(mid))).snapshot
+
+        assertEquals(mid.yard, decoded.state.yard)
+        assertEquals(emptyMap(), decoded.state.hullAlerts)
     }
 
     @Test

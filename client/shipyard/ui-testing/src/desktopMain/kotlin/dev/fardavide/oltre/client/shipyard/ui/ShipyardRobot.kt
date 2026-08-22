@@ -22,13 +22,14 @@ fun shipyard(
     uiState: ShipyardUiState,
     width: Int = PHONE_WIDTH,
     onBuild: (ShipType) -> Unit = {},
+    onToggleAlert: (ShipType) -> Unit = {},
     block: ShipyardRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
         setContent {
             OltreTheme {
                 Surface {
-                    ShipyardScreen(uiState = uiState, onBuild = onBuild)
+                    ShipyardScreen(uiState = uiState, onBuild = onBuild, onToggleAlert = onToggleAlert)
                 }
             }
         }
@@ -58,6 +59,23 @@ class ShipyardRobot(private val test: ComposeUiTest) {
 
     fun assertNothingToPress(type: ShipType) = apply {
         test.onNodeWithTag(ShipyardTestTags.action(type), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // The square that asks about a hull. What it *shows* is a bell, and no node query can read a
+    // Canvas — so the states are pinned by the screenshot tests and what a behaviour test can say is
+    // that the control is there and that pressing it reports the hull it belongs to.
+    fun tapAlert(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).performClick()
+    }
+
+    fun assertOffersAlert(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertExists()
+    }
+
+    // The absence of a control, which on an idle card is the whole of what the app says about having
+    // nothing to wait for — never a disabled square.
+    fun assertNoAlert(type: ShipType) = apply {
+        test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertDoesNotExist()
     }
 
     // Scoped to the card, because two cards on this screen say some of the same words.

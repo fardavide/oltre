@@ -156,6 +156,57 @@ class ShipyardAppBehaviourTest {
         }
     }
 
+    // **The whole of what 0.15.3 is, driven end to end**, and the only test in the repository that
+    // can see it. `HullAlertTest` proves what `core` does with a tap and `GameNotificationsTest`
+    // proves which alerts a state produces; neither can see the wiring between them — the lambda in
+    // `App` that cycles the ask, advances, and commits, and the `notifications.sync` inside that
+    // commit which is the only thing that actually books anything.
+    //
+    // Counting alerts is what makes it an assertion about the feature rather than about the control:
+    // a square that lights and books nothing is precisely the failure the unconditional commit
+    // exists to prevent, and it is invisible from inside the Shipyard module.
+    @Test
+    fun `the square on a hull card cycles through both ways of being told`() {
+        // Three hulls ordered, far enough back that none has landed and far enough ahead that all
+        // three are still in the air at `TEST_NOW`.
+        val ordered = assertIs<BuildShipsResult.Started>(
+            buildShips(veryRich(), Ships.of(ShipType.SKIFF, 3), at = TEST_NOW - 1.hours),
+        ).state
+
+        app(saved = GameSnapshot(lastUpdatedAt = TEST_NOW - 1.hours, state = ordered)) {
+            open(OltreTab.SHIPYARD)
+            // Nothing asked for, so nothing booked — the change this version is.
+            assertAlertsBooked(0)
+
+            // One tap: the order as a whole, which is one alert at the last hull's instant.
+            tapTheAlertOn(ShipType.SKIFF)
+            assertAlertsBooked(1)
+
+            // Two: every hull, which is three.
+            tapTheAlertOn(ShipType.SKIFF)
+            assertAlertsBooked(3)
+
+            // Three: silence, and the undo is the same control it always is.
+            tapTheAlertOn(ShipType.SKIFF)
+            assertAlertsBooked(0)
+        }
+    }
+
+    @Test
+    fun `a card with an empty slipway offers no square to press`() {
+        // The absence of a control rather than a disabled one, asserted from the composition root
+        // because that is where the state and the screen actually meet: this colony can afford a
+        // hull and has none on order.
+        app(saved = snapshot(rich())) {
+            open(OltreTab.SHIPYARD)
+            assertNoAlertOn(ShipType.SKIFF)
+
+            // And it appears the moment there is something to wait for.
+            buyAHull()
+            assertOffersAlertOn(ShipType.SKIFF)
+        }
+    }
+
     private fun rich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
         .copy(resources = Resources.of(metal = 10_000, crystal = 10_000), ships = Ships.of(ShipType.SKIFF, 1))
 

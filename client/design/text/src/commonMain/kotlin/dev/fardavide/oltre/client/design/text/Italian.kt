@@ -607,6 +607,13 @@ object Italian : Translations {
         // the name is idiomatic Italian and it is the only form that reads for all four hulls.
         StringId.HullLeftYardTitle -> "${args.text(0)} ha lasciato il cantiere"
         StringId.HullLeftYardBody -> "Ora fa parte della tua flotta e può partire."
+        // "scafo" rather than "nave", which is the noun the Shipyard already uses for a hull that has
+        // not been handed over yet. The name stays bare in the body for the reason the title above
+        // keeps it bare: an article would have to agree with four hulls of two genders.
+        StringId.HullOrderDoneTitle ->
+            args.count(0).let { "$it ${it.plural("scafo ha", "scafi hanno")} lasciato il cantiere" }
+        StringId.HullOrderDoneBody ->
+            "Il tuo ordine di ${args.text(0)} è completo — sono nella tua flotta e pronti a partire."
         StringId.ProbeReachedTitle -> "La tua sonda ha raggiunto ${args.text(0)}"
         StringId.ChartedNoneSettleable -> args.count(0).let {
             "$it ${it.plural("mondo mappato", "mondi mappati")}, nessuno colonizzabile."

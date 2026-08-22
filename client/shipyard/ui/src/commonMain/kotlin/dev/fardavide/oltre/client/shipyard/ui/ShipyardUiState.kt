@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ShipType
 
@@ -28,6 +29,16 @@ data class HullUiState(
     val purpose: TextRes,
     val costs: List<CostChipUiState>,
     val action: BuildActionUiState,
+    // The square beside the verb, or null when the yard holds nothing of this hull. **The absence of
+    // a control rather than a disabled one**, which is this app's rule everywhere: a card with
+    // nothing on the slipway has no completion to be told about, exactly as an affordable facility
+    // row has no price to wait for.
+    //
+    // It is the design system's own three-state square, unchanged — Davide's call, 2026-08-22:
+    // *"we can use same UI as other places, we only need a different icon."* What is different here
+    // is only the third state, and only because a queue can be asked two questions where a single
+    // job can be asked one. See `HullAlert`.
+    val alert: WatchSquareUiState?,
     // The slipway, or null when it is empty. **Beside the action rather than instead of it**, which
     // is the one thing on this card that is not the Colony row's treatment: a facility that is
     // building cannot be started again, and a yard that is busy can always be given more. So the

@@ -8,6 +8,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
@@ -95,15 +96,23 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
         // rule instead of one per platform.
         .filter { it.at > now }
 
-    // **The gate, and the whole of what this version changes about the check-in loop: a completion
-    // nobody asked about is not booked at all.** Not trimmed — absent, so there is nothing for it to
+    // **The gate, and the whole of what 0.5.0 changed about the check-in loop: a completion nobody
+    // asked about is not booked at all.** Not trimmed — absent, so there is nothing for it to
     // weigh against the platform's 64.
     //
     // Here rather than inside `futureEvents`, on the design's own instruction and for a reason of
     // its own: that list is the mirror of what `advance` will write to the log, and a build completes
     // whether or not anybody asked to hear it. A core that dropped it would make the mirror lie, and
     // the debug menu's "skip to the next event" reads the very same list.
-    val pending = upcoming.filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
+    //
+    // **The second gate finishes the job on the one kind that was still firing on its own.** A
+    // delivery was exempt because there was no control on a hull card to ask it with; there is one
+    // now, so the same rule reaches it — see `announcedHulls`, which answers *which* deliveries as
+    // well as *whether*, because a hull card asks two questions rather than one.
+    val orders = announcedHulls(state, upcoming)
+    val pending = upcoming
+        .filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
+        .filterNot { it is FutureEvent.ShipsComplete && it !in orders }
 
     // Everything the player asked about that lands close enough together to be one sentence. Only
     // completions group: a probe landing and a fleet coming home are different kinds of news, and the
@@ -157,8 +166,56 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
         // makes to the platform is enforced on the way out rather than inferred from the arithmetic
         // above.
         .take(IOS_PENDING_REQUEST_LIMIT)
-        .map { event -> groupBy[event]?.takeIf { it.size > 1 }?.toNotification() ?: event.toNotification() }
+        .map { event ->
+            groupBy[event]?.takeIf { it.size > 1 }?.toNotification()
+                // An order of one is the singleton alert, exactly as a group of one is the thing
+                // itself — the `takeIf` is the same rule one line up, for the same reason: a count
+                // is only worth saying when there is more than one thing to count.
+                ?: (event as? FutureEvent.ShipsComplete)
+                    ?.let { hull -> orders[hull]?.takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) } }
+                ?: event.toNotification()
+        }
 }
+
+// **Which deliveries are announced, and what each announcement stands for.** A hull card's control
+// has three states rather than two — see `HullAlert` — so this answers a question the completions'
+// gate does not have to: not just *whether* the player asked, but *which* of the two ways.
+//
+// Keyed per hull type all the way through, which is Davide's call of 2026-08-22 and not a detail of
+// this file. The yard is one serial queue holding several types at once, and the question is per
+// type: a player waiting on a hauler is not waiting on the two skiffs ahead of it.
+//
+// The count is the hulls **still to come**, because `upcoming` has already dropped whatever is due
+// or past. An order that counted the whole queue would promise five hulls at an instant three of
+// them arrive at.
+private fun announcedHulls(state: GameState, upcoming: List<FutureEvent>): Map<FutureEvent.ShipsComplete, Int> =
+    upcoming.filterIsInstance<FutureEvent.ShipsComplete>()
+        .groupBy { it.ship }
+        .flatMap { (ship, hulls) ->
+            when (state.hullAlerts[ship]) {
+                // Absent is off, which is every card nobody has tapped.
+                null -> emptyList()
+                // One alert, taking the **last** hull's place in the list — "your five skiffs are
+                // built" is not true until the fifth one is, and `upcoming` is already in instant
+                // order, so the surrounding sequence is untouched by construction. The same rule the
+                // upgrade group fires by, one deck down.
+                HullAlert.WHEN_ALL_DONE -> listOf(hulls.last() to hulls.size)
+                HullAlert.EACH_HULL -> hulls.map { it to 1 }
+            }
+        }
+        .toMap()
+
+// A whole order as one sentence. **The id is derived from the hull type**, unlike the upgrade group's
+// — which has to fall back on its instant because a group's subject is a *set* that changes the
+// moment one more row is subscribed. An order's subject is the type, which is fixed, and there is at
+// most one of these per type, so it is unique by construction and stable across every sync.
+private fun FutureEvent.ShipsComplete.toOrderNotification(hulls: Int): PendingNotification =
+    PendingNotification(
+        id = "order-${ship.name}",
+        title = Strings.hullOrderDoneTitle(hulls),
+        body = Strings.hullOrderDoneBody(ship.displayName()),
+        at = at,
+    )
 
 // Runs of completions, each one within `window` of the one before it, earliest first and in the
 // order `futureEvents` produced them. A run of one is still a run — the caller decides that a group

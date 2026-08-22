@@ -206,6 +206,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.15.3 — 2026-08-22
+
+- **Hulls now tell you when they are done, if you ask them to.** Every Shipyard card with something
+  on the slipway has a bell beside its Build button. Tap it once to be told when the whole order is
+  finished; tap it again — the bell doubles — to be told about every hull as it leaves the yard; tap
+  it a third time for silence.
+- **A hull you did not ask about no longer buzzes.** Deliveries were the last thing in the game that
+  announced itself uninvited; they now follow the same rule everything else has followed since 0.5,
+  which is that you hear about what you asked to hear about.
+- Each hull is asked about separately, so waiting on a hauler does not mean hearing about the skiffs
+  queued in front of it.
+
 ### 0.15.2 — 2026-08-21
 
 - **Fixed a second crash on the dispatch sheet.** Picking a hauler for a target it is too slow to

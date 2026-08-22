@@ -16,6 +16,7 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.icon.WatchBell
+import dev.fardavide.oltre.client.design.icon.WatchBellStack
 
 // What the square on a row says, and whether the row has one at all. Null means no square: an
 // affordable row has nothing to wait for, a locked one has no price yet, and a row whose binding
@@ -43,6 +44,32 @@ sealed interface WatchUiState {
     data object Subscribed : WatchUiState
 }
 
+// **What the square itself is showing**, which is not the same question as what the row is in. A row
+// has three states because two of them carry different *lines*; the square has three because the
+// Shipyard's control has a second way of being on.
+//
+// Three constants rather than a boolean and a glyph, because "unlit and showing two bells" is not a
+// state anything can be in and a pair of parameters would let it compile.
+enum class WatchSquareUiState {
+
+    // There is an instant to book here and the player has not booked it.
+    UNASKED,
+
+    // Booked, and one bell says so. Every row outside the Shipyard ends here.
+    ASKED,
+
+    // **Booked the second way, and only a queue has one.** A facility row points at a single job, so
+    // there is one question to ask about it; a hull card stands over an order, so there are two —
+    // tell me when the order is done, or tell me about every hull in it. See `HullAlert`.
+    ASKED_SEVERAL,
+}
+
+// The square's state read off the row's. Two of the row's three members mean booked and one does
+// not, and the square is the only part of a row that cares which — the line, which is the reason
+// `Booked` and `Subscribed` are separate at all, is drawn elsewhere.
+fun WatchUiState.asSquare(): WatchSquareUiState =
+    if (this == WatchUiState.Offered) WatchSquareUiState.UNASKED else WatchSquareUiState.ASKED
+
 // The one new affordance the watch slice adds, and deliberately the only one: a 29dp square beside
 // the ghost time that books an alert for the instant the row already prints.
 //
@@ -69,8 +96,15 @@ sealed interface WatchUiState {
 // a ripple filling 29x44 beside a 29dp square reads as a smear. This file argued that first and
 // wired it by hand; since 0.13.1 the wiring is the design system's, and two more call sites that had
 // copied it — the probe's Dispatch and the caption's — call the same component.
+//
+// **The chrome has two states and the glyph has three**, which is deliberate rather than an
+// oversight: what the fill and the border say is *booked*, and both ways of being booked are booked.
+// A third fill would be a colour this system does not spend, and it would make the second tap look
+// like a different kind of thing rather than the same question answered differently. What changes is
+// the mark — one bell or two — which is the only part of the control that is about *how many alerts*.
 @Composable
-fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifier: Modifier = Modifier) {
+fun WatchSquare(state: WatchSquareUiState, onClick: () -> Unit, stacked: Boolean, modifier: Modifier = Modifier) {
+    val asked = state != WatchSquareUiState.UNASKED
     PressableFace(
         onClick = onClick,
         shape = RoundedCornerShape(RADIUS),
@@ -81,7 +115,7 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifie
                 // The same 12% accent fill an actionable card carries, and nothing at all when
                 // the square is merely offered: an unwatched row has no state to announce.
                 color = settlingColor(
-                    if (watched) OltreColors.accent.copy(alpha = 0.12f) else Color.Transparent,
+                    if (asked) OltreColors.accent.copy(alpha = 0.12f) else Color.Transparent,
                 ),
                 shape = RoundedCornerShape(RADIUS),
             )
@@ -90,7 +124,7 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifie
                 // 45% accent watched — the same border an active card wears — against the 16%
                 // white the ghost button beside it already uses.
                 color = settlingColor(
-                    if (watched) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.16f),
+                    if (asked) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.16f),
                 ),
                 shape = RoundedCornerShape(RADIUS),
             ),
@@ -98,7 +132,11 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifie
         // The bell lights with the square rather than after it. Booking an alert is the one action
         // in the app whose whole result is that a control changed colour — there is no row to move
         // and no number to update — so it is the one that most wants to be seen happening.
-        WatchBell(color = settlingColor(if (watched) OltreColors.accent else OltreColors.textTertiary))
+        val color = settlingColor(if (asked) OltreColors.accent else OltreColors.textTertiary)
+        when (state) {
+            WatchSquareUiState.UNASKED, WatchSquareUiState.ASKED -> WatchBell(color = color)
+            WatchSquareUiState.ASKED_SEVERAL -> WatchBellStack(color = color)
+        }
     }
 }
 
@@ -112,7 +150,7 @@ fun WatchSquare(watched: Boolean, onClick: () -> Unit, stacked: Boolean, modifie
 // all, and the name column goes back to the width it had before the square existed.
 @Composable
 fun WatchableAction(
-    watch: WatchUiState?,
+    watch: WatchSquareUiState?,
     stacked: Boolean,
     onToggleWatch: () -> Unit,
     watchModifier: Modifier = Modifier,
@@ -121,7 +159,7 @@ fun WatchableAction(
     val square: @Composable () -> Unit = {
         watch?.let {
             WatchSquare(
-                watched = it != WatchUiState.Offered,
+                state = it,
                 onClick = onToggleWatch,
                 stacked = stacked,
                 modifier = watchModifier,

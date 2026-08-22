@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.ui
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,47 +42,60 @@ import dev.fardavide.oltre.core.ShipType
 fun ShipyardScreen(
     uiState: ShipyardUiState,
     onBuild: (ShipType) -> Unit,
+    onToggleAlert: (ShipType) -> Unit,
     // Hoisted since the Sky pass — the starfield behind this destination shifts with the list in
     // front of it, so the frame has to be able to read how far the list has got.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier = modifier.fillMaxSize().verticalScroll(scrollState),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
+    // **This screen had no width opinion until the square arrived**, and it needs one for the reason
+    // the Colony and Research screens do: the square costs 29dp out of the row it sits in, which at
+    // 320dp is 29dp the three cost chips beside it do not have. Measured on the window rather than on
+    // the capped column, because it is the window that is a Slide Over pane.
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val compact = maxWidth < OltreLayout.compactWidth
         Column(
-            modifier = Modifier
-                .widthIn(max = OltreLayout.maxContentWidth)
-                .fillMaxWidth()
-                // Ahead of the padding: a tag placed after it marks the padded interior, so the
-                // bounds a test reads would be 32dp narrower than the column itself.
-                .testTag(ShipyardTestTags.CONTENT)
-                .padding(16.dp),
+            modifier = Modifier.fillMaxSize().verticalScroll(scrollState),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // The fleet as one number, in the slot Research spends on its slot rule. It is the only
-            // reading on this screen that is about the fleet rather than about a hull, which is
-            // exactly why it belongs on the heading rather than on a card.
-            SectionLabel(text = Strings.shipyardHeading(), rule = uiState.fleet)
-            HullList(hulls = uiState.hulls, onBuild = onBuild)
-            // The sentence that has to exist at one hull, and the one thing on this screen arguing
-            // against the purchase it is offering. What it is bought for is that it pays in the
-            // resource you choose, which no mine does.
-            //
-            // **Rewritten at 0.10.1 because its first clause became false.** It opened with *"the next
-            // hull costs half again as much as the last"*, which was the compounding curve stated to
-            // the player; the price is flat now, so what the screen has to name instead is the thing
-            // that does bound a fleet — the slipway, one hull at a time.
-            //
-            // PLACEHOLDER copy, like every string in the app: content is Davide's.
-            Text(
-                text = Strings.shipyardNote().resolve(),
-                color = OltreColors.textTertiary,
-                fontFamily = oltreMono(),
-                fontSize = 10.5.sp,
-                lineHeight = 17.sp,
-                modifier = Modifier.padding(top = 11.dp),
-            )
+            Column(
+                modifier = Modifier
+                    .widthIn(max = OltreLayout.maxContentWidth)
+                    .fillMaxWidth()
+                    // Ahead of the padding: a tag placed after it marks the padded interior, so the
+                    // bounds a test reads would be 32dp narrower than the column itself.
+                    .testTag(ShipyardTestTags.CONTENT)
+                    .padding(16.dp),
+            ) {
+                // The fleet as one number, in the slot Research spends on its slot rule. It is the
+                // only reading on this screen that is about the fleet rather than about a hull, which
+                // is exactly why it belongs on the heading rather than on a card.
+                SectionLabel(text = Strings.shipyardHeading(), rule = uiState.fleet)
+                HullList(
+                    hulls = uiState.hulls,
+                    compact = compact,
+                    onBuild = onBuild,
+                    onToggleAlert = onToggleAlert,
+                )
+                // The sentence that has to exist at one hull, and the one thing on this screen
+                // arguing against the purchase it is offering. What it is bought for is that it pays
+                // in the resource you choose, which no mine does.
+                //
+                // **Rewritten at 0.10.1 because its first clause became false.** It opened with *"the
+                // next hull costs half again as much as the last"*, which was the compounding curve
+                // stated to the player; the price is flat now, so what the screen has to name instead
+                // is the thing that does bound a fleet — the slipway, one hull at a time.
+                //
+                // PLACEHOLDER copy, like every string in the app: content is Davide's.
+                Text(
+                    text = Strings.shipyardNote().resolve(),
+                    color = OltreColors.textTertiary,
+                    fontFamily = oltreMono(),
+                    fontSize = 10.5.sp,
+                    lineHeight = 17.sp,
+                    modifier = Modifier.padding(top = 11.dp),
+                )
+            }
         }
     }
 }

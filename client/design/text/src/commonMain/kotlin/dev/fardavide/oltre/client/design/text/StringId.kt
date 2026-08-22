@@ -465,6 +465,8 @@ enum class StringId {
     AdaptationOpenedBody,
     HullLeftYardTitle,
     HullLeftYardBody,
+    HullOrderDoneTitle,
+    HullOrderDoneBody,
     ProbeReachedTitle,
     ChartedNoneSettleable,
     ChartedSettleable,

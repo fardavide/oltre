@@ -517,6 +517,14 @@ object English : Translations {
         StringId.AdaptationOpenedBody -> "Worlds you could not settle may have opened up — check the galaxy."
         StringId.HullLeftYardTitle -> "A ${args.text(0)} has left the yard"
         StringId.HullLeftYardBody -> "It is in your fleet and ready to send."
+        // **A digit where the upgrade group above spells its count**, and the asymmetry is the model's
+        // rather than a slip. Completions are capped at eight by what a colony can have in flight, so
+        // `spelled()` can cover every one of them; a yard queue has no cap at all — a check-in that
+        // can pay for two hundred hulls buys two hundred — and a table that spelled this would need a
+        // word for every number there is or an `else` that lies.
+        StringId.HullOrderDoneTitle ->
+            args.count(0).let { "$it ${it.plural("hull", "hulls")} have left the yard" }
+        StringId.HullOrderDoneBody -> "Your ${args.text(0)} order is complete — they are in your fleet and ready to send."
         StringId.ProbeReachedTitle -> "Your probe reached ${args.text(0)}"
         StringId.ChartedNoneSettleable ->
             args.count(0).let { "$it ${it.plural("world", "worlds")} charted, none settleable." }

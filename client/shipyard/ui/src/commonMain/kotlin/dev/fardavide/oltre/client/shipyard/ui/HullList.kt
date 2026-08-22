@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.ProgressBar
+import dev.fardavide.oltre.client.design.component.WatchableAction
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
 import dev.fardavide.oltre.client.design.component.pressable
@@ -51,14 +52,26 @@ import dev.fardavide.oltre.core.ShipType
 // serial yard can always be given another hull, and refusing one would turn a queue back into the
 // single slot it deliberately is not.
 @Composable
-internal fun HullList(hulls: List<HullUiState>, onBuild: (ShipType) -> Unit) {
+internal fun HullList(
+    hulls: List<HullUiState>,
+    compact: Boolean,
+    onBuild: (ShipType) -> Unit,
+    onToggleAlert: (ShipType) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        hulls.forEach { hull -> HullCard(hull = hull, onBuild = { onBuild(hull.type) }) }
+        hulls.forEach { hull ->
+            HullCard(
+                hull = hull,
+                compact = compact,
+                onBuild = { onBuild(hull.type) },
+                onToggleAlert = { onToggleAlert(hull.type) },
+            )
+        }
     }
 }
 
 @Composable
-private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
+private fun HullCard(hull: HullUiState, compact: Boolean, onBuild: () -> Unit, onToggleAlert: () -> Unit) {
     val mono = oltreMono()
     Column(
         modifier = Modifier
@@ -106,34 +119,50 @@ private fun HullCard(hull: HullUiState, onBuild: () -> Unit) {
             ) {
                 hull.costs.forEach { chip -> CostChip(chip = chip) }
             }
-            when (val action = hull.action) {
-                BuildActionUiState.Build -> Text(
-                    text = Strings.build().resolve(),
-                    color = Color.White,
-                    fontFamily = mono,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    // `pressable` ahead of the fill, as everywhere else: a background declared
-                    // first is drawn outside the scaling layer.
-                    modifier = Modifier
-                        .pressable(shape = oltreActionShape) { onBuild() }
-                        .background(OltreColors.accent, oltreActionShape)
-                        .testTag(ShipyardTestTags.action(hull.type))
-                        .padding(horizontal = 11.dp, vertical = 7.dp),
-                )
-                // No disabled state, here or anywhere: the chip that reddened already said which
-                // resource is short, and this says when it stops being short.
-                is BuildActionUiState.AvailableIn -> Text(
-                    text = action.label.resolve(),
-                    color = OltreColors.textTertiary,
-                    fontFamily = mono,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
-                        .testTag(ShipyardTestTags.action(hull.type))
-                        .padding(horizontal = 11.dp, vertical = 7.dp),
-                )
+            // **The verb, and beside it the square that asks about the hull it makes.** The pairing
+            // is the Colony row's own — `WatchableAction` unchanged, side by side above the compact
+            // width and stacked below it — and the one difference is which verb it sits next to.
+            //
+            // On a facility row the square only ever accompanies the *ghost*, because a row that is
+            // building has no verb left to offer. Here it accompanies whichever of the two the card
+            // is showing, which follows from the thing this card already does differently: a serial
+            // yard can always be given another hull, so BUILD stays live while the slipway is busy —
+            // and the slipway being busy is exactly when there is something to ask about.
+            WatchableAction(
+                watch = hull.alert,
+                stacked = compact,
+                onToggleWatch = onToggleAlert,
+                watchModifier = Modifier.testTag(ShipyardTestTags.alert(hull.type)),
+            ) {
+                when (val action = hull.action) {
+                    BuildActionUiState.Build -> Text(
+                        text = Strings.build().resolve(),
+                        color = Color.White,
+                        fontFamily = mono,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        // `pressable` ahead of the fill, as everywhere else: a background declared
+                        // first is drawn outside the scaling layer.
+                        modifier = Modifier
+                            .pressable(shape = oltreActionShape) { onBuild() }
+                            .background(OltreColors.accent, oltreActionShape)
+                            .testTag(ShipyardTestTags.action(hull.type))
+                            .padding(horizontal = 11.dp, vertical = 7.dp),
+                    )
+                    // No disabled state, here or anywhere: the chip that reddened already said which
+                    // resource is short, and this says when it stops being short.
+                    is BuildActionUiState.AvailableIn -> Text(
+                        text = action.label.resolve(),
+                        color = OltreColors.textTertiary,
+                        fontFamily = mono,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .border(1.dp, Color.White.copy(alpha = 0.16f), oltreActionShape)
+                            .testTag(ShipyardTestTags.action(hull.type))
+                            .padding(horizontal = 11.dp, vertical = 7.dp),
+                    )
+                }
             }
         }
         // The slipway, under the price rather than in place of it — see the note at the top of this

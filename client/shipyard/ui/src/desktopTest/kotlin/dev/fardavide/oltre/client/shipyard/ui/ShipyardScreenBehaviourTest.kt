@@ -63,6 +63,59 @@ class ShipyardScreenBehaviourTest {
         }
     }
 
+    // ── The square, and the one thing a behaviour test can say about it ──────────────────────
+    //
+    // Which bell is drawn is a `Canvas` and carries no semantics, so it belongs to
+    // `ShipyardScreenScreenshotTest` and to `watch_square.png`. What is checkable from here is where
+    // the control appears, where it does not, and that pressing it names the right hull.
+
+    @Test
+    fun `pressing the square asks about exactly the hull it belongs to`() {
+        val asked = mutableListOf<ShipType>()
+
+        shipyard(uiState = askedForOrderUiState, onToggleAlert = { asked += it }) {
+            tapAlert(ShipType.SKIFF)
+        }
+
+        assertEquals(listOf(ShipType.SKIFF), asked)
+    }
+
+    @Test
+    fun `only the card with hulls on the slipway carries a square`() {
+        // The absence of a control rather than a disabled one. In this state the skiff has three
+        // hulls in the yard and the two cards either side of it have none.
+        shipyard(uiState = buildingUiState) {
+            assertOffersAlert(ShipType.SKIFF)
+            assertNoAlert(ShipType.SCOUT)
+            assertNoAlert(ShipType.HAULER)
+        }
+    }
+
+    @Test
+    fun `the square keeps the verb beside it rather than replacing it`() {
+        // **The one thing this card does that a facility row does not**, and the square must not
+        // quietly undo it: a serial yard can always be given another hull, so BUILD stays live while
+        // the slipway is busy — which is exactly when the square is there to be pressed.
+        shipyard(uiState = askedForEachUiState) {
+            assertOffersToBuild(ShipType.SKIFF)
+            assertOffersAlert(ShipType.SKIFF)
+        }
+    }
+
+    @Test
+    fun `the square survives a Slide Over window where it stacks under the verb`() {
+        // 29dp out of a row that already carries two chips and a verb. Below the compact width the
+        // pair stacks rather than squeezing the chips, and both halves still answer a thumb.
+        val asked = mutableListOf<ShipType>()
+
+        shipyard(uiState = askedForEachUiState, width = SLIDE_OVER_WIDTH, onToggleAlert = { asked += it }) {
+            assertOffersToBuild(ShipType.SKIFF)
+            tapAlert(ShipType.SKIFF)
+        }
+
+        assertEquals(listOf(ShipType.SKIFF), asked)
+    }
+
     @Test
     fun `the hauler is a card you can buy rather than a promise`() {
         // The section that carried it as a dimmed promise is empty now, because the promise is kept:
