@@ -10,9 +10,16 @@ import kotlin.time.Instant
 // see `withoutSpentWatch`. It reads the stores the span left behind, so it can only be answered once
 // they have stopped moving — which is also why the argument check moved up here, out of a recursion
 // that would re-check it at every boundary for nothing.
+//
+// The yard's ask is settled here for a weaker reason and in the same place, so the two rules about
+// spending a question read together: it depends only on what the queue holds at the end, and pruning
+// at every boundary would land on the same map.
 fun advance(state: GameState, from: Instant, to: Instant): GameState {
     require(to >= from) { "advance must not go backwards: from=$from to=$to" }
-    return advanced(state, from = from, to = to).withoutSpentWatch().withoutFullDeposits(to)
+    return advanced(state, from = from, to = to)
+        .withoutSpentWatch()
+        .withoutFinishedHullAlerts()
+        .withoutFullDeposits(to)
 }
 
 // The second thing settled after the span rather than inside it, and it is here for the same reason

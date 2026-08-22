@@ -13,6 +13,7 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.ResearchBalance
 import dev.fardavide.oltre.core.ResearchJob
@@ -42,6 +43,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -755,37 +757,132 @@ class GameNotificationsTest {
         assertTrue(dropped.isNotEmpty() && kept.max() <= dropped.min())
     }
 
-    // ── The yard, the third unbounded kind ──────────────────────────────────────────────────
+    // ── The yard, the third unbounded kind — and opt-in since 0.16 ──────────────────────────
 
     @Test
-    fun `a hull leaving the yard is announced without anybody subscribing to it`() = runTest {
-        // A delivery is deliberately not a `Completion`, so the subscription gate does not touch it
-        // — which it must not, because there is no watch square on a hull. This is the assertion
-        // that says so from the outside: nothing is subscribed and the alert is booked anyway.
+    fun `a hull nobody asked about is not announced at all`() = runTest {
+        // **The change this version is**, and it finishes what 0.5.0 started: a delivery used to be
+        // the one thing left that fired on its own, because there was no control on a hull card to
+        // ask it with. There is one now, so the rule that governs every other alert governs this one
+        // — absent rather than trimmed, so it weighs nothing against the platform's ceiling.
         val scheduler = FakeNotificationScheduler()
-        val state = wealthy().copy(
-            yard = listOf(YardJob(ship = ShipType.SKIFF, startedAt = EPOCH, completesAt = EPOCH + 2.hours)),
-        )
-        assertTrue(state.subscribed.isEmpty())
+        val state = building(hulls = 1)
+        assertTrue(state.hullAlerts.isEmpty())
 
         GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
-        assertEquals(1, scheduler.scheduled.size)
-        assertTrue("Skiff" in scheduler.scheduled.single().title, scheduler.scheduled.single().title)
+        assertEquals(emptyList(), scheduler.scheduled)
     }
 
     @Test
-    fun `a queue of hulls is one alert each and every id is distinct`() = runTest {
-        // The id is the instant, which is the only thing that separates two hulls — and it separates
-        // them because the yard is serial. A queue that collided into one id would silently announce
-        // the last hull and swallow the rest.
+    fun `one tap books a single alert at the instant the last hull of that type lands`() = runTest {
+        // The first of the two questions a hull card asks. "Your five skiffs are built" is not true
+        // until the fifth one is, which is the rule the upgrade group already fires by.
         val scheduler = FakeNotificationScheduler()
-        val state = wealthy().copy(yard = queueOf(hulls = 5))
+        val state = building(hulls = 5, ask = HullAlert.WHEN_ALL_DONE)
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        val notification = scheduler.scheduled.single()
+        assertEquals(EPOCH + 5.hours, notification.at)
+        assertEquals("5 hulls have left the yard", notification.title)
+        assertEquals("Your Skiff order is complete — they are in your fleet and ready to send.", notification.body)
+    }
+
+    @Test
+    fun `an order of one reads as the plain hull alert rather than counting to one`() = runTest {
+        // The same branch the upgrade group takes at a size of one: a count is only worth saying
+        // when there is more than one thing to count, and "1 hulls have left the yard" is the
+        // sentence a rule stated without this test would write.
+        val scheduler = FakeNotificationScheduler()
+        val state = building(hulls = 1, ask = HullAlert.WHEN_ALL_DONE)
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        assertEquals("A Skiff has left the yard", scheduler.scheduled.single().title)
+    }
+
+    @Test
+    fun `a second tap books an alert for every hull and every id is distinct`() = runTest {
+        // The other question, and the one the `hull-` id was always built for: the id is the instant,
+        // which is the only thing that separates two hulls — and it separates them because the yard
+        // is serial. A queue that collided into one id would announce the last and swallow the rest.
+        val scheduler = FakeNotificationScheduler()
+        val state = building(hulls = 5, ask = HullAlert.EACH_HULL)
 
         GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
         assertEquals(5, scheduler.scheduled.size)
         assertEquals(5, scheduler.scheduled.map { it.id }.toSet().size)
+        assertTrue(scheduler.scheduled.all { "A Skiff has left the yard" == it.title })
+    }
+
+    @Test
+    fun `an order's id is derived from the hull it is about`() = runTest {
+        // Unlike the upgrade group's, whose subject is a *set* and so has to fall back on its
+        // instant. An order's subject is the hull type, which is exactly the kind of fixed subject
+        // every other id in this file is derived from — and there is at most one of these per type,
+        // so it is unique by construction.
+        val scheduler = FakeNotificationScheduler()
+        val state = building(hulls = 3, ask = HullAlert.WHEN_ALL_DONE)
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        assertEquals("order-SKIFF", scheduler.scheduled.single().id)
+    }
+
+    @Test
+    fun `asking about one hull type leaves another silent`() = runTest {
+        // One control per card was Davide's call, 2026-08-22 — the queue is shared and serial, and
+        // the question is per hull. A gate that read the map as a single boolean would pass every
+        // other test here.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(
+            yard = queueOf(hulls = 2) + queueOf(hulls = 2, ship = ShipType.HAULER, from = 2.hours),
+            hullAlerts = mapOf(ShipType.HAULER to HullAlert.EACH_HULL),
+        )
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        assertEquals(2, scheduler.scheduled.size)
+        assertTrue(scheduler.scheduled.all { "Hauler" in it.title }, "${scheduler.scheduled.map { it.title }}")
+    }
+
+    @Test
+    fun `two hull types asked about different ways are booked different ways`() = runTest {
+        // The map is read per type all the way through rather than collapsed to one mode, which is
+        // the shape a `Map<ShipType, HullAlert>` promises and the one thing a single-type fixture
+        // cannot check.
+        val scheduler = FakeNotificationScheduler()
+        val state = wealthy().copy(
+            yard = queueOf(hulls = 2) + queueOf(hulls = 3, ship = ShipType.HAULER, from = 2.hours),
+            hullAlerts = mapOf(
+                ShipType.SKIFF to HullAlert.EACH_HULL,
+                ShipType.HAULER to HullAlert.WHEN_ALL_DONE,
+            ),
+        )
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        assertEquals(
+            listOf("A Skiff has left the yard", "A Skiff has left the yard", "3 hulls have left the yard"),
+            scheduler.scheduled.map { it.title },
+        )
+        // And the order alert lands at the last hauler rather than at the first
+        assertEquals(EPOCH + 5.hours, scheduler.scheduled.last().at)
+    }
+
+    @Test
+    fun `a hull already delivered is not counted into the order still to come`() = runTest {
+        // `notificationsFor` drops what is already due before it decides anything, so the count an
+        // order announces is the count still in the air. A rule that counted the whole queue would
+        // promise five hulls at an instant only three of them arrive at.
+        val scheduler = FakeNotificationScheduler()
+        val state = building(hulls = 5, ask = HullAlert.WHEN_ALL_DONE)
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH + 2.hours)
+
+        assertEquals("3 hulls have left the yard", scheduler.scheduled.single().title)
     }
 
     @Test
@@ -794,7 +891,7 @@ class GameNotificationsTest {
         // it: `bounded.size` stops describing the protected set the moment a kind is missing from it,
         // and the trim arithmetic then under-counts against a limit the platform enforces silently.
         val scheduler = FakeNotificationScheduler()
-        val state = wealthy().copy(yard = queueOf(hulls = IOS_PENDING_REQUEST_LIMIT + 20))
+        val state = building(hulls = IOS_PENDING_REQUEST_LIMIT + 20, ask = HullAlert.EACH_HULL)
 
         GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
@@ -805,12 +902,12 @@ class GameNotificationsTest {
     fun `a hull is what a full budget drops before a fleet coming home`() = runTest {
         // The trim order this file states: returns first, then landings, then hulls — because a
         // return carries resources a full store can void and a hull on the slipway loses nothing at
-        // all by being announced late.
+        // all by being announced late. **Unchanged by the gate**, Davide's call 2026-08-22: the
+        // ladder stays as it is, and what the gate buys against the ceiling is that a hull nobody
+        // asked about never enters the contest at all.
         val scheduler = FakeNotificationScheduler()
-        val state = wealthy().copy(
-            yard = queueOf(hulls = IOS_PENDING_REQUEST_LIMIT),
-            runs = listOf(fleetReturningAt(EPOCH + 500.hours)),
-        )
+        val state = building(hulls = IOS_PENDING_REQUEST_LIMIT, ask = HullAlert.EACH_HULL)
+            .copy(runs = listOf(fleetReturningAt(EPOCH + 500.hours)))
 
         GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
@@ -823,10 +920,9 @@ class GameNotificationsTest {
 
     @Test
     fun `every hull the ship set has is named rather than falling through to one word`() = runTest {
-        // The four constants of `ShipType`, three of which no yard can hold today — `FOR_SALE` is
-        // the skiff alone and `shipCost` raises for the rest. They are reachable *here* because a
-        // `YardJob` is a plain data class, and pinning them is what stops the day the Hauler ships
-        // being the day a lock screen reads "A HAULER has left the yard".
+        // The four constants of `ShipType` a yard can hold beside the scout. They are reachable
+        // *here* because a `YardJob` is a plain data class, and pinning them is what stops the day a
+        // hull ships being the day a lock screen reads "A SETTLER has left the yard".
         for ((type, expected) in mapOf(
             ShipType.SKIFF to "Skiff",
             ShipType.HAULER to "Hauler",
@@ -836,6 +932,7 @@ class GameNotificationsTest {
             val scheduler = FakeNotificationScheduler()
             val state = wealthy().copy(
                 yard = listOf(YardJob(ship = type, startedAt = EPOCH, completesAt = EPOCH + 2.hours)),
+                hullAlerts = mapOf(type to HullAlert.EACH_HULL),
             )
 
             GameNotifications(scheduler, English).sync(state, now = EPOCH)
@@ -844,14 +941,46 @@ class GameNotificationsTest {
         }
     }
 
-    // A serial queue of `hulls` skiffs, an hour apart. Written out rather than bought through
-    // `buildShips`, so the fixture states the one thing it is about — how many alerts are due and
-    // when — instead of inheriting it from whatever the hull curve happens to be this week.
-    private fun queueOf(hulls: Int): List<YardJob> = (1..hulls).map { nth ->
+    @Test
+    fun `the order alert names the hull the card names it by`() = runTest {
+        // The body carries the type, so it has to be spelled the way a lock screen spells one —
+        // capitalised and in full, exactly as the singleton alert above spells it.
+        for ((type, expected) in mapOf(ShipType.HAULER to "Hauler", ShipType.SETTLER to "Settler")) {
+            val scheduler = FakeNotificationScheduler()
+            val state = wealthy().copy(
+                yard = queueOf(hulls = 2, ship = type),
+                hullAlerts = mapOf(type to HullAlert.WHEN_ALL_DONE),
+            )
+
+            GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+            assertEquals(
+                "Your $expected order is complete — they are in your fleet and ready to send.",
+                scheduler.scheduled.single().body,
+            )
+        }
+    }
+
+    // A colony with `hulls` skiffs queued and the card tapped however the test needs it. The queue
+    // is written out rather than bought through `buildShips`, so the fixture states the one thing it
+    // is about — how many alerts are due and when — instead of inheriting it from whatever the hull
+    // curve happens to be this week.
+    private fun building(hulls: Int, ask: HullAlert? = null): GameState = wealthy().copy(
+        yard = queueOf(hulls = hulls),
+        hullAlerts = ask?.let { mapOf(ShipType.SKIFF to it) } ?: emptyMap(),
+    )
+
+    // A serial run of `hulls` hulls an hour apart, starting at `from` — which is how a second type
+    // is put *behind* the first without breaking `GameState.init`'s serial rule.
+    private fun queueOf(
+        hulls: Int,
+        ship: ShipType = ShipType.SKIFF,
+        from: Duration = Duration.ZERO,
+    ): List<YardJob> = (1..hulls).map { nth ->
         YardJob(
-            ship = ShipType.SKIFF,
-            startedAt = EPOCH + (nth - 1).hours,
-            completesAt = EPOCH + nth.hours,
+            ship = ship,
+            startedAt = EPOCH + from + (nth - 1).hours,
+            completesAt = EPOCH + from + nth.hours,
         )
     }
 

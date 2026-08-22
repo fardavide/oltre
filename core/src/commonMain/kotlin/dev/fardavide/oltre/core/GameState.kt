@@ -71,6 +71,16 @@ data class GameState(
     // Emptied entry by entry as the jobs land — see `withoutSpentWatch`. A subscription is about the
     // job the player started, not a standing preference about the row.
     val subscribed: Set<WatchTarget>,
+    // The yard's own ask, one entry per hull type — absent when the card has not been tapped. **Not
+    // folded into `subscribed`**, and the reason is that it is not the same question: a `WatchTarget`
+    // is a boolean about one job, and this is a choice between two ways of hearing about a queue.
+    // Widening the set to carry a mode would make `target in subscribed` — which is the gate the
+    // notification layer reads — stop meaning what it says.
+    //
+    // Emptied type by type as the orders land, see `withoutFinishedHullAlerts`, for the reason
+    // `subscribed` is emptied job by job: an ask is about the hulls the player ordered, not a
+    // standing preference about the card.
+    val hullAlerts: Map<ShipType, HullAlert>,
     val eventLog: List<Event>,
 ) {
     init {
@@ -128,6 +138,7 @@ data class GameState(
             yard = emptyList(),
             watching = null,
             subscribed = emptySet(),
+            hullAlerts = emptyMap(),
             eventLog = emptyList(),
         )
     }

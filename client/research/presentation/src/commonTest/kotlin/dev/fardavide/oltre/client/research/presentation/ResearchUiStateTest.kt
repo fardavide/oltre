@@ -1504,6 +1504,9 @@ class ResearchUiStateTest {
         // because `watch` on a row is derived from it.
         watching = watching,
         subscribed = subscribed,
+        // The yard's own ask, which lives on a Shipyard card. This screen draws no hull and asks no
+        // question about one.
+        hullAlerts = emptyMap(),
         eventLog = emptyList(),
     )
 

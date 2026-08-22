@@ -398,6 +398,8 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.adaptationOpenedBody())
     add(Strings.hullLeftYardTitle(TextRes("x")))
     add(Strings.hullLeftYardBody())
+    add(Strings.hullOrderDoneTitle(3))
+    add(Strings.hullOrderDoneBody(TextRes("x")))
     add(Strings.probeReachedTitle(TextRes("x")))
     add(Strings.chartedNoneSettleable(3))
     add(Strings.chartedSettleable(3, 3))

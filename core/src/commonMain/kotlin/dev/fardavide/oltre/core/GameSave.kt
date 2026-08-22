@@ -55,6 +55,11 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 14 — the yard's ask: which hull types the player has asked to hear about, and in which of the
+    //     two ways. **The second behavioural hop in the table**, and it is schema 9's again one deck
+    //     down — a colony carried forward stops hearing about hulls it never asked about, exactly as
+    //     schema 9 stopped it hearing about builds. An empty map is the truthful answer rather than a
+    //     placeholder: there was no control to tap.
     // 13 — the scout and the drive: `SCOUT` becomes a hull a probe consumes, and `propulsion` joins
     //     the research record. One key, and the truthful zero — a colony that has researched nothing
     //     has no drive level. **No scout is granted**: `advance` returns one at every landing, so a
@@ -95,7 +100,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 13
+    const val SCHEMA_VERSION: Int = 14
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -292,6 +297,16 @@ object GameSave {
             val research = state["research"] as? JsonObject ?: JsonObject(emptyMap())
             root.withState("research" to JsonObject(research + ("propulsion" to JsonPrimitive(0))))
         },
+        // 13 -> 14: the yard's ask. Additive in shape and **behavioural in effect**, which is the
+        // pair schema 9 is the precedent for: a colony carried forward has asked about no hull type,
+        // so an empty map is what it holds — and from this version a hull it did not ask about is a
+        // hull it does not hear land. That is the change rather than a cost of it, and it is the same
+        // rule the completions went to at 0.5.0: every alert is one that was asked for.
+        //
+        // Nothing the colony *holds* moves. The queue, the pool and the runs are untouched, so a
+        // player who opens this build mid-order finds the hulls exactly where they left them, with a
+        // control on the card that was not there before.
+        13 to { root -> root.withState("hullAlerts" to JsonObject(emptyMap())) },
     )
 
     // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a

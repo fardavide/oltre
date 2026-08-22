@@ -1166,6 +1166,13 @@ object Strings {
 
     fun hullLeftYardBody(): TextRes = message(StringId.HullLeftYardBody)
 
+    // "5 hulls have left the yard" — the whole order as one sentence, for the player who tapped a
+    // hull card once rather than twice. Never called with fewer than two: an order of one is the
+    // singleton alert above, exactly as a group of one is the thing itself.
+    fun hullOrderDoneTitle(hulls: Int): TextRes = message(StringId.HullOrderDoneTitle, Arg.Count(hulls))
+
+    fun hullOrderDoneBody(ship: TextRes): TextRes = message(StringId.HullOrderDoneBody, Arg.Text(ship))
+
     fun probeReachedTitle(system: TextRes): TextRes =
         message(StringId.ProbeReachedTitle, Arg.Text(system))
 
