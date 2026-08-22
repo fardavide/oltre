@@ -14,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -166,7 +167,11 @@ internal fun PlayerStripContent(
 
 // The level, in the badge the facility rows already wear — same 10sp, same white 9% at 4dp, so the
 // player's level and a mine's level are read the same way.
+// `@NonRestartableComposable` because it is a leaf that draws its arguments and holds nothing: a
+// restart scope of its own could do nothing its caller's cannot, and Compose generates one — with a
+// skippability branch per parameter — unless told not to. See the `test-coverage` skill.
 @Composable
+@NonRestartableComposable
 private fun LevelBadge(level: String) {
     Text(
         text = level,
@@ -194,7 +199,11 @@ private fun LevelBadge(level: String) {
 // every dial and meter in the app wires it, and at 0 its target is 0 — so the animation has zero
 // amplitude and the strip is motionless on every launch that ships. The first frame that ever moves
 // here is the first frame after something awards experience.
+// Non-restartable for `LevelBadge`'s reason. It reads `rememberOneShotFill`, but that remember
+// belongs to the caller's group either way — what a restart scope of its own would buy is the
+// ability to recompose without its parent, and its parent is the only thing that ever changes it.
 @Composable
+@NonRestartableComposable
 private fun ExperienceGauge(percent: Int, compact: Boolean) {
     val fill = rememberOneShotFill()
     Box(

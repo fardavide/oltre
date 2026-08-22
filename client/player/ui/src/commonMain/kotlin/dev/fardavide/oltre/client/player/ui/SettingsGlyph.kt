@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.player.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -22,7 +23,11 @@ import kotlin.math.sin
 // is a sun, which is what the first cut drew and what `SettingsGlyphTest` now measures away from.
 // The teeth carry a heavier stroke than the two circles for the same reason: at 18dp, teeth at the
 // rim's own weight read as rays.
+// `@NonRestartableComposable` because it is a leaf that draws its arguments and holds nothing: a
+// restart scope of its own could do nothing its caller's cannot, and Compose generates one — with a
+// skippability branch per parameter — unless told not to. See the `test-coverage` skill.
 @Composable
+@NonRestartableComposable
 internal fun SettingsGlyph(color: Color, modifier: Modifier = Modifier) {
     // One caller, one size — see `PlayerMark` for why there is no `size` parameter.
     Canvas(modifier = modifier.size(GEAR_SIZE)) {

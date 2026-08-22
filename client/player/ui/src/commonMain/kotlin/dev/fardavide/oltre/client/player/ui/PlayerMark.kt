@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.player.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -26,7 +27,11 @@ import androidx.compose.ui.unit.dp
 // identity the save cannot back — nobody chose the seed, and there is no name, level or history
 // behind it yet — and it would buy a generator, a property test and a baseline per variant for a
 // slice whose level is zero. The day identity earns variation it should be drawn for it.
+// `@NonRestartableComposable` because it is a leaf that draws its arguments and holds nothing: a
+// restart scope of its own could do nothing its caller's cannot, and Compose generates one — with a
+// skippability branch per parameter — unless told not to. See the `test-coverage` skill.
 @Composable
+@NonRestartableComposable
 internal fun PlayerMark(color: Color, modifier: Modifier = Modifier) {
     // **No `size` parameter**, unlike `WatchBell` which has two callers at two sizes. This has one,
     // at one size, and a defaulted parameter nothing overrides is untested surface bought for
