@@ -898,9 +898,6 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   *"we will plan and populate the rest in a follow up task."*
 - **The gear has nothing behind it**, by design this slice. What a settings screen holds is undecided;
   the language is not in it (`TranslationsFor`).
-- **The design system's readme still lists "Coming soon" under *Never written*.** The rule was
-  overruled on 2026-08-22 and the app now ships the string, so the two disagree. One line, in the
-  Claude Design project.
 - **Nobody has held it.** The strip is 38dp of chrome that every screen now pays for, and whether
   that reads as a frame or as clutter is a question a phone answers. Same shape as the tilt loop.
 

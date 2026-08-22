@@ -5,10 +5,23 @@ above resources: player icon, player name, current Lv, experience bar, settings 
 mechanics behind the numbers are explicitly deferred — *"we will plan and populate the rest in a
 follow up task"* — so what this slice ships is the surface and nothing under it.
 
-**The design half is a Claude Design round trip and it has not returned yet.** §4 is the call; §5 is
-what comes back. Nothing in `client/` is written until it does, and no pull request opens on half of
-it — [`../rules/session-roles.md`](../rules/session-roles.md), and Davide, 2026-08-21: *"Why did you
-open PR when you didn't have design ready??? This should never happen!"*
+**The design half opened as a Claude Design round trip and closed without one.** §4 is the call as it
+was about to be sent; §5 is what was drawn instead. Mid-session Davide said *"You have capability to
+use Design directly now"* — so the same session read the design system, designed the strip, rendered
+four compositions into the real chrome, looked at them, and implemented the synthesis.
+
+**The rule that would have applied is still the rule.** A local session with no design and no way to
+reach one commits, emits the prompt and waits — [`../rules/session-roles.md`](../rules/session-roles.md),
+and Davide, 2026-08-21: *"Why did you open PR when you didn't have design ready??? This should never
+happen!"* What changed here is not that the wait was skipped but that the round trip became a loop
+inside one session. §4 was written before that and is kept as written, because the questions it names
+are the questions §5 answers, and a call that is retro-fitted to its answer is not a record of
+anything.
+
+**What made it defensible is that nothing was decided on paper.** Four compositions were built,
+rendered headlessly and read side by side; two of the decisions in §5 reversed themselves the moment
+they were pictures rather than sentences. That is the same standard the round trip exists to enforce —
+a frame is authoritative because somebody looked at it.
 
 ---
 
@@ -62,11 +75,20 @@ older save refuse to decode. **Paying a migration for a constant is the wrong tr
 migration it would force is one with no honest answer — an existing colony's experience is neither
 zero (which confiscates a fortnight of play) nor a number invented at the keyboard.
 
-So: the name is a pure function of the galaxy seed already on disk, chosen from a catalogue of
-candidates through `Strings` so Italian gets its own list rather than a translation of English's;
-level and experience are `0`. When they become real they should be **derived** — a fold over the
-event log, which already records every completed build, project, ladder, survey and run — and that
-is the follow-up task's call to make, not this one's.
+So: the name is one catalogue entry, the level and the experience are `0`, and all three live in
+`:client:player:ui`. When the numbers become real they should be **derived** — a fold over the event
+log, which already records every completed build, project, ladder, survey and run — and that is the
+follow-up task's call to make, not this one's.
+
+**The name was going to be a function of the galaxy seed and is not**, which is the one thing in this
+sheet that §5 overturned rather than filled in. Seeding it would have given every colony its own
+callsign for free, off a value already on disk. What it would also have done is assert an identity the
+save cannot back: nobody chose the seed, there is no level, no history and no rename behind it, so a
+name derived from it is a fact about a random number wearing a person's clothes. The same argument
+retired the seeded *mark*, and it is worth stating once for both — **the day identity earns variation
+it should be drawn for it, not derived from a number nobody picked.** The cost of getting this wrong
+was not abstract either: a per-seed name is a generator, a property test and a screenshot baseline per
+variant, bought for a slice whose level is zero.
 
 A player-*chosen* name genuinely needs `core`, and is out of scope here. When it lands it is a
 schema hop, a non-null-checked `CommanderName` value class, and a `null` default written explicitly
@@ -104,7 +126,10 @@ keyboard.
 
 And one housekeeping item, because the project is the source of truth for its own rules: **strike
 "Coming soon" from the *Never written* list** in the design system's readme and note the date and the
-call, so the next reader finds a rule that matches the app.
+call, so the next reader finds a rule that matches the app. **Done, 2026-08-22** — the rule now reads
+that it came off the list by Davide's call, that the settings button is the only sanctioned use, and
+that the idiom it replaced still governs everything else. `guidelines/player-strip.card.html` went up
+beside it.
 
 ---
 
