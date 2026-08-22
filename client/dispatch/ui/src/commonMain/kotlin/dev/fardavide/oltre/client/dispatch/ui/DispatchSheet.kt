@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -334,7 +335,14 @@ private fun Refuse(
 // hit box would overhang the row it is aligned in — Compose does not reliably deliver touch to a
 // child placed outside its parent's bounds, so the extra six pixels would be dead in both
 // directions rather than generous in one.
+//
+// **`@NonRestartableComposable`, which is what a wrapper this size is for.** It has no state of its
+// own and reads nothing: everything it can react to arrives from the caller, so a restart scope of
+// its own could never do anything the caller's scope does not already do — it would only add a
+// second skippability check over the same three values. Without the annotation Compose generates
+// one anyway, and on a function this trivial that machinery is bigger than the function.
 @Composable
+@NonRestartableComposable
 private fun Committing(
     announce: WatchSquareUiState,
     onToggleAnnounce: () -> Unit,
