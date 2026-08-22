@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
 import kotlin.test.Test
@@ -176,23 +177,33 @@ class GameSessionTest {
         assertNull(after.state.watching)
     }
 
-    // The same race one deck down, and a hull's length makes it likelier rather than rarer.
-    // `cycleHullAlert` refuses a card with nothing of its type on the slipway, so advance-first a tap
-    // on an order that finished 400ms ago would find an empty yard and do nothing at all — a square
-    // the player pressed and watched not change.
+    // **Not the race `alerting` has, and this test exists to say so rather than to imply it.** It was
+    // first written as "a square tapped on an order that has just landed does not silently do
+    // nothing", which its own assertions contradicted — they assert the ask ends absent, which *is*
+    // the tap doing nothing, and both orderings produce it.
+    //
+    // What is actually true is the equivalence, so that is what is asserted: `advance` only ever
+    // removes yard jobs, so a type present after a span was present before it, and
+    // `withoutFinishedHullAlerts` prunes exactly what `cycleHullAlert`'s guard would have refused.
+    // The ordering in `alertingHull` is therefore consistency with the other square rather than a
+    // fix, and this is the test that holds that claim up — see the comment on the verb.
     @Test
-    fun `a square tapped on an order that has just landed does not silently do nothing`() {
-        // given a colony one hull into a two-hull order it has not asked about
+    fun `a tap at the instant an order lands settles the same way whichever end it is taken from`() {
+        // given a colony two hulls into an order it has not asked about
         val session = GameSession(midOrder(), EPOCH)
         val landed = session.state.yard.last().completesAt
 
-        // when the player taps the square at the instant the last hull lands
-        val after = session.alertingHull(DebugClock(), wallClock = landed, ship = ShipType.SKIFF)
+        // when the player taps the square at the instant the last hull lands — cycle then advance,
+        // which is what the verb does
+        val cycledFirst = session.alertingHull(DebugClock(), wallClock = landed, ship = ShipType.SKIFF)
+        // ...against the other order, spelled out rather than described
+        val advancedFirst = cycleHullAlert(advance(session.state, from = EPOCH, to = landed), ShipType.SKIFF)
 
-        // then the ask was taken against the state they were looking at, and then spent by the order
-        // it was about — which is where the tap would have ended anyway
-        assertEquals(emptyList(), after.state.yard)
-        assertEquals(emptyMap(), after.state.hullAlerts)
+        // then the two agree, and both are the empty ask: the order the square was about is finished,
+        // so there is nothing left to be told about
+        assertEquals(advancedFirst.hullAlerts, cycledFirst.state.hullAlerts)
+        assertEquals(emptyMap(), cycledFirst.state.hullAlerts)
+        assertEquals(emptyList(), cycledFirst.state.yard)
     }
 
     @Test
