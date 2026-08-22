@@ -29,6 +29,7 @@ import dev.fardavide.oltre.client.design.component.RowVerdict
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
+import dev.fardavide.oltre.client.design.component.asSquare
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
@@ -237,7 +238,7 @@ private fun FacilityRow(
                 // are different things: one is how long you have to wait, the other is whether you
                 // want to be told when the wait is over.
                 is FacilityActionUiState.AffordableIn -> WatchableAction(
-                    watch = row.watch,
+                    watch = row.watch?.asSquare(),
                     stacked = compact,
                     onToggleWatch = { onToggleWatch(row.building) },
                     watchModifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
@@ -276,7 +277,7 @@ private fun FacilityRow(
                     LevelDial(level = row.level.value, percent = action.progressPercent)
                     row.watch?.let { watch ->
                         WatchSquare(
-                            watched = watch != WatchUiState.Offered,
+                            state = watch.asSquare(),
                             onClick = { onToggleWatch(row.building) },
                             // Never stacked: a running row's action is a line of three things, and
                             // its card is taller than 44dp already.

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ResourceKind
@@ -49,6 +50,9 @@ private fun haulerCard(pool: TextRes, action: BuildActionUiState, yard: YardUiSt
     ),
     action = action,
     yard = yard,
+    // No square: neither of these cards has a hull on the slipway in any frame below, and a card
+    // with nothing of its type in the yard has nothing to be told about.
+    alert = null,
 )
 
 private fun scoutCard(pool: TextRes, action: BuildActionUiState, yard: YardUiState? = null) = HullUiState(
@@ -62,6 +66,9 @@ private fun scoutCard(pool: TextRes, action: BuildActionUiState, yard: YardUiSta
     ),
     action = action,
     yard = yard,
+    // No square: neither of these cards has a hull on the slipway in any frame below, and a card
+    // with nothing of its type in the yard has nothing to be told about.
+    alert = null,
 )
 
 // The first sitting: one granted skiff, idle, and 500 metal in the store — which buys the second at
@@ -81,6 +88,7 @@ internal val oneHullUiState = ShipyardUiState(
             ),
             action = BuildActionUiState.Build,
             yard = null,
+            alert = null,
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
@@ -103,6 +111,7 @@ internal val sixHullsUiState = ShipyardUiState(
             ),
             action = BuildActionUiState.Build,
             yard = null,
+            alert = null,
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
@@ -126,6 +135,7 @@ internal val cannotAffordUiState = ShipyardUiState(
             ),
             action = BuildActionUiState.AvailableIn(Strings.availableIn(Strings.durationHoursMinutes(1, 6))),
             yard = null,
+            alert = null,
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
@@ -186,7 +196,22 @@ internal val buildingUiState: ShipyardUiState = ShipyardUiState(
                     listOf(Strings.doneAt(hour = 14, minute = 5), Strings.shipsQueued(2)),
                 ),
             ),
+            // Offered and not taken up, which is what a busy yard looks like until the card is
+            // tapped. The two cards either side of it hold nothing and so carry no square at all —
+            // the frame that shows the difference between a control and no control.
+            alert = WatchSquareUiState.UNASKED,
         ),
         haulerCard(pool = Strings.clauses(listOf(Strings.shipsOwned(1), Strings.shipsIdle(1))), action = BuildActionUiState.Build),
     ),
 )
+
+// The two lit states, off the same order so the three frames are one card photographed three times.
+// **What separates them is the glyph and nothing else** — the fill and the border say *booked*, and
+// both ways of being booked are booked — so this pair is the only place the second bell is asserted
+// at all, and a baseline is the only kind of test that can assert it: no node query reads a Canvas.
+internal val askedForOrderUiState = buildingUiState.withSkiffAlert(WatchSquareUiState.ASKED)
+
+internal val askedForEachUiState = buildingUiState.withSkiffAlert(WatchSquareUiState.ASKED_SEVERAL)
+
+private fun ShipyardUiState.withSkiffAlert(alert: WatchSquareUiState): ShipyardUiState =
+    copy(hulls = hulls.map { if (it.type == ShipType.SKIFF) it.copy(alert = alert) else it })

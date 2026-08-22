@@ -7,8 +7,10 @@ import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.toggleAlert
 import kotlin.time.Instant
 
@@ -111,6 +113,20 @@ internal fun GameSession.acting(
 internal fun GameSession.alerting(clock: DebugClock, wallClock: Instant, target: WatchTarget): GameSession {
     val at = maxOf(clock.now(wallClock), lastUpdatedAt)
     return copy(state = advance(toggleAlert(state, target), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
+}
+
+// The Shipyard card's square, and it is `alerting`'s shape for `alerting`'s reason — cycle first,
+// then advance.
+//
+// The failure it avoids is the same one a hull's length makes likelier rather than rarer.
+// `cycleHullAlert` refuses a card with nothing of its type on the slipway, so a tap on the last hull
+// of an order that landed 400ms ago would, advanced-first, find an empty yard and do nothing at all
+// — a square the player pressed and watched not change. Cycling first asks the question against the
+// state they were looking at; the advance that follows keeps the answer honest, because
+// `withoutFinishedHullAlerts` drops an ask whose order landed inside the span.
+internal fun GameSession.alertingHull(clock: DebugClock, wallClock: Instant, ship: ShipType): GameSession {
+    val at = maxOf(clock.now(wallClock), lastUpdatedAt)
+    return copy(state = advance(cycleHullAlert(state, ship), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
 }
 
 // A session and the clock that goes with it. The two always move together — a session stamped in

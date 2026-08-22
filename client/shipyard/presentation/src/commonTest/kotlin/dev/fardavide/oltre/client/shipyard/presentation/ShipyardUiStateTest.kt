@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.StringId
 import dev.fardavide.oltre.client.design.text.Strings
@@ -14,6 +15,7 @@ import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -291,6 +293,66 @@ class ShipyardUiStateTest {
 
         val expected = job.completesAt.toLocalDateTime(TimeZone.UTC)
         assertEquals(Strings.doneAt(hour = expected.hour, minute = expected.minute), yard.doneAt)
+    }
+
+    // ── The square, which is offered by the queue and answered by the map ────────────────────
+
+    @Test
+    fun `a card with nothing of its type in the yard has no square at all`() {
+        // The absence of a control rather than a disabled one, which is what this app says everywhere
+        // it has nothing to offer. An idle card has no completion to be told about.
+        val idle = wealthy().toShipyardUiState(now = t0, timeZone = TimeZone.UTC)
+
+        assertEquals(null, idle.skiff().alert)
+    }
+
+    @Test
+    fun `an order nobody has tapped offers the square unlit`() {
+        val ordered = wealthy().order(2).toShipyardUiState(now = t0, timeZone = TimeZone.UTC)
+
+        assertEquals(WatchSquareUiState.UNASKED, ordered.skiff().alert)
+    }
+
+    @Test
+    fun `the two ways of asking are two states of the same square`() {
+        val ordered = wealthy().order(2)
+
+        for ((ask, expected) in mapOf(
+            HullAlert.WHEN_ALL_DONE to WatchSquareUiState.ASKED,
+            HullAlert.EACH_HULL to WatchSquareUiState.ASKED_SEVERAL,
+        )) {
+            val asked = ordered.copy(hullAlerts = mapOf(ShipType.SKIFF to ask))
+            assertEquals(expected, asked.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().alert)
+        }
+    }
+
+    @Test
+    fun `a hull queued behind another type offers a square although it shows no countdown`() {
+        // **The one case that separates this mapper from `yardLine` next door**, and the reason the
+        // square is read off the whole queue rather than off its head. A footer reports the hull being
+        // made, which has to be the one on the slipway; the square asks about an *order*, and a hauler
+        // waiting behind two skiffs is an order the player is waiting on with no countdown on its card.
+        val mixed = assertIs<BuildShipsResult.Started>(
+            buildShips(wealthy().order(2), Ships.of(ShipType.HAULER, 1), at = t0),
+        ).state
+
+        val hauler = mixed.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).hulls
+            .single { it.type == ShipType.HAULER }
+
+        assertEquals(null, hauler.yard, "the countdown belongs to the hull on the slipway")
+        assertEquals(WatchSquareUiState.UNASKED, hauler.alert)
+    }
+
+    @Test
+    fun `asking about one hull type leaves the other card's square unlit`() {
+        val mixed = assertIs<BuildShipsResult.Started>(
+            buildShips(wealthy().order(2), Ships.of(ShipType.HAULER, 1), at = t0),
+        ).state.copy(hullAlerts = mapOf(ShipType.HAULER to HullAlert.EACH_HULL))
+
+        val cards = mixed.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).hulls.associateBy { it.type }
+
+        assertEquals(WatchSquareUiState.ASKED_SEVERAL, cards.getValue(ShipType.HAULER).alert)
+        assertEquals(WatchSquareUiState.UNASKED, cards.getValue(ShipType.SKIFF).alert)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────

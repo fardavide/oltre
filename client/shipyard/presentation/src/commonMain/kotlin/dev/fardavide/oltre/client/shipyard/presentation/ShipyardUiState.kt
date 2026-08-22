@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
@@ -11,6 +12,7 @@ import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -68,7 +70,25 @@ private fun GameState.toHullRow(
         ),
         action = buildOrWait(cost),
         yard = yardLine(type = type, now = now, timeZone = timeZone),
+        alert = alertFor(type),
     )
+}
+
+// **What the square shows, or that there is none.** Null whenever the yard holds nothing of this
+// hull, which is the app's rule about controls rather than a special case: an idle card has no
+// completion to be told about, so there is nothing to offer and nothing to grey out.
+//
+// Read off the *whole* queue rather than off its head, unlike `yardLine` next door — and the
+// difference is the point. A footer reports the hull being made, which is one job and has to be the
+// one on the slipway; the square asks about an order, and a hauler queued behind two skiffs is an
+// order the player is waiting on even though its card shows no countdown at all.
+private fun GameState.alertFor(type: ShipType): WatchSquareUiState? {
+    if (yard.none { it.ship == type }) return null
+    return when (hullAlerts[type]) {
+        null -> WatchSquareUiState.UNASKED
+        HullAlert.WHEN_ALL_DONE -> WatchSquareUiState.ASKED
+        HullAlert.EACH_HULL -> WatchSquareUiState.ASKED_SEVERAL
+    }
 }
 
 // "6 owned · 1 idle · 5 away · 2 building", and the four numbers are one fact seen four ways rather

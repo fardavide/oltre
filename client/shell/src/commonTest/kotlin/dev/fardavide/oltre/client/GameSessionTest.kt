@@ -1,16 +1,21 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.debug.domain.DebugClock
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
 import kotlin.test.Test
@@ -170,6 +175,52 @@ class GameSessionTest {
         assertEquals(setOf(target), after.state.subscribed)
         assertNull(after.state.watching)
     }
+
+    // The same race one deck down, and a hull's length makes it likelier rather than rarer.
+    // `cycleHullAlert` refuses a card with nothing of its type on the slipway, so advance-first a tap
+    // on an order that finished 400ms ago would find an empty yard and do nothing at all — a square
+    // the player pressed and watched not change.
+    @Test
+    fun `a square tapped on an order that has just landed does not silently do nothing`() {
+        // given a colony one hull into a two-hull order it has not asked about
+        val session = GameSession(midOrder(), EPOCH)
+        val landed = session.state.yard.last().completesAt
+
+        // when the player taps the square at the instant the last hull lands
+        val after = session.alertingHull(DebugClock(), wallClock = landed, ship = ShipType.SKIFF)
+
+        // then the ask was taken against the state they were looking at, and then spent by the order
+        // it was about — which is where the tap would have ended anyway
+        assertEquals(emptyList(), after.state.yard)
+        assertEquals(emptyMap(), after.state.hullAlerts)
+    }
+
+    @Test
+    fun `a square tapped on a queue still building asks about the whole order`() {
+        val session = GameSession(midOrder(), EPOCH)
+
+        val after = session.alertingHull(DebugClock(), wallClock = EPOCH + 1.seconds, ship = ShipType.SKIFF)
+
+        assertEquals(mapOf(ShipType.SKIFF to HullAlert.WHEN_ALL_DONE), after.state.hullAlerts)
+    }
+
+    @Test
+    fun `a second tap moves the same order onto hull-by-hull alerts`() {
+        val session = GameSession(midOrder(), EPOCH)
+            .alertingHull(DebugClock(), wallClock = EPOCH + 1.seconds, ship = ShipType.SKIFF)
+
+        val after = session.alertingHull(DebugClock(), wallClock = EPOCH + 2.seconds, ship = ShipType.SKIFF)
+
+        assertEquals(mapOf(ShipType.SKIFF to HullAlert.EACH_HULL), after.state.hullAlerts)
+    }
+
+    private fun midOrder(): GameState = assertIs<BuildShipsResult.Started>(
+        buildShips(
+            freshState().copy(resources = Resources.of(metal = 100_000, crystal = 100_000)),
+            Ships.of(ShipType.SKIFF, 2),
+            at = EPOCH,
+        ),
+    ).state
 
     private fun midBuild(): GameState {
         val cost = PlaceholderBalance.upgradeCost(BuildingType.METAL_MINE, BuildingLevel(2))

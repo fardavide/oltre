@@ -135,6 +135,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 scrollState = scroll,
                                 uiState = game.state.toShipyardUiState(now = game.now, timeZone = TimeZone.UTC),
                                 onBuild = {},
+                                onToggleAlert = {},
                             )
                         },
                         fleets = { scroll ->

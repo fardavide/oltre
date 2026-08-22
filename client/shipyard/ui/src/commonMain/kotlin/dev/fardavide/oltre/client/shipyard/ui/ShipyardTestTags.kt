@@ -21,4 +21,9 @@ object ShipyardTestTags {
     // The slipway footer, which exists only while something is on it — so this is also the handle a
     // Robot asks "is the yard busy" with, rather than reading a countdown string.
     fun yard(type: ShipType): String = "shipyard-yard-${type.name.lowercase()}"
+
+    // The square that asks to be told about this hull. Like the footer it exists only while the yard
+    // holds one, so its absence is an assertion a Robot can make rather than a query that has to
+    // find nothing.
+    fun alert(type: ShipType): String = "shipyard-alert-${type.name.lowercase()}"
 }

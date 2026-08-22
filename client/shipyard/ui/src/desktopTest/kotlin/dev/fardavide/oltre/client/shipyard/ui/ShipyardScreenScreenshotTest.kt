@@ -58,6 +58,35 @@ class ShipyardScreenScreenshotTest {
         capture(width = SLIDE_OVER_WIDTH, uiState = buildingUiState, name = "shipyard_building_slide_over")
     }
 
+    // ── The square, in the two states a queue can be asked about ─────────────────────────────
+    //
+    // **The only test in the repository that can see the second bell.** A glyph is a `Canvas`, so no
+    // node query reads it and no behaviour test can tell one bell from two — what a Robot can assert
+    // is that the control exists and reports the right hull, and what it looks like is this pair's
+    // job alone. They photograph the same order as `shipyard_building` above, so the three read as
+    // one card in three states rather than as three cards.
+    @Test
+    fun `an order the player asked about at phone width`() {
+        capture(width = PHONE_WIDTH, uiState = askedForOrderUiState, name = "shipyard_asked")
+    }
+
+    @Test
+    fun `an order the player asked about hull by hull at phone width`() {
+        capture(width = PHONE_WIDTH, uiState = askedForEachUiState, name = "shipyard_asked_each")
+    }
+
+    // 320dp is where the square is measured rather than merely drawn: it takes 29dp out of a row
+    // that already carries two cost chips and a verb, so below the compact width the pair stacks and
+    // the card grows instead of the chips shrinking.
+    @Test
+    fun `an order asked about hull by hull in a Slide Over window`() {
+        capture(
+            width = SLIDE_OVER_WIDTH,
+            uiState = askedForEachUiState,
+            name = "shipyard_asked_each_slide_over",
+        )
+    }
+
     // **The state this tab owns**, and the whole reason the dispatch sheet has none: the metal chip
     // reddens and the verb becomes a ghost carrying the wait.
     @Test
@@ -137,7 +166,7 @@ class ShipyardScreenScreenshotTest {
             setContent {
                 OltreTheme(translations) {
                     Surface {
-                        ShipyardScreen(uiState = uiState, onBuild = {})
+                        ShipyardScreen(uiState = uiState, onBuild = {}, onToggleAlert = {})
                     }
                 }
             }

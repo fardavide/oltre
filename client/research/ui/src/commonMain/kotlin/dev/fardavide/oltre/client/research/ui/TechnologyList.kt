@@ -28,6 +28,7 @@ import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.component.WatchableAction
+import dev.fardavide.oltre.client.design.component.asSquare
 import dev.fardavide.oltre.client.design.component.completionSweep
 import dev.fardavide.oltre.client.design.component.oltreActionShape
 import dev.fardavide.oltre.client.design.component.oltreCard
@@ -294,7 +295,7 @@ private fun ProjectRow(
                 // The ghost time, and — only when the wait is about the price rather than about the
                 // slot — the square that books an alert for it. See `watchOn`.
                 is ResearchActionUiState.AvailableIn -> WatchableAction(
-                    watch = watch,
+                    watch = watch?.asSquare(),
                     stacked = compact,
                     onToggleWatch = onToggleWatch,
                     watchModifier = Modifier.testTag(watchTag),
@@ -333,7 +334,7 @@ private fun ProjectRow(
                     // colony's running row, which draws the same three in the same order.
                     watch?.let {
                         WatchSquare(
-                            watched = it != WatchUiState.Offered,
+                            state = it.asSquare(),
                             onClick = onToggleWatch,
                             stacked = false,
                             modifier = Modifier.testTag(watchTag),
