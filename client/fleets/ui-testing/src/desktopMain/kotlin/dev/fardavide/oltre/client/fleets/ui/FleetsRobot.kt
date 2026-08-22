@@ -33,6 +33,7 @@ fun fleets(
     onSelectShips: (Int) -> Unit = {},
     onSelectWindow: (Duration) -> Unit = {},
     onDispatchRun: () -> Unit = {},
+    onToggleAnnounce: () -> Unit = {},
     block: FleetsRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = 852) {
@@ -47,6 +48,7 @@ fun fleets(
                         onSelectShips = onSelectShips,
                         onSelectWindow = onSelectWindow,
                         onDispatchRun = onDispatchRun,
+                        onToggleAnnounce = onToggleAnnounce,
                     )
                 }
             }
@@ -138,6 +140,16 @@ class FleetsRobot(private val test: ComposeUiTest) {
 
     fun assertOffersNoRun() = apply {
         test.onNodeWithTag(DispatchTestTags.SEND).assertDoesNotExist()
+    }
+
+    // The bell beside the verb. One handle for both of the sheet's verbs, because there is one
+    // control — see `DispatchTestTags.ANNOUNCE`.
+    fun tapTheBell() = apply {
+        test.onNodeWithTag(DispatchTestTags.ANNOUNCE).performClick()
+    }
+
+    fun assertHasNoBell() = apply {
+        test.onNodeWithTag(DispatchTestTags.ANNOUNCE).assertDoesNotExist()
     }
 
     fun bringBack(kind: ResourceKind) = apply {

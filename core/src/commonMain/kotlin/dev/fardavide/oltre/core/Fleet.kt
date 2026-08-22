@@ -111,6 +111,17 @@ data class FleetRun(
     val cargo: Resources,
     val dispatchedAt: Instant,
     val returnsAt: Instant,
+    // Whether the player asked to be told when this one comes home. **Stamped at dispatch and never
+    // read live**, which is the same rule `cargo` and `returnsAt` already follow and for the same
+    // reason: all three are the promise the sheet made before the tap, and a promise that could be
+    // withdrawn by a control on a later sheet would not be one.
+    //
+    // A boolean rather than a pointer at the run, unlike `subscribed` and `hullAlerts` — and the
+    // asymmetry is the shape of the thing rather than a shortcut. Those two point at a *row* and a
+    // *hull type*, subjects that outlive the job and that the player can go back to; a run is
+    // anonymous, has no card of its own to be tapped, and exists only between two instants. There is
+    // nothing to point at, so the ask rides on the job.
+    val announced: Boolean,
 ) {
     init {
         require(!ships.isEmpty) { "a run must carry at least one ship" }

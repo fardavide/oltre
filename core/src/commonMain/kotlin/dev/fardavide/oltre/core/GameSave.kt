@@ -55,6 +55,12 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 15 — the flights' ask: a flag per run and per probe saying whether the player asked to hear
+    //     about it, and the standing position of the bell that stamped them. **The third behavioural
+    //     hop**, and the widest of the three: a fleet return and a probe landing were the last two
+    //     alerts in the game that fired unasked, so from this version *every* alert is one that was
+    //     asked for. Three keys and one version, schema 9's precedent — they ship together, so no
+    //     save can hold one without the others.
     // 14 — the yard's ask: which hull types the player has asked to hear about, and in which of the
     //     two ways. **The second behavioural hop in the table**, and it is schema 9's again one deck
     //     down — a colony carried forward stops hearing about hulls it never asked about, exactly as
@@ -100,7 +106,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 14
+    const val SCHEMA_VERSION: Int = 15
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -307,6 +313,42 @@ object GameSave {
         // player who opens this build mid-order finds the hulls exactly where they left them, with a
         // control on the card that was not there before.
         13 to { root -> root.withState("hullAlerts" to JsonObject(emptyMap())) },
+        // 14 -> 15: the flights' ask. Additive in shape and behavioural in effect, which is now the
+        // third time — schema 9 for the completions, 14 for the yard, and this for the two kinds that
+        // were still firing on their own.
+        //
+        // **`false` everywhere, including on flights already in the air**, and that is the change
+        // rather than a cost of it. A run dispatched by an earlier build was dispatched under a rule
+        // that announced it whether or not anybody wanted to hear; carrying it forward as `true`
+        // would be inventing an ask nobody made, and would also be unrevocable — there is no control
+        // on a run card, by design, so a player could not turn it off again. Silent is the truthful
+        // answer, and it costs at most one alert per flight already out.
+        //
+        // Nothing the colony *holds* moves: the runs, the probes, the pool and the cargo are all
+        // untouched, so a player who opens this build mid-flight finds every hull where they left it.
+        14 to { root ->
+            val state = root["state"] as? JsonObject ?: return@to root
+            root.withState(
+                *listOfNotNull(
+                    (state["runs"] as? JsonArray)?.let { "runs" to unannounced(it) },
+                    (state["surveys"] as? JsonArray)?.let { "surveys" to unannounced(it) },
+                    "announceFlights" to JsonPrimitive(false),
+                ).toTypedArray(),
+            )
+        },
+    )
+
+    // One key added to every job in a list. **A key that is missing or is not an array is left
+    // untouched rather than replaced with `[]`**, and that is the difference between a migration and
+    // a data loss: `runs` and `surveys` have been non-defaulted fields since schemas 8 and 6, so a
+    // save without them is broken rather than old, and writing an empty list would hand the player
+    // back a colony whose fleet had quietly been confiscated. Left alone, `decode` refuses it — which
+    // is this file's own rule that admitting a save is unreadable beats misreading it.
+    private fun unannounced(jobs: JsonArray): JsonElement = JsonArray(
+        jobs.map { entry ->
+            val job = entry as? JsonObject ?: return@map entry
+            JsonObject(job + ("announced" to JsonPrimitive(false)))
+        },
     )
 
     // The three fine-unit fields of `Resources`, added term by term. A migration may not construct a

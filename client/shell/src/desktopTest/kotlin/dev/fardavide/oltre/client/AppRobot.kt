@@ -19,6 +19,7 @@ import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.colony.ui.ColonyTestTags
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
 import dev.fardavide.oltre.client.design.core.OltreMotion
+import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
@@ -29,6 +30,7 @@ import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.SaveFile
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardTestTags
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.ShipType
 import kotlinx.coroutines.flow.Flow
@@ -128,6 +130,36 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
 
     fun assertNoAlertOn(type: ShipType) = apply {
         test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // ── The dispatch sheet, from the ledger ─────────────────────────────────────────────────
+    //
+    // Three taps that only mean anything together, which is why they are here rather than in a
+    // feature Robot: the bell is a control on the sheet and the alert it is worth is booked by the
+    // composition root's commit, and nothing below this can see both ends.
+
+    fun openTheWorld(at: GalaxyCoordinate) = apply {
+        test.onNodeWithTag(GalaxyTestTags.row(at)).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // No words on it, like the other two squares in the app — so it is reached by tag as well.
+    fun tapTheBellOnTheSheet() = apply {
+        test.onNodeWithTag(DispatchTestTags.ANNOUNCE).performClick()
+        test.waitForIdle()
+    }
+
+    // The sheet opens on a manifest it derived, which may be the whole idle pool — so a test that
+    // wants to send twice has to leave a hull behind. At the stepper's bound this is a no-op, which
+    // is the same answer, so a caller gets "one hull" either way.
+    fun sendOneFewer() = apply {
+        test.onNodeWithTag(DispatchTestTags.SHIPS_FEWER).performClick()
+        test.waitForIdle()
+    }
+
+    fun sendTheRun() = apply {
+        test.onNodeWithTag(DispatchTestTags.SEND).performClick()
+        test.waitForIdle()
     }
 
     // The Shipyard's one control. Reached by tag rather than by its word, because "Build" is a

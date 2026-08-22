@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
@@ -249,6 +250,30 @@ class DispatchUiStateTest {
         // The one refusal in the app that hands back a verb — and only when the card above would
         // honour it, so the two can never disagree about whether a probe can be sent.
         assertIs<RefuseActionUiState.Probe>(refusal.action)
+    }
+
+    @Test
+    fun `both of the sheet's verbs carry the bell and both show the same answer`() {
+        // **One question, two verbs.** A run and a probe are different flights, and the ask is the
+        // same one — so the two squares are renderings of the same flag and there is nothing on the
+        // sheet that could make them disagree. Asserted together for that reason: a mapper that
+        // wired one to `announceFlights` and the other to a constant would pass either half alone.
+        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+        val asked = withSkiffs(1).copy(announceFlights = true)
+
+        val quietOffer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
+        val loudOffer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), asked))
+        val quietProbe = assertIs<RefuseActionUiState.Probe>(
+            assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere))).action,
+        )
+        val loudProbe = assertIs<RefuseActionUiState.Probe>(
+            assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere), asked)).action,
+        )
+
+        assertEquals(WatchSquareUiState.UNASKED, quietOffer.announce)
+        assertEquals(WatchSquareUiState.UNASKED, quietProbe.announce)
+        assertEquals(WatchSquareUiState.ASKED, loudOffer.announce)
+        assertEquals(WatchSquareUiState.ASKED, loudProbe.announce)
     }
 
     @Test
@@ -969,6 +994,7 @@ class DispatchUiStateTest {
         cargo = Resources.of(),
         dispatchedAt = EPOCH,
         returnsAt = EPOCH + duration,
+        announced = false,
     )
 
     private fun worldsIn(at: SystemSelection): List<World> = (1..GalaxyBalance.SLOTS_PER_SYSTEM)

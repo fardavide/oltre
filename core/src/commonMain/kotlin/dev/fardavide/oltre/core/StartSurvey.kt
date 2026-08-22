@@ -60,6 +60,9 @@ fun startSurvey(state: GameState, target: SystemAddress, at: Instant): StartSurv
         // Fixed at dispatch, like every other job's completion. Here it also means the player has
         // bought a specific instant rather than a rate — the probe lands when they chose it to.
         completesAt = at + SurveyBalance.duration(from = SystemAddress.of(state.galaxy.home), to = target),
+        // Read off the control rather than taken as an argument, exactly as `startRun` does — see
+        // the note there for why the absence of a parameter is the point.
+        announced = state.announceFlights,
     )
     return StartSurveyResult.Started(
         state.copy(

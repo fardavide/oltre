@@ -65,7 +65,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":14,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":15,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -117,7 +117,11 @@ class GameSaveTest {
                 // The yard's ask, which schema 14 added as one hop: which hull types the player
                 // asked to hear about and in which of the two ways. Empty at genesis and on every
                 // colony carried forward — there was no control on the card to tap.
-                """"hullAlerts":{},"eventLog":[]}}""",
+                """"hullAlerts":{},""" +
+                // The bell beside Dispatch, which schema 15 added — the standing position of the
+                // control, not the ask itself. The ask rides on each run and each probe, in an
+                // `announced` key that is only on disk when there is a flight to carry it.
+                """"announceFlights":false,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -914,7 +918,7 @@ class GameSaveTest {
         // stopped granting one the assertion at the bottom would have read an empty pool against an
         // empty pool and passed without touching the thing it is about.
         val owned = GameState.initial().copy(ships = Ships.of(ShipType.SKIFF, 1))
-        val beforeTheYard = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = owned))
+        val beforeTheYard = schema14(owned)
             .replace(""""schemaVersion":14""", """"schemaVersion":9""")
             .replace(""""yard":[],""", "")
             .replace(""","deposits":[]""", "")
@@ -939,7 +943,7 @@ class GameSaveTest {
     // probe consumed, and `propulsion` was not a key. Built by stripping the current encoding rather
     // than pasted, so the fixture cannot silently drift into a *current* save wearing an old number.
     private fun schema12(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema14(state)
             .replace(""""schemaVersion":14""", """"schemaVersion":12""")
             .replace(""","propulsion":0""", "")
             .replace(""""hullAlerts":{},""", "")
@@ -976,8 +980,8 @@ class GameSaveTest {
             state.copy(
                 resources = Resources.of(metal = 10_000),
                 surveys = listOf(
-                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours),
-                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 2), EPOCH, EPOCH + 2.hours),
+                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours, announced = false),
+                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 2), EPOCH, EPOCH + 2.hours, announced = false),
                 ),
             )
         }
@@ -996,7 +1000,9 @@ class GameSaveTest {
         val flying = GameState.initial().let { state ->
             state.copy(
                 ships = Ships.of(ShipType.SKIFF, 3),
-                surveys = listOf(SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours)),
+                surveys = listOf(
+                    SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours, announced = false),
+                ),
             )
         }
 
@@ -1011,7 +1017,7 @@ class GameSaveTest {
     // from the current encoding rather than pasted, for `schema12`'s reason — a frozen fixture drifts
     // into being a current save wearing an old number, and this one cannot.
     private fun schema13(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema14(state)
             .replace(""""schemaVersion":14""", """"schemaVersion":13""")
             .replace(""""hullAlerts":{},""", "")
 
@@ -1057,6 +1063,119 @@ class GameSaveTest {
             )
 
         assertIs<DecodeResult.Failure>(GameSave.decode(overlapping))
+    }
+
+    // ── 14 -> 15: the flights' ask ──────────────────────────────────────────────────────────
+
+    // A save written by 0.15.3, in the three shapes that matter: `announceFlights` was not a key, and
+    // neither run nor probe carried an `announced`. Stripped from the current encoding rather than
+    // pasted, for `schema12`'s reason — and the two fixtures above are built on top of this one, so a
+    // key added here cannot be left behind in an older hop's fixture.
+    private fun schema14(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":15""", """"schemaVersion":14""")
+            .replace(""""announceFlights":false,""", "")
+            .replace(""""announceFlights":true,""", "")
+            .replace(""","announced":false""", "")
+            .replace(""","announced":true""", "")
+
+    @Test
+    fun `a colony carried forward has asked about no flight`() {
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema14(GameState.initial()))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertFalse(decoded.state.announceFlights)
+    }
+
+    @Test
+    fun `a colony mid-flight keeps every hull and stops hearing about them`() {
+        // **The behavioural half, and it is schema 9's for the third time.** A run dispatched by an
+        // earlier build fired its alert whether or not anybody wanted it; carrying that forward as an
+        // ask would be inventing one nobody made, and — because there is no control on a run card, by
+        // design — one the player could not take back. Silent is the truthful answer.
+        //
+        // Nothing the colony holds moves: the run, the probe, the pool and the cargo all survive, so
+        // what the player finds is the fleet exactly where they left it.
+        val mid = flying()
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema14(mid))).snapshot
+
+        assertEquals(mid.runs.map { it.copy(announced = false) }, decoded.state.runs)
+        assertEquals(mid.surveys.map { it.copy(announced = false) }, decoded.state.surveys)
+        assertEquals(mid.ships, decoded.state.ships)
+        assertFalse(decoded.state.announceFlights)
+    }
+
+    @Test
+    fun `an ask made by this build survives a round trip at the current version`() {
+        // The other side of the hop: what the migration writes `false` into is a real key from here
+        // on, so a colony that has lit the bell and sent something must read back as one — **and the
+        // run that was already out must read back with the answer it was sent under.** The pair is
+        // what makes this a test of the field rather than of the flag: one list, two answers.
+        val quiet = flying().let { it.copy(runs = it.runs.map { run -> run.copy(announced = false) }) }
+        val asked = toggleFlightAlerts(quiet)
+        val sent = assertIs<StartRunResult.Started>(
+            startRun(
+                state = asked,
+                target = asked.galaxy.surveyed.first { it != asked.galaxy.home },
+                gathering = ResourceKind.CRYSTAL,
+                ships = Ships.of(ShipType.SKIFF, 1),
+                window = 3.hours,
+                at = EPOCH,
+            ),
+        ).state
+
+        val decoded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = sent))),
+        ).snapshot
+
+        assertTrue(decoded.state.announceFlights)
+        assertEquals(listOf(false, true), decoded.state.runs.map { it.announced })
+    }
+
+    @Test
+    fun `a save whose runs key is not a list is refused rather than emptied`() {
+        // **The hop leaves a key it cannot rewrite alone**, which is the difference between a
+        // migration and a data loss. `runs` has been non-defaulted since schema 8, so a save without
+        // a list there is broken rather than old — and a hop that wrote `[]` over it would hand the
+        // player back a colony whose fleet had quietly been confiscated, decoding cleanly the whole
+        // way. Untouched, `decode` refuses it, which is this file's own rule.
+        // Wrapped rather than truncated, and the closing brace matters: the file has to stay *valid
+        // JSON* or this passes at the parse step and says nothing about the hop. What it must fail on
+        // is `runs` no longer being a list of runs.
+        val tampered = schema14(flying())
+            .replace(""""runs":[""", """"runs":{"broken":[""")
+            .replace("""],"yard"""", """]},"yard"""")
+
+        // Asserted on the *path* rather than on the prefix: `decode` wraps a parse failure and a
+        // deserialization failure in the same `"malformed save: "`, so the prefix cannot tell the two
+        // apart and this test's whole subject is which of them happened.
+        val failure = assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+        assertTrue("\$.runs" in failure.reason, failure.reason)
+    }
+
+    @Test
+    fun `the same holds for a surveys key that is not a list`() {
+        // Both keys, because the hop treats them alike and a guard written once and applied twice is
+        // a guard that can be right about one and wrong about the other.
+        val tampered = schema14(flying())
+            .replace(""""surveys":[""", """"surveys":{"broken":[""")
+            .replace("""],"ships"""", """]},"ships"""")
+
+        val failure = assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+        assertTrue("\$.surveys" in failure.reason, failure.reason)
+    }
+
+    // A colony with one run and one probe in the air, both asked about — so a hop that dropped the
+    // key rather than rewriting it would show up as a decode failure and not as a silent `false`.
+    private fun flying(): GameState = GameState.initial().let { state ->
+        state.copy(
+            ships = Ships.of(ShipType.SKIFF, 2),
+            runs = listOf(fleetRun(EPOCH + 3.hours).copy(announced = true)),
+            surveys = listOf(
+                SurveyJob(SystemAddress(state.galaxy.home.galaxy, 1), EPOCH, EPOCH + 1.hours, announced = true),
+            ),
+        )
     }
 
     @Test
@@ -1154,6 +1273,7 @@ class GameSaveTest {
         cargo = Resources.of(metal = CARGO_METAL),
         dispatchedAt = returnsAt - 1.hours,
         returnsAt = returnsAt,
+        announced = false,
     )
 
     private fun funded(building: BuildingType): GameState {

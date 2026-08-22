@@ -289,6 +289,20 @@ fun App(
                     scope.launch { next.commit(store, notifications, debugClock) }
                 }
 
+                // The dispatch sheet's bell, and the map card's — one verb, because there is one
+                // answer and both controls set it.
+                //
+                // **It commits, and unlike the two above it the commit is a save rather than a
+                // booking.** Nothing is in flight when this is tapped, so `notifications.sync` has
+                // nothing new to schedule; what has to survive is the *position of the control*,
+                // which is the whole of what "the bell remembers" means. `act` would decline —
+                // this writes no event — so it commits unconditionally, exactly as `alert` does.
+                fun alertFlights() {
+                    val next = current.alertingFlights(debugClock, wallClock = wallClock.now())
+                    session = next
+                    scope.launch { next.commit(store, notifications, debugClock) }
+                }
+
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
                 // both are the point: the instant is chosen by the simulation rather than by the
                 // clock, and it commits unconditionally — a skip that changed no event still moved
@@ -491,6 +505,7 @@ fun App(
                                 // is reachable from a finger, and this `when` is what says so out
                                 // loud rather than trusting it.
                                 onDispatchRun = dispatchRun,
+                                onToggleAnnounce = { alertFlights() },
                             )
                         },
                         // **The sixth verb, and the first shop in the game.** `FleetBalance.shipCost`
@@ -551,6 +566,7 @@ fun App(
                                 // subject, and a shared lambda would put the two tabs' error
                                 // handling in a place neither of them owns.
                                 onDispatchRun = dispatchRun,
+                                onToggleAnnounce = { alertFlights() },
                             )
                         },
                     )

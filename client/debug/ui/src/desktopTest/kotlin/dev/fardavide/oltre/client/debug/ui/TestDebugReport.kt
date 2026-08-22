@@ -79,6 +79,10 @@ internal val nextEventReports: List<Pair<FutureEvent, String>> = listOf(
         target = SystemAddress(galaxy = 3, system = 165),
         worldsFound = 5,
         settleable = 0,
+        // Immaterial here and stated anyway: the panel's next-event line names the kind of thing
+        // that is coming, and whether the player asked to be buzzed about it is the notification
+        // layer's question rather than this one's.
+        announced = false,
         at = EPOCH + 1.hours,
     ) to "PROBE → 3:165",
     FutureEvent.FleetReturns(
@@ -89,6 +93,7 @@ internal val nextEventReports: List<Pair<FutureEvent, String>> = listOf(
         ships = Ships.of(ShipType.SKIFF, 14),
         cargo = Resources.of(metal = 500),
         dispatchedAt = EPOCH,
+        announced = false,
         at = EPOCH + 1.hours,
     ) to "FLEET RETURNS",
     // The sixth kind, and the one the comment above predicted: it is not a job, so it says what it

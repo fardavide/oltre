@@ -154,17 +154,57 @@ class GameNotificationsTest {
         assertEquals("Solar Plant reached level 2", scheduler.scheduled.single().title)
     }
 
+    // **The two kinds that were still firing on their own, and the reversal is deliberate.** This
+    // file used to hold `a probe still lands without being asked about`, on the argument that only
+    // *completions* went opt-in and a probe is not something you wait on a row for. What was true
+    // about that was the second half — a flight has no row — and what it concluded from it was
+    // backwards: the absence of a control is a reason to *add one*, not a licence to announce
+    // unasked. Davide's call, 2026-08-22, putting the bell beside Dispatch. From this version every
+    // alert in the game is one that was asked for.
     @Test
-    fun `a probe still lands without being asked about`() = runTest {
-        // given — only *completions* went opt-in. A probe is not something the player started and
-        // then waited on a row for; it is out there, and the design says so by not mentioning it.
+    fun `a returning fleet nobody asked about is not announced at all`() = runTest {
+        // given
         val scheduler = FakeNotificationScheduler()
+        val state = freshState().copy(runs = listOf(fleetReturningAt(EPOCH + 3.hours, announced = false)))
 
         // when
-        GameNotifications(scheduler, English).sync(surveying(systemsAway = 20), now = EPOCH)
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
 
-        // then
-        assertTrue("probe" in scheduler.scheduled.single().title, "was '${scheduler.scheduled.single().title}'")
+        // then — absent rather than trimmed, exactly as an unsubscribed build is: there is nothing to
+        // weigh against the platform's ceiling, because the player never asked
+        assertEquals(emptyList(), scheduler.scheduled)
+    }
+
+    @Test
+    fun `a probe nobody asked about is not announced at all`() = runTest {
+        val scheduler = FakeNotificationScheduler()
+
+        GameNotifications(scheduler, English).sync(surveying(systemsAway = 20, announced = false), now = EPOCH)
+
+        assertEquals(emptyList(), scheduler.scheduled)
+    }
+
+    @Test
+    fun `asking about one run of two leaves the other silent`() = runTest {
+        // The per-flight half. Both runs are in the air and only one carries the ask, so a gate that
+        // read the *colony's* bell rather than the run's would announce both — which is exactly what
+        // a player who lit the bell for one world and unlit it for the next did not ask for.
+        val scheduler = FakeNotificationScheduler()
+        val state = freshState().copy(
+            announceFlights = false,
+            runs = listOf(
+                fleetReturningAt(EPOCH + 3.hours, announced = true),
+                fleetReturningAt(
+                    EPOCH + 4.hours,
+                    target = GalaxyCoordinate(galaxy = 4, system = 3, slot = 2),
+                    announced = false,
+                ),
+            ),
+        )
+
+        GameNotifications(scheduler, English).sync(state, now = EPOCH)
+
+        assertEquals("The cargo from [2:117:9] is in your stores.", scheduler.scheduled.single().body)
     }
 
     @Test
@@ -697,7 +737,10 @@ class GameNotificationsTest {
         //
         // Asserted over a whole galaxy rather than one system, because the two measures agree by
         // accident often enough that a single fixture proves nothing.
-        val state = wealthy()
+        //
+        // The bell is lit on the state each probe is dispatched from, for `surveying`'s reason: the
+        // sweep is about what a landing *says*, and a silent landing says nothing to compare.
+        val state = wealthy().copy(announceFlights = true)
         var disagreements = 0
         var landings = 0
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
@@ -1213,8 +1256,13 @@ class GameNotificationsTest {
     // A colony with one probe in flight, aimed `systemsAway` from home in whichever direction the
     // map has room for — so a fixture cannot fall off the edge of the coordinate space, and does
     // not depend on where this seed put the player.
-    private fun surveying(systemsAway: Int): GameState {
-        val state = wealthy()
+    //
+    // **Asked about by default**, for `fleetReturningAt`'s reason: the tests around it are about
+    // copy, ids and the platform's ceiling rather than about the gate. The bell is lit on the state
+    // *before* the verb, because that is the only way an ask reaches a probe — `startSurvey` copies
+    // it onto the job it creates and nothing writes it afterwards.
+    private fun surveying(systemsAway: Int, announced: Boolean = true): GameState {
+        val state = wealthy().copy(announceFlights = announced)
         return assertIs<StartSurveyResult.Started>(
             startSurvey(state, awayFromHome(state, systemsAway), at = EPOCH),
         ).state
@@ -1225,7 +1273,7 @@ class GameNotificationsTest {
     // coordinate: the prediction is the thing under test's own input, so a fixture picked this way
     // cannot disagree with it, and it survives the seed's home moving.
     private fun surveyingSomething(settleable: Boolean): GameState {
-        val state = wealthy()
+        val state = wealthy().copy(announceFlights = true)
         for (away in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val started = startSurvey(state, awayFromHome(state, away), at = EPOCH)
             if (started !is StartSurveyResult.Started) continue
@@ -1243,7 +1291,9 @@ class GameNotificationsTest {
         // to buy its own scarcity out. Keeping it local also keeps the number honest: this helper is
         // the only thing in the file that wants ninety hulls, and a shared fixture carrying ninety
         // would quietly make every other test here a test of an implausible colony.
-        var state = wealthy().let { it.copy(ships = it.ships + Ships.of(ShipType.SCOUT, probes)) }
+        var state = wealthy().let {
+            it.copy(ships = it.ships + Ships.of(ShipType.SCOUT, probes), announceFlights = true)
+        }
         var away = 1
         while (state.surveys.size < probes) {
             check(away <= GalaxyBalance.SYSTEMS_PER_GALAXY) { "ran out of map before reaching $probes probes" }
@@ -1312,9 +1362,15 @@ class GameNotificationsTest {
     // A run out to one world and home again. `instant` is the landing — the only end an alert is
     // about — and the dispatch is an hour before it because `FleetRun` insists a run returns after
     // it left. The target is a parameter because it is half of what keeps two ids apart.
+    //
+    // **Asked about by default**, which is the same choice `subscribedBuilds` makes and for the same
+    // reason: every test above it is about ids, ordering, copy or the platform's ceiling, and a
+    // fixture that defaulted to silent would turn all of them into tests of the gate. The three that
+    // *are* about the gate pass `announced = false` and say so.
     private fun fleetReturningAt(
         instant: Instant,
         target: GalaxyCoordinate = GalaxyCoordinate(galaxy = 2, system = 117, slot = 9),
+        announced: Boolean = true,
     ): FleetRun = FleetRun(
         target = target,
         ships = Ships.of(ShipType.SKIFF, 14),
@@ -1322,6 +1378,7 @@ class GameNotificationsTest {
         cargo = Resources.of(metal = 500),
         dispatchedAt = instant - 1.hours,
         returnsAt = instant,
+        announced = announced,
     )
 
     private companion object {

@@ -49,6 +49,11 @@ fun FleetsPage(
     onSelectShips: (Int) -> Unit,
     onSelectWindow: (Duration) -> Unit,
     onDispatchRun: () -> Unit,
+    // The sheet's bell. Live from this door as well as from Galaxy's, because a run sent from the
+    // worked list is the same commitment and the ask is part of it — a control that only worked on
+    // one of the two doors would make which tab you came through decide whether you hear about the
+    // landing.
+    onToggleAnnounce: () -> Unit,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -122,6 +127,7 @@ fun FleetsPage(
                 // is one a fleet has already been sent to — so it was surveyed, and `surveyed` is
                 // never removed. `toFleetsUiState` passes no probe offer for the same reason.
                 onDispatchProbe = {},
+                onToggleAnnounce = onToggleAnnounce,
             )
         }
     }

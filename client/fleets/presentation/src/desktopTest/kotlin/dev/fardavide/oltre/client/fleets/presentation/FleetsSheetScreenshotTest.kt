@@ -49,6 +49,15 @@ class FleetsSheetScreenshotTest {
         capture(state = away, name = "fleets_dispatch_no_ships")
     }
 
+    // **The same sheet from the other door, with the bell lit.** Photographed here as well as on the
+    // Galaxy side, and not because the two frames would differ: it is that they must not. Module rule
+    // 5 stops either screen seeing the other, so the only thing keeping one door from drifting away
+    // from the other is that both are drawn.
+    @Test
+    fun `a worked row raises the sheet with the flight asked about`() {
+        capture(state = idle.copy(announceFlights = true), name = "fleets_dispatch_announced")
+    }
+
     // The sheet is a popup and a popup is a root of its own, so `onRoot` finds two and refuses to
     // choose. The one to photograph is named by what is inside it — `GalaxyScreenshotTest` set this
     // shape and the argument for it is in `decisions.md`.
@@ -70,6 +79,7 @@ class FleetsSheetScreenshotTest {
                             onSelectShips = {},
                             onSelectWindow = {},
                             onDispatchRun = {},
+                            onToggleAnnounce = {},
                         )
                     }
                 }

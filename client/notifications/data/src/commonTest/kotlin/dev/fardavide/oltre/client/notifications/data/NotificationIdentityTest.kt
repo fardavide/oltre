@@ -230,7 +230,11 @@ private fun wealthy(): GameState = freshState().copy(
 // particular facility being startable is a fixture that breaks on an unrelated PR. What the test
 // does insist on is the shape of the result, and that is `a crowded colony is actually crowded`.
 private fun crowdedColony(): GameState {
-    var state = wealthy()
+    // The bell is lit before anything is sent, for the reason the builds are subscribed as they
+    // start: since 0.15.4 a flight nobody asked about books nothing, so a fixture that dispatched
+    // twelve probes with the bell dark would be crowded with nothing. It has to be set *first*,
+    // because `startSurvey` copies it onto each job rather than reading it later.
+    var state = wealthy().copy(announceFlights = true)
 
     // Facilities run one job each and in parallel, so every building the colony can afford adds one.
     // **Subscribed as they start**, since 0.5.0: a completion nobody asked about books nothing, and a
@@ -285,6 +289,9 @@ private fun run(
     cargo = Resources.of(metal = 100),
     dispatchedAt = dispatchedAt,
     returnsAt = returnsAt,
+    // Written straight into state rather than dispatched, so the ask is written with it — the twelve
+    // runs are here to crowd the id space, and a silent one is a run that never reaches it.
+    announced = true,
 )
 
 private fun awayFromHome(state: GameState, systemsAway: Int): SystemAddress {

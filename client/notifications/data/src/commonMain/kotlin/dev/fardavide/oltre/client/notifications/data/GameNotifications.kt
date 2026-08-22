@@ -109,10 +109,22 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
     // delivery was exempt because there was no control on a hull card to ask it with; there is one
     // now, so the same rule reaches it — see `announcedHulls`, which answers *which* deliveries as
     // well as *whether*, because a hull card asks two questions rather than one.
+    // **The third and fourth gates close the loop: from 0.15.4 there is no alert in this game that
+    // was not asked for.** A fleet return and a probe landing were the last two kinds firing on
+    // their own, on the argument that a flight is not something you wait on a *row* for — which was
+    // true and drew the wrong conclusion. What it described was the absence of a control, and the
+    // answer to that is a control: the bell beside Dispatch, Davide's call of 2026-08-22.
+    //
+    // **Read off the event rather than off `state.announceFlights`, and that is the whole of the
+    // per-flight promise.** The colony's flag is where the *bell* is; each job carries the answer it
+    // was sent under. A gate that consulted the flag would announce a run the player had already
+    // decided against and silence one they had asked for, both of them retroactively.
     val orders = announcedHulls(state, upcoming)
     val pending = upcoming
         .filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
         .filterNot { it is FutureEvent.ShipsComplete && it !in orders }
+        .filterNot { it is FutureEvent.FleetReturns && !it.announced }
+        .filterNot { it is FutureEvent.SurveyLands && !it.announced }
 
     // Everything the player asked about that lands close enough together to be one sentence. Only
     // completions group: a probe landing and a fleet coming home are different kinds of news, and the

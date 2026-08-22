@@ -983,6 +983,7 @@ class FleetBalanceTest {
             cargo = Resources.of(metal = 100),
             dispatchedAt = EPOCH,
             returnsAt = EPOCH + 3.hours,
+            announced = false,
         )
         // ...and what this build computes for the same flight, which no longer fits twice over.
         assertTrue(FleetBalance.flight(home, target, NONE, ships) * 2 > 3.hours, "the fixture is not the case")
@@ -1010,6 +1011,7 @@ class FleetBalanceTest {
             cargo = Resources.of(metal = 100),
             dispatchedAt = EPOCH,
             returnsAt = EPOCH + 24.hours,
+            announced = false,
         )
 
         assertEquals(EPOCH + flight, run.flightEndsAt(home, NONE))

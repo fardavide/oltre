@@ -102,6 +102,7 @@ class FleetsManifestTest {
                     cargo = Resources.of(crystal = 52),
                     dispatchedAt = EPOCH,
                     returnsAt = EPOCH + 3.hours,
+                    announced = false,
                 ),
             ),
         )
@@ -127,6 +128,7 @@ class FleetsManifestTest {
                     cargo = Resources.of(metal = 132),
                     dispatchedAt = EPOCH,
                     returnsAt = EPOCH + 3.hours,
+                    announced = false,
                 ),
             ),
         )

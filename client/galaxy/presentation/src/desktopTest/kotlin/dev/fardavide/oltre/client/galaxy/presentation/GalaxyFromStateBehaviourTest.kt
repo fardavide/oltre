@@ -171,6 +171,32 @@ class GalaxyFromStateBehaviourTest {
     }
 
     @Test
+    fun `the bell rides with the probe verb and goes wherever it goes`() {
+        // **The second of the two places a flight is bought**, and the reason the map card has a bell
+        // at all: an ask reachable only from the dispatch sheet would make which door a player came
+        // through decide whether they hear about the landing.
+        //
+        // Present exactly where the verb is, which is narrower than it sounds — the unaffordable
+        // state keeps the button as a ghost carrying a wait, and a bell there would be booking an
+        // alert for a flight that is not going anywhere.
+        var asked = 0
+
+        galaxyScreen(state = testGameState, onToggleAnnounce = { asked++ }) {
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
+            tapTheBell()
+        }
+
+        assertEquals(1, asked)
+
+        galaxyScreen(state = testGameState.copy(ships = Ships.NONE, resources = Resources.of(metal = 100_000))) {
+            scrubTo(home.system - 1)
+            openTheSelectedSystem()
+            assertTheFooterHasNoBell()
+        }
+    }
+
+    @Test
     fun `a colony with no scout is told what it needs rather than offered a probe`() {
         // **The state a colony opens in**, since genesis grants no hull and a probe flies a `SCOUT`.
         // The footer must not draw a verb the model would refuse — that is the whole of what this

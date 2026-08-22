@@ -63,6 +63,7 @@ class FleetsScreenScreenshotTest {
                             onSelectShips = {},
                             onSelectWindow = {},
                             onDispatchRun = {},
+                            onToggleAnnounce = {},
                         )
                     }
                 }

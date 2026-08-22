@@ -81,6 +81,22 @@ data class GameState(
     // `subscribed` is emptied job by job: an ask is about the hulls the player ordered, not a
     // standing preference about the card.
     val hullAlerts: Map<ShipType, HullAlert>,
+    // **The bell beside Dispatch, and the only ask in the game that is not itself the ask.** The
+    // other two point at what will be announced; this one points at nothing, because the flight it
+    // is about does not exist until the verb below it is tapped. What it holds is the *position of
+    // the control* — and `startRun` and `startSurvey` copy it onto the job they create, which is
+    // where the ask actually lives. See `FleetRun.announced`.
+    //
+    // So it is standing where `subscribed` and `hullAlerts` are spent: nothing empties it, because
+    // there is no job for it to be about. Davide's call, 2026-08-22 — a player who always wants to
+    // be told taps once rather than once per dispatch, and a per-flight ask is only worth having if
+    // the control remembers.
+    //
+    // One flag for both verbs rather than two. A probe landing and a fleet coming home are different
+    // news, but the question the bell asks is the same one — *tell me when this flight is over* —
+    // and two memories for one word would be two settings a player has to find separately. Davide's
+    // to overrule the day the two want different answers.
+    val announceFlights: Boolean,
     val eventLog: List<Event>,
 ) {
     init {
@@ -139,6 +155,7 @@ data class GameState(
             watching = null,
             subscribed = emptySet(),
             hullAlerts = emptyMap(),
+            announceFlights = false,
             eventLog = emptyList(),
         )
     }

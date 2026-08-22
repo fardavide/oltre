@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -25,6 +26,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
+import dev.fardavide.oltre.client.design.component.WatchSquare
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.resolve
@@ -64,6 +67,7 @@ fun DispatchSheet(
     onSelectWindow: (Duration) -> Unit,
     onDispatch: () -> Unit,
     onDispatchProbe: () -> Unit,
+    onToggleAnnounce: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // There is no cancel button because there is nothing to cancel: the sheet costs nothing to open
@@ -95,6 +99,7 @@ fun DispatchSheet(
                     onSelectShips = onSelectShips,
                     onSelectWindow = onSelectWindow,
                     onDispatch = onDispatch,
+                    onToggleAnnounce = onToggleAnnounce,
                 )
                 is DispatchUiState.Waiting -> Waiting(
                     uiState = uiState,
@@ -103,7 +108,11 @@ fun DispatchSheet(
                     onSelectShips = onSelectShips,
                     onSelectWindow = onSelectWindow,
                 )
-                is DispatchUiState.Refuse -> Refuse(uiState = uiState, onDispatchProbe = onDispatchProbe)
+                is DispatchUiState.Refuse -> Refuse(
+                    uiState = uiState,
+                    onDispatchProbe = onDispatchProbe,
+                    onToggleAnnounce = onToggleAnnounce,
+                )
             }
         }
     }
@@ -146,6 +155,7 @@ private fun Offer(
     onSelectShips: (Int) -> Unit,
     onSelectWindow: (Duration) -> Unit,
     onDispatch: () -> Unit,
+    onToggleAnnounce: () -> Unit,
 ) {
     Control(label = Strings.controlBringBack()) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -272,11 +282,17 @@ private fun Offer(
         Detail(text = if (compact) uiState.compactLegs else uiState.legs)
         Detail(text = if (compact) uiState.compactDanger else uiState.danger)
     }
-    Verb(label = Strings.dispatchVerb(), tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
+    Committing(announce = uiState.announce, onToggleAnnounce = onToggleAnnounce) {
+        Verb(label = Strings.dispatchVerb(), tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
+    }
 }
 
 @Composable
-private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit) {
+private fun Refuse(
+    uiState: DispatchUiState.Refuse,
+    onDispatchProbe: () -> Unit,
+    onToggleAnnounce: () -> Unit,
+) {
     Rule()
     Text(
         text = uiState.title.resolve(),
@@ -294,14 +310,56 @@ private fun Refuse(uiState: DispatchUiState.Refuse, onDispatchProbe: () -> Unit)
         lineHeight = 17.sp,
     )
     when (val action = uiState.action) {
-        // The one refusal in the app that hands back a verb rather than a wait.
-        is RefuseActionUiState.Probe ->
+        // The one refusal in the app that hands back a verb rather than a wait — so it is the one
+        // refusal that carries a bell, because a bell with no flight behind it would be a control
+        // asking about nothing.
+        is RefuseActionUiState.Probe -> Committing(announce = action.announce, onToggleAnnounce = onToggleAnnounce) {
             Verb(label = action.label, tag = DispatchTestTags.SHEET_ACTION, primary = true, onClick = onDispatchProbe)
+        }
         // A reading, not a control — the idiom the unaffordable probe already spends. It carries the
         // test tag anyway, so a test can tap it and assert that tapping it does nothing.
         is RefuseActionUiState.Waiting ->
             Verb(label = action.label, tag = DispatchTestTags.SHEET_ACTION, primary = false, onClick = {})
         null -> Unit
+    }
+}
+
+// A verb and the bell that says whether the flight it sends will be heard from. **Beside it rather
+// than above it**, which is Davide's own instruction — *"besides Dispatch button"* — and reads the
+// way the rest of the app already does: the square is the trailing control on a facility row and on
+// a hull card too, so the eye finds it in the same place on the third screen that has one.
+//
+// The verb keeps `weight(1f)` and the square its committed 29dp, so nothing about the button moves
+// except its width. **`stacked = true`**, which is not about layout here: it is what asks
+// `WatchSquare` for a 29dp-tall target rather than a 44dp one, and beside a ~38dp verb the taller
+// hit box would overhang the row it is aligned in — Compose does not reliably deliver touch to a
+// child placed outside its parent's bounds, so the extra six pixels would be dead in both
+// directions rather than generous in one.
+//
+// **`@NonRestartableComposable`, which is what a wrapper this size is for.** It has no state of its
+// own and reads nothing: everything it can react to arrives from the caller, so a restart scope of
+// its own could never do anything the caller's scope does not already do — it would only add a
+// second skippability check over the same three values. Without the annotation Compose generates
+// one anyway, and on a function this trivial that machinery is bigger than the function.
+@Composable
+@NonRestartableComposable
+private fun Committing(
+    announce: WatchSquareUiState,
+    onToggleAnnounce: () -> Unit,
+    verb: @Composable () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Box(modifier = Modifier.weight(1f)) { verb() }
+        WatchSquare(
+            state = announce,
+            onClick = onToggleAnnounce,
+            stacked = true,
+            modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
+        )
     }
 }
 

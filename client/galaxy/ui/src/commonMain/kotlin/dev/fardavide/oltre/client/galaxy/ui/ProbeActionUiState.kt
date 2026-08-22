@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.galaxy.ui
 
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 
 // **The verb lives in the footer of the system card, under the orbits.** The map is the only
 // star-scoped object on the screen and a probe targets a star, so the star-scoped verb goes in it —
@@ -16,8 +17,19 @@ sealed interface ProbeActionUiState {
 
     // Cost then time, left to right, because the cost never moves and the time is the whole
     // purchase. The eye learns where the changing number is and stops reading the other one.
-    data class Dispatch(val offer: ProbeOfferUiState, val label: TextRes, val compactLabel: TextRes) :
-        ProbeActionUiState
+    //
+    // **The bell rides with the verb and only with the verb.** This is the second of the two places
+    // a probe can be bought — the dispatch sheet's unsurveyed refusal is the other — and the ask has
+    // to be reachable from both, or which door a player came through would decide whether they hear
+    // about the landing. The other five states below carry none: `Unaffordable` sells nothing today,
+    // `InFlight` is a flight whose answer was fixed when it left, and the last three have no flight
+    // at all.
+    data class Dispatch(
+        val offer: ProbeOfferUiState,
+        val label: TextRes,
+        val compactLabel: TextRes,
+        val announce: WatchSquareUiState,
+    ) : ProbeActionUiState
 
     // The committed idiom, unchanged: the chip reddens for the one resource you are short of and
     // the verb becomes a ghost carrying the wait. Two durations then share a row — "flight 39m" and

@@ -206,6 +206,20 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.15.4 — 2026-08-22
+
+- **Flights now tell you when they are over, if you ask them to.** There is a bell beside the
+  Dispatch button — on the sheet that sends a fleet, and in the map card that sends a probe. Tap it
+  before you send, and that flight will say so when it lands.
+- **A flight you did not ask about no longer buzzes.** Fleet returns and probe landings were the last
+  two things in the game that announced themselves uninvited; every alert Oltre raises is now one you
+  asked for.
+- The ask belongs to the flight, so it is fixed the moment you send: unlighting the bell for the next
+  run does not silence the one already in the air. The bell itself stays where you left it, so
+  wanting to hear about everything is one tap rather than one tap a dispatch.
+- Runs and probes already in flight when you update will come home quietly, because nobody asked
+  about them.
+
 ### 0.15.3 — 2026-08-22
 
 - **Hulls now tell you when they are done, if you ask them to.** Every Shipyard card with something

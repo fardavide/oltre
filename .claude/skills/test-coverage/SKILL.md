@@ -162,6 +162,59 @@ covered about as well as the project average** or it drags the total down. A 200
 90% covered fails the gate even though 90% is a decent number. Budget for the tests in the same
 slice, not the next one.
 
+### Paying the debt somewhere else is the point, not a dodge
+
+**A row that falls may be answered by covering something the PR never touched, and that is the
+correct answer rather than a way round the gate.** Davide, 2026-08-22, on being told the alternative
+was "screenshot frames unrelated to this change": *"They still increase the coverage, converting
+previously uncovered screen. That's actually very good? And a reason why we have no negative delta
+rule."*
+
+The rule gates **totals**, deliberately — see the per-package note above. It is a ratchet on how well
+the project is tested, not an audit of one diff, so a slice that costs three branches and pays for
+them by photographing a screen nobody had photographed leaves the project better than a slice that
+cost nothing. Refusing to do that on tidiness grounds is refusing the thing the ratchet is for.
+
+What separates it from gaming is whether the new test is *worth having on its own*: a frame of a
+screen with no baseline, a case a `when` never reached, a real boundary nothing crossed. A test
+written to touch lines and assert nothing is not, and neither is one that forces a recomposition
+purely so a skip branch is taken.
+
+**Look for the never-covered thing before concluding a row is unfixable.** In the Kover XML a
+composable that no test composes shows `covered=0` with a non-zero `missed`, which is the search:
+
+```
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+t = ET.parse("build/reports/kover/report.xml")
+for pkg in t.getroot().findall("package"):
+    for cl in pkg.findall("class"):
+        for m in cl.findall("method"):
+            for c in m.findall("counter"):
+                if c.get("type") == "BRANCH" and int(c.get("covered")) == 0 < int(c.get("missed")):
+                    print(c.get("missed"), pkg.get("name"), cl.get("name"), m.get("name"))
+PY
+```
+
+0.15.4 is the case: the bell's four new callbacks cost 21 screenshot branches, and `RowSheet` — the
+modal Colony and Research actually raise — turned out to be composed by no screenshot test at all,
+because both screens photograph `RowSheetContent` instead. Two frames of the real sheet converted 39
+branches and took the row from 54.5% to 56.2%. The gate found a four-release-old hole in the suite,
+which is exactly what it is for.
+
+### A parameter added to a composable costs screenshot branch coverage
+
+Worth knowing before the row surprises you. Compose emits a skippability check per parameter —
+`if (composer.changed(param))` — whose true arm runs on first composition and whose false arm runs
+only on a **recomposition with the same value**. A screenshot test composes one state and photographs
+it, so it takes the true arm and never the false one: every new callback lands at about 50% on
+`screenshot branch`. The behaviour kind covers them, because tapping recomposes.
+
+Two things follow. **A trivial wrapper composable should carry `@NonRestartableComposable`** — it has
+no state and reads nothing, so a restart scope of its own can do nothing its caller's cannot, and
+without the annotation Compose generates one anyway. 0.15.4's `Committing` was ten branches of
+machinery over a `Row`. **And the cost is real for the rest**, so budget a frame for it.
+
 Details that matter when it fires:
 
 - **A rename between kinds is now a gate event.** Moving `FooTest` to `FooBehaviourTest` lowers

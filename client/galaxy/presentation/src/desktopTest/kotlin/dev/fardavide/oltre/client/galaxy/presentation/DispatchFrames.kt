@@ -69,6 +69,11 @@ private fun sheet(
 
 internal val dispatchOfferUiState: GalaxyUiState = sheet()
 
+// The same sheet with the bell lit, which is the one visual state the offer has that the frame above
+// does not photograph. It is a *whole colony* difference rather than a world one — `announceFlights`
+// is the standing position of the control — so it is set on the state rather than passed to `sheet`.
+internal val dispatchAnnouncedUiState: GalaxyUiState = sheet(state = frameState.copy(announceFlights = true))
+
 internal val dispatchUnsurveyedUiState: GalaxyUiState =
     sheet(target = UNSURVEYED, selection = unsurveyedSystem)
 

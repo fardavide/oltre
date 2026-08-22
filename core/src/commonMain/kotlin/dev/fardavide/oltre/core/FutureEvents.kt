@@ -66,6 +66,15 @@ sealed interface FutureEvent {
         // whole pending set on every discrete transition, and buying or completing a ladder *is*
         // one — so an alert booked before a ladder lands is re-booked the moment it does.
         val settleable: Int,
+        // Whether the player asked to be told about this landing, carried for the same reason the
+        // two counts above are: a caller booking an alert in advance has to be able to answer every
+        // question about it off the prediction alone.
+        //
+        // **It is carried and not obeyed.** This list is the mirror of what `advance` will write to
+        // the log, and a probe lands whether or not anybody asked — so the gate stays in the
+        // notification layer, which is where the design put the completions' gate at 0.5.0 for the
+        // same reason. What core supplies is the fact; what the client does with it is the client's.
+        val announced: Boolean,
         override val at: Instant,
     ) : FutureEvent
 
@@ -88,6 +97,10 @@ sealed interface FutureEvent {
         val ships: Ships,
         val cargo: Resources,
         val dispatchedAt: Instant,
+        // The run's own answer, carried through so the notification layer can gate on it without
+        // having to find its way back to a `FleetRun` — which it could not do cheaply, because a run
+        // is identified by three of its fields rather than by a key. See `SurveyLands.announced`.
+        val announced: Boolean,
         override val at: Instant,
     ) : FutureEvent
 
@@ -132,6 +145,7 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
             target = job.target,
             worldsFound = charted.size,
             settleable = charted.count { it.wouldBeSettleable(tolerance) },
+            announced = job.announced,
             at = job.completesAt,
         )
     }
@@ -142,6 +156,7 @@ fun futureEvents(state: GameState, now: Instant): List<FutureEvent> {
             ships = run.ships,
             cargo = run.cargo,
             dispatchedAt = run.dispatchedAt,
+            announced = run.announced,
             at = run.returnsAt,
         )
     }

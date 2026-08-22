@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.dispatch.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.toChipLabel
@@ -105,7 +106,15 @@ fun GameState.toDispatchUiState(
             title = Strings.dispatchUnsurveyedTitle(),
             note = unsurveyedNote(at = target, probe = probe),
             // Only when the caller's own footer would honour it — see `DispatchProbeOffer`.
-            action = probe?.let { RefuseActionUiState.Probe(it.label) },
+            action = probe?.let {
+                RefuseActionUiState.Probe(
+                    label = it.label,
+                    // The standing position of the bell, exactly as the offer below carries it: the
+                    // ask is stamped onto the job by the verb, so the square shows the answer the
+                    // flight *would* be sent with rather than anything about this world.
+                    announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+                )
+            },
         )
     }
 
@@ -469,6 +478,9 @@ fun GameState.toDispatchUiState(
         // ground rather than about the hulls, and it is the only marker the clamped state needs.
         // The vein, in the two forms Design gives it: what is left after this run, or all of it.
         vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands(), inTheGround - haul),
+        // The bell's standing position. A run's ask is stamped by `startRun` from this same flag, so
+        // what the square shows is exactly what the tap below it would send.
+        announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
         legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),

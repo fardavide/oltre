@@ -43,6 +43,9 @@ fun FleetsScreen(
     // three facets of one commitment rather than three decisions — see `startRun`, and see
     // `GalaxyScreen`, which hands it over the same way.
     onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit,
+    // The sheet's bell, handed over the same way `GalaxyScreen` hands it over — one standing answer,
+    // written by whichever verb is tapped next.
+    onToggleAnnounce: () -> Unit,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -80,6 +83,7 @@ fun FleetsScreen(
                 open = null
             }
         },
+        onToggleAnnounce = onToggleAnnounce,
         scrollState = scrollState,
         modifier = modifier,
     )

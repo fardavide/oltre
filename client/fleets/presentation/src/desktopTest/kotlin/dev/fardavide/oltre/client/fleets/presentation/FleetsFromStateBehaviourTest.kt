@@ -148,6 +148,34 @@ class FleetsFromStateBehaviourTest {
     }
 
     @Test
+    fun `the bell is live from this door too`() {
+        // **The sheet has two doors and the ask must reach it from both**, or which tab a player
+        // came through would decide whether they hear about the landing. Asserted here rather than
+        // inferred from the Galaxy side, because the two screens hold their own sheet state and
+        // module rule 5 stops either seeing the other — a callback dropped on this door is invisible
+        // from over there.
+        var asked = 0
+
+        fleetsScreen(state = colonyWithARun(), onToggleAnnounce = { asked++ }) {
+            tapTheWorld(worked)
+            tapTheBell()
+        }
+
+        assertEquals(1, asked)
+    }
+
+    @Test
+    fun `a fleet with nothing left to send offers no bell either`() {
+        // The control and the verb appear and vanish together — a bell over a refusal would be
+        // booking an alert for a flight that is not going anywhere.
+        fleetsScreen(state = colonyWithARun().copy(ships = Ships.NONE)) {
+            tapTheWorld(worked)
+            assertOffersNoRun()
+            assertHasNoBell()
+        }
+    }
+
+    @Test
     fun `the run that leaves carries every control the player touched`() {
         // All three, together: the sheet's state is this screen's own, so a hull count and a window
         // chosen here have to survive to the verb. Two skiffs, so the stepper has somewhere to go.
@@ -247,6 +275,7 @@ class FleetsFromStateBehaviourTest {
                     cargo = Resources.of(metal = 400),
                     dispatchedAt = Instant.fromEpochMilliseconds(0),
                     returnsAt = Instant.fromEpochMilliseconds(0) + 3.hours,
+                    announced = false,
                 ),
             ),
         )

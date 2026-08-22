@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.toggleAlert
+import dev.fardavide.oltre.core.toggleFlightAlerts
 import kotlin.time.Instant
 
 // What the shell holds between ticks: the simulation and the instant it is accurate as of. The
@@ -137,6 +138,24 @@ internal fun GameSession.alerting(clock: DebugClock, wallClock: Instant, target:
 internal fun GameSession.alertingHull(clock: DebugClock, wallClock: Instant, ship: ShipType): GameSession {
     val at = maxOf(clock.now(wallClock), lastUpdatedAt)
     return copy(state = advance(cycleHullAlert(state, ship), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
+}
+
+// The dispatch sheet's bell, and the third square wired the same way — cycle first, then advance.
+//
+// **Here the ordering really is immaterial, and for a reason neither of the two above has.**
+// `alerting` is order-sensitive because `toggleAlert` branches on whether the row is running, and
+// `alertingHull` copies it for consistency because a queue can empty inside the span. This verb
+// reads nothing about the colony at all: it flips one boolean that no job is keyed to and that
+// `advance` never touches. It is written in the same shape as its two neighbours so that the three
+// squares in the app are not wired three different ways — the day this grows a branch it is already
+// on the safe side of it.
+//
+// It still has to *advance*, and that is not decoration: this action commits, and committing writes
+// the save at `lastUpdatedAt`. A session that stamped a new instant without advancing to it would
+// write a colony that had not caught up to its own clock.
+internal fun GameSession.alertingFlights(clock: DebugClock, wallClock: Instant): GameSession {
+    val at = maxOf(clock.now(wallClock), lastUpdatedAt)
+    return copy(state = advance(toggleFlightAlerts(state), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
 }
 
 // A session and the clock that goes with it. The two always move together — a session stamped in

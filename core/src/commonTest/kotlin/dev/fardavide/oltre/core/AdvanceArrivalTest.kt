@@ -171,4 +171,5 @@ private fun fleetRun(
     // than an arbitrary instant.
     dispatchedAt = returnsAt - 1.hours,
     returnsAt = returnsAt,
+    announced = false,
 )

@@ -293,6 +293,7 @@ class LedgerBehaviourTest {
                             onOpenResearch = {},
                             onDispatchProbe = {},
                             onDispatchRun = { _, _, _, _ -> },
+                            onToggleAnnounce = {},
                         )
                     }
                 }

@@ -25,6 +25,12 @@ object DispatchTestTags {
     // wants to know is *what the refusal offers*, not which refusal produced it.
     const val SHEET_ACTION = "dispatch-sheet-action"
 
+    // The bell beside whichever verb the sheet is showing, and one tag for both — a run and a probe
+    // ask the same question and answer it into the same standing flag, so a test that wanted to tell
+    // them apart would be asking about the verb rather than about the bell. `SEND` and
+    // `SHEET_ACTION` are already there to say which one is on screen.
+    const val ANNOUNCE = "dispatch-announce"
+
     const val SHIPS_MORE = "dispatch-ships-more"
     const val SHIPS_FEWER = "dispatch-ships-fewer"
 

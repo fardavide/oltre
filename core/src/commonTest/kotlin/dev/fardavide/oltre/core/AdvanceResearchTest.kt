@@ -237,6 +237,7 @@ class AdvanceResearchTest {
                     cargo = Resources.of(metal = 10),
                     dispatchedAt = EPOCH,
                     returnsAt = together,
+                    announced = false,
                 ),
             ),
         )

@@ -171,6 +171,7 @@ class AdvanceTest {
                         cargo = Resources.of(metal = 400, crystal = 120),
                         dispatchedAt = t0,
                         returnsAt = t0 + 3.hours,
+                        announced = false,
                     ),
                 ),
                 // Two hulls on the slipway, chained — the sixth kind of job, and the first one whose

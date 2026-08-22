@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.TextRes
@@ -307,6 +308,27 @@ class ProbeActionUiStateTest {
     // The nearest landing whose result matches, found by asking the mapper rather than by
     // hardcoding a coordinate — the seed decides which systems hold what, and a fixture that
     // asserted one would be asserting the seed.
+    @Test
+    fun `the bell shows the answer the next flight would be sent with`() {
+        // The square is a rendering of `announceFlights` and of nothing about this star: the ask is
+        // written onto the job by `startSurvey`, so what the control shows before the tap is exactly
+        // what the tap would send. A square derived from the *system* would be a different control
+        // wearing the same glyph.
+        val state = wealthy()
+        val target = awayFromHome(state, systemsAway = 52)
+
+        assertEquals(
+            WatchSquareUiState.UNASKED,
+            assertIs<ProbeActionUiState.Dispatch>(state.probeActionAt(target)).announce,
+        )
+        assertEquals(
+            WatchSquareUiState.ASKED,
+            assertIs<ProbeActionUiState.Dispatch>(
+                state.copy(announceFlights = true).probeActionAt(target),
+            ).announce,
+        )
+    }
+
     private fun firstLandingWhere(
         state: GameState,
         predicate: (ProbeActionUiState.Landed) -> Boolean,

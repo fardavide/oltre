@@ -3913,3 +3913,67 @@ re-interprets.
 - **One number to check before this ships.** Design measures the hauler as worth 630 metal at exactly
   one rung on a doorstep world and nothing at four of the five. If `:sim:run` agrees, the hull pays
   only on deep veins far out, and the Shipyard's copy is where that has to be said.
+
+## The ask goes on the flight, and the bell goes beside Dispatch (2026-08-22, 0.15.4)
+
+Davide, in as many words: *"I wanna set opt-in notifications also for flights, let's show usual bell
+notification besides Dispatch button."* A fleet return and a probe landing were the last two alerts in
+the game that fired whether or not anybody wanted them; from this version every alert Oltre raises is
+one that was asked for.
+
+**The reversal is the interesting part.** `GameNotificationsTest` carried a test called *"a probe
+still lands without being asked about"*, on the argument that only *completions* went opt-in at 0.5.0
+because a probe is not something you wait on a row for. The second half of that was true and the
+conclusion drawn from it was backwards: what it described was the **absence of a control**, and the
+answer to that is to add one rather than to keep announcing unasked. The same mistake had already
+been made once and corrected once — 0.15.3's note about a delivery being *"exempt because there was
+no control on a hull card to ask it with"* is the same sentence, one release earlier.
+
+### Three calls, all Davide's
+
+**The ask lives on the run, not in a standing preference.** `FleetRun.announced` and
+`SurveyJob.announced`, stamped by `startRun` and `startSurvey` at the instant the verb is tapped.
+That is the rule `cargo` and `returnsAt` already follow, for the reason they follow it: all three are
+the promise the sheet made *before* the tap, and a promise a later sheet could withdraw would not be
+one. So a player who lights the bell for one world and unlights it for the next is asking two
+different questions, and the first answer survives the second.
+
+**The bell remembers.** `GameState.announceFlights` is the *position of the control*, not the ask —
+nothing empties it, because there is no job for it to be about, which is what makes it the odd one
+out beside `subscribed` and `hullAlerts`. Both verbs copy it rather than taking it as a parameter,
+and the absence of that parameter is the point: there is no argument a caller could pass that
+disagrees with the bell the player was looking at.
+
+**Dispatch is the only ask.** There is deliberately no square on a run card, so a flight in the air
+cannot be re-asked about. That is the one irreversible ask in the game and it is defensible for the
+same reason the run itself is: nothing about a flight is changeable once it has left.
+
+One flag for both verbs rather than two. A probe landing and a fleet coming home are different news;
+the *question* is the same one, and two memories for one word would be two settings a player has to
+find separately. Overrulable the day the two want different answers.
+
+### Where the two bells sit
+
+Both are `WatchSquare` at its committed 29dp — no new component, no new visual language. The sheet's
+verb is full-width, so the square is the trailing control beside it; the map card's footer already
+ends in its verb, so the square goes to its **left** rather than pushing the one accent thing in the
+card off the edge it is aligned to. Both keep the square adjacent to the verb it is about.
+
+`stacked = true` at both sites, which is not about layout: it asks `WatchSquare` for a 29dp-tall
+target rather than a 44dp one, and beside a ~38dp verb the taller hit box would overhang the row it
+sits in — where Compose does not reliably deliver touch, so the extra pixels would be dead rather
+than generous. **These metrics are the session's and not a frame's**; there was no Claude Design
+round for this, because Davide named the control and its position himself and both are the system's
+existing ones.
+
+### Schema 15, and it is behavioural
+
+`runs[].announced`, `surveys[].announced` and `announceFlights` in one hop — schema 9's precedent,
+since no save can hold one without the others. **`false` everywhere, including on flights already in
+the air**, which is the change rather than a cost of it: carrying an existing run forward as `true`
+would invent an ask nobody made, and — because there is no control on a run card — one the player
+could not take back. Nothing the colony holds moves.
+
+The gate reads the *event* rather than the colony's flag, and that is the whole of the per-flight
+promise: a gate consulting `announceFlights` would announce a run the player had already decided
+against and silence one they had asked for, both retroactively.

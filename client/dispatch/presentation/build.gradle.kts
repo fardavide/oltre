@@ -35,6 +35,10 @@ kotlin {
             // `api`, so a feature that raises this sheet names one module rather than two — the same
             // rule `:client:colony:presentation` follows for its own ui layer.
             api(projects.client.dispatch.ui)
+            // The bell's own model. `implementation` rather than `api` for the reason
+            // `:client:shipyard:presentation` uses it: what this module hands back is a
+            // `DispatchUiState`, and the square inside it is `:client:dispatch:ui`'s to expose.
+            implementation(projects.client.design.component)
             implementation(projects.client.design.format)
             implementation(projects.client.design.text)
         }
