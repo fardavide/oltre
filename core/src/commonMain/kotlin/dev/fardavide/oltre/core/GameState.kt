@@ -97,6 +97,18 @@ data class GameState(
     // and two memories for one word would be two settings a player has to find separately. Davide's
     // to overrule the day the two want different answers.
     val announceFlights: Boolean,
+    // **What the log is worth, carried rather than recounted.** It is a running total of
+    // `ExperienceBalance.awardFor` over every entry in `eventLog`, and the two are kept in step by
+    // `logging` below being the only way either of them changes.
+    //
+    // Stored rather than folded on read, and that is Davide's call over the first cut — *"the more
+    // the player progresses, the more it will be intensive to infer the level"* (2026-08-23). The
+    // fold survives as the thing that seeds this field once, in the 15 → 16 hop, for the colonies
+    // that were played before it existed; from there it is arithmetic on a number.
+    //
+    // Directly above `eventLog` because they are one fact written twice — a summary and its source —
+    // and a reader who finds one should not have to hunt for the other.
+    val experience: Experience,
     val eventLog: List<Event>,
 ) {
     init {
@@ -156,7 +168,21 @@ data class GameState(
             subscribed = emptySet(),
             hullAlerts = emptyMap(),
             announceFlights = false,
+            experience = Experience.NONE,
             eventLog = emptyList(),
         )
     }
 }
+
+// **The only way an event reaches the log**, and the reason it exists is that `experience` is a
+// running total: an append that forgot to pay would leave the stored number quietly below the log it
+// summarises, which is a wrong level nobody would ever notice. Twelve call sites became one, so a
+// thirteenth event cannot be added without being priced.
+//
+// `internal` because appending is `core`'s own business. Every verb and every completion in
+// `advance` goes through it, and `ExperienceTest` asserts the equality it maintains against the fold
+// on every state the verbs produce.
+internal fun GameState.logging(event: Event): GameState = copy(
+    experience = experience + ExperienceBalance.awardFor(event),
+    eventLog = eventLog + event,
+)

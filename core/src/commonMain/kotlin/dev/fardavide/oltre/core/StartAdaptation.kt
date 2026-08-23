@@ -41,7 +41,8 @@ fun startAdaptation(state: GameState, technology: AdaptationTechnology, at: Inst
         state.copy(
             resources = state.resources.minus(cost),
             activeAdaptation = job,
-            eventLog = state.eventLog + Event.AdaptationStarted(technology = technology, toLevel = toLevel, at = at),
+        ).logging(
+            Event.AdaptationStarted(technology = technology, toLevel = toLevel, at = at),
         ),
     )
 }

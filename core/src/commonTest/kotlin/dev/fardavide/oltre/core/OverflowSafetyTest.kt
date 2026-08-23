@@ -94,6 +94,31 @@ class OverflowSafetyTest {
     }
 
     @Test
+    fun `the level ladder is computable far past anything a save can hold`() {
+        // The experience curve is the one number in the game with **no ceiling** — buildings stop at
+        // 40 and technologies at 30, and a log just keeps growing. So the ladder is walked far past
+        // any level a player will reach rather than to a declared maximum, and the round trip is what
+        // is checked: a threshold that wrapped would come back as a level that had gone backwards.
+        var previous = Experience(0)
+        for (level in 0..1_000) {
+            val threshold = ExperienceBalance.thresholdOf(PlayerLevel(level))
+            assertTrue(threshold >= previous, "the threshold for level $level fell to $threshold")
+            assertEquals(PlayerLevel(level), ExperienceBalance.levelFor(threshold))
+            previous = threshold
+        }
+    }
+
+    @Test
+    fun `a total no log could ever reach still reads as a level rather than wrapping`() {
+        // A hundred million points is about sixty thousand days of the sim's own player. `levelFor`
+        // multiplies the total by eight times the step to take a root of it, so this is the term that
+        // would leave Long first — and it says so rather than handing back a negative level.
+        val absurd = Experience(100_000_000)
+        assertTrue(ExperienceBalance.levelFor(absurd).value > 0)
+        assertFailsWith<IllegalArgumentException> { ExperienceBalance.levelFor(Experience(Long.MAX_VALUE)) }
+    }
+
+    @Test
     fun `a colony away for a thousand years fills its store rather than overflowing`() {
         // The one that would have bitten a real save. `stock + rate x elapsed` clamped afterwards is
         // correct arithmetic and unsafe storage: the clamp is small and the product it clamps is

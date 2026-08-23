@@ -80,6 +80,24 @@ So: the name is one catalogue entry, the level and the experience are `0`, and a
 log, which already records every completed build, project, ladder, survey and run — and that is the
 follow-up task's call to make, not this one's.
 
+> **Closed at 0.17, and this section was right about the wrong half.** Davide, 2026-08-22: *"make it
+> so next time I start the game it gives me experience for everything I did before."*
+>
+> The objection above — that a migration has no honest answer for an existing colony's experience —
+> was true only while there was no fold to answer it with. 0.17 wrote one, and the 15 → 16 hop uses
+> it: an existing colony is credited with exactly what its own event log is worth, which is neither
+> zero nor a number invented at the keyboard. **So the field this section refused now exists**, and
+> `SCHEMA_VERSION` moved after all.
+>
+> What did not survive is the sentence *"when the numbers become real they should be derived"*. They
+> were, for one draft, and Davide overruled it on the day: *"the more the player progresses, the more
+> it will be intensive to infer the level."* Derivation is the migration's job and the test's; the
+> game reads a stored total.
+>
+> The name is untouched and is still a constant. The mapper is in `:client:player:presentation`, the
+> module this feature's build file said it would grow on the day there was something to map. See
+> [`experience-sheet.md`](experience-sheet.md).
+
 **The name was going to be a function of the galaxy seed and is not**, which is the one thing in this
 sheet that §5 overturned rather than filled in. Seeding it would have given every colony its own
 callsign for free, off a value already on disk. What it would also have done is assert an identity the

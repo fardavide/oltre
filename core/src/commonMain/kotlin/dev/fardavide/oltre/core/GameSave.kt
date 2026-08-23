@@ -2,6 +2,7 @@ package dev.fardavide.oltre.core
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -55,6 +56,14 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 16 — the player's experience: one running total, and **the only hop in the table whose value is
+    //     computed from the save's own contents rather than written as a truthful zero**. Everything
+    //     else that has ever been added was a thing the colony demonstrably did not have; this is a
+    //     thing it had all along and never wrote down, so the honest opening balance is what its own
+    //     event log is worth — Davide, 2026-08-22: *"make it so next time I start the game it gives
+    //     me experience for everything I did before."* A zero here would confiscate a fortnight of
+    //     play, which is the exact objection `player-strip-sheet.md` §3 raised against storing this
+    //     at 0.16, when there was no fold to answer it with.
     // 15 — the flights' ask: a flag per run and per probe saying whether the player asked to hear
     //     about it, and the standing position of the bell that stamped them. **The third behavioural
     //     hop**, and the widest of the three: a fleet return and a probe landing were the last two
@@ -106,7 +115,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 15
+    const val SCHEMA_VERSION: Int = 16
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -336,7 +345,34 @@ object GameSave {
                 ).toTypedArray(),
             )
         },
+        // 15 -> 16: the player's experience, **and this is the one hop that reads the save to decide
+        // what to write.** Every other step in this table answers "what did a colony that predates
+        // this feature have?" with a zero or an empty list, because it genuinely had none of the
+        // thing. A colony that predates *this* one has been earning since genesis and simply had
+        // nowhere to put the number — so the truthful answer is what its own log is worth, and a zero
+        // would take a fortnight of play off every existing player.
+        //
+        // **The fold happens here and nowhere a player waits.** From this version the total is a
+        // field the verbs add to (`GameState.logging`), which is Davide's call on the first cut:
+        // *"the more the player progresses, the more it will be intensive to infer the level"*
+        // (2026-08-23). This hop is the once-per-save price of never paying it again.
+        //
+        // An undecodable log falls back to zero rather than throwing, and that costs nothing:
+        // migrations run outside `decode`'s own `try`, and a log this cannot read is one the snapshot
+        // decode two steps later cannot read either — so the save fails with its real reason instead
+        // of with an exception thrown out of a migration.
+        15 to { root ->
+            val log = (root["state"] as? JsonObject)?.get("eventLog") as? JsonArray
+            val earned = try {
+                experienceOf(log?.let { json.decodeFromJsonElement(EVENT_LOG, it) }.orEmpty())
+            } catch (e: SerializationException) {
+                Experience.NONE
+            }
+            root.withState("experience" to JsonPrimitive(earned.points))
+        },
     )
+
+    private val EVENT_LOG = ListSerializer(Event.serializer())
 
     // One key added to every job in a list. **A key that is missing or is not an array is left
     // untouched rather than replaced with `[]`**, and that is the difference between a migration and

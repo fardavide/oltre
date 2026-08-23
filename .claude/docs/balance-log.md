@@ -3750,3 +3750,115 @@ deep world next door.
   that out of scope and it is now a live question rather than a hypothetical one.
 - **Whether the +558 at 3h reads as worth 2,400 metal.** It is the rung the check-in rhythm defaults
   to, so it is the number most players will actually meet, and it repays the hull in about four runs.
+
+## Round 32 — the level, and the probes the harness had stopped flying (0.17.0, 2026-08-23)
+
+Davide, 2026-08-22:
+
+> *"In the last PR we added design for levels. Let's imagine a 1-day player must be around Lv 3,
+> 1-week lv 10, 2 weeks lv 15, 1 month lv 25. To give a very rough estimate. I imagine most of the
+> actions give exp: upgrade, survey, travels, build ship, etc. […] make it so next time I start the
+> game it gives me experience for everything I did before."*
+
+The design is [`experience-sheet.md`](experience-sheet.md); this round is the measurement it was
+fitted to, and the harness bug the measurement found on its first run.
+
+**One thing about the shipped shape, because it changes nothing here and everything elsewhere.** The
+first cut derived the level by folding the event log on every read, and Davide overruled it on
+2026-08-23 — *"the more the player progresses, the more it will be intensive to infer the level"*. It
+is stored now: the 15 → 16 migration folds a save's log once, and `GameState.experience` is a running
+total from there. **Every number in this round is unchanged by that**, because the field is the fold
+by construction; what moved is where the arithmetic happens, not what it says. `:sim:run` still
+folds, deliberately — a report reading a colony at day 1, 7 and 30 wants a total *as of an instant*,
+which a running field cannot give it.
+
+### The bug the first run found: three of four bots had stopped surveying at 0.15
+
+The experience report's first table read **zero surveys in thirty days**. A probe consumes a `SCOUT`
+since 0.15 (`SurveyBalance.SHIPS`); `openingReport` was taught to buy one when the rule landed and
+`fleetRun`, `depositRun`, `interactionCensus` and `printProgressionMilestones` were not — so
+`startSurvey` refused them silently, and each of those four reports has been printing a probe column
+that was structurally zero for two releases.
+
+**Nothing failed and nothing looked wrong**, which is the part to keep: a bot that cannot afford an
+action just does not take it, and there is no assertion anywhere that says a probe report must
+contain a probe. The rule now lives in one place — `boughtScoutIfNeeded` — rather than in four, and
+it is the first thing to check the next time a verb grows a cost.
+
+What that means for earlier rounds: **round 30 and round 31's fleet and deposit tables were measured
+without probes.** Their subject was the drive, the hauler and the vein rather than the map, and the
+bot works the home system either way, so the conclusions stand — but any reading in them about
+*reach*, surveyed worlds or the frontier is measuring a colony that never left home.
+
+### What a month actually contains
+
+`:sim:run`, thirty days, the fleet report's own player — four check-ins a day, everything affordable
+cheapest-first, hulls bought greedily, one probe per gap.
+
+| At | builds | projects | ladders | hulls | surveys | runs home | total |
+|---|---|---|---|---|---|---|---|
+| day 1 | 17 | 2 | 1 | 1 | 3 | 0 | **24** |
+| day 7 | 54 | 18 | 9 | 36 | 27 | 19 | **163** |
+| day 14 | 64 | 32 | 16 | 303 | 55 | 47 | **517** |
+| day 30 | 79 | 56 | 27 | 1,721 | 119 | 111 | **2,113** |
+
+**Two readings decided the whole design and neither was guessable.**
+
+1. **Experience accrues linearly in time.** 4,685 points on day one; 4,818 a day averaged over
+   thirty — inside 4% for the whole month while the colony's income grows by two orders of
+   magnitude. That is the five-minute loop working, and it is why a level costs a straight line
+   rather than the geometric step every other game uses. A geometric ladder is right when *income*
+   is the score; here it is not.
+2. **A greedy player owns 1,721 skiffs by day 30 against 79 finished facilities.** Hulls are bought
+   out of income and income compounds, so any per-hull award near a facility's price makes the level
+   a fleet counter by the end of the first month. Davide's call was *per hull, small*; at 15 against
+   a facility's 100-plus-depth they come to 17.8% of the month's points.
+
+### Where the points come from, at day 30
+
+| Source | points | share |
+|---|---|---|
+| surveys | 52,550 | 36.3% |
+| projects and ladders | 26,850 | 18.5% |
+| hulls | 25,815 | 17.8% |
+| facility levels | 22,680 | 15.6% |
+| runs home | 16,650 | 11.5% |
+
+Surveys lead on **count** rather than on price — 119 landings against 79 facility levels — which is
+the probe being the one verb whose supply is the map rather than the stores. Flagged rather than
+tuned: see the sheet's §6 on probe-spam, whose dial is `SURVEY_BASE`.
+
+### The ladder, and the mark it cannot hit
+
+`span(level) = 1,100 + 360 × level`, fitted to Davide's four marks. **No straight line hits all
+four** — fitting days 1 and 7 forces a step below 381, fitting days 14 and 30 forces one above 385 —
+so one mark is off by one whichever way it goes.
+
+| At | shipped | the 3/10/15/24 alternative | Davide's mark |
+|---|---|---|---|
+| day 1 | **Lv 3** | Lv 3 | Lv 3 |
+| day 7 | **Lv 11** | Lv 10 | Lv 10 |
+| day 14 | **Lv 16** | Lv 15 | Lv 15 |
+| day 30 | **Lv 25** | Lv 24 | Lv 25 |
+
+Shipped the first because the two ends are the marks anybody checks, and because the bot's hull
+buying inflates day 30 — a realistic fleet puts a real player nearer 23 under either setting, so the
+generous one lands closest for a person.
+
+### The benchmark grew an `[experience]` section
+
+`BalanceBenchmark`'s colony only builds — no probes, no hulls — so its levels are a **floor**: Lv 3 at
+day 1, Lv 8 at day 7, Lv 11 at day 14. It is there because the sim cannot catch the half that
+matters here: the awards and the ladder are `core` constants, so a round that moves a *cost* curve
+moves these rows too. Deeper facilities finishing later is a level the player does not have on the
+day they used to have it, and nothing else on the page would say so.
+
+### What to watch on the install
+
+- **Whether Lv 3 on the first evening reads as earned or as given.** The whole curve is fitted to a
+  bot; a hand is what decides whether the opening is generous or hollow.
+- **Whether 16 → 25 across the back half of the month reads as a plateau.** That stretch is 16 days
+  for 9 levels against the first week's 11, which is the deceleration Davide's own marks describe —
+  but describing it and feeling it are different things.
+- **Whether anybody notices the level at all.** It gates nothing and unlocks nothing by design (sheet
+  §5). If it reads as decoration, that is the answer to whether it should stay a record.

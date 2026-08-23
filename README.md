@@ -206,6 +206,19 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.17.0 — 2026-08-23
+
+- **The gauge fills.** Everything you finish now pays experience — a facility level, a technology, an
+  adaptation rung, a hull off the slipway, a probe landing, a fleet coming home — and the badge above
+  the resources counts it. A deeper level is worth more than a shallow one, and a probe that finds a
+  full system is worth more than one that finds an empty one.
+- **You are already several levels in.** Opening this build reads your colony's whole history once
+  and credits you for everything you did before the level existed. Nothing was reset and nothing was
+  invented — every survey, run and upgrade you have ever finished counts.
+- **It pays for finishing, not for starting.** The bar moves when the thing lands, which means it
+  moves while the app is closed: come back in the morning and the level has moved with the mines.
+- Roughly: a day in gets you to about level 3, a week to 10, a fortnight to 15, a month to 25.
+
 ### 0.16.0 — 2026-08-22
 
 - **The game knows who is playing.** A strip above the resources carries your mark, your name, your

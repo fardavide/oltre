@@ -71,7 +71,8 @@ fun startSurvey(state: GameState, target: SystemAddress, at: Instant): StartSurv
             // than gone, and `advance` puts it back when the probe lands.
             ships = state.ships - SurveyBalance.SHIPS,
             surveys = state.surveys + job,
-            eventLog = state.eventLog + Event.SurveyStarted(target = target, at = at),
+        ).logging(
+            Event.SurveyStarted(target = target, at = at),
         ),
     )
 }

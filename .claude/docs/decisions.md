@@ -4013,3 +4013,93 @@ stayed green, for exactly this reason. Eight galaxy baselines and `main_scaffold
 - **The mark is not seeded.** One drawing for every save, deliberately: a mark that varied with the
   galaxy seed would assert an identity the save cannot back. The day identity earns variation it
   should be drawn for it rather than derived from a number nobody chose.
+
+## The level is inferred once from the log, then stored (0.17.0)
+
+Davide's ask, 2026-08-22, and the design is in [`experience-sheet.md`](experience-sheet.md). Six
+things from it are decisions rather than numbers.
+
+**The first cut folded the log on every read, and Davide overruled it**, 2026-08-23: *"this is bad,
+because the more the player progresses, the more it will be intensive to infer the level! Let's infer
+it for players that are coming from a previous version, then store it, and update it as it
+progresses."*
+
+Recorded because the rejected argument was not obviously wrong and the next session will reconstruct
+it. The fold is a sum over a few hundred entries a month, so it is cheap *today*; what makes it the
+wrong shape is that its cost is **unbounded in the one direction that matters** — free on the day it
+ships, paid by the players who play the most, arriving months later, on a reading the chrome
+recomputes above every screen. That cost appears in no review and no test. **Prefer a stored total to
+a fold whenever the thing being folded is an append-only history.**
+
+So: **infer once, store, maintain.** The 15 → 16 migration folds the save's own log into an opening
+balance; `GameState.experience` carries it from there; `GameState.logging` is the only thing in
+`core` that may append to `eventLog` and it adds the award in the same `copy`. The fold survives as
+what the migration calls and as what `ExperienceTest` checks the field against — the expensive answer
+is the specification, the cheap one ships.
+
+**The hop computes where every other hop declares, and that is the interesting part.** Fifteen
+migrations answer *what did a colony that predates this feature have?* with a truthful zero, because
+it genuinely had none of the thing. A colony that predates *this* one had been earning since genesis
+with nowhere to write the number down — so zero would confiscate a fortnight of play, and the honest
+answer is what its own log is worth. That is exactly the question 0.16's entry above said had no
+honest answer, and it was right at the time: the fold that answers it did not exist yet.
+
+**The invariant has no compiler behind it and is held by construction.** `experience` must always
+equal `experienceOf(eventLog)`. A `require` in `GameState.init` would fold on every construction
+including every decode, reintroducing the cost this design removes — so instead there is exactly one
+append site, and `ExperienceTest` drives a colony through every verb and every kind of completion
+asserting the two agree at each step.
+
+**A completion pays, a start does not** — Davide's call, over "on the tap" and over a split. It is
+also what belongs to this game: everything here happens while the app is closed, so a bar that only
+moved under a finger would be the one reading on screen with nothing to do with being away. Six of
+the twelve `Event` members are worth nothing and `awardFor` names all six — there is no `else`, so a
+thirteenth event has to be priced by whoever adds it rather than defaulting to zero unnoticed.
+
+**A hull pays per hull and small** — Davide's call, over one-award-per-order. The smallness is the
+measurement rather than a preference: hull purchases come out of income and income compounds, so the
+sim's thirty-day player owns 1,721 skiffs against 79 finished facilities, and at a facility's price
+they would be four fifths of the month's points. The award is an eighth of the shallowest facility
+level, and `ExperienceTest` pins the *ratio* so a later round cannot move one without the other.
+
+**No award reads a cost, a cargo or a stock.** A run home pays the same on 200 units as on 200,000.
+The level is what you did rather than what you own — there is a resource rail directly beneath the
+badge, and a second one wearing a different hat is not worth having. What does scale is depth: a
+level-20 mine is a day of waiting where a level-2 one is four minutes.
+
+**The ladder is a straight line, which is not the convention.** `1,100 + 360 × level`. The reading
+that decided it: experience accrues **linearly in time** — 4,685 points on day one against 4,818 a
+day over thirty, while income grows by two orders of magnitude — and Davide's marks are a power law.
+A geometric ladder is right for a game whose income is the score; here it is not. Balance-log round
+32 has the fit, including the proof that no straight line hits all four of his marks and which one
+was let go.
+
+### Raised and not decided
+
+- **The level does nothing.** It gates nothing, unlocks nothing and no rate reads it. That was not
+  asked for and inventing it would be inventing a mechanic. The sheet's §5 names the two shapes worth
+  putting to Davide when he asks, and which of them this game's own evidence prefers.
+- **A level-up is not announced.** The badge changes, the gauge resets, and there is no notice. That
+  has a visual half, so it is Claude Design's rather than a session's to invent.
+- **Probe-spam is the one grind vector and it is buyable.** A survey pays the dearest base in the
+  table and scouts come home, so a player who buys ten can run ten concurrent probes. Not obviously
+  wrong — a player who explores hard is playing — but it is the first thing to look at if levelling
+  feels degenerate. The dial is `SURVEY_BASE`.
+
+## Three of the sim's four bots had stopped surveying, and nothing said so (0.17.0)
+
+Not a design decision — a note about the instrument, kept here because the next verb to grow a cost
+will do this again.
+
+A probe has consumed a `SCOUT` since 0.15. `openingReport` was taught to buy one; `fleetRun`,
+`depositRun`, `interactionCensus` and `printProgressionMilestones` were not — so `startSurvey`
+refused them silently and four reports printed a probe column that was structurally zero for two
+releases. It surfaced only because the experience report needed a survey count and read **zero
+surveys in thirty days**.
+
+**The failure mode is that a bot which cannot afford an action simply does not take it.** No
+exception, no divide-by-zero, no empty table — just a column of noughts that reads like a finding.
+The rule now lives in one place, `boughtScoutIfNeeded`. Rounds 30 and 31's fleet and deposit tables
+were measured without probes; their subjects were the drive, the hauler and the vein and the bot
+works the home system either way, so the conclusions stand — but any reading in them about *reach* or
+the frontier is about a colony that never left home.

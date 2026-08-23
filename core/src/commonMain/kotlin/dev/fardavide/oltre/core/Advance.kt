@@ -86,7 +86,8 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
         next = next.copy(
             buildings = next.buildings.withLevel(job.building, job.toLevel),
             builds = next.builds - job.building,
-            eventLog = next.eventLog + Event.BuildCompleted(
+        ).logging(
+            Event.BuildCompleted(
                 building = job.building,
                 newLevel = job.toLevel,
                 at = job.completesAt,
@@ -98,7 +99,8 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
         next = next.copy(
             research = next.research.withLevel(project.technology, project.toLevel),
             activeResearch = null,
-            eventLog = next.eventLog + Event.ResearchCompleted(
+        ).logging(
+            Event.ResearchCompleted(
                 technology = project.technology,
                 newLevel = project.toLevel,
                 at = project.completesAt,
@@ -110,7 +112,8 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
         next = next.copy(
             research = next.research.withLevel(adaptation.technology, adaptation.toLevel),
             activeAdaptation = null,
-            eventLog = next.eventLog + Event.AdaptationCompleted(
+        ).logging(
+            Event.AdaptationCompleted(
                 technology = adaptation.technology,
                 newLevel = adaptation.toLevel,
                 at = adaptation.completesAt,
@@ -131,8 +134,7 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
         next = next.copy(
             ships = next.ships + hull,
             yard = next.yard - job,
-            eventLog = next.eventLog + Event.ShipsBuilt(ships = hull, at = job.completesAt),
-        )
+        ).logging(Event.ShipsBuilt(ships = hull, at = job.completesAt))
     }
     // Probes land in parallel and their durations are a pure function of distance, which is
     // quantised in whole systems — so two dispatched in one session to systems 117 and 119 from
@@ -153,7 +155,8 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
             // of the answer to "ten in one check-in".
             ships = next.ships + SurveyBalance.SHIPS,
             surveys = next.surveys - job,
-            eventLog = next.eventLog + Event.SurveyCompleted(
+        ).logging(
+            Event.SurveyCompleted(
                 target = job.target,
                 worldsFound = found.size,
                 at = job.completesAt,
@@ -178,7 +181,8 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
             resources = next.resources.deposit(run.cargo),
             ships = next.ships + run.ships,
             runs = next.runs - run,
-            eventLog = next.eventLog + Event.FleetReturned(
+        ).logging(
+            Event.FleetReturned(
                 from = run.target,
                 ships = run.ships,
                 cargo = run.cargo,

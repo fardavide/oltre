@@ -54,6 +54,7 @@ internal object BalanceBenchmark {
         section(opening())
         section(session())
         section(progression())
+        section(experience())
         section(pressure())
         section(economy())
         section(research())
@@ -148,6 +149,53 @@ internal object BalanceBenchmark {
         add("the tree at day $LONG_HORIZON_DAYS")
         for (building in OPENING_PLAN) {
             add(row("  ${label(building)}", "${end.buildings.levelOf(building).value}"))
+        }
+    }
+
+    // ── [experience] how fast the badge above the rail moves ─────────────────────────────────
+    //
+    // **A floor rather than the figure, and the difference is worth reading before the rows are.**
+    // This colony never buys a hull and never sends a probe, so it earns from two of the five things
+    // that pay — which is deliberate here (the page photographs one fixed player and always has) and
+    // is why these levels sit below the marks the curve was fitted to. The full player, with probes
+    // and a fleet, is measured by `:sim:run`'s experience report and lands at Lv 3 / 11 / 16 / 25.
+    //
+    // What this catches is the half the sim cannot: the ladder and the awards are `core` constants,
+    // so a round that moves a *cost* curve moves these rows too — deeper facilities finish later,
+    // which is a level the player does not have on the day they used to have it.
+    private fun experience(): List<String> = buildList {
+        val run = colony(days = LONG_HORIZON_DAYS)
+        add("[experience] the level a colony that only builds is wearing")
+        add(row("day", "level    points   into the level"))
+        for (day in listOf(1, 2, 3, 7, 14)) {
+            val state = run.at(day * 24) ?: continue
+            // The carried total, which is what the strip draws. `ExperienceTest` is what says it
+            // still equals the fold; this page photographs the number the player sees.
+            val progress = state.playerProgress()
+            add(
+                row(
+                    "  day $day",
+                    "Lv ${progress.level.value}".padStart(5) +
+                        progress.earned.points.toString().padStart(10) +
+                        "${progress.percent}%".padStart(10),
+                ),
+            )
+        }
+        // Where the points came from, which is the reading that says whether one verb has quietly
+        // become the way to level. Two verbs here because this colony only has two.
+        val closing = checkNotNull(run.at(LONG_HORIZON_DAYS * 24)).eventLog
+        val fromBuilds = closing.filterIsInstance<Event.BuildCompleted>()
+            .sumOf { ExperienceBalance.awardFor(it).points }
+        val fromProjects = closing.filter { it is Event.ResearchCompleted || it is Event.AdaptationCompleted }
+            .sumOf { ExperienceBalance.awardFor(it).points }
+        add("where the points came from by day $LONG_HORIZON_DAYS")
+        add(row("  facility levels", "$fromBuilds (${percent(fromBuilds, fromBuilds + fromProjects)})"))
+        add(row("  projects and ladders", "$fromProjects (${percent(fromProjects, fromBuilds + fromProjects)})"))
+        // The ladder itself, which is a property of the curve rather than of this colony — so it
+        // moves when `ExperienceBalance` moves and at no other time.
+        add("what the next level costs")
+        for (level in listOf(0, 5, 10, 25)) {
+            add(row("  leaving Lv $level", "${ExperienceBalance.spanOf(PlayerLevel(level)).points}"))
         }
     }
 
@@ -928,9 +976,11 @@ internal object BalanceBenchmark {
         return "${hundredths / 100}.${(hundredths % 100).toString().padStart(2, '0')}"
     }
 
-    private fun percent(part: Int, whole: Int): String {
-        if (whole == 0) return "-"
-        val hundredths = part.toLong() * 10_000 / whole
+    private fun percent(part: Int, whole: Int): String = percent(part.toLong(), whole.toLong())
+
+    private fun percent(part: Long, whole: Long): String {
+        if (whole == 0L) return "-"
+        val hundredths = part * 10_000 / whole
         return "${hundredths / 100}.${(hundredths % 100).toString().padStart(2, '0')}%"
     }
 

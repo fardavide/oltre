@@ -9,6 +9,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.DepositBalance
 import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.core.ExperienceBalance
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -40,6 +41,7 @@ import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.axisValue
 import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.experienceOf
 import dev.fardavide.oltre.core.futureEvents
 import dev.fardavide.oltre.core.relayAt
 import dev.fardavide.oltre.core.starClassAt
@@ -79,6 +81,7 @@ fun main() {
     printInteractionCensus()
     printGateClock()
     printProgressionMilestones()
+    printExperienceReport()
     printGreedyWeek()
     printWholeTreeRun()
 }
@@ -1109,6 +1112,23 @@ private fun probeTargetFor(state: GameState, gapMinutes: Long): SystemAddress? {
     return best
 }
 
+// **A scout before the probe, since 0.15 — and three of this file's four bots forgot.** A probe
+// flies a hull now (`SurveyBalance.SHIPS`), so a bot that only ever bought skiffs had `startSurvey`
+// refuse it silently: no exception, no zero-division, just a survey column that reads 0 forever.
+// `openingReport` was taught to buy one when the rule landed and the others were not, so from 0.15
+// to 0.16 the fleet report, the deposit sweep, the interaction census and the milestone table were
+// all playing a game with one verb missing — and every one of them printed a probe column as though
+// it were not.
+//
+// Extracted here so the next rule about what a probe costs has one place to land rather than four.
+// One at a time, and only when none is idle and none is on the slipway: a scout comes home, so the
+// steady state is a single hull and the purchase is a day-one event rather than a running cost.
+private fun boughtScoutIfNeeded(state: GameState, at: Instant): GameState? {
+    if (state.ships.covers(SurveyBalance.SHIPS)) return null
+    if (state.yard.any { it.ship == ShipType.SCOUT }) return null
+    return (buildShips(state, SurveyBalance.SHIPS, at = at) as? BuildShipsResult.Started)?.state
+}
+
 private fun openingReport(withProbes: Boolean) {
     val days = 2
     val plan = listOf(
@@ -1167,20 +1187,13 @@ private fun openingReport(withProbes: Boolean) {
         }
 
         val bought = mutableListOf<String>()
-        // **A scout before the probe, since 0.15, and the harness stops measuring the moment it
-        // forgets.** A probe flies a hull now, so a bot that only ever bought skiffs had
-        // `startSurvey` refuse it silently — `dispatched` would sit at zero and the opening report's
-        // whole probe half would read as a design finding rather than as a harness that had stopped
-        // playing the game.
-        //
         // Bought ahead of the probe for the same reason the probe is bought ahead of the buildings:
         // a player who has decided to cover the gap buys what covering it takes, and what it costs
-        // them in levels belongs in the count below rather than hidden behind a queue. One at a
-        // time, and only when none is idle and none is on the slipway — a scout comes home, so the
-        // steady state is one hull and the purchase is a day-one event rather than a running cost.
-        if (probeTarget != null && !state.ships.covers(SurveyBalance.SHIPS) && !state.yard.any { it.ship == ShipType.SCOUT }) {
-            (buildShips(state, SurveyBalance.SHIPS, at = now) as? BuildShipsResult.Started)?.let { started ->
-                state = started.state
+        // them in levels belongs in the count below rather than hidden behind a queue. The rule
+        // itself, and why forgetting it is silent, is in `boughtScoutIfNeeded`.
+        if (probeTarget != null) {
+            boughtScoutIfNeeded(state, at = now)?.let {
+                state = it
                 bought += "scout"
                 kinds += "build"
             }
@@ -1558,6 +1571,10 @@ private class FleetOutcome(
     val bookedMinutes: List<Long>,
     val censusBarriers: Map<String, MutableMap<Barrier, Int>>,
     val closingStock: Resources,
+    // **The whole log, carried out rather than summarised**, because every entry is stamped: a
+    // reading at day 1, day 7 and day 30 is three filters over one run instead of three runs, and
+    // three runs of the same bot over different lengths are not three samples of the same colony.
+    val eventLog: List<Event>,
 ) {
     val dutyCycle: String
         get() = if (shipMinutesOwned == 0L) "—" else share(shipMinutesCommitted, shipMinutesOwned)
@@ -1782,6 +1799,7 @@ private fun fleetRun(
             }
 
             (if (withProbes) probeTargetFor(state, gapMinutes) else null)?.let { target ->
+                boughtScoutIfNeeded(state, at = now)?.let { state = it }
                 (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { started ->
                     state = started.state
                     val job = state.surveys.last()
@@ -1978,6 +1996,7 @@ private fun fleetRun(
         bookedMinutes = bookedMinutes,
         censusBarriers = censusBarriers,
         closingStock = state.resources,
+        eventLog = state.eventLog,
     )
 }
 
@@ -2778,6 +2797,7 @@ private fun interactionCensus(days: Int, showTable: Boolean) {
         var acted = 0
         val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
         probeTargetFor(state, gapMinutes)?.let { target ->
+            boughtScoutIfNeeded(state, at = now)?.let { state = it }
             (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state; acted++ }
         }
         for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
@@ -2902,6 +2922,7 @@ private fun printGateClock() {
 
         val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
         probeTargetFor(state, gapMinutes)?.let { target ->
+            boughtScoutIfNeeded(state, at = now)?.let { state = it }
             (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
         }
         for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
@@ -2989,6 +3010,7 @@ private fun printProgressionMilestones() {
 
         val gapMinutes = ((offsets.getOrNull(index + 1) ?: days * 24) - offset) * 60L
         probeTargetFor(state, gapMinutes)?.let { target ->
+            boughtScoutIfNeeded(state, at = now)?.let { state = it }
             (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
         }
         for ((building, cost) in optionsFor(state, plan, withProjects = true).buildings) {
@@ -3024,6 +3046,106 @@ private fun printProgressionMilestones() {
     println("| At | Building levels | Facilities | Projects finished |")
     println("|---|---|---|---|")
     rows.forEach(::println)
+    println()
+}
+
+// ── What the log holds, which is what a level can be made of ─────────────────────────────────
+//
+// The player's level is **derived**, not stored: `experienceOf` folds the event log, which has
+// recorded every completed build, project, ladder, hull, survey and run since the format's first
+// version. That is what makes it retroactive — Davide, 2026-08-22: *"make it so next time I start
+// the game it gives me experience for everything I did before"* — and it is why this table exists.
+// A curve calibrated against invented action counts would be arithmetic; this is the count.
+//
+// **One thirty-day run, filtered at each mark**, rather than one run per mark: every event is
+// stamped, so the day-7 row is genuinely the day-7 state of the colony the day-30 row finishes.
+private val EXPERIENCE_MARKS = listOf(1, 3, 7, 14, 21, 30)
+
+// Davide's targets, 2026-08-22: *"a 1-day player must be around Lv 3, 1-week lv 10, 2 weeks lv 15,
+// 1 month lv 25. To give a very rough estimate."* Rough is the word he used, and the calibration
+// treats them as a shape rather than as four equations — what has to hold is the ordering and the
+// slope, not the digit.
+private val EXPERIENCE_TARGETS: Map<Int, Int> = mapOf(1 to 3, 7 to 10, 14 to 15, 30 to 25)
+
+private fun printExperienceReport() {
+    println()
+    println("## Experience — what a month of play actually contains")
+    println()
+    println("The fleet report's own player, run out to thirty days: four check-ins a day, everything")
+    println("affordable cheapest-first, hulls bought greedily, one probe per gap, every idle hull sent")
+    println("to the fullest world at the longest rung that fits. **The counts are completions**, which")
+    println("is what awards experience — a start is a commitment and its partner is the payoff.")
+    println()
+    val outcome = fleetRun(days = 30, withFleet = true, tuning = SHIPPED_FLEET)
+    val genesis = Instant.fromEpochMilliseconds(0)
+
+    println("| At | builds | projects | ladders | hulls | surveys | runs home | **total** | per day |")
+    println("|---|---|---|---|---|---|---|---|---|")
+    for (mark in EXPERIENCE_MARKS) {
+        val upTo = outcome.eventLog.filter { it.at <= genesis + (mark * 24).hours }
+        val builds = upTo.count { it is Event.BuildCompleted }
+        val projects = upTo.count { it is Event.ResearchCompleted }
+        val ladders = upTo.count { it is Event.AdaptationCompleted }
+        val hulls = upTo.filterIsInstance<Event.ShipsBuilt>().sumOf { it.ships.total }
+        val surveys = upTo.count { it is Event.SurveyCompleted }
+        val runs = upTo.count { it is Event.FleetReturned }
+        val total = builds + projects + ladders + hulls + surveys + runs
+        println(
+            "| day $mark | $builds | $projects | $ladders | $hulls | $surveys | $runs | " +
+                "**$total** | ${total / mark} |",
+        )
+    }
+    println()
+
+    // The depth term's own denominator. A flat award per action makes a level-20 mine worth what a
+    // level-2 one was, and the sum of the levels reached is the cheapest way to see how far apart
+    // those two ends of the month are.
+    println("| At | building levels reached | project levels reached | deepest build |")
+    println("|---|---|---|---|")
+    for (mark in EXPERIENCE_MARKS) {
+        val upTo = outcome.eventLog.filter { it.at <= genesis + (mark * 24).hours }
+        val buildLevels = upTo.filterIsInstance<Event.BuildCompleted>().sumOf { it.newLevel.value }
+        val projectLevels = upTo.filterIsInstance<Event.ResearchCompleted>().sumOf { it.newLevel.value } +
+            upTo.filterIsInstance<Event.AdaptationCompleted>().sumOf { it.newLevel.value }
+        val deepest = upTo.filterIsInstance<Event.BuildCompleted>().maxOfOrNull { it.newLevel.value } ?: 0
+        println("| day $mark | $buildLevels | $projectLevels | $deepest |")
+    }
+    println("### The curve as it stands, against the marks it was fitted to")
+    println()
+    println("`per day` is the reading the ladder's shape comes from: experience accrues almost")
+    println("exactly **linearly in time**, while Davide's marks are a power law — which is why a")
+    println("level costs a straight line rather than a geometric step. See `ExperienceBalance`.")
+    println()
+    println("| At | experience | per day | **level** | target | gauge |")
+    println("|---|---|---|---|---|---|")
+    for (mark in EXPERIENCE_MARKS) {
+        val upTo = outcome.eventLog.filter { it.at <= genesis + (mark * 24).hours }
+        val earned = experienceOf(upTo)
+        val progress = ExperienceBalance.progressFor(earned)
+        val target = EXPERIENCE_TARGETS[mark]?.let { "Lv $it" } ?: "—"
+        println(
+            "| day $mark | ${earned.points.grouped()} | ${(earned.points / mark).grouped()} | " +
+                "**Lv ${progress.level.value}** | $target | ${progress.percent}% |",
+        )
+    }
+    println()
+    println("Where each point came from, at day 30 — the split the \"small hull\" call is about:")
+    println()
+    val whole = outcome.eventLog
+    val sources = listOf(
+        "facility levels" to whole.filterIsInstance<Event.BuildCompleted>().sumOf { ExperienceBalance.awardFor(it).points },
+        "projects and ladders" to whole.filter { it is Event.ResearchCompleted || it is Event.AdaptationCompleted }
+            .sumOf { ExperienceBalance.awardFor(it).points },
+        "surveys" to whole.filterIsInstance<Event.SurveyCompleted>().sumOf { ExperienceBalance.awardFor(it).points },
+        "runs home" to whole.filterIsInstance<Event.FleetReturned>().sumOf { ExperienceBalance.awardFor(it).points },
+        "hulls" to whole.filterIsInstance<Event.ShipsBuilt>().sumOf { ExperienceBalance.awardFor(it).points },
+    )
+    val whole30 = sources.sumOf { it.second }
+    println("| Source | experience | share |")
+    println("|---|---|---|")
+    for ((label, points) in sources.sortedByDescending { it.second }) {
+        println("| $label | ${points.grouped()} | ${share(points, whole30)} |")
+    }
     println()
 }
 
@@ -3320,6 +3442,7 @@ private fun depositRun(
             .any { Blocker.CRYSTAL in shortagesOf(it.second, state.resources) }
 
         probeTargetFor(state, gapMinutes)?.let { target ->
+            boughtScoutIfNeeded(state, at = now)?.let { state = it }
             (startSurvey(state, target, at = now) as? StartSurveyResult.Started)?.let { state = it.state }
         }
         if (hullsFirst) state = buyOneHull(state, fleet, at = now) ?: state

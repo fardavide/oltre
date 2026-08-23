@@ -57,6 +57,22 @@ internal object BalanceBenchmarkGolden {
           robotics factory                                8
           nanite factory                                  0
 
+        [experience] the level a colony that only builds is wearing
+        day                                               level    points   into the level
+          day 1                                            Lv 3      6250       85%
+          day 2                                            Lv 4      9050       98%
+          day 3                                            Lv 5     11510       83%
+          day 7                                            Lv 8     19430       13%
+          day 14                                          Lv 11     32930       20%
+        where the points came from by day 14
+          facility levels                                 18020 (54.72%)
+          projects and ladders                            14910 (45.27%)
+        what the next level costs
+          leaving Lv 0                                    1100
+          leaving Lv 5                                    2900
+          leaving Lv 10                                   4700
+          leaving Lv 25                                   10100
+
         [pressure] over 14 days, which resource blocks the cheapest unbuilt row
         hours opening with the cheapest row unaffordable  32.04%
           of which short of metal                         11.11%

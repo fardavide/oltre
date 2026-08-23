@@ -29,6 +29,7 @@ import dev.fardavide.oltre.client.research.ui.TechnologyRowUiState
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
+import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -1509,6 +1510,9 @@ class ResearchUiStateTest {
         hullAlerts = emptyMap(),
         // The flights' ask, which lives on a dispatch sheet. This screen sends nothing anywhere.
         announceFlights = false,
+        // The player's standing, drawn by the strip above every screen and by nothing on this one.
+        // Zero and empty together, which is the pair `core` keeps in step.
+        experience = Experience.NONE,
         eventLog = emptyList(),
     )
 

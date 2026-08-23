@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-22 (0.16.0)
+Updated: 2026-08-23 (0.17.0)
 
 ## Landed
 
@@ -413,6 +413,20 @@ Updated: 2026-08-22 (0.16.0)
   migration for a constant is the wrong trade. `DESTINATION_HEIGHT` 650 → 612 in the same commit;
   eight galaxy baselines and `main_scaffold` re-recorded. See
   [`player-strip-sheet.md`](player-strip-sheet.md).
+- **0.17.0 the gauge fills** — experience and a level. **Inferred once, then stored**: the 15 → 16 hop
+  folds a save's own `eventLog` into an opening balance, so a colony carried forward from 0.16 opens
+  on the level it had already earned, and from there `GameState.experience` is a running total that
+  `GameState.logging` — the one place anything may append to the log — pays into. Davide's call over
+  the first cut, which folded on every read: *"the more the player progresses, the more it will be
+  intensive to infer the level."* Completions pay and starts do not; a hull pays
+  per hull and small; nothing reads a cost, a cargo or a stock. The ladder is a straight line —
+  `1,100 + 360 × level` — because experience accrues linearly in time while Davide's marks are a
+  power law, which the sim's new thirty-day experience report is what says. Lands on Lv 3 / 11 / 16
+  / 25 against his 3 / 10 / 15 / 25. New `:client:player:presentation` (the module 0.16's build file
+  said it would grow), an `[experience]` section on the balance benchmark, and **no baseline moved**
+  — a new colony still reads `LV 0` on an empty track. It also fixed three of `:sim`'s four bots,
+  which had silently stopped surveying at 0.15. See [`experience-sheet.md`](experience-sheet.md) and
+  balance-log round 32.
 
 
 ## Roadmap — v1 in vertical slices
@@ -890,12 +904,26 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
 
+## Pending, from 0.17.0
+
+- **Nobody has held it, and the whole curve is fitted to a bot.** What a device answers is whether
+  Lv 3 on the first evening reads as *earned* or as *given*, and whether 16 → 25 across the back half
+  of the month reads as a plateau. The dial for the middle is `LEVEL_STEP`. Same shape as the tilt
+  loop — see `session-roles.md`.
+- **The level does nothing, deliberately.** Nothing is gated on it and nothing is unlocked by it.
+  Whether it should stay a record is Davide's; `experience-sheet.md` §5 names the two shapes worth
+  putting to him and which this game's own evidence prefers.
+- **A level-up is not announced.** The badge changes and the gauge resets, and there is no notice, no
+  sound and no sweep. That has a visual half, so it is a Claude Design question rather than one a
+  session should answer at the keyboard.
+- **Probe-spam is the one grind vector.** A survey pays the dearest base in the table, scouts come
+  home, and a player who buys ten runs ten concurrent probes. Surveys are already 36% of the sim's
+  month even capped at one scout. The dial is `SURVEY_BASE`.
+
 ## Pending, from 0.16.0
 
-- **Nothing fills the gauge.** Experience is a constant `0` and the strip draws an empty track. What
-  awards it — a fold over the event log, most likely, since it already records every completed build,
-  project, ladder, survey and run — is the follow-up task Davide named when he asked for the strip:
-  *"we will plan and populate the rest in a follow up task."*
+- ~~**Nothing fills the gauge.**~~ — **closed at 0.17.0.** A fold over the event log, which is what
+  this entry guessed it would be, and it needed no schema hop at all.
 - **The gear has nothing behind it**, by design this slice. What a settings screen holds is undecided;
   the language is not in it (`TranslationsFor`).
 - **Nobody has held it.** The strip is 38dp of chrome that every screen now pays for, and whether

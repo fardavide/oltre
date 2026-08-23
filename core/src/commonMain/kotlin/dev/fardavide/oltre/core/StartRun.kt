@@ -132,7 +132,8 @@ fun startRun(
             ships = state.ships - ships,
             runs = state.runs + run,
             galaxy = state.galaxy.withTaken(target = target, gathering = gathering, taken = taken, at = at),
-            eventLog = state.eventLog + Event.FleetDispatched(
+        ).logging(
+            Event.FleetDispatched(
                 target = target,
                 gathering = gathering,
                 ships = ships,

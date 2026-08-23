@@ -13,7 +13,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
-import dev.fardavide.oltre.client.player.ui.playerStripUiState
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import org.junit.Test
 
@@ -160,7 +159,7 @@ class MainScaffoldBehaviourTest {
                     MainScaffold(
                         // Desktop has no motion sensor, so this is also what the app itself passes here.
                         tilt = { Tilt.NONE },
-                        player = playerStripUiState(),
+                        player = testPlayerStripUiState,
                         resources = testResourceRailUiState,
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
