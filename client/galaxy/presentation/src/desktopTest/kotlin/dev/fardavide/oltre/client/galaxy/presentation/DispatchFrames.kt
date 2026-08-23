@@ -74,6 +74,12 @@ internal val dispatchOfferUiState: GalaxyUiState = sheet()
 // is the standing position of the control — so it is set on the state rather than passed to `sheet`.
 internal val dispatchAnnouncedUiState: GalaxyUiState = sheet(state = frameState.copy(announceFlights = true))
 
+// **The same sheet with no bell at all**, which is what a colony opened after 0.18 actually sees: it
+// asks about alerts by kind, so a run is announced by *Fleet returns* and this control has nothing
+// left to decide. It is a whole-colony difference like the frame above it, and it is the state that
+// ships — the two frames above describe a save carried forward from 0.17.
+internal val dispatchByCategoryUiState: GalaxyUiState = sheet(state = byCategoryGameState)
+
 internal val dispatchUnsurveyedUiState: GalaxyUiState =
     sheet(target = UNSURVEYED, selection = unsurveyedSystem)
 

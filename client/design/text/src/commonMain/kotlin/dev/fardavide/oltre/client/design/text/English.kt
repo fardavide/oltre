@@ -503,7 +503,6 @@ object English : Translations {
         // which is exactly and only what this game does to a colony on foreground. Title Case
         // because it is a proper noun, which is the one thing this app capitalises.
         StringId.PlayerDefaultName -> "Dead Reckoning"
-        StringId.SettingsComingSoon -> "Coming soon"
         StringId.Watching -> "watching ${args.text(0)}"
         StringId.RatePerHour -> "+${args.text(0)}/h"
         StringId.ResourceRailMetal -> "METAL"
@@ -555,6 +554,73 @@ object English : Translations {
         StringId.AdaptationFullNameThermal -> "Thermal Adaptation"
         StringId.AdaptationFullNameGravitic -> "Gravitic Adaptation"
         StringId.AdaptationFullNameAtmospheric -> "Atmospheric Adaptation"
+
+        // ── Alerts arriving together ─────────────────────────────────────────────────────────
+        //
+        // One verb each, and they are not interchangeable: a facility *is done*, a hull *has left the
+        // yard*, a fleet *is home*. Never resolved below two, so the plural is unconditional here —
+        // the clauses below, which do meet one, spell theirs out.
+        StringId.AlertGroupFacilities -> "${args.count(0)} facilities are done"
+        StringId.AlertGroupResearch -> "${args.count(0)} projects are done"
+        StringId.AlertGroupAdaptations -> "${args.count(0)} adaptations are done"
+        StringId.AlertGroupHulls -> "${args.count(0)} hulls have left the yard"
+        StringId.AlertGroupProbes -> "${args.count(0)} probes have landed"
+        StringId.AlertGroupFleetReturns -> "${args.count(0)} fleets are home"
+        StringId.AlertGroupPriceReached -> "${args.count(0)} prices are within reach"
+        // Counts and nouns, no verb and no conjunction — the two places English and Italian disagree
+        // in every string, and the reason a title with more than one kind in it is the same shape in
+        // both tables.
+        StringId.AlertCountFacilities ->
+            args.count(0).let { "$it ${it.plural("facility", "facilities")}" }
+        // **`project`, not `research`.** The category is named Research to match the tab; the count
+        // noun cannot be, because "2 researches" is not English.
+        StringId.AlertCountResearch -> args.count(0).let { "$it ${it.plural("project", "projects")}" }
+        StringId.AlertCountAdaptations ->
+            args.count(0).let { "$it ${it.plural("adaptation", "adaptations")}" }
+        StringId.AlertCountHulls -> args.count(0).let { "$it ${it.plural("hull", "hulls")}" }
+        StringId.AlertCountProbes -> args.count(0).let { "$it ${it.plural("probe", "probes")}" }
+        StringId.AlertCountFleetReturns -> args.count(0).let { "$it ${it.plural("fleet", "fleets")}" }
+        // **The design objected to this one and Davide overruled it**, which is worth the line: *"1
+        // price"* is not a thing that finished, and the sheet's own §4 says so. It is here because the
+        // single notification folds every kind in, price included — and there is at most one of these
+        // in the game at a time, so the count is always 1.
+        StringId.AlertCountPriceReached -> args.count(0).let { "$it ${it.plural("price", "prices")}" }
+        StringId.AlertMoreCategories -> "+${args.count(0)}"
+
+        // ── The settings sheet ───────────────────────────────────────────────────────────────
+        StringId.SettingsTitle -> "Settings"
+        StringId.AlertsLabel -> "Alerts"
+        StringId.AlertModePerItem -> "Per item"
+        StringId.AlertModeByCategory -> "By category"
+        StringId.AlertModePerItemNote ->
+            "Every alert is asked for on the row it is about. Rows carry the square."
+        // Says *everything*, not *choose what you want*. With all seven on this is the loudest the app
+        // gets, and the string should not pretend otherwise.
+        StringId.AlertModeByCategoryNote ->
+            "Everything of a kind announces itself. Rows stop carrying the square."
+        StringId.AlertCategoryFacilities -> "Facilities"
+        StringId.AlertCategoryResearch -> "Research"
+        StringId.AlertCategoryAdaptations -> "Adaptations"
+        StringId.AlertCategoryHulls -> "Hulls"
+        StringId.AlertCategoryProbes -> "Probes"
+        StringId.AlertCategoryFleetReturns -> "Fleet returns"
+        StringId.AlertCategoryPriceReached -> "Price reached"
+        StringId.AlertPriceWatchOn -> "The square stays on rows you cannot afford."
+        // Off *removes* the watch rather than muting it, so the line states the consequence rather
+        // than the setting.
+        StringId.AlertPriceWatchOff -> "Nothing watches for a price."
+        StringId.AlertBellOn -> "alerts on"
+        StringId.AlertBellOff -> "alerts off"
+        StringId.DeliveryLabel -> "Delivery"
+        StringId.DeliveryEach -> "One each"
+        StringId.DeliveryPerCategory -> "One per category"
+        StringId.DeliveryTotal -> "One in total"
+        StringId.AlertNextAt -> "Next alert at ${args.clock()}."
+        // The second clause is the whole of what the stop means, so it is in the string rather than in
+        // a note beside it: nothing is repeated, one notification is brought up to date.
+        StringId.AlertNextAtTotal ->
+            "Next alert at ${args.clock()}, and it is brought up to date rather than repeated."
+        StringId.AlertNothingPending -> "Nothing is in flight, so nothing is waiting to be sent."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

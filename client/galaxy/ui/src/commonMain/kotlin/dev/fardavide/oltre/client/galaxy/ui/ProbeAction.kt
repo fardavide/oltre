@@ -75,12 +75,14 @@ internal fun ProbeAction(
                         // row is the height of the verb beside it, and a taller hit box would
                         // overhang the row it sits in — where Compose does not reliably deliver
                         // touch.
-                        WatchSquare(
-                            state = uiState.announce,
-                            onClick = onToggleAnnounce,
-                            stacked = true,
-                            modifier = Modifier.testTag(GalaxyTestTags.ANNOUNCE),
-                        )
+                        uiState.announce?.let { announce ->
+                            WatchSquare(
+                                state = announce,
+                                onClick = onToggleAnnounce,
+                                stacked = true,
+                                modifier = Modifier.testTag(GalaxyTestTags.ANNOUNCE),
+                            )
+                        }
                         PressableFace(
                             onClick = onDispatch,
                             shape = oltreActionShape,

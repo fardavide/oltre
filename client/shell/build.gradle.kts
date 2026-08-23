@@ -71,6 +71,9 @@ kotlin {
             implementation(projects.client.player.presentation)
             implementation(projects.client.research.presentation)
             implementation(projects.client.save.data)
+            // The mapper only; `AlertSheet` arrives with it, because a `presentation` exposes the
+            // `ui` it maps into — the same edge `:client:player:presentation` has.
+            implementation(projects.client.settings.presentation)
             implementation(projects.client.shipyard.presentation)
             // Only the `data` half is named, because it declares `api` on its own `domain` —
             // `TiltSource` hands out a `Tilt`, so the type travels with the module that emits it.

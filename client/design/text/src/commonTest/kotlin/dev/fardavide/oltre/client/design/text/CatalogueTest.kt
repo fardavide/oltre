@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.design.text
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.EpithetAdjective
 import dev.fardavide.oltre.core.EpithetNoun
@@ -412,5 +415,26 @@ private val everyEntry: List<TextRes> = buildList {
     ShipType.entries.forEach { add(Strings.shipTitleName(it)) }
     AdaptationTechnology.entries.forEach { add(Strings.adaptationFullName(it)) }
     add(Strings.playerDefaultName())
-    add(Strings.settingsComingSoon())
+    AlertCategory.entries.forEach { add(Strings.alertGroupTitle(it, 3)) }
+    // Twice each, because these are the only entries in the catalogue whose *plural* is reachable
+    // from a real colony and whose singular is too — a title reading "3 facilities · 1 fleet" holds
+    // both forms of the same rule.
+    AlertCategory.entries.forEach { add(Strings.alertCountClause(it, 1)) }
+    AlertCategory.entries.forEach { add(Strings.alertCountClause(it, 3)) }
+    add(Strings.alertMoreCategories(2))
+    add(Strings.settingsTitle())
+    add(Strings.alertsLabel())
+    add(Strings.alertModePerItem())
+    add(Strings.alertModeByCategory())
+    AlertMode.entries.forEach { add(Strings.alertModeNote(it)) }
+    AlertCategory.entries.forEach { add(Strings.alertCategoryName(it)) }
+    add(Strings.alertPriceWatchNote(on = true))
+    add(Strings.alertPriceWatchNote(on = false))
+    add(Strings.alertBellState(on = true))
+    add(Strings.alertBellState(on = false))
+    add(Strings.deliveryLabel())
+    AlertDelivery.entries.forEach { add(Strings.deliveryName(it)) }
+    add(Strings.alertNextAt(hour = 17, minute = 42, updating = false))
+    add(Strings.alertNextAt(hour = 17, minute = 42, updating = true))
+    add(Strings.alertNothingPending())
 }

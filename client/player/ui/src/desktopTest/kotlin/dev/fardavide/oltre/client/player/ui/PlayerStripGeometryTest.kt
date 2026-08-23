@@ -56,52 +56,12 @@ class PlayerStripGeometryTest {
         )
     }
 
-    @Test
-    fun `the notice claims the hit target the gear could not`() {
-        // **The two halves of the same rule, and the point is that they disagree.** `WatchSquare`'s
-        // finding is that a target may not overflow its parent, so the gear settles for 38dp because
-        // the band it lives in is the most expensive number in this design. The notice has no band
-        // and nothing above it to pay: it takes the 44dp Material asks for. Nothing on it is
-        // tappable, so what the height buys is that it reads as a surface rather than as a line of
-        // text that appeared — and a notice that quietly shrank to the gear's 38 would lose that
-        // with no frame able to say which of the two was wrong.
-        assertTrue(
-            NOTICE_HEIGHT >= HIT_TARGET_MIN,
-            "the notice is $NOTICE_HEIGHT tall, under the $HIT_TARGET_MIN this app spends where it can",
-        )
-        assertTrue(
-            NOTICE_HEIGHT > GEAR_TARGET,
-            "the notice is $NOTICE_HEIGHT against the gear's $GEAR_TARGET, so the constrained target " +
-                "is the larger one and one of the two is wrong",
-        )
-    }
-
-    @Test
-    fun `the notice is drawn with the stronger of the app's two lines`() {
-        // White 16% against the hairline's 9%. Every other card sits in a list of its own kind and
-        // is separated by rhythm; this one floats over a screen and has only its own edge to say
-        // where it starts. Stated as a comparison with the strip's own track rather than as a
-        // literal, because a frame cannot fail on the difference between two near-black greys and an
-        // alpha that drifted down to the hairline's would look like nothing at all.
-        assertTrue(
-            NOTICE_BORDER.alpha > TRACK.alpha,
-            "the notice's line is ${NOTICE_BORDER.alpha} against the app's ${TRACK.alpha} hairline, " +
-                "so it is not the stronger of the two",
-        )
-        assertEquals(NOTICE_BORDER_WIDTH, HAIRLINE)
-    }
-
-    @Test
-    fun `the notice stays long enough to be read and not long enough to be furniture`() {
-        // Bounded rather than pinned: the exact figure is the design's and may move, and a test that
-        // restated it would only assert that a constant is itself. What must not happen is a notice
-        // that is gone before it is read, or one that is still there when the player has moved on.
-        assertTrue(
-            SETTINGS_NOTICE_MILLIS in 2_000L..6_000L,
-            "the notice stays ${SETTINGS_NOTICE_MILLIS}ms, which is either a flash or furniture",
-        )
-    }
-
+    // **Three tests left with the notice at 0.18**, and they are worth a line rather than a silent
+    // deletion: they held its 44dp target against the gear's 38, its stronger border against the
+    // app's hairline, and its four-second window against being a flash or furniture. Every one of
+    // them was about a card that said `Coming soon`. What replaces them is `AlertSheetBehaviourTest`
+    // and the sheet's own baselines — the gear opens something now, so what is worth pinning is what
+    // it opens rather than how long the apology stayed.
     @Test
     fun `the gauge is never asked to draw outside its track`() {
         // `fillMaxWidth` throws outside 0..1. The mapper one layer up is free to hand this an

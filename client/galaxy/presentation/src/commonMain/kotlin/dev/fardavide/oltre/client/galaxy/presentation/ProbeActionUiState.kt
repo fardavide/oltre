@@ -10,6 +10,8 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GameState
@@ -124,7 +126,14 @@ internal fun GameState.toProbeActionUiState(
             // The standing position of the bell rather than anything about *this* star: the ask is
             // written onto the job when the verb is tapped, so what the square shows before the tap
             // is the answer the flight would be sent with. See `GameState.announceFlights`.
-            announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+            //
+            // Null under `BY_CATEGORY`, where a landing is announced by its kind and this control has
+            // nothing left to decide — the sheet's call 1, reaching the one bell that is not on a row.
+            announce = when {
+                !alerts.asksOnRow(AlertCategory.PROBES) -> null
+                announceFlights -> WatchSquareUiState.ASKED
+                else -> WatchSquareUiState.UNASKED
+            },
         )
     }
     val wait = timeUntilAffordable(resources, cost, buildings, research)

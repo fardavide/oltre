@@ -37,6 +37,8 @@ import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.defaultPreferencesFile
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.client.settings.presentation.toAlertSheetUiState
+import dev.fardavide.oltre.client.settings.ui.AlertSheet
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
 import dev.fardavide.oltre.client.tilt.data.TiltSource
@@ -56,12 +58,15 @@ import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.setAlertDelivery
+import dev.fardavide.oltre.core.setAlertMode
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
 import dev.fardavide.oltre.core.startRun
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
+import dev.fardavide.oltre.core.toggleAlertCategory
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -146,6 +151,14 @@ fun App(
             // so a skip is one state change that the tick loop and the commit both read.
             var debugClock by remember { mutableStateOf(DebugClock()) }
             var debugOpen by remember { mutableStateOf(false) }
+            // The app's other modal, held here for the reason the debug sheet's flag is: both are
+            // raised over whatever destination is showing, and a sheet is not a destination.
+            //
+            // **A flag rather than the count 0.16 used.** What the gear opened then was a notice on a
+            // four-second timer, and a second tap had to restart the window rather than stack a
+            // second bar — which a `Boolean` could not express. A sheet has no window: it is up until
+            // something closes it, and the second tap is one of the things that closes it.
+            var settingsOpen by remember { mutableStateOf(false) }
             // What this launch found, in two halves that are forgotten at two different moments —
             // because the two things that announce them live in two different places.
             //
@@ -302,6 +315,17 @@ fun App(
                 // this writes no event — so it commits unconditionally, exactly as `alert` does.
                 fun alertFlights() {
                     val next = current.alertingFlights(debugClock, wallClock = wallClock.now())
+                    session = next
+                    scope.launch { next.commit(store, notifications, debugClock) }
+                }
+
+                // The settings sheet's three controls, and they share one verb because they are one
+                // kind of thing: a standing answer being changed, pointing at no job and reading no
+                // stock. Same shape as the three above and committing unconditionally for the same
+                // reason — nothing here writes an event, and what has to survive is the schedule that
+                // `notifications.sync` books inside `commit`.
+                fun prefer(transition: (GameState) -> GameState) {
+                    val next = current.preferring(debugClock, wallClock = wallClock.now(), transition = transition)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
                 }
@@ -577,7 +601,37 @@ fun App(
                                 onToggleAnnounce = { alertFlights() },
                             )
                         },
+                        // **Tapping the gear again closes what it opened**, which is one of the four
+                        // ways out the design names and the only one that is a control rather than a
+                        // gesture. The strip is still on screen behind the scrim, so it is reachable
+                        // exactly when it needs to be.
+                        onOpenSettings = { settingsOpen = !settingsOpen },
                     )
+
+                    // **The app's second modal, beside its first.** Every control on the sheet
+                    // commits on tap and none of them writes an event, so all three go through
+                    // `prefer` rather than `act` — see there.
+                    if (settingsOpen) {
+                        AlertSheet(
+                            uiState = current.state.toAlertSheetUiState(
+                                now = current.lastUpdatedAt,
+                                timeZone = TimeZone.currentSystemDefault(),
+                            ),
+                            // The same window every other compact decision in this file reads, and
+                            // the one the design measured the stacked ladder against.
+                            compact = maxWidth < OltreLayout.compactWidth,
+                            // One callback for every way out — the handle, the scrim, the system
+                            // back — so the sheet cannot be dismissed by a route this does not hear.
+                            onDismiss = { settingsOpen = false },
+                            onSelectMode = { mode -> prefer { state -> setAlertMode(state, mode) } },
+                            onToggleCategory = { category ->
+                                prefer { state -> toggleAlertCategory(state, category) }
+                            },
+                            onSelectDelivery = { delivery ->
+                                prefer { state -> setAlertDelivery(state, delivery) }
+                            },
+                        )
+                    }
 
                     if (debugOpen) {
                         DebugSheet(

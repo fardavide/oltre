@@ -92,6 +92,12 @@ include(":client:player:ui")
 include(":client:research:presentation")
 include(":client:research:ui")
 include(":client:save:data")
+// The first preferences surface in the app, and a feature directory of its own rather than a corner
+// of `:client:player` — the gear lives on the strip, and what it opens is about the whole game.
+// `presentation` earns its place on one line of the sheet: when the next alert is actually due,
+// which is a fold over `announcedEvents` rather than a rendering of a setting.
+include(":client:settings:presentation")
+include(":client:settings:ui")
 include(":client:shell")
 include(":client:shipyard:presentation")
 include(":client:shipyard:ui")

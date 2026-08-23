@@ -69,33 +69,10 @@ internal val GAUGE_HEIGHT = 2.dp
 internal val TRACK = Color.White.copy(alpha = 0.09f)
 internal val BADGE_FILL = Color.White.copy(alpha = 0.09f)
 
-// **The notice's numbers, here for the same reason the strip's are** — they are the other drawing in
-// this module, and a constant a test cannot reach without loading a composable's file class is a
-// constant that gets re-typed by whatever wants to check it.
-//
-// 44dp, and this is the one surface in the app that can afford it: the gear could not, because its
-// target sits inside a band whose height every screen pays for. Nothing on the notice is tappable —
-// what the height buys is that it reads as a surface rather than as a line of text that appeared.
-internal val NOTICE_HEIGHT = 44.dp
-internal val NOTICE_PADDING = 13.dp
-internal val NOTICE_SIZE = 12.sp
-
-// The screen padding every destination uses. The notice floats over one, so it lines up with the
-// cards under it rather than with the window.
-internal val NOTICE_SCREEN_PADDING = 16.dp
-
-// The stronger of the app's two lines — white 16% rather than the hairline's 9%. Every other card in
-// the app sits in a list of its own kind and is separated by rhythm; this one sits over a screen and
-// has only its own edge to say where it starts.
-internal val NOTICE_BORDER = Color.White.copy(alpha = 0.16f)
-internal val NOTICE_BORDER_WIDTH = 1.dp
-
-// **How long the notice stays, and it is the notice's number rather than the frame's** even though
-// the frame is what counts it down. Four seconds: long enough to read eleven characters and be sure
-// they were meant, short enough that it is gone before a player has decided to do something else.
-// Public and `const`, because the frame that counts it down is in another module and a duration
-// restated there is a duration that can drift from the one the tests use.
-const val SETTINGS_NOTICE_MILLIS = 4_000L
+// **The notice's numbers left with 0.18**, along with the notice: six measurements and a four-second
+// window, for a card that said `Coming soon` because the gear had nothing behind it. It has a sheet
+// behind it now — see `:client:settings:ui` — and an auto-dismissing surface with one string on it is
+// exactly the infrastructure that stops being worth its own file the day the string goes.
 
 // **How much of the edge is lit, and the clamp is the point rather than defensiveness.** A reading
 // is a reading: this module holds no rule saying experience cannot exceed a level's requirement, and

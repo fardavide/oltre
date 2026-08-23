@@ -9,6 +9,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -31,7 +32,11 @@ import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.SaveFile
+import dev.fardavide.oltre.client.settings.ui.SettingsTestTags
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardTestTags
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameSnapshot
@@ -151,6 +156,64 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
 
     fun assertNoAlertOn(type: ShipType) = apply {
         test.onNodeWithTag(ShipyardTestTags.alert(type), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    // ── The settings sheet, from the gear ───────────────────────────────────────────────────
+    //
+    // Four taps that only mean anything together, and here rather than in `:client:settings:ui` for
+    // the dispatch bell's reason: a chip is a control on the sheet, what it is worth is the schedule
+    // the composition root books in `prefer`, and nothing below this can see both ends.
+
+    fun openTheSettings() = apply {
+        test.onNodeWithTag(PlayerTestTags.SETTINGS, useUnmergedTree = true).performClick()
+        test.waitForIdle()
+    }
+
+    // The gear is its own way back, which is one of the four exits the design names. The others are
+    // gestures on a popup and belong to the platform rather than to this suite.
+    fun dismissTheSettings() = openTheSettings()
+
+    fun chooseMode(mode: AlertMode) = apply {
+        test.onNodeWithTag(SettingsTestTags.mode(mode)).performClick()
+        test.waitForIdle()
+    }
+
+    fun chooseByCategory() = chooseMode(AlertMode.BY_CATEGORY)
+
+    fun chooseDelivery(delivery: AlertDelivery) = apply {
+        test.onNodeWithTag(SettingsTestTags.delivery(delivery)).performClick()
+        test.waitForIdle()
+    }
+
+    // The row, not the square — the whole 38dp width answers, which is what lets the square stay at
+    // the colony's own 29dp without carrying a 44dp hit area on its own.
+    fun toggleCategory(category: AlertCategory) = apply {
+        test.onNodeWithTag(SettingsTestTags.category(category)).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // **What `AlertDelivery.TOTAL` actually promises**, asserted where it can be seen: several
+    // bookings, one tray entry. The ids have to differ — neither platform will hold two pending
+    // requests under one identifier — so the distinct count of the *other* field is the whole claim.
+    fun assertOneTrayEntry() = apply {
+        assertEquals(
+            1,
+            booked.scheduled.map { it.collapseId }.distinct().size,
+            "tray entries: ${booked.scheduled.map { it.collapseId }}",
+        )
+    }
+
+    // Whether the colony's rows still carry the square, asked of the tab rather than of a state:
+    // under `BY_CATEGORY` the question has been answered one level up and the control is *absent*,
+    // which is the only thing this app does with a control that has nothing left to decide.
+    fun assertColonyOffersSquares(offered: Boolean) = apply {
+        open(OltreTab.COLONY)
+        val node = test.onAllNodesWithTag(ColonyTestTags.watch(BuildingType.METAL_MINE), useUnmergedTree = true)
+        assertEquals(
+            offered,
+            node.fetchSemanticsNodes().isNotEmpty(),
+            if (offered) "the row should carry a square" else "the row should carry none",
+        )
     }
 
     // ── The dispatch sheet, from the ledger ─────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.FleetRun
@@ -206,7 +207,12 @@ class NotificationIdentityTest {
 
 private val EPOCH = Instant.fromEpochMilliseconds(0)
 
-private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
+// **`CARRIED_FORWARD` rather than genesis's own settings**, for `GameNotificationsTest`'s reason:
+// this file is about ids being distinct and stable, and one alert per thing is the only packaging
+// that produces one id per thing to compare. `AlertDeliveryTest` covers the pair a new colony opens
+// on, ids included.
+private fun freshState(): GameState =
+    GameState.initial(GalaxySeed(20_260_807)).copy(alerts = AlertSettings.CARRIED_FORWARD)
 
 // Rich enough to start everything at once, and with the lab's gate already met. **The gate has to be
 // a level rather than a job**: `startUpgrade` on the robotics factory books a build, and the level it

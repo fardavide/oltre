@@ -5,6 +5,7 @@ import dev.fardavide.oltre.client.fleets.ui.FleetsUiState
 import dev.fardavide.oltre.client.fleets.ui.PHONE_WIDTH
 import dev.fardavide.oltre.client.fleets.ui.SLIDE_OVER_WIDTH
 import dev.fardavide.oltre.client.fleets.ui.fleets
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -368,9 +369,15 @@ class FleetsFromStateBehaviourTest {
 
     // A colony with an idle skiff and one world already worked — the smallest state in which the
     // section is a door rather than a list.
+    //
+    // **`CARRIED_FORWARD`, because a new colony's settings take the bell off this sheet.** Under
+    // `By category` a run is announced by its kind, so the control has nothing left to decide and
+    // this app draws none — which would make the two tests below assertions about a control that no
+    // longer exists rather than about the door they are named for.
     private fun colonyWithARun(): GameState = GameState.initial(SEED).copy(
         ships = Ships.of(ShipType.SKIFF, 1),
         eventLog = listOf(landing(Resources.of(metal = 132))),
+        alerts = AlertSettings.CARRIED_FORWARD,
     )
 
     private fun dispatched(hulls: Int): GameState {

@@ -4,6 +4,8 @@ import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertDelivery
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
@@ -13,8 +15,8 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchedPurchase
-import dev.fardavide.oltre.core.futureEvents
-import dev.fardavide.oltre.core.target
+import dev.fardavide.oltre.core.alertCategory
+import dev.fardavide.oltre.core.announcedEvents
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -55,6 +57,7 @@ class GameNotifications(
             notificationsFor(state, now).map {
                 LocalNotification(
                     id = it.id,
+                    collapseId = it.collapseId,
                     title = translations.resolve(it.title),
                     body = translations.resolve(it.body),
                     at = toRealTime(it.at),
@@ -86,70 +89,143 @@ internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
 private val GROUPING_WINDOW: Duration = 5.minutes
 
 internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotification> {
-    // `now` reaches core as well as filtering its answer, and the two uses are not the same. One
-    // member of that list is not a job with a stored instant — the watch is projected forward from
-    // the moment these stocks are accurate as of, which is this one.
-    val upcoming = futureEvents(state, now = now)
-        // core hands back everything still in flight; an event at or before `now` is either
-        // about to be applied by `advance` or already has been, and either way an alert for it
-        // would fire in the past. The platforms reject that anyway — dropping it here means one
-        // rule instead of one per platform.
-        .filter { it.at > now }
+    // **The gate is `core`'s since 0.18, and the move is the settings sheet's doing rather than a
+    // tidy-up.** It lived here from 0.5.0 on the design's own instruction, for a reason that is
+    // untouched: `futureEvents` is the mirror of what `advance` will write to the log, and a build
+    // completes whether or not anybody asked to hear it, so a core that dropped it would make the
+    // mirror lie. `announcedEvents` is a second list derived from the first rather than a filter over
+    // it, and the debug menu's "skip to the next event" still reads the unfiltered one.
+    //
+    // What moved it is that there are two readers now. This books the alerts; the settings sheet says
+    // when the next one is due. One rule is the only thing that stops a preferences screen promising
+    // a buzz the scheduler will not send.
+    val pending = announcedEvents(state, now)
 
-    // **The gate, and the whole of what 0.5.0 changed about the check-in loop: a completion nobody
-    // asked about is not booked at all.** Not trimmed — absent, so there is nothing for it to
-    // weigh against the platform's 64.
-    //
-    // Here rather than inside `futureEvents`, on the design's own instruction and for a reason of
-    // its own: that list is the mirror of what `advance` will write to the log, and a build completes
-    // whether or not anybody asked to hear it. A core that dropped it would make the mirror lie, and
-    // the debug menu's "skip to the next event" reads the very same list.
-    //
-    // **The second gate finishes the job on the one kind that was still firing on its own.** A
-    // delivery was exempt because there was no control on a hull card to ask it with; there is one
-    // now, so the same rule reaches it — see `announcedHulls`, which answers *which* deliveries as
-    // well as *whether*, because a hull card asks two questions rather than one.
-    // **The third and fourth gates close the loop: from 0.15.4 there is no alert in this game that
-    // was not asked for.** A fleet return and a probe landing were the last two kinds firing on
-    // their own, on the argument that a flight is not something you wait on a *row* for — which was
-    // true and drew the wrong conclusion. What it described was the absence of a control, and the
-    // answer to that is a control: the bell beside Dispatch, Davide's call of 2026-08-22.
-    //
-    // **Read off the event rather than off `state.announceFlights`, and that is the whole of the
-    // per-flight promise.** The colony's flag is where the *bell* is; each job carries the answer it
-    // was sent under. A gate that consulted the flag would announce a run the player had already
-    // decided against and silence one they had asked for, both of them retroactively.
-    val orders = announcedHulls(state, upcoming)
-    val pending = upcoming
-        .filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
-        .filterNot { it is FutureEvent.ShipsComplete && it !in orders }
-        .filterNot { it is FutureEvent.FleetReturns && !it.announced }
-        .filterNot { it is FutureEvent.SurveyLands && !it.announced }
+    // **The platform's ceiling is applied before the delivery rule and not after**, and the order is
+    // load-bearing: `PER_CATEGORY` and `TOTAL` both fold the surviving events into fewer
+    // notifications, so trimming afterwards would be counting sentences rather than alerts — and a
+    // colony past the ceiling would schedule a summary claiming things it had just dropped.
+    val kept = withinPlatformCeiling(pending)
 
+    return when (state.alerts.delivery) {
+        AlertDelivery.EACH -> oneEach(kept, state, now)
+        AlertDelivery.PER_CATEGORY -> onePerCategory(kept)
+        AlertDelivery.TOTAL -> oneInTotal(kept)
+    }
+}
+
+// **One per thing, which is what the game has always done** — including the five-minute chain below.
+// Davide's call, 2026-08-23: the chain stays here rather than becoming a fourth stop, because it is a
+// dedupe for things landing in the same breath rather than a delivery rule.
+private fun oneEach(kept: List<FutureEvent>, state: GameState, now: Instant): List<PendingNotification> {
     // Everything the player asked about that lands close enough together to be one sentence. Only
     // completions group: a probe landing and a fleet coming home are different kinds of news, and the
     // group's sentence is about upgrades.
-    val groups = pending.filterIsInstance<FutureEvent.Completion>().chainedWithin(GROUPING_WINDOW)
+    val groups = kept.filterIsInstance<FutureEvent.Completion>().chainedWithin(GROUPING_WINDOW)
     // A group fires at its **last** member's instant — "Three upgrades are done" is not true until
     // the third one is — so it takes that member's place in the list and the surrounding order is
     // untouched by construction. The earlier members are absorbed.
     val groupBy = groups.associateBy { it.last() as FutureEvent }
     val absorbed = groups.flatMap { it.dropLast(1) }.toSet()
 
-    // **Three kinds are now unbounded, not two.** Six facilities, two research slots and one watch
-    // are bounded by the model — **nine** at the ceiling since 0.12.2 gave the adaptation branch a
-    // slot of its own, and none of them can ever be the thing that overflows. Probes were the only
-    // kind that ran in parallel with no cap; fleet runs are the second and the yard queue is the
-    // third, so the partition has to name all three or `bounded.size` stops describing the protected
-    // set and the trim arithmetic quietly under-counts.
-    //
-    // **The trim order is a content decision** and it is the sheet's proposal rather than a settled
-    // one: protect the model-bounded nine, then returns, then probe landings, then hulls — because a
-    // return carries resources that a full store can void, a probe carries information that does not
-    // spoil, and a hull on the slipway loses nothing at all by being announced late. It is last for
-    // that reason and not because it matters least; it is the only one of the three whose news keeps
-    // indefinitely. Davide's to overrule.
-    val (unbounded, bounded) = pending.filterNot { it in absorbed }.partition {
+    return kept.filterNot { it in absorbed }.map { event ->
+        groupBy[event]?.takeIf { it.size > 1 }?.toNotification()
+            // An order of one is the singleton alert, exactly as a group of one is the thing
+            // itself — the `takeIf` is the same rule one line up, for the same reason: a count
+            // is only worth saying when there is more than one thing to count.
+            //
+            // **Only under `WHEN_ALL_DONE`**, which is the half of `HullAlert` this stop still reads.
+            // `EACH_HULL` is one alert per hull by definition, and `BY_CATEGORY` is `EACH_HULL` one
+            // level up — a single switch cannot carry the card's third state, which is the one thing
+            // call 1 loses and `AlertDelivery.PER_CATEGORY` is where it comes back.
+            ?: (event as? FutureEvent.ShipsComplete)
+                ?.takeIf { state.hullAlerts[it.ship] == HullAlert.WHEN_ALL_DONE }
+                ?.let { hull ->
+                    orderSize(state, hull.ship, now).takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) }
+                }
+            ?: event.toNotification()
+    }
+}
+
+// **One per kind, at the instant the last thing of that kind lands.**
+//
+// `PRICE_REACHED` is the exception and it is the design's: every other category announces something
+// that has already happened and stays true, and this one announces a window that closes as soon as
+// the resources go on something else. Held back, being told at 17:42 that a purchase was affordable
+// at 14:50 is worse than not being told at all. It is also the one category whose count would be
+// wrong in a summary — *1 price* is not a thing that finished — and it can only ever be one, because
+// a colony watches one row.
+private fun onePerCategory(kept: List<FutureEvent>): List<PendingNotification> = kept
+    .groupBy { it.alertCategory }
+    .flatMap { (category, events) ->
+        if (category == AlertCategory.PRICE_REACHED || events.size == 1) {
+            // A group of one is the thing itself, which is the rule the five-minute chain and the
+            // hull order are both written to.
+            events.map { it.toNotification() }
+        } else {
+            listOf(events.toGroupNotification(category))
+        }
+    }
+    // **Reassembled and re-sorted, unlike the other two stops**, and it has to be: a group takes its
+    // last member's instant, so the order the events arrived in is no longer the order the
+    // notifications fire in.
+    .sortedBy { it.at }
+
+// **One notification, brought up to date rather than joined by a second.** Davide, 2026-08-23:
+// *"Metal Mine upgraded at 12:04, and notification shows only that, then one ship is ready at 12:37,
+// and the notification updates to show Metal Mine + 1 ship."*
+//
+// So this is emphatically **not** one alert held back until the last thing lands. The design's §6
+// measured that on the reference colony and it came to five hours and thirty-eight minutes of
+// silence — a mine finishing at 12:04 announced when a drive lands at 17:42, in a game played in
+// five-minute check-ins. What ships instead fires at *every* instant and replaces what is already
+// there, so the player is never told late and the tray never holds more than one.
+//
+// One booking per distinct instant, each summarising everything from `now` up to and including it.
+// Several things landing on the same millisecond are one notification rather than two that would
+// replace each other in the same frame.
+private fun oneInTotal(kept: List<FutureEvent>): List<PendingNotification> = kept
+    .map { it.at }
+    .distinct()
+    .sorted()
+    .map { instant ->
+        kept.filter { it.at <= instant }.toSummaryNotification(
+            // **Distinct per booking even though they display as one**, because neither platform will
+            // hold two *pending* requests under a single identifier — the second silently replaces
+            // the first while it is still waiting, which would leave a colony holding only its last
+            // alert. The instant separates them and never moves once a job has started.
+            id = "$TOTAL_COLLAPSE_ID-${instant.toEpochMilliseconds()}",
+            at = instant,
+        )
+    }
+
+// The one tray identity in the game. Every other alert displays under its own id; these all display
+// under this one, which is the whole of what the stop means. See `LocalNotification.collapseId` for
+// what each platform can actually do with it.
+private const val TOTAL_COLLAPSE_ID: String = "total"
+
+// How many hulls of this type are still to come, which is what an order alert promises. Read off the
+// yard rather than off the predictions, because the gate has already dropped all but the last of
+// them — and an order that counted the whole queue would promise five hulls at an instant three of
+// them have already arrived at.
+private fun orderSize(state: GameState, ship: ShipType, now: Instant): Int =
+    state.yard.count { it.ship == ship && it.completesAt > now }
+
+// **Three kinds are unbounded, not two.** Six facilities, two research slots and one watch are
+// bounded by the model — **nine** at the ceiling since 0.12.2 gave the adaptation branch a slot of
+// its own, and none of them can ever be the thing that overflows. Probes were the only kind that ran
+// in parallel with no cap; fleet runs are the second and the yard queue is the third, so the
+// partition has to name all three or `bounded.size` stops describing the protected set and the trim
+// arithmetic quietly under-counts.
+//
+// **The trim order is a content decision** and it is the sheet's proposal rather than a settled one:
+// protect the model-bounded nine, then returns, then probe landings, then hulls — because a return
+// carries resources that a full store can void, a probe carries information that does not spoil, and
+// a hull on the slipway loses nothing at all by being announced late. It is last for that reason and
+// not because it matters least; it is the only one of the three whose news keeps indefinitely.
+// Davide's to overrule.
+private fun withinPlatformCeiling(pending: List<FutureEvent>): List<FutureEvent> {
+    val (unbounded, bounded) = pending.partition {
         it is FutureEvent.SurveyLands || it is FutureEvent.FleetReturns || it is FutureEvent.ShipsComplete
     }
     val (returns, rest) = unbounded.partition { it is FutureEvent.FleetReturns }
@@ -178,51 +254,109 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
         // makes to the platform is enforced on the way out rather than inferred from the arithmetic
         // above.
         .take(IOS_PENDING_REQUEST_LIMIT)
-        .map { event ->
-            groupBy[event]?.takeIf { it.size > 1 }?.toNotification()
-                // An order of one is the singleton alert, exactly as a group of one is the thing
-                // itself — the `takeIf` is the same rule one line up, for the same reason: a count
-                // is only worth saying when there is more than one thing to count.
-                ?: (event as? FutureEvent.ShipsComplete)
-                    ?.let { hull -> orders[hull]?.takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) } }
-                ?: event.toNotification()
-        }
 }
 
-// **Which deliveries are announced, and what each announcement stands for.** A hull card's control
-// has three states rather than two — see `HullAlert` — so this answers a question the completions'
-// gate does not have to: not just *whether* the player asked, but *which* of the two ways.
+// ── What a group of things says ─────────────────────────────────────────────────────────────
+
+// Several things of one kind, as one sentence: a count-and-verb title and the kinds involved under
+// it. **Never called with fewer than two** — one of anything is that thing's own alert.
 //
-// Keyed per hull type all the way through, which is Davide's call of 2026-08-22 and not a detail of
-// this file. The yard is one serial queue holding several types at once, and the question is per
-// type: a player waiting on a hauler is not waiting on the two skiffs ahead of it.
+// The body names the **distinct** subjects rather than every one of them, which is what makes one
+// rule work for all seven categories. Three facilities are three different rows and read as a list;
+// three skiffs are three identical objects, and "Skiff, Skiff and Skiff" is a sentence no player
+// should ever be shown. The count is already in the title, so the body's job is which kinds.
+private fun List<FutureEvent>.toGroupNotification(category: AlertCategory): PendingNotification {
+    val at = maxOf { it.at }
+    return pendingNotification(
+        // Its kind and its instant, for the reason the upgrade group's id is its instant: a group's
+        // subject is a *set* and one more switch changes it, where the instant it fires at does not.
+        id = "group-${category.name}-${at.toEpochMilliseconds()}",
+        title = Strings.alertGroupTitle(category, size),
+        body = subjectList(),
+        at = at,
+    )
+}
+
+// Everything that has landed by one instant, as one sentence — the content of the single notification
+// `AlertDelivery.TOTAL` keeps bringing up to date.
 //
-// The count is the hulls **still to come**, because `upcoming` has already dropped whatever is due
-// or past. An order that counted the whole queue would promise five hulls at an instant three of
-// them arrive at.
-private fun announcedHulls(state: GameState, upcoming: List<FutureEvent>): Map<FutureEvent.ShipsComplete, Int> =
-    upcoming.filterIsInstance<FutureEvent.ShipsComplete>()
-        .groupBy { it.ship }
-        .flatMap { (ship, hulls) ->
-            when (state.hullAlerts[ship]) {
-                // Absent is off, which is every card nobody has tapped.
-                null -> emptyList()
-                // One alert, taking the **last** hull's place in the list — "your five skiffs are
-                // built" is not true until the fifth one is, and `upcoming` is already in instant
-                // order, so the surrounding sequence is untouched by construction. The same rule the
-                // upgrade group fires by, one deck down.
-                HullAlert.WHEN_ALL_DONE -> listOf(hulls.last() to hulls.size)
-                HullAlert.EACH_HULL -> hulls.map { it to 1 }
-            }
-        }
-        .toMap()
+// Three shapes, and which one applies is a fact about the set rather than a setting:
+// one thing is that thing's own alert, one kind is the group sentence above, and more than one kind
+// is counts and nouns.
+private fun List<FutureEvent>.toSummaryNotification(id: String, at: Instant): PendingNotification {
+    val byCategory = groupBy { it.alertCategory }
+    val single = singleOrNull()
+    if (single != null) {
+        // The singleton's own words, under the shared tray identity. A player whose colony has done
+        // exactly one thing should read what happened, not a tally of one.
+        val alone = single.toNotification()
+        return alone.copy(id = id, collapseId = TOTAL_COLLAPSE_ID, at = at)
+    }
+    if (byCategory.size == 1) {
+        val (category, events) = byCategory.entries.single()
+        val group = events.toGroupNotification(category)
+        return group.copy(id = id, collapseId = TOTAL_COLLAPSE_ID, at = at)
+    }
+    // **Counts and nouns, biggest first, no verb and no conjunction** — the design's rule, and the
+    // reason for it is translation rather than brevity: a verb costs a plural agreement and *and*
+    // costs a conjunction, and those are the two places English and Italian disagree in every string.
+    val ranked = byCategory.entries.sortedWith(
+        // Ties broken by the category's own declaration order, so the same colony always produces the
+        // same sentence — `sortedByDescending` alone would leave two equal counts in map order, which
+        // is insertion order, which is the order events happened to land in.
+        compareByDescending<Map.Entry<AlertCategory, List<FutureEvent>>> { it.value.size }
+            .thenBy { it.key.ordinal },
+    )
+    val shown = ranked.take(TITLE_CATEGORIES)
+    val hidden = ranked.size - shown.size
+    return PendingNotification(
+        id = id,
+        collapseId = TOTAL_COLLAPSE_ID,
+        title = Strings.clauses(
+            shown.map { Strings.alertCountClause(it.key, it.value.size) } +
+                listOfNotNull(Strings.alertMoreCategories(hidden).takeIf { hidden > 0 }),
+        ),
+        // Written to be read from the left, because one line of it is all a lock screen shows.
+        body = Strings.clauses(ranked.map { it.value.subjectList() }),
+        at = at,
+    )
+}
+
+// How many kinds the title carries before the rest become `+n`.
+//
+// **The design's rule is a character count — "take categories while they fit 28 characters" — and
+// this is not that.** A character budget cannot be spent on a `TextRes`: the title is not a string
+// until `Translations` resolves it, hours later and in whichever language the device is set to, and a
+// rule that measured English would silently compact a different set of categories in Italian. Two is
+// what reproduces both of the design's own drawn examples, and the sheet itself says 28 is *"a
+// measurement to take on a device — the rule survives whatever it turns out to be."*
+private const val TITLE_CATEGORIES: Int = 2
+
+// The kinds involved, listed once each. See `toGroupNotification` for why it is distinct.
+private fun List<FutureEvent>.subjectList(): TextRes {
+    val names = map { it.subjectName() }.distinct()
+    return names.singleOrNull() ?: Strings.listed(names)
+}
+
+// What one prediction is about, in the words the singleton alert for it would use — so a player told
+// "3 facilities are done · Metal Mine and Solar Plant" and later told "Metal Mine reached level 4" is
+// being told about one thing.
+private fun FutureEvent.subjectName(): TextRes = when (this) {
+    is FutureEvent.BuildCompletes -> building.displayName()
+    is FutureEvent.ResearchCompletes -> technology.displayName()
+    is FutureEvent.AdaptationCompletes -> technology.displayName()
+    is FutureEvent.ShipsComplete -> ship.displayName()
+    is FutureEvent.SurveyLands -> target.label()
+    is FutureEvent.FleetReturns -> target.label()
+    is FutureEvent.AffordableAt -> purchase.displayName()
+}
 
 // A whole order as one sentence. **The id is derived from the hull type**, unlike the upgrade group's
 // — which has to fall back on its instant because a group's subject is a *set* that changes the
 // moment one more row is subscribed. An order's subject is the type, which is fixed, and there is at
 // most one of these per type, so it is unique by construction and stable across every sync.
 private fun FutureEvent.ShipsComplete.toOrderNotification(hulls: Int): PendingNotification =
-    PendingNotification(
+    pendingNotification(
         id = "order-${ship.name}",
         title = Strings.hullOrderDoneTitle(hulls),
         body = Strings.hullOrderDoneBody(ship.displayName()),
@@ -251,7 +385,7 @@ private fun List<FutureEvent.Completion>.chainedWithin(window: Duration): List<L
 //
 // No levels, unlike the singleton alerts. Seven "reached level N" clauses do not fit a lock screen,
 // and what this one has to say is which things are done rather than what they became.
-private fun List<FutureEvent.Completion>.toNotification(): PendingNotification = PendingNotification(
+private fun List<FutureEvent.Completion>.toNotification(): PendingNotification = pendingNotification(
     id = "group-${last().at.toEpochMilliseconds()}",
     title = Strings.upgradesDoneTitle(size),
     // The second clause is the shipped `BuildCompletes` body's, word for word — the design's
@@ -278,7 +412,7 @@ private fun FutureEvent.Completion.displayName(): TextRes = when (this) {
 }
 
 private fun FutureEvent.toNotification(): PendingNotification = when (this) {
-    is FutureEvent.BuildCompletes -> PendingNotification(
+    is FutureEvent.BuildCompletes -> pendingNotification(
         // Stable and derived from the thing it is about: the same colony always produces the
         // same alerts, which is what makes replacing the set idempotent.
         id = "build-${building.name}",
@@ -286,7 +420,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
         body = Strings.buildCompleteBody(),
         at = at,
     )
-    is FutureEvent.ResearchCompletes -> PendingNotification(
+    is FutureEvent.ResearchCompletes -> pendingNotification(
         // Only one project runs at a time, so the technology is not needed to keep this unique —
         // it is here because an id derived from the thing it is about is what makes replacing the
         // whole set idempotent, and because a second slot would otherwise silently collide.
@@ -295,7 +429,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
         body = Strings.labFreeBody(),
         at = at,
     )
-    is FutureEvent.AdaptationCompletes -> PendingNotification(
+    is FutureEvent.AdaptationCompletes -> pendingNotification(
         // A separate id space from research even though the two share one slot, because the id is
         // derived from the thing it is about — and the two branches are not the same thing. Sharing
         // "research-…" would also collide the day a ladder and a technology are named alike.
@@ -306,7 +440,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
         body = Strings.adaptationOpenedBody(),
         at = at,
     )
-    is FutureEvent.ShipsComplete -> PendingNotification(
+    is FutureEvent.ShipsComplete -> pendingNotification(
         // **The instant is the whole id, and it is the only one here derived from a time rather than
         // from a subject.** Every other alert names a thing there is one of — a facility, a
         // technology, a target system — and a hull names nothing: a queue of four skiffs is four
@@ -320,7 +454,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
         body = Strings.hullLeftYardBody(),
         at = at,
     )
-    is FutureEvent.SurveyLands -> PendingNotification(
+    is FutureEvent.SurveyLands -> pendingNotification(
         // The one id that has to carry its subject to stay unique: probes run in parallel with no
         // cap, so a colony can hold thirty of these at once where it holds one research and at most
         // six builds. Derived from the target for the same reason all of them are — it is what
@@ -330,7 +464,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
         body = charted(worldsFound = worldsFound, settleable = settleable),
         at = at,
     )
-    is FutureEvent.FleetReturns -> PendingNotification(
+    is FutureEvent.FleetReturns -> pendingNotification(
         // **This was the constant string `"fleet-arrival"`, and that was a latent defect that the
         // fleet slice turns into a live one.** A colony could only ever hold one returning fleet, so
         // one id was unique by construction; runs are parallel and uncapped, so two landing at once
@@ -369,7 +503,7 @@ private fun FutureEvent.toNotification(): PendingNotification = when (this) {
     // One id space across the three branches, unlike the research/adaptation pair above, and for a
     // reason that pair does not have: there is one watch in the whole game, so this set can never
     // hold two of these to collide.
-    is FutureEvent.AffordableAt -> PendingNotification(
+    is FutureEvent.AffordableAt -> pendingNotification(
         id = "affordable-${purchase.subject()}",
         title = Strings.affordableTitle(purchase.displayName()),
         body = Strings.affordableBody(purchase.level()),

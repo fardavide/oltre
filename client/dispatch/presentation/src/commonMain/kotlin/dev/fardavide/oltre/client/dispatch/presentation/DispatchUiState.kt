@@ -11,6 +11,8 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.dispatch.ui.WindowRungUiState
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.DepositBalance
 import dev.fardavide.oltre.client.dispatch.ui.HullCellUiState
 import dev.fardavide.oltre.client.dispatch.ui.LadderNoteUiState
@@ -112,7 +114,7 @@ fun GameState.toDispatchUiState(
                     // The standing position of the bell, exactly as the offer below carries it: the
                     // ask is stamped onto the job by the verb, so the square shows the answer the
                     // flight *would* be sent with rather than anything about this world.
-                    announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+                    announce = probeAlertSquare(),
                 )
             },
         )
@@ -480,7 +482,7 @@ fun GameState.toDispatchUiState(
         vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands(), inTheGround - haul),
         // The bell's standing position. A run's ask is stamped by `startRun` from this same flag, so
         // what the square shows is exactly what the tap below it would send.
-        announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+        announce = runAlertSquare(),
         legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),
@@ -799,6 +801,25 @@ private fun otherLift(
     val station = FleetBalance.stationFor(home, target, window, research, manifest.ships)
     val lift = FleetBalance.cargo(world, gathering, manifest.ships, station, danger, research).of(gathering)
     return minOf(lift, remaining)
+}
+
+// **The bell beside the verb, or that there is none.** Two functions rather than one because the two
+// verbs answer to two different switches on the settings sheet — a run is a fleet return, a probe is a
+// probe — even though the *ask* is one flag for both. That asymmetry is the sheet's rather than this
+// file's: `announceFlights` is one memory because the question a player is answering is the same one,
+// and the seven categories are seven because the news is not.
+//
+// Null under `BY_CATEGORY`, where the flight is announced by its kind and there is nothing left to
+// ask. Absence rather than a disabled control, which is how this app says that everywhere else.
+private fun GameState.runAlertSquare(): WatchSquareUiState? =
+    flightAlertSquare(AlertCategory.FLEET_RETURNS)
+
+private fun GameState.probeAlertSquare(): WatchSquareUiState? = flightAlertSquare(AlertCategory.PROBES)
+
+private fun GameState.flightAlertSquare(category: AlertCategory): WatchSquareUiState? = when {
+    !alerts.asksOnRow(category) -> null
+    announceFlights -> WatchSquareUiState.ASKED
+    else -> WatchSquareUiState.UNASKED
 }
 
 // "1 hauler · 2 skiffs", or just "2 skiffs" when there is one kind. The pair is a string rather than

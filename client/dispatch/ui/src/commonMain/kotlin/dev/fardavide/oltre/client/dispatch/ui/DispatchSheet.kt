@@ -344,7 +344,7 @@ private fun Refuse(
 @Composable
 @NonRestartableComposable
 private fun Committing(
-    announce: WatchSquareUiState,
+    announce: WatchSquareUiState?,
     onToggleAnnounce: () -> Unit,
     verb: @Composable () -> Unit,
 ) {
@@ -353,13 +353,17 @@ private fun Committing(
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier.fillMaxWidth(),
     ) {
+        // The verb keeps its weight either way, so a sheet with no bell on it is a full-width verb
+        // rather than a verb with a gap where a control used to be.
         Box(modifier = Modifier.weight(1f)) { verb() }
-        WatchSquare(
-            state = announce,
-            onClick = onToggleAnnounce,
-            stacked = true,
-            modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
-        )
+        announce?.let {
+            WatchSquare(
+                state = it,
+                onClick = onToggleAnnounce,
+                stacked = true,
+                modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
+            )
+        }
     }
 }
 

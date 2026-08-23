@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":16,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":17,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -123,6 +123,15 @@ class GameSaveTest {
                 // control, not the ask itself. The ask rides on each run and each probe, in an
                 // `announced` key that is only on disk when there is a flight to carry it.
                 """"announceFlights":false,""" +
+                // The settings sheet, which schema 17 added — and **the one key in this string whose
+                // genesis value is not the empty thing.** Every other default here is a truthful
+                // nothing; this is a colony that has chosen to hear about all seven kinds of news and
+                // to hear about them in one notification, which is Davide's call of 2026-08-23 and is
+                // for *new* colonies only. A save carried forward from 16 lands on `PER_ITEM · EACH`
+                // instead, which is what 0.17 already did — see the hop.
+                """"alerts":{"mode":"BY_CATEGORY","categories":["FACILITIES","RESEARCH",""" +
+                """"ADAPTATIONS","HULLS","PROBES","FLEET_RETURNS","PRICE_REACHED"],""" +
+                """"delivery":"TOTAL"},""" +
                 // What the log is worth, which schema 16 added — a running total rather than a fold
                 // on every read, and the only key in this string whose migration *computed* its
                 // value: a colony carried forward from 15 was credited with everything its own log
@@ -1149,9 +1158,68 @@ class GameSaveTest {
     // than the value zeroed, because a save from that build did not carry the key and a hop that only
     // ever met a `0` would never be tested on the arithmetic that matters.
     private fun schema15(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema16(state)
             .replace(""""schemaVersion":16""", """"schemaVersion":15""")
             .replace(""""experience":${state.experience.points},""", "")
+
+    // ── 16 -> 17: the settings sheet ────────────────────────────────────────────────────────
+
+    // A save written by 0.17, which had no `alerts` key at all — stripped rather than written with the
+    // old default, because there was no old default: the sheet did not exist and neither did the
+    // question. What the hop has to decide is what a colony that never had the control was asking for,
+    // and the answer is the behaviour it already had.
+    private fun schema16(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":17""", """"schemaVersion":16""")
+            .replace(alertsKey(state), "")
+
+    // Derived from the state rather than pasted, for the reason the whole fixture chain is: a frozen
+    // string drifts into being a current save wearing an old number.
+    private fun alertsKey(state: GameState): String =
+        """"alerts":{"mode":"${state.alerts.mode.name}","categories":[""" +
+            state.alerts.categories.joinToString(",") { """"${it.name}"""" } +
+            """],"delivery":"${state.alerts.delivery.name}"},"""
+
+    @Test
+    fun `a colony carried forward keeps asking on the row and hearing one buzz per thing`() {
+        // **The first hop in the table that could have made a colony louder**, and the whole of why it
+        // does not. Schemas 9, 14 and 15 each silenced something nobody had asked for, which is always
+        // the truthful answer to *what did a player with no control decide?* — but a colony carried
+        // into `BY_CATEGORY · TOTAL` would be answering it with seven categories switched on. So the
+        // new default is for new colonies only. Davide, 2026-08-23.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema16(GameState.initial()))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(AlertSettings.CARRIED_FORWARD, decoded.state.alerts)
+    }
+
+    @Test
+    fun `the hop writes exactly the constant the sheet reads`() {
+        // The migration spells its JSON out literally, so that the day an eighth category lands it
+        // keeps writing the schema-17 shape rather than silently gaining a key. This is what stops the
+        // two drifting apart in the meantime: the literal has to decode to the constant.
+        val carried = assertIs<DecodeResult.Success>(GameSave.decode(schema16(played()))).snapshot.state.alerts
+
+        assertEquals(AlertMode.PER_ITEM, carried.mode)
+        assertEquals(AlertCategory.entries.toSet(), carried.categories)
+        assertEquals(AlertDelivery.EACH, carried.delivery)
+    }
+
+    @Test
+    fun `nothing else about a carried-forward colony moves`() {
+        // Additive in shape as well as careful in effect: the hop adds one key and reads none.
+        val played = played()
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema16(played))).snapshot.state
+
+        assertEquals(played.resources, decoded.resources)
+        assertEquals(played.buildings, decoded.buildings)
+        assertEquals(played.subscribed, decoded.subscribed)
+        assertEquals(played.hullAlerts, decoded.hullAlerts)
+        assertEquals(played.announceFlights, decoded.announceFlights)
+        assertEquals(played.experience, decoded.experience)
+        assertEquals(played.eventLog, decoded.eventLog)
+    }
 
     @Test
     fun `a colony saved before the level existed opens on the level its own log earned`() {

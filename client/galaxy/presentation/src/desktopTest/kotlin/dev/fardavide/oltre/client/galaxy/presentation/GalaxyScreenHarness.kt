@@ -6,6 +6,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyRobot
 import dev.fardavide.oltre.client.galaxy.ui.PHONE_WIDTH
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
@@ -80,5 +81,20 @@ internal val FIXTURE_NOW: Instant = Instant.fromEpochMilliseconds(0)
 // probe flies a hull now, so a fixture with no `SCOUT` would draw every probe footer on this tab in
 // its *"needs a scout"* state. These frames have always described a colony that can send a probe —
 // several of them are of a probe already in the air — so the pool has to say so.
+//
+// **And the alert settings join them at 0.18, third in the same story.** A new colony now asks about
+// alerts by *kind*, and under that mode the dispatch sheet carries no bell at all — a flight is
+// announced by its kind, so the control has nothing left to decide. Left inherited, every frame on
+// this tab would have quietly become a picture of a sheet with three controls where these baselines
+// describe four, and `galaxy_dispatch_announced` — a frame that exists to show the bell *lit* —
+// would have become a picture of no bell. `dispatchByCategoryUiState` is the fixture for the other
+// mode, and it has one frame of its own.
 internal val testGameState: GameState = GameState.initial(GalaxySeed(20_260_807))
-    .copy(ships = Ships(mapOf(ShipType.SKIFF to 1, ShipType.SCOUT to 1)))
+    .copy(
+        ships = Ships(mapOf(ShipType.SKIFF to 1, ShipType.SCOUT to 1)),
+        alerts = AlertSettings.CARRIED_FORWARD,
+    )
+
+// The same colony under a new save's own settings, for the one frame that shows what the sheet looks
+// like when the bell has gone.
+internal val byCategoryGameState: GameState = testGameState.copy(alerts = AlertSettings.NEW_COLONY)

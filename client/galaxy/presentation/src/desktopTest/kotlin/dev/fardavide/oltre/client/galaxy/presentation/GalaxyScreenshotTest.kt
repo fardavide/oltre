@@ -213,6 +213,25 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // **The same footer with no bell at all**, which is what a colony opened after 0.18 sees: it asks
+    // about alerts by *kind*, so a landing is announced by `Probes` and this control has nothing left
+    // to decide. Against the two frames above, the whole diff is that the square is gone and the verb
+    // has the row — and a control that vanishes is exactly the change a picture settles and a
+    // sentence does not.
+    @Test
+    fun `a system nobody has looked at when the alerts are asked by kind`() {
+        capture(
+            width = 393,
+            height = 1200,
+            uiState = frame(
+                state = byCategoryGameState,
+                view = GalaxyView.SYSTEM,
+                at = frameState.neighbourSelection(),
+            ),
+            name = "galaxy_unsurveyed_by_category",
+        )
+    }
+
     // The one row on the whole screen that is neither a card nor a target: a hairline, the address,
     // the word and the effect. It is drawn by a composable no other frame reaches — one system in
     // forty carries a relay and the home system does not — so without this the demotion from accent
@@ -297,6 +316,18 @@ class GalaxyScreenshotTest {
     @Test
     fun `the dispatch sheet with the flight asked about`() {
         captureSheet(uiState = dispatchAnnouncedUiState, name = "galaxy_dispatch_announced")
+    }
+
+    // **The sheet a colony opened after 0.18 actually gets**, and the third frame of the same sheet
+    // for the same reason the second one exists: the whole diff against `galaxy_dispatch` is one
+    // control, and here the diff is that the control is *gone*. Under `By category` a run is
+    // announced by its kind, so the bell has nothing left to decide and the verb takes the row.
+    //
+    // The two frames above describe a save carried forward from 0.17, which is why they still have
+    // a bell to be lit or unlit — see `testGameState`.
+    @Test
+    fun `the dispatch sheet when the alerts are asked by kind`() {
+        captureSheet(uiState = dispatchByCategoryUiState, name = "galaxy_dispatch_by_category")
     }
 
     @Test

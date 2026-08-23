@@ -206,6 +206,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.18.0 — 2026-08-23
+
+- **The gear opens something.** Tapping it raises a settings sheet with two controls on it, and the
+  first is where you answer the question *tell me when this lands* — on each job, as it works today,
+  or once for a whole kind of job. Choose **By category** and seven switches decide what your colony
+  announces: facilities, research, adaptations, hulls, probes, fleet returns and prices reached. The
+  bells on your rows go, because you have already answered.
+- **The second control says how many notifications the answers arrive in.** One each, one per
+  category, or one in total — and *one in total* is one notification that keeps being brought up to
+  date rather than a second buzz: your mine finishing says so, and when a ship follows it half an
+  hour later the same notification says both.
+- **New colonies start louder and quieter at once**: everything announcing itself, arriving as a
+  single notification. A colony you have already been playing keeps exactly what it does today —
+  nothing you never asked for starts talking.
+- Under the sheet's second control the line beneath the ladder tells you when your next alert is
+  actually due, computed from your own colony rather than described in general.
+- **"Coming soon" is gone**, along with the card that carried it.
+
 ### 0.17.1 — 2026-08-23
 
 - **Your name gets the whole line.** The experience gauge has moved off the strip and become the

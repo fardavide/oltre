@@ -25,6 +25,7 @@ import dev.fardavide.oltre.client.design.component.sheetLine
 import dev.fardavide.oltre.client.design.component.words
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.Buildings
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -1408,6 +1409,11 @@ class ColonyUiStateTest {
         buildings: Buildings = Buildings.initial(),
         watching: WatchTarget? = null,
         subscribed: Set<WatchTarget> = emptySet(),
+        // **`CARRIED_FORWARD` rather than a new colony's own settings**, and it is the input half of
+        // the square exactly as `watching` and `subscribed` are: under `BY_CATEGORY` a row carries no
+        // square at all, so every assertion in this file about what the square shows would be an
+        // assertion about `null`. The tests that *are* about the mode pass the other pair and say so.
+        alerts: AlertSettings = AlertSettings.CARRIED_FORWARD,
     ): GameState = GameState(
         resources = resources,
         buildings = buildings,
@@ -1437,6 +1443,9 @@ class ColonyUiStateTest {
         hullAlerts = emptyMap(),
         // The flights' ask, which lives on a dispatch sheet and reaches no facility row either.
         announceFlights = false,
+        // The settings sheet, and the one field here that *does* reach every facility row — it
+        // decides whether the row carries a square at all. See the parameter's own note.
+        alerts = alerts,
         // The player's standing, which is drawn by the strip above every screen and by nothing on
         // this one. Zero and empty together, which is the pair `core` keeps in step.
         experience = Experience.NONE,

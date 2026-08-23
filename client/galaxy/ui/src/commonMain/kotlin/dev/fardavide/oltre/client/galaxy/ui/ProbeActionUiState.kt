@@ -28,7 +28,10 @@ sealed interface ProbeActionUiState {
         val offer: ProbeOfferUiState,
         val label: TextRes,
         val compactLabel: TextRes,
-        val announce: WatchSquareUiState,
+        // **Null under `AlertMode.BY_CATEGORY`, which is the sheet's call 1 reaching the one control
+        // that is not on a row.** A probe is announced by its kind there, so the bell has nothing
+        // left to decide — and absence is how this app says that, on a footer as on a row.
+        val announce: WatchSquareUiState?,
     ) : ProbeActionUiState
 
     // The committed idiom, unchanged: the chip reddens for the one resource you are short of and

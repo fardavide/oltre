@@ -139,7 +139,9 @@ sealed interface DispatchUiState {
         // Non-null, unlike the square on a facility row. A row without a square is a row with
         // nothing to wait for; the verb below this is always live in `Offer`, so there is always a
         // flight to ask about.
-        val announce: WatchSquareUiState,
+        // **Null under `AlertMode.BY_CATEGORY`.** The sheet's call 1 reaches this control too: a run
+        // is announced by its kind there, so the bell beside the verb has nothing left to decide.
+        val announce: WatchSquareUiState?,
     ) : DispatchUiState
 
     // **A mode rather than a refusal, and that distinction is Design's.** A dry world keeps its whole
@@ -253,7 +255,7 @@ sealed interface RefuseActionUiState {
     // It carries the bell for the same reason the offer does — a probe is a flight, and the sheet
     // that sends one is the only place there is to ask about it. The same control and the same
     // standing answer: what the player set on a run's sheet is what this one opens showing.
-    data class Probe(val label: TextRes, val announce: WatchSquareUiState) : RefuseActionUiState
+    data class Probe(val label: TextRes, val announce: WatchSquareUiState?) : RefuseActionUiState
 
     // A reading, not a control — the idiom the unaffordable probe already spends. There is nothing
     // to send, so there is no button to grey out.

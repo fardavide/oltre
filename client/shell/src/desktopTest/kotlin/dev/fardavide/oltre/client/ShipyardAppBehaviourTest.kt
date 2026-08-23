@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.buildShips
@@ -138,7 +139,7 @@ class ShipyardAppBehaviourTest {
     // Shipyard drew no card for it, so the loop was unreachable with every other test green.
     @Test
     fun `a colony buys its first scout and the Galaxy tab stops asking for one`() {
-        app(saved = snapshot(GameState.initial(GalaxySeed(20_260_807L)))) {
+        app(saved = snapshot(perItem())) {
             // **The tab a new colony lands on offers no probe**, because it has nothing to fly one
             // with. The map's caption withholds the verb and keeps the flight, so what is on screen
             // is a price rather than a dead button — `GalaxyMapUiStateTest` pins which.
@@ -207,10 +208,17 @@ class ShipyardAppBehaviourTest {
         }
     }
 
-    private fun rich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
+    // **`CARRIED_FORWARD` on every fixture here**, and it is the file obeying its own subject: the
+    // hull card's square is the control this suite drives, and under `BY_CATEGORY` a hull card has no
+    // square — every hull is announced by its kind, because one switch cannot carry a control with
+    // three states. See `AlertSettings.asksOnRow`.
+    private fun perItem(): GameState =
+        GameState.initial(GalaxySeed(20_260_807L)).copy(alerts = AlertSettings.CARRIED_FORWARD)
+
+    private fun rich(): GameState = perItem()
         .copy(resources = Resources.of(metal = 10_000, crystal = 10_000), ships = Ships.of(ShipType.SKIFF, 1))
 
-    private fun veryRich(): GameState = GameState.initial(GalaxySeed(20_260_807L))
+    private fun veryRich(): GameState = perItem()
         .copy(resources = Resources.of(metal = 100_000, crystal = 100_000), ships = Ships.of(ShipType.SKIFF, 1))
 
     private fun snapshot(state: GameState): GameSnapshot =

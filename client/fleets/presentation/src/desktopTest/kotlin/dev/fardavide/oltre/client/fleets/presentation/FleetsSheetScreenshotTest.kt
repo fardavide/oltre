@@ -12,6 +12,7 @@ import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.client.dispatch.presentation.DispatchSelection
 import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.client.fleets.ui.FleetsPage
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -109,8 +110,15 @@ class FleetsSheetScreenshotTest {
             ),
         )
 
-        val idle: GameState = GameState.initial(SEED)
-            .copy(ships = Ships.of(ShipType.SKIFF, 1), eventLog = landings)
+        // **`CARRIED_FORWARD`, for the reason `testGameState` states on the Galaxy side.** A new
+        // colony asks about alerts by kind and the sheet then carries no bell at all — so left
+        // inherited, `fleets_dispatch_announced`, which exists to photograph the bell *lit*, would
+        // have become a picture of no bell.
+        val idle: GameState = GameState.initial(SEED).copy(
+            ships = Ships.of(ShipType.SKIFF, 1),
+            eventLog = landings,
+            alerts = AlertSettings.CARRIED_FORWARD,
+        )
 
         // **Every hull away because it was sent, not because it was deleted.** A colony with no idle
         // hull and no run in flight owns no hulls at all, which genesis forbids — and the refusal

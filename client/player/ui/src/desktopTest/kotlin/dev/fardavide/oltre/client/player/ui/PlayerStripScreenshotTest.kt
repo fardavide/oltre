@@ -111,49 +111,6 @@ class PlayerStripScreenshotTest {
     }
 }
 
-// The notice the gear raises, photographed on its own. It is drawn by this module and placed by the
-// frame, so what a baseline here can hold is the surface itself — the card's fill and radius, the
-// stronger line, and the one string in the app whose two languages differ enough in width to matter.
-@OptIn(ExperimentalTestApi::class)
-class SettingsNoticeScreenshotTest {
-
-    @Test
-    fun `the settings notice`() {
-        capture(name = "settings_notice")
-    }
-
-    // `Prossimamente` against `Coming soon`, at the narrowest window the app supports. The surface
-    // takes the width either way, which is what makes the notice safe in both languages rather than
-    // lucky in one.
-    @Test
-    fun `the settings notice in Italian, in a Slide Over window`() {
-        capture(name = "settings_notice_it", width = SLIDE_OVER_WIDTH, translations = Italian)
-    }
-
-    private fun capture(name: String, width: Int = PHONE_WIDTH, translations: Translations = English) {
-        runDesktopComposeUiTest(width = width, height = NOTICE_FRAME_HEIGHT) {
-            mainClock.autoAdvance = false
-            setContent {
-                OltreTheme(translations = translations) {
-                    Surface {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            SettingsNotice()
-                        }
-                    }
-                }
-            }
-            mainClock.advanceTimeBy(SETTLED_MILLIS)
-            onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/$name.png",
-                roborazziOptions = oltreRoborazziOptions(),
-            )
-        }
-    }
-
-    private companion object {
-
-        // The 44dp surface with a band of window either side of it, for the same reason the strip's
-        // frame is taller than the strip.
-        const val NOTICE_FRAME_HEIGHT = 64
-    }
-}
+// **The notice's two baselines left with 0.18**, and so did the two files they photographed. They
+// held a card that said `Coming soon` in two languages, at two widths — the gear has a sheet behind
+// it now, and what is worth a baseline is that sheet. See `:client:settings:ui`.
