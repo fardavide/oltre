@@ -33,6 +33,9 @@ import dev.fardavide.oltre.client.research.ui.toVerdictUiState
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.alertCategory
+import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -284,8 +287,17 @@ private fun GameState.watchOn(
 ): WatchUiState? {
     // A project in flight is asked about its completion, not its price — the price is paid. This is
     // the same square and a different question, and which one it is is a fact about the row.
-    if (running) return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    //
+    // **Under `BY_CATEGORY` neither question is on the row**, except the price — which names a row
+    // rather than a kind, so it is the one thing a category switch cannot answer for you. The two
+    // branches consult two different categories for exactly that reason: a ladder and a project are
+    // separate switches on the sheet, and the row knows which of them it is.
+    if (running) {
+        if (!alerts.asksOnRow(target.alertCategory)) return null
+        return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    }
     if (!requirementMet || resources.covers(cost)) return null
+    if (!alerts.asksOnRow(AlertCategory.PRICE_REACHED)) return null
     val wait = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() } ?: return null
     if (watching != target) return WatchUiState.Offered
     val local = (now + wait).toLocalDateTime(timeZone)

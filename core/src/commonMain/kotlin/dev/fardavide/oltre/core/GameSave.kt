@@ -56,6 +56,13 @@ object GameSave {
     // declare it obsolete. An unknown version is never guessed at: silently misreading a colony
     // is worse than admitting the save is unreadable.
     //
+    // 17 — the settings sheet: where the alert question is asked, which seven kinds are on, and how
+    //     many notifications the answers arrive in. **The fourth behavioural hop and the first that
+    //     could have made a colony louder** — which is exactly why it does not. Schemas 9, 14 and 15
+    //     each silenced something nobody had asked for; migrating a played colony into
+    //     `BY_CATEGORY · TOTAL` would switch on seven categories nobody chose, so the new default is
+    //     for new colonies only and this hop writes `AlertSettings.CARRIED_FORWARD`, which is what
+    //     0.17 already did. Davide, 2026-08-23: *"use single notification only for new saves."*
     // 16 — the player's experience: one running total, and **the only hop in the table whose value is
     //     computed from the save's own contents rather than written as a truthful zero**. Everything
     //     else that has ever been added was a thing the colony demonstrably did not have; this is a
@@ -115,7 +122,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 16
+    const val SCHEMA_VERSION: Int = 17
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -369,6 +376,32 @@ object GameSave {
                 Experience.NONE
             }
             root.withState("experience" to JsonPrimitive(earned.points))
+        },
+        // 16 -> 17: the settings sheet. Additive in shape and **the first behavioural hop that had to
+        // choose which way to be wrong**, because for once the new default is louder than the old one.
+        //
+        // Schemas 9, 14 and 15 each stopped a colony hearing about something it had never asked for,
+        // and silence is always the truthful answer to *what did a player who had no control decide?*.
+        // A colony carried into `BY_CATEGORY · TOTAL` would be answering that question with seven
+        // categories switched on, which is not a thing anybody chose — so it lands on the pair that
+        // describes what 0.17 already did, and the new default is for new colonies only. Davide,
+        // 2026-08-23: *"use single notification only for new saves; previous ones keep the current
+        // behavior."*
+        //
+        // **Written as literal JSON rather than by encoding `AlertSettings.CARRIED_FORWARD`.** A
+        // migration states the shape a save had at that version, and a constant recompiles: the day
+        // an eighth category or a fourth delivery lands, encoding the constant would quietly rewrite
+        // what this hop has always written and the hop after it would have nothing left to do.
+        // `GameSaveTest` decodes the result and asserts it equals the constant, which is what keeps
+        // the two from drifting without tying them together.
+        16 to { root ->
+            root.withState(
+                "alerts" to buildJsonObject {
+                    put("mode", JsonPrimitive(AlertMode.PER_ITEM.name))
+                    put("categories", JsonArray(AlertCategory.entries.map { JsonPrimitive(it.name) }))
+                    put("delivery", JsonPrimitive(AlertDelivery.EACH.name))
+                },
+            )
         },
     )
 

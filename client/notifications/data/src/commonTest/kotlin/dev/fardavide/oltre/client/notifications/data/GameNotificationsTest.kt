@@ -4,6 +4,7 @@ import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationJob
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -1356,8 +1357,15 @@ class GameNotificationsTest {
     // **Scouts in the pool, because a probe flies a hull since 0.15.** A fixture with an empty pool
     // cannot dispatch a survey at all, so every probe-landing assertion in this file would be
     // measuring a refusal. Eight, which is more than any single test here sends.
-    private fun freshState(): GameState =
-        GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SCOUT, 8))
+    //
+    // **Pinned to `CARRIED_FORWARD` rather than taking genesis's own settings**, and the whole of
+    // this file depends on it: every test above is about the per-item gates, the five-minute chain,
+    // the ids or the platform's ceiling, and a new colony now opens on `BY_CATEGORY · TOTAL`, which
+    // is a different gate and a different packaging. `AlertDeliveryTest` is where the new pair is
+    // tested; here the pair is what 0.17 did, so these go on measuring what they were written to
+    // measure.
+    private fun freshState(): GameState = GameState.initial(GalaxySeed(20_260_807))
+        .copy(ships = Ships.of(ShipType.SCOUT, 8), alerts = AlertSettings.CARRIED_FORWARD)
 
     // A run out to one world and home again. `instant` is the landing — the only end an alert is
     // about — and the dispatch is an hour before it because `FleetRun` insists a run returns after

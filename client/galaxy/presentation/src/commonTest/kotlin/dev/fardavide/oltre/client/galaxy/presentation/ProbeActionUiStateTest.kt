@@ -9,6 +9,9 @@ import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeFindKind
 import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertSettings
+import dev.fardavide.oltre.core.toggleAlertCategory
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
@@ -314,7 +317,11 @@ class ProbeActionUiStateTest {
         // written onto the job by `startSurvey`, so what the control shows before the tap is exactly
         // what the tap would send. A square derived from the *system* would be a different control
         // wearing the same glyph.
-        val state = wealthy()
+        //
+        // **`CARRIED_FORWARD`, because under a new colony's own settings there is no bell at all** —
+        // a landing is announced by its kind, so the control has nothing left to decide and this app
+        // does not draw one that has. The test below is that case.
+        val state = wealthy().copy(alerts = AlertSettings.CARRIED_FORWARD)
         val target = awayFromHome(state, systemsAway = 52)
 
         assertEquals(
@@ -327,6 +334,28 @@ class ProbeActionUiStateTest {
                 state.copy(announceFlights = true).probeActionAt(target),
             ).announce,
         )
+    }
+
+    @Test
+    fun `by category takes the bell off the footer entirely`() {
+        // The sheet's call 1, reaching the one control in the app that is not on a row. Null rather
+        // than an unlit square: the question has been answered one level up, and a control with
+        // nothing left to decide is absent here as it is everywhere else in this app.
+        val state = wealthy()
+        val target = awayFromHome(state, systemsAway = 52)
+
+        assertEquals(null, assertIs<ProbeActionUiState.Dispatch>(state.probeActionAt(target)).announce)
+    }
+
+    @Test
+    fun `switching Probes off does not take the verb with it`() {
+        // What goes is the *ask*, not the flight. A player who has silenced probe landings can still
+        // send one — and if the verb had gone with the bell, the whole tab would have gone quiet for
+        // a preference about notifications.
+        val state = toggleAlertCategory(wealthy(), AlertCategory.PROBES)
+        val target = awayFromHome(state, systemsAway = 52)
+
+        assertIs<ProbeActionUiState.Dispatch>(state.probeActionAt(target))
     }
 
     private fun firstLandingWhere(

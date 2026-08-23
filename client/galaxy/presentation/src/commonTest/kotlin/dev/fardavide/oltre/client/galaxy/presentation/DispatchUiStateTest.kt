@@ -9,6 +9,7 @@ import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.dispatch.ui.RefuseActionUiState
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyUiState
 import dev.fardavide.oltre.client.galaxy.ui.ProbeActionUiState
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -258,13 +259,18 @@ class DispatchUiStateTest {
         // same one — so the two squares are renderings of the same flag and there is nothing on the
         // sheet that could make them disagree. Asserted together for that reason: a mapper that
         // wired one to `announceFlights` and the other to a constant would pass either half alone.
+        //
+        // **`CARRIED_FORWARD` on both, because a new colony's settings take the bell off the sheet
+        // entirely** — a run and a probe are both announced by their kind there. The test below is
+        // that case.
         val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
-        val asked = withSkiffs(1).copy(announceFlights = true)
+        val quiet = withSkiffs(1).copy(alerts = AlertSettings.CARRIED_FORWARD)
+        val asked = quiet.copy(announceFlights = true)
 
-        val quietOffer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
+        val quietOffer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), quiet))
         val loudOffer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable(), asked))
         val quietProbe = assertIs<RefuseActionUiState.Probe>(
-            assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere))).action,
+            assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere), quiet)).action,
         )
         val loudProbe = assertIs<RefuseActionUiState.Probe>(
             assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere), asked)).action,
@@ -274,6 +280,22 @@ class DispatchUiStateTest {
         assertEquals(WatchSquareUiState.UNASKED, quietProbe.announce)
         assertEquals(WatchSquareUiState.ASKED, loudOffer.announce)
         assertEquals(WatchSquareUiState.ASKED, loudProbe.announce)
+    }
+
+    @Test
+    fun `by category takes the bell off both verbs`() {
+        // **Both, and asserted together for the reason the test above states it**: the two squares
+        // are renderings of one flag, so a mapper that removed one and kept the other would leave a
+        // control on the sheet that the scheduler no longer consults.
+        val elsewhere = SystemSelection(galaxy = home.galaxy, system = home.system - 1)
+
+        val offer = assertIs<DispatchUiState.Offer>(dispatchAt(runnable()))
+        val probe = assertIs<RefuseActionUiState.Probe>(
+            assertIs<DispatchUiState.Refuse>(dispatchAt(firstWorld(elsewhere))).action,
+        )
+
+        assertEquals(null, offer.announce)
+        assertEquals(null, probe.announce)
     }
 
     @Test

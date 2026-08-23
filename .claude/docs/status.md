@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-23 (0.17.1)
+Updated: 2026-08-23 (0.18.0)
 
 ## Landed
 
@@ -436,6 +436,20 @@ Updated: 2026-08-23 (0.17.1)
   it, and `PlayerStripGeometryTest` states the whole sum. Five player baselines and `main_scaffold`
   re-recorded, two deleted. See [`decisions.md`](decisions.md) and the note at the top of
   [`player-strip-sheet.md`](player-strip-sheet.md).
+- **0.18.0 ask once** — the first settings screen, built to the Claude Design sheet *Ask Once*
+  (accepted 2026-08-23). The gear opens a modal bottom sheet with two controls on it: **Alerts**
+  moves the question *tell me when this lands* from the job to the kind of job, and **Delivery** says
+  how many notifications the answers arrive in. Under `By category` the seven bells replace every
+  square in the app — except the price watch, which names a row rather than a kind. `One in total` is
+  **one notification kept up to date** rather than one held back, which is Davide's replacement for
+  the rule the design drew and measured as five and a half hours of silence. New colonies open on
+  `By category · One in total`; a save from 0.17 keeps exactly what it does today, which is what the
+  16 → 17 hop writes. The gate moved into `core` as `announcedEvents` because the sheet and the
+  scheduler must not be able to disagree. `Coming soon` left the catalogue with `SettingsNotice`, its
+  six measurements, its four-second window and three baselines. Two modules
+  (`:client:settings:{ui,presentation}`), four new baselines. See
+  [`ask-once-sheet.md`](ask-once-sheet.md) for the design and [`decisions.md`](decisions.md) for what
+  implementation decided on top of it.
 
 
 ## Roadmap — v1 in vertical slices
@@ -913,6 +927,23 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
 
+## Pending, from 0.18.0
+
+- **`One in total` is one stack on iPhone, not one notification**, and this is the first thing to
+  look at on a device. Android's tray id genuinely replaces what is showing; iOS runs nothing in the
+  background, so nothing can retract a delivered notification and the closest available is a
+  `threadIdentifier` that collapses the run into one group in Notification Centre. The delivery
+  target is the platform that cannot do it. See `decisions.md`.
+- **Nobody has opened the sheet on a phone.** It is 573dp at 393 and 648 of the 652 a Slide Over pane
+  has, both of them the design's arithmetic rather than a measurement — and the sheet scrolls now, so
+  what a short window costs is a scroll rather than a clip.
+- **Nothing on the sheet reflects a muted system.** A player can switch all seven on and hear
+  nothing, which is the one state this screen lies about. The permission slice is the design's
+  deliberate next one.
+- **The title's `+n` compacts by kind rather than by character**, because a character budget cannot
+  be spent on an unresolved `TextRes`. Two kinds reproduces both of the design's drawn examples; what
+  a lock screen actually holds is a device measurement nobody has taken.
+
 ## Pending, from 0.17.1
 
 - **The edge gauge on a wide window is undrawn and unlooked-at.** It is full-bleed like the hairline
@@ -921,9 +952,9 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   every other bar in the app. One device session settles it.
 - **A line pinned under a bar reads as loading**, and three things answer that on paper — it never
   moves, LV 0 draws no fill at all, and it is the chrome's own boundary. Paper is what they are.
-- **The notice's position over an open bottom sheet is undrawn.** It clears the tab bar; a sheet is
-  taller than the tab bar, so it has to move or be suppressed, and the sheets are the newest surface
-  in the app.
+- ~~**The notice's position over an open bottom sheet is undrawn.**~~ — **closed at 0.18.0, by
+  deletion.** The notice is gone: the gear opens a sheet now, so there is nothing left to position
+  over one.
 
 ## Pending, from 0.17.0
 

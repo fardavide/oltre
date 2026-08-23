@@ -153,9 +153,30 @@ internal fun GameSession.alertingHull(clock: DebugClock, wallClock: Instant, shi
 // It still has to *advance*, and that is not decoration: this action commits, and committing writes
 // the save at `lastUpdatedAt`. A session that stamped a new instant without advancing to it would
 // write a colony that had not caught up to its own clock.
-internal fun GameSession.alertingFlights(clock: DebugClock, wallClock: Instant): GameSession {
+internal fun GameSession.alertingFlights(clock: DebugClock, wallClock: Instant): GameSession =
+    preferring(clock, wallClock) { toggleFlightAlerts(it) }
+
+// **A standing answer being changed, which is a different kind of action from the three above.**
+// Those point at something — a row, a hull type, the next flight — and each has to be careful about
+// what the span may have done to the thing they point at. A preference points at nothing: it reads
+// no job, no stock and no queue, so the ordering that `alerting` is delicate about cannot matter here
+// and the transition takes a state rather than a state and an instant.
+//
+// It still advances, and that is not decoration: these actions commit, and committing writes the save
+// at `lastUpdatedAt`. A session that stamped a new instant without advancing to it would write a
+// colony that had not caught up to its own clock.
+//
+// **And it commits for a reason that has nothing to do with the save.** Nothing here writes an event,
+// so `act` would decline — and the point of every one of these taps is the schedule, which is booked
+// by the `notifications.sync` inside `commit`. A ladder that moved and told the platform nothing
+// would be the whole sheet failing silently.
+internal fun GameSession.preferring(
+    clock: DebugClock,
+    wallClock: Instant,
+    transition: (GameState) -> GameState,
+): GameSession {
     val at = maxOf(clock.now(wallClock), lastUpdatedAt)
-    return copy(state = advance(toggleFlightAlerts(state), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
+    return copy(state = advance(transition(state), from = lastUpdatedAt, to = at), lastUpdatedAt = at)
 }
 
 // A session and the clock that goes with it. The two always move together — a session stamped in

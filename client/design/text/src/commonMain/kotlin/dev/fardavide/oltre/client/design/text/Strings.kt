@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.design.text
 
 import dev.fardavide.oltre.core.AdaptationTechnology
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.EpithetAdjective
 import dev.fardavide.oltre.core.EpithetNoun
@@ -1239,13 +1242,132 @@ object Strings {
     // and this is authored copy. A language that wants its own callsign changes one line here.
     fun playerDefaultName(): TextRes = message(StringId.PlayerDefaultName)
 
-    // **The one string in this game that breaks its own voice rules, and it does so on the record.**
-    // The design system lists "Coming soon" under *Never written*, next to "Under construction" and
-    // "Oops", and the app's idiom for an unbuilt thing is a flat declarative sentence in the room
-    // where it would be — *"Every world a probe reaches lands here."* Put to Davide on 2026-08-22
-    // with `Settings land here.` beside it; he took the literal reading, so this is the copy and the
-    // design system is what gets amended. See `.claude/docs/player-strip-sheet.md` §2.
-    fun settingsComingSoon(): TextRes = message(StringId.SettingsComingSoon)
+    // **`settingsComingSoon` used to live here and left with 0.18.** It was the one string in the
+    // game that broke its own voice rules and it did so on the record — the design system lists
+    // "Coming soon" under *Never written*, Davide took the literal reading over `Settings land here.`
+    // on 2026-08-22, and the note said the design system was what would get amended. The gear opens
+    // something now, so the exception is closed rather than carried and the never-written list is
+    // whole again. See `.claude/docs/player-strip-sheet.md` §2.
+
+    // ── Alerts arriving together ────────────────────────────────────────────────────────────
+    //
+    // What a group of one kind is called — "3 facilities are done". **Never called with fewer than
+    // two**: one of anything is that thing's own singleton alert, which is the same rule
+    // `upgradesDoneTitle` and `hullOrderDoneTitle` are written to.
+    //
+    // A `when` over the category rather than a noun argument, because the verb differs per kind in
+    // both tables and a shared frame would force one verb on all seven.
+    fun alertGroupTitle(category: AlertCategory, count: Int): TextRes = message(
+        when (category) {
+            AlertCategory.FACILITIES -> StringId.AlertGroupFacilities
+            AlertCategory.RESEARCH -> StringId.AlertGroupResearch
+            AlertCategory.ADAPTATIONS -> StringId.AlertGroupAdaptations
+            AlertCategory.HULLS -> StringId.AlertGroupHulls
+            AlertCategory.PROBES -> StringId.AlertGroupProbes
+            AlertCategory.FLEET_RETURNS -> StringId.AlertGroupFleetReturns
+            AlertCategory.PRICE_REACHED -> StringId.AlertGroupPriceReached
+        },
+        Arg.Count(count),
+    )
+
+    // "3 fleets" — a count and a noun, for the title that holds more than one kind. Unlike the group
+    // titles above this one *is* called with a count of one, because a title reading
+    // "3 facilities · 1 fleet" is one fleet and two kinds.
+    fun alertCountClause(category: AlertCategory, count: Int): TextRes = message(
+        when (category) {
+            AlertCategory.FACILITIES -> StringId.AlertCountFacilities
+            // **`project`, not `research`**, and it is the design's note rather than a slip: the
+            // category is named Research to match the tab, and "2 researches" is not English.
+            AlertCategory.RESEARCH -> StringId.AlertCountResearch
+            AlertCategory.ADAPTATIONS -> StringId.AlertCountAdaptations
+            AlertCategory.HULLS -> StringId.AlertCountHulls
+            AlertCategory.PROBES -> StringId.AlertCountProbes
+            AlertCategory.FLEET_RETURNS -> StringId.AlertCountFleetReturns
+            AlertCategory.PRICE_REACHED -> StringId.AlertCountPriceReached
+        },
+        Arg.Count(count),
+    )
+
+    // "+2", counting the kinds the title had no room for. A count of *categories* rather than of
+    // things, so that a title reading "+2" always answers "two more kinds of thing".
+    fun alertMoreCategories(count: Int): TextRes =
+        message(StringId.AlertMoreCategories, Arg.Count(count))
+
+    // ── The settings sheet ──────────────────────────────────────────────────────────────────
+
+    // The gear's own accessibility label, promoted to the title of what it opens. **Not
+    // Notifications**: the second section is not far off and this one should not have to be renamed.
+    fun settingsTitle(): TextRes = message(StringId.SettingsTitle)
+
+    fun alertsLabel(): TextRes = message(StringId.AlertsLabel)
+
+    // The two-chip ladder. Two prepositional phrases of the same shape, which is what lets the pair
+    // explain itself without a sentence under each one.
+    fun alertModePerItem(): TextRes = message(StringId.AlertModePerItem)
+
+    fun alertModeByCategory(): TextRes = message(StringId.AlertModeByCategory)
+
+    // The one line the ladder carries, and it has two clauses on purpose: what the mode means, then
+    // what it does to the screen the player came from. The second clause is what stops a colony full
+    // of rows that suddenly have no square reading as a bug.
+    fun alertModeNote(mode: AlertMode): TextRes = message(
+        when (mode) {
+            AlertMode.PER_ITEM -> StringId.AlertModePerItemNote
+            AlertMode.BY_CATEGORY -> StringId.AlertModeByCategoryNote
+        },
+    )
+
+    fun alertCategoryName(category: AlertCategory): TextRes = message(
+        when (category) {
+            AlertCategory.FACILITIES -> StringId.AlertCategoryFacilities
+            AlertCategory.RESEARCH -> StringId.AlertCategoryResearch
+            AlertCategory.ADAPTATIONS -> StringId.AlertCategoryAdaptations
+            AlertCategory.HULLS -> StringId.AlertCategoryHulls
+            AlertCategory.PROBES -> StringId.AlertCategoryProbes
+            AlertCategory.FLEET_RETURNS -> StringId.AlertCategoryFleetReturns
+            AlertCategory.PRICE_REACHED -> StringId.AlertCategoryPriceReached
+        },
+    )
+
+    // **The only second line in the panel, on the only row that needs one.** Every other category
+    // switch decides whether a kind of news is announced; this one decides whether a *watch exists at
+    // all*, so off states the consequence rather than the setting — nothing is muted, the row simply
+    // stops carrying the square that books it.
+    fun alertPriceWatchNote(on: Boolean): TextRes =
+        message(if (on) StringId.AlertPriceWatchOn else StringId.AlertPriceWatchOff)
+
+    // What a bell says when it is read aloud, on the row rather than on the square, because the row
+    // is the target. Combined with the category's name through `clauses`, label first and state
+    // second — "Facilities · alerts on".
+    fun alertBellState(on: Boolean): TextRes =
+        message(if (on) StringId.AlertBellOn else StringId.AlertBellOff)
+
+    fun deliveryLabel(): TextRes = message(StringId.DeliveryLabel)
+
+    // Three parallel names, so the set explains itself without prose under it. *Category* is
+    // deliberately the same word the ladder above uses: it is the same seven things.
+    fun deliveryName(delivery: AlertDelivery): TextRes = message(
+        when (delivery) {
+            AlertDelivery.EACH -> StringId.DeliveryEach
+            AlertDelivery.PER_CATEGORY -> StringId.DeliveryPerCategory
+            AlertDelivery.TOTAL -> StringId.DeliveryTotal
+        },
+    )
+
+    // **The only thing on the sheet nobody could guess**, which is when the next buzz is. Absent
+    // under `EACH`, where the answer is "whenever anything lands" and needs no explaining.
+    //
+    // `TOTAL` gets its own sentence rather than the same one, because its second clause is the whole
+    // of what the stop means: the notification is not repeated, it is brought up to date.
+    fun alertNextAt(hour: Int, minute: Int, updating: Boolean): TextRes = message(
+        if (updating) StringId.AlertNextAtTotal else StringId.AlertNextAt,
+        Arg.Number(hour.toLong()),
+        Arg.Number(minute.toLong()),
+    )
+
+    // A colony with nothing in flight, which is most colonies most of the time. The honest answer
+    // rather than a hidden line: an empty slot where a time was would read as a control that failed.
+    fun alertNothingPending(): TextRes = message(StringId.AlertNothingPending)
 }
 
 // `internal`, so the only route to a `Message` is a named entry above. Everything the catalogue can

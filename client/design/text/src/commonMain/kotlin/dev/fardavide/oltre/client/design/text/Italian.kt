@@ -589,7 +589,6 @@ object Italian : Translations {
         // anyone would answer to. The entry exists so a later language can disagree with that in
         // one line rather than so this one has to.
         StringId.PlayerDefaultName -> "Dead Reckoning"
-        StringId.SettingsComingSoon -> "Prossimamente"
         StringId.Watching -> "osservi ${args.text(0)}"
         StringId.RatePerHour -> "+${args.text(0)}/h"
         StringId.ResourceRailMetal -> "METALLO"
@@ -647,6 +646,62 @@ object Italian : Translations {
         StringId.AdaptationFullNameThermal -> "Adattamento Termico"
         StringId.AdaptationFullNameGravitic -> "Adattamento Gravitico"
         StringId.AdaptationFullNameAtmospheric -> "Adattamento Atmosferico"
+
+        // ── Alerts arriving together ─────────────────────────────────────────────────────────
+        //
+        // A participle rather than a verb phrase, which is what makes the seven the same length here
+        // as in English: *completate* agrees with the noun and needs no auxiliary. The three that
+        // cannot use it — hulls, probes and fleets — take the verb their own noun wants.
+        StringId.AlertGroupFacilities -> "${args.count(0)} strutture completate"
+        StringId.AlertGroupResearch -> "${args.count(0)} progetti completati"
+        StringId.AlertGroupAdaptations -> "${args.count(0)} adattamenti completati"
+        StringId.AlertGroupHulls -> "${args.count(0)} scafi hanno lasciato il cantiere"
+        StringId.AlertGroupProbes -> "${args.count(0)} sonde sono arrivate"
+        StringId.AlertGroupFleetReturns -> "${args.count(0)} flotte sono rientrate"
+        StringId.AlertGroupPriceReached -> "${args.count(0)} prezzi sono alla tua portata"
+        // **The level the design says needs no agreement, no article and no word order** — which is
+        // exactly why it survives translation unchanged in shape. A count and a noun, nothing else.
+        StringId.AlertCountFacilities ->
+            args.count(0).let { "$it ${it.plural("struttura", "strutture")}" }
+        StringId.AlertCountResearch -> args.count(0).let { "$it ${it.plural("progetto", "progetti")}" }
+        StringId.AlertCountAdaptations ->
+            args.count(0).let { "$it ${it.plural("adattamento", "adattamenti")}" }
+        StringId.AlertCountHulls -> args.count(0).let { "$it ${it.plural("scafo", "scafi")}" }
+        StringId.AlertCountProbes -> args.count(0).let { "$it ${it.plural("sonda", "sonde")}" }
+        StringId.AlertCountFleetReturns -> args.count(0).let { "$it ${it.plural("flotta", "flotte")}" }
+        StringId.AlertCountPriceReached -> args.count(0).let { "$it ${it.plural("prezzo", "prezzi")}" }
+        StringId.AlertMoreCategories -> "+${args.count(0)}"
+
+        // ── The settings sheet ───────────────────────────────────────────────────────────────
+        StringId.SettingsTitle -> "Impostazioni"
+        StringId.AlertsLabel -> "Avvisi"
+        // Eleven and thirteen characters against English's eleven and eleven — both still clear the
+        // 96dp chip the narrow window gives them, which is the measurement the pair had to survive.
+        StringId.AlertModePerItem -> "Per oggetto"
+        StringId.AlertModeByCategory -> "Per categoria"
+        StringId.AlertModePerItemNote ->
+            "Ogni avviso si chiede sulla riga che lo riguarda. Le righe portano il quadrato."
+        StringId.AlertModeByCategoryNote ->
+            "Ogni cosa di un tipo si annuncia da sé. Le righe non portano più il quadrato."
+        StringId.AlertCategoryFacilities -> "Strutture"
+        StringId.AlertCategoryResearch -> "Ricerca"
+        StringId.AlertCategoryAdaptations -> "Adattamenti"
+        StringId.AlertCategoryHulls -> "Scafi"
+        StringId.AlertCategoryProbes -> "Sonde"
+        StringId.AlertCategoryFleetReturns -> "Rientri"
+        StringId.AlertCategoryPriceReached -> "Prezzo raggiunto"
+        StringId.AlertPriceWatchOn -> "Il quadrato resta sulle righe che non puoi permetterti."
+        StringId.AlertPriceWatchOff -> "Nessuna riga aspetta un prezzo."
+        StringId.AlertBellOn -> "avvisi attivi"
+        StringId.AlertBellOff -> "avvisi spenti"
+        StringId.DeliveryLabel -> "Consegna"
+        StringId.DeliveryEach -> "Uno ciascuno"
+        StringId.DeliveryPerCategory -> "Uno per categoria"
+        StringId.DeliveryTotal -> "Uno in tutto"
+        StringId.AlertNextAt -> "Prossimo avviso alle ${args.clock()}."
+        StringId.AlertNextAtTotal ->
+            "Prossimo avviso alle ${args.clock()}, e viene aggiornato invece di ripetersi."
+        StringId.AlertNothingPending -> "Non c'è niente in corso, quindi non c'è niente da inviare."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

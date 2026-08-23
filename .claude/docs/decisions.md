@@ -4211,3 +4211,145 @@ point low could not be explained from outside it at all.
   a mapper, so the behaviour pass would take it at whatever the behaviour tests happen to reach,
   and a row that falls blocks every open PR. It needs its own branch and a measurement before the
   line is added.
+
+## Designing inside a coding session was tried once and withdrawn (2026-08-23)
+
+Mid-0.16 Davide said *"You have capability to use Design directly now"* and that session designed the
+player strip itself — read the design system, built four candidate compositions, rendered them, and
+implemented the synthesis. It is withdrawn: *"I think it's easier to manage having everything inside
+Design, and I think you cannot do that, so let's revert that rule for now."*
+
+**The reason is not that the frames were bad, it is where they live.** A canvas in the Claude Design
+project can be reopened, forked, compared against the last four screens and handed to the next round;
+a composition rendered inside a coding session exists for exactly as long as that session does. The
+thing that would reopen the permission is a way for a session to *write into the project*, which is
+the whole of what is missing.
+
+The rule is therefore [`session-roles.md`](../rules/session-roles.md)'s as written: local → Design is
+a **round trip**, the session emits the prompt in a code block, waits, and does not open a pull
+request for the half it could build. What is not withdrawn: reading the design system, and rendering
+something to look at while implementing a design that has already come back. `player-strip-sheet.md`
+§4–§5 keep the record of the one round that ran the other way.
+
+**0.18 is the first slice to run under it again**, and it ran the right way round: *Ask Once* is a
+Claude Design project, imported and implemented rather than composed here. See
+[`ask-once-sheet.md`](ask-once-sheet.md).
+
+## The gear opens something, and the question moves up one level (0.18.0)
+
+A Claude Design round trip — *Ask Once*, accepted 2026-08-23 — on the gear 0.16 drew and 0.17
+apologised for. The design is written up in [`ask-once-sheet.md`](ask-once-sheet.md), which is what
+the slice's code means by "the sheet"; six things about the implementation are decisions rather than
+drawings and belong here.
+
+**Two of the design's own premises did not survive, and it says so itself.** The first cut was going
+to argue for a modal bottom sheet as a new surface; the row sheet and the dispatch sheet are both
+modal bottom sheets and both shipped, so the sheet had to *match* those rather than be argued for.
+The second: the dispatch sheet's `Home in` ladder is already a four-stop selector, so a three-way
+control is not new vocabulary. Both are recorded because a session reading only the code would make
+the same two arguments again.
+
+**`One in total` is not what the design drew, and the difference is Davide's.** The sheet's §6
+measured the drawn version on the reference colony and found five hours and thirty-eight minutes of
+silence — a mine finishing at 12:04 announced when a drive lands at 17:42, in a game played in
+five-minute check-ins — and recommended a window or a cap. Davide took neither and replaced the rule:
+*"One in total ALWAYS keeps a single notification, upcoming notifications only update it. Metal Mine
+upgraded at 12:04, and notification shows only that, then one ship is ready at 12:37, and the
+notification updates to show Metal Mine + 1 ship"* (2026-08-23). So it fires at **every** instant and
+each firing replaces the one before it. The failure mode the design named cannot occur, and
+`Price reached` folds into the running total rather than firing alone — his overrule of the design's
+*never grouped*, defensible under this stop and nowhere else, because the news is already on the lock
+screen.
+
+**Which needed a second id.** Neither platform will hold two *pending* notification requests under
+one identifier — the second silently replaces the first while it is still waiting — so a booking's
+id and a tray entry's id are now different fields on `LocalNotification`. Android honours the tray
+id exactly: `notify` with the same id replaces what is showing. **iOS cannot, and it is a platform
+limit rather than a choice**: it runs nothing in the background, so nothing can retract a delivered
+notification, and the closest available is a `threadIdentifier` that collapses the run into one
+stack in Notification Centre. On iPhone `One in total` is one stack, not one notification. Flagged
+rather than hidden; Davide's to weigh on the first install.
+
+**The new default is for new colonies only**, which is the first hop in the save table that could
+have made a colony *louder*. Schemas 9, 14 and 15 each silenced something nobody had asked for, and
+silence is always the truthful answer to *what did a player with no control decide?*. Migrating a
+played colony into `BY_CATEGORY · TOTAL` would answer it with seven categories nobody chose — so
+schema 17 writes `AlertSettings.CARRIED_FORWARD`, which is exactly what 0.17 did. Davide, 2026-08-23:
+*"use single notification only for new saves; previous ones keep the current behavior."*
+
+**The five-minute chain stayed where it was rather than becoming a fourth stop.** Davide's call on
+the same day: it is a dedupe for things landing in the same breath, not a delivery rule. `One each`
+is therefore what the game has always done, byte for byte, which is also what makes the migration
+above a true no-op.
+
+**The gate moved into `core`, and the reason is that there are two readers now.** It lived in
+`:client:notifications:data` from 0.5.0 on the design's own instruction — `futureEvents` is the
+mirror of what `advance` will write to the log, and a build completes whether or not anybody asked,
+so a core that dropped it would make the mirror lie. That reasoning is untouched: `announcedEvents`
+is a second list *derived* from the first, and the debug menu still reads the unfiltered one. What
+changed is that the settings sheet says when the next alert is due, and a sheet promising a buzz the
+scheduler would not send is a preferences screen lying about the only thing it does. One rule is the
+only way to stop that. `AlertSettings.asksOnRow` is the same argument for the *square*: four
+presentation modules decide whether a row still carries one, and a screen drawing a control the
+scheduler ignores is the dead control this repository is most emphatic about.
+
+**What by-category costs, stated rather than discovered later.** A hull card's square has three
+states — off, each hull, whole order — and one category switch cannot carry three, so under
+`BY_CATEGORY` the yard announces every hull and the middle state is gone from the Shipyard. It is not
+lost: `One per category` is *when the whole order is done*, exactly, for hulls and for everything
+else. So the third state became a global preference rather than a per-order one, which makes
+Delivery load-bearing for something the yard used to own.
+
+**`Coming soon` left the catalogue, and the exception logged at 0.16 is closed rather than carried.**
+The design system lists it under *Never written*; Davide took the literal reading over
+`Settings land here.` on 2026-08-22 and the note said the design system was what would be amended.
+The gear opens something now, so the never-written list is whole again. `SettingsNotice`, its six
+measurements, its four-second window, its two baselines and the frame's one after-a-tap baseline all
+went with it.
+
+### Raised and not decided
+
+- **The title's compaction rule is a count of kinds, not of characters.** The design says *take
+  categories while they fit 28 characters, then `+n`*, and a character budget cannot be spent on a
+  `TextRes` — the title is not a string until `Translations` resolves it, hours later, in whichever
+  language the device is set to. Two kinds is what reproduces both of the design's own drawn
+  examples, and the sheet itself calls 28 *"a measurement to take on a device"*.
+- **`1 price` is a count of a thing that did not finish**, which the design objects to by name in
+  §4. It is in the catalogue because `One in total` folds every kind in, price included, and there
+  is at most one of these in the game at a time. Copy is Davide's.
+- **The permission slice is next and nothing on this sheet reflects a muted system**, so today a
+  player can switch all seven on and hear nothing. That is the one state this screen lies about, and
+  the design names it as the deliberate follow-up.
+- **Delivery is global rather than per category.** *"One in total for probes, one each for research"*
+  is not expressible. Nobody has asked for it.
+
+### Salvaged from the parallel implementation, which is not shipping
+
+The non-UI half of this slice was built twice: once here, and once on a local branch that never
+reached a pull request, against an earlier version of the same design sheet. That branch is an
+ancestor of this one so the work is in the history, and its tree is superseded — the model it
+declared (`NotificationSettings` / `NotificationScope` / `NotificationGrouping`) is the same design
+under different names, and keeping both would have been two vocabularies for one feature. Three
+things in it are worth more than the rename and are recorded here rather than lost with it:
+
+**A category as a *default* that a row could still override was considered and rejected**, before the
+replace-outright shape was taken. Two sources of truth for one question: a lit bell would mean either
+*this one, specifically* or *because the category is on*, and nothing on screen could say which. What
+made replacement cheap is that `WatchUiState` was already nullable and already documented null as
+*the absence of a control*.
+
+**Adding a nullable field to `Preferences` breaks every preferences file already on disk**, and that
+was measured rather than reasoned. A nullable property with no default is still *required* on decode,
+so it fails with `MissingFieldException` — a `SerializationException`, which `PreferencesStore.load`
+answers `Preferences.NONE` to — and a player would silently lose their galaxy landing to a feature
+they had not opened. The fix, for whoever next adds a preference, is `explicitNulls = false` on that
+store's `Json`. The save format keeps the opposite line deliberately: `GameSave` leaves unknown keys
+fatal and migrates by schema number, because silently misreading a colony is worse than admitting it
+is unreadable.
+
+**The delay this version does not have was the other branch's open question**, and it is worth
+knowing it was asked. There, grouped and summary held one alert until the last pending thing landed,
+with no window at all — measured on the reference colony at five and a half hours of silence. What
+ships instead keeps one notification up to date, so the question does not arise; if `One per
+category` is ever reported as too quiet, the window is one `Duration` and one `chainedWithin` call.
+

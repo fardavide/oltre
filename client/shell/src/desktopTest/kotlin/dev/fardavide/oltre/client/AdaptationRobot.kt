@@ -152,6 +152,9 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 onToggleAnnounce = {},
                             )
                         },
+                        // Never tapped: this harness is about the adaptation ladder reaching Research
+                        // from a Galaxy row. `AlertSheetAppBehaviourTest` is where the gear is driven.
+                        onOpenSettings = {},
                     )
                 }
             }

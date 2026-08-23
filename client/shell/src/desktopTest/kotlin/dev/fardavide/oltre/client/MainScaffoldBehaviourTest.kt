@@ -13,7 +13,9 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.format.groupedByThousands
+import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.tilt.domain.Tilt
+import kotlin.test.assertEquals
 import org.junit.Test
 
 // The bar is the one piece of navigation every later screen hangs off, so what it has to get
@@ -41,6 +43,21 @@ class MainScaffoldBehaviourTest {
                 }
             }
         }
+    }
+
+    // **The gear asks, and that is the whole of what this file can hold about it.** The frame draws
+    // the control and forwards the press; what goes up is `App`'s, exactly as the debug sheet is —
+    // so *that* the press is heard is here, and that the sheet arrives is
+    // `AlertSheetAppBehaviourTest`, which drives the real composition root.
+    @Test
+    fun `the gear asks for the settings`() {
+        var asked = 0
+
+        scaffold(onOpenSettings = { asked++ }) {
+            onNodeWithTag(PlayerTestTags.SETTINGS, useUnmergedTree = true).performClick()
+        }
+
+        assertEquals(1, asked)
     }
 
     // Each destination shows its own screen and only its own. A tab that quietly fell through to
@@ -151,7 +168,11 @@ class MainScaffoldBehaviourTest {
 
     // A phone-sized window: the bar has to fit five destinations at the narrowest width the game
     // actually ships at.
-    private fun scaffold(pauseTheClock: Boolean = false, assertions: ComposeUiTest.() -> Unit) {
+    private fun scaffold(
+        pauseTheClock: Boolean = false,
+        onOpenSettings: () -> Unit = {},
+        assertions: ComposeUiTest.() -> Unit,
+    ) {
         runDesktopComposeUiTest(width = 393, height = 852) {
             if (pauseTheClock) mainClock.autoAdvance = false
             setContent {
@@ -166,6 +187,11 @@ class MainScaffoldBehaviourTest {
                         galaxy = { _, _ -> Text(GALAXY_MARKER) },
                         shipyard = { Text(SHIPYARD_MARKER) },
                         fleets = { Text(FLEETS_MARKER) },
+                        // Handed in rather than ignored, because one test here is about the gear:
+                        // that pressing it asks for something. *What* it opens is `App`'s — both
+                        // modals in this app are raised there — and `AlertSheetAppBehaviourTest` is
+                        // where the sheet actually goes up and comes down.
+                        onOpenSettings = onOpenSettings,
                     )
                 }
             }

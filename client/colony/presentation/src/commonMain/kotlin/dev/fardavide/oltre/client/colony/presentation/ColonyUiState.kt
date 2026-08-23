@@ -23,6 +23,8 @@ import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.BuildJob
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -234,13 +236,18 @@ private fun GameState.toFacilityRow(
         // Three cases, and the row's own state picks between them. A job in flight can be asked
         // about its completion, a row waiting on its stores about its price, and everything else —
         // affordable, locked, or waiting on a resource that will never arrive — about nothing.
+        //
+        // **A fourth answer since 0.18, and it is above all three**: under `BY_CATEGORY` the question
+        // has been answered one level up, so the square goes — not disabled, absent, which is what a
+        // missing square has always meant on these rows. The price watch survives because it names a
+        // row rather than a kind. See `AlertSettings.asksOnRow`.
         watch = when {
-            job != null -> if (WatchTarget.Facility(building) in subscribed) {
-                WatchUiState.Subscribed
-            } else {
-                WatchUiState.Offered
+            job != null -> when {
+                !alerts.asksOnRow(AlertCategory.FACILITIES) -> null
+                WatchTarget.Facility(building) in subscribed -> WatchUiState.Subscribed
+                else -> WatchUiState.Offered
             }
-            waiting -> untilAffordable?.let { wait ->
+            waiting -> untilAffordable?.takeIf { alerts.asksOnRow(AlertCategory.PRICE_REACHED) }?.let { wait ->
                 watchState(
                     watched = watching == WatchTarget.Facility(building),
                     at = now + wait,

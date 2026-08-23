@@ -74,7 +74,12 @@ private class AndroidNotificationScheduler(private val context: Context) : Notif
             // would silently overwrite one alert with another.
             0,
             intentFor(notification.id)
-                .putExtra(EXTRA_ID, notification.id)
+                // **The booking's id is in the URI and the tray's id rides in an extra**, which is
+                // the whole of what makes one notification able to update itself. `filterEquals`
+                // reads the URI, so two bookings under one id would replace each other before either
+                // fired; the receiver posts under the extra, so two that fire *do* replace each other
+                // in the tray. Everything but `AlertDelivery.TOTAL` sends the same string twice.
+                .putExtra(EXTRA_ID, notification.collapseId)
                 .putExtra(EXTRA_TITLE, notification.title)
                 .putExtra(EXTRA_BODY, notification.body),
             // UPDATE_CURRENT because extras are not part of an intent's identity: without it, a

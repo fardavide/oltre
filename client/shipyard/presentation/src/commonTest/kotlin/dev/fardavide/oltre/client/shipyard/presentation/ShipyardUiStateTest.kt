@@ -8,6 +8,7 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.Buildings
@@ -344,6 +345,17 @@ class ShipyardUiStateTest {
     }
 
     @Test
+    fun `by category takes the square off the card and the third state with it`() {
+        // **The one thing call 1 loses, stated where it is lost.** This control has three states —
+        // off, each hull, whole order — and one category switch cannot carry three, so under
+        // `BY_CATEGORY` the yard announces every hull and the middle state is gone from this screen.
+        // It is not lost: `AlertDelivery.PER_CATEGORY` is *when the whole order is done*, exactly.
+        val ordered = wealthy().copy(alerts = AlertSettings.NEW_COLONY).order(2)
+
+        assertEquals(null, ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff().alert)
+    }
+
+    @Test
     fun `asking about one hull type leaves the other card's square unlit`() {
         val mixed = assertIs<BuildShipsResult.Started>(
             buildShips(wealthy().order(2), Ships.of(ShipType.HAULER, 1), at = t0),
@@ -370,8 +382,15 @@ class ShipyardUiStateTest {
     private fun fleetOf(hulls: Int): GameState =
         GameState.initial(SEED).copy(ships = Ships.of(ShipType.SKIFF, hulls))
 
-    private fun wealthy(): GameState =
-        GameState.initial(SEED).copy(resources = Resources.of(metal = 100_000, crystal = 100_000))
+    // **`CARRIED_FORWARD`, and it is the input half of the square exactly as `hullAlerts` is.** Under
+    // a new colony's own settings a hull card carries no square at all — every hull is announced by
+    // its kind, because one category switch cannot hold this control's three states — so every
+    // assertion above about what the square *shows* would be an assertion about `null`. The test
+    // below is that case.
+    private fun wealthy(): GameState = GameState.initial(SEED).copy(
+        resources = Resources.of(metal = 100_000, crystal = 100_000),
+        alerts = AlertSettings.CARRIED_FORWARD,
+    )
 
     // Genesis surveys the home system, so a neighbour of home is a legal target on turn one.
     private fun GameState.dispatchOne(): GameState {

@@ -495,5 +495,59 @@ enum class StringId {
     NotificationChannelName,
     NotificationChannelDescription,
     PlayerDefaultName,
-    SettingsComingSoon,
+    // **What several things of one kind are called when they arrive together**, one entry per
+    // category. Seven entries rather than one with a noun argument, because the verb is not the same
+    // in either table — a facility *is done*, a hull *has left the yard*, a fleet *is home* — and a
+    // shared frame would force one verb on all of them or make the noun carry the sentence.
+    //
+    // Never resolved with a count below two: one of anything is that thing's own singleton alert.
+    AlertGroupFacilities,
+    AlertGroupResearch,
+    AlertGroupAdaptations,
+    AlertGroupHulls,
+    AlertGroupProbes,
+    AlertGroupFleetReturns,
+    AlertGroupPriceReached,
+    // The same seven as a bare clause — "3 fleets" — for the title that has more than one kind in it.
+    // No verb and no conjunction, which is the design's rule and is what keeps a two-language title
+    // the same shape: a verb costs a plural agreement and *and* costs a conjunction, and those are the
+    // two places English and Italian disagree in every string.
+    AlertCountFacilities,
+    AlertCountResearch,
+    AlertCountAdaptations,
+    AlertCountHulls,
+    AlertCountProbes,
+    AlertCountFleetReturns,
+    AlertCountPriceReached,
+    // "+2", where the number counts *categories* the title had no room for rather than things.
+    AlertMoreCategories,
+    // ── The settings sheet ──────────────────────────────────────────────────────────────────
+    //
+    // The first preferences surface in the app. `SettingsComingSoon` used to be the whole of it and
+    // left the catalogue with this slice — the design system lists "Coming soon" under *Never
+    // written*, and the exception logged at 0.16 is closed rather than carried.
+    SettingsTitle,
+    AlertsLabel,
+    AlertModePerItem,
+    AlertModeByCategory,
+    AlertModePerItemNote,
+    AlertModeByCategoryNote,
+    AlertCategoryFacilities,
+    AlertCategoryResearch,
+    AlertCategoryAdaptations,
+    AlertCategoryHulls,
+    AlertCategoryProbes,
+    AlertCategoryFleetReturns,
+    AlertCategoryPriceReached,
+    AlertPriceWatchOn,
+    AlertPriceWatchOff,
+    AlertBellOn,
+    AlertBellOff,
+    DeliveryLabel,
+    DeliveryEach,
+    DeliveryPerCategory,
+    DeliveryTotal,
+    AlertNextAt,
+    AlertNextAtTotal,
+    AlertNothingPending,
 }

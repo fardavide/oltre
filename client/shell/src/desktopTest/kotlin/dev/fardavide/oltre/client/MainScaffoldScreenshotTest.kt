@@ -59,7 +59,24 @@ class MainScaffoldScreenshotTest {
 
     @Test
     fun `the frame and the field behind it in a phone-sized window`() {
-        runDesktopComposeUiTest(width = 393, height = 852) {
+        captureFrame(name = "main_scaffold")
+    }
+
+    // **The frame at the narrowest window the app supports, and it has never had one.** Every screen
+    // *inside* the frame has a Slide Over baseline; the chrome that holds them — the strip, the rail
+    // and the tab bar, all three of which reflow at 320 — has only ever been photographed at 393.
+    //
+    // It arrives with this slice rather than for it: 0.18 is what took the notice out of this file and
+    // put a slot in, so it is the release that reads `MainScaffold` closely, and 320 is the width the
+    // design measured the sheet against. What the frame holds is five tabs sharing 320dp and a rail
+    // that has to stack.
+    @Test
+    fun `the frame in a Slide Over window`() {
+        captureFrame(name = "main_scaffold_slide_over", width = SLIDE_OVER_WIDTH)
+    }
+
+    private fun captureFrame(name: String, width: Int = PHONE_WIDTH) {
+        runDesktopComposeUiTest(width = width, height = 852) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {
@@ -74,55 +91,33 @@ class MainScaffoldScreenshotTest {
                             galaxy = { _, _ -> Text("galaxy-under-test") },
                             shipyard = { Text("shipyard-under-test") },
                             fleets = { Text("fleets-under-test") },
+                            // The gear is drawn and never tapped: what it opens is `App`'s, and a
+                            // sheet is a popup that `onRoot()` could not photograph anyway.
+                            onOpenSettings = {},
                         )
                     }
                 }
             }
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/main_scaffold.png",
+                filePath = "src/desktopTest/screenshots/$name.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }
     }
 
-    // **The one frame in the repository captured after a tap**, and the exception is argued rather
-    // than taken. The rule it bends — never `performClick` before a capture — exists because a press
-    // bakes its own indication into the baseline and pins it there forever. Here the shutter opens
-    // `SETTLED_MILLIS` after the release, which is comfortably past both the ripple and the press
-    // spring and still well inside the notice's four seconds; and there is no other way to reach
-    // this state, because the notice is the frame's own and takes no parameter.
-    //
-    // What it is for is the thing neither the notice's own baseline nor the frame's can show: where
-    // the notice sits. `SettingsNoticeBehaviourTest` asserts that it clears the tab bar, which is a
-    // claim about two numbers; whether it looks like a card floating over a screen rather than a
-    // second bar stuck to the first is a claim only a picture can carry.
-    @Test
-    fun `the frame answering the settings gear`() {
-        runDesktopComposeUiTest(width = 393, height = 852) {
-            mainClock.autoAdvance = false
-            setContent {
-                OltreTheme {
-                    Surface {
-                        MainScaffold(
-                            tilt = { Tilt.NONE },
-                            player = testPlayerStripUiState,
-                            resources = testResourceRailUiState,
-                            colony = { Text("colony-under-test") },
-                            research = { Text("research-under-test") },
-                            galaxy = { _, _ -> Text("galaxy-under-test") },
-                            shipyard = { Text("shipyard-under-test") },
-                            fleets = { Text("fleets-under-test") },
-                        )
-                    }
-                }
-            }
-            onNodeWithTag(PlayerTestTags.SETTINGS, useUnmergedTree = true).performClick()
-            mainClock.advanceTimeBy(SETTLED_MILLIS)
-            onRoot().captureRoboImage(
-                filePath = "src/desktopTest/screenshots/main_scaffold_notice.png",
-                roborazziOptions = oltreRoborazziOptions(),
-            )
-        }
+    private companion object {
+        const val PHONE_WIDTH = 393
+        const val SLIDE_OVER_WIDTH = 320
     }
+
+    // **The frame's one after-a-tap baseline left with 0.18**, and so did the reason for it. It
+    // photographed where the `Coming soon` notice sat — a claim only a picture could carry, because
+    // the notice was the frame's own and took no parameter, so nothing else could render it.
+    //
+    // What the gear opens is a `ModalBottomSheet` now, and a sheet is a popup: it is composed into a
+    // window of its own, so `onRoot()` photographs the frame with nothing on it whatever the gear
+    // has been asked. `AlertSheetScreenshotTest` captures the contents, `AlertSheetBehaviourTest`
+    // drives the chrome, and `MainScaffoldBehaviourTest` holds the one claim that was ever this
+    // file's — that the gear opens something and that a second tap closes it.
 }

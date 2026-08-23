@@ -13,6 +13,12 @@ above resources: player icon, player name, current Lv, experience bar, settings 
 mechanics behind the numbers are explicitly deferred — *"we will plan and populate the rest in a
 follow up task"* — so what this slice ships is the surface and nothing under it.
 
+> **Withdrawn 2026-08-23.** The permission this sheet was built under — *"You have capability to use
+> Design directly now"* — has been revoked: *"I think it's easier to manage having everything inside
+> Design, and I think you cannot do that, so let's revert that rule for now."* The round trip is the
+> rule again; see [`../rules/session-roles.md`](../rules/session-roles.md). §4 and §5 stay exactly as
+> written, because what they record is a round that happened.
+
 **The design half opened as a Claude Design round trip and closed without one.** §4 is the call as it
 was about to be sent; §5 is what was drawn instead. Mid-session Davide said *"You have capability to
 use Design directly now"* — so the same session read the design system, designed the strip, rendered

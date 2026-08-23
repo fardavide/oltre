@@ -11,6 +11,8 @@ import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
@@ -83,6 +85,13 @@ private fun GameState.toHullRow(
 // one on the slipway; the square asks about an order, and a hauler queued behind two skiffs is an
 // order the player is waiting on even though its card shows no countdown at all.
 private fun GameState.alertFor(type: ShipType): WatchSquareUiState? {
+    // **The card loses its square under `BY_CATEGORY`, and it loses more than the other screens do.**
+    // Every hull is announced there, because one switch cannot carry this control's three states —
+    // off, each hull, whole order — so the middle state goes with the square. It is not lost: `One
+    // per category` is *when the whole order is done*, exactly, for hulls and for everything else. So
+    // the third state becomes a global preference rather than a per-order one, which is worth saying
+    // out loud because it makes Delivery load-bearing for something the yard used to own.
+    if (!alerts.asksOnRow(AlertCategory.HULLS)) return null
     if (yard.none { it.ship == type }) return null
     return when (hullAlerts[type]) {
         null -> WatchSquareUiState.UNASKED

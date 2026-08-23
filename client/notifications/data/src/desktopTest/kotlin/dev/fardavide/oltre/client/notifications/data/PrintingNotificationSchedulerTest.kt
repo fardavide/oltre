@@ -28,6 +28,8 @@ class PrintingNotificationSchedulerTest {
     fun `a pending alert is printed with the instant it will fire at`() = runTest {
         val notification = LocalNotification(
             id = "build-METAL_MINE",
+            // Its own tray entry, which is every alert but the one `AlertDelivery.TOTAL` books.
+            collapseId = "build-METAL_MINE",
             title = "Metal Mine reached level 2",
             body = "Construction is complete.",
             at = Instant.fromEpochSeconds(3_600),

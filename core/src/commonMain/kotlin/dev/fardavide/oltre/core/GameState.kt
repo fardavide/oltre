@@ -97,6 +97,15 @@ data class GameState(
     // and two memories for one word would be two settings a player has to find separately. Davide's
     // to overrule the day the two want different answers.
     val announceFlights: Boolean,
+    // **The fourth ask, and the only one that is about the other three.** Those point at a job, a hull
+    // type and the next flight; this points at nothing, because what it holds is where the question is
+    // asked and how many notifications the answer arrives in. Under `BY_CATEGORY` the three fields
+    // above are not consulted at all — they are not cleared either, so choosing the mode back finds
+    // every square where it was left.
+    //
+    // Directly below them because it governs them, and above `experience` because it is a preference
+    // rather than a fact about the empire: nothing here reaches the event log. See `AlertSettings`.
+    val alerts: AlertSettings,
     // **What the log is worth, carried rather than recounted.** It is a running total of
     // `ExperienceBalance.awardFor` over every entry in `eventLog`, and the two are kept in step by
     // `logging` below being the only way either of them changes.
@@ -168,6 +177,11 @@ data class GameState(
             subscribed = emptySet(),
             hullAlerts = emptyMap(),
             announceFlights = false,
+            // **The one default on this list that is not the empty thing**, and deliberately: a new
+            // colony announces every kind of news and does it in a single notification. Davide's call,
+            // 2026-08-23. A colony that predates the sheet gets the other pair — see
+            // `AlertSettings.CARRIED_FORWARD` and the 16 -> 17 hop.
+            alerts = AlertSettings.NEW_COLONY,
             experience = Experience.NONE,
             eventLog = emptyList(),
         )

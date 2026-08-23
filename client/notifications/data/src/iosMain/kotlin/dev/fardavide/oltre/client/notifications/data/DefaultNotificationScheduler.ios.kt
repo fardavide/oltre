@@ -37,6 +37,17 @@ private class IosNotificationScheduler : NotificationScheduler {
             val content = UNMutableNotificationContent().apply {
                 setTitle(notification.title)
                 setBody(notification.body)
+                // **The closest iOS gets to Android's replace, and it is not the same thing.**
+                // Android's tray id genuinely overwrites what is showing; here a thread identifier
+                // only collapses the run into one stack in Notification Centre, newest on top.
+                //
+                // There is no way to do better while the app is not running. Replacing a *delivered*
+                // notification needs a new request under the same identifier, and two *pending*
+                // requests cannot share one — the second would silently cancel the first, which
+                // would leave a colony holding only the last alert of the day. iOS runs nothing in
+                // the background, so nothing can retract on delivery either. Flagged rather than
+                // hidden: on iPhone `One in total` is one stack, not one notification.
+                setThreadIdentifier(notification.collapseId)
             }
             // Positional throughout: Kotlin rejects named arguments for Objective-C functions.
             center.addNotificationRequest(

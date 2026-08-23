@@ -129,6 +129,8 @@ dependencies {
     kover(projects.client.research.presentation)
     kover(projects.client.research.ui)
     kover(projects.client.save.data)
+    kover(projects.client.settings.presentation)
+    kover(projects.client.settings.ui)
     kover(projects.client.shipyard.presentation)
     kover(projects.client.shipyard.ui)
     kover(projects.client.tilt.data)

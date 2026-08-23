@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
+import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
@@ -90,7 +91,13 @@ class FlightAlertAppBehaviourTest {
 
     private companion object {
 
+        // **`CARRIED_FORWARD` rather than genesis's own settings**, and it is the fixture obeying the
+        // subject rather than working around a default. This file is about the bell beside Dispatch:
+        // under `BY_CATEGORY` there is no bell — a flight is announced by its kind — so every tap
+        // here would be a tap on a control the design deliberately removed.
+        // `AlertSheetAppBehaviourTest` is where the other mode is driven end to end.
         val seeded: GameState = GameState.initial(GalaxySeed(20_260_807L))
+            .copy(alerts = AlertSettings.CARRIED_FORWARD)
 
         // A world the ledger lists and a run may actually be sent to. Genesis surveys the whole home
         // system, so its worlds are on the ledger from the first launch — and read off the seed
