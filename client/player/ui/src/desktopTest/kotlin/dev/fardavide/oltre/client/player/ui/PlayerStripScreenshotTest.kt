@@ -53,9 +53,9 @@ class PlayerStripScreenshotTest {
         )
     }
 
-    // **What this ships as, drawn once so the slice knows what it is building toward.** No launch
-    // reaches it — nothing awards experience yet — and it is here because a gauge that has only ever
-    // been photographed empty is a gauge nobody has checked can fill.
+    // A colony several levels in. Drawn at 0.16 as the state the slice was building toward, when no
+    // launch could reach it; from 0.17 a played save does, and the frame is the one that says a
+    // gauge with something in it still fits between the name and the gear.
     @Test
     fun `player strip once there is something to show`() {
         capture(
@@ -71,7 +71,7 @@ class PlayerStripScreenshotTest {
     private fun capture(
         name: String,
         width: Int = PHONE_WIDTH,
-        uiState: PlayerStripUiState = playerStripUiState(),
+        uiState: PlayerStripUiState = newColonyPlayerStrip,
         noticeShown: Boolean = false,
         translations: Translations = English,
     ) {

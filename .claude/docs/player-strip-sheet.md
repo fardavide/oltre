@@ -80,6 +80,14 @@ So: the name is one catalogue entry, the level and the experience are `0`, and a
 log, which already records every completed build, project, ladder, survey and run — and that is the
 follow-up task's call to make, not this one's.
 
+> **Closed at 0.17, and the fold is what it was holding out for.** Davide, 2026-08-22: *"make it so
+> next time I start the game it gives me experience for everything I did before."* The level and the
+> gauge are now `experienceOf(eventLog)`, `SCHEMA_VERSION` did not move, and no migration had to
+> invent an existing colony's experience — which is this section's argument arriving at its own
+> conclusion rather than being overruled. The name is untouched and is still a constant. The mapper
+> is in `:client:player:presentation`, the module this feature's build file said it would grow on
+> the day there was something to map. See [`experience-sheet.md`](experience-sheet.md).
+
 **The name was going to be a function of the galaxy seed and is not**, which is the one thing in this
 sheet that §5 overturned rather than filled in. Seeding it would have given every colony its own
 callsign for free, off a value already on disk. What it would also have done is assert an identity the

@@ -84,11 +84,10 @@ include(":client:galaxy:ui")
 // The frame-driven half of the Galaxy robot — see its build file for why the other half is not here.
 include(":client:galaxy:ui-testing")
 include(":client:notifications:data")
-// Who is playing, above the rail. A `ui` module and no `presentation`, on `:client:debug`'s
-// precedent — *"a feature with nothing to decide has no presentation at all"*: the name, the level
-// and the experience are constants this slice, so there is no `GameState` to map and a module that
-// only forwarded its arguments would be the placeholder layer rule 4 exists to prevent. The slice
-// that makes the numbers real adds the layer then, with something to put in it.
+// Who is playing, above the rail. 0.16 shipped the `ui` alone and said in as many words that *"the
+// slice that makes the numbers real adds the layer then, with something to put in it"* — 0.17 is
+// that slice, and the something is a fold over the event log.
+include(":client:player:presentation")
 include(":client:player:ui")
 include(":client:research:presentation")
 include(":client:research:ui")

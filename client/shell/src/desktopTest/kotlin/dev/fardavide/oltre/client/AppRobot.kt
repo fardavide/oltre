@@ -112,6 +112,16 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         assertEquals(count, rows.fetchSemanticsNodes().size)
     }
 
+    // The badge the strip wears, asked for inside the strip rather than anywhere on screen. The
+    // counterpart of `assertRowsReading`'s subtraction and needed for the same reason: `LV 4` is a
+    // sentence a facility row can say too, so an unscoped assertion about the player's level would
+    // pass on a mine.
+    fun assertThePlayerStripReads(text: String) = apply {
+        test.onNode(
+            hasText(text, substring = true) and hasAnyAncestor(hasTestTag(PlayerTestTags.CONTENT)),
+        ).assertIsDisplayed()
+    }
+
     fun letTheSweepFinish() = apply { test.mainClock.advanceTimeBy(SWEEP_TOTAL_MILLIS) }
 
     // The one control in the app with no words on it, so the one the shell reaches by tag. See

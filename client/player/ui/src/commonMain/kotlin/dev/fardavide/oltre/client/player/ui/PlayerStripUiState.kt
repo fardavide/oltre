@@ -1,7 +1,6 @@
 package dev.fardavide.oltre.client.player.ui
 
 import androidx.compose.runtime.Immutable
-import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 
 // What the strip draws. Four readings and no verbs — the one thing in it that acts is the gear, and
@@ -20,19 +19,11 @@ data class PlayerStripUiState(
     val experiencePercent: Int,
 )
 
-// **The whole of this slice's model, and it is a constant.** Nothing awards experience yet and
-// nothing renames the player, so a field on `GameState` could only ever hold the value it was
-// migrated in with — and the migration would have to answer what an existing colony's experience is,
-// which has no honest answer. See `.claude/docs/player-strip-sheet.md` §3.
+// **There is no factory here any more, and the absence is the slice.** 0.16 shipped one returning
+// three constants, because nothing awarded experience and there was nothing to map. 0.17 folds the
+// event log for the level and the gauge, so the state is built from a `GameState` in
+// `:client:player:presentation` — which is what this module's build file said would happen the day
+// the numbers became real.
 //
-// A factory rather than defaults on the data class, per the house rule: a caller that builds one of
-// these by hand — the day there is something to build it *from* — passes every value explicitly, so
-// the compiler finds it when the shape grows.
-fun playerStripUiState(): PlayerStripUiState = PlayerStripUiState(
-    name = Strings.playerDefaultName(),
-    level = Strings.levelBadge(STARTING_LEVEL),
-    experiencePercent = STARTING_EXPERIENCE,
-)
-
-private const val STARTING_LEVEL = 0
-private const val STARTING_EXPERIENCE = 0
+// Nothing replaces it in `commonMain`. A "the strip before anything happened" constant would be a
+// second place the name is decided, and the name is the mapper's to say.

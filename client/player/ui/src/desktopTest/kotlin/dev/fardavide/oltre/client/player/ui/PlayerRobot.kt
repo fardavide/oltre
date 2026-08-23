@@ -55,7 +55,7 @@ internal class PlayerRobot(private val test: ComposeUiTest) {
 // test that let the clock run would be racing it.
 @OptIn(ExperimentalTestApi::class)
 internal fun playerStrip(
-    uiState: PlayerStripUiState = playerStripUiState(),
+    uiState: PlayerStripUiState = newColonyPlayerStrip,
     width: Int = PHONE_WIDTH,
     translations: Translations = English,
     block: PlayerRobot.() -> Unit,

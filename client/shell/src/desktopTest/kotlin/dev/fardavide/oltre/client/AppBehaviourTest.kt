@@ -2,11 +2,13 @@ package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.startResearch
 import kotlin.test.Test
@@ -116,6 +118,50 @@ class AppBehaviourTest {
 
             assertAlertsBooked(1)
             assertReads("watching Metal Mine")
+        }
+    }
+
+    // **The retroactive credit, end to end and through the save file.** Davide, 2026-08-22: *"make it
+    // so next time I start the game it gives me experience for everything I did before."* The fixture
+    // is what a 0.16 save holds — a log and no experience field, because there is no experience field
+    // — and it is written through `GameStore` like every other save in this file, so what this
+    // asserts includes the log surviving the round trip that a stored level would have needed a
+    // migration for.
+    //
+    // `LV 4` is stated rather than derived. Twenty facility levels and four full systems come to
+    // 8,200 points against a level-4 threshold of 6,560 — and a test that recomputed that with the
+    // functions under test would agree with them however they moved.
+    @Test
+    fun `a colony played before the level existed opens on the level it earned`() {
+        app(saved = snapshot(state = colony().copy(eventLog = aHistory()), agedBy = 1.minutes)) {
+            assertThePlayerStripReads("LV 4")
+        }
+    }
+
+    // The other half of the same claim, and the one that would have caught a mapper wired to a
+    // constant: a colony with nothing behind it still reads zero.
+    @Test
+    fun `a first launch opens the strip at level zero`() {
+        app(saved = null) {
+            assertThePlayerStripReads("LV 0")
+        }
+    }
+
+    // Twenty facility levels and four surveys, which is a few days of an ordinary colony. The
+    // instants are the log's own and nothing reads them — `advance` never looks at the log — so they
+    // are spaced by an hour only so the fixture reads like a history rather than like a heap.
+    private fun aHistory(): List<Event> = buildList {
+        for (level in 2..21) {
+            add(Event.BuildCompleted(BuildingType.METAL_MINE, BuildingLevel(level), at = TEST_NOW - level.hours))
+        }
+        for (system in 1..4) {
+            add(
+                Event.SurveyCompleted(
+                    SystemAddress(galaxy = 1, system = system),
+                    worldsFound = 4,
+                    at = TEST_NOW - system.hours,
+                ),
+            )
         }
     }
 

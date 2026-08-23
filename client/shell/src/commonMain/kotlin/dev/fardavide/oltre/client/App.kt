@@ -29,7 +29,7 @@ import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
-import dev.fardavide.oltre.client.player.ui.playerStripUiState
+import dev.fardavide.oltre.client.player.presentation.toPlayerStripUiState
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.save.data.GameStore
@@ -376,11 +376,11 @@ fun App(
                         ?.watchingLabel(compact = maxWidth < OltreLayout.compactWidth)
 
                     MainScaffold(
-                        // A constant, and the composition root is where it is allowed to be one:
-                        // nothing in `core` knows the player has a name or a level yet, so there is
-                        // nothing to map and no `presentation` module to map it in. See
-                        // `.claude/docs/player-strip-sheet.md` §3 for why it is not in the save.
-                        player = playerStripUiState(),
+                        // **Read off the save now rather than declared here.** The level and the
+                        // gauge are a fold over `current.state.eventLog`, so a colony carried
+                        // forward from 0.16 opens on the level it had already earned and nothing
+                        // was migrated to give it one. See `core`'s `Experience.kt`.
+                        player = current.state.toPlayerStripUiState(),
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
                         tilt = { lean.value },
                         colony = { scroll ->
