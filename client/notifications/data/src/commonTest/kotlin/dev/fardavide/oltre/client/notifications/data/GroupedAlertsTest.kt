@@ -21,7 +21,9 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.YardJob
+import dev.fardavide.oltre.core.toggleAlert
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -258,6 +260,32 @@ class GroupedAlertsTest {
 
         // then
         assertEquals(1, scheduler.scheduled.size)
+    }
+
+    // **The category that can never group**, because there is one affordability watch in the whole
+    // game and a count of one is the thing itself. It is also the category with no counting sentence
+    // in the catalogue at all — see `Strings.categoryClause`, which answers null for it.
+    @Test
+    fun `the price watch keeps its own alert beside a grouped category`() = runTest {
+        // given a colony that can pay for nothing with one row watched and two builds running
+        val scheduler = FakeNotificationScheduler()
+        val watched = toggleAlert(freshState().copy(resources = Resources.of()), WatchTarget.Facility(BuildingType.SOLAR_PLANT))
+        val state = watched.copy(
+            builds = builds(
+                BuildingType.METAL_MINE to EPOCH + 1.hours,
+                BuildingType.CRYSTAL_MINE to EPOCH + 2.hours,
+            ),
+        )
+
+        // when
+        GameNotifications(scheduler, English).sync(state, now = EPOCH, settings = byCategory(NotificationGrouping.GROUPED))
+
+        // then — the two builds are one alert and the watch is its own
+        assertEquals(2, scheduler.scheduled.size)
+        assertEquals(
+            listOf("2 facilities are done", "You can afford Solar Plant"),
+            scheduler.scheduled.map { it.title }.sorted(),
+        )
     }
 
     // Single is what ships today and this slice may not have moved it. The five-minute chain is the

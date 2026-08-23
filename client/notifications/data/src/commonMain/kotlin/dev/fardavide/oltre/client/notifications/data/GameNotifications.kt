@@ -303,8 +303,12 @@ private fun List<FutureEvent>.asSummary(
 // count is only worth saying when there is more than one thing to count; and the affordability watch
 // holds one thing by construction, since there is a single watch in the game.
 private fun List<FutureEvent>.asOneAlert(category: NotificationCategory): List<PendingNotification>? {
-    if (size < 2) return null
+    // Asked before the count, and that ordering is what keeps both refusals live rather than leaving
+    // one of them a defensive branch nothing can reach: the affordability watch holds exactly one
+    // event by construction, so a size check first would answer every case before this one was ever
+    // consulted.
     val title = Strings.categoryClause(category, size) ?: return null
+    if (size < 2) return null
     return listOf(
         PendingNotification(
             // **The most stable id in this file**, and stronger than the five-minute group's one deck
