@@ -177,6 +177,13 @@ fun App(
             // the file comes back — which is right rather than a race, because the map is the
             // default and a first launch has no file to wait for.
             var galaxyLanding by remember { mutableStateOf(GalaxyLanding.MAP) }
+            // **The whole record, beside the one field of it the frame reads.** Since 0.19 the
+            // preferences file holds two things, and a write is always about one of them — so the
+            // other has to come from somewhere. Keeping the loaded record here is what makes
+            // `copy(…)` possible: without it, saving a landing would have to invent a value for the
+            // version whose changelog has been read, and inventing one is how a player gets told
+            // twice or never.
+            var remembered by remember { mutableStateOf(Preferences.NONE) }
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
@@ -211,7 +218,9 @@ fun App(
             }
 
             LaunchedEffect(preferences) {
-                galaxyLanding = preferences.load().galaxyLanding.toGalaxyLanding()
+                val loaded = preferences.load()
+                remembered = loaded
+                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
             }
 
             LaunchedEffect(Unit) {
@@ -511,7 +520,9 @@ fun App(
                                 landing = galaxyLanding,
                                 onLandingChange = { chosen ->
                                     galaxyLanding = chosen
-                                    scope.launch { preferences.save(Preferences(galaxyLanding = chosen.name)) }
+                                    val next = remembered.copy(galaxyLanding = chosen.name)
+                                    remembered = next
+                                    scope.launch { preferences.save(next) }
                                 },
                                 onDispatchProbe = { target ->
                                     act { state, at ->

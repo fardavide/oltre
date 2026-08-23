@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.save.data
 
 import kotlinx.serialization.SerializationException
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 // Turns the preferences file into a record and back, the way `GameStore` does for the colony —
@@ -15,7 +16,7 @@ class PreferencesStore(private val file: SaveFile) {
     suspend fun load(): Preferences {
         val text = file.read() ?: return Preferences.NONE
         return try {
-            json.decodeFromString(Preferences.serializer(), text)
+            json.decodeFromString(Record.serializer(), text).toPreferences()
         } catch (_: SerializationException) {
             Preferences.NONE
         }
@@ -25,8 +26,29 @@ class PreferencesStore(private val file: SaveFile) {
     // a failed write to, the next change writes the whole record again, and a full disk is not
     // worth ending a session over.
     suspend fun save(preferences: Preferences) {
-        file.write(json.encodeToString(Preferences.serializer(), preferences))
+        file.write(json.encodeToString(Record.serializer(), preferences.toRecord()))
     }
+
+    // **The file's shape, which is not the record's.** Every field defaults to absent, so a file
+    // written by a build that knew fewer preferences still reads — the *forward* half of what
+    // `ignoreUnknownKeys` does backwards. Without it, adding a field would make an older file fail to
+    // parse and take the fields it did carry down with it: a player upgrading would lose the galaxy
+    // landing they chose, over a preference they had never had the chance to set.
+    //
+    // Kept private and separate from `Preferences` so the tolerance lives here rather than in the
+    // record every caller builds — `Preferences` stays strict, and the compiler still catches a
+    // caller that forgot a field.
+    @Serializable
+    private data class Record(
+        val galaxyLanding: String? = null,
+        val lastSeenVersion: String? = null,
+    )
+
+    private fun Record.toPreferences(): Preferences =
+        Preferences(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion)
+
+    private fun Preferences.toRecord(): Record =
+        Record(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion)
 
     private companion object {
 
