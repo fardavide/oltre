@@ -4320,3 +4320,36 @@ went with it.
 - **The permission slice is next and nothing on this sheet reflects a muted system**, so today a
   player can switch all seven on and hear nothing. That is the one state this screen lies about, and
   the design names it as the deliberate follow-up.
+- **Delivery is global rather than per category.** *"One in total for probes, one each for research"*
+  is not expressible. Nobody has asked for it.
+
+### Salvaged from the parallel implementation, which is not shipping
+
+The non-UI half of this slice was built twice: once here, and once on a local branch that never
+reached a pull request, against an earlier version of the same design sheet. That branch is an
+ancestor of this one so the work is in the history, and its tree is superseded — the model it
+declared (`NotificationSettings` / `NotificationScope` / `NotificationGrouping`) is the same design
+under different names, and keeping both would have been two vocabularies for one feature. Three
+things in it are worth more than the rename and are recorded here rather than lost with it:
+
+**A category as a *default* that a row could still override was considered and rejected**, before the
+replace-outright shape was taken. Two sources of truth for one question: a lit bell would mean either
+*this one, specifically* or *because the category is on*, and nothing on screen could say which. What
+made replacement cheap is that `WatchUiState` was already nullable and already documented null as
+*the absence of a control*.
+
+**Adding a nullable field to `Preferences` breaks every preferences file already on disk**, and that
+was measured rather than reasoned. A nullable property with no default is still *required* on decode,
+so it fails with `MissingFieldException` — a `SerializationException`, which `PreferencesStore.load`
+answers `Preferences.NONE` to — and a player would silently lose their galaxy landing to a feature
+they had not opened. The fix, for whoever next adds a preference, is `explicitNulls = false` on that
+store's `Json`. The save format keeps the opposite line deliberately: `GameSave` leaves unknown keys
+fatal and migrates by schema number, because silently misreading a colony is worse than admitting it
+is unreadable.
+
+**The delay this version does not have was the other branch's open question**, and it is worth
+knowing it was asked. There, grouped and summary held one alert until the last pending thing landed,
+with no window at all — measured on the reference colony at five and a half hours of silence. What
+ships instead keeps one notification up to date, so the question does not arise; if `One per
+category` is ever reported as too quiet, the window is one `Duration` and one `chainedWithin` call.
+

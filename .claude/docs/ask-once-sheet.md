@@ -77,6 +77,24 @@ hull. It is not lost: `One per category` is *when the whole order is done*, exac
 for everything else. So the third state became a global preference rather than a per-order one, which
 makes Delivery load-bearing for something the shipyard used to own.
 
+### The property worth having, and why there are exactly seven
+
+The categories map one-to-one onto the `FutureEvent` members `core` already predicts — `BuildCompletes`,
+`ResearchCompletes`, `AdaptationCompletes`, `ShipsComplete`, `SurveyLands`, `FleetReturns`,
+`AffordableAt`. That is not tidiness, it is the guarantee: **nothing the game can say is ungovernable,
+and a new kind of news cannot ship without a switch**, because `FutureEvent.alertCategory` is an
+exhaustive `when` that will not compile without one.
+
+Research and adaptations stay separate although they read alike, because they are separate slots and
+separate events. Davide split those queues at 0.12.2 precisely because the two are not the same
+decision, and a settings screen that re-merged them would undo that in the one place a player looks to
+say what they care about.
+
+**And the per-row asks are not deleted when the mode changes, they are ignored.** `subscribed`,
+`hullAlerts` and `announceFlights` stay exactly as they were in `GameState`, and switching back
+restores every one of them. The alternative is a mode switch that empties a set — a destructive action
+behind a two-way control, with no undo and nothing on screen to say it happened.
+
 ## §4 — what the phone says
 
 Four levels, and the threshold is a rule rather than a guess.
@@ -205,6 +223,12 @@ section.
   in the catalogue because `One in total` folds every kind in, and there can only ever be one. Copy
   is Davide's.
 - **28 characters is still unmeasured.** See §4.
+- **Delivery is global, not per category.** *"One in total for probes, one each for research"* is not
+  expressible. Nobody has asked for it.
+- **The mode switch is retroactive but not instant.** Turning a category off does not withdraw an
+  alert already sitting with the OS until the next sync — which is the next transition or the next
+  foreground, so in practice within one action. Same window every other number in this game lives
+  with, and it is written down here rather than fixed.
 
 ## The test the next round should run
 
