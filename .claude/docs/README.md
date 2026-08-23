@@ -16,6 +16,7 @@
 | [drawn-map-sheet.md](drawn-map-sheet.md) | The 0.12 design — the galaxy as a folded ribbon of ten banded regions, the caption, the universe, and what the worlds list keeps now the filters and the sort are gone |
 | [player-strip-sheet.md](player-strip-sheet.md) | The 0.16 design — the identity strip above the rail: its height, its mark, its gauge and why nothing about it went into the save |
 | [experience-sheet.md](experience-sheet.md) | The 0.17 design — the level as a fold over the event log: why nothing is stored, what a completion pays, why the ladder is a straight line, and what the level does not yet do |
+| [ask-once-sheet.md](ask-once-sheet.md) | The 0.18 design — the first settings screen: where the alert question is asked, how many notifications the answer arrives in, why `One in total` is not what was drawn, and why iPhone cannot quite do it |
 
 Work that a remote agent session cannot do — UI of any kind, screenshot baselines, or a repo only
 the desktop machine has — is written up as a ready-to-paste prompt. See

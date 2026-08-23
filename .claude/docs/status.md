@@ -447,7 +447,9 @@ Updated: 2026-08-23 (0.18.0)
   16 → 17 hop writes. The gate moved into `core` as `announcedEvents` because the sheet and the
   scheduler must not be able to disagree. `Coming soon` left the catalogue with `SettingsNotice`, its
   six measurements, its four-second window and three baselines. Two modules
-  (`:client:settings:{ui,presentation}`), four new baselines. See [`decisions.md`](decisions.md).
+  (`:client:settings:{ui,presentation}`), four new baselines. See
+  [`ask-once-sheet.md`](ask-once-sheet.md) for the design and [`decisions.md`](decisions.md) for what
+  implementation decided on top of it.
 
 
 ## Roadmap — v1 in vertical slices

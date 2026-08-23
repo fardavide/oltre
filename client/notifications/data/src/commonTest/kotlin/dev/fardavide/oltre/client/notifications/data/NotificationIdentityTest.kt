@@ -1,6 +1,10 @@
 package dev.fardavide.oltre.client.notifications.data
 
+import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.AlertSettings
+import dev.fardavide.oltre.core.setAlertDelivery
+import dev.fardavide.oltre.core.setAlertMode
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.FleetRun
@@ -8,7 +12,9 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -59,6 +65,56 @@ class NotificationIdentityTest {
     }
 
     @Test
+    fun `and under every pair of settings the sheet can be left in`() {
+        // **This file's own lesson, applied to the thing that widened it.** 0.18 turned one packaging
+        // rule into six, and the test above went on asking about one of them — the pair a colony
+        // played before the sheet existed carries. That is the same shape as the `"fleet-arrival"`
+        // constant: unique by construction under the state space the suite happened to walk, and
+        // lossy in the one it did not.
+        //
+        // It found a real defect on the first run. Under `BY_CATEGORY · EACH` a hull card still
+        // holding `WHEN_ALL_DONE` from before the mode was switched collapsed every queued hull onto
+        // one `order-<type>` id — in the mode whose whole promise is that the card is not consulted.
+        //
+        // A loop rather than six tests, because what is being asserted is the same sentence six times
+        // and the sixth is the one nobody would have written by hand.
+        for (mode in AlertMode.entries) {
+            for (delivery in AlertDelivery.entries) {
+                val state = setAlertDelivery(setAlertMode(crowdedColony(), mode), delivery)
+                val ids = notificationsFor(state, now = EPOCH).map { it.id }
+
+                assertEquals(
+                    ids.size,
+                    ids.toSet().size,
+                    "colliding ids under $mode / $delivery among ${ids.size}: ${duplicatesIn(ids)}",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `and every pair keeps one tray entry per booking except the one that must not`() {
+        // The other half of identity since 0.18, and it is a *pair* of promises rather than one:
+        // `TOTAL` is the only stop where several bookings share a tray entry, and it is the only stop
+        // where they must. A regression in either direction is silent — an extra tray entry means the
+        // player gets a second notification where they were promised one, and a shared entry anywhere
+        // else means one alert quietly replacing another.
+        for (mode in AlertMode.entries) {
+            for (delivery in AlertDelivery.entries) {
+                val state = setAlertDelivery(setAlertMode(crowdedColony(), mode), delivery)
+                val booked = notificationsFor(state, now = EPOCH)
+                val trays = booked.map { it.collapseId }.distinct().size
+
+                if (delivery == AlertDelivery.TOTAL) {
+                    assertEquals(1, trays, "$mode / $delivery should hold one tray entry")
+                } else {
+                    assertEquals(booked.size, trays, "$mode / $delivery should be its own tray entry each")
+                }
+            }
+        }
+    }
+
+    @Test
     fun `a crowded colony is actually crowded`() {
         // The guard on the test above rather than a test of the app. A distinctness assertion over a
         // set of one passes forever and proves nothing, so the fixture has to be held to being a
@@ -75,7 +131,13 @@ class NotificationIdentityTest {
         val notifications = notificationsFor(crowdedColony(), now = EPOCH)
         val kinds = notifications.map { it.id.substringBefore('-') }.toSet()
 
-        assertEquals(setOf("group", "survey", "run"), kinds, "not every kind is represented: $kinds")
+        // **`order` joined the set at 0.18**, and it is the same story as the scout one version
+        // earlier: the yard was the one crowding kind this fixture did not hold, so `ShipsComplete`
+        // — the only id in the game derived from an *instant*, next to an order id derived from a
+        // *type* — was absent from the file whose whole subject is ids meeting each other. It arrives
+        // as `order-` rather than `hull-` because the card is left on `WHEN_ALL_DONE`, which is what
+        // a player who tapped once carries into whatever the settings sheet is set to next.
+        assertEquals(setOf("group", "survey", "order", "run"), kinds, "not every kind is represented: $kinds")
         assertTrue(notifications.size >= 20, "only ${notifications.size} alerts — too few to prove anything")
     }
 
@@ -280,7 +342,24 @@ private fun crowdedColony(): GameState {
             returnsAt = EPOCH + (30 + index).hours,
         )
     }
-    return state.copy(runs = runs)
+
+    // **The third crowding kind, and it was missing from a fixture whose whole claim is every kind at
+    // once.** A hull is the only alert whose id is derived from a *time* rather than from a subject —
+    // `hull-<instant>` — and an *order* is the only one derived from a type, so a queue is where two
+    // ids can meet from two directions. Written straight into state for the runs' reason: what this
+    // states is three hulls whose ids have to stay apart, not a yard curve.
+    //
+    // **The card is left on `WHEN_ALL_DONE`, which is the state that found the 0.18 defect.** It is
+    // also the ordinary one: a player taps a hull card once and the answer stands until they tap it
+    // again, so it is what a colony carries into whatever the settings sheet is switched to next.
+    val yard = (0 until 3).map { nth ->
+        YardJob(ship = ShipType.SKIFF, startedAt = EPOCH + nth.hours, completesAt = EPOCH + (nth + 1).hours)
+    }
+    return state.copy(
+        runs = runs,
+        yard = yard,
+        hullAlerts = mapOf(ShipType.SKIFF to HullAlert.WHEN_ALL_DONE),
+    )
 }
 
 private fun run(

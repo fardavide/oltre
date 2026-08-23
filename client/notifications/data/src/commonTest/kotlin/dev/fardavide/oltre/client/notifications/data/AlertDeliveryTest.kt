@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.HullAlert
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -85,6 +86,23 @@ class AlertDeliveryTest {
     }
 
     @Test
+    fun `a hull card left on whole-order does not govern under by-category`() {
+        // **The defect this file was written to catch and did not.** Under `BY_CATEGORY` every queued
+        // hull is announced, so a card still holding `WHEN_ALL_DONE` from before the mode was switched
+        // must not collapse them: the order alert's id is derived from the hull *type*, so two skiffs
+        // would book `order-SKIFF` twice, and neither platform will hold two pending requests under
+        // one identifier — the second replaces the first and one alert is silently lost.
+        //
+        // Asserted as *distinct ids* rather than as a count, because that is the property the platform
+        // actually needs and the one `NotificationIdentityTest` exists for.
+        val state = byCategory(colony())
+
+        val ids = notificationsFor(state, now = NOW).map { it.id }
+
+        assertEquals(ids.size, ids.toSet().size, "colliding ids: $ids")
+    }
+
+    @Test
     fun `the price watch survives by category because it still names a row`() {
         // Section three's exception: every other category is a *kind of thing that happens*, and this
         // one is a row the player had to point at. So the switch decides whether the watch exists at
@@ -108,14 +126,31 @@ class AlertDeliveryTest {
     @Test
     fun `choosing per item again consults the squares it never cleared`() {
         // The panel is not rebuilt when it comes back and neither is the colony: the three per-thing
-        // asks are not consulted under `BY_CATEGORY` and not emptied either, so this colony — which
-        // has subscribed to nothing — goes back to silence rather than to a different answer.
+        // asks are not consulted under `BY_CATEGORY` and not emptied either. This colony has asked
+        // about the mine and about its skiff order and about nothing else, so going back finds exactly
+        // that — the plant, which by-category was announcing, goes quiet again.
         val loud = byCategory(colony())
 
         val quiet = setAlertMode(loud, AlertMode.PER_ITEM)
 
-        assertTrue(notificationsFor(loud, now = NOW).isNotEmpty())
-        assertEquals(emptyList(), notificationsFor(quiet, now = NOW).map { it.id })
+        assertTrue(notificationsFor(loud, now = NOW).any { it.id == "build-${BuildingType.SOLAR_PLANT.name}" })
+        assertEquals(
+            listOf("build-${BuildingType.METAL_MINE.name}", "order-${ShipType.SKIFF.name}"),
+            notificationsFor(quiet, now = NOW).map { it.id },
+        )
+    }
+
+    @Test
+    fun `a whole order keeps its sentence under one per category`() {
+        // **The second half of the same defect.** Under `PER_ITEM` a card on `WHEN_ALL_DONE` leaves
+        // exactly one `ShipsComplete` standing, so the group-of-one branch caught it and said *"A Skiff
+        // has left the yard"* to a player who had asked to be told when the whole order was done. Not a
+        // dropped alert — the wrong sentence, and the count gone with it.
+        val state = perCategory(colony())
+
+        val hulls = notificationsFor(state, now = NOW).single { it.id.startsWith("order-") }
+
+        assertEquals("2 hulls have left the yard", English.resolve(hulls.title))
     }
 
     // ── One per category ────────────────────────────────────────────────────────────────────
@@ -308,9 +343,18 @@ class AlertDeliveryTest {
     // The design's reference colony, minus the drive — an adaptation ladder needs a research record
     // this fixture has no reason to build, and what the tests above are about is the packaging rather
     // than which kinds exist.
+    //
+    // **It carries all three per-item asks, and the first cut of this file carried none.** That was
+    // the hole: with an empty `subscribed`, an empty `hullAlerts` and `announceFlights = false`, every
+    // `BY_CATEGORY` test above demonstrated only that the switch turns things *on*, and none of them
+    // could see the other half of call 1 — that the three asks stop being consulted. A stale hull card
+    // governing in the mode that promises to ignore it is exactly the defect that hid there.
     private fun colony(): GameState = freshState().copy(
         builds = mapOf(mine(), plant()),
         yard = listOf(hullAt(HULL_1237), hullAt(HULL_1309, from = HULL_1237)),
+        subscribed = setOf(WatchTarget.Facility(BuildingType.METAL_MINE)),
+        hullAlerts = mapOf(ShipType.SKIFF to HullAlert.WHEN_ALL_DONE),
+        announceFlights = true,
     )
 
     private fun mine(at: Instant = MINE_1204): Pair<BuildingType, BuildJob> = BuildingType.METAL_MINE to

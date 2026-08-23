@@ -9,7 +9,9 @@ import kotlinx.serialization.Serializable
 // one level up on the kind of job — and a colony that answers *the kind* stops carrying a square on
 // any row, because the row has nothing left to ask.
 //
-// The design is *Ask Once*, accepted 2026-08-23.
+// The design is *Ask Once*, accepted 2026-08-23, written up in `.claude/docs/ask-once-sheet.md`.
+// That is what "the sheet" and "the design" mean wherever this slice's code says them — here, in
+// `AnnouncedEvents`, in `GameNotifications` and across `:client:settings`.
 @Serializable
 enum class AlertMode {
 
@@ -59,11 +61,11 @@ enum class AlertDelivery {
     // *"Metal Mine upgraded at 12:04, and notification shows only that, then one ship is ready at
     // 12:37, and the notification updates to show Metal Mine + 1 ship."*
     //
-    // So it is not one alert held until the last thing lands — the design's §6 measured that as five
-    // and a half hours of silence on the reference colony. It fires at every instant, and every firing
-    // replaces the one before it, so the tray never holds more than one. `PRICE_REACHED` folds into it
-    // like everything else, which is Davide's overrule of the design's *never grouped*: there is
-    // nothing to be late for when the notification is already on the lock screen.
+    // So it is not one alert held until the last thing lands — `ask-once-sheet.md` §6 measured that as
+    // five and a half hours of silence on the reference colony. It fires at every instant, and every
+    // firing replaces the one before it, so the tray never holds more than one. `PRICE_REACHED` folds
+    // into it like everything else, which is Davide's overrule of the design's *never grouped*: there
+    // is nothing to be late for when the notification is already on the lock screen.
     TOTAL,
 }
 

@@ -4212,11 +4212,35 @@ point low could not be explained from outside it at all.
   and a row that falls blocks every open PR. It needs its own branch and a measurement before the
   line is added.
 
+## Designing inside a coding session was tried once and withdrawn (2026-08-23)
+
+Mid-0.16 Davide said *"You have capability to use Design directly now"* and that session designed the
+player strip itself — read the design system, built four candidate compositions, rendered them, and
+implemented the synthesis. It is withdrawn: *"I think it's easier to manage having everything inside
+Design, and I think you cannot do that, so let's revert that rule for now."*
+
+**The reason is not that the frames were bad, it is where they live.** A canvas in the Claude Design
+project can be reopened, forked, compared against the last four screens and handed to the next round;
+a composition rendered inside a coding session exists for exactly as long as that session does. The
+thing that would reopen the permission is a way for a session to *write into the project*, which is
+the whole of what is missing.
+
+The rule is therefore [`session-roles.md`](../rules/session-roles.md)'s as written: local → Design is
+a **round trip**, the session emits the prompt in a code block, waits, and does not open a pull
+request for the half it could build. What is not withdrawn: reading the design system, and rendering
+something to look at while implementing a design that has already come back. `player-strip-sheet.md`
+§4–§5 keep the record of the one round that ran the other way.
+
+**0.18 is the first slice to run under it again**, and it ran the right way round: *Ask Once* is a
+Claude Design project, imported and implemented rather than composed here. See
+[`ask-once-sheet.md`](ask-once-sheet.md).
+
 ## The gear opens something, and the question moves up one level (0.18.0)
 
 A Claude Design round trip — *Ask Once*, accepted 2026-08-23 — on the gear 0.16 drew and 0.17
-apologised for. The design and its frames are the sheet; six things about the implementation are
-decisions rather than drawings and belong here.
+apologised for. The design is written up in [`ask-once-sheet.md`](ask-once-sheet.md), which is what
+the slice's code means by "the sheet"; six things about the implementation are decisions rather than
+drawings and belong here.
 
 **Two of the design's own premises did not survive, and it says so itself.** The first cut was going
 to argue for a modal bottom sheet as a new surface; the row sheet and the dispatch sheet are both

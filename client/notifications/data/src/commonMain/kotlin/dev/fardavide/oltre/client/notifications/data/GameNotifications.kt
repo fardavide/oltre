@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.design.text.Translations
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
@@ -109,7 +110,7 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
 
     return when (state.alerts.delivery) {
         AlertDelivery.EACH -> oneEach(kept, state, now)
-        AlertDelivery.PER_CATEGORY -> onePerCategory(kept)
+        AlertDelivery.PER_CATEGORY -> onePerCategory(kept, state, now)
         AlertDelivery.TOTAL -> oneInTotal(kept)
     }
 }
@@ -130,22 +131,35 @@ private fun oneEach(kept: List<FutureEvent>, state: GameState, now: Instant): Li
 
     return kept.filterNot { it in absorbed }.map { event ->
         groupBy[event]?.takeIf { it.size > 1 }?.toNotification()
-            // An order of one is the singleton alert, exactly as a group of one is the thing
-            // itself — the `takeIf` is the same rule one line up, for the same reason: a count
-            // is only worth saying when there is more than one thing to count.
-            //
-            // **Only under `WHEN_ALL_DONE`**, which is the half of `HullAlert` this stop still reads.
-            // `EACH_HULL` is one alert per hull by definition, and `BY_CATEGORY` is `EACH_HULL` one
-            // level up — a single switch cannot carry the card's third state, which is the one thing
-            // call 1 loses and `AlertDelivery.PER_CATEGORY` is where it comes back.
-            ?: (event as? FutureEvent.ShipsComplete)
-                ?.takeIf { state.hullAlerts[it.ship] == HullAlert.WHEN_ALL_DONE }
-                ?.let { hull ->
-                    orderSize(state, hull.ship, now).takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) }
-                }
+            ?: event.orderNotificationOrNull(state, now)
             ?: event.toNotification()
     }
 }
+
+// **A whole order as one sentence, or null if this is not one.** Shared by `oneEach` and
+// `onePerCategory` because it is one rule and both of them got it wrong independently: the first
+// applied it in a mode that must not consult the card, and the second did not apply it at all.
+//
+// Three conditions, and each is load-bearing:
+//
+// **`PER_ITEM`.** Under `BY_CATEGORY` the gate admits *every* queued hull — the card is not consulted,
+// which is what the mode promises — so a card still holding `WHEN_ALL_DONE` from before the switch
+// would collapse all of them onto one id. An order id is derived from the hull *type*, so two skiffs
+// would book `order-SKIFF` twice, and neither platform will hold two pending requests under one
+// identifier: the second replaces the first and an alert is silently lost.
+//
+// **`WHEN_ALL_DONE`.** `EACH_HULL` is one alert per hull by definition, and an absent entry is a card
+// nobody tapped.
+//
+// **More than one hull still to come.** An order of one is the singleton alert, exactly as a group of
+// one is the thing itself: a count is only worth saying when there is more than one thing to count.
+private fun FutureEvent.orderNotificationOrNull(state: GameState, now: Instant): PendingNotification? =
+    (this as? FutureEvent.ShipsComplete)
+        ?.takeIf { state.alerts.mode == AlertMode.PER_ITEM }
+        ?.takeIf { state.hullAlerts[it.ship] == HullAlert.WHEN_ALL_DONE }
+        ?.let { hull ->
+            orderSize(state, hull.ship, now).takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) }
+        }
 
 // **One per kind, at the instant the last thing of that kind lands.**
 //
@@ -155,13 +169,20 @@ private fun oneEach(kept: List<FutureEvent>, state: GameState, now: Instant): Li
 // at 14:50 is worse than not being told at all. It is also the one category whose count would be
 // wrong in a summary — *1 price* is not a thing that finished — and it can only ever be one, because
 // a colony watches one row.
-private fun onePerCategory(kept: List<FutureEvent>): List<PendingNotification> = kept
+private fun onePerCategory(kept: List<FutureEvent>, state: GameState, now: Instant): List<PendingNotification> = kept
     .groupBy { it.alertCategory }
     .flatMap { (category, events) ->
         if (category == AlertCategory.PRICE_REACHED || events.size == 1) {
             // A group of one is the thing itself, which is the rule the five-minute chain and the
             // hull order are both written to.
-            events.map { it.toNotification() }
+            //
+            // **Except when the one is a whole order**, which is the second thing the first cut of
+            // this stop got wrong. Under `PER_ITEM` a card on `WHEN_ALL_DONE` leaves exactly one
+            // `ShipsComplete` standing — the gate has already dropped the rest — so the singleton
+            // branch catches it and says *"A Skiff has left the yard"* to a player who asked to be
+            // told when the whole order was done. Not a dropped alert: the wrong sentence, and the
+            // count gone with it.
+            events.map { it.orderNotificationOrNull(state, now) ?: it.toNotification() }
         } else {
             listOf(events.toGroupNotification(category))
         }
@@ -175,8 +196,9 @@ private fun onePerCategory(kept: List<FutureEvent>): List<PendingNotification> =
 // *"Metal Mine upgraded at 12:04, and notification shows only that, then one ship is ready at 12:37,
 // and the notification updates to show Metal Mine + 1 ship."*
 //
-// So this is emphatically **not** one alert held back until the last thing lands. The design's §6
-// measured that on the reference colony and it came to five hours and thirty-eight minutes of
+// So this is emphatically **not** one alert held back until the last thing lands. §6 of
+// `.claude/docs/ask-once-sheet.md`, which is the design this file implements, measured that on the
+// reference colony and it came to five hours and thirty-eight minutes of
 // silence — a mine finishing at 12:04 announced when a drive lands at 17:42, in a game played in
 // five-minute check-ins. What ships instead fires at *every* instant and replaces what is already
 // there, so the player is never told late and the tray never holds more than one.
@@ -328,8 +350,8 @@ private fun List<FutureEvent>.toSummaryNotification(id: String, at: Instant): Pe
 // this is not that.** A character budget cannot be spent on a `TextRes`: the title is not a string
 // until `Translations` resolves it, hours later and in whichever language the device is set to, and a
 // rule that measured English would silently compact a different set of categories in Italian. Two is
-// what reproduces both of the design's own drawn examples, and the sheet itself says 28 is *"a
-// measurement to take on a device — the rule survives whatever it turns out to be."*
+// what reproduces both of the design's own drawn examples, and the sheet itself
+// (`.claude/docs/ask-once-sheet.md` §4) says 28 is *"a measurement to take on a device."*
 private const val TITLE_CATEGORIES: Int = 2
 
 // The kinds involved, listed once each. See `toGroupNotification` for why it is distinct.
