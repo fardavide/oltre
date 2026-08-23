@@ -4014,24 +4014,41 @@ stayed green, for exactly this reason. Eight galaxy baselines and `main_scaffold
   galaxy seed would assert an identity the save cannot back. The day identity earns variation it
   should be drawn for it rather than derived from a number nobody chose.
 
-## The level is a fold over the log, not a field in the save (0.17.0)
+## The level is inferred once from the log, then stored (0.17.0)
 
-Davide's ask, 2026-08-22, and the design is in [`experience-sheet.md`](experience-sheet.md). Five
+Davide's ask, 2026-08-22, and the design is in [`experience-sheet.md`](experience-sheet.md). Six
 things from it are decisions rather than numbers.
 
-**Nothing is stored, and that is what makes it retroactive.** *"Make it so next time I start the game
-it gives me experience for everything I did before."* `experienceOf(eventLog)` answers that by
-construction: the log has recorded every completed build, project, ladder, hull, survey and run since
-the format's first version, and schema 1 is the only one this build refuses. So
-`GameSave.SCHEMA_VERSION` **did not move** and 0.17 opens a 0.16 save on the level it had already
-earned.
+**The first cut folded the log on every read, and Davide overruled it**, 2026-08-23: *"this is bad,
+because the more the player progresses, the more it will be intensive to infer the level! Let's infer
+it for players that are coming from a previous version, then store it, and update it as it
+progresses."*
 
-This is 0.16's own entry above arriving at its conclusion rather than being overruled. That entry
-refused a stored field because *"the migration would have to answer what an existing colony's
-experience is, which is neither zero nor a number worth inventing"* — and a fold never asks. The
-standing consequence, worth writing down while nothing depends on it: **if the log is ever trimmed
-this breaks**, and the answer then is a checkpoint on the envelope holding the experience of the
-dropped entries, which *is* a question a migration can answer honestly.
+Recorded because the rejected argument was not obviously wrong and the next session will reconstruct
+it. The fold is a sum over a few hundred entries a month, so it is cheap *today*; what makes it the
+wrong shape is that its cost is **unbounded in the one direction that matters** — free on the day it
+ships, paid by the players who play the most, arriving months later, on a reading the chrome
+recomputes above every screen. That cost appears in no review and no test. **Prefer a stored total to
+a fold whenever the thing being folded is an append-only history.**
+
+So: **infer once, store, maintain.** The 15 → 16 migration folds the save's own log into an opening
+balance; `GameState.experience` carries it from there; `GameState.logging` is the only thing in
+`core` that may append to `eventLog` and it adds the award in the same `copy`. The fold survives as
+what the migration calls and as what `ExperienceTest` checks the field against — the expensive answer
+is the specification, the cheap one ships.
+
+**The hop computes where every other hop declares, and that is the interesting part.** Fifteen
+migrations answer *what did a colony that predates this feature have?* with a truthful zero, because
+it genuinely had none of the thing. A colony that predates *this* one had been earning since genesis
+with nowhere to write the number down — so zero would confiscate a fortnight of play, and the honest
+answer is what its own log is worth. That is exactly the question 0.16's entry above said had no
+honest answer, and it was right at the time: the fold that answers it did not exist yet.
+
+**The invariant has no compiler behind it and is held by construction.** `experience` must always
+equal `experienceOf(eventLog)`. A `require` in `GameState.init` would fold on every construction
+including every decode, reintroducing the cost this design removes — so instead there is exactly one
+append site, and `ExperienceTest` drives a colony through every verb and every kind of completion
+asserting the two agree at each step.
 
 **A completion pays, a start does not** — Davide's call, over "on the tap" and over a split. It is
 also what belongs to this game: everything here happens while the app is closed, so a bar that only

@@ -1,33 +1,34 @@
 package dev.fardavide.oltre.core
 
+import kotlinx.serialization.Serializable
 import kotlin.jvm.JvmInline
 
-// **The player's standing, derived from the log rather than stored beside it.**
+// **The player's standing: seeded from the log once, then carried on `GameState` and paid into.**
 //
-// Davide, 2026-08-22: *"make it so next time I start the game it gives me experience for everything
-// I did before."* That sentence is a design constraint before it is a feature, and it decides the
-// whole shape of this file: an experience *field* could only ever hold what a migration invented for
-// it, and a migration has no honest answer — an existing colony's experience is neither zero, which
-// confiscates a fortnight of play, nor a number picked at the keyboard. See
-// `.claude/docs/player-strip-sheet.md` §3, which named the fold as the follow-up and is now closed
-// by it.
+// Two of Davide's sentences shaped this file and they pull in opposite directions.
 //
-// A fold has no such problem. `GameState.eventLog` has recorded every completed build, project,
-// ladder, hull, survey and run since the format's first version, and schema 1 is the only one this
-// build refuses — so **every save a player can still open carries its whole history**, and reading
-// the level off it is retroactive by construction. Nothing migrates, `GameSave.SCHEMA_VERSION` does
-// not move, and a save written by 0.16 opens in 0.17 on the level it had already earned.
+// 2026-08-22: *"make it so next time I start the game it gives me experience for everything I did
+// before."* Only the log can answer that. `GameState.eventLog` has recorded every completed build,
+// project, ladder, hull, survey and run since the format's first version, and schema 1 is the only
+// one this build refuses — so every save a player can still open carries its whole history, and a
+// fold over it is the honest opening balance for a colony that was played before the level existed.
 //
-// The cost is that the answer is recomputed rather than read. It is a sum over a list that grows by
-// a few hundred entries a month — the sim's thirty-day player logs about 2,100 — so the arithmetic
-// is not worth caching. **The day the log is ever trimmed, this stops being true**, and the answer
-// then is a checkpoint in the envelope rather than a field in the state: what would be stored is
-// "the experience of the entries that were dropped", which a migration *can* answer honestly.
+// 2026-08-23, on the first cut, which folded that log on every read: *"this is bad, because the more
+// the player progresses, the more it will be intensive to infer the level!"* Exactly right, and it
+// is the worst shape of that mistake — free on day one, and paid by the players who played the most,
+// months later, on a reading the chrome recomputes above every screen.
+//
+// So the fold happens **once per save, in the 15 → 16 migration**, and from then on `experience` is a
+// field the verbs add to. `experienceOf` below is not dead with the migration written: it is what
+// that hop calls, and it is what `ExperienceTest` compares the stored field against on every state
+// the verbs produce — the standing proof that the cheap number and the expensive one agree.
+//
+// **Nothing may append to `eventLog` except `GameState.logging`**, which is where the two are kept in
+// step. That is the whole of the invariant, and it is why the field is safe to trust.
 
 // One number, and deliberately not a `Long` in the open. The wrapper is what stops an experience
 // being passed where a threshold was wanted, and both are Longs.
-//
-// **Not `@Serializable`, and that is the point of the file**: nothing here goes on disk.
+@Serializable
 @JvmInline
 value class Experience(val points: Long) : Comparable<Experience> {
 
@@ -74,9 +75,15 @@ data class PlayerProgress(
 
 private const val PERCENT: Long = 100
 
-// The fold. Order-independent and total: every member of `Event` is priced in `ExperienceBalance`,
-// including the six that are worth nothing.
+// The fold, and **it is not what the game reads.** Two callers and both are deliberate: the 15 → 16
+// migration, which uses it once per save to state an opening balance no field could have held, and
+// the tests, which use it to check that `GameState.experience` still equals it. A third caller on a
+// path a player waits for would be the thing this design exists to avoid — see the header.
+//
+// Order-independent and total: every member of `Event` is priced in `ExperienceBalance`, including
+// the six that are worth nothing.
 fun experienceOf(eventLog: List<Event>): Experience =
     eventLog.fold(Experience.NONE) { total, event -> total + ExperienceBalance.awardFor(event) }
 
-fun GameState.playerProgress(): PlayerProgress = ExperienceBalance.progressFor(experienceOf(eventLog))
+// The reading the strip draws, off the stored total. Constant time whatever the colony has done.
+fun GameState.playerProgress(): PlayerProgress = ExperienceBalance.progressFor(experience)

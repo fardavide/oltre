@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
@@ -65,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":15,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":16,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -121,7 +122,16 @@ class GameSaveTest {
                 // The bell beside Dispatch, which schema 15 added — the standing position of the
                 // control, not the ask itself. The ask rides on each run and each probe, in an
                 // `announced` key that is only on disk when there is a flight to carry it.
-                """"announceFlights":false,"eventLog":[]}}""",
+                """"announceFlights":false,""" +
+                // What the log is worth, which schema 16 added — a running total rather than a fold
+                // on every read, and the only key in this string whose migration *computed* its
+                // value: a colony carried forward from 15 was credited with everything its own log
+                // had already earned. Zero at genesis because nothing has been finished, which is the
+                // same number a placeholder would have been and arrived at differently.
+                //
+                // Directly above `eventLog` because it is a summary of exactly that key, and nothing
+                // may append to one without paying into the other — see `GameState.logging`.
+                """"experience":0,"eventLog":[]}}""",
             encoded,
         )
     }
@@ -1126,12 +1136,88 @@ class GameSaveTest {
     // pasted, for `schema12`'s reason — and the two fixtures above are built on top of this one, so a
     // key added here cannot be left behind in an older hop's fixture.
     private fun schema14(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema15(state)
             .replace(""""schemaVersion":15""", """"schemaVersion":14""")
             .replace(""""announceFlights":false,""", "")
             .replace(""""announceFlights":true,""", "")
             .replace(""","announced":false""", "")
             .replace(""","announced":true""", "")
+
+    // ── 15 -> 16: the player's experience ───────────────────────────────────────────────────
+
+    // A save written by 0.16, which had no `experience` key at all — the field is stripped rather
+    // than the value zeroed, because a save from that build did not carry the key and a hop that only
+    // ever met a `0` would never be tested on the arithmetic that matters.
+    private fun schema15(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":16""", """"schemaVersion":15""")
+            .replace(""""experience":${state.experience.points},""", "")
+
+    @Test
+    fun `a colony saved before the level existed opens on the level its own log earned`() {
+        // **The one hop in the table that computes rather than declares**, and the reason it does:
+        // Davide, 2026-08-22, *"make it so next time I start the game it gives me experience for
+        // everything I did before."* A zero here would be the truthful answer to the question every
+        // other hop asks — *what did a colony that predates this feature have?* — and the wrong answer
+        // to this one, because it had been earning all along with nowhere to write it down.
+        val played = played()
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema15(played))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(experienceOf(played.eventLog), decoded.state.experience)
+        assertTrue(
+            decoded.state.playerProgress().level.value > 0,
+            "a played colony was carried forward at level 0",
+        )
+    }
+
+    @Test
+    fun `a colony saved before the level existed and never played opens at zero`() {
+        // The other end of the same hop, and it is not the same assertion: an empty log folds to
+        // nothing, so the value that would have been a placeholder in any other migration is here the
+        // computed answer that happens to agree with one.
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema15(GameState.initial()))).snapshot
+
+        assertEquals(Experience.NONE, decoded.state.experience)
+    }
+
+    @Test
+    fun `the carried total survives a round trip at the current version`() {
+        // From this version the number is on disk rather than inferred, so what the hop above writes
+        // once must be what a save reads back forever. This is the assertion that says the field is
+        // encoded at all — a `@Transient` or a missing key would leave the migration correct and the
+        // feature broken from the second launch.
+        val played = played()
+
+        val decoded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = played))),
+        ).snapshot
+
+        assertEquals(played.experience, decoded.state.experience)
+        assertTrue(played.experience > Experience.NONE, "the fixture earned nothing to round-trip")
+    }
+
+    // A colony several levels in, built **through the verbs** so its log and its carried total are in
+    // step the way a real save's are — a hand-written `copy(eventLog = …)` would prove the migration
+    // against a state no player could reach.
+    //
+    // A week of buying whatever is affordable, which is the same fixed player every balance
+    // instrument in this module uses.
+    private fun played(): GameState {
+        var state = GameState.initial().copy(
+            resources = Resources.of(metal = 2_000_000, crystal = 1_000_000, deuterium = 500_000),
+        )
+        var now = EPOCH
+        repeat(7) { day ->
+            for (building in BuildingType.entries) {
+                (startUpgrade(state, building, at = now) as? StartUpgradeResult.Started)?.let { state = it.state }
+            }
+            state = advance(state, from = now, to = now + 1.days)
+            now += 1.days
+        }
+        return state
+    }
 
     @Test
     fun `a colony carried forward has asked about no flight`() {

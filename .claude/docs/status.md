@@ -413,9 +413,12 @@ Updated: 2026-08-23 (0.17.0)
   migration for a constant is the wrong trade. `DESTINATION_HEIGHT` 650 → 612 in the same commit;
   eight galaxy baselines and `main_scaffold` re-recorded. See
   [`player-strip-sheet.md`](player-strip-sheet.md).
-- **0.17.0 the gauge fills** — experience and a level, derived rather than stored: `experienceOf` is
-  a fold over `GameState.eventLog`, so a colony carried forward from 0.16 opens on the level it had
-  already earned and `SCHEMA_VERSION` did not move. Completions pay and starts do not; a hull pays
+- **0.17.0 the gauge fills** — experience and a level. **Inferred once, then stored**: the 15 → 16 hop
+  folds a save's own `eventLog` into an opening balance, so a colony carried forward from 0.16 opens
+  on the level it had already earned, and from there `GameState.experience` is a running total that
+  `GameState.logging` — the one place anything may append to the log — pays into. Davide's call over
+  the first cut, which folded on every read: *"the more the player progresses, the more it will be
+  intensive to infer the level."* Completions pay and starts do not; a hull pays
   per hull and small; nothing reads a cost, a cargo or a stock. The ladder is a straight line —
   `1,100 + 360 × level` — because experience accrues linearly in time while Davide's marks are a
   power law, which the sim's new thirty-day experience report is what says. Lands on Lv 3 / 11 / 16

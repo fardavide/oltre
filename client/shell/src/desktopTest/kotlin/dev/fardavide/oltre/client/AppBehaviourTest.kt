@@ -10,6 +10,7 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartResearchResult
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
+import dev.fardavide.oltre.core.experienceOf
 import dev.fardavide.oltre.core.startResearch
 import kotlin.test.Test
 import kotlin.test.assertIs
@@ -121,19 +122,18 @@ class AppBehaviourTest {
         }
     }
 
-    // **The retroactive credit, end to end and through the save file.** Davide, 2026-08-22: *"make it
-    // so next time I start the game it gives me experience for everything I did before."* The fixture
-    // is what a 0.16 save holds — a log and no experience field, because there is no experience field
-    // — and it is written through `GameStore` like every other save in this file, so what this
-    // asserts includes the log surviving the round trip that a stored level would have needed a
-    // migration for.
+    // **The level on screen, end to end and through the save file.** The fixture is written through
+    // `GameStore` like every other save in this file, so what this asserts includes the total
+    // surviving the encode and the decode.
     //
     // `LV 4` is stated rather than derived. Twenty facility levels and four full systems come to
     // 8,200 points against a level-4 threshold of 6,560 — and a test that recomputed that with the
     // functions under test would agree with them however they moved.
     @Test
-    fun `a colony played before the level existed opens on the level it earned`() {
-        app(saved = snapshot(state = colony().copy(eventLog = aHistory()), agedBy = 1.minutes)) {
+    fun `a colony that has finished things opens on the level it earned`() {
+        val played = colony().let { it.copy(experience = experienceOf(aHistory()), eventLog = aHistory()) }
+
+        app(saved = snapshot(state = played, agedBy = 1.minutes)) {
             assertThePlayerStripReads("LV 4")
         }
     }

@@ -3,7 +3,9 @@ package dev.fardavide.oltre.core
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
@@ -21,6 +23,74 @@ class ExperienceTest {
         assertEquals(PlayerLevel(0), progress.level)
         assertEquals(Experience(0), progress.earned)
         assertEquals(0, progress.percent)
+    }
+
+    // **The invariant the stored field rests on, and the only thing standing between it and a level
+    // that is quietly wrong.** `experience` is a running total maintained by `GameState.logging`; the
+    // fold is what it is a total *of*. Nothing checks they agree at runtime — a `require` in
+    // `GameState.init` would fold the log on every construction including every decode, which is the
+    // cost Davide rejected — so it is checked here, on a colony driven through every verb the game
+    // has and every kind of completion `advance` can apply.
+    @Test
+    fun `the carried total is the log's own total at every step a verb can take`() {
+        var state = GameState.initial().copy(
+            resources = Resources.of(metal = 4_000_000, crystal = 2_000_000, deuterium = 1_000_000),
+        )
+        var now = EPOCH
+
+        fun check(what: String) {
+            assertEquals(experienceOf(state.eventLog), state.experience, "after $what")
+        }
+
+        // Every start verb in the game, then a span long enough for all of them to land.
+        state = assertIs<StartUpgradeResult.Started>(startUpgrade(state, BuildingType.ROBOTICS_FACTORY, now)).state
+        check("an upgrade started")
+        state = assertIs<BuildShipsResult.Started>(buildShips(state, Ships.of(ShipType.SCOUT, 2), now)).state
+        check("two hulls ordered")
+
+        // Robotics 1 opens the research branch, and the ladders open at 4 — so the projects are
+        // started after the first advance rather than before it.
+        now += 2.days
+        state = advance(state, from = EPOCH, to = now)
+        check("two days of completions")
+
+        state = assertIs<StartResearchResult.Started>(startResearch(state, Technology.EXTRACTION, now)).state
+        check("a project started")
+        val target = SystemAddress.of(state.galaxy.home).copy(system = state.galaxy.home.system + 1)
+        state = assertIs<StartSurveyResult.Started>(startSurvey(state, target, now)).state
+        check("a probe dispatched")
+
+        now += 3.days
+        state = advance(state, from = now - 3.days, to = now)
+        check("the probe landing and the project finishing")
+
+        val world = state.galaxy.surveyed.first { it != state.galaxy.home }
+        state = assertIs<BuildShipsResult.Started>(buildShips(state, Ships.of(ShipType.SKIFF, 1), now)).state
+        now += 1.days
+        state = advance(state, from = now - 1.days, to = now)
+        state = assertIs<StartRunResult.Started>(
+            startRun(state, world, ResourceKind.METAL, Ships.of(ShipType.SKIFF, 1), 3.hours, now),
+        ).state
+        check("a run dispatched")
+
+        state = advance(state, from = now, to = now + 1.days)
+        check("the fleet coming home")
+
+        // And the whole point of the exercise: the equality above is not the equality of two zeroes.
+        assertTrue(state.experience > Experience.NONE, "the colony earned nothing to check")
+    }
+
+    @Test
+    fun `a start pays nothing into the carried total either`() {
+        // The awards table says a commitment is worth nothing; this says the *field* agrees, which is
+        // the half a table cannot state on its own.
+        val funded = GameState.initial().copy(resources = Resources.of(metal = 100_000, crystal = 100_000))
+        val started = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(funded, BuildingType.METAL_MINE, EPOCH),
+        ).state
+
+        assertEquals(Experience.NONE, started.experience)
+        assertTrue(started.eventLog.isNotEmpty(), "the start was not logged at all")
     }
 
     @Test
@@ -111,18 +181,31 @@ class ExperienceTest {
     }
 
     @Test
-    fun `an old save is credited for everything it did before the system existed`() {
-        // Davide, 2026-08-22: *"make it so next time I start the game it gives me experience for
-        // everything I did before."* This is that sentence as a test — the experience is a fold over
-        // a log the format has carried since its first version, so a colony that has been played for
-        // a fortnight opens on the level it earned rather than on zero. Nothing is migrated because
-        // nothing is stored.
-        val played = GameState.initial().copy(eventLog = aFortnightOfPlay())
+    fun `a fortnight of history is worth several levels`() {
+        // What the 15 -> 16 hop hands an existing colony — Davide, 2026-08-22: *"make it so next time
+        // I start the game it gives me experience for everything I did before."* The hop itself is
+        // `GameSaveTest`'s; this is the arithmetic underneath it, and the assertion that matters is
+        // that the answer is not a rounding error against the first level.
+        val earned = experienceOf(aFortnightOfPlay())
 
-        val progress = played.playerProgress()
+        assertTrue(
+            ExperienceBalance.levelFor(earned).value > 0,
+            "a fortnight of play folded to $earned, which is not a level",
+        )
+    }
 
-        assertTrue(progress.level.value > 0, "a played colony opened at level ${progress.level.value}")
-        assertEquals(experienceOf(played.eventLog), progress.earned)
+    @Test
+    fun `the gauge is read off the carried total rather than off the log`() {
+        // The performance call stated as a test — Davide, 2026-08-23: *"the more the player
+        // progresses, the more it will be intensive to infer the level."* A state whose log and whose
+        // total disagree is not one any verb can produce, so this is the only place it can be built:
+        // `playerProgress` reads the field, and a fold on the read path would make this fail.
+        val inconsistent = GameState.initial().copy(
+            experience = Experience(50_000),
+            eventLog = aFortnightOfPlay(),
+        )
+
+        assertEquals(Experience(50_000), inconsistent.playerProgress().earned)
     }
 
     @Test

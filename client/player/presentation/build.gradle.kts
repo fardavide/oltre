@@ -3,10 +3,10 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // The one thing the strip decides: what a `GameState` says about who is playing.
 //
 // **The layer `:client:player:ui`'s build file said would arrive when the numbers became real**, and
-// this is that day — the level and the gauge are now a fold over the event log (`core`'s
-// `playerProgress`), so there is a mapping to do and somewhere for it to live. The name is still one
-// catalogue entry and travels with the mapping rather than staying behind in `ui`, because a state
-// assembled in two modules is a state whose shape nobody owns.
+// this is that day — the level and the gauge now come off `GameState.experience`, so there is a
+// mapping to do and somewhere for it to live. The name is still one catalogue entry and travels with
+// the mapping rather than staying behind in `ui`, because a state assembled in two modules is a state
+// whose shape nobody owns.
 //
 // **No Compose plugin and no Compose dependency**, which is the check that nothing here draws.
 plugins {

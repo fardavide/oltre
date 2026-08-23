@@ -34,11 +34,13 @@ class PlayerStripFromStateTest {
     }
 
     @Test
-    fun `should read the level off the log rather than off a stored field`() {
-        // The whole design in one assertion: nothing on `GameState` holds a level, so a colony that
-        // has finished twenty facility levels is at whatever those twenty completions are worth.
-        val played = genesis().copy(eventLog = builds(count = 20))
-        val expected = ExperienceBalance.levelFor(experienceOf(played.eventLog))
+    fun `should read the level off the colony's carried total`() {
+        // Twenty facility levels, and the badge is whatever they were worth. The mapper reads
+        // `GameState.experience` rather than folding the log — Davide, 2026-08-23: *"the more the
+        // player progresses, the more it will be intensive to infer the level"* — and `core` is where
+        // the two are kept in step.
+        val played = genesis().withHistory(builds(count = 20))
+        val expected = ExperienceBalance.levelFor(played.experience)
 
         assertEquals(Strings.levelBadge(expected.value), played.toPlayerStripUiState().level)
         assertTrue(expected.value > 0, "twenty facility levels were worth no level at all")
@@ -47,9 +49,10 @@ class PlayerStripFromStateTest {
     @Test
     fun `should credit a colony played before the level system existed`() {
         // Davide, 2026-08-22: *"make it so next time I start the game it gives me experience for
-        // everything I did before."* A save written by 0.16 carries this log and no experience field
-        // at all, and this is what it opens on.
-        val carriedForward = genesis().copy(eventLog = aWeekOfPlay())
+        // everything I did before."* A save written by 0.16 carries the log and no total at all; the
+        // 15 → 16 hop folds one out of the other, which is `GameSaveTest`'s. This is what the strip
+        // then draws from it.
+        val carriedForward = genesis().withHistory(aWeekOfPlay())
 
         val uiState = carriedForward.toPlayerStripUiState()
 
@@ -64,7 +67,7 @@ class PlayerStripFromStateTest {
         // Half of level 0's span, which is a reading a player can check against the badge next to it:
         // the bar is how far through *this* level you are, not how far through the game.
         val halfway = ExperienceBalance.spanOf(PlayerLevel(0)).points / 2
-        val state = genesis().copy(eventLog = worthAbout(halfway))
+        val state = genesis().withHistory(worthAbout(halfway))
 
         val percent = state.toPlayerStripUiState().experiencePercent
 
@@ -78,7 +81,7 @@ class PlayerStripFromStateTest {
         // where it is built. That is the strip being defensive; this is the mapper making sure it
         // never has to be.
         for (levels in 0..40) {
-            val percent = genesis().copy(eventLog = builds(count = levels)).toPlayerStripUiState().experiencePercent
+            val percent = genesis().withHistory(builds(count = levels)).toPlayerStripUiState().experiencePercent
             assertTrue(percent in 0..99, "$levels builds put the gauge at $percent%")
         }
     }
@@ -113,6 +116,12 @@ class PlayerStripFromStateTest {
     }
 
     private fun genesis(): GameState = GameState.initial(GalaxySeed(20_260_807))
+
+    // A colony that has finished these things, in the shape `core` guarantees: the log and the
+    // carried total in step. `core`'s own `logging` is the production path and is internal to it, so
+    // this states the same invariant from outside rather than reaching for it.
+    private fun GameState.withHistory(events: List<Event>): GameState =
+        copy(experience = experienceOf(events), eventLog = events)
 
     private fun builds(count: Int): List<Event> = (1..count).map { level ->
         Event.BuildCompleted(BuildingType.METAL_MINE, BuildingLevel(level), at = EPOCH + level.hours)

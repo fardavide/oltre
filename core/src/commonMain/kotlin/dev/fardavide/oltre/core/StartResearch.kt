@@ -38,7 +38,8 @@ fun startResearch(state: GameState, technology: Technology, at: Instant): StartR
         state.copy(
             resources = state.resources.minus(cost),
             activeResearch = job,
-            eventLog = state.eventLog + Event.ResearchStarted(technology = technology, toLevel = toLevel, at = at),
+        ).logging(
+            Event.ResearchStarted(technology = technology, toLevel = toLevel, at = at),
         ),
     )
 }

@@ -8,12 +8,14 @@ import dev.fardavide.oltre.core.playerProgress
 // Who is playing, read off the save. Three readings and no verbs, which is why this module holds one
 // function.
 //
-// **The level and the gauge are derived rather than stored**, and that is the slice: `playerProgress`
-// folds `GameState.eventLog`, which has recorded every completed build, project, ladder, hull, survey
-// and run since the format's first version. So a colony carried forward from 0.16 opens on the level
-// it had already earned — Davide, 2026-08-22: *"make it so next time I start the game it gives me
-// experience for everything I did before."* Nothing migrated and `GameSave.SCHEMA_VERSION` did not
-// move; see `core`'s `Experience.kt` for why a stored field could not have answered this.
+// **The level and the gauge come off `GameState.experience`, which is a stored running total** — so
+// this is a lookup rather than a fold, however long the colony has been played. Davide, 2026-08-23:
+// *"the more the player progresses, the more it will be intensive to infer the level."*
+//
+// A colony carried forward from 0.16 still opens on the level it had already earned — Davide,
+// 2026-08-22: *"make it so next time I start the game it gives me experience for everything I did
+// before"* — because the 15 → 16 hop folds its log into that total once, on the way in. See `core`'s
+// `Experience.kt`.
 //
 // **The name is still a constant, and still deliberately not a function of the seed.**
 // `player-strip-sheet.md` §3 settled that and nothing here reopens it: a name derived from a number

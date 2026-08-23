@@ -3763,6 +3763,15 @@ Davide, 2026-08-22:
 The design is [`experience-sheet.md`](experience-sheet.md); this round is the measurement it was
 fitted to, and the harness bug the measurement found on its first run.
 
+**One thing about the shipped shape, because it changes nothing here and everything elsewhere.** The
+first cut derived the level by folding the event log on every read, and Davide overruled it on
+2026-08-23 — *"the more the player progresses, the more it will be intensive to infer the level"*. It
+is stored now: the 15 → 16 migration folds a save's log once, and `GameState.experience` is a running
+total from there. **Every number in this round is unchanged by that**, because the field is the fold
+by construction; what moved is where the arithmetic happens, not what it says. `:sim:run` still
+folds, deliberately — a report reading a colony at day 1, 7 and 30 wants a total *as of an instant*,
+which a running field cannot give it.
+
 ### The bug the first run found: three of four bots had stopped surveying at 0.15
 
 The experience report's first table read **zero surveys in thirty days**. A probe consumes a `SCOUT`

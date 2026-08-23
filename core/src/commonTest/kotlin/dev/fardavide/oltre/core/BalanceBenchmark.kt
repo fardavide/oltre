@@ -169,7 +169,9 @@ internal object BalanceBenchmark {
         add(row("day", "level    points   into the level"))
         for (day in listOf(1, 2, 3, 7, 14)) {
             val state = run.at(day * 24) ?: continue
-            val progress = ExperienceBalance.progressFor(experienceOf(state.eventLog))
+            // The carried total, which is what the strip draws. `ExperienceTest` is what says it
+            // still equals the fold; this page photographs the number the player sees.
+            val progress = state.playerProgress()
             add(
                 row(
                     "  day $day",

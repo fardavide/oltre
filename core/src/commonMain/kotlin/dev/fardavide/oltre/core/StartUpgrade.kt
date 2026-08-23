@@ -56,7 +56,8 @@ fun startUpgrade(state: GameState, building: BuildingType, at: Instant): StartUp
         state.copy(
             resources = state.resources.minus(cost),
             builds = state.builds + (building to job),
-            eventLog = state.eventLog + Event.BuildStarted(building = building, toLevel = toLevel, at = at),
+        ).logging(
+            Event.BuildStarted(building = building, toLevel = toLevel, at = at),
         ),
     )
 }

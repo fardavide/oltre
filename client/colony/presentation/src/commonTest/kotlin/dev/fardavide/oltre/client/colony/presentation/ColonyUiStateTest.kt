@@ -5,6 +5,7 @@ import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.StringId
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.client.colony.ui.ColonyUiState
 import dev.fardavide.oltre.client.colony.ui.EnergyUiState
 import dev.fardavide.oltre.client.colony.ui.FacilityActionUiState
@@ -1436,6 +1437,9 @@ class ColonyUiStateTest {
         hullAlerts = emptyMap(),
         // The flights' ask, which lives on a dispatch sheet and reaches no facility row either.
         announceFlights = false,
+        // The player's standing, which is drawn by the strip above every screen and by nothing on
+        // this one. Zero and empty together, which is the pair `core` keeps in step.
+        experience = Experience.NONE,
         eventLog = emptyList(),
     )
 

@@ -13,29 +13,57 @@ requirement**. The third is the one that decides the architecture, so it is §1.
 
 ---
 
-## 1. Nothing is stored. The level is a fold over the event log
+## 1. The log answers it once. After that it is a stored total
 
-`GameState.eventLog` has recorded every completed build, project, ladder, hull, survey and run since
-the format's first version, and schema 1 is the only one this build refuses — so **every save a
-player can still open carries its whole history**. The experience is `experienceOf(eventLog)` and the
-level is a threshold lookup on it.
+**The first cut folded the log on every read and Davide rejected it, 2026-08-23:**
 
-That answers *"give me experience for everything I did before"* by construction rather than by
-migration, and it is the only answer that could: a stored field would need the 15 → 16 hop to state
-what an existing colony's experience is, and there is no honest number — zero confiscates a fortnight
-of play and anything else is invented at the keyboard. `player-strip-sheet.md` §3 made exactly this
-argument in the other direction, to refuse a field; the fold is what it was holding out for.
+> *"I see you didn't store anything about lv/exp, but this is bad, because the more the player
+> progresses, the more it will be intensive to infer the level! Let's infer it for players that are
+> coming from a previous version, then store it, and update it as it progresses."*
 
-**Consequences, both worth stating:**
+He is right, and it is worth being precise about *why*, because the first cut's argument was not
+silly — it was measured against the wrong thing. The fold is a sum over a few hundred entries a
+month, which is nothing; what makes it wrong is that the cost is **unbounded in the one direction
+that matters**. It is free on the day it ships, it is paid by the players who have played the most,
+it arrives months later, and it lands on a reading the chrome recomputes above every screen. A cost
+shaped like that never shows up in a review or in a test — only in a support ticket from your best
+player.
 
-- `GameSave.SCHEMA_VERSION` does not move. 0.17 reads a 0.16 save unchanged and the player opens on
-  the level they had already earned.
-- **The day the log is ever trimmed, this breaks.** Nothing trims it today and nothing plans to. If
-  something does, the answer is a checkpoint on the envelope — *"the experience of the entries that
-  were dropped"* — which is a question a migration can answer honestly.
+So the design is his: **infer once, store, maintain.**
 
-The cost is that the sum is recomputed rather than read. The sim's thirty-day player logs ~2,100
-entries; the arithmetic is not worth caching.
+| | |
+|---|---|
+| **Infer once** | The 15 → 16 migration folds the save's own `eventLog` into an opening balance. |
+| **Store** | `GameState.experience`, a `Serializable` value class, on disk from schema 16. |
+| **Maintain** | `GameState.logging` — the *only* thing in `core` that may append to `eventLog` — adds the award in the same `copy`. |
+
+**The fold is not deleted, and that matters twice.** It is what the migration calls, and it is what
+`ExperienceTest` compares the stored field against on a colony driven through every verb the game has
+and every kind of completion `advance` can apply. The expensive answer is the specification; the
+cheap one is what ships.
+
+### Why the migration can compute where every other hop declares
+
+Fifteen hops before this one answer the same question — *what did a colony that predates this feature
+have?* — with a truthful zero or an empty list, because it genuinely had none of the thing. The one
+exception is the granted skiff at 7 → 8, and `GameSave.kt` calls that out as a gift rather than a
+precedent.
+
+This hop is a third kind. A colony that predates the level **had been earning since genesis** and
+simply had nowhere to write the number down, so the truthful answer is neither zero nor invented: it
+is what its own log is worth. That is exactly what
+[`player-strip-sheet.md`](player-strip-sheet.md) §3 said could not be answered — and it was right at
+0.16, because the fold did not exist yet to answer it with.
+
+### What this costs, stated
+
+- **A schema hop.** `SCHEMA_VERSION` 15 → 16, and the on-disk shape moves by one key.
+- **An invariant with no compiler behind it.** `experience` must always equal
+  `experienceOf(eventLog)`. A `require` in `GameState.init` would fold on every construction
+  including every decode — reintroducing the cost this design removes — so it is held by
+  construction (`logging` is the single append site) and checked by test.
+- **The log is still the source of truth**, so trimming it would now be safe rather than fatal: the
+  total is already banked. That is a small dividend of the change rather than a reason for it.
 
 ---
 

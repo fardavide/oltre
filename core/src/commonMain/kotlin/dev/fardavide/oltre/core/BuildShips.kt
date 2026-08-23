@@ -59,7 +59,8 @@ fun buildShips(state: GameState, ships: Ships, at: Instant): BuildShipsResult {
         state.copy(
             resources = state.resources - cost,
             yard = state.yard + laidDown(ships, state.buildings, from = state.yardFreesAt(at)),
-            eventLog = state.eventLog + Event.ShipsOrdered(ships = ships, at = at),
+        ).logging(
+            Event.ShipsOrdered(ships = ships, at = at),
         ),
     )
 }
