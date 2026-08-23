@@ -32,6 +32,10 @@ import dev.fardavide.oltre.client.research.ui.TechnologyRowUiState
 import dev.fardavide.oltre.client.research.ui.toVerdictUiState
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationSettings
+import dev.fardavide.oltre.core.asksPerJob
+import dev.fardavide.oltre.core.canBook
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -67,11 +71,16 @@ import kotlinx.datetime.toLocalDateTime
 
 // `finishedWhileAway` defaults to nothing, so the existing calls in the tests still say what they
 // meant and every render after the arrival window is a plain one.
+//
+// `alerts` is the one argument here that is not about the empire at all: which controls a row draws
+// depends on what the player said on the settings screen. Defaulted like the two above it, and to
+// what every colony is already in.
 fun GameState.toResearchUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: FinishedWhileAway? = null,
     watching: TextRes? = null,
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
 ): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
@@ -91,6 +100,7 @@ fun GameState.toResearchUiState(
                 now = now,
                 timeZone = timeZone,
                 finishedWhileAway = it == finishedProject,
+                alerts = alerts,
             )
         },
         adaptation = AdaptationTechnology.entries.map {
@@ -100,6 +110,7 @@ fun GameState.toResearchUiState(
                 now = now,
                 timeZone = timeZone,
                 finishedWhileAway = it == finishedLadder,
+                alerts = alerts,
             )
         },
         watching = watching,
@@ -113,6 +124,7 @@ private fun GameState.toTechnologyRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    alerts: NotificationSettings,
 ): TechnologyRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -174,6 +186,7 @@ private fun GameState.toTechnologyRow(
             requirementMet = requirement.isMetBy(this),
             now = now,
             timeZone = timeZone,
+            alerts = alerts,
         ),
         finishedWhileAway = finishedWhileAway,
     )
@@ -190,6 +203,7 @@ private fun GameState.toAdaptationRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    alerts: NotificationSettings,
 ): AdaptationRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -261,6 +275,7 @@ private fun GameState.toAdaptationRow(
             requirementMet = requirement.isMetBy(this),
             now = now,
             timeZone = timeZone,
+            alerts = alerts,
         ),
         finishedWhileAway = finishedWhileAway,
     )
@@ -274,6 +289,13 @@ private fun GameState.toAdaptationRow(
 //
 // Absent too when the row cannot be bought at all — a requirement it has not met has no price yet,
 // and a binding resource with no net income never reaches the price it does have.
+//
+// **Either half can be taken away by the settings since 0.18, and for different reasons.** A
+// completion is answered for by the Research or Adaptations switch once the categories are in
+// charge, so the square has nothing left to ask; a price cannot be answered for by a switch at all —
+// it has to be told *which row* — so it survives, and goes only when the switch that would let it
+// fire is off. Absent rather than inert in both cases: there is no disabled state in this app. See
+// `.claude/docs/settings-sheet.md` §4.1.
 private fun GameState.watchOn(
     target: WatchTarget,
     cost: Resources,
@@ -281,10 +303,15 @@ private fun GameState.watchOn(
     requirementMet: Boolean,
     now: Instant,
     timeZone: TimeZone,
+    alerts: NotificationSettings,
 ): WatchUiState? {
     // A project in flight is asked about its completion, not its price — the price is paid. This is
     // the same square and a different question, and which one it is is a fact about the row.
-    if (running) return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    if (running) {
+        if (!alerts.asksPerJob()) return null
+        return if (target in subscribed) WatchUiState.Subscribed else WatchUiState.Offered
+    }
+    if (!alerts.canBook(NotificationCategory.PRICE_REACHED)) return null
     if (!requirementMet || resources.covers(cost)) return null
     val wait = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() } ?: return null
     if (watching != target) return WatchUiState.Offered

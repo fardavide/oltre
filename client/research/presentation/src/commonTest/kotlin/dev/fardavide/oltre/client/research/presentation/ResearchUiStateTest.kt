@@ -36,6 +36,10 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.LadderShortlist
 import dev.fardavide.oltre.core.LevelPurpose
 import dev.fardavide.oltre.core.PlaceholderBalance
@@ -1402,14 +1406,80 @@ class ResearchUiStateTest {
         assertNull(row.sheet.footer)
     }
 
-    private fun GameState.rowFor(technology: Technology, now: Instant = EPOCH): TechnologyRowUiState =
-        toResearchUiState(now = now, timeZone = TimeZone.UTC).technologies.first { it.technology == technology }
+    private fun GameState.rowFor(
+        technology: Technology,
+        now: Instant = EPOCH,
+        alerts: NotificationSettings = NotificationSettings.DEFAULT,
+    ): TechnologyRowUiState = toResearchUiState(now = now, timeZone = TimeZone.UTC, alerts = alerts)
+        .technologies
+        .first { it.technology == technology }
 
     private fun GameState.adaptationRowFor(
         technology: AdaptationTechnology,
         now: Instant = EPOCH,
-    ): AdaptationRowUiState =
-        toResearchUiState(now = now, timeZone = TimeZone.UTC).adaptation.first { it.technology == technology }
+        alerts: NotificationSettings = NotificationSettings.DEFAULT,
+    ): AdaptationRowUiState = toResearchUiState(now = now, timeZone = TimeZone.UTC, alerts = alerts)
+        .adaptation
+        .first { it.technology == technology }
+
+    // ── When the categories are in charge ────────────────────────────────────────────────────
+    //
+    // Both branches, because both draw the same square and Davide's call of 2026-08-23 gives them
+    // separate switches — Research and Adaptations were split into separate slots at 0.12.2 and the
+    // settings screen does not re-merge them.
+
+    @Test
+    fun `a running project has no square while the categories are in charge`() {
+        // given the project the row is about
+        val running = colony(
+            buildings = gated(),
+            activeResearch = project(completesAt = EPOCH + 2.hours, technology = Technology.PHOTOVOLTAICS),
+        )
+
+        // then
+        assertEquals(null, running.rowFor(Technology.PHOTOVOLTAICS, alerts = byCategory()).watch)
+    }
+
+    @Test
+    fun `a running ladder has no square while the categories are in charge`() {
+        // given — `ladder` runs Gravitic
+        val running = colony(buildings = gated(robotics = 4), activeAdaptation = ladder(completesAt = EPOCH + 2.hours))
+
+        // then
+        assertEquals(null, running.adaptationRowFor(AdaptationTechnology.GRAVITIC, alerts = byCategory()).watch)
+    }
+
+    // The half no switch can replace, because it has to be told which row.
+    @Test
+    fun `a row the empire cannot pay for keeps its square while the categories are in charge`() {
+        // given past the gate and 20 metal short of Photovoltaics 1
+        val state = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
+        )
+
+        // then
+        assertEquals(WatchUiState.Offered, state.rowFor(Technology.PHOTOVOLTAICS, alerts = byCategory()).watch)
+    }
+
+    @Test
+    fun `a row the empire cannot pay for loses its square when the price switch is off`() {
+        // given the same colony with that one category muted
+        val state = colony(
+            buildings = gated(),
+            resources = Resources.of(metal = 10, crystal = 150, deuterium = 100),
+        )
+        val muted = byCategory(off = NotificationCategory.PRICE_REACHED)
+
+        // then
+        assertEquals(null, state.rowFor(Technology.PHOTOVOLTAICS, alerts = muted).watch)
+    }
+
+    private fun byCategory(off: NotificationCategory? = null): NotificationSettings = NotificationSettings(
+        scope = NotificationScope.BY_CATEGORY,
+        grouping = NotificationGrouping.SINGLE,
+        categories = NotificationCategory.entries.toSet() - setOfNotNull(off),
+    )
 
     // The first reading of "a project can be worth nothing" was that only Photovoltaics could be,
     // and only in surplus. Both halves are false: `scaleByEnergy` floors `rate x produced /

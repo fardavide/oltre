@@ -9,7 +9,12 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.FutureEvent
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.category
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.WatchedPurchase
@@ -45,14 +50,25 @@ class GameNotifications(
     //
     // Passed per call rather than held, because the offset moves: the shell knows it at the instant
     // it commits, and a mapping captured at construction would be a stale one by the second skip.
-    suspend fun sync(state: GameState, now: Instant, toRealTime: (Instant) -> Instant = { it }) {
+    // **`settings` is required rather than defaulted, deliberately.** The obvious default is
+    // `NotificationSettings.DEFAULT`, which is also exactly the value that means *the player's choice
+    // is being ignored* — so a caller that forgot to load the preferences file would compile, ship,
+    // and quietly announce everything the old way with no test able to tell. `MainScaffold`'s `tilt`
+    // is required for the same reason. The test source set keeps a two-argument helper, where a
+    // default costs nothing because the assertion is what says which mode is under test.
+    suspend fun sync(
+        state: GameState,
+        now: Instant,
+        settings: NotificationSettings,
+        toRealTime: (Instant) -> Instant = { it },
+    ) {
         // Applied *after* `notificationsFor`, and it has to be. That function drops events already
         // due and trims the far landings to iOS's 64-request ceiling, both by comparing instants —
         // decisions that must be made in the clock the simulation computed them in. The translation
         // is monotone, so it moves every alert without reordering any of them, and the set that
         // reaches the platform is the same set with a different origin.
         scheduler.replaceAll(
-            notificationsFor(state, now).map {
+            notificationsFor(state, now, settings).map {
                 LocalNotification(
                     id = it.id,
                     title = translations.resolve(it.title),
@@ -85,7 +101,22 @@ internal const val IOS_PENDING_REQUEST_LIMIT: Int = 64
 // one separately would.
 private val GROUPING_WINDOW: Duration = 5.minutes
 
-internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotification> {
+// How many kinds of news a summary title still spells a verb for. Past it the clauses go bare —
+// "3 fleets, 2 upgrades, 1 probe" — because four clauses with verbs is a paragraph and both
+// platforms truncate a title hard. **The softest number in the slice**: it is a guess at what a lock
+// screen holds, and Claude Design's to move.
+private const val CLAUSES_WITH_VERBS: Int = 3
+
+// How many subjects an alert names before it starts counting them instead. The last of the four is
+// the tally itself once there are more — "Skiff, Skiff, Skiff and 3 more" — so a queue of twelve
+// hulls writes one line rather than a paragraph.
+private const val SUBJECTS_NAMED: Int = 4
+
+internal fun notificationsFor(
+    state: GameState,
+    now: Instant,
+    settings: NotificationSettings,
+): List<PendingNotification> {
     // `now` reaches core as well as filtering its answer, and the two uses are not the same. One
     // member of that list is not a job with a stored instant — the watch is projected forward from
     // the moment these stocks are accurate as of, which is this one.
@@ -119,13 +150,42 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
     // per-flight promise.** The colony's flag is where the *bell* is; each job carries the answer it
     // was sent under. A gate that consulted the flag would announce a run the player had already
     // decided against and silence one they had asked for, both of them retroactively.
-    val orders = announcedHulls(state, upcoming)
-    val pending = upcoming
-        .filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
-        .filterNot { it is FutureEvent.ShipsComplete && it !in orders }
-        .filterNot { it is FutureEvent.FleetReturns && !it.announced }
-        .filterNot { it is FutureEvent.SurveyLands && !it.announced }
+    // **The hull card's two answers are ad-hoc's business alone.** In `BY_CATEGORY` the card is not
+    // drawn at all, so an entry left in `hullAlerts` from before the switch is neither obeyed nor
+    // cleared — it is simply not consulted, exactly as `subscribed` is not.
+    val orders = when (settings.scope) {
+        NotificationScope.AD_HOC -> announcedHulls(state, upcoming)
+        NotificationScope.BY_CATEGORY -> emptyMap()
+    }
+    val pending = when (settings.scope) {
+        NotificationScope.AD_HOC -> upcoming
+            .filterNot { it is FutureEvent.Completion && it.target() !in state.subscribed }
+            .filterNot { it is FutureEvent.ShipsComplete && it !in orders }
+            .filterNot { it is FutureEvent.FleetReturns && !it.announced }
+            .filterNot { it is FutureEvent.SurveyLands && !it.announced }
+        // **One line where the other branch is four**, and that is the shape of the decision rather
+        // than a coincidence: ad-hoc asks four different questions of four different fields because
+        // each control lives on the row it is about, and this asks one question of one setting.
+        // Filtered rather than `filterNot`-ed for the same reason: a category that is off is a
+        // category nobody has said yes to, and the default is every one of them on.
+        NotificationScope.BY_CATEGORY -> upcoming.filter { it.category() in settings.categories }
+    }
 
+    return when (settings.grouping) {
+        NotificationGrouping.SINGLE -> pending.asSingles(orders)
+        NotificationGrouping.GROUPED -> pending.asCategories(orders)
+        NotificationGrouping.SUMMARY -> pending.asSummary(orders)
+    }
+}
+
+// What ships today, unchanged: one alert per piece of news, with the five-minute chain and the hull
+// card's order collapse both intact. Lifted out of `notificationsFor` when the other two packagings
+// arrived, and deliberately not otherwise touched — **it is the only branch the platform's ceiling
+// can be reached from**, because grouping books at most seven requests and a summary books one.
+private fun List<FutureEvent>.asSingles(
+    orders: Map<FutureEvent.ShipsComplete, Int>,
+): List<PendingNotification> {
+    val pending = this
     // Everything the player asked about that lands close enough together to be one sentence. Only
     // completions group: a probe landing and a fleet coming home are different kinds of news, and the
     // group's sentence is about upgrades.
@@ -178,16 +238,120 @@ internal fun notificationsFor(state: GameState, now: Instant): List<PendingNotif
         // makes to the platform is enforced on the way out rather than inferred from the arithmetic
         // above.
         .take(IOS_PENDING_REQUEST_LIMIT)
-        .map { event ->
-            groupBy[event]?.takeIf { it.size > 1 }?.toNotification()
-                // An order of one is the singleton alert, exactly as a group of one is the thing
-                // itself — the `takeIf` is the same rule one line up, for the same reason: a count
-                // is only worth saying when there is more than one thing to count.
-                ?: (event as? FutureEvent.ShipsComplete)
-                    ?.let { hull -> orders[hull]?.takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) } }
-                ?: event.toNotification()
-        }
+        .map { event -> groupBy[event]?.takeIf { it.size > 1 }?.toNotification() ?: event.toNotification(orders) }
 }
+
+// **One alert per category, at the instant the last thing in it lands** — Davide's call of
+// 2026-08-23, and there is deliberately no window. "A single notification for the category" is
+// literal: three builds landing an hour, six hours and a day apart are one alert a day from now, and
+// the first two are not announced early, they are not announced at all.
+//
+// The cost is stated where it belongs — `.claude/docs/settings-sheet.md` §2.3, which records that the
+// build recommended the five-minute chain and was overruled with the cost in front of it. What makes
+// it survivable is that the whole set is re-derived on every discrete transition and every
+// foreground, so a collapsed alert is never stale, only late.
+private fun List<FutureEvent>.asCategories(
+    orders: Map<FutureEvent.ShipsComplete, Int>,
+): List<PendingNotification> = groupBy { it.category() }
+    .flatMap { (category, events) -> events.asOneAlert(category) ?: events.map { it.toNotification(orders) } }
+    // The groups come out in first-encounter order, which is the order of the *earliest* member of
+    // each — and a group fires at its latest. Sorting puts the list back in firing order, which is
+    // the order every other path here hands the platform.
+    .sortedBy { it.at }
+
+// **One alert for everything**, and the compaction ladder is the whole of what it adds: Davide's
+// *"the more info we need to show, the more we compact to fit everything, otherwise we show more
+// details"*. Four rungs, and the first two are not this function's — one thing pending is that
+// thing's own alert and one category is that category's sentence, both of which `asOneAlert` already
+// answers, so a summary of a quiet colony is indistinguishable from no summary at all.
+private fun List<FutureEvent>.asSummary(
+    orders: Map<FutureEvent.ShipsComplete, Int>,
+): List<PendingNotification> {
+    val byCategory = groupBy { it.category() }
+    val single = byCategory.entries.singleOrNull()
+    if (single != null) {
+        return single.value.asOneAlert(single.key) ?: single.value.map { it.toNotification(orders) }
+    }
+    if (byCategory.isEmpty()) return emptyList()
+    // Verbs while there are few enough kinds to read them — "3 fleets are home and 2 upgrades are
+    // done" — and bare tallies past that. The fallback to a tally is not only for the crossing: the
+    // affordability watch has no clause of this shape at all, so a summary that includes it takes
+    // its noun phrase whatever the other counts are.
+    val clauses = byCategory.map { (category, events) ->
+        Strings.categoryClause(category, events.size)
+            .takeIf { byCategory.size <= CLAUSES_WITH_VERBS }
+            ?: Strings.categoryTally(category, events.size)
+    }
+    return listOf(
+        PendingNotification(
+            // There is one. Every other id in this file is derived from a subject so that replacing
+            // the whole set is idempotent; this one has no subject smaller than the colony, and a
+            // constant is exactly as stable.
+            id = "summary",
+            title = Strings.listed(clauses),
+            body = Strings.subjectsBody(Strings.listed(subjectNames())),
+            // The last thing to land, which is what the sentence is about: "2 facilities are done" is
+            // not true until the second one is. The list arrives in firing order, so this is its
+            // maximum.
+            at = last().at,
+        ),
+    )
+}
+
+// A whole category as one sentence, or **null when it has no business being one** — which is two
+// cases and they are the same case twice. A category holding one thing says the thing, because a
+// count is only worth saying when there is more than one thing to count; and the affordability watch
+// holds one thing by construction, since there is a single watch in the game.
+private fun List<FutureEvent>.asOneAlert(category: NotificationCategory): List<PendingNotification>? {
+    if (size < 2) return null
+    val title = Strings.categoryClause(category, size) ?: return null
+    return listOf(
+        PendingNotification(
+            // **The most stable id in this file**, and stronger than the five-minute group's one deck
+            // up — that one falls back on its instant because its subject is a *set* that changes the
+            // moment one more row is subscribed. A category's membership changes the same way; its
+            // name cannot, and there is at most one of these per category.
+            id = "category-${category.name}",
+            title = title,
+            body = Strings.subjectsBody(Strings.listed(subjectNames())),
+            at = last().at,
+        ),
+    )
+}
+
+// The names an alert is about, compacted once there are more than a lock screen holds:
+// "Skiff, Skiff, Skiff and 3 more". The tally goes in as the **last part** of the list rather than
+// after it, so the conjunction in front of it is `listed`'s and therefore the language's.
+private fun List<FutureEvent>.subjectNames(): List<TextRes> = when {
+    size <= SUBJECTS_NAMED -> map { it.subject() }
+    else -> take(SUBJECTS_NAMED - 1).map { it.subject() } + Strings.moreBesides(size - SUBJECTS_NAMED + 1)
+}
+
+// What a piece of news is *about*, in one word or two — the same names the singleton alerts use, so a
+// player told "3 facilities are done · Metal Mine, Solar Plant and Extraction" is being told about
+// the same three things those alerts would have named one at a time.
+private fun FutureEvent.subject(): TextRes = when (this) {
+    is FutureEvent.BuildCompletes -> building.displayName()
+    is FutureEvent.ResearchCompletes -> technology.displayName()
+    is FutureEvent.AdaptationCompletes -> technology.displayName()
+    is FutureEvent.ShipsComplete -> ship.displayName()
+    is FutureEvent.SurveyLands -> target.label()
+    is FutureEvent.FleetReturns -> target.label()
+    is FutureEvent.AffordableAt -> purchase.displayName()
+}
+
+// One event as one alert, with the hull card's order collapse applied on the way past. Every path in
+// this file that emits a lone event goes through here, so an order of five hulls says "5 hulls have
+// left the yard" whichever packaging produced it.
+//
+// `orders` is empty in `BY_CATEGORY`, where the card is not drawn and its answer is not consulted, so
+// this is the plain singleton there.
+private fun FutureEvent.toNotification(orders: Map<FutureEvent.ShipsComplete, Int>): PendingNotification =
+    (this as? FutureEvent.ShipsComplete)
+        // An order of one is the singleton alert, exactly as a group of one is the thing itself: a
+        // count is only worth saying when there is more than one thing to count.
+        ?.let { hull -> orders[hull]?.takeIf { it > 1 }?.let { hull.toOrderNotification(hulls = it) } }
+        ?: toNotification()
 
 // **Which deliveries are announced, and what each announcement stands for.** A hull card's control
 // has three states rather than two — see `HullAlert` — so this answers a question the completions'

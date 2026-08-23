@@ -311,3 +311,33 @@ to be in front of him.
 A hand-off prompt names: the branch to work on, the docs to read first, what is in scope, what is
 explicitly out of scope, and what "done" means. Never a summary of the work — a specification of
 it. The prompt-writing rule from the Notion page applies: *a spec plus context, not a leash.*
+
+### Designing inside the session was tried at 0.16 and is off again — Davide, 2026-08-23
+
+Mid-way through 0.16 Davide said *"You have capability to use Design directly now"*, and that session
+took it: it read the design system, composed four candidate player strips, rendered them, looked at
+them, and implemented the synthesis without ever emitting a prompt. The record of that round is
+[`../docs/player-strip-sheet.md`](../docs/player-strip-sheet.md) §4–§5, and it is kept as written.
+
+**It is withdrawn.** *"I think it's easier to manage having everything inside Design, and I think you
+cannot do that, so let's revert that rule for now."* The reason is not that the frames were bad — it
+is that the design **project** is the artefact Davide keeps, and a session that designs in its own
+scratch space leaves nothing in it. A canvas in the Claude Design project can be reopened, forked,
+compared against the last four screens and handed to the next round; a composition rendered inside a
+coding session exists for exactly as long as that session does.
+
+So the round trip is the rule again, in the shape [above](#hand-offs-are-prompts-in-a-code-block):
+**local → Design is a round trip, the local session emits the prompt in a code block, waits, and does
+not open a pull request for the half it could build.** Nothing else in this file moves — the cloud
+session's limits, the three exceptions and the "waits means waits" rule are all unchanged, because
+none of them was ever about this.
+
+Two things this does *not* forbid, so the next session does not read it too widely:
+
+- **Reading the design system.** Its tokens are lifted from this repo and every frame maps onto
+  `OltreTheme.kt`; a session may and should know what a `SectionLabel` is.
+- **Rendering something to look at while implementing a design that has already come back.** What is
+  withdrawn is *deciding* what a screen looks like, not checking that the screen matches the frame.
+
+"For now" is Davide's word and it is his to reopen. The thing that would reopen it is a way for a
+session to write into the Claude Design project itself, which is the whole of what is missing.

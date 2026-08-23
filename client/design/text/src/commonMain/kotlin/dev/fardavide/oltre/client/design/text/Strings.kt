@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.EpithetAdjective
 import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.HostilityAxis
+import dev.fardavide.oltre.core.NotificationCategory
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StarClass
@@ -1194,6 +1195,53 @@ object Strings {
 
     fun affordableBody(level: Int): TextRes =
         message(StringId.AffordableBody, Arg.Number(level.toLong()))
+
+    // **"3 facilities are done"** — the grouped alert's whole title, and the summary's clause when
+    // there are two or three kinds of news. One entry for both because they are the same words.
+    //
+    // Null where a category has no sentence of this shape, which is one case and it is unreachable:
+    // there is a single affordability watch in the game, so a group of two prices cannot exist. The
+    // caller falls back to the singleton alert, which is what it does for a group of one anyway.
+    //
+    // **Digits rather than `spelled()`**, unlike `upgradesDoneTitle` and for that entry's own stated
+    // reason read the other way: completions are capped at eight by what a colony can hold in flight,
+    // and three of these categories are not capped at all. A table that spelled them would need a
+    // word for every number there is.
+    fun categoryClause(category: NotificationCategory, count: Int): TextRes? = when (category) {
+        NotificationCategory.FACILITIES -> message(StringId.CategoryClauseFacilities, Arg.Count(count))
+        NotificationCategory.RESEARCH -> message(StringId.CategoryClauseResearch, Arg.Count(count))
+        NotificationCategory.ADAPTATIONS -> message(StringId.CategoryClauseAdaptations, Arg.Count(count))
+        // Already in the catalogue, word for word, from the hull card's *when all done* order.
+        NotificationCategory.HULLS -> message(StringId.HullOrderDoneTitle, Arg.Count(count))
+        NotificationCategory.PROBES -> message(StringId.CategoryClauseProbes, Arg.Count(count))
+        NotificationCategory.FLEET_RETURNS -> message(StringId.CategoryClauseFleetReturns, Arg.Count(count))
+        NotificationCategory.PRICE_REACHED -> null
+    }
+
+    // **"3 facilities"** — the same count with the verb taken off, for a summary carrying four kinds
+    // of news or more. Total where `categoryClause` is not, and it can be: a tally is a noun phrase,
+    // and the watch has one of those even though it can never need it.
+    fun categoryTally(category: NotificationCategory, count: Int): TextRes = message(
+        when (category) {
+            NotificationCategory.FACILITIES -> StringId.CategoryTallyFacilities
+            NotificationCategory.RESEARCH -> StringId.CategoryTallyResearch
+            NotificationCategory.ADAPTATIONS -> StringId.CategoryTallyAdaptations
+            NotificationCategory.HULLS -> StringId.CategoryTallyHulls
+            NotificationCategory.PROBES -> StringId.CategoryTallyProbes
+            NotificationCategory.FLEET_RETURNS -> StringId.CategoryTallyFleetReturns
+            // Unreachable for the reason above and total anyway, so that the day a second watch
+            // exists this is a sentence rather than a crash.
+            NotificationCategory.PRICE_REACHED -> StringId.CategoryTallyFacilities
+        },
+        Arg.Count(count),
+    )
+
+    // What a grouped or summary alert is about: the names, so a count also says which.
+    fun subjectsBody(subjects: TextRes): TextRes = message(StringId.SubjectsBody, Arg.Text(subjects))
+
+    // "6 more" — the tail of a subject list too long for a lock screen. Handed to `listed` as the
+    // last part, so the conjunction in front of it is the language's own.
+    fun moreBesides(count: Int): TextRes = message(StringId.MoreBesides, Arg.Count(count))
 
     // "3:185" — no slot and no brackets: a probe is aimed at a star, and there is nothing for a
     // bracket to separate a bare system from.

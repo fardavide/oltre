@@ -13,6 +13,10 @@ import dev.fardavide.oltre.client.design.component.SheetLine
 import dev.fardavide.oltre.client.design.component.SheetPointer
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationSettings
+import dev.fardavide.oltre.core.asksPerJob
+import dev.fardavide.oltre.core.canBook
 import dev.fardavide.oltre.client.design.component.figure
 import dev.fardavide.oltre.client.design.component.sheetLine
 import dev.fardavide.oltre.client.design.component.words
@@ -64,11 +68,16 @@ import kotlinx.datetime.toLocalDateTime
 // the watch is empire-wide, so the row it points at may be a technology, and what a technology is
 // called belongs to the screen that draws technologies. Which of *these* rows holds it is read off
 // the state below, where it can be.
+//
+// `alerts` is the third, and it is the one thing on this screen that is not about the colony at all:
+// which controls a row draws depends on what the player said on the settings screen. Defaulted for
+// the two above it, and to what every colony is already in — see `NotificationSettings.DEFAULT`.
 fun GameState.toColonyUiState(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: BuildingType? = null,
     watching: TextRes? = null,
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
 ): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
@@ -78,6 +87,7 @@ fun GameState.toColonyUiState(
             now = now,
             timeZone = timeZone,
             finishedWhileAway = it == finishedWhileAway,
+            alerts = alerts,
         )
     },
     returningFleet = runs.toStrip(home = galaxy.home, now = now, research = research),
@@ -170,6 +180,7 @@ private fun GameState.toFacilityRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    alerts: NotificationSettings,
 ): FacilityRowUiState {
     val level = buildings.levelOf(building)
     val toLevel = BuildingLevel(level.value + 1)
@@ -234,13 +245,20 @@ private fun GameState.toFacilityRow(
         // Three cases, and the row's own state picks between them. A job in flight can be asked
         // about its completion, a row waiting on its stores about its price, and everything else —
         // affordable, locked, or waiting on a resource that will never arrive — about nothing.
+        //
+        // **Since 0.18 the settings can take either half away, and the two halves go for different
+        // reasons.** A completion is answered for by the Facilities switch once the categories are
+        // in charge, so the square has nothing left to ask; a price cannot be answered for by any
+        // switch — it has to be told *which row* — so it survives, and disappears only when the
+        // switch that would let it fire is off. Absent in both cases rather than inert: there is no
+        // disabled state in this app.
         watch = when {
-            job != null -> if (WatchTarget.Facility(building) in subscribed) {
-                WatchUiState.Subscribed
-            } else {
-                WatchUiState.Offered
+            job != null -> when {
+                !alerts.asksPerJob() -> null
+                WatchTarget.Facility(building) in subscribed -> WatchUiState.Subscribed
+                else -> WatchUiState.Offered
             }
-            waiting -> untilAffordable?.let { wait ->
+            waiting && alerts.canBook(NotificationCategory.PRICE_REACHED) -> untilAffordable?.let { wait ->
                 watchState(
                     watched = watching == WatchTarget.Facility(building),
                     at = now + wait,

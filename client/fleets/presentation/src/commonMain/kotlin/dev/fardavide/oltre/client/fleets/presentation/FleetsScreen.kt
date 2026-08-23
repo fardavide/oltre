@@ -15,6 +15,7 @@ import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsPage
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -46,6 +47,9 @@ fun FleetsScreen(
     // The sheet's bell, handed over the same way `GalaxyScreen` hands it over — one standing answer,
     // written by whichever verb is tapped next.
     onToggleAnnounce: () -> Unit,
+    // What the player said on the settings screen, which decides whether the sheet draws that bell at
+    // all — handed over exactly as `GalaxyScreen` takes it, and for the same reason.
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -53,7 +57,13 @@ fun FleetsScreen(
     // Keyed on the seed alone: this tab has no "somewhere else" to go, so nothing but a new galaxy
     // closes the sheet from underneath.
     var open by remember(state.galaxy.seed) { mutableStateOf<DispatchSelection?>(null) }
-    val uiState = state.toFleetsUiState(now = now, since = since, timeZone = timeZone, dispatch = open)
+    val uiState = state.toFleetsUiState(
+        now = now,
+        since = since,
+        timeZone = timeZone,
+        dispatch = open,
+        alerts = alerts,
+    )
     FleetsPage(
         uiState = uiState,
         // **Nothing is read off the run that was tapped, and that is the ruling rather than an

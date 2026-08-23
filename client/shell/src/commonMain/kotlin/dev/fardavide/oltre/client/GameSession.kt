@@ -7,6 +7,7 @@ import dev.fardavide.oltre.client.save.data.GameStore
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.advance
@@ -213,11 +214,19 @@ internal fun GameSession.hasNewEventsSince(previous: GameSession): Boolean =
 // *game* time, and the operating system raises alarms in real time — the same clock until the
 // debug menu skips the colony forward, and four hours apart the moment it does. Defaulted to an
 // untouched clock, which is the identity, so every caller that has no debug menu in it is unchanged.
+//
+// `alerts` is the fourth, and it is the only one that is not about the colony: what the player said
+// on the settings screen decides which of these instants are worth booking and how they are
+// packaged. It is *not* defaulted, unlike `clock` — the obvious default is also exactly the value
+// that means "the player's choice is being ignored", and a caller that forgot it would compile and
+// quietly announce everything the old way. See `GameNotifications.sync`, which refuses for the same
+// reason.
 internal suspend fun GameSession.commit(
     store: GameStore,
     notifications: GameNotifications,
+    alerts: NotificationSettings,
     clock: DebugClock = DebugClock(),
 ) {
     store.save(toSnapshot())
-    notifications.sync(state, now = lastUpdatedAt, toRealTime = clock::toRealTime)
+    notifications.sync(state, now = lastUpdatedAt, settings = alerts, toRealTime = clock::toRealTime)
 }

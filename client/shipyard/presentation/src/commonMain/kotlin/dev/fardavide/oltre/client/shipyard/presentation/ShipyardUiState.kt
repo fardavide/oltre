@@ -13,6 +13,8 @@ import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.YardUiState
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
+import dev.fardavide.oltre.core.NotificationSettings
+import dev.fardavide.oltre.core.asksPerJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -32,14 +34,21 @@ import kotlin.time.Instant
 // `now` is what the yard needs and nothing else on this screen does: every price here is a pure
 // function of the state, and a countdown is not. It is the same parameter the Colony screen takes,
 // for the same reason and read the same way.
-fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiState {
+//
+// `alerts` is the one argument that is not about the yard: since 0.18 the settings screen can take
+// the card's square away outright. Defaulted to what every colony is already in.
+fun GameState.toShipyardUiState(
+    now: Instant,
+    timeZone: TimeZone,
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
+): ShipyardUiState {
     val owned = ownedShips()
     return ShipyardUiState(
         // **The fleet that exists, not the fleet that is paid for.** A hull on the slipway cannot be
         // sent, so counting it here would put a number on the heading that the Fleets tab disagrees
         // with. What it *does* count against is the price, one line down.
         fleet = Strings.hullsInFleet(owned.total),
-        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
+        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone, alerts = alerts) },
     )
 }
 
@@ -48,6 +57,7 @@ private fun GameState.toHullRow(
     owned: Ships,
     now: Instant,
     timeZone: TimeZone,
+    alerts: NotificationSettings,
 ): HullUiState {
     val type = hull.type
     // **The chips are the verb's own answer, asked for rather than reconstructed.** This line used to
@@ -70,7 +80,7 @@ private fun GameState.toHullRow(
         ),
         action = buildOrWait(cost),
         yard = yardLine(type = type, now = now, timeZone = timeZone),
-        alert = alertFor(type),
+        alert = alertFor(type, alerts = alerts),
     )
 }
 
@@ -82,7 +92,13 @@ private fun GameState.toHullRow(
 // difference is the point. A footer reports the hull being made, which is one job and has to be the
 // one on the slipway; the square asks about an order, and a hauler queued behind two skiffs is an
 // order the player is waiting on even though its card shows no countdown at all.
-private fun GameState.alertFor(type: ShipType): WatchSquareUiState? {
+//
+// **And null outright once the categories are in charge**, Davide's call of 2026-08-23: the Hulls
+// switch answers for the whole yard, so the card's three-state control has nothing left to ask. Note
+// what goes with it — the choice between *each hull* and *when the order is done* is not expressible
+// as a switch, so in that mode the grouping setting decides it for every kind of news at once.
+private fun GameState.alertFor(type: ShipType, alerts: NotificationSettings): WatchSquareUiState? {
+    if (!alerts.asksPerJob()) return null
     if (yard.none { it.ship == type }) return null
     return when (hullAlerts[type]) {
         null -> WatchSquareUiState.UNASKED

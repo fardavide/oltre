@@ -30,6 +30,10 @@ import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.ResourceKind
@@ -45,6 +49,7 @@ import dev.fardavide.oltre.core.timeUntilAffordable
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
@@ -1479,8 +1484,71 @@ class ColonyUiStateTest {
         building: BuildingType,
         now: Instant = Instant.fromEpochMilliseconds(0),
         timeZone: TimeZone = TimeZone.UTC,
-    ): FacilityRowUiState =
-        toColonyUiState(now = now, timeZone = timeZone).facilities.first { it.building == building }
+        alerts: NotificationSettings = NotificationSettings.DEFAULT,
+    ): FacilityRowUiState = toColonyUiState(now = now, timeZone = timeZone, alerts = alerts)
+        .facilities
+        .first { it.building == building }
+
+    // ── When the categories are in charge ────────────────────────────────────────────────────
+    //
+    // Davide's call, 2026-08-23: the switches replace the per-row controls rather than sitting over
+    // them. There is no disabled state in this app, and a control whose answer is given somewhere
+    // else has nothing to do.
+
+    @Test
+    fun `a building row has no square while the categories are in charge`() {
+        // given a colony building something it has not subscribed to
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+
+        // then — absent rather than unlit
+        assertNull(state.rowFor(BuildingType.METAL_MINE, now = t0, alerts = byCategory()).watch)
+    }
+
+    @Test
+    fun `a subscribed row loses its square too once the categories are in charge`() {
+        // given a player who tapped the square and then switched modes
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = upgrading(BuildingType.METAL_MINE, at = t0)
+            .let { toggleAlert(it, WatchTarget.Facility(BuildingType.METAL_MINE)) }
+
+        // then — the subscription is kept in the state and is not what answers any more
+        assertNull(state.rowFor(BuildingType.METAL_MINE, now = t0, alerts = byCategory()).watch)
+    }
+
+    // The half no category can replace: the affordability watch has to be told *which* row, and
+    // "tell me whenever I can afford anything" is not a setting.
+    @Test
+    fun `a stalled row keeps its square while the categories are in charge`() {
+        // given a colony that can pay for nothing
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = colony().copy(resources = Resources.of())
+
+        // then
+        assertEquals(
+            WatchUiState.Offered,
+            state.rowFor(BuildingType.METAL_MINE, now = t0, alerts = byCategory()).watch,
+        )
+    }
+
+    // And the rule that keeps it honest: a square that would book an alert the switch has gated off
+    // is a control that looks operable and does nothing.
+    @Test
+    fun `a stalled row loses its square when the price switch is off`() {
+        // given the same colony with that one category muted
+        val t0 = Instant.fromEpochMilliseconds(0)
+        val state = colony().copy(resources = Resources.of())
+        val muted = byCategory(off = NotificationCategory.PRICE_REACHED)
+
+        // then
+        assertNull(state.rowFor(BuildingType.METAL_MINE, now = t0, alerts = muted).watch)
+    }
+
+    private fun byCategory(off: NotificationCategory? = null): NotificationSettings = NotificationSettings(
+        scope = NotificationScope.BY_CATEGORY,
+        grouping = NotificationGrouping.SINGLE,
+        categories = NotificationCategory.entries.toSet() - setOfNotNull(off),
+    )
 
     @Test
     fun `the heading names what the empire is watching whatever screen it is on`() {

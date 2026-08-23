@@ -17,6 +17,7 @@ import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -62,6 +63,11 @@ fun GalaxyScreen(
     // takes no subject, unlike the two above it: what it moves is the standing answer the next
     // flight will be sent with, and the verb is what writes that onto a job. See `toggleFlightAlerts`.
     onToggleAnnounce: () -> Unit,
+    // What the player said on the settings screen, which decides whether the bell above is drawn at
+    // all: once the categories are in charge, the Probes and Fleet returns switches answer for every
+    // flight. A parameter for `landing`'s reason — the file is the composition root's, the meaning is
+    // this screen's — and defaulted to what every colony is already in.
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -92,7 +98,13 @@ fun GalaxyScreen(
     // else.
     var open by remember(state.galaxy.seed, at) { mutableStateOf<DispatchSelection?>(null) }
     val nav = GalaxyNavigation(view = view, at = at, query = query, seenAt = seenAt)
-    val uiState = state.toGalaxyUiState(nav = nav, now = now, timeZone = timeZone, dispatch = open)
+    val uiState = state.toGalaxyUiState(
+        nav = nav,
+        now = now,
+        timeZone = timeZone,
+        alerts = alerts,
+        dispatch = open,
+    )
     GalaxyPage(
         uiState = uiState,
         onSelectMode = { mode ->

@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.EpithetAdjective
 import dev.fardavide.oltre.core.EpithetNoun
 import dev.fardavide.oltre.core.HostilityAxis
+import dev.fardavide.oltre.core.NotificationCategory
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.StarClass
@@ -407,6 +408,13 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.shipsHomeBody(TextRes("x")))
     add(Strings.affordableTitle(TextRes("x")))
     add(Strings.affordableBody(3))
+    // `categoryClause` answers null for the affordability watch — there is one watch in the game, so
+    // a group of two prices cannot exist — and `filterNotNull` is what says that here rather than a
+    // silent gap. `categoryTally` is total and takes no such care.
+    NotificationCategory.entries.forEach { category -> Strings.categoryClause(category, 3)?.let(::add) }
+    NotificationCategory.entries.forEach { add(Strings.categoryTally(it, 3)) }
+    add(Strings.subjectsBody(TextRes("x")))
+    add(Strings.moreBesides(3))
     add(Strings.systemAddressBare(3, 3))
     BuildingType.entries.forEach { add(Strings.buildingFullName(it)) }
     ShipType.entries.forEach { add(Strings.shipTitleName(it)) }

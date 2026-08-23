@@ -4103,3 +4103,78 @@ The rule now lives in one place, `boughtScoutIfNeeded`. Rounds 30 and 31's fleet
 were measured without probes; their subjects were the drive, the hauler and the vein and the bot
 works the home system either way, so the conclusions stand — but any reading in them about *reach* or
 the frontier is about a colony that never left home.
+
+## Designing inside a coding session was tried once and withdrawn (2026-08-23)
+
+Mid-0.16 Davide said *"You have capability to use Design directly now"* and that session designed the
+player strip itself — read the design system, built four candidate compositions, rendered them, and
+implemented the synthesis. It is withdrawn: *"I think it's easier to manage having everything inside
+Design, and I think you cannot do that, so let's revert that rule for now."*
+
+**The reason is not that the frames were bad, it is where they live.** A canvas in the Claude Design
+project can be reopened, forked, compared against the last four screens and handed to the next round;
+a composition rendered inside a coding session exists for exactly as long as that session does. The
+thing that would reopen the permission is a way for a session to *write into the project*, which is
+the whole of what is missing.
+
+The rule is therefore [`session-roles.md`](../rules/session-roles.md)'s as written: local → Design is
+a **round trip**, the session emits the prompt in a code block, waits, and does not open a pull
+request for the half it could build. What is not withdrawn: reading the design system, and rendering
+something to look at while implementing a design that has already come back. `player-strip-sheet.md`
+§4–§5 keep the record of the one round that ran the other way.
+
+## The first settings screen, and what a category switch can and cannot replace (0.18)
+
+Davide, 2026-08-23: *"I want to add settings screen, for now it would include only notifications."*
+The argument, the seven categories and the compaction ladder are in
+[`settings-sheet.md`](settings-sheet.md); what is here is the four calls that were expensive and the
+one that went against the recommendation.
+
+**The per-row bells are replaced, not layered over.** In by-category mode a running row draws no
+square, a hull card draws no bell, and the dispatch sheet draws none either. The alternative — a
+category as a *default* that a row could still override — was rejected because it is two sources of
+truth for one question: a lit bell would mean either "this one, specifically" or "because the
+category is on", and nothing on screen could say which. What made the chosen shape cheap is that
+`WatchUiState` was already nullable and already documented null as *the absence of a control*, so
+five presentation modules emit `null` into a state every row has always had to draw.
+
+**The affordability watch is the one ask a category cannot express, and it survives in both modes.**
+A switch cannot be told *which row*, and "tell me whenever I can afford anything" is not a setting.
+So the square keeps its price half everywhere and loses its completion half — and disappears entirely
+when the *Price reached* switch is off, because a control that would book an alert the switch has
+gated off is exactly the dead control this repository does not ship.
+
+**Grouped and summary have no window, against the recommendation.** The build proposed reusing the
+existing five-minute chain; Davide took *"one alert per category, ever"* with the cost stated: an
+upgrade finishing in ten minutes is not announced until the research finishing in six hours is.
+Recorded as his call, with the reversal cost measured — the window is one `Duration` and one
+`chainedWithin` call in `GameNotifications.kt`, and the first install is what should decide it.
+
+**The settings are in the preferences file, not in `GameState`, and their types are in `core`.** They
+are not a fact about a colony — `advance` never reads them, they do not travel to a server, and
+folding them into the snapshot would migrate every save on disk for a field the simulation ignores.
+The types are `core`'s all the same, and that is the arrangement in which **no new edge appears
+anywhere in the module graph**: the notification layer, the save layer and the settings screen all
+already depend on `core` and none of them may depend on each other. `HullAlert` is the precedent on
+the merits — an enum in `core` about which of two ways the player wants to be told about hulls — and
+`NotificationCategory` is a partition of `core`'s own `FutureEvent` hierarchy, which a copy in the
+client could only drift from.
+
+**A nullable field in `Preferences` is still a required field on decode, and that cost a measurement
+rather than a review.** Adding `notifications: NotificationSettings?` made every preferences file
+already on disk fail to decode with `MissingFieldException` — which is a `SerializationException`,
+which `load` answers `Preferences.NONE` to — so a player would have silently lost their galaxy
+landing to a settings screen they had not opened. The fix is `explicitNulls = false` on that store's
+`Json`, which makes a missing nullable property decode as null with no constructor default. The save
+format keeps the opposite line deliberately: `GameSave` leaves unknown keys fatal and migrates by
+schema number, because silently misreading a colony is worse than admitting it is unreadable.
+
+### Raised and not decided
+
+- **Nothing on the screen says whether the OS is permitting notifications at all.** Android 13 and
+  iOS both gate on a runtime grant, and a screen full of switches the system has muted is the one way
+  this feature can look like it works and not. Deliberately the next slice.
+- **Grouping is global rather than per category.** "Summary for probes, single for research" is not
+  expressible. Nobody has asked for it.
+- **The 2–3 / 4+ threshold in the compaction ladder is a guess** at what a lock screen holds, and it
+  is in the Design prompt as one.

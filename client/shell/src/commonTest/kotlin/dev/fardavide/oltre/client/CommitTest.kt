@@ -10,6 +10,10 @@ import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.PlaceholderBalance
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.StartUpgradeResult
@@ -36,7 +40,7 @@ class CommitTest {
         val session = GameSession(midBuild(), EPOCH)
 
         // when
-        session.commit(GameStore(file), GameNotifications(scheduler, English))
+        session.commit(GameStore(file), GameNotifications(scheduler, English), NotificationSettings.DEFAULT)
 
         // then
         assertNotNull(file.content, "the colony was not written")
@@ -53,7 +57,11 @@ class CommitTest {
         val session = GameSession(advance(started, from = EPOCH, to = after), after)
 
         // when
-        session.commit(GameStore(RecordingSaveFile()), GameNotifications(scheduler, English))
+        session.commit(
+            GameStore(RecordingSaveFile()),
+            GameNotifications(scheduler, English),
+            NotificationSettings.DEFAULT,
+        )
 
         // then — the build has been applied, so there is nothing left to announce
         assertEquals(BuildingLevel(2), session.state.buildings.metalMine)
@@ -70,12 +78,35 @@ class CommitTest {
         val session = GameSession(midBuild(), EPOCH)
 
         // when the same colony is committed twice, as a tick and an upgrade both would
-        session.commit(store, notifications)
-        session.commit(store, notifications)
+        session.commit(store, notifications, NotificationSettings.DEFAULT)
+        session.commit(store, notifications, NotificationSettings.DEFAULT)
 
         // then the second call replaced the first rather than doubling the alerts
         assertEquals(1, scheduler.scheduled.size)
         assertEquals(2, scheduler.replaceCount)
+    }
+
+    // **The wiring test, and the one that would fail if the shell ever stopped reading the
+    // preferences file.** Everything else in this file commits with the defaults, which is exactly
+    // the value that means "the player's choice is being ignored" — so without this, a `commit` that
+    // dropped its settings on the floor would pass the whole suite.
+    @Test
+    fun `committing books what the settings ask for rather than what the row asked for`() = runTest {
+        // given a colony whose one build was never subscribed to, and a player who has switched the
+        // categories on
+        val scheduler = RecordingScheduler()
+        val session = GameSession(midBuild().copy(subscribed = emptySet()), EPOCH)
+        val byCategory = NotificationSettings(
+            scope = NotificationScope.BY_CATEGORY,
+            grouping = NotificationGrouping.SINGLE,
+            categories = NotificationCategory.entries.toSet(),
+        )
+
+        // when
+        session.commit(GameStore(RecordingSaveFile()), GameNotifications(scheduler, English), byCategory)
+
+        // then — in ad-hoc this books nothing at all
+        assertEquals(1, scheduler.scheduled.size)
     }
 
     private fun midBuild(): GameState {

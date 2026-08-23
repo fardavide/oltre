@@ -632,6 +632,34 @@ object Italian : Translations {
         StringId.ShipsHomeBody -> "Il carico da ${args.text(0)} è nei tuoi depositi."
         StringId.AffordableTitle -> "Puoi permetterti ${args.text(0)}"
         StringId.AffordableBody -> "La colonia ha le risorse per il livello ${args.number(0)}."
+        // Il titolo dell'avviso raggruppato, che è anche la frase che il riepilogo mette in lista.
+        // "pronto" concorda con il sostantivo, quindi ogni categoria porta la sua forma.
+        StringId.CategoryClauseFacilities -> args.count(0).let {
+            "$it ${it.plural("struttura è pronta", "strutture sono pronte")}"
+        }
+        StringId.CategoryClauseResearch -> args.count(0).let {
+            "$it ${it.plural("progetto è pronto", "progetti sono pronti")}"
+        }
+        StringId.CategoryClauseAdaptations -> args.count(0).let {
+            "$it ${it.plural("adattamento è pronto", "adattamenti sono pronti")}"
+        }
+        StringId.CategoryClauseProbes -> args.count(0).let {
+            "$it ${it.plural("sonda ha", "sonde hanno")} riferito"
+        }
+        StringId.CategoryClauseFleetReturns -> args.count(0).let {
+            "$it ${it.plural("flotta è rientrata", "flotte sono rientrate")}"
+        }
+        // Le stesse quantità senza il verbo, per un titolo che porta quattro tipi di notizia o più.
+        StringId.CategoryTallyFacilities ->
+            args.count(0).let { "$it ${it.plural("struttura", "strutture")}" }
+        StringId.CategoryTallyResearch -> args.count(0).let { "$it ${it.plural("progetto", "progetti")}" }
+        StringId.CategoryTallyAdaptations ->
+            args.count(0).let { "$it ${it.plural("adattamento", "adattamenti")}" }
+        StringId.CategoryTallyHulls -> args.count(0).let { "$it ${it.plural("scafo", "scafi")}" }
+        StringId.CategoryTallyProbes -> args.count(0).let { "$it ${it.plural("sonda", "sonde")}" }
+        StringId.CategoryTallyFleetReturns -> args.count(0).let { "$it ${it.plural("flotta", "flotte")}" }
+        StringId.SubjectsBody -> "${args.text(0)}."
+        StringId.MoreBesides -> "altri ${args.count(0)}"
         StringId.SystemAddressBare -> "${args.number(0)}:${args.number(1)}"
         StringId.BuildingFullNameMetalMine -> "Miniera di Metallo"
         StringId.BuildingFullNameCrystalMine -> "Miniera di Cristallo"

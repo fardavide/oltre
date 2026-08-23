@@ -7,7 +7,10 @@ import dev.fardavide.oltre.client.design.text.English
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
 import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.client.save.data.PreferencesStore
+import dev.fardavide.oltre.client.save.data.defaultPreferencesFile
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.core.NotificationSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -36,12 +39,19 @@ class BootReceiver : BroadcastReceiver() {
                 // genuinely still in flight. Syncing the raw snapshot instead would book alerts
                 // for builds that finished while the phone was off.
                 val session = resume(GameStore(defaultSaveFile()).load(), now = Clock.System.now())
+                // **The second file, and it has to be read here too.** A reboot re-derives the whole
+                // schedule from scratch, so a receiver that used the defaults would quietly undo the
+                // settings screen on every restart — announcing what the player muted and unpacking
+                // what they asked to have grouped, with nothing to notice it until the next
+                // foreground put it back.
+                val alerts = PreferencesStore(defaultPreferencesFile()).load().notifications
+                    ?: NotificationSettings.DEFAULT
                 // **`English` by name, and it is the honest reading rather than a shortcut.** There
                 // is one language, and at boot there is no composition and no shell to have chosen
                 // one — so the receiver names the table the app would have named. #87 is what turns
                 // this into a device-locale read, in the one place that will need it.
                 GameNotifications(defaultNotificationScheduler(), English)
-                    .sync(session.state, now = session.lastUpdatedAt)
+                    .sync(session.state, now = session.lastUpdatedAt, settings = alerts)
             } catch (error: Throwable) {
                 // Nothing to report to and nowhere to report it: there is no UI at boot, and the
                 // next time the game is opened it schedules the whole set again. What must not

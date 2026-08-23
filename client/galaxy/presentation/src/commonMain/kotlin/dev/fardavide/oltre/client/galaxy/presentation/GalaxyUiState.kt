@@ -25,6 +25,7 @@ import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
@@ -52,6 +53,7 @@ internal fun GameState.toGalaxyUiState(
     nav: GalaxyNavigation,
     now: Instant,
     timeZone: TimeZone,
+    alerts: NotificationSettings,
     dispatch: DispatchSelection? = null,
 ): GalaxyUiState {
     val at = nav.at
@@ -82,7 +84,13 @@ internal fun GameState.toGalaxyUiState(
             GalaxyView.SYSTEM -> GalaxyBodyUiState.System(
                 header = toSystemHeadUiState(at = at),
                 map = toSystemMapUiState(at = at, now = now),
-                probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
+                probe = toProbeActionUiState(
+                    at = at,
+                    worlds = worldsOf(at),
+                    now = now,
+                    timeZone = timeZone,
+                    alerts = alerts,
+                ),
                 rows = toSystemRows(at = at, now = now),
             )
         },
@@ -97,9 +105,15 @@ internal fun GameState.toGalaxyUiState(
                 // can be sent, and a second copy of that decision inside the sheet is a second place
                 // for the two to disagree about one flight. The sheet's own module cannot price a
                 // survey and must not learn to — see `DispatchProbeOffer`.
-                probe = toProbeActionUiState(at = its, worlds = worldsOf(its), now = now, timeZone = timeZone)
-                    .asDispatchProbeOffer(),
+                probe = toProbeActionUiState(
+                    at = its,
+                    worlds = worldsOf(its),
+                    now = now,
+                    timeZone = timeZone,
+                    alerts = alerts,
+                ).asDispatchProbeOffer(),
                 now = now,
+                alerts = alerts,
             )
         },
     )

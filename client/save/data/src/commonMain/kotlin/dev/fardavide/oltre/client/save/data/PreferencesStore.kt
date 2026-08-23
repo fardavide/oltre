@@ -36,6 +36,22 @@ class PreferencesStore(private val file: SaveFile) {
         // save format takes the opposite line — `GameSave` leaves unknown keys fatal, because
         // silently misreading a colony is worse than admitting it is unreadable — and the
         // difference is the stake: dropping a key here forgets a view, not a week of play.
-        val json = Json { ignoreUnknownKeys = true }
+        // **`explicitNulls = false` is what makes a nullable field here mean "not chosen yet".**
+        // Without it a nullable property is still a *required* one on the way in: a file written
+        // before a field existed throws `MissingFieldException`, which is a `SerializationException`,
+        // which `load` answers `NONE` to — so adding one field would have quietly cost every player
+        // on disk their galaxy landing. Measured, 2026-08-23, by the test that says so.
+        //
+        // It is the read half that matters; the write half is a bonus that costs nothing — a null is
+        // simply not written, and `ignoreUnknownKeys` above already covers the other direction.
+        //
+        // The save format takes the opposite line on every one of these, deliberately: `GameSave`
+        // leaves unknown keys fatal and migrates by schema number, because silently misreading a
+        // colony is worse than admitting it is unreadable. The difference is the stake — a
+        // misread preference costs a first tap.
+        val json = Json {
+            ignoreUnknownKeys = true
+            explicitNulls = false
+        }
     }
 }

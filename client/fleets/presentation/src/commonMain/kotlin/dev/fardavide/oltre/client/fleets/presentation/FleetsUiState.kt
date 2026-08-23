@@ -15,6 +15,7 @@ import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.Resources
@@ -39,6 +40,9 @@ fun GameState.toFleetsUiState(
     // What the player has touched on the sheet a row raised, or null when no sheet is up. The
     // mapping is `:client:dispatch:presentation`'s; this only knows which world is open.
     dispatch: DispatchSelection? = null,
+    // What the player said on the settings screen, which the sheet reads to decide whether it draws
+    // a bell beside Dispatch. Nothing else on this tab consults it.
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
 ): FleetsUiState {
     val owned = ownedShips().total
     val away = owned - ships.total
@@ -57,7 +61,7 @@ fun GameState.toFleetsUiState(
         // **No probe offer, and null is the honest answer rather than a shortcut.** A world a fleet
         // has already been sent to was surveyed in order to be dispatched to, and `surveyed` is
         // never removed — so the refusal that offer feeds cannot be reached from this list at all.
-        dispatch = dispatch?.let { toDispatchUiState(selection = it, probe = null, now = now) },
+        dispatch = dispatch?.let { toDispatchUiState(selection = it, probe = null, now = now, alerts = alerts) },
     )
 }
 

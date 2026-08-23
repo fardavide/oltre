@@ -13,6 +13,8 @@ import dev.fardavide.oltre.client.galaxy.ui.ProbeOfferUiState
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
+import dev.fardavide.oltre.core.asksPerJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.SurveyBalance
@@ -35,6 +37,7 @@ internal fun GameState.toProbeActionUiState(
     worlds: List<World>,
     now: Instant,
     timeZone: TimeZone,
+    alerts: NotificationSettings,
 ): ProbeActionUiState {
     val target = SystemAddress(galaxy = at.galaxy, system = at.system)
 
@@ -124,7 +127,14 @@ internal fun GameState.toProbeActionUiState(
             // The standing position of the bell rather than anything about *this* star: the ask is
             // written onto the job when the verb is tapped, so what the square shows before the tap
             // is the answer the flight would be sent with. See `GameState.announceFlights`.
-            announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+            //
+            // Null once the categories are in charge — the Probes switch answers for every flight —
+            // and absent rather than inert, exactly as the dispatch sheet's own copy of this is.
+            announce = when {
+                !alerts.asksPerJob() -> null
+                announceFlights -> WatchSquareUiState.ASKED
+                else -> WatchSquareUiState.UNASKED
+            },
         )
     }
     val wait = timeUntilAffordable(resources, cost, buildings, research)

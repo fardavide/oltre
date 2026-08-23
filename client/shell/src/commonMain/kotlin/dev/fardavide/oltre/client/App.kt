@@ -45,6 +45,7 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -164,6 +165,14 @@ fun App(
             // the file comes back — which is right rather than a race, because the map is the
             // default and a first launch has no file to wait for.
             var galaxyLanding by remember { mutableStateOf(GalaxyLanding.MAP) }
+            // **What the player said about being interrupted**, read from the same file as the
+            // landing above and held here for the same reason: it is not a fact about the colony, so
+            // it is not in the session. Everything downstream of it is a rendering — which controls
+            // a row draws, and which instants are worth booking.
+            //
+            // Defaulted to what every colony is already in, so the frames composed before the file
+            // comes back are the frames 0.17 drew.
+            var alerts by remember { mutableStateOf(NotificationSettings.DEFAULT) }
 
             LaunchedEffect(shakeDetector) {
                 shakeDetector.shakes().collect { debugOpen = true }
@@ -197,11 +206,18 @@ fun App(
                 tiltSource.tilts().collect { lean.value = it }
             }
 
-            LaunchedEffect(preferences) {
-                galaxyLanding = preferences.load().galaxyLanding.toGalaxyLanding()
-            }
-
             LaunchedEffect(Unit) {
+                // **Read before the colony is, and in the same effect it is read in** — which is the
+                // one ordering that is not a race. The launch's own `commit` a few lines down books
+                // every alert for a colony restored from disk, and it has to book them the way the
+                // player asked: a separate effect would leave the first sync of every launch running
+                // on the defaults, and nothing would come back to redo it until the next transition.
+                val stored = preferences.load()
+                galaxyLanding = stored.galaxyLanding.toGalaxyLanding()
+                // Null is a player who has never opened the settings screen, which is every player
+                // until 0.18 — see `Preferences.notifications`.
+                val settings = stored.notifications ?: NotificationSettings.DEFAULT
+                alerts = settings
                 val saved = store.load()
                 val wall = wallClock.now()
                 // The offset comes out of the save's own instant, which is the whole reason the
@@ -224,7 +240,10 @@ fun App(
                 // there is no saved instant to accrue from until one is written. The same
                 // opening also books the alerts for whatever was already in flight — a colony
                 // restored from disk has a schedule that no longer exists on the device.
-                resumed.commit(store, notifications, clock)
+                // The value this effect resolved rather than the state that mirrors it, so what is
+                // booked is what was read off the file a few lines up whatever else has touched the
+                // variable since.
+                resumed.commit(store, notifications, settings, clock)
             }
 
             // The roll's window. Without it the rail would roll a second time from a figure nobody
@@ -245,7 +264,7 @@ fun App(
                         val previous = session ?: continue
                         val next = previous.ticked(debugClock, wallClock = wallClock.now())
                         session = next
-                        if (next.hasNewEventsSince(previous)) next.commit(store, notifications, debugClock)
+                        if (next.hasNewEventsSince(previous)) next.commit(store, notifications, alerts, debugClock)
                     }
                 }
 
@@ -260,7 +279,7 @@ fun App(
                     val next = current.acting(debugClock, wallClock = wallClock.now(), transition = transition)
                     session = next
                     if (next.hasNewEventsSince(current)) {
-                        scope.launch { next.commit(store, notifications, debugClock) }
+                        scope.launch { next.commit(store, notifications, alerts, debugClock) }
                     }
                 }
 
@@ -278,7 +297,7 @@ fun App(
                 fun alert(target: WatchTarget) {
                     val next = current.alerting(debugClock, wallClock = wallClock.now(), target = target)
                     session = next
-                    scope.launch { next.commit(store, notifications, debugClock) }
+                    scope.launch { next.commit(store, notifications, alerts, debugClock) }
                 }
 
                 // The Shipyard's square, and the same shape for the same reasons — a hull card is
@@ -289,7 +308,7 @@ fun App(
                 fun alertHull(ship: ShipType) {
                     val next = current.alertingHull(debugClock, wallClock = wallClock.now(), ship = ship)
                     session = next
-                    scope.launch { next.commit(store, notifications, debugClock) }
+                    scope.launch { next.commit(store, notifications, alerts, debugClock) }
                 }
 
                 // The dispatch sheet's bell, and the map card's — one verb, because there is one
@@ -303,7 +322,7 @@ fun App(
                 fun alertFlights() {
                     val next = current.alertingFlights(debugClock, wallClock = wallClock.now())
                     session = next
-                    scope.launch { next.commit(store, notifications, debugClock) }
+                    scope.launch { next.commit(store, notifications, alerts, debugClock) }
                 }
 
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
@@ -315,7 +334,7 @@ fun App(
                     val outcome = current.skipped(debugClock, wallClock = wallClock.now())
                     debugClock = outcome.clock
                     session = outcome.session
-                    scope.launch { outcome.session.commit(store, notifications, outcome.clock) }
+                    scope.launch { outcome.session.commit(store, notifications, alerts, outcome.clock) }
                 }
 
                 // Delete, then resume from nothing — which is exactly the path a first launch
@@ -326,7 +345,7 @@ fun App(
                         val outcome = resetColony(wallClock = wallClock.now())
                         debugClock = outcome.clock
                         session = outcome.session
-                        outcome.session.commit(store, notifications, outcome.clock)
+                        outcome.session.commit(store, notifications, alerts, outcome.clock)
                     }
                 }
 
@@ -399,6 +418,7 @@ fun App(
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedFacility,
                                     watching = watching,
+                                    alerts = alerts,
                                 ),
                                 onUpgrade = { building ->
                                     act { state, at ->
@@ -429,6 +449,7 @@ fun App(
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedProject,
                                     watching = watching,
+                                    alerts = alerts,
                                 ),
                                 onStartResearch = { technology ->
                                     act { state, at ->
@@ -487,7 +508,14 @@ fun App(
                                 landing = galaxyLanding,
                                 onLandingChange = { chosen ->
                                     galaxyLanding = chosen
-                                    scope.launch { preferences.save(Preferences(galaxyLanding = chosen.name)) }
+                                    // The whole record every time, because that is what a write is
+                                    // here — there is no merge and no partial save, so a field left
+                                    // out is a field cleared.
+                                    scope.launch {
+                                        preferences.save(
+                                            Preferences(galaxyLanding = chosen.name, notifications = alerts),
+                                        )
+                                    }
                                 },
                                 onDispatchProbe = { target ->
                                     act { state, at ->
@@ -514,6 +542,7 @@ fun App(
                                 // loud rather than trusting it.
                                 onDispatchRun = dispatchRun,
                                 onToggleAnnounce = { alertFlights() },
+                                alerts = alerts,
                             )
                         },
                         // **The sixth verb, and the first shop in the game.** `FleetBalance.shipCost`
@@ -532,6 +561,7 @@ fun App(
                                 uiState = current.state.toShipyardUiState(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
+                                    alerts = alerts,
                                 ),
                                 onBuild = { type ->
                                     act { state, at ->
@@ -575,6 +605,7 @@ fun App(
                                 // handling in a place neither of them owns.
                                 onDispatchRun = dispatchRun,
                                 onToggleAnnounce = { alertFlights() },
+                                alerts = alerts,
                             )
                         },
                     )

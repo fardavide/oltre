@@ -20,6 +20,8 @@ import dev.fardavide.oltre.core.Research
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.NotificationSettings
+import dev.fardavide.oltre.core.asksPerJob
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -80,15 +82,33 @@ data class DispatchProbeOffer(val label: TextRes, val cost: TextRes, val flight:
 // Null when the target is not a target at all, which is the screen agreeing with `startRun` rather
 // than finding out afterwards: your own world, a world somebody holds, an empty slot and a relay all
 // refuse outright, so the row never offers a sheet the verb would throw away.
+//
+// `alerts` decides whether the sheet carries a bell at all: once the categories are in charge, the
+// Probes and Fleet returns switches answer for every flight and there is nothing left to ask beside
+// the verb. Defaulted to what every colony is already in, like the two arguments above it.
 fun GameState.toDispatchUiState(
     selection: DispatchSelection,
     probe: DispatchProbeOffer?,
     now: Instant,
+    alerts: NotificationSettings = NotificationSettings.DEFAULT,
 ): DispatchUiState? {
     val target = selection.at
     if (target == galaxy.home) return null
     if (galaxy.holderOf(target) != null) return null
     val world = worldAt(galaxy.seed, target) ?: return null
+
+    // **The bell's standing position, or its absence.** Derived once and spent in both places the
+    // sheet can end up — the offer and the unsurveyed refusal — because it is one control answering
+    // one question, and two copies of this `when` would be two places for the two doors to disagree.
+    //
+    // Null once the categories are in charge: the Probes and Fleet returns switches answer for every
+    // flight, so a bell here would be a second way of saying something already said. Absent rather
+    // than inert, which is what this app does everywhere it has nothing to offer.
+    val announce = when {
+        !alerts.asksPerJob() -> null
+        announceFlights -> WatchSquareUiState.ASKED
+        else -> WatchSquareUiState.UNASKED
+    }
 
     // **The name in the title and the address in the head**, on both doors — see `DispatchUiState`.
     // `worldNameAt` is a pure function of the seed, so it names an unsurveyed world too: a name is
@@ -112,7 +132,7 @@ fun GameState.toDispatchUiState(
                     // The standing position of the bell, exactly as the offer below carries it: the
                     // ask is stamped onto the job by the verb, so the square shows the answer the
                     // flight *would* be sent with rather than anything about this world.
-                    announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+                    announce = announce,
                 )
             },
         )
@@ -480,7 +500,7 @@ fun GameState.toDispatchUiState(
         vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands(), inTheGround - haul),
         // The bell's standing position. A run's ask is stamped by `startRun` from this same flag, so
         // what the square shows is exactly what the tap below it would send.
-        announce = if (announceFlights) WatchSquareUiState.ASKED else WatchSquareUiState.UNASKED,
+        announce = announce,
         legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),

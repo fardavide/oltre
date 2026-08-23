@@ -75,12 +75,17 @@ internal fun ProbeAction(
                         // row is the height of the verb beside it, and a taller hit box would
                         // overhang the row it sits in — where Compose does not reliably deliver
                         // touch.
-                        WatchSquare(
-                            state = uiState.announce,
-                            onClick = onToggleAnnounce,
-                            stacked = true,
-                            modifier = Modifier.testTag(GalaxyTestTags.ANNOUNCE),
-                        )
+                        // **Absent, not inert**, once the settings put the categories in charge: the
+                        // verb keeps the trailing edge it is aligned to and the row simply loses its
+                        // leading child, gap and all.
+                        uiState.announce?.let { announce ->
+                            WatchSquare(
+                                state = announce,
+                                onClick = onToggleAnnounce,
+                                stacked = true,
+                                modifier = Modifier.testTag(GalaxyTestTags.ANNOUNCE),
+                            )
+                        }
                         PressableFace(
                             onClick = onDispatch,
                             shape = oltreActionShape,

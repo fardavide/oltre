@@ -474,6 +474,33 @@ enum class StringId {
     ShipsHomeBody,
     AffordableTitle,
     AffordableBody,
+    // The grouped alert's sentence, one per category, and the summary's clause when there are two or
+    // three kinds of news to fit. **One entry serving both**, because they are the same words: a
+    // clause that opens a title reads the same as a clause in a list of them, and every one of these
+    // starts with a digit rather than a capital.
+    //
+    // No entry for the affordability watch, deliberately: there is one watch in the whole game, so a
+    // group of two prices is a state nothing can reach — see `NotificationCategory.groupTitle`.
+    // Hulls have no entry either and reuse `HullOrderDoneTitle`, which is already this sentence.
+    CategoryClauseFacilities,
+    CategoryClauseResearch,
+    CategoryClauseAdaptations,
+    CategoryClauseProbes,
+    CategoryClauseFleetReturns,
+    // The same counts with the verb taken off, for a summary carrying four kinds or more. A lock
+    // screen truncates a title hard, and four clauses with verbs is a paragraph.
+    CategoryTallyFacilities,
+    CategoryTallyResearch,
+    CategoryTallyAdaptations,
+    CategoryTallyHulls,
+    CategoryTallyProbes,
+    CategoryTallyFleetReturns,
+    // What a grouped or summary alert is *about* — the names, so a count also says which.
+    SubjectsBody,
+    // The tail of that list once it is longer than a lock screen holds. It is passed to
+    // `Strings.listed` as the last part, so it arrives as "Metal Mine, Solar Plant, Extraction and
+    // 6 more" with no separate rule for the conjunction.
+    MoreBesides,
     SystemAddressBare,
     BuildingFullNameMetalMine,
     BuildingFullNameCrystalMine,

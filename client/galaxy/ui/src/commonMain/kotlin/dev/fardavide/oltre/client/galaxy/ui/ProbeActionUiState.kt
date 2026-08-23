@@ -28,7 +28,10 @@ sealed interface ProbeActionUiState {
         val offer: ProbeOfferUiState,
         val label: TextRes,
         val compactLabel: TextRes,
-        val announce: WatchSquareUiState,
+        // **Null is no bell at all**, which is this app's answer everywhere a control has nothing to
+        // ask: once the settings screen puts the categories in charge, the Probes switch answers for
+        // every flight and the footer carries the verb alone.
+        val announce: WatchSquareUiState?,
     ) : ProbeActionUiState
 
     // The committed idiom, unchanged: the chip reddens for the one resource you are short of and

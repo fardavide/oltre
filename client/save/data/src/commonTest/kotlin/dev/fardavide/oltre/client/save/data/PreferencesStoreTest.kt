@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.client.save.data
 
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,7 +23,7 @@ class PreferencesStoreTest {
     fun `what is saved is what loads back`() = runTest {
         // given
         val store = PreferencesStore(FakeSaveFile())
-        val preferences = Preferences(galaxyLanding = MAP)
+        val preferences = Preferences(galaxyLanding = MAP, notifications = null)
 
         // when
         store.save(preferences)
@@ -52,7 +56,40 @@ class PreferencesStoreTest {
         val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS","lastTabOpened":"COLONY"}"""))
 
         // when / then
-        assertEquals(Preferences(galaxyLanding = WORLDS), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, notifications = null), store.load())
+    }
+
+    // **The field that had to be nullable, and this is the test that says why.** This record carries
+    // no schema version and cannot migrate, so a *required* field added today would make every
+    // preferences file already on disk fail to decode — and `load` answers `NONE` to a failure, so a
+    // player would have lost their galaxy landing to a settings screen they had not opened yet.
+    @Test
+    fun `a file written before the settings existed still answers the landing it knows`() = runTest {
+        // given the exact shape every file on disk has today
+        val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS"}"""))
+
+        // when / then — the landing survives and the settings are simply unchosen
+        assertEquals(Preferences(galaxyLanding = WORLDS, notifications = null), store.load())
+    }
+
+    @Test
+    fun `what the player chose about alerts survives a save and a load`() = runTest {
+        // given a player who moved both settings and muted a category
+        val store = PreferencesStore(FakeSaveFile())
+        val preferences = Preferences(
+            galaxyLanding = MAP,
+            notifications = NotificationSettings(
+                scope = NotificationScope.BY_CATEGORY,
+                grouping = NotificationGrouping.SUMMARY,
+                categories = NotificationCategory.entries.toSet() - NotificationCategory.PROBES,
+            ),
+        )
+
+        // when
+        store.save(preferences)
+
+        // then
+        assertEquals(preferences, store.load())
     }
 
     @Test
@@ -62,11 +99,11 @@ class PreferencesStoreTest {
         val store = PreferencesStore(file)
 
         // when
-        store.save(Preferences(galaxyLanding = MAP))
-        store.save(Preferences(galaxyLanding = WORLDS))
+        store.save(Preferences(galaxyLanding = MAP, notifications = null))
+        store.save(Preferences(galaxyLanding = WORLDS, notifications = null))
 
         // then
-        assertEquals(Preferences(galaxyLanding = WORLDS), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, notifications = null), store.load())
         assertEquals(2, file.writeCount)
     }
 

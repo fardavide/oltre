@@ -344,7 +344,7 @@ private fun Refuse(
 @Composable
 @NonRestartableComposable
 private fun Committing(
-    announce: WatchSquareUiState,
+    announce: WatchSquareUiState?,
     onToggleAnnounce: () -> Unit,
     verb: @Composable () -> Unit,
 ) {
@@ -354,12 +354,17 @@ private fun Committing(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Box(modifier = Modifier.weight(1f)) { verb() }
-        WatchSquare(
-            state = announce,
-            onClick = onToggleAnnounce,
-            stacked = true,
-            modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
-        )
+        // **Absent, not inert**, once the settings put the categories in charge: the verb keeps its
+        // `weight(1f)` and simply takes the width the square was using, and `spacedBy` adds no
+        // trailing gap to a row with one child. Nothing about the footer is redrawn for it.
+        if (announce != null) {
+            WatchSquare(
+                state = announce,
+                onClick = onToggleAnnounce,
+                stacked = true,
+                modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
+            )
+        }
     }
 }
 

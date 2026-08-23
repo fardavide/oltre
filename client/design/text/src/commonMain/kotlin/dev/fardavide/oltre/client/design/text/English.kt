@@ -540,6 +540,29 @@ object English : Translations {
         StringId.ShipsHomeBody -> "The cargo from ${args.text(0)} is in your stores."
         StringId.AffordableTitle -> "You can afford ${args.text(0)}"
         StringId.AffordableBody -> "The colony has the resources for level ${args.number(0)}."
+        // The grouped alert's title and the summary's clause, which are one sentence used twice.
+        // Every one opens on a digit, so nothing here has to be re-cased to sit inside a list.
+        StringId.CategoryClauseFacilities ->
+            args.count(0).let { "$it ${it.plural("facility is", "facilities are")} done" }
+        StringId.CategoryClauseResearch ->
+            args.count(0).let { "$it ${it.plural("project is", "projects are")} done" }
+        StringId.CategoryClauseAdaptations ->
+            args.count(0).let { "$it ${it.plural("adaptation is", "adaptations are")} done" }
+        StringId.CategoryClauseProbes ->
+            args.count(0).let { "$it ${it.plural("probe has", "probes have")} reported" }
+        StringId.CategoryClauseFleetReturns ->
+            args.count(0).let { "$it ${it.plural("fleet is", "fleets are")} home" }
+        // The same counts with the verb off, for a title carrying four kinds of news or more.
+        StringId.CategoryTallyFacilities ->
+            args.count(0).let { "$it ${it.plural("facility", "facilities")}" }
+        StringId.CategoryTallyResearch -> args.count(0).let { "$it ${it.plural("project", "projects")}" }
+        StringId.CategoryTallyAdaptations ->
+            args.count(0).let { "$it ${it.plural("adaptation", "adaptations")}" }
+        StringId.CategoryTallyHulls -> args.count(0).let { "$it ${it.plural("hull", "hulls")}" }
+        StringId.CategoryTallyProbes -> args.count(0).let { "$it ${it.plural("probe", "probes")}" }
+        StringId.CategoryTallyFleetReturns -> args.count(0).let { "$it ${it.plural("fleet", "fleets")}" }
+        StringId.SubjectsBody -> "${args.text(0)}."
+        StringId.MoreBesides -> "${args.count(0)} more"
         StringId.SystemAddressBare -> "${args.number(0)}:${args.number(1)}"
         StringId.BuildingFullNameMetalMine -> "Metal Mine"
         StringId.BuildingFullNameCrystalMine -> "Crystal Mine"

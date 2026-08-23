@@ -16,6 +16,10 @@ import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
+import dev.fardavide.oltre.core.NotificationCategory
+import dev.fardavide.oltre.core.NotificationGrouping
+import dev.fardavide.oltre.core.NotificationScope
+import dev.fardavide.oltre.core.NotificationSettings
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -353,6 +357,27 @@ class ShipyardUiStateTest {
 
         assertEquals(WatchSquareUiState.ASKED_SEVERAL, cards.getValue(ShipType.HAULER).alert)
         assertEquals(WatchSquareUiState.UNASKED, cards.getValue(ShipType.SKIFF).alert)
+    }
+
+    // **The card's control goes entirely once the categories are in charge** — Davide, 2026-08-23.
+    // The Hulls switch answers for the whole yard, and what goes with it is the choice between the
+    // card's two ways of asking: in that mode the grouping setting decides packaging for every kind
+    // of news at once.
+    @Test
+    fun `a card has no square at all while the categories are in charge`() {
+        // given an order the player has already tapped twice
+        val ordered = wealthy().order(2).copy(hullAlerts = mapOf(ShipType.SKIFF to HullAlert.EACH_HULL))
+        val byCategory = NotificationSettings(
+            scope = NotificationScope.BY_CATEGORY,
+            grouping = NotificationGrouping.SINGLE,
+            categories = NotificationCategory.entries.toSet(),
+        )
+
+        // then — absent rather than inert, and the tap that lit it is kept in the state
+        assertEquals(
+            null,
+            ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC, alerts = byCategory).skiff().alert,
+        )
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
