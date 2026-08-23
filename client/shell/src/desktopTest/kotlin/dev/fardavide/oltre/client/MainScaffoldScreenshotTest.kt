@@ -3,11 +3,14 @@ package dev.fardavide.oltre.client
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
@@ -78,6 +81,46 @@ class MainScaffoldScreenshotTest {
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/main_scaffold.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
+    // **The one frame in the repository captured after a tap**, and the exception is argued rather
+    // than taken. The rule it bends — never `performClick` before a capture — exists because a press
+    // bakes its own indication into the baseline and pins it there forever. Here the shutter opens
+    // `SETTLED_MILLIS` after the release, which is comfortably past both the ripple and the press
+    // spring and still well inside the notice's four seconds; and there is no other way to reach
+    // this state, because the notice is the frame's own and takes no parameter.
+    //
+    // What it is for is the thing neither the notice's own baseline nor the frame's can show: where
+    // the notice sits. `SettingsNoticeBehaviourTest` asserts that it clears the tab bar, which is a
+    // claim about two numbers; whether it looks like a card floating over a screen rather than a
+    // second bar stuck to the first is a claim only a picture can carry.
+    @Test
+    fun `the frame answering the settings gear`() {
+        runDesktopComposeUiTest(width = 393, height = 852) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        MainScaffold(
+                            tilt = { Tilt.NONE },
+                            player = testPlayerStripUiState,
+                            resources = testResourceRailUiState,
+                            colony = { Text("colony-under-test") },
+                            research = { Text("research-under-test") },
+                            galaxy = { _, _ -> Text("galaxy-under-test") },
+                            shipyard = { Text("shipyard-under-test") },
+                            fleets = { Text("fleets-under-test") },
+                        )
+                    }
+                }
+            }
+            onNodeWithTag(PlayerTestTags.SETTINGS, useUnmergedTree = true).performClick()
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/main_scaffold_notice.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }

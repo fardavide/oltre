@@ -206,6 +206,18 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.17.1 — 2026-08-23
+
+- **Your name gets the whole line.** The experience gauge has moved off the strip and become the
+  strip's own bottom edge — a thin accent line under your name that runs as far as your level has
+  got. It takes no width from anything, so even the longest name now fits whole on the narrowest
+  window the game runs in.
+- At level 0 the edge is just an edge, so a new colony sees a plain line rather than a bar stuck at
+  nothing.
+- **"Coming soon" now answers where you can read it.** Tapping the settings gear used to blank out
+  your level and gauge for a moment; it now says so on a card above the tab bar, for four seconds.
+  Tapping again restarts the four seconds instead of doing nothing.
+
 ### 0.17.0 — 2026-08-23
 
 - **The gauge fills.** Everything you finish now pays experience — a facility level, a technology, an

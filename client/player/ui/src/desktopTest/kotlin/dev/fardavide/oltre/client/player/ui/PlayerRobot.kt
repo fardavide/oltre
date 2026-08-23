@@ -7,7 +7,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -26,16 +25,6 @@ internal class PlayerRobot(private val test: ComposeUiTest) {
         test.mainClock.advanceTimeByFrame()
     }
 
-    // Far enough past the notice's own window that the effect that clears it has certainly run, and
-    // stated in terms of the constant rather than a number copied out of it.
-    fun afterTheNotice(): PlayerRobot = apply {
-        test.mainClock.advanceTimeBy(NOTICE_MILLIS + 100L)
-    }
-
-    fun justBeforeTheNoticeClears(): PlayerRobot = apply {
-        test.mainClock.advanceTimeBy(NOTICE_MILLIS - 100L)
-    }
-
     fun assertShowing(text: String): PlayerRobot = apply {
         test.onNodeWithText(text, useUnmergedTree = true).assertIsDisplayed()
     }
@@ -44,20 +33,24 @@ internal class PlayerRobot(private val test: ComposeUiTest) {
         test.onNodeWithText(text, useUnmergedTree = true).assertDoesNotExist()
     }
 
-    // How many nodes carry the notice's tag. One after a tap, and still one after a second tap —
-    // which is the assertion that the notice is a state rather than something that stacks.
-    fun noticeCount(): Int =
-        test.onAllNodesWithTag(PlayerTestTags.NOTICE, useUnmergedTree = true).fetchSemanticsNodes().size
+    fun assertTheEdgeIsDrawn(): PlayerRobot = apply {
+        test.onNodeWithTag(PlayerTestTags.EXPERIENCE, useUnmergedTree = true).assertIsDisplayed()
+    }
 }
 
 // The scene every behaviour test in this module runs in: the theme, a surface, and the strip at a
-// stated width. The clock is paused before `setContent`, because the notice has a lifetime and a
+// stated width. The clock is paused before `setContent`, because the gauge fills once on entry and a
 // test that let the clock run would be racing it.
+//
+// **The gear reports rather than answers now**, so the scene is handed what it should do about it —
+// `settings` defaults to doing nothing, which is what a test about the four readings wants, and a
+// test about the tap passes a recorder.
 @OptIn(ExperimentalTestApi::class)
 internal fun playerStrip(
     uiState: PlayerStripUiState = newColonyPlayerStrip,
     width: Int = PHONE_WIDTH,
     translations: Translations = English,
+    settings: () -> Unit = {},
     block: PlayerRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = width, height = STRIP_SCENE_HEIGHT) {
@@ -66,7 +59,7 @@ internal fun playerStrip(
             OltreTheme(translations = translations) {
                 Surface {
                     Box(modifier = Modifier.fillMaxSize()) {
-                        PlayerStrip(uiState = uiState)
+                        PlayerStrip(uiState = uiState, onOpenSettings = settings)
                     }
                 }
             }

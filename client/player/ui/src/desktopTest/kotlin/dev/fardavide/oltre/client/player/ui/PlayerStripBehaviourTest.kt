@@ -1,19 +1,15 @@
 package dev.fardavide.oltre.client.player.ui
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.text.English
-import dev.fardavide.oltre.client.design.text.Italian
 import dev.fardavide.oltre.client.design.text.Strings
 import org.junit.Test
 import kotlin.test.assertEquals
@@ -21,69 +17,42 @@ import kotlin.test.assertEquals
 // **What the gear does, which is the only thing in this strip that does anything.** The rest of it
 // is four readings, and a baseline is the right instrument for those.
 //
-// The notice has a lifetime, so every test here runs on a paused clock and advances it deliberately.
-// A test that let the clock run would be asserting against whichever frame the machine got to.
+// What the gear does *here* is report. The answer moved above the tab bar at 0.18 and is the frame's
+// to draw and to time — see `MainScaffoldBehaviourTest`, which owns the four seconds.
 @OptIn(ExperimentalTestApi::class)
 class PlayerStripBehaviourTest {
 
     @Test
-    fun `should say the settings are coming when the gear is tapped`() {
-        playerStrip {
+    fun `should ask for the settings when the gear is tapped`() {
+        var asked = 0
+        playerStrip(settings = { asked++ }) {
             tapSettings()
-            assertShowing(English.resolve(Strings.settingsComingSoon()))
         }
+        assertEquals(1, asked)
     }
 
     @Test
-    fun `should say nothing before the gear is tapped`() {
-        // The strip is chrome and is composed on every launch, so a notice that were there from the
-        // first frame would greet every player with an apology for a screen they had not asked for.
-        playerStrip {
-            assertGone(English.resolve(Strings.settingsComingSoon()))
+    fun `should ask again when the gear is tapped twice`() {
+        // The frame restarts the notice's window on a second tap rather than stacking a second bar,
+        // and it can only do that if it hears about the second tap. A strip that swallowed the
+        // repeat would make that rule untestable one layer up.
+        var asked = 0
+        playerStrip(settings = { asked++ }) {
+            tapSettings()
+            tapSettings()
         }
+        assertEquals(2, asked)
     }
 
     @Test
-    fun `should clear the notice once its window has passed`() {
-        playerStrip {
-            tapSettings()
-            afterTheNotice()
-            assertGone(English.resolve(Strings.settingsComingSoon()))
+    fun `should ask for nothing until the gear is tapped`() {
+        // The strip is chrome and is composed on every launch, so a strip that asked on arrival
+        // would greet every player with an apology for a screen they had not asked for.
+        var asked = 0
+        playerStrip(settings = { asked++ }) {
+            assertShowing(English.resolve(Strings.playerDefaultName()))
         }
-    }
-
-    @Test
-    fun `should hold the notice for the whole of its window`() {
-        // The other half of the one above, and the half that would not fail if the window were a
-        // single frame long.
-        playerStrip {
-            tapSettings()
-            justBeforeTheNoticeClears()
-            assertShowing(English.resolve(Strings.settingsComingSoon()))
-        }
-    }
-
-    @Test
-    fun `should not stack a second notice when the gear is tapped twice`() {
-        // Transience as state rather than as a queue — the resource rail's arrival roll is the shape
-        // this copies. A second tap restarts the window; it does not add a second notice.
-        playerStrip {
-            tapSettings()
-            tapSettings()
-            assertEquals(1, noticeCount())
-        }
-    }
-
-    @Test
-    fun `should give the level and the gauge back after the notice clears`() {
-        // The notice displaces the badge and the gauge rather than overlaying them, so this is what
-        // says the displacement is temporary.
-        playerStrip {
-            tapSettings()
-            assertGone(English.resolve(Strings.levelBadge(0)))
-            afterTheNotice()
-            assertShowing(English.resolve(Strings.levelBadge(0)))
-        }
+        assertEquals(0, asked)
     }
 
     @Test
@@ -95,24 +64,31 @@ class PlayerStripBehaviourTest {
     }
 
     @Test
+    fun `should draw its edge at every width`() {
+        // The gauge is the strip's bottom edge now, so it is the one part of the drawing that is not
+        // in the row and cannot be found by its text. At LV 0 it is an unlit 2dp line, which is what
+        // a fresh install sees and what a frame cannot tell from the hairline it replaced.
+        playerStrip(width = SLIDE_OVER_WIDTH) {
+            assertTheEdgeIsDrawn()
+        }
+    }
+
+    @Test
     fun `should re-read the state it is handed when that state changes`() {
-        // **Nothing in the app can change this state yet**, which is exactly why it is worth
-        // pinning: the strip is composed once per launch and every test above hands it a value that
-        // never moves, so a strip that cached its first render would pass all of them. The slice
-        // that makes experience real will change this state on a tick, and this is the test that
-        // will already be there when it does.
+        // **The strip is composed once per launch** and every test above hands it a value that never
+        // moves, so a strip that cached its first render would pass all of them. Since 0.17 the level
+        // is folded off the save and does move on a tick, and this is what says the frame follows it.
         var level by mutableStateOf(Strings.levelBadge(0))
         runDesktopComposeUiTest(width = PHONE_WIDTH, height = 80) {
             setContent {
                 OltreTheme {
                     Surface {
-                        PlayerStripContent(
+                        PlayerStrip(
                             uiState = PlayerStripUiState(
                                 name = Strings.playerDefaultName(),
                                 level = level,
                                 experiencePercent = 0,
                             ),
-                            noticeShown = false,
                             onOpenSettings = {},
                         )
                     }
@@ -125,16 +101,6 @@ class PlayerStripBehaviourTest {
 
             onNodeWithText(English.resolve(Strings.levelBadge(3)), useUnmergedTree = true).assertIsDisplayed()
             onNodeWithText(English.resolve(Strings.levelBadge(0)), useUnmergedTree = true).assertDoesNotExist()
-        }
-    }
-
-    @Test
-    fun `should say the settings are coming in Italian too`() {
-        // The notice is the one string in the strip whose two languages differ in width, and it is
-        // measured against the cluster it replaces at the narrowest window the app supports.
-        playerStrip(width = SLIDE_OVER_WIDTH, translations = Italian) {
-            tapSettings()
-            assertShowing(Italian.resolve(Strings.settingsComingSoon()))
         }
     }
 }

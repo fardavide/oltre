@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-23 (0.17.0)
+Updated: 2026-08-23 (0.17.1)
 
 ## Landed
 
@@ -427,6 +427,15 @@ Updated: 2026-08-23 (0.17.0)
   — a new colony still reads `LV 0` on an empty track. It also fixed three of `:sim`'s four bots,
   which had silently stopped surveying at 0.15. See [`experience-sheet.md`](experience-sheet.md) and
   balance-log round 32.
+- **0.17.1 a name above the rail** — the strip, revised by a Claude Design round trip. The gauge is
+  no longer a 72dp inline track but the strip's own 2dp full-bleed bottom edge, which costs the row
+  nothing and gives the name the whole line at 320dp as well as 393; and `Coming soon` is no longer
+  printed over the badge but a card above the tab bar for four seconds, keyed on a tap count so a
+  second tap restarts the window. The strip is 40dp now (38 of row over 2 of edge) and
+  `DESTINATION_HEIGHT` does **not** move — 612 was already what the arithmetic gives with the edge in
+  it, and `PlayerStripGeometryTest` states the whole sum. Five player baselines and `main_scaffold`
+  re-recorded, two deleted. See [`decisions.md`](decisions.md) and the note at the top of
+  [`player-strip-sheet.md`](player-strip-sheet.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -903,6 +912,18 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.17.1
+
+- **The edge gauge on a wide window is undrawn and unlooked-at.** It is full-bleed like the hairline
+  it replaced, so on a 1024dp iPad a level 62% through is a 635dp accent line and the only ink of
+  that colour on screen. Capping it at the 560dp content column is the alternative and contradicts
+  every other bar in the app. One device session settles it.
+- **A line pinned under a bar reads as loading**, and three things answer that on paper — it never
+  moves, LV 0 draws no fill at all, and it is the chrome's own boundary. Paper is what they are.
+- **The notice's position over an open bottom sheet is undrawn.** It clears the tab bar; a sheet is
+  taller than the tab bar, so it has to move or be suppressed, and the sheets are the newest surface
+  in the app.
 
 ## Pending, from 0.17.0
 
