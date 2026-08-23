@@ -308,6 +308,12 @@ that is reversible.
 as a comment on the ticket, which is a fine record and is not the delivery: he pastes it, so it has
 to be in front of him.
 
+**In the chat and nowhere else — it is not written to a file** (Davide, 2026-08-23). `.claude/prompts/`
+holds three of them from 0.10, 0.12 and 0.13 and that convention is superseded: a prompt is a
+*delivery*, and the durable half of a round trip is the argument it was built from, which lives in the
+slice's decision sheet. The three that exist stay as a record; a fourth is not written. What the sheet
+carries instead is the section naming what the round trip is for — see `settings-sheet.md` §7.
+
 A hand-off prompt names: the branch to work on, the docs to read first, what is in scope, what is
 explicitly out of scope, and what "done" means. Never a summary of the work — a specification of
 it. The prompt-writing rule from the Notion page applies: *a spec plus context, not a leash.*
