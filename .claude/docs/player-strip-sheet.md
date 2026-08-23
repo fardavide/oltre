@@ -1,4 +1,12 @@
-# Player strip decision sheet — 0.16
+# Player strip decision sheet — 0.16, revised 0.17.1
+
+> **§5 is superseded in two places by *A Name Above The Rail*, a Claude Design round trip accepted
+> 2026-08-23 and shipped at 0.17.1.** The gauge is no longer a 72dp inline track — it is the strip's
+> own 2dp bottom edge — and the notice is no longer printed on the bar, but a card above the tab bar
+> for four seconds. Everything else in §5 shipped and still ships. The two reversals and what paid
+> for them are in [`decisions.md`](decisions.md); §5 is kept as written, because a sheet retro-fitted
+> to its successor is not a record of what was decided when.
+
 
 Opened by the build, 2026-08-22, for Davide's call: *"I want to design and implement the following,
 above resources: player icon, player name, current Lv, experience bar, settings button."* The

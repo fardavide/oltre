@@ -9,25 +9,32 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.player.ui.PlayerStrip
 import dev.fardavide.oltre.client.player.ui.PlayerStripUiState
+import dev.fardavide.oltre.client.player.ui.SETTINGS_NOTICE_MILLIS
+import dev.fardavide.oltre.client.player.ui.SettingsNotice
 import dev.fardavide.oltre.client.tilt.domain.Tilt
+import kotlinx.coroutines.delay
 
 // The app's frame: the selected destination over the tab bar. Which destination is showing is the
 // scaffold's own state — this is the composition root's navigation, and nothing above it has an
@@ -59,10 +66,10 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 @Composable
 fun MainScaffold(
     // Ahead of `resources` because it is drawn ahead of it, and a parameter here for the reason the
-    // rail is one: this signature is the honest list of what the frame carries. What it holds is a
-    // constant today — nothing awards experience and nothing renames anybody — and it arrives as a
-    // parameter anyway so that the day it is read off a `GameState` the only file that changes is
-    // the one that reads it.
+    // rail is one: this signature is the honest list of what the frame carries. Two of its three
+    // readings are folded off the save since 0.17, and it arrives as a parameter for the reason it
+    // did when all three were constants: the frame draws what it is handed and asks no `GameState`
+    // anything.
     player: PlayerStripUiState,
     resources: ResourceRailUiState,
     colony: @Composable (ScrollState) -> Unit,
@@ -83,6 +90,24 @@ fun MainScaffold(
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
+    // **The gear's answer, counted rather than flagged.** What is remembered is how many times the
+    // gear has been asked, not whether the notice is up — a `Boolean` key would leave a second tap
+    // during the four seconds setting `true` to `true`, which changes nothing, so the effect would
+    // not restart and the notice would vanish four seconds after the *first* tap. The design asks for
+    // the opposite: a second tap restarts the window rather than stacking a second bar.
+    //
+    // The window lives here rather than in `:client:player:ui` for the reason the resource rail's
+    // arrival window lives in `App` rather than in the rail: what is transient is the frame's state,
+    // and the drawing takes no opinion about how long it is on screen.
+    var settingsAsked by remember { mutableIntStateOf(0) }
+    var noticeShown by remember { mutableStateOf(false) }
+    LaunchedEffect(settingsAsked) {
+        if (settingsAsked > 0) {
+            noticeShown = true
+            delay(SETTINGS_NOTICE_MILLIS)
+            noticeShown = false
+        }
+    }
     val colonyScroll = rememberScrollState()
     val researchScroll = rememberScrollState()
     val galaxyScroll = rememberScrollState()
@@ -96,29 +121,48 @@ fun MainScaffold(
         // Inside the safe-area padding and above the rail. Outside it, the notch would eat the mark
         // on every notched phone and nothing in the desktop suite could see that happen — insets are
         // the frame's job, never a screen's, which is the whole reason this Column has exactly one.
-        PlayerStrip(uiState = player)
+        PlayerStrip(uiState = player, onOpenSettings = { settingsAsked++ })
         ResourceRail(uiState = resources)
-        Destination(
-            selected = selected,
-            colony = colony,
-            research = research,
-            galaxy = galaxy,
-            shipyard = shipyard,
-            fleets = fleets,
-            colonyScroll = colonyScroll,
-            researchScroll = researchScroll,
-            galaxyScroll = galaxyScroll,
-            shipyardScroll = shipyardScroll,
-            fleetsScroll = fleetsScroll,
-            tilt = tilt,
-            onOpenResearch = { selected = OltreTab.RESEARCH },
-        )
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            Destination(
+                selected = selected,
+                colony = colony,
+                research = research,
+                galaxy = galaxy,
+                shipyard = shipyard,
+                fleets = fleets,
+                colonyScroll = colonyScroll,
+                researchScroll = researchScroll,
+                galaxyScroll = galaxyScroll,
+                shipyardScroll = shipyardScroll,
+                fleetsScroll = fleetsScroll,
+                tilt = tilt,
+                onOpenResearch = { selected = OltreTab.RESEARCH },
+            )
+            // **Over the destination and clear of the bar**, and the gap is a layout rather than
+            // arithmetic. The obvious alternative — anchoring to the window's bottom and subtracting
+            // the tab bar's height — needs a number for a bar that is measured rather than pinned,
+            // and a hand-derived constant standing in for a measured height is exactly what put a
+            // galaxy control off the bottom of the screen at 0.12.0.
+            if (noticeShown) {
+                SettingsNotice(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = NOTICE_GAP),
+                )
+            }
+        }
         OltreTabBar(selected = selected, onSelect = { selected = it })
     }
 }
 
+// The gap between the notice and the tab bar, which is the gap between two cards in a list — the
+// notice is a card floating over a screen, and it clears the bar by the same 8dp a row clears the
+// row above it.
+private val NOTICE_GAP = 8.dp
+
 @Composable
-private fun ColumnScope.Destination(
+private fun Destination(
     selected: OltreTab,
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
@@ -144,7 +188,7 @@ private fun ColumnScope.Destination(
         OltreTab.SHIPYARD -> shipyardScroll
         OltreTab.FLEETS -> fleetsScroll
     }
-    Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+    Box(modifier = Modifier.fillMaxSize()) {
         // Inside the destination box and first in it, so it sits under every screen and under none
         // of the chrome: the rail and the tab bar are surfaces, and space does not show through a
         // surface.

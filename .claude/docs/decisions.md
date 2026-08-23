@@ -4103,3 +4103,111 @@ The rule now lives in one place, `boughtScoutIfNeeded`. Rounds 30 and 31's fleet
 were measured without probes; their subjects were the drive, the hauler and the vein and the bot
 works the home system either way, so the conclusions stand — but any reading in them about *reach* or
 the frontier is about a colony that never left home.
+
+## The gauge becomes the bar's own edge, and the notice becomes a surface (0.17.1)
+
+A Claude Design round trip on the strip 0.16 drew and 0.17 filled — *A Name Above The Rail*, accepted
+2026-08-23. Most of it is the shipped design restated; two things changed, and both are decisions
+rather than drawings.
+
+**The experience gauge moved from a 72dp inline track to a 2dp full-bleed edge under the strip.** The
+argument is width and nothing else: the track cost 79dp of the row, all of it taken from the only
+flexible slot on the bar, so at 320dp a three-word name lost its last word. The edge costs nothing,
+and the name now fits whole at every width the app supports — `Contingency Of Ash`, the longest name
+the design drew, has a baseline at 320dp saying so.
+
+The objection is real and is recorded rather than waved: **a line pinned under a bar reads as
+loading.** Three things answer it. It never moves — drawn once on foreground and held, like every
+other value in this app. At LV 0 there is no fill at all, so a fresh install sees the hairline it
+replaced, one dp thicker. And it is the boundary of the chrome rather than a floating element with a
+track drawn round it. **What is not answered is the wide window**: it is full-bleed, so on a 1024dp
+iPad a level 62% of the way through is a 635dp accent line and the only ink of that colour on screen.
+The alternative — capping it at the 560dp content column — contradicts every other bar in the app.
+Worth one look on a real device.
+
+**"Coming soon" stopped displacing the badge and the gauge, and became a surface above the tab bar.**
+0.16 printed it inline, deliberately, on the grounds that the app has no snackbar and this should not
+become the first one. The design overturned that on a reading rather than on architecture: two words
+sitting next to the player's name say *this bar* is coming soon, not the gear at the end of it. A
+caused notice cannot be misread that way, because nothing says it until the thing it is about is
+touched.
+
+So the app does now have an auto-dismissing surface, and the 0.16 entry's reasoning is superseded
+rather than merely outvoted. What it is not is infrastructure: there is no host, no queue, no action
+slot and no duration enum — `SettingsNotice` is a card that says one string, placed by the frame,
+cleared by a `LaunchedEffect` keyed on a tap count. The count is the interesting part: a `Boolean`
+would set `true` to `true` on a second tap, so the effect would not restart and the notice would go
+four seconds after the *first* one, with nothing in any picture to say so.
+
+**The strip's footprint went 38dp to 40dp** — 38 of row over 2 of edge. `DESTINATION_HEIGHT` does not
+move, because it was already 612 and 612 is what the arithmetic gives with the edge in it: 759 between
+the insets, less 55 of tab bar, less 52 of rail, less 40. The constant was two dp optimistic for two
+releases and is now correct; `PlayerStripGeometryTest` states the whole sum so the next change to any
+tier fails a test rather than a device.
+
+**The drawing lives in `:client:player:ui`, the placement and the four seconds in `:client:shell`.**
+The notice belongs above the tab bar and only the composition root knows where that is — anchoring to
+the window's bottom and subtracting the bar's height would need a hand-derived number for a bar that
+is measured, which is 0.12.0's mistake with a different constant. The shell keeps no
+`:client:design:component` dependency for it either; the card idiom is reached from the player module,
+which already had one.
+
+### Raised and not decided
+
+- **What the gauge measures is still whatever `Experience` says**, and the design asks the older
+  question again: it should move at least once a session or the bar is furniture.
+- **The mark and the name are still inert** — no ripple, no answer. If a player sheet is coming, they
+  are its door.
+- **The notice's position over an open bottom sheet is undrawn.** It clears the tab bar; a sheet is
+  taller than the tab bar, and the sheets are the newest surface in the app.
+
+## The coverage gate was measuring the build cache (0.17.1)
+
+Not a design decision — a note about the instrument, and the second one in two releases.
+
+**PR #104's Coverage job failed on two screenshot numbers that the same commit measures
+correctly on a machine with a cold cache.** The row that had moved was
+`dev.fardavide.oltre.core`, which the screenshot pass excludes by name and which the local
+report does not list at all.
+
+**The explanation `measure-coverage.sh` already carried is wrong**, and recording that is most of
+the value here, because it is what sent the first three attempts at a diagnosis down a blind
+alley. It claimed `-Poltre.testCategory` is not an input to Kover's tasks, so a filtered pass
+reuses an unfiltered artifact. Checked rather than assumed: every `koverGenerateArtifact*` and the
+root `koverXmlReport` **executed** in the failing pass; `KoverArtifactGenerationTask`'s output is a
+187-byte manifest holding no filters; `AbstractKoverReportTask.filters` is `@Nested` in Kover
+0.9.9; and `testCategory` is read through `providers.gradleProperty`, which invalidates the
+configuration cache at every pass boundary. The magnitude was wrong too — a lost name filter is
+all-or-nothing and would have put all 1,973 of `core`'s lines back, printing 85.9%; what actually
+appeared was about a ninth of them.
+
+**What the gate was measuring is the cache.** Deleting an output does not change a cache key. With
+`org.gradle.caching=true` Gradle answers a deleted output by *restoring* it rather than by
+re-running the task, and a `Test` task's `.ic` binary coverage is one of its outputs — so a pass
+can be handed coverage recorded under a different pass's test filter, and then filter it correctly
+over the wrong data. In the failing job **25 of 28 test tasks came back `FROM-CACHE` in every
+pass**; in the `main` run that set the baseline they were compared against, none did. That is the
+only measured difference between the two, and it is enough on its own: a ratchet with no slack
+cannot be compared against a number produced under different cache conditions.
+
+So the passes run with `--no-build-cache`. It costs the job about nine minutes. The configuration
+cache stays on — already invalidated per pass, and turning it off would buy five configuration
+phases and nothing else.
+
+**The rule worth keeping is the general one.** *A measurement whose result depends on what happened
+to be in a cache is not a measurement.* It applies to anything else this repository ever gates on.
+
+Two smaller changes came with it: `build/reports/kover` is deleted between passes as well (it is
+one XML overwritten five times, so a root report task that was ever UP-TO-DATE would hand the
+collector the previous pass's numbers with nothing to say so), and each pass's XML is now copied
+out and uploaded by CI. Until now nothing survived the job, which is why a row that came out a
+point low could not be explained from outside it at all.
+
+### Raised and not fixed
+
+- **`:client:player:presentation` is in `settings.gradle.kts` and not in the root `kover(...)`
+  aggregate**, so since 0.17.0 it has been measured in no column at all — the mapper and its 159
+  lines of test contribute to nothing. Adding it is correct and is **not** done here: the module is
+  a mapper, so the behaviour pass would take it at whatever the behaviour tests happen to reach,
+  and a row that falls blocks every open PR. It needs its own branch and a measurement before the
+  line is added.

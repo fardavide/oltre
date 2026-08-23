@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// **The strip's numbers, and the one piece of arithmetic that reads them.** A separate file from the
-// drawing, and the reason is a measurement rather than taste.
+// **This module's numbers, and the one piece of arithmetic that reads them.** A separate file from
+// the drawings, and the reason is a measurement rather than taste.
 //
 // A unit test cannot render a composable, so the unit pass excludes every `@Composable` by
 // annotation. What it does *not* exclude is a file's top-level properties — and a class Kover never
@@ -36,10 +36,6 @@ internal val STRIP_HEIGHT = 38.dp
 // still larger than the 29dp square that already ships stacked on a colony row.
 internal val GEAR_TARGET = 38.dp
 
-// How long the notice stays. Long enough to read eleven characters and be sure they were meant,
-// short enough that it is gone before a player has decided to do something else.
-internal const val NOTICE_MILLIS = 2_000L
-
 internal val EDGE = 11.dp
 
 // Asymmetric against `EDGE`, and not a mistake: the gear's target is 10dp wider than its face on
@@ -51,31 +47,59 @@ internal val GEAR_RADIUS = 9.dp
 // Deliberately not the rail's 15sp SemiBold: at the same size and weight as the three figures below
 // it, the name reads as a fourth statistic rather than as whose statistics they are.
 internal val NAME_SIZE = 13.5.sp
-internal val NOTICE_SIZE = 10.5.sp
 
 internal val BADGE_SIZE = 10.sp
 internal val BADGE_RADIUS = 4.dp
 internal val BADGE_PAD_X = 5.dp
 internal val BADGE_PAD_Y = 1.dp
 
-internal val GAUGE_WIDTH = 72.dp
-
-// The one thing that gives below the compact width. The name ellipsises after it, which is the order
-// the design wants: a name half-read is worse than a gauge that is shorter.
-internal val GAUGE_WIDTH_COMPACT = 48.dp
-internal val GAUGE_HEIGHT = 3.dp
-internal val GAUGE_RADIUS = 2.dp
+// **The gauge is the bar's own bottom edge, and this is the whole of its geometry.** 2dp, full
+// bleed, running the width of the window rather than of the 560dp column — it is the boundary of the
+// strip, so it goes where the boundary goes. The 1dp hairline it replaced was the same colour: one
+// dp thicker and no louder until something lights it.
+//
+// What buying it this way saves is the only flexible slot on the bar. An inline track — the 72dp one
+// this design shipped at 0.16 and 0.17 — costs 79dp of the row, all of it taken from the name, and
+// at 320dp that is where a three-word name loses its last word.
+internal val GAUGE_HEIGHT = 2.dp
 
 // The same white 9% the rail and the cards use, so every hairline, track and badge fill in the app
-// is one decision rather than several that happen to match.
-internal val HAIRLINE = Color.White.copy(alpha = 0.09f)
-internal val HAIRLINE_WIDTH = 1.dp
+// is one decision rather than several that happen to match. Here it is the unlit part of the edge,
+// which is what a strip at LV 0 is entirely made of.
 internal val TRACK = Color.White.copy(alpha = 0.09f)
 internal val BADGE_FILL = Color.White.copy(alpha = 0.09f)
 
-// **How much of the track is lit, and the clamp is the point rather than defensiveness.** A reading
+// **The notice's numbers, here for the same reason the strip's are** — they are the other drawing in
+// this module, and a constant a test cannot reach without loading a composable's file class is a
+// constant that gets re-typed by whatever wants to check it.
+//
+// 44dp, and this is the one surface in the app that can afford it: the gear could not, because its
+// target sits inside a band whose height every screen pays for. Nothing on the notice is tappable —
+// what the height buys is that it reads as a surface rather than as a line of text that appeared.
+internal val NOTICE_HEIGHT = 44.dp
+internal val NOTICE_PADDING = 13.dp
+internal val NOTICE_SIZE = 12.sp
+
+// The screen padding every destination uses. The notice floats over one, so it lines up with the
+// cards under it rather than with the window.
+internal val NOTICE_SCREEN_PADDING = 16.dp
+
+// The stronger of the app's two lines — white 16% rather than the hairline's 9%. Every other card in
+// the app sits in a list of its own kind and is separated by rhythm; this one sits over a screen and
+// has only its own edge to say where it starts.
+internal val NOTICE_BORDER = Color.White.copy(alpha = 0.16f)
+internal val NOTICE_BORDER_WIDTH = 1.dp
+
+// **How long the notice stays, and it is the notice's number rather than the frame's** even though
+// the frame is what counts it down. Four seconds: long enough to read eleven characters and be sure
+// they were meant, short enough that it is gone before a player has decided to do something else.
+// Public and `const`, because the frame that counts it down is in another module and a duration
+// restated there is a duration that can drift from the one the tests use.
+const val SETTINGS_NOTICE_MILLIS = 4_000L
+
+// **How much of the edge is lit, and the clamp is the point rather than defensiveness.** A reading
 // is a reading: this module holds no rule saying experience cannot exceed a level's requirement, and
-// the day something awards it, the mapper one layer up may hand this a figure it has not normalised.
+// the mapper one layer up may hand this a figure it has not normalised.
 // `fillMaxWidth` throws outside 0..1, so an unclamped fraction is a crash on the frame the number
 // goes wrong rather than a bar that looks odd.
 //

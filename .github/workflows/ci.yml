@@ -125,6 +125,18 @@ jobs:
       - name: Measure coverage per test category
         run: .github/scripts/measure-coverage.sh
 
+      # **So a disputed number can be looked at rather than reasoned about.** The five passes
+      # overwrite one `report.xml`, and until PR #104 nothing survived the job — a screenshot row
+      # that came out a point low could not be explained from the outside at all. `if: always()`,
+      # because the run worth inspecting is the one that failed.
+      - name: Keep the per-category Kover reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: build/coverage/
+          if-no-files-found: warn
+
       - name: Render the report
         run: |
           python3 .github/scripts/coverage.py render \
