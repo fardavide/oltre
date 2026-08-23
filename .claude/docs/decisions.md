@@ -4160,3 +4160,54 @@ which already had one.
   are its door.
 - **The notice's position over an open bottom sheet is undrawn.** It clears the tab bar; a sheet is
   taller than the tab bar, and the sheets are the newest surface in the app.
+
+## The coverage gate was measuring the build cache (0.17.1)
+
+Not a design decision — a note about the instrument, and the second one in two releases.
+
+**PR #104's Coverage job failed on two screenshot numbers that the same commit measures
+correctly on a machine with a cold cache.** The row that had moved was
+`dev.fardavide.oltre.core`, which the screenshot pass excludes by name and which the local
+report does not list at all.
+
+**The explanation `measure-coverage.sh` already carried is wrong**, and recording that is most of
+the value here, because it is what sent the first three attempts at a diagnosis down a blind
+alley. It claimed `-Poltre.testCategory` is not an input to Kover's tasks, so a filtered pass
+reuses an unfiltered artifact. Checked rather than assumed: every `koverGenerateArtifact*` and the
+root `koverXmlReport` **executed** in the failing pass; `KoverArtifactGenerationTask`'s output is a
+187-byte manifest holding no filters; `AbstractKoverReportTask.filters` is `@Nested` in Kover
+0.9.9; and `testCategory` is read through `providers.gradleProperty`, which invalidates the
+configuration cache at every pass boundary. The magnitude was wrong too — a lost name filter is
+all-or-nothing and would have put all 1,973 of `core`'s lines back, printing 85.9%; what actually
+appeared was about a ninth of them.
+
+**What the gate was measuring is the cache.** Deleting an output does not change a cache key. With
+`org.gradle.caching=true` Gradle answers a deleted output by *restoring* it rather than by
+re-running the task, and a `Test` task's `.ic` binary coverage is one of its outputs — so a pass
+can be handed coverage recorded under a different pass's test filter, and then filter it correctly
+over the wrong data. In the failing job **25 of 28 test tasks came back `FROM-CACHE` in every
+pass**; in the `main` run that set the baseline they were compared against, none did. That is the
+only measured difference between the two, and it is enough on its own: a ratchet with no slack
+cannot be compared against a number produced under different cache conditions.
+
+So the passes run with `--no-build-cache`. It costs the job about nine minutes. The configuration
+cache stays on — already invalidated per pass, and turning it off would buy five configuration
+phases and nothing else.
+
+**The rule worth keeping is the general one.** *A measurement whose result depends on what happened
+to be in a cache is not a measurement.* It applies to anything else this repository ever gates on.
+
+Two smaller changes came with it: `build/reports/kover` is deleted between passes as well (it is
+one XML overwritten five times, so a root report task that was ever UP-TO-DATE would hand the
+collector the previous pass's numbers with nothing to say so), and each pass's XML is now copied
+out and uploaded by CI. Until now nothing survived the job, which is why a row that came out a
+point low could not be explained from outside it at all.
+
+### Raised and not fixed
+
+- **`:client:player:presentation` is in `settings.gradle.kts` and not in the root `kover(...)`
+  aggregate**, so since 0.17.0 it has been measured in no column at all — the mapper and its 159
+  lines of test contribute to nothing. Adding it is correct and is **not** done here: the module is
+  a mapper, so the behaviour pass would take it at whatever the behaviour tests happen to reach,
+  and a row that falls blocks every open PR. It needs its own branch and a measurement before the
+  line is added.
