@@ -14,7 +14,6 @@ import dev.fardavide.oltre.client.changelog.ui.BuildRow
 import dev.fardavide.oltre.client.changelog.ui.BuildRowUiState
 import dev.fardavide.oltre.client.changelog.ui.ChangelogSheetContent
 import dev.fardavide.oltre.client.changelog.ui.ChangelogUiState
-import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.settings.ui.AlertSheetContent
 import dev.fardavide.oltre.client.settings.ui.AlertSheetUiState
 import dev.fardavide.oltre.core.AlertCategory
@@ -36,48 +35,58 @@ import dev.fardavide.oltre.core.AlertMode
 //
 // It is in the shell because it is the one composable that has to know both features exist. That is
 // the composition root's job and the reason nothing depends on it.
+//
+// **Only the face lives here, and `App` raises the sheet around it.** There was a wrapper — an
+// `OltreBottomSheet` holding this, taking eleven parameters and forwarding ten — and it was worth
+// deleting twice over. It said nothing its call site does not (`App` already raises the debug sheet
+// itself), and a pass-through composable is the one shape in Compose that *cannot* be covered: a
+// `ModalBottomSheet` renders into a scene root of its own, so no frame can photograph it, while the
+// compiler emits `$changed` bookkeeping for every parameter it forwards. Sixty branches nothing could
+// ever execute, for a function whose whole body was a call.
+//
+// **The split it leaves is the one every sheet in this app already makes**: chrome at the call site,
+// contents in a composable a test tree can reach and a camera can see. The whole of the 210ms lives
+// below, so it costs the transition nothing.
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun SettingsSheet(
+fun SettingsSheetFace(
     face: SheetFace,
     alerts: AlertSheetUiState,
     changelog: ChangelogUiState,
     build: BuildRowUiState,
     compact: Boolean,
-    onDismiss: () -> Unit,
     onOpenChangelog: () -> Unit,
     onSelectMode: (AlertMode) -> Unit,
     onToggleCategory: (AlertCategory) -> Unit,
     onSelectDelivery: (AlertDelivery) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    OltreBottomSheet(onDismiss = onDismiss, modifier = modifier) {
-        AnimatedContent(
-            targetState = face,
-            transitionSpec = {
-                // 210ms and 16dp of travel, one-shot, which is the destination switch's own figure —
-                // deliberately, because it is the same event: one surface replaced in place inside
-                // chrome that does not move. The handle, the radius and the scrim are all outside
-                // this and none of them animate.
-                val spec = tween<Float>(durationMillis = SWAP_MILLIS)
-                (slideInHorizontally(tween(SWAP_MILLIS)) { width -> width / SLIDE_FRACTION } +
-                    fadeIn(spec)) togetherWith
-                    (slideOutHorizontally(tween(SWAP_MILLIS)) { width -> -width / SLIDE_FRACTION } +
-                        fadeOut(spec))
-            },
-            label = "settings sheet face",
-        ) { shown ->
-            when (shown) {
-                SheetFace.SETTINGS -> AlertSheetContent(
-                    uiState = alerts,
-                    compact = compact,
-                    onSelectMode = onSelectMode,
-                    onToggleCategory = onToggleCategory,
-                    onSelectDelivery = onSelectDelivery,
-                    build = { BuildRow(uiState = build, onOpenChangelog = onOpenChangelog) },
-                )
-                SheetFace.CHANGELOG -> ChangelogSheetContent(uiState = changelog, compact = compact)
-            }
+    AnimatedContent(
+        targetState = face,
+        modifier = modifier,
+        transitionSpec = {
+            // 210ms and 16dp of travel, one-shot, which is the destination switch's own figure —
+            // deliberately, because it is the same event: one surface replaced in place inside
+            // chrome that does not move. The handle, the radius and the scrim are all outside this
+            // and none of them animate.
+            val spec = tween<Float>(durationMillis = SWAP_MILLIS)
+            (slideInHorizontally(tween(SWAP_MILLIS)) { width -> width / SLIDE_FRACTION } +
+                fadeIn(spec)) togetherWith
+                (slideOutHorizontally(tween(SWAP_MILLIS)) { width -> -width / SLIDE_FRACTION } +
+                    fadeOut(spec))
+        },
+        label = "settings sheet face",
+    ) { shown ->
+        when (shown) {
+            SheetFace.SETTINGS -> AlertSheetContent(
+                uiState = alerts,
+                compact = compact,
+                onSelectMode = onSelectMode,
+                onToggleCategory = onToggleCategory,
+                onSelectDelivery = onSelectDelivery,
+                build = { BuildRow(uiState = build, onOpenChangelog = onOpenChangelog) },
+            )
+            SheetFace.CHANGELOG -> ChangelogSheetContent(uiState = changelog, compact = compact)
         }
     }
 }

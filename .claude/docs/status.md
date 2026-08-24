@@ -943,6 +943,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending, from 0.19.0
 
+- **The self-raising sheet covers the arrival, on the one launch per release where it fires.** The
+  colony composes behind the scrim, so the resource roll and the completion sweep for anything that
+  landed while the app was closed play out and are consumed while nobody can see them — both are
+  latched by *composition* rather than by visibility. Nothing is lost or misstated (the settled
+  numbers and levels are all correct when the sheet is dismissed) and no state is left stuck, so this
+  is a manner-of-arrival cost rather than a defect; it is here because it is exactly the collision
+  the design sheet never considers, and because the fix — holding the arrival until the sheet is
+  gone — is a design call rather than a patch.
 - **Nobody has swiped the sheet on a phone.** Sixty-six pages of `HorizontalPager` with a Canvas on
   every one of them is the first thing in this app whose *cost* is a question — desktop composes
   three at a time and never flings with a finger. The rail's scrub is the other half: it is the

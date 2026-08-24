@@ -60,6 +60,52 @@ class VersionSkyTest {
     }
 
     @Test
+    fun `the worlds are centred on the mark`() {
+        // **The half of this drawing nothing else measures.** Every property below walks `bodies`,
+        // and until 0.19 the only assertion about a world was how many there were — so `(major - 1)
+        // / 2f` becoming an integer division would have hung a pair of worlds off to the right of
+        // the mark with the whole suite still green, on the one frame the design calls the most
+        // visible the mark will ever draw.
+        for (major in 1..4) {
+            val worlds = ReleaseVersion(major, 0, 0).skyAt(PAGE).worlds
+            val centre = worlds.sumOf { it.x.toDouble() } / worlds.size
+
+            assertEquals(PAGE / 2, centre.toFloat(), absoluteTolerance = 0.01f, "major $major is off centre")
+        }
+    }
+
+    @Test
+    fun `a world rests on the limb rather than through it`() {
+        for (major in 1..4) {
+            val sky = ReleaseVersion(major, 0, 0).skyAt(PAGE)
+
+            for (world in sky.worlds) {
+                assertTrue(
+                    world.y + world.radius <= sky.limb.crestY,
+                    "major $major put a world through the horizon",
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `the worlds stay inside the box for every major this project could reach`() {
+        // **A bound rather than a guarantee, and it is the design's own formula that sets it.**
+        // Worlds are spaced 2.7 radii apart and centred, so their half-width grows by 0.0675 of the
+        // side per major while the box only ever has 0.5 — which runs out at major 8. Seven majors
+        // is more of this project than anybody has planned, and the day an eighth is real the
+        // spacing has to give rather than this test.
+        for (major in 1..7) {
+            for (world in ReleaseVersion(major, 0, 0).skyAt(PAGE).worlds) {
+                assertTrue(
+                    world.x - world.radius >= 0f && world.x + world.radius <= PAGE,
+                    "major $major put a world outside the box",
+                )
+            }
+        }
+    }
+
+    @Test
     fun `the outermost body sits on the edge of the disc`() {
         // rho = R x sqrt(i / N) puts the last body at exactly R whatever N is — which is what keeps
         // a three-body sky and a nineteen-body sky the same size.
@@ -88,14 +134,20 @@ class VersionSkyTest {
 
     @Test
     fun `every body stands inside the box at every size the mark is drawn`() {
+        // **Measured to the ink rather than to the centreline.** A hollow body is drawn as a stroke
+        // *centred* on its radius, so it reaches half a stroke further than `radius` says — and at
+        // 29dp, where both the radius and the stroke are on their floors, that half is most of the
+        // margin. Checking the radius alone would leave the assertion slack it did not know it had.
         for (side in DRAWN_SIZES) {
             for (version in grid()) {
-                for (body in version.skyAt(side).bodies) {
+                val sky = version.skyAt(side)
+                for (body in sky.bodies) {
+                    val ink = body.radius + if (body.filled) 0f else sky.ringStroke / 2f
                     assertTrue(
-                        body.x - body.radius >= 0f &&
-                            body.x + body.radius <= side &&
-                            body.y - body.radius >= 0f &&
-                            body.y + body.radius <= side,
+                        body.x - ink >= 0f &&
+                            body.x + ink <= side &&
+                            body.y - ink >= 0f &&
+                            body.y + ink <= side,
                         "$version at $side put a body outside the box",
                     )
                 }
@@ -195,7 +247,7 @@ class VersionSkyTest {
         const val CENTRE_Y = 0.44f
         const val RADIUS = 0.36f
 
-        // Every version the project could plausibly reach rather than the sixty-five it has, because
+        // Every version the project could plausibly reach rather than the ones it has, because
         // the properties are about the rule and not about today's run. Minor to 25 is a year of this
         // cadence; patch to 12 is the longest line the project has actually had.
         fun grid(): List<ReleaseVersion> = buildList {

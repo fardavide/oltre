@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
+import dev.fardavide.oltre.client.changelog.presentation.ItalianChangelog
 import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.core.GalaxySeed
@@ -108,6 +109,26 @@ class ChangelogAppBehaviourTest {
             openTheChangelog()
             assertChangelogShowing()
             assertSettingsShowing(showing = false)
+        }
+    }
+
+    @Test
+    fun `the Italian changelog is the one an Italian phone opens`() {
+        // **The other document, driven end to end.** Everything else in this suite runs on English,
+        // so without this the Italian half of the feature — the half that is a permanent obligation
+        // on every future release — is only ever read by tests that compare it to English. This is
+        // the one that renders it.
+        //
+        // The page is found by its version, which is the same in both languages; what proves the
+        // document arrived is that the words on it are Italian.
+        app(
+            saved = snapshot(),
+            preferences = seeded(lastSeenVersion = null),
+            changelog = ItalianChangelog,
+        ) {
+            assertChangelogShowing()
+            assertReads(ItalianChangelog.releases.first().headline)
+            assertDoesNotRead(EnglishChangelog.releases.first().headline)
         }
     }
 

@@ -22,6 +22,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.test.assertEquals
+import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
 import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
 import dev.fardavide.oltre.client.changelog.ui.ChangelogTestTags
 import dev.fardavide.oltre.client.colony.ui.ColonyTestTags
@@ -394,6 +395,10 @@ internal fun app(
     // that then tap a control behind a scrim. Every test about something else opens a build whose
     // news has been seen; `ChangelogAppBehaviourTest` is where the other cases are driven.
     preferences: PreferencesStore = changelogAlreadyRead(),
+    // The language the changelog speaks, for the one test that is about the other document. The
+    // translations beside it stay English deliberately: what is being driven is the *document*, and
+    // a frame in two languages at once would be asserting two things.
+    changelog: ChangelogText = EnglishChangelog,
     block: AppRobot.() -> Unit,
 ) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -416,6 +421,7 @@ internal fun app(
                 // switch. A behaviour test whose result depends on the machine it runs on is the one
                 // failure mode the whole `SaveFile` seam exists to prevent.
                 preferences = preferences,
+                changelog = changelog,
                 notifications = GameNotifications(booked, English),
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.

@@ -15,6 +15,12 @@ object ChangelogTestTags {
 
     const val RAIL = "changelog-rail"
 
+    // The sky on a page. Tagged for one assertion and it is not a cosmetic one: the mark is a square
+    // of exactly the card's column, and until 0.19 the column was a constant that was right at two
+    // widths and wrong at every other. A drawing with no handle on it is a drawing whose *size* no
+    // test can ask about.
+    const val MARK = "changelog-mark"
+
     // The door from settings. Tagged on the row rather than on the mark, because the whole 44dp
     // answers — the mark is 29 and carries no target of its own.
     const val BUILD_ROW = "changelog-build-row"

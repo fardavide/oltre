@@ -12,6 +12,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
+import dev.fardavide.oltre.client.changelog.domain.ReleaseVersion
+import dev.fardavide.oltre.client.changelog.domain.shouldOpenChangelog
+import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
+import dev.fardavide.oltre.client.changelog.presentation.changelogFor
+import dev.fardavide.oltre.client.changelog.presentation.toBuildRowUiState
+import dev.fardavide.oltre.client.changelog.presentation.toChangelogUiState
 import dev.fardavide.oltre.client.colony.presentation.toColonyUiState
 import dev.fardavide.oltre.client.colony.ui.ColonyScreen
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
@@ -19,6 +25,7 @@ import dev.fardavide.oltre.client.debug.data.defaultShakeDetector
 import dev.fardavide.oltre.client.debug.domain.DebugClock
 import dev.fardavide.oltre.client.debug.domain.debugReport
 import dev.fardavide.oltre.client.debug.ui.DebugSheet
+import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.text.Translations
@@ -37,12 +44,6 @@ import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.defaultPreferencesFile
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
-import dev.fardavide.oltre.client.changelog.domain.ReleaseVersion
-import dev.fardavide.oltre.client.changelog.domain.shouldOpenChangelog
-import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
-import dev.fardavide.oltre.client.changelog.presentation.changelogFor
-import dev.fardavide.oltre.client.changelog.presentation.toBuildRowUiState
-import dev.fardavide.oltre.client.changelog.presentation.toChangelogUiState
 import dev.fardavide.oltre.client.settings.presentation.toAlertSheetUiState
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
@@ -119,7 +120,7 @@ fun App(
     // hands in whichever language the frame is about.
     translations: Translations = remember { translationsFor(Locale.current.toLanguageTag()) },
     // **The one thing in the app whose language is chosen the same way and not by the same table.**
-    // The changelog is sixty-five documents' worth of content rather than a catalogue of ids —
+    // The changelog is a document per language rather than a catalogue of ids —
     // `.claude/docs/changelog-sheet.md` §4 — so it is picked from the same locale by a second
     // function, beside `translationsFor` rather than inside it. A parameter for the reason
     // `translations` is one: a test hands in whichever language the frame is about.
@@ -702,34 +703,35 @@ fun App(
                     // Every control on the settings face commits on tap and none of them writes an
                     // event, so all three go through `prefer` rather than `act` — see there.
                     sheetFace?.let { face ->
-                        SettingsSheet(
-                            face = face,
-                            alerts = current.state.toAlertSheetUiState(
-                                now = current.lastUpdatedAt,
-                                timeZone = TimeZone.currentSystemDefault(),
-                            ),
-                            changelog = changelog.toChangelogUiState(),
-                            build = changelog.toBuildRowUiState(),
-                            // The same window every other compact decision in this file reads, and
-                            // the one the design measured the stacked ladder and the 12dp peek
-                            // against.
-                            compact = maxWidth < OltreLayout.compactWidth,
-                            // One callback for every way out — the handle, the scrim, the system
-                            // back — so the sheet cannot be dismissed by a route this does not hear.
-                            //
-                            // **Dismissing is what marks the changelog read**, from either face:
-                            // reaching the settings ladders means passing the build row, and a
-                            // player who opened the gear has seen which version they are on.
-                            onDismiss = { closeSheet() },
-                            onOpenChangelog = { sheetFace = SheetFace.CHANGELOG },
-                            onSelectMode = { mode -> prefer { state -> setAlertMode(state, mode) } },
-                            onToggleCategory = { category ->
-                                prefer { state -> toggleAlertCategory(state, category) }
-                            },
-                            onSelectDelivery = { delivery ->
-                                prefer { state -> setAlertDelivery(state, delivery) }
-                            },
-                        )
+                        // One callback for every way out — the handle, the scrim, the system back —
+                        // so the sheet cannot be dismissed by a route this does not hear about.
+                        //
+                        // **Dismissing is what marks the changelog read**, from either face:
+                        // reaching the settings ladders means passing the build row, and a player
+                        // who opened the gear has seen which version they are on.
+                        OltreBottomSheet(onDismiss = { closeSheet() }) {
+                            SettingsSheetFace(
+                                face = face,
+                                alerts = current.state.toAlertSheetUiState(
+                                    now = current.lastUpdatedAt,
+                                    timeZone = TimeZone.currentSystemDefault(),
+                                ),
+                                changelog = changelog.toChangelogUiState(),
+                                build = changelog.toBuildRowUiState(),
+                                // The same window every other compact decision in this file reads,
+                                // and the one the design measured the stacked ladder and the 12dp
+                                // peek against.
+                                compact = maxWidth < OltreLayout.compactWidth,
+                                onOpenChangelog = { sheetFace = SheetFace.CHANGELOG },
+                                onSelectMode = { mode -> prefer { state -> setAlertMode(state, mode) } },
+                                onToggleCategory = { category ->
+                                    prefer { state -> toggleAlertCategory(state, category) }
+                                },
+                                onSelectDelivery = { delivery ->
+                                    prefer { state -> setAlertDelivery(state, delivery) }
+                                },
+                            )
+                        }
                     }
 
                     if (debugOpen) {

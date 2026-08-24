@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.min
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.oltreCardShape
 import dev.fardavide.oltre.client.design.component.oltreCardSurface
@@ -58,13 +60,30 @@ fun ChangelogPage(uiState: ChangelogPageUiState, column: Dp, modifier: Modifier 
             .background(oltreCardSurface, oltreCardShape)
             .padding(CARD_PADDING),
     ) {
-        // The one element that pays for the sheet's height, and it pays for all of it: a square the
-        // full width of the column.
-        VersionMark(
-            version = uiState.version,
-            size = column,
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(bottom = MARK_GAP),
-        )
+        // **The one element that pays for the sheet's height, and it pays for all of it** — so it is
+        // also the one that gives way when there is not enough. A square of the column where the
+        // column fits, and whatever height is left where it does not.
+        //
+        // `weight(fill = false)` is what expresses that: the copy under it is measured first, at its
+        // own intrinsic height, and the sky takes the remainder up to its natural size. A landscape
+        // iPhone is a 393dp-tall window and every word still lands on it; without this the `Column`
+        // starves its last note instead, which is a page quietly saying less rather than a picture
+        // being smaller.
+        BoxWithConstraints(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .weight(1f, fill = false)
+                .padding(bottom = MARK_GAP),
+        ) {
+            VersionMark(
+                version = uiState.version,
+                size = min(column, maxHeight),
+                // Inside the padding and the weight, so the tagged node is the drawing and not the
+                // space around it — the difference between an assertion about the sky's size and one
+                // about the layout that placed it.
+                modifier = Modifier.testTag(ChangelogTestTags.MARK),
+            )
+        }
 
         // **The version leads because it is what the page is**, and the date is a caption at the far
         // end of the same line rather than a chip — a chip is an affordance, and the date does

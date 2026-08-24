@@ -59,6 +59,54 @@ class ChangelogSheetBehaviourTest {
     }
 
     @Test
+    fun `the mark fits its card at every width a phone has`() {
+        // **The two widths the design drew are not the two a phone has**, and the first cut of this
+        // sheet took them for the only two: the column was a constant, right at 393 and at 320 and
+        // wrong everywhere else. 360dp is the common Android width *and* the width `compact` flips
+        // below, so it took the wide branch and laid a 319dp sky inside a 286dp card — with the limb,
+        // which spans its whole box by construction, drawn past the card's border into the gap
+        // toward the next page.
+        //
+        // Every width here is a real device or a real window: the two the design drew, the two most
+        // common Android widths, an iPhone SE, and this app's own 560dp column cap.
+        for (width in WIDTHS) {
+            changelogSheet(width = width, compact = width < 360) {
+                assertMarkFitsTheCard("0.18.0")
+            }
+        }
+    }
+
+    @Test
+    fun `the tallest page fits the sheet at every width`() {
+        // **The other half of measuring the page**, and the one the height budget is about: the mark
+        // is a square of the column, so a wider sheet is a taller card, and the card is bottom-
+        // aligned — a page that outgrows the viewport walks off the *top*, taking the sky with it,
+        // because nothing here scrolls. 560dp is this app's own column cap and the widest a page can
+        // ever be; three notes is the tallest a page can ever be.
+        val clipped = WIDTHS.filter { width ->
+            runCatching {
+                changelogSheet(width = width, compact = width < 360, pages = listOf(tallestPage())) {
+                    assertPageNotClipped("0.17.0", lastNote = TALLEST_NOTES.last())
+                }
+            }.isFailure
+        }
+
+        assertTrue(clipped.isEmpty(), "the tallest page is cut off at $clipped")
+    }
+
+    @Test
+    fun `the tallest page keeps its words in a landscape window`() {
+        // **The height the design never drew.** iPhone supports landscape, which is a 393dp-tall
+        // window — barely half the sheet the budget was measured against — and nothing on a page
+        // scrolls. What gives is the sky: the copy is measured first and the mark takes what is
+        // left, so a short window costs a smaller picture rather than a missing line.
+        changelogSheet(width = 852, height = LANDSCAPE_HEIGHT, pages = listOf(tallestPage())) {
+            assertPageNotClipped("0.17.0", lastNote = TALLEST_NOTES.last())
+            assertMarkFitsTheCard("0.17.0")
+        }
+    }
+
+    @Test
     fun `a run of one release still draws a rail`() {
         // **The day the catalogue is one entry long is not hypothetical** — it is what a fork of this
         // project sees on its first release, and it is the input that divides by zero if the rail
@@ -85,5 +133,15 @@ class ChangelogSheetBehaviourTest {
         }
 
         assertTrue(opened, "the build row did not open the changelog")
+    }
+
+    private companion object {
+
+        // Every width here is a real device or a real window: the two the design drew, the two
+        // commonest Android widths, an iPhone SE, and this app's own 560dp column cap.
+        val WIDTHS = listOf(320, 360, 375, 393, 412, 560)
+
+        // A landscape iPhone, which is the shortest window the app can be asked to draw this in.
+        const val LANDSCAPE_HEIGHT = 393
     }
 }

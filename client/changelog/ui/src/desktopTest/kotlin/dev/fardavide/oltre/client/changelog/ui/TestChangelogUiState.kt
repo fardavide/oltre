@@ -53,6 +53,21 @@ internal fun testPages(): List<ChangelogPageUiState> = listOf(
     ),
 )
 
+// The tallest a page can be: three notes, each of them the full ninety characters the budget allows,
+// under a headline that takes both of its lines.
+internal val TALLEST_NOTES = listOf(
+    "Flying anywhere costs twice what it did, so the far end of the map is genuinely out of",
+    "Propulsion hands window rungs back to the worlds that had refused them, one level at a",
+    "Surveying costs a ship now, and the Scout is comfortably the cheapest thing in the game",
+)
+
+internal fun tallestPage(): ChangelogPageUiState = testPage(
+    version = "0.17.0",
+    date = "23 Aug 2026",
+    headline = "Distance costs, and a drive buys it back",
+    notes = TALLEST_NOTES,
+)
+
 internal fun testBuildRowUiState(): BuildRowUiState = BuildRowUiState(
     label = TextRes("BUILD"),
     version = testPages().first().version,

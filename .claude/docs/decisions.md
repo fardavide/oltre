@@ -4288,6 +4288,21 @@ would have lost the galaxy landing they chose, over a preference they had never 
 set. The store decodes a record with a default per field; `Preferences` stays strict, so a caller
 still has to answer every field.
 
+**The page is measured, and the sky is what gives way.** The first cut took the design's page widths
+as constants, which are right at exactly the two widths it drew and wrong at every other: at 360dp —
+the commonest Android width, and the one `compact` flips *below* — a 319dp sky was laid inside a
+286dp card and the limb, which spans its whole box by construction, drew past the card's border.
+Measuring the page fixed that and exposed the same mistake in the other axis, because the mark is a
+square of the column: a wider sheet is a taller card, and a page that outgrows its viewport does not
+scroll — it starves its last note. So the mark **stops at 319dp** and takes only the height the copy
+leaves. A landscape iPhone is a 393dp-tall window and every line still lands.
+
+**None of it was visible from inside the suite**, which is the part worth keeping: every frame and
+every behaviour test ran at exactly 393 and exactly 320 — the same two numbers the code had hardcoded
+— so the tests and the defect shared an assumption. What catches it now measures the mark against the
+card at six real widths and the tallest page against the shortest window, and both fail against the
+old code.
+
 ### Raised and not decided
 
 - **A player who skipped three builds sees no sign of it.** Design raised it; the cheapest honest

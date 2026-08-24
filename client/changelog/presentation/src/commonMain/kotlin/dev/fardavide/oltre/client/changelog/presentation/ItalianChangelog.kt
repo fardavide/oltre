@@ -1,6 +1,6 @@
 package dev.fardavide.oltre.client.changelog.presentation
 
-// The same sixty-five releases, in Italian. Same order, same dates, same number of notes per
+// The same releases, in Italian. Same order, same dates, same number of notes per
 // release — asserted by `ChangelogTranslationTest`, which is what stands in for the exhaustive
 // `when` the global catalogue uses.
 //

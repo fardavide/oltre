@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.changelog.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -86,12 +87,33 @@ fun ChangelogSheetContent(
             beyondViewportPageCount = 1,
             verticalAlignment = Alignment.Bottom,
         ) { page ->
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+            // **The page is measured, not assumed, and that is a fix rather than a preference.**
+            // The first cut derived the column from a constant — 341dp at 393 and 284 in a Slide
+            // Over pane — which is right at exactly those two widths and wrong at every other. A
+            // 360dp phone is the common Android width and takes the wide branch (`compact` flips
+            // *below* 360), so the card there is 286dp of column while the mark was handed 319:
+            // `Modifier.size` clamps the Canvas to the card, the sky is still laid out over 319, and
+            // **the limb — which spans 0..side by construction — draws past the card's own border**
+            // into the gap toward the next page. Nothing clips a `Canvas`. At 560dp, the cap this
+            // app puts on every column, it went the other way: 486dp of card holding a 319dp sky.
+            //
+            // Both frames in this module render at 393 and 320 with the same constants the code
+            // used, so the suite could not see any of it.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
                 ChangelogPage(
                     uiState = uiState.pages[page],
-                    // The mark is a square the width of the card's content column, and the column is
-                    // the page less its own padding — so the picture is as wide as the words.
-                    column = (if (compact) NARROW_PAGE else PAGE) - CARD_PADDING * 2,
+                    // The mark is a square the width of the card's content column — the page less
+                    // the card's own padding — so the picture is as wide as the words at every width
+                    // the design drew for.
+                    //
+                    // **And it stops there, which is the height budget defending itself.** The mark
+                    // is the only element that pays for the sheet's height, so a wider sheet is a
+                    // taller card; at this app's 560dp column cap the sky would be 486dp and the
+                    // page would outgrow the viewport it is bottom-aligned in — and nothing here
+                    // scrolls, so what a page loses is its *last note*, starved by a `Column` with
+                    // no room left. Measured: 560 is the only width where that happens, and it is
+                    // the one the design never drew.
+                    column = (maxWidth - CARD_PADDING * 2).coerceAtMost(MARK_MAX),
                 )
             }
         }
@@ -109,21 +131,23 @@ fun ChangelogSheetContent(
     }
 }
 
-// The design's numbers. The two page widths are what the insets leave of 393dp and of the 320dp a
-// Slide Over pane gives, and they are stated rather than measured because the mark has to be a
-// square of exactly the column: a `BoxWithConstraints` inside every page would measure the same
-// thing sixty-five times to learn what arithmetic already knows.
+// The design's numbers. The insets are what leave 18dp of the next card showing past this one at
+// 393dp and 12dp in a Slide Over pane — the peek that teaches the swipe. The page width they imply
+// is *not* a constant here: see the pager above.
 private val SCREEN_PADDING = 16.dp
 private val TITLE_GAP = 13.dp
 private val CARD_PADDING = 11.dp
 
 private val INSET = 26.dp
 private val SPACING = 8.dp
-private val PAGE = 341.dp
+
+// The widest sky the design drew — the column a 393dp phone gives. Past it the mark holds and the
+// card goes on widening around it, which is the only way a page that cannot scroll keeps its last
+// line on a screen wider than a phone.
+private val MARK_MAX = 319.dp
 
 private val NARROW_INSET = 18.dp
 private val NARROW_SPACING = 6.dp
-private val NARROW_PAGE = 284.dp
 
 private val TITLE_SIZE = 15.sp
 private val DEPTH_SIZE = 10.5.sp

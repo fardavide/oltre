@@ -233,6 +233,24 @@ label, no second layout — the rule already says it.
   serialized record turns every file an older build wrote into a parse failure, so an upgrading
   player would have silently lost their galaxy landing. The store decodes a record with a default per
   field; `Preferences` itself stays strict.
+- **The page has to be measured, not assumed** — and this one shipped in the first cut. The column
+  was taken from the design's own numbers as constants (341dp at 393, 284 in a Slide Over pane), and
+  they are right at exactly those two widths. `compact` flips *below* 360dp, so a 360dp Android phone
+  — the commonest width there is — took the wide branch and laid a **319dp sky inside a 286dp card**:
+  `Modifier.size` clamps the Canvas, the sky keeps its own geometry, and the limb, which spans its
+  whole box by construction, draws past the card's border into the gap toward the next page. At
+  560dp, this app's own column cap, it went the other way — 486dp of card holding a 319dp mark.
+  Both frames in the module render at 393 and 320 with the same constants the code used, so **the
+  suite could not see it**; what catches it now is a behaviour test that measures the mark against
+  the card at six real widths, and it fails against the old code by 33dp.
+- **Measuring the page then exposed the height, which is the same mistake in the other axis.** The
+  mark is a square of the column, so a wider sheet is a *taller* card — and at 560dp the page grew
+  past the viewport it is bottom-aligned in. Nothing on a page scrolls, so what a page loses in that
+  state is not its picture but **its last note**, starved by a `Column` with no room left; a check on
+  the card's position cannot see it, because the card still starts at zero. Two answers, both of them
+  the sky giving way rather than the words: the mark **stops growing at 319dp**, the widest the design
+  drew, and it takes only the height the copy leaves — so a landscape iPhone, a 393dp-tall window the
+  design never drew at all, still lands every line.
 
 ## What the round trip is for
 

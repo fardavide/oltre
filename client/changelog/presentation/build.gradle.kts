@@ -1,6 +1,6 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// **The changelog itself** — sixty-five releases, in two languages, and the mapping from one of them
+// **The changelog itself** — every release the game has shipped, in two languages, and the mapping
 // into the page a sheet draws. It is the first surface in the app whose content is not derived from
 // game state: nothing here reads a colony, and `core` is not on the classpath at all.
 //
@@ -54,7 +54,7 @@ kotlin {
     }
 }
 
-// **The catalogue is checked against the README, and this is what lets a test find it.** Sixty-five
+// **The catalogue is checked against the README, and this is what lets a test find it.** Scores of
 // hand-written entries plus a permanent per-release obligation is exactly the shape that rots
 // quietly; `ReleaseCatalogueIntegrationTest` reads the changelog out of the repository and asserts
 // every release has a page with the same date and that no page invents one. A test's working
