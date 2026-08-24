@@ -120,6 +120,11 @@ private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiSt
     } else {
         GalaxyBalance.SYSTEMS_PER_GALAXY
     }
+    val charted = if (universe) {
+        (1..GalaxyBalance.GALAXIES).sumOf { galaxy.chartedCountIn(it) }
+    } else {
+        galaxy.chartedCountIn(nav.at.galaxy)
+    }
     return GalaxyHeadUiState(
         mode = LedgerMode.MAP,
         scale = if (universe) GalaxyScale.UNIVERSE else GalaxyScale.GALAXY,
@@ -130,7 +135,15 @@ private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiSt
         },
         count = Strings.clauses(
             listOfNotNull(
-                Strings.systemsCount(systems.toLong().groupedByThousands()),
+                // **"61 of 250 charted" is fog's whole readout**, and it replaces the bare length
+                // rather than sitting beside it: a length nobody has walked any of was the honest
+                // line while the map was free, and it stopped being the interesting number the day
+                // the map had to be earned. It is deliberately not a second progression gauge —
+                // the strip 8dp above counts what you *are*, this counts what you have looked at.
+                Strings.chartedOfSystems(
+                    charted = charted.toLong().groupedByThousands(),
+                    systems = systems.toLong().groupedByThousands(),
+                ),
                 Strings.surveyedCount(known),
                 // Absent rather than zero, so a save with nothing pinned does not print a control
                 // it does not have. The same rule the ledger's own emptiness follows.

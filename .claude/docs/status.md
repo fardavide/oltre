@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-23 (0.18.0)
+Updated: 2026-08-24 (0.19.0)
 
 ## Landed
 
@@ -450,6 +450,19 @@ Updated: 2026-08-23 (0.18.0)
   (`:client:settings:{ui,presentation}`), four new baselines. See
   [`ask-once-sheet.md`](ask-once-sheet.md) for the design and [`decisions.md`](decisions.md) for what
   implementation decided on top of it.
+- **0.19.0 an hour ahead** — the third knowledge tier, built to the Claude Design sheet *An Hour
+  Ahead* (accepted 2026-08-24, issue #84). **Charted stopped being free**: it is an interval per
+  galaxy, `[lo, hi]`, widened by every landing to an hour of flight either side — thirty systems,
+  derived from `SurveyBalance` rather than written down. Outside it a star is drawn as **grain**: one
+  size, one flat value, no halo, no spike, no class, still selectable and still offering the probe.
+  Genesis charts 61 of 250 in the home galaxy and nothing in the other three. The band label row
+  carries an index range until the light touches the band; the region field is clipped to the charted
+  stretch; the hour marks are deliberately not fogged. **Keyed on where a hull landed, never on what
+  it found** — `surveyed` records findings and fog is about journeys, and the two disagree exactly
+  where a system holds nothing. `MapStarInk` is sealed so an uncharted star cannot carry a class at
+  all. Schema 17 → 18 folds the save's own contents, so a colony carried forward keeps the map it
+  earned. Nine baselines (eight moved, `galaxy_map_uncharted` new). See
+  [`fog-sheet.md`](fog-sheet.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -943,6 +956,30 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 - **The title's `+n` compacts by kind rather than by character**, because a character budget cannot
   be spent on an unresolved `TextRes`. Two kinds reproduces both of the design's drawn examples; what
   a lock screen actually holds is a device measurement nobody has taken.
+
+## Pending, from 0.19.0
+
+- **Nobody has held it, and the whole design is a claim about how a dark map feels in a hand.** The
+  test `fog-sheet.md` §7 sets is whether a report comes back naming a **heading** — *"I have been
+  pushing up-galaxy"*, *"I went the wrong way and there is nothing over there"*. A report that the map
+  got smaller is the failure, and the first lever then is the hour of grace: thirty systems is the one
+  number in this design that is a matter of taste. Same shape as the tilt loop in `session-roles.md`.
+- **The design's empty-system frequency was wrong by about forty times and two of its arguments leaned
+  on it.** *"About one system in eight is empty"* — measured, it is **18 of 6,000, one in 333**, which
+  `Galaxies.kt` already documented as one in 390. Both arguments survive on their other legs; the
+  reckoning is in `fog-sheet.md` §3. Worth carrying forward as a habit rather than as a correction: a
+  frequency in a design sheet is cheap to check and nobody checked this one.
+- **The distance-scaled probe price is ruled and not built** (#83). Design's call is fog first, the
+  curve immediately after and not in the same release, because fog changes what the curve is pricing —
+  a far probe now buys a survey *and* a stretch of map, so the curve's job becomes keeping
+  metal-per-system-charted roughly flat.
+- **Nothing has measured what fog does to probe-spam.** Design's estimate is that it *reduces* it — the
+  fog-motivated probe is always the longest flight you can afford, so it parks your only hull for
+  hours and blocks the short ones — but `:sim:run` has not been run against this build, and surveys
+  were 36% of a simulated month before it.
+- **A charted star past your furthest landing also extends the light and its caption does not say so.**
+  Left silent deliberately. If players stop pushing once the names run out, that clause is the first
+  thing to try.
 
 ## Pending, from 0.17.1
 

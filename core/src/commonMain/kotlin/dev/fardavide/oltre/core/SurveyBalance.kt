@@ -82,6 +82,17 @@ object SurveyBalance {
     // check-in that ordered them, which is the failure the whole verb exists to fix.
     private const val BASE_MINUTES: Int = 30
     private const val MINUTES_PER_UNIT: Int = 1
+    private const val MINUTES_PER_HOUR: Int = 60
+
+    // **One hour of flight, in systems** — the fog's whole geometry, and it is derived here rather
+    // than written down anywhere else because both numbers it is made of are private to this file.
+    // A probe is half an hour of base plus a minute a system, so an hour reaches thirty.
+    //
+    // Deriving it rather than pinning it at 30 is the deliberate half: the grace *means* an hour of
+    // flight, so a rebalance of the probe's clock should move the map with it rather than leave a
+    // constant behind quietly meaning something else. `GalaxyChartedTest.the grace is one hour of
+    // the probe's own clock` is what says so out loud if it ever moves.
+    const val GRACE_SYSTEMS: Int = (MINUTES_PER_HOUR - BASE_MINUTES) / MINUTES_PER_UNIT
 
     // Distance in systems, with a galaxy hop priced as a long haul. Pure integer arithmetic on
     // bounded inputs, so it is identical on every platform — the same rule the galaxy generator

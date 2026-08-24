@@ -23,6 +23,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -38,6 +39,8 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.world.ui.drawWorldPortrait
 import dev.fardavide.oltre.core.RegionTemperament
 import dev.fardavide.oltre.core.StarClass
+import kotlin.math.max
+import kotlin.math.min
 
 // **The galaxy, drawn.** Ten bands of twenty-five stars, folded so that path order is index order,
 // with a drawn turn at each end so the ten read as one line rather than as a grid. The argument for
@@ -134,6 +137,8 @@ internal data class Fold(
     val dim: Float,
     val standard: Float,
     val bright: Float,
+    // The uncharted tier, and it is not a class radius: nothing multiplies it and nothing wobbles it.
+    val grain: Float,
     val mini: Boolean,
 ) {
 
@@ -184,6 +189,14 @@ internal data class Fold(
         return base * sizePermille / 1_000f
     }
 
+    // **Grain takes no wobble**, which is why it cannot go through the overload above: the size
+    // wobble is a fact about a star's class, and an uncharted star has not bought one. One size,
+    // flat, so a dark band reads as a field rather than as sky.
+    fun radiusOf(ink: MapStarInk): Float = when (ink) {
+        MapStarInk.Grain -> grain
+        is MapStarInk.Charted -> radiusOf(ink.starClass, ink.sizePermille)
+    }
+
     companion object {
 
         fun full(width: Float, height: Float = MapGeometry.HEIGHT_DP): Fold = Fold(
@@ -195,6 +208,10 @@ internal data class Fold(
             dim = 1.3f,
             standard = 1.9f,
             bright = 2.6f,
+            // Below the narrowest a DIM can wobble to (1.3 x 0.870 = 1.131), which is what keeps the
+            // third tier under the bottom class rather than inside it. The margin is 0.08dp and
+            // `GalaxyMapDrawingTest` is what stops a later radius tweak closing it.
+            grain = 1.05f,
             mini = false,
         )
 
@@ -209,6 +226,7 @@ internal data class Fold(
             dim = 0.8f,
             standard = 1.15f,
             bright = 1.6f,
+            grain = 0.62f,
             mini = true,
         )
     }
@@ -234,6 +252,10 @@ internal fun DrawScope.drawFold(uiState: GalaxyMapUiState, fold: Fold) {
 // does — Deep leans the deuterium violet, a Reach is the metal grey, a Blaze is white-hot — so the
 // field and the star colours are saying the same thing twice rather than two different things.
 private fun DrawScope.drawRegionField(band: MapBandUiState, band0: Int, fold: Fold) {
+    // **The weather is knowledge too.** A band the light has never reached has no field at all, and
+    // a half-known one is tinted only across the stretch that is charted — so a region reads as
+    // half-known rather than as either known or absent.
+    val charted = band.charted ?: return
     val centreY = MapGeometry
         .laneMidOf(band = band0, labelRow = fold.labelRow, lane = fold.lane, gap = fold.gap)
         .dp
@@ -249,17 +271,35 @@ private fun DrawScope.drawRegionField(band: MapBandUiState, band0: Int, fold: Fo
     // A circular gradient squashed onto the lane, rather than an oval filled with one: `drawOval`
     // with a radial brush clips a circle to the oval and fades along one axis only, which reads as a
     // hard edge top and bottom exactly where the field is meant to be softest.
-    scale(scaleX = 1f, scaleY = radiusY / radiusX, pivot = centre) {
-        drawCircle(
-            brush = Brush.radialGradient(
-                colorStops = arrayOf(0f to hue, 1f to Color.Transparent),
-                center = centre,
+    val paint = {
+        scale(scaleX = 1f, scaleY = radiusY / radiusX, pivot = centre) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colorStops = arrayOf(0f to hue, 1f to Color.Transparent),
+                    center = centre,
+                    radius = radiusX,
+                ),
                 radius = radiusX,
-            ),
-            radius = radiusX,
-            center = centre,
-        )
+                center = centre,
+            )
+        }
     }
+    val first = MapGeometry.firstSystemOf(band0)
+    val last = first + MapGeometry.PER_BAND - 1
+    if (charted.first <= first && charted.last >= last) {
+        // **A whole band draws byte-identically to what it always did**, which is what keeps a
+        // fully-charted map — and every baseline of one — exactly where it was.
+        paint()
+        return
+    }
+    // **Clipped rather than narrowed**, and the difference is not cosmetic: the vertical squash is
+    // derived from `radiusX`, so shrinking that to the charted stretch would flatten the band as
+    // well as shorten it. And the ends of the *range* are not the ends of the *stretch* — `fold.x`
+    // reverses on odd bands, so five of the ten need the min and the max the other way round.
+    val a = fold.x(charted.first.coerceIn(first, last)).dp.toPx()
+    val b = fold.x(charted.last.coerceIn(first, last)).dp.toPx()
+    val half = (fold.pitch / 2f).dp.toPx()
+    clipRect(left = min(a, b) - half, right = max(a, b) + half) { paint() }
 }
 
 // The lane itself, as the polyline the stars sit on. Twenty-five samples rather than a curve, because
@@ -316,25 +356,29 @@ private fun DrawScope.drawHourMark(system: Int, fold: Fold) {
 // is the one thing it lets glow. A third of the brights lean the crystal hue, which is variety inside
 // a class mixed from a resource colour, never a status one.
 private fun DrawScope.drawHalo(star: MapStarUiState, fold: Fold) {
+    // **A halo is character, so the uncharted tier has none.** This is the whole trick the design
+    // rests on: texture is what a survey buys, and a star with no texture reads as a field rather
+    // than as sky without anything being blacked out.
+    val ink = star.ink as? MapStarInk.Charted ?: return
     // A disc is 1/5 the size, so only the brights are still worth a halo at all — the other two
     // would be a gradient two pixels across, which is a cost with nothing on the other side of it.
-    if (fold.mini && star.starClass != StarClass.BRIGHT) return
-    val radius = fold.radiusOf(star.starClass, star.sizePermille)
+    if (fold.mini && ink.starClass != StarClass.BRIGHT) return
+    val radius = fold.radiusOf(ink.starClass, ink.sizePermille)
     val centre = Offset(x = fold.x(star.system).dp.toPx(), y = fold.y(star.system, star.driftPermille).dp.toPx())
     val stops = when {
-        star.starClass == StarClass.BRIGHT && star.coolHalo -> arrayOf(
+        ink.starClass == StarClass.BRIGHT && ink.coolHalo -> arrayOf(
             0f to COOL_HALO.copy(alpha = 0.20f),
             0.45f to COOL_HALO.copy(alpha = 0.08f),
             1f to Color.Transparent,
         )
 
-        star.starClass == StarClass.BRIGHT -> arrayOf(
+        ink.starClass == StarClass.BRIGHT -> arrayOf(
             0f to BLAZE_WHITE.copy(alpha = 0.24f),
             0.45f to BRIGHT_HALO.copy(alpha = 0.10f),
             1f to Color.Transparent,
         )
 
-        star.starClass == StarClass.STANDARD -> arrayOf(
+        ink.starClass == StarClass.STANDARD -> arrayOf(
             0f to STANDARD_HALO.copy(alpha = 0.14f),
             1f to Color.Transparent,
         )
@@ -342,8 +386,8 @@ private fun DrawScope.drawHalo(star: MapStarUiState, fold: Fold) {
         else -> arrayOf(0f to OltreColors.deuterium.copy(alpha = 0.12f), 1f to Color.Transparent)
     }
     val reach = when {
-        star.starClass == StarClass.BRIGHT -> if (fold.mini) MINI_BRIGHT_HALO_REACH else BRIGHT_HALO_REACH
-        star.starClass == StarClass.STANDARD -> STANDARD_HALO_REACH
+        ink.starClass == StarClass.BRIGHT -> if (fold.mini) MINI_BRIGHT_HALO_REACH else BRIGHT_HALO_REACH
+        ink.starClass == StarClass.STANDARD -> STANDARD_HALO_REACH
         else -> DIM_HALO_REACH
     }
     val haloRadius = (radius * reach).dp.toPx()
@@ -355,8 +399,12 @@ private fun DrawScope.drawHalo(star: MapStarUiState, fold: Fold) {
 }
 
 private fun DrawScope.drawSpikes(star: MapStarUiState, fold: Fold) {
-    if (star.starClass != StarClass.BRIGHT) return
-    val reach = (fold.radiusOf(star.starClass, star.sizePermille) * SPIKE_REACH).dp.toPx()
+    // The `Charted` cast is doing real work rather than satisfying the compiler: an *uncharted*
+    // BRIGHT is exactly the leak the third tier exists to close, and a spike is the loudest thing
+    // this drawing can say about a star.
+    val charted = star.ink as? MapStarInk.Charted ?: return
+    if (charted.starClass != StarClass.BRIGHT) return
+    val reach = (fold.radiusOf(charted.starClass, charted.sizePermille) * SPIKE_REACH).dp.toPx()
     val centre = Offset(x = fold.x(star.system).dp.toPx(), y = fold.y(star.system, star.driftPermille).dp.toPx())
     val ink = BLAZE_WHITE.copy(alpha = SPIKE_ALPHA)
     drawLine(
@@ -380,12 +428,15 @@ private fun DrawScope.drawSpikes(star: MapStarUiState, fold: Fold) {
 // class, so a surveyed dim star and an unsurveyed bright one can never be confused.
 private fun DrawScope.drawStar(star: MapStarUiState, fold: Fold) {
     drawCircle(
-        color = when (star.starClass) {
-            StarClass.DIM -> DIM_STAR
-            StarClass.STANDARD -> STANDARD_STAR
-            StarClass.BRIGHT -> BLAZE_WHITE
+        color = when (val ink = star.ink) {
+            MapStarInk.Grain -> GRAIN_STAR
+            is MapStarInk.Charted -> when (ink.starClass) {
+                StarClass.DIM -> DIM_STAR
+                StarClass.STANDARD -> STANDARD_STAR
+                StarClass.BRIGHT -> BLAZE_WHITE
+            }
         },
-        radius = fold.radiusOf(star.starClass, star.sizePermille).dp.toPx(),
+        radius = fold.radiusOf(star.ink).dp.toPx(),
         center = Offset(x = fold.x(star.system).dp.toPx(), y = fold.y(star.system, star.driftPermille).dp.toPx()),
     )
 }
@@ -395,7 +446,10 @@ private fun DrawScope.drawStar(star: MapStarUiState, fold: Fold) {
 private fun DrawScope.drawMarks(star: MapStarUiState, fold: Fold) {
     if (star.marks.isEmpty()) return
     val centre = Offset(x = fold.x(star.system).dp.toPx(), y = fold.y(star.system, star.driftPermille).dp.toPx())
-    val radius = fold.radiusOf(star.starClass, star.sizePermille)
+    // **The four overlays are unchanged and there is no fifth.** They stack on a grain star exactly
+    // as they do on a charted one — an amber ring on grain is a probe out in the dark, which is a
+    // state the map could not draw before and is the point of the tier.
+    val radius = fold.radiusOf(star.ink)
     val scale = if (fold.mini) MINI_RING_SCALE else 1f
     // Drawn in radius order rather than in declaration order, so the outer rings never sit under an
     // inner one on a star that carries three of them.
@@ -428,12 +482,22 @@ private fun DrawScope.drawRing(centre: Offset, radiusDp: Float, colour: Color, w
 
 // Ten names, all legible at once, which is the whole thing the second dimension was bought for. They
 // alternate sides, and that alternation states the reading direction without an arrow.
+//
+// **The row is never empty**, which is what keeps a dark band from reading as a hole in the drawing:
+// a band the light has not reached spends its 13dp on its own index range instead of on a name it
+// has not earned. So the 13dp costs fog nothing — it was already paid for by the ten region names.
 @Composable
 private fun RegionLabel(band: MapBandUiState, band0: Int, fold: Fold, inset: Dp) {
     Box(modifier = Modifier.fillMaxWidth().offset(y = (band0 * fold.bandHeight).dp)) {
         Text(
             text = band.name.resolve().uppercase(),
-            color = if (band.lit) OltreColors.text else OltreColors.textTertiary,
+            color = when {
+                // The type colour at a quarter rather than a hue of its own — `OltreColors.text` is
+                // 0xFFE9EDF5, which is the design's rgba(233,237,245,.24) exactly.
+                band.charted == null -> OltreColors.text.copy(alpha = UNCHARTED_LABEL_ALPHA)
+                band.lit -> OltreColors.text
+                else -> OltreColors.textTertiary
+            },
             fontFamily = oltreMono(),
             fontSize = LABEL_SIZE,
             letterSpacing = LABEL_TRACKING,
@@ -560,3 +624,11 @@ private val BLAZE_WHITE = Color(0xFFF5FAFF)
 private val BRIGHT_HALO = Color(0xFFE9F1FC)
 private val STANDARD_HALO = Color(0xFFE4EAF5)
 private val COOL_HALO = Color(0xFFBFE9F5)
+
+// A seventh, and it follows the same rule: **grain is `STANDARD_STAR`'s own hue, unlit.** Not a new
+// colour but the same one at a third of the value, which is the argument in a number — an uncharted
+// star is a star nobody has looked at yet, not a different kind of object.
+private val GRAIN_STAR = Color(0xFFE2E8F5).copy(alpha = 0.24f)
+
+// The band label of a region whose name the light has not reached, at the same quarter.
+private const val UNCHARTED_LABEL_ALPHA = 0.24f

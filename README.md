@@ -206,6 +206,36 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.19.0 — 2026-08-24
+
+- **The galaxy is dark now, and your ships are what light it.** The star map has a third tier under
+  the two it had: a system nobody has been near is drawn as **grain** — a point you can see, at an
+  address you can read, with a flight time on it, and nothing else. No name, no star class, no
+  region, no world count. Surveying does not buy a star's existence. It buys its character.
+- **A probe charts everything nearer than where it went, and an hour further.** Every landing lights
+  the systems within an hour's flight either side of it — thirty each way — and the light only ever
+  grows. So the shape of what you can read is a record of where you have actually sent ships.
+- **You open on sixty-one systems of two hundred and fifty.** A new colony has the hour of grace
+  around its own doorstep and nothing else, in one galaxy of four. The other three are 250 grains and
+  a price until a hull lands in one — and a first landing there opens sixty-one at a stroke, which is
+  the largest single reveal in the game.
+- **The dark answers when you touch it.** A grain star takes the selection, fills the bar and offers
+  the same probe every other star does. What it says instead of a name is where it is and **what a
+  flight there would buy** — `uncharted · charts 49 systems` — which is the reason a far star is now
+  worth more than a near one.
+- **A region tells you its name the first time your ships reach it.** Until then the row above the
+  band carries its address — `1–25`, `226–250` — so the map never has a hole in it, and a region
+  arriving by name is something that happens about nine times in a galaxy's life.
+- **The weather is knowledge too.** A band is tinted only across the stretch you have charted, so a
+  half-known region looks half-known.
+- **A star with nothing around it can now be probed.** It used to refuse, on the grounds that you
+  could already see it was empty — which stopped being true the day the map had to be earned. It
+  charts what it charts and comes back with nothing, and only then does it say so.
+- **Everything you have already surveyed stays lit.** A colony carried forward wakes up charted
+  around every system it ever reached, not around home alone.
+- Distance is the one thing the dark does not take: the hour marks run to the edge of the galaxy
+  through it, because how far away something is is what you choose a target with.
+
 ### 0.18.0 — 2026-08-23
 
 - **The gear opens something.** Tapping it raises a settings sheet with two controls on it, and the

@@ -84,7 +84,11 @@ class AppBehaviourTest {
             // before 0.11 moved it: the galaxy's own scale is the reading that proves the tab
             // arrived. It went to `NEAREST FIRST` when the ledger became the landing screen, and
             // that string does not exist any more — the sort left with the filters.
-            assertReads("250 SYSTEMS")
+            //
+            // And the scale itself moved at 0.19: a bare length was the honest line while the map
+            // was free, and the day it had to be earned the interesting number became how much of it
+            // you have. The word that proves the tab arrived is still on the head's count line.
+            assertReads("OF 250 CHARTED")
             // **The switch, and it is the one control on this tab that writes to disk.** Davide's
             // amendment to Claude Design's landing call: the tab opens on the map the first time and
             // on whichever list you last used after that. The write goes through the composition

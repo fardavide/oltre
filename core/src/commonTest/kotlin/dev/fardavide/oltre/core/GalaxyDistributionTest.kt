@@ -188,6 +188,8 @@ class GalaxyDistributionTest {
             ownership = listOf(WorldOwnership(at = HOME, holder = EmpireId.PLAYER)),
             deposits = emptyList(),
             pinned = emptySet(),
+            // A verdict is a question about traits, not about the map, so the fog is irrelevant here.
+            charted = emptyList(),
         ),
         adaptation = AdaptationLevels.NONE,
     )

@@ -203,6 +203,8 @@ class WorldVerdictTest {
         ownership = ownership,
         deposits = emptyList(),
         pinned = emptySet(),
+        // A verdict is a question about traits, not about the map, so the fog is irrelevant here.
+        charted = emptyList(),
     )
 
     private fun surveyedGalaxy(): GalaxyState = galaxy(surveyed = setOf(HOME, NEIGHBOUR))

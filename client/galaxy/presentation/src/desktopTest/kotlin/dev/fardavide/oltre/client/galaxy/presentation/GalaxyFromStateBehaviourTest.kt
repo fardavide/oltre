@@ -10,10 +10,12 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import org.junit.Test
 
@@ -80,6 +82,47 @@ class GalaxyFromStateBehaviourTest {
         }
 
         assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = elsewhere)), aimed)
+    }
+
+    @Test
+    fun `the bar under an uncharted star names its address and still offers a probe`() {
+        // **The whole of how the dark reads as an invitation, driven end to end.** Empty black says
+        // "nothing here" because nothing happens when you touch it; a grain star answers — it takes
+        // the selection, fills the bar, and offers the same button every other star offers. The one
+        // thing it says that a charted star does not is what a probe there would buy.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+
+        galaxyScreen(state = testGameState.copy(resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+
+            // The address is the name, because it is the only one there is.
+            assertTheCaptionReads("[${home.galaxy}:$far]")
+            assertTheCaptionReads("uncharted")
+            assertTheCaptionReads("charts")
+            // And the control is there rather than withheld.
+            assertTheCaptionReads("probe")
+        }
+    }
+
+    @Test
+    fun `a probe landing widens the light and the head says so`() {
+        // The loop closing, from one screen: the count line before the flight, the flight, and the
+        // count line after it. This is the reading Davide gets back — *the area I unlocked* — as a
+        // number rather than as a picture.
+        val far = SystemAddress(
+            galaxy = home.galaxy,
+            system = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY),
+        )
+        val before = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val landed = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(before, far, at = EPOCH)).state,
+            from = EPOCH,
+            to = EPOCH + 3.days,
+        )
+
+        galaxyScreen(state = before) { assertReads("61 OF 250 CHARTED") }
+        // 141 unchanged at the near end, 241 + 30 clamped to 250 at the far one: 110 systems.
+        galaxyScreen(state = landed) { assertReads("110 OF 250 CHARTED") }
     }
 
     @Test

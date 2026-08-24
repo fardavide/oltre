@@ -122,7 +122,7 @@ object GameSave {
     // 3 — the research branch: `research` levels and the single `activeResearch` slot.
     // 2 — parallel builds: the single `buildQueue` slot became `builds`, one job per facility.
     // 1 — first shipped format. OBSOLETE, deliberately: see OBSOLETE_SCHEMAS.
-    const val SCHEMA_VERSION: Int = 17
+    const val SCHEMA_VERSION: Int = 18
 
     // Versions this build refuses to carry forward, and why the player is told. A rebalance
     // this deep does not survive a shape-only migration: a colony grown at the old rates keeps
@@ -402,6 +402,49 @@ object GameSave {
                     put("delivery", JsonPrimitive(AlertDelivery.EACH.name))
                 },
             )
+        },
+        // 17 -> 18: the fog. Inside `galaxy` for schema 11's reason — what the player has charted is
+        // a thing they changed about the map, like a survey and like a pin.
+        //
+        // **It folds the save's own contents rather than writing a default**, which is schema 15's
+        // precedent and the only honest answer here: a colony carried forward demonstrably reached
+        // the systems it has surveyed, so writing home alone would take away map it earned, and
+        // writing the whole galaxy would hand it map it never went for. Home is in the fold too,
+        // because genesis charts it and a colony that never dispatched anything must still wake up
+        // seeing its own doorstep.
+        //
+        // Two things it cannot recover, both stated rather than hidden. `surveyed` is per *world*,
+        // so a system is recovered from its coordinates; and a past landing that found nothing wrote
+        // nothing, so a colony that probed a worldless star comes back an hour narrower than it
+        // truly was. Both only ever under-report, and the span only ever widens from there — which
+        // is the direction to be wrong in.
+        //
+        // The grace is written as the literal `30` and not as `SurveyBalance.GRACE_SYSTEMS`, for the
+        // reason the hop above states: a migration says the shape a save had at *that* version, and
+        // a constant recompiles.
+        17 to { root ->
+            val galaxy = (root["state"] as? JsonObject)?.get("galaxy") as? JsonObject ?: return@to root
+            val grace = 30
+            val landed = buildList {
+                (galaxy["home"] as? JsonObject)?.let { add(it) }
+                (galaxy["surveyed"] as? JsonArray)?.filterIsInstance<JsonObject>()?.let { addAll(it) }
+            }.mapNotNull { at ->
+                val g = at.intOrNull("galaxy") ?: return@mapNotNull null
+                val system = at.intOrNull("system") ?: return@mapNotNull null
+                g to system
+            }
+            val spans = landed
+                .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+                .toList()
+                .sortedBy { it.first }
+                .map { (g, systems) ->
+                    buildJsonObject {
+                        put("galaxy", JsonPrimitive(g))
+                        put("lo", JsonPrimitive((systems.min() - grace).coerceAtLeast(1)))
+                        put("hi", JsonPrimitive((systems.max() + grace).coerceAtMost(250)))
+                    }
+                }
+            root.withState("galaxy" to JsonObject(galaxy + ("charted" to JsonArray(spans))))
         },
     )
 

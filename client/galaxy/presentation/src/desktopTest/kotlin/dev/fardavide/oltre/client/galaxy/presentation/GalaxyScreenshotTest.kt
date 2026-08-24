@@ -65,6 +65,20 @@ class GalaxyScreenshotTest {
         )
     }
 
+    // **The third tier, selected.** 195 above is inside the hour of grace, so that frame keeps a
+    // charted caption and says nothing about fog; this one is the state the whole slice is about —
+    // a grain star answering, with its address for a name and the fog yield where the world count
+    // would be.
+    @Test
+    fun `the map with a star selected outside the charted stretch`() {
+        capture(
+            width = 393,
+            height = DESTINATION_HEIGHT,
+            uiState = frame(state = pinnedState, at = pinnedState.homeSelection().copy(system = 240)),
+            name = "galaxy_map_uncharted",
+        )
+    }
+
     // The amber ring, which is the fleet strip's amber meaning what it means there.
     @Test
     fun `the map with a probe in flight`() {
