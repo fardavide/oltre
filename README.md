@@ -206,6 +206,12 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.20.1 — 2026-08-24
+
+- **Opening the game clears the alerts it has already sent you.** Everything waiting in the
+  notification tray is about something the colony is now showing you properly, so it stops asking to
+  be dismissed by hand. Alerts still to come are untouched — nothing you were promised is lost.
+
 ### 0.20.0 — 2026-08-24
 
 - **The galaxy is dark now, and your ships are what light it.** The star map has a third tier under

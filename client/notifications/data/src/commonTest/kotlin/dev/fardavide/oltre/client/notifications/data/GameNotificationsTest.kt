@@ -64,6 +64,37 @@ class GameNotificationsTest {
         assertEquals(emptyList(), scheduler.scheduled)
     }
 
+    // ── Clearing what has already been delivered ────────────────────────────────────────────
+
+    @Test
+    fun `clearing the tray reaches the platform`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler, English).clearDelivered()
+
+        // then
+        assertEquals(1, scheduler.clearCount)
+    }
+
+    // **The rule that keeps the two apart**, and it is a correctness rule rather than tidiness. A
+    // sync runs on every discrete transition, and on Android the tick loop goes on running while the
+    // app is backgrounded — so a sync that also wiped the tray would delete the alert the alarm had
+    // just posted, seconds before the player looked at it. Clearing is the *player opening the app*,
+    // which only the shell knows about; see `App`'s launch effect.
+    @Test
+    fun `syncing leaves delivered alerts alone`() = runTest {
+        // given
+        val scheduler = FakeNotificationScheduler()
+
+        // when
+        GameNotifications(scheduler, English).sync(building(BuildingType.METAL_MINE), now = EPOCH)
+
+        // then
+        assertEquals(0, scheduler.clearCount)
+    }
+
     @Test
     fun `a running build is announced at the instant it completes`() = runTest {
         // given

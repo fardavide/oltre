@@ -229,6 +229,35 @@ section.
   alert already sitting with the OS until the next sync — which is the next transition or the next
   foreground, so in practice within one action. Same window every other number in this game lives
   with, and it is written down here rather than fixed.
+- **`One in total` on iPhone waits for a push server, and that is Davide's call** (2026-08-24). He hit
+  it on a device — a Hauler at 16:29 and a second at 16:45 arrived as two entries under one stack,
+  which is precisely what *"What implementation had to decide"* predicted, read back as a bug. The
+  levers that exist locally were weighed and two declined: **folding a wider window** under
+  `TOTAL` (the 5-minute chain is `oneEach`'s only) would have merged those two and nothing three hours
+  apart, and **rewording the sheet** would only stop the app claiming what it cannot do. The third was
+  taken and shipped at 0.20.1 — **clearing what has already been delivered when the app opens**, which
+  bounds the stack to one check-in's worth without touching the reason there is one. What he wants is
+  `apns-collapse-id`, which genuinely replaces a
+  *delivered* notification and has no local equivalent — iOS's one hook that runs with the app shut,
+  `UNNotificationServiceExtension`, fires for remote pushes only. So the fix is a server, the server
+  is on the way for multiplayer, and until then nothing here moves.
+
+  **What 0.20.1 does and does not buy.** `NotificationScheduler.clearDelivered` is a second method
+  rather than a step inside `replaceAll`, and that is a correctness rule: a sync runs on every discrete
+  transition, and on Android the shell's tick loop outlives the foreground — so a clearing sync would
+  take down the alarm the system had posted seconds earlier. Only *opening the app* clears, which is a
+  fact about attention that no amount of game state implies. It is called from `App`'s launch effect,
+  so it covers a cold launch and **not** a warm resume: the effect runs once per composition and
+  returning from the background does not start a new one. On iPhone that is the smaller half, because
+  iOS terminates backgrounded apps freely and a notification tapped after one is a cold launch — but
+  it is a real gap, and closing it needs a foreground signal the shell does not have.
+
+  Two things follow that a later session should not have to rediscover. The copy is **knowingly**
+  wrong on the delivery target — `AlertNextAtTotal` says the alert *"is brought up to date rather than
+  repeated"*, which is true on Android and false on iPhone — and it stays until the server makes it
+  true rather than being softened first. And the stack itself is working: the report came from a group
+  the player had **expanded**, and collapsed it shows the newest entry alone, so `threadIdentifier` is
+  already buying most of what the stop promises.
 
 ## The test the next round should run
 

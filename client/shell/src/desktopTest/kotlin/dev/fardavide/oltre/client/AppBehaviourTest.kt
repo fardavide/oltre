@@ -33,6 +33,38 @@ class AppBehaviourTest {
         }
     }
 
+    // **Opening the app is the answer to a tray that has already spoken** (Davide, 2026-08-24, #120).
+    // Every alert sitting with the OS is about something this launch is now showing — the mine that
+    // finished, the hull that left the yard — so leaving them there makes the player dismiss by hand
+    // what the app has just told them properly. It is also the only lever the delivery target gives
+    // us on `One in total`, where the stack is what accumulates.
+    @Test
+    fun `opening the app clears alerts the player has already been shown`() {
+        app(saved = null) {
+            assertTrayCleared(times = 1)
+        }
+    }
+
+    // The other half, and the one that would bite: a clear folded into `commit` would run on every
+    // tap and — because the tick loop outlives the foreground on Android — would wipe an alarm the
+    // system had just posted, seconds before it was read. So the count must not move when the player
+    // acts.
+    @Test
+    fun `acting inside the app does not clear the tray again`() {
+        // A minute old and unfunded, for `tapping a square books the alert it promised`'s reason: an
+        // affordable row carries an Upgrade button and no square to tap at all.
+        app(saved = snapshot(state = colony(), agedBy = 1.minutes)) {
+            assertTrayCleared(times = 1)
+
+            tapTheWatchOn(BuildingType.METAL_MINE)
+
+            // The tap committed — `tapping a square books the alert it promised` measures that — and
+            // the tray was left exactly as the launch left it.
+            assertAlertsBooked(1)
+            assertTrayCleared(times = 1)
+        }
+    }
+
     @Test
     fun `a colony resumed from a save opens with the rail already reading its rates`() {
         // given a colony saved two days ago. What it accrued in between is `resume`'s business and

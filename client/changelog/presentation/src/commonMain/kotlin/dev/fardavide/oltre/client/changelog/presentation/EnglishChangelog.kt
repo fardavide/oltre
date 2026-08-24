@@ -16,6 +16,11 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.20.1", "2026-08-24", "The tray empties when you open the game",
+            "Alerts you have already been shown are cleared when the colony comes back up.",
+            "Alerts still to come are untouched.",
+        ),
+        release(
             "0.20.0", "2026-08-24", "The galaxy is dark now",
             "A star nobody has been near is a point of light and nothing else.",
             "A probe charts everything nearer than where it went, and an hour further.",

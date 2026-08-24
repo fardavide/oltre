@@ -15,6 +15,11 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.20.1", "2026-08-24", "Aprire il gioco svuota le notifiche",
+            "Gli avvisi che hai già letto spariscono quando riapri la colonia.",
+            "Quelli ancora da arrivare restano al loro posto.",
+        ),
+        release(
             "0.20.0", "2026-08-24", "Ora la galassia è al buio",
             "Una stella dove nessuno è stato è un punto di luce e nulla più.",
             "Una sonda mappa tutto ciò che è più vicino di dove va, e un'ora oltre.",

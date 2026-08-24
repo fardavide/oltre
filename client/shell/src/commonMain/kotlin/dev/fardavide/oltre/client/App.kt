@@ -298,6 +298,22 @@ fun App(
             }
 
             LaunchedEffect(Unit) {
+                // **First, and before anything is read.** Every alert the OS is holding is about
+                // something this launch is about to show properly, so it has already done its job —
+                // and on iPhone it is the only lever `One in total` has, because a delivered
+                // notification cannot be updated while the app is shut (#120).
+                //
+                // Here rather than in `commit` deliberately: this fires when the player *opens* the
+                // app, and a clear folded into the commit would fire on every tap and — the tick loop
+                // outliving the foreground on Android — in the background, wiping an alarm seconds
+                // after it posted. See `NotificationScheduler.clearDelivered`.
+                //
+                // **What it does not cover is a warm resume**, because this effect runs once per
+                // composition and returning from the background does not start a new one. On the
+                // delivery target that is the smaller half — iOS terminates backgrounded apps freely,
+                // and a notification tapped after one is a cold launch — but it is a real gap, and
+                // closing it needs a foreground signal the shell does not have today.
+                notifications.clearDelivered()
                 val saved = store.load()
                 hadSave = saved != null
                 val wall = wallClock.now()

@@ -66,6 +66,21 @@ class GameNotifications(
             },
         )
     }
+
+    // **What opening the app is worth to a tray that has already spoken** (Davide, 2026-08-24, #120).
+    // Every alert sitting with the OS is about something the launch is now showing properly — the
+    // mine that finished, the hull that left the yard — so leaving them there asks the player to
+    // dismiss by hand what they have just been told.
+    //
+    // Nothing game-shaped happens here, which is why it takes no state and does no arithmetic: it is
+    // a pass-through, and it is on this class rather than called on the scheduler directly because
+    // `GameNotifications` is the whole of what the shell is handed. See `NotificationScheduler` for
+    // why this is not a step inside `sync`, and #120 for what it does and does not fix — on iPhone it
+    // narrows `One in total`'s stack to one check-in's worth without touching the reason there is a
+    // stack at all.
+    suspend fun clearDelivered() {
+        scheduler.clearDelivered()
+    }
 }
 
 // **iOS keeps only the 64 soonest-firing pending requests and silently drops the rest.** That is

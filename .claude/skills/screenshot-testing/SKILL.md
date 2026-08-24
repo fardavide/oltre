@@ -13,6 +13,17 @@ when_to_use: >
 - **Record baselines locally**: `./gradlew recordRoborazziDesktop`. Baselines are committed —
   they are the assertion.
 - **Verify** (what CI's "Screenshot tests" job runs): `./gradlew verifyRoborazziDesktop`.
+- **`build` and `check` do not verify baselines — only `verifyRoborazziDesktop` does.** Both run
+  `desktopTest`, which *executes* every screenshot test and passes: without the record/verify system
+  property Roborazzi captures and compares nothing, and `finalizeTestRoborazziDesktop` is reported
+  `SKIPPED`. That word in the log is the whole tell, and it reads like a task that had nothing to do.
+  So **"`./gradlew build` is green" is not evidence that screenshots pass**, and saying so in a PR
+  body is a claim that has not been checked. Measured on #121: three consecutive green `build` runs
+  over a diff that moved two baselines, red on CI at the first `verifyRoborazziDesktop`. Run it as
+  its own step before pushing anything that could move a drawing — which includes changes that touch
+  no composable at all, because **any frame built from a whole catalogue moves when the catalogue
+  grows**: adding one changelog entry moved `settings_face_changelog` and `settings_face_swapping`,
+  and the diff in both was a row count and a page, nothing to do with the code under review.
 - **The Mac is the recorder and CI verifies on a Mac.** One renderer at both ends, which is the
   only arrangement in which a screenshot test asserts anything: `ci.yml`'s screenshot job is the
   one job that does not run on Linux. So a local record is authoritative — record it, read the

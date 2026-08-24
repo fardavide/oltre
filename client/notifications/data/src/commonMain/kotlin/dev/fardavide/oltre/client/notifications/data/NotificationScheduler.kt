@@ -60,6 +60,22 @@ interface NotificationScheduler {
     // Best effort, like a save write. There is no surface in the game to report a refused
     // permission to, and the next transition schedules the whole set again.
     suspend fun replaceAll(notifications: List<LocalNotification>)
+
+    // **Everything the OS has already put in front of the player, taken back down.** The other half
+    // of the seam, and deliberately a second method rather than a step inside `replaceAll`: the two
+    // answer to different triggers. A booking is derived from state and re-derived on every discrete
+    // transition; a clear is the *player opening the app*, which is a fact about attention that no
+    // amount of game state implies.
+    //
+    // **Folding it into `replaceAll` would be a live defect rather than a tidiness question.** A sync
+    // runs on every transition, and on Android the shell's tick loop goes on running while the app is
+    // backgrounded — so a clearing sync would delete the alert the alarm had posted moments earlier,
+    // and the player would find an empty tray for a mine that really had finished. See
+    // `GameNotificationsTest.syncing leaves delivered alerts alone`.
+    //
+    // Pending bookings are untouched: what is scheduled is still going to fire, and `replaceAll` is
+    // the only thing that decides that. Best effort for the same reason as above.
+    suspend fun clearDelivered()
 }
 
 // The platform's notification service. Called once, at the composition root.
