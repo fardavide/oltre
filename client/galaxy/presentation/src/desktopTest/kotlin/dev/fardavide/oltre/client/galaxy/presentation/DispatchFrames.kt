@@ -194,7 +194,7 @@ internal val dispatchFarUiState: GalaxyUiState = frameState.let { state ->
         .map { slot -> GalaxyCoordinate(far.galaxy, far.system, slot) }
         .first { worldAt(state.galaxy.seed, it) != null }
     // **Charted as well as surveyed, because a survey implies a landing.** Writing one without the
-    // other builds a state the game cannot reach — and since 0.19 the page under the sheet would say
+    // other builds a state the game cannot reach — and since 0.20 the page under the sheet would say
     // `UNCHARTED` while the sheet on top of it named the world and printed its richness.
     val surveyed = state.galaxy.copy(
         surveyed = state.galaxy.surveyed +
@@ -226,7 +226,7 @@ internal val relayCoordinate: GalaxyCoordinate = checkNotNull(
 )
 
 // **Charted, because a relay is a charted fact.** The first relay in the home galaxy is at system
-// 16, which a genesis colony's hour of grace does not reach — and since 0.19 an orbit page the light
+// 16, which a genesis colony's hour of grace does not reach — and since 0.20 an orbit page the light
 // has not reached draws no bodies at all, relay included. So the frame states the landing that makes
 // the point of interest visible rather than asserting one the game would not draw.
 internal val relaySystemUiState: GalaxyUiState = frame(

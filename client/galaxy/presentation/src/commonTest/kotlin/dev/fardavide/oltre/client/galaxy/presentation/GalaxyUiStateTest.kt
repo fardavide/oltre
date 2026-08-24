@@ -372,7 +372,7 @@ class GalaxyUiStateTest {
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────
 
-    // **Charted, because that is what every test in this file is about.** Since 0.19 the orbit page
+    // **Charted, because that is what every test in this file is about.** Since 0.20 the orbit page
     // obeys the third tier, so a page for a system the light has never reached says almost nothing —
     // no name, no class, no region, no worlds, no orbits. That state has a test of its own; this
     // helper's subject is what a system page says about somewhere you can actually read.

@@ -522,7 +522,7 @@ class GalaxyFromStateBehaviourTest {
                         .filter { worldAt(colony.galaxy.seed, it) != null },
                     // **Charted too, because a survey implies a landing.** Writing `surveyed` by hand
                     // and leaving `charted` alone builds a state the game cannot reach — surveyed and
-                    // in the dark at once — and since 0.19 the orbit page would draw none of it.
+                    // in the dark at once — and since 0.20 the orbit page would draw none of it.
                 ).withCharted(far),
             )
         }

@@ -181,7 +181,7 @@ Rejected: everything known (deletes exploration, which Notion locks); nothing kn
 decide between); fog that lifts by proximity (a timer that rewards waiting, and waiting is what
 this game already asks too much of).
 
-### A third tier arrived underneath at 0.19.0, and this section is what let it in
+### A third tier arrived underneath at 0.20.0, and this section is what let it in
 
 **Charted stopped being free.** Davide, 2026-08-16: *"perhaps even progressive disclosure? Eg you
 see only nearby systems, and you see more the more you survey"* — ruled the same day as the strong

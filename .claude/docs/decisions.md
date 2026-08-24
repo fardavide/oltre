@@ -4429,7 +4429,7 @@ ships instead keeps one notification up to date, so the question does not arise;
 category` is ever reported as too quiet, the window is one `Duration` and one `chainedWithin` call.
 
 
-## Fog is an interval keyed on landings, not a rule over the surveyed set (0.19.0)
+## Fog is an interval keyed on landings, not a rule over the surveyed set (0.20.0)
 
 The design is `fog-sheet.md`; this is what *implementation* decided on top of it, and the first entry
 is the one that mattered.

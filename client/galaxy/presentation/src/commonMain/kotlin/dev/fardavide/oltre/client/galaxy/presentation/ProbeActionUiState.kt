@@ -44,7 +44,7 @@ internal fun GameState.toProbeActionUiState(
     // asks whether every occupied slot is known and there are none — so every branch below would
     // otherwise claim it had been charted.
     //
-    // **Guarded by the light since 0.19, and for the same reason `startSurvey` is.** An uncharted
+    // **Guarded by the light since 0.20, and for the same reason `startSurvey` is.** An uncharted
     // system is handed no worlds because it is not allowed to know its own, and answering *nothing
     // to survey* to that would say out loud what the tier withholds — and refuse the one flight that
     // would fix it.

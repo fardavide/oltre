@@ -228,7 +228,7 @@ class ProbeActionUiStateTest {
     @Test
     fun `a charted system whose fifteen slots are empty refuses the sale and says why`() {
         // given the one system in 390 with nothing around its star, **and the light reaching it** —
-        // since 0.19 that second clause is what makes the refusal honest. On an uncharted star the
+        // since 0.20 that second clause is what makes the refusal honest. On an uncharted star the
         // same words would say out loud the one thing the third tier withholds, and refuse the only
         // flight that would fix it, so the guard is the same one `startSurvey` keeps.
         val state = wealthy()
@@ -280,7 +280,7 @@ class ProbeActionUiStateTest {
             to = EPOCH + 2.days,
         )
 
-        // **"Known" carries the light as well as the survey since 0.19**, which is what the middle
+        // **"Known" carries the light as well as the survey since 0.20**, which is what the middle
         // case has to state: an *uncharted* worldless system is not known, it is unvisited, and the
         // footer offers it a flight precisely so the player can find out.
         val worldless = firstWorldlessSystem(state.galaxy.seed)

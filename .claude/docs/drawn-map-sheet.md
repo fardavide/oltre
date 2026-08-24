@@ -358,7 +358,7 @@ Two things follow, and the second is why this is recorded here rather than only 
    as a threat to this section on the assumption that the win was seeing where things are. It is not.
    More of the map becoming *something you unlocked* runs with the grain of what actually landed.
 
-**That slice is 0.19.0 and this paragraph is what decided its shape** — see `fog-sheet.md`. It was
+**That slice is 0.20.0 and this paragraph is what decided its shape** — see `fog-sheet.md`. It was
 handed to Claude Design as the build's own reading rather than left to be re-derived, and the design
 took it as the resolution of the whole tension: fog looks like a threat to the quote above only if
 the win was legibility. What the design protects instead is the *comparison* — the region you opened

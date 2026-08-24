@@ -88,7 +88,7 @@ class AppBehaviourTest {
             // arrived. It went to `NEAREST FIRST` when the ledger became the landing screen, and
             // that string does not exist any more — the sort left with the filters.
             //
-            // And the scale itself moved at 0.19: a bare length was the honest line while the map
+            // And the scale itself moved at 0.20: a bare length was the honest line while the map
             // was free, and the day it had to be earned the interesting number became how much of it
             // you have. The word that proves the tab arrived is still on the head's count line.
             assertReads("OF 250 CHARTED")

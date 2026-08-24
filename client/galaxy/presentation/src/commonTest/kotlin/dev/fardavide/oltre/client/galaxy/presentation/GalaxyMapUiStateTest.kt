@@ -94,7 +94,7 @@ class GalaxyMapUiStateTest {
 
     @Test
     fun `every system is a star in index order carrying the class the seed gave it`() {
-        // given a galaxy the light has crossed, because a class is a charted fact since 0.19
+        // given a galaxy the light has crossed, because a class is a charted fact since 0.20
         val state = fresh().wholeGalaxyCharted()
 
         // when
@@ -631,7 +631,7 @@ class GalaxyMapUiStateTest {
         // then — 250 systems of galaxy hop plus the flat half hour, at a minute a unit, from a home
         // system that is the same index in both: 30 + 250 = 280 minutes.
         assertEquals("Galaxy 2", English.resolve(caption.system))
-        // **`nothing charted` used to mean "nothing surveyed"**, and since 0.19 that word means
+        // **`nothing charted` used to mean "nothing surveyed"**, and since 0.20 that word means
         // something else eight dp up the same screen. So the line takes the head's own idiom rather
         // than keeping a collision: how much of the galaxy the light reaches, then how much of it
         // has been surveyed. A galaxy no hull has entered reads zero on both.
@@ -690,7 +690,7 @@ class GalaxyMapUiStateTest {
             listOf("0 of 250 charted", "0 of 250 charted", "61 of 250 charted", "0 of 250 charted"),
             discs.map { English.resolve(it.known) },
         )
-        // **Three of the four discs stopped differing by name at 0.19, and it is the design's own
+        // **Three of the four discs stopped differing by name at 0.20, and it is the design's own
         // call rather than a regression.** A galaxy no hull has entered labels its bands with their
         // index ranges, and those are the same ten numbers in every galaxy. Claude Design flagged it
         // in as many words: *"the universe view no longer differentiates its four cards by anything

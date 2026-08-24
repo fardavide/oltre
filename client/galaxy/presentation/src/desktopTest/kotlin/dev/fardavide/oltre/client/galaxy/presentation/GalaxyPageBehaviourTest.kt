@@ -460,7 +460,7 @@ class GalaxyPageBehaviourTest {
         // both ends of a band are also where the scrub's own clamp could hide a mistake.
         // **Band 7 rather than band 3, and the move is fog's doing.** What this constant has to be is
         // a system on a right-to-left band — that is the whole of what the test is for — and since
-        // 0.19 it also has to be one the light reaches, because an uncharted star has no generated
+        // 0.20 it also has to be one the light reaches, because an uncharted star has no generated
         // name for the bar to print. Home is 171, so a genesis colony charts 141…201 and band 7 is
         // the odd band inside it. Band 3 is 76…100 and is dark on day one.
         val onAnOddBand: Int = MapGeometry.firstSystemOf(band = 7) + 7

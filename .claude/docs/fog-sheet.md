@@ -2,7 +2,7 @@
 
 **The settled design for the third knowledge tier**, from the Claude Design round trip of
 2026-08-24 (`An Hour Ahead.dc.html`, project `aea4cd09-c111-4e9a-8b7d-c25cea371fd4`), built and
-shipped at 0.19.0. Read it before touching `ChartedSpan`, `SurveyBalance.GRACE_SYSTEMS`, or anything
+shipped at 0.20.0. Read it before touching `ChartedSpan`, `SurveyBalance.GRACE_SYSTEMS`, or anything
 in `GalaxyMap.kt` that decides how a star is drawn.
 
 Issue #84. It answers a question Davide asked on 2026-08-16 and ruled the same day.
