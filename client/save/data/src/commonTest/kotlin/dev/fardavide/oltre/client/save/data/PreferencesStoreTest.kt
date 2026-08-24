@@ -19,13 +19,32 @@ class PreferencesStoreTest {
     fun `what is saved is what loads back`() = runTest {
         // given
         val store = PreferencesStore(FakeSaveFile())
-        val preferences = Preferences(galaxyLanding = MAP)
+        val preferences = Preferences(galaxyLanding = MAP, lastSeenVersion = "0.19.0")
 
         // when
         store.save(preferences)
 
         // then
         assertEquals(preferences, store.load())
+    }
+
+    @Test
+    fun `a file written before the changelog existed keeps the landing it had`() = runTest {
+        // The upgrade every player takes exactly once. A field added to this record must never cost
+        // the fields already in the file — which is why the store decodes a record with defaults
+        // rather than this one directly.
+        val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS"}"""))
+
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
+    }
+
+    @Test
+    fun `a file that remembers only a version is a colony that never chose a landing`() = runTest {
+        // The other direction of the same tolerance: the fields are independent and either may be
+        // absent.
+        val store = PreferencesStore(FakeSaveFile("""{"lastSeenVersion":"0.19.0"}"""))
+
+        assertEquals(Preferences(galaxyLanding = null, lastSeenVersion = "0.19.0"), store.load())
     }
 
     @Test
@@ -38,7 +57,7 @@ class PreferencesStoreTest {
     }
 
     @Test
-    fun `a file whose JSON is missing the landing field answers the empty preferences`() = runTest {
+    fun `a file whose JSON carries no field at all answers the empty preferences`() = runTest {
         // given
         val store = PreferencesStore(FakeSaveFile("""{}"""))
 
@@ -52,7 +71,7 @@ class PreferencesStoreTest {
         val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS","lastTabOpened":"COLONY"}"""))
 
         // when / then
-        assertEquals(Preferences(galaxyLanding = WORLDS), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
     }
 
     @Test
@@ -62,11 +81,11 @@ class PreferencesStoreTest {
         val store = PreferencesStore(file)
 
         // when
-        store.save(Preferences(galaxyLanding = MAP))
-        store.save(Preferences(galaxyLanding = WORLDS))
+        store.save(Preferences(galaxyLanding = MAP, lastSeenVersion = null))
+        store.save(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null))
 
         // then
-        assertEquals(Preferences(galaxyLanding = WORLDS), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
         assertEquals(2, file.writeCount)
     }
 

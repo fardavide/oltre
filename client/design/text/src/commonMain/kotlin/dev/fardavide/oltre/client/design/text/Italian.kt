@@ -702,6 +702,21 @@ object Italian : Translations {
         StringId.AlertNextAtTotal ->
             "Prossimo avviso alle ${args.clock()}, e viene aggiornato invece di ripetersi."
         StringId.AlertNothingPending -> "Non c'è niente in corso, quindi non c'è niente da inviare."
+
+        // ── The changelog sheet ──────────────────────────────────────────────────────────────
+        //
+        // *Novità* rather than a calque of "changelog": the word an Italian store listing uses for
+        // exactly this panel, and the sheet is read by a player rather than by whoever cut the tag.
+        StringId.ChangelogTitle -> "Novità"
+        StringId.ChangelogDepth -> if (args.count(0) == 1) "1 versione" else "${args.count(0)} versioni"
+        // "23 ago 2026" — the same day-first order English takes, and lowercase, because Italian does
+        // not capitalise a month.
+        StringId.ReleaseDate -> "${args.number(0)} ${MONTHS[args.number(1).toInt() - 1]} ${args.number(2)}"
+        // Left in English: it is the word on the row of every build tool a player has ever seen, and
+        // *"COSTRUZIONE"* would be a different sense of the word entirely — the thing a colony does
+        // to a mine. `versione` is what the row says underneath it.
+        StringId.BuildLabel -> "BUILD"
+        StringId.BuildRowSpoken -> "Versione ${args.text(0)} — ${args.text(1)}. Cosa è cambiato."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────
@@ -814,6 +829,14 @@ object Italian : Translations {
     // The conjunction as a value, so the `resolve` override recognises the one joined shape it is
     // about by comparing against the entry itself rather than against the words it resolves to.
     private val LIST_CONJUNCTION: TextRes = message(StringId.ListLastSeparator)
+
+    // Three letters like English's, and lowercase: Italian does not capitalise a month. `mag` and
+    // `giu` are the conventional abbreviations rather than the first three letters — *mag* for
+    // maggio, *giu* for giugno — which is why this is a table and not a `take(3)`.
+    private val MONTHS = listOf(
+        "gen", "feb", "mar", "apr", "mag", "giu",
+        "lug", "ago", "set", "ott", "nov", "dic",
+    )
 
     private const val DECIMAL_SEPARATOR: Char = ','
     private const val GROUPING_SEPARATOR: String = "."
