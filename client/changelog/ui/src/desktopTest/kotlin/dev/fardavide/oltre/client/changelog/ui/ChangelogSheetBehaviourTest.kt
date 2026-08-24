@@ -59,6 +59,20 @@ class ChangelogSheetBehaviourTest {
     }
 
     @Test
+    fun `a run of one release still draws a rail`() {
+        // **The day the catalogue is one entry long is not hypothetical** — it is what a fork of this
+        // project sees on its first release, and it is the input that divides by zero if the rail
+        // measures a stop as `index / (count - 1)`. Nothing peeks on either side, which is the same
+        // absence that says *newest* on a full run, said twice.
+        changelogSheet(pages = testPages().take(1)) {
+            assertShowing("0.18.0")
+            assertDepthShowing()
+            tapRailAtEnd()
+            assertShowing("0.18.0")
+        }
+    }
+
+    @Test
     fun `the build row calls back`() {
         // **The dead-control rule, met where it is cheapest to meet.** The row is the only door to the
         // changelog from settings, and a row that draws correctly and calls nothing is exactly the

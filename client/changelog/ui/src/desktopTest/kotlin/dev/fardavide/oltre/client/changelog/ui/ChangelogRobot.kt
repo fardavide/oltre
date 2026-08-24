@@ -18,13 +18,14 @@ import dev.fardavide.oltre.client.design.core.OltreTheme
 @OptIn(ExperimentalTestApi::class)
 internal fun changelogSheet(
     compact: Boolean = false,
+    pages: List<ChangelogPageUiState> = testPages(),
     block: ChangelogRobot.() -> Unit,
 ) {
     runDesktopComposeUiTest(width = if (compact) 320 else 393, height = 741) {
         setContent {
             OltreTheme {
                 Surface {
-                    ChangelogSheetContent(uiState = testChangelogUiState(), compact = compact)
+                    ChangelogSheetContent(uiState = testChangelogUiState(pages), compact = compact)
                 }
             }
         }
