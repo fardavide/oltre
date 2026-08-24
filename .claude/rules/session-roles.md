@@ -205,7 +205,7 @@ it. The split, then:
 
 | | |
 |---|---|
-| buildable in a cloud session | `:core`, `:sim`, `:client:save:data`, `:client:notifications:data`, `:client:design:format`, `:client:debug:domain`, `:client:debug:data` |
+| buildable in a cloud session | `:core`, `:protocol`, `:sim`, `:client:save:data`, `:client:notifications:data`, `:client:design:format`, `:client:debug:domain`, `:client:debug:data` |
 | not buildable | every Compose module — `:client:shell`, `:client:*:presentation`, `:client:design:{core,icon,component}` |
 
 **The overlay drops the iOS targets too, and that is a second blind spot rather than a footnote.**
@@ -225,8 +225,18 @@ as checking for it: the check costs one grep before pushing anything that adds a
 `commonTest` source set —
 
 ```
-grep -rn 'fun `[^`]*,[^`]*`(' core/src/commonTest/
+grep -rn 'fun `[^`]*,[^`]*`(' core/src/commonTest/ protocol/src/commonTest/
 ```
+
+**`:protocol` is in that grep from #107, and it needed one thing `core` did not.** `core` reaches
+Kotlin/Native on CI because `:client:shell:linkDebugFrameworkIosSimulatorArm64` compiles the shell's
+whole dependency closure — that is the *only* reason the trap above is caught at all, and it is
+easy to read as "CI compiles for iOS", which it does not. Nothing depends on `:protocol` until
+`:client:net:data` lands in #112, so it is in no closure, and its Apple half would have been built
+by no job on the workflow. `./gradlew :protocol:compileTestKotlinIosSimulatorArm64` was added to the
+`iOS framework` job for exactly that — the **test** source set, because the trap is a compiler rule
+that applies only to tests — and it comes off again the day the shell's closure reaches the module. **The general rule is the useful part: a new module with Apple targets that nothing yet
+depends on is unchecked until something says so out loud.**
 
 and it is cheaper than the round trip it saves.
 

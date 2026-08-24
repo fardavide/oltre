@@ -138,9 +138,10 @@ Kotlin Multiplatform monorepo. Compose Multiplatform UI, no game engine.
 | Module | What |
 |---|---|
 | `core` | KMP (jvm, iosArm64, iosSimulatorArm64, android). Pure model + rules; `kotlinx-serialization` is its only dependency, carrying the save format. |
+| `protocol` | KMP, `core`'s target set. What the client and the server say to each other: the verbs as data, the sync envelope, the rejection taxonomy and the API version. Depends on `core` and nothing else, and holds no I/O — it does not know what a network is. |
 | `sim` | JVM. Headless balancing harness, fast-forwards weeks in milliseconds. Never ships. |
 | `client/*` | KMP + Compose Multiplatform: desktop, iOS, Android. Directory of modules — `:client:shell` (composition root, navigation and the resource rail), `:client:design:*` (tokens, icons, components, formatting), one directory per feature holding its layers: `colony`, `research`, `shipyard`, `galaxy` and `fleets` are each a `:ui` (the composables and the models they render) plus a `:presentation` (the mapping from `core` state into those models). Then `:client:save:data` (the JSON snapshot on disk), `:client:notifications:data` (the local alerts that are the check-in loop), `:client:debug:*` (the shake-to-open debug menu), `:client:tilt:*` (which way the device is being held, for the sky behind every screen). |
-| `server` | JVM + Ktor. Compiling stub until multiplayer starts. |
+| `server` | JVM + Ktor. Compiling stub until the engine moves off the phone. |
 | `iosApp` | Xcode wrapper around the client framework (pending). |
 
 Eight module rules are enforced by the build, and break an IDE sync rather than a review. A module

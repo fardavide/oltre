@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-24 (0.20.0)
+Updated: 2026-08-24 (0.20.1, plus `:protocol` — issue #107, no bump)
 
 ## Landed
 
@@ -477,6 +477,20 @@ Updated: 2026-08-24 (0.20.0)
   all. Schema 17 → 18 folds the save's own contents, so a colony carried forward keeps the map it
   earned. Nine baselines (eight moved, `galaxy_map_uncharted` new). See
   [`fog-sheet.md`](fog-sheet.md).
+- **`:protocol`, the wire before the server** — slice 0 of the online migration (issue #107 under
+  epic #106), and the first module in the build that is neither `core` nor a consumer of it in the
+  usual sense: a sibling of `core`, taking `core` and nothing else, carrying `core`'s target set
+  because the JVM end is the server's and the other three are the client's. It holds the verbs as
+  data, `VerbEnvelope`, `SyncRequest`/`SyncResponse`, `VerbRejection`, `RejectionReason`,
+  `VerbRefusal`, `ApiError` and `ApiVersion` — **no I/O, no Ktor, and no knowledge that a network
+  exists.** Nothing depends on it yet and nothing a player sees moves, so there is no version bump.
+  **The verb count came out at twelve rather than the nine #106 names**: the epic was written at
+  0.17.1 and 0.18's settings sheet added three more mutating functions to `core`, so the ticket's
+  *"that is the complete list"* had gone stale in five days. `ClientVerbTest`'s hand-written
+  registry and `offlineRule`'s `else`-less `when` are what replace trusting a count in a ticket.
+  CI's `iOS framework` job gained `:protocol:iosSimulatorArm64Test`, because the module is in no
+  dependency closure and its Apple half would otherwise have been compiled by nothing. See
+  [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices

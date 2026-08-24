@@ -173,8 +173,8 @@ the graph contains plugin-injected edges as well as declared ones.
 
 ## What is not a layer
 
-`:core`, `:sim`, `:server`, `:client:design` and `:client:shell` end in none of the four layer
-names, and are deliberately unconstrained by rules 2–4.
+`:core`, `:protocol`, `:sim`, `:server`, `:client:design` and `:client:shell` end in none of the
+four layer names, and are deliberately unconstrained by rules 2–4.
 
 `:client:shell` is the one worth stating out loud, because it looks like an exception and is not.
 It holds real Compose UI — `MainScaffold`, the tab bar, the tab icons, the resource rail — *and*
