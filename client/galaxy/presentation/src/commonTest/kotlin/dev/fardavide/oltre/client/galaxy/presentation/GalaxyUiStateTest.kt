@@ -14,12 +14,14 @@ import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.WorldOwnership
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.verdictFor
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -132,6 +134,39 @@ class GalaxyUiStateTest {
                 "${row.coordinate} draws ${row.portrait} beside '${row.epithet}'",
             )
         }
+    }
+
+    @Test
+    fun `the orbit page of an uncharted star hands over nothing the fog is withholding`() {
+        // **The tier's back door, and the reason it is worth a test of its own.** The caption's whole
+        // 44dp bar is a tap target, so this page is one tap from any grain star — and every fact it
+        // used to print is charted-tier. Asserted here rather than only on the recorded frame,
+        // because a baseline photographs a leak as happily as it photographs a fix.
+        val state = fresh()
+        val homeGalaxy = state.galaxy.home.galaxy
+        val uncharted = SystemSelection(galaxy = homeGalaxy, system = 240)
+        assertFalse(state.galaxy.hasCharted(SystemAddress(galaxy = homeGalaxy, system = 240)))
+
+        val body = assertIs<GalaxyBodyUiState.System>(
+            state.toGalaxyUiState(
+                nav = nav(GalaxyView.SYSTEM, uncharted),
+                now = EPOCH,
+                timeZone = TimeZone.UTC,
+            ).body,
+        )
+
+        // The address is the name, exactly as the caption two dp above says it.
+        assertEquals("[3:240]", English.resolve(body.header.system))
+        assertEquals("69 systems out", English.resolve(body.header.coordinate))
+        assertEquals("uncharted", English.resolve(body.header.region))
+        assertEquals("charts 49 systems", English.resolve(body.header.detail))
+        // No orbits and no rows: a drawn body is a world count you can read off the picture.
+        assertEquals(emptyList(), body.map.bodies)
+        assertEquals(emptyList(), body.rows)
+        // And the generator's own name for it reaches nothing on the page.
+        val everything = listOf(body.header.system, body.header.region, body.header.detail, body.header.astronomy)
+            .joinToString(" ") { English.resolve(it) }
+        assertFalse(everything.contains(systemNameAt(state.galaxy.seed, homeGalaxy, 240)), everything)
     }
 
     @Test
