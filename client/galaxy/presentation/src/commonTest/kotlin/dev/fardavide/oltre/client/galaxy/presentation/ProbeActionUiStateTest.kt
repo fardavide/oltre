@@ -226,17 +226,33 @@ class ProbeActionUiStateTest {
     }
 
     @Test
-    fun `a system whose fifteen slots are empty refuses the sale and says why`() {
-        // given the one system in 390 with nothing around its star
+    fun `a charted system whose fifteen slots are empty refuses the sale and says why`() {
+        // given the one system in 390 with nothing around its star, **and the light reaching it** —
+        // since 0.19 that second clause is what makes the refusal honest. On an uncharted star the
+        // same words would say out loud the one thing the third tier withholds, and refuse the only
+        // flight that would fix it, so the guard is the same one `startSurvey` keeps.
         val state = wealthy()
         val empty = firstWorldlessSystem(state.galaxy.seed)
+        val charted = state.copy(galaxy = state.galaxy.withCharted(empty))
 
         // when
-        val action = state.probeActionAt(empty)
+        val action = charted.probeActionAt(empty)
 
         // then — never "already surveyed", because nothing was
         val note = assertIs<ProbeActionUiState.NothingToSurvey>(action)
         assertEquals("${GalaxyBalance.SLOTS_PER_SYSTEM} empty slots · nothing to survey", English.resolve(note.note))
+    }
+
+    @Test
+    fun `an uncharted system whose slots are empty offers the flight rather than refusing it`() {
+        // The other half, and the reason the guard above exists: until a hull has been there, you
+        // cannot know it is empty, and the footer must not be the thing that tells you.
+        val state = wealthy()
+        val empty = firstWorldlessSystem(state.galaxy.seed)
+
+        val action = state.probeActionAt(empty)
+
+        assertIs<ProbeActionUiState.Dispatch>(action)
     }
 
     @Test
@@ -264,9 +280,15 @@ class ProbeActionUiStateTest {
             to = EPOCH + 2.days,
         )
 
+        // **"Known" carries the light as well as the survey since 0.19**, which is what the middle
+        // case has to state: an *uncharted* worldless system is not known, it is unvisited, and the
+        // footer offers it a flight precisely so the player can find out.
+        val worldless = firstWorldlessSystem(state.galaxy.seed)
+        val knownWorldless = state.copy(galaxy = state.galaxy.withCharted(worldless))
+
         for (action in listOf(
             state.probeActionAt(SystemAddress.of(state.galaxy.home)),
-            state.probeActionAt(firstWorldlessSystem(state.galaxy.seed)),
+            knownWorldless.probeActionAt(worldless),
             landed.probeActionAt(awayFromHome(state, 12), now = EPOCH + 2.days),
         )) {
             assertTrue(

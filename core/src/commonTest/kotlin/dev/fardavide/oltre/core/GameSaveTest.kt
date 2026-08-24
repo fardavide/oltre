@@ -1510,6 +1510,23 @@ class GameSaveTest {
     }
 
     @Test
+    fun `a colony that reached two galaxies wakes up charted in both`() {
+        // The hop folds `surveyed` **per galaxy**, so a colony that had been to another one keeps
+        // two spans rather than one merged across a coordinate space that does not join up.
+        val fresh = GameState.initial()
+        val abroad = GalaxyCoordinate(galaxy = 1, system = 60, slot = 5)
+        val played = fresh.copy(galaxy = fresh.galaxy.copy(surveyed = fresh.galaxy.surveyed + abroad))
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema17(played))).snapshot
+
+        assertEquals(listOf(1, fresh.galaxy.home.galaxy), decoded.state.galaxy.charted.map { it.galaxy })
+        assertEquals(30, decoded.state.galaxy.spanIn(1)?.lo)
+        assertEquals(90, decoded.state.galaxy.spanIn(1)?.hi)
+        // And the home galaxy is untouched by the trip.
+        assertEquals(fresh.galaxy.spanIn(fresh.galaxy.home.galaxy), decoded.state.galaxy.spanIn(fresh.galaxy.home.galaxy))
+    }
+
+    @Test
     fun `a colony that never left home wakes up charted around home alone`() {
         val legacy = schema17(GameState.initial())
 

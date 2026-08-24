@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyMapUiState
@@ -26,6 +27,7 @@ import dev.fardavide.oltre.core.layoutAt
 import dev.fardavide.oltre.core.regionNameAt
 import dev.fardavide.oltre.core.regionOf
 import dev.fardavide.oltre.core.systemsOf
+import kotlin.math.abs
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.temperamentsOf
@@ -253,7 +255,19 @@ private fun GameState.unchartedCaption(
         // **The address is the name, because it is the only one there is.** A system's name is
         // generated and generated is not free any more.
         system = Strings.systemAddress(at.galaxy, at.system),
-        coordinate = Strings.systemsOut(SurveyBalance.distanceUnits(from = SystemAddress.of(galaxy.home), to = target)),
+        // **Systems inside a galaxy and units across one**, because they are not the same figure and
+        // saying so would be a lie in a hundred-odd words. `distanceUnits` prices a galaxy hop at
+        // 250 — a flight cost, not a count — so a star one galaxy over would otherwise read `571
+        // systems out` about a galaxy that holds 250. The astronomy line under the system header has
+        // said `units out` for exactly this reason since 0.3, and this is that same word.
+        coordinate = when (at.galaxy) {
+            galaxy.home.galaxy -> Strings.systemsOut(abs(at.system - galaxy.home.system))
+            else -> Strings.unitsOut(
+                SurveyBalance.distanceUnits(from = SystemAddress.of(galaxy.home), to = target)
+                    .toLong()
+                    .groupedByThousands(),
+            )
+        },
         meta = meta,
         compactMeta = meta,
         trailing = when {

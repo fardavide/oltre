@@ -43,7 +43,12 @@ internal fun GameState.toProbeActionUiState(
     // Asked first, and it has to be: a system with no worlds is *vacuously* surveyed — `hasSurveyed`
     // asks whether every occupied slot is known and there are none — so every branch below would
     // otherwise claim it had been charted.
-    if (worlds.isEmpty()) {
+    //
+    // **Guarded by the light since 0.19, and for the same reason `startSurvey` is.** An uncharted
+    // system is handed no worlds because it is not allowed to know its own, and answering *nothing
+    // to survey* to that would say out loud what the tier withholds — and refuse the one flight that
+    // would fix it.
+    if (galaxy.hasCharted(target) && worlds.isEmpty()) {
         return ProbeActionUiState.NothingToSurvey(
             note = Strings.nothingToSurvey(GalaxyBalance.SLOTS_PER_SYSTEM),
         )
@@ -62,7 +67,12 @@ internal fun GameState.toProbeActionUiState(
         )
     }
 
-    if (galaxy.hasSurveyed(target)) {
+    // **The same two clauses `startSurvey` refuses on, and they have to be the same two.** This
+    // footer's whole job is to offer exactly what the verb would accept, so a condition that drifted
+    // from it by one clause is a dead control or a hidden one. `hasSurveyed` alone is vacuously true
+    // for a worldless system, which would answer *surveyed at genesis* about a star nobody has been
+    // within thirty systems of.
+    if (galaxy.hasCharted(target) && galaxy.hasSurveyed(target)) {
         val landing = eventLog.filterIsInstance<Event.SurveyCompleted>().lastOrNull { it.target == target }
             ?: return ProbeActionUiState.Charted(Strings.surveyedAtGenesis())
         val landedAt = landing.at.toLocalDateTime(timeZone)

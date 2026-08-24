@@ -12,6 +12,7 @@ import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -101,6 +102,23 @@ class GalaxyFromStateBehaviourTest {
             assertTheCaptionReads("charts")
             // And the control is there rather than withheld.
             assertTheCaptionReads("probe")
+        }
+    }
+
+    @Test
+    fun `opening an uncharted star does not hand over what the fog is withholding`() {
+        // **The bypass, and it is the whole tier.** The caption's entire bar is a tap target and the
+        // tap opens the orbit page — so a player could scrub to any grain star, tap once, and read
+        // the name, the region, the class and the world count that the bar two dp above had just
+        // refused to say. Every one of those is charted-tier.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val name = systemNameAt(testGameState.galaxy.seed, home.galaxy, far)
+
+        galaxyScreen(state = testGameState.copy(resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+            openTheSelectedSystem()
+
+            assertNothingReads(name)
         }
     }
 
@@ -402,7 +420,10 @@ class GalaxyFromStateBehaviourTest {
                     surveyed = colony.galaxy.surveyed + (1..GalaxyBalance.SLOTS_PER_SYSTEM)
                         .map { GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = it) }
                         .filter { worldAt(colony.galaxy.seed, it) != null },
-                ),
+                    // **Charted too, because a survey implies a landing.** Writing `surveyed` by hand
+                    // and leaving `charted` alone builds a state the game cannot reach — surveyed and
+                    // in the dark at once — and since 0.19 the orbit page would draw none of it.
+                ).withCharted(far),
             )
         }
 

@@ -286,6 +286,33 @@ class GalaxyMapDrawingTest {
     }
 
     @Test
+    fun `the charted stretch is clipped the right way round on a band that runs backwards`() {
+        // **`fold.x` reverses on odd bands**, so the ends of the index range are not the ends of the
+        // drawn stretch — a clip built as `x(lo)..x(hi)` is an inverted rect on five of the ten. Band
+        // 0 above cannot catch that because it runs left to right like a grid.
+        val fold = Fold.full(width = WIDTH)
+        val first = MapGeometry.firstSystemOf(1)
+        val whole = bands(RegionTemperament.DEEP)
+        val half = whole.mapIndexed { index, band ->
+            if (index == 1) band.copy(charted = first..(first + 4)) else band
+        }
+        // The fixture's premise, stated rather than assumed: on this band the low index is drawn to
+        // the *right* of the high one.
+        assertTrue(fold.x(first) > fold.x(first + 4), "band 1 does not run backwards")
+
+        val before = render(mapOf(stars = emptyList(), bands = whole), fold)
+        val after = render(mapOf(stars = emptyList(), bands = half), fold)
+
+        val lane = MapGeometry.laneMidOf(band = 1).roundToInt()
+        assertTrue(after[fold.x(first + 2).roundToInt(), lane].alpha > FIELD, "the lit end lost its field")
+        assertTrue(
+            after[fold.x(first + MapGeometry.PER_BAND - 1).roundToInt(), lane].alpha <
+                before[fold.x(first + MapGeometry.PER_BAND - 1).roundToInt(), lane].alpha,
+            "the dark end of a reversed band kept the weather it had not earned",
+        )
+    }
+
+    @Test
     fun `a band the light has never reached has no field at all`() {
         val fold = Fold.full(width = WIDTH)
         val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }

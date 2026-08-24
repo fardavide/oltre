@@ -8,6 +8,7 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.TechLevel
@@ -192,12 +193,15 @@ internal val dispatchFarUiState: GalaxyUiState = frameState.let { state ->
     val target = (1..GalaxyBalance.SLOTS_PER_SYSTEM)
         .map { slot -> GalaxyCoordinate(far.galaxy, far.system, slot) }
         .first { worldAt(state.galaxy.seed, it) != null }
+    // **Charted as well as surveyed, because a survey implies a landing.** Writing one without the
+    // other builds a state the game cannot reach — and since 0.19 the page under the sheet would say
+    // `UNCHARTED` while the sheet on top of it named the world and printed its richness.
     val surveyed = state.galaxy.copy(
         surveyed = state.galaxy.surveyed +
             (1..GalaxyBalance.SLOTS_PER_SYSTEM)
                 .map { GalaxyCoordinate(far.galaxy, far.system, it) }
                 .filter { worldAt(state.galaxy.seed, it) != null },
-    )
+    ).withCharted(SystemAddress(galaxy = far.galaxy, system = far.system))
     sheet(
         state = state.copy(galaxy = surveyed, ships = Ships.of(ShipType.SKIFF, 4)),
         target = target,
@@ -221,7 +225,19 @@ internal val relayCoordinate: GalaxyCoordinate = checkNotNull(
     relayAt(frameState.galaxy.seed, relaySystem.galaxy, relaySystem.system),
 )
 
-internal val relaySystemUiState: GalaxyUiState = frame(view = GalaxyView.SYSTEM, at = relaySystem)
+// **Charted, because a relay is a charted fact.** The first relay in the home galaxy is at system
+// 16, which a genesis colony's hour of grace does not reach — and since 0.19 an orbit page the light
+// has not reached draws no bodies at all, relay included. So the frame states the landing that makes
+// the point of interest visible rather than asserting one the game would not draw.
+internal val relaySystemUiState: GalaxyUiState = frame(
+    state = frameState.copy(
+        galaxy = frameState.galaxy.withCharted(
+            SystemAddress(galaxy = relaySystem.galaxy, system = relaySystem.system),
+        ),
+    ),
+    view = GalaxyView.SYSTEM,
+    at = relaySystem,
+)
 
 
 // ── *Twice the Flight*: the two-hull picker, in the three states Design drew ─────────────────
@@ -259,8 +275,12 @@ private val FAR: GalaxyCoordinate = TWO_HULL_STATE.let { state ->
         .first { at -> worldAt(state.galaxy.seed, at) != null }
 }
 
+// Charted with it, for the reason `dispatchFarUiState` above states: a world you may send a run to
+// is a world a hull has already been to, so the light reaches it by construction.
 private val FAR_SURVEYED: GameState = TWO_HULL_STATE.copy(
-    galaxy = TWO_HULL_STATE.galaxy.copy(surveyed = TWO_HULL_STATE.galaxy.surveyed + FAR),
+    galaxy = TWO_HULL_STATE.galaxy
+        .copy(surveyed = TWO_HULL_STATE.galaxy.surveyed + FAR)
+        .withCharted(SystemAddress(galaxy = FAR.galaxy, system = FAR.system)),
 )
 
 internal val dispatchPickerNarrowedUiState: GalaxyUiState = sheet(

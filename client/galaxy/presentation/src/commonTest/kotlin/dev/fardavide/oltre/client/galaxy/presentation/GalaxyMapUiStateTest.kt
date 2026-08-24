@@ -504,6 +504,46 @@ class GalaxyMapUiStateTest {
     }
 
     @Test
+    fun `a probe out in the dark reads its clock rather than offering a second one`() {
+        // Design's own frame for this state: *"the map already draws the amber ring; the caption only
+        // has to read the clock."* The tier does not suspend the one-probe-per-target rule.
+        val target = SystemAddress(galaxy = HOME_GALAXY, system = 240)
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(wealthy(), target, at = EPOCH)).state
+
+        val caption = out.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+
+        assertEquals("[3:240]", English.resolve(caption.system))
+        assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
+        assertEquals("probe lands in 1h 39m", caption.trailing.trailingLabel())
+    }
+
+    @Test
+    fun `a colony that cannot pay is quoted the dark flight and never offered it`() {
+        // The same rule a charted star keeps: the caption has room to say what a trip costs or to
+        // offer it, never room to say why it is not offering.
+        val broke = fresh().copy(ships = Ships.NONE)
+
+        val caption = broke.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+
+        assertEquals("uncharted · charts 49 systems", English.resolve(caption.meta))
+        assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
+    }
+
+    @Test
+    fun `an uncharted star in another galaxy is priced in units rather than in systems`() {
+        // **`distanceUnits` is a flight cost, not a count of systems** — a galaxy hop is 250 of them
+        // — so the same word across a hop would describe a 250-system galaxy as 571 systems out. The
+        // astronomy line under the system header has said `units out` since 0.3 for this reason.
+        val elsewhere = (1..GalaxyBalance.GALAXIES).first { it != HOME_GALAXY }
+
+        val near = fresh().mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+        val far = fresh().mapAt(SystemSelection(galaxy = elsewhere, system = 100)).caption
+
+        assertEquals("69 systems out", English.resolve(near.coordinate))
+        assertTrue(English.resolve(far.coordinate).endsWith(" units out"), English.resolve(far.coordinate))
+    }
+
+    @Test
     fun `an uncharted star never leaks its class its region or its worlds`() {
         // The tier in one assertion: whatever the generator knows about a star nobody has been near,
         // none of it reaches the bar.

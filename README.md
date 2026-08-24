@@ -217,8 +217,12 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   grows. So the shape of what you can read is a record of where you have actually sent ships.
 - **You open on sixty-one systems of two hundred and fifty.** A new colony has the hour of grace
   around its own doorstep and nothing else, in one galaxy of four. The other three are 250 grains and
-  a price until a hull lands in one — and a first landing there opens sixty-one at a stroke, which is
-  the largest single reveal in the game.
+  a price until a hull lands in one — and a first landing there opens sixty-one at a stroke.
+- **The longest flights pay the most map.** Because the light is one stretch with two ends, a probe
+  sent *past* everything you have — to the far end of your own galaxy — fills in the whole gap behind
+  it as well as the hour in front. From your first evening that is worth well over a hundred systems
+  in one flight, against thirty for walking the frontier out a step at a time. Two long probes, one
+  each way, chart the galaxy entire.
 - **The dark answers when you touch it.** A grain star takes the selection, fills the bar and offers
   the same probe every other star does. What it says instead of a name is where it is and **what a
   flight there would buy** — `uncharted · charts 49 systems` — which is the reason a far star is now

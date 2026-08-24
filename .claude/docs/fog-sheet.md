@@ -142,6 +142,39 @@ comment justified itself with *"whether a slot holds a world is charted, free an
 is the thing that made that sentence untrue. It also makes the design's own justification in §3
 *true* — a worldless landing is now reachable, so the case the rule was built for exists.
 
+### 4a-bis. The orbit page was the whole tier's back door, and Design had ruled it out of scope
+
+**The caption's entire 44dp bar is a tap target**, and the tap opens the orbit page for whatever the
+map has selected. So a player could scrub to any grain star, tap once, and read the name, the region,
+the star class, the world count, the drawn orbits and the relay that the bar two dp above had just
+refused to say. Every one of those is charted-tier. A behaviour test found **eight nodes** naming the
+star on that page.
+
+Design's brief said *"what we are not asking for: a redraw of the orbit page"* — which is exactly how
+this got missed on both sides. Davide's call, 2026-08-24: **render an uncharted orbit page.** It is
+the same page with four fewer facts rather than a new screen, and every string it needs already
+existed from the caption:
+
+```
+[3:240]                          69 systems out
+UNCHARTED · CHARTS 49 SYSTEMS
+440 units out · danger 1 from here
+        ( the star, alone — no orbits, no rows )
+150 metal · flight 1h 39m            [Dispatch probe]
+```
+
+**The tier is applied once, at the top, by handing the page an empty world list.** Eight surfaces
+read `worlds`, and one decision where the body is built is cheaper and harder to forget than eight
+guards further down. Two consequences worth stating:
+
+- `toProbeActionUiState`'s two early branches — `worlds.isEmpty()` and `hasSurveyed` — both had to
+  gain the same `hasCharted` clause `startSurvey` gained, because **this footer's whole job is to
+  offer exactly what the verb would accept.** Without it an uncharted worldless star said *nothing to
+  survey · 15 empty slots* on the page while the map two dp up offered the flight: the leak and a
+  dead control in one row.
+- The region row keeps its tap back out to the fold, reading `UNCHARTED`. A control that still works
+  is what let the word be swapped rather than the row removed.
+
 ### 4b. The selection leaked a name, and no assertion caught it
 
 `namesFor` names home, every pin and **the selection**. Home and pins are charted by construction —
@@ -156,7 +189,24 @@ leaking through the loudest channel it has.
 own component had the guard (`if (!a || litOf[l.n] <= 0) return`) and the implementation had dropped
 it. There is a test now.
 
-### 4c. The universe view lost its only differentiator, and that is intended
+### 4c. "A first landing in a dark galaxy is the largest single reveal" is false, and the sheet says so twice
+
+The sheet's §4 claims *"one probe charts 61 systems at a stroke — that is the largest single reveal
+available anywhere"*. It is not, and the sheet's own §4 contradicts it three sentences later with
+*"two long probes, to [3:250] and to [3:1], chart the entire galaxy"*.
+
+The reason is the shape of the rule: the light is **one interval with two ends**, so a probe sent
+*past* everything you hold back-fills the whole gap behind it as well as opening the hour in front.
+From genesis at `[3:171]` with `[141, 201]` charted, a probe to `3:1` — 200 minutes, reachable on the
+first evening — merges to `[1, 201]` and charts **140 systems**, against 61 for a first landing in a
+fresh galaxy and 30 for stepping the frontier out an hour.
+
+**So the optimal probe is the longest one you can afford, and that is the design working rather than
+a hole in it** — §6's whole argument for fog reducing probe-spam is that the fog-motivated probe is
+always the longest flight available. What was wrong was only the sentence naming a maximum. Caught by
+an adversarial review of the diff, against a changelog line that had copied the claim.
+
+### 4d. The universe view lost its only differentiator, and that is intended
 
 The 0.12.0 sheet gave each disc real class texture on the grounds that texture is free. Under fog it
 is a **leak** — three of the four discs would advertise which galaxy has the brightest stars before a

@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 
@@ -90,7 +92,9 @@ class GalaxyChartedTest {
 
         // then the state is not merely equal, it is the same object — the widen is a no-op rather
         // than a rewrite, which is what lets `advance` apply it at every boundary for free.
-        assertEquals(galaxy, again)
+        // `assertSame` and not `assertEquals`, because a data class is equal to its own copy and the
+        // claim here is that no copy was made.
+        assertSame(galaxy, again)
         assertEquals(0, galaxy.wouldChart(home))
     }
 
@@ -150,6 +154,43 @@ class GalaxyChartedTest {
         val anHourOut = SystemAddress(galaxy = 1, system = home.system + SurveyBalance.GRACE_SYSTEMS)
 
         assertEquals(60.minutes, SurveyBalance.duration(from = home, to = anHourOut))
+    }
+
+    @Test
+    fun `a span outside the coordinate space is refused rather than clamped`() {
+        // The guards exist for a **hand-edited save**, which is the only way a span this shape can
+        // reach the constructor — `withCharted` clamps, so nothing the game itself does can produce
+        // one. Refused rather than corrected, for `GalaxyState`'s standing reason: a save the model
+        // cannot hold is one to admit is unreadable rather than to silently reinterpret.
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 0, lo = 1, hi = 2) }
+        assertFailsWith<IllegalArgumentException> {
+            ChartedSpan(galaxy = GalaxyBalance.GALAXIES + 1, lo = 1, hi = 2)
+        }
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = 0, hi = 2) }
+        assertFailsWith<IllegalArgumentException> {
+            ChartedSpan(galaxy = 1, lo = 1, hi = GalaxyBalance.SYSTEMS_PER_GALAXY + 1)
+        }
+    }
+
+    @Test
+    fun `a span that runs backwards is refused`() {
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = 90, hi = 40) }
+        // The degenerate one is legal: a single lit system is what a band on the frontier holds.
+        assertEquals(1, ChartedSpan(galaxy = 1, lo = 40, hi = 40).systems)
+    }
+
+    @Test
+    fun `a galaxy cannot hold two charted spans`() {
+        val galaxy = GameState.initial().galaxy
+
+        assertFailsWith<IllegalArgumentException> {
+            galaxy.copy(
+                charted = listOf(
+                    ChartedSpan(galaxy = 1, lo = 1, hi = 10),
+                    ChartedSpan(galaxy = 1, lo = 20, hi = 30),
+                ),
+            )
+        }
     }
 
     @Test

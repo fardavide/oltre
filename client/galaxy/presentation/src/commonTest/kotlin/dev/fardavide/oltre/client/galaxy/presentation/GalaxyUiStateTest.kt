@@ -13,6 +13,7 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.WorldOwnership
 import dev.fardavide.oltre.core.WorldVerdict
 import dev.fardavide.oltre.core.verdictFor
@@ -325,8 +326,13 @@ class GalaxyUiStateTest {
 
     // ── fixtures ────────────────────────────────────────────────────────────────────────────
 
+    // **Charted, because that is what every test in this file is about.** Since 0.19 the orbit page
+    // obeys the third tier, so a page for a system the light has never reached says almost nothing —
+    // no name, no class, no region, no worlds, no orbits. That state has a test of its own; this
+    // helper's subject is what a system page says about somewhere you can actually read.
     private fun GameState.systemAt(at: SystemSelection): GalaxyBodyUiState.System = assertIs(
-        toGalaxyUiState(nav = nav(GalaxyView.SYSTEM, at), now = EPOCH, timeZone = TimeZone.UTC).body,
+        copy(galaxy = galaxy.withCharted(SystemAddress(galaxy = at.galaxy, system = at.system)))
+            .toGalaxyUiState(nav = nav(GalaxyView.SYSTEM, at), now = EPOCH, timeZone = TimeZone.UTC).body,
     )
 
     private fun GameState.ledgerRows(): List<GalaxyRowUiState.World> = assertIs<GalaxyBodyUiState.Ledger>(
