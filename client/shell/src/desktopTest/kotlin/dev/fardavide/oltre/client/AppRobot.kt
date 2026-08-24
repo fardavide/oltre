@@ -162,6 +162,14 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         assertEquals(count, booked.scheduled.size, "booked: ${booked.scheduled.map { it.id }}")
     }
 
+    // The other half of the platform seam, and the one no test below the composition root can see:
+    // whether *opening* the app wiped what the OS had already put in front of the player. Counted
+    // rather than asserted true, because the number is the thing that could go wrong — a clear that
+    // rode along with every commit would fire on every tap and, on Android, in the background.
+    fun assertTrayCleared(times: Int) = apply {
+        assertEquals(times, booked.clearCount, "clearDelivered calls")
+    }
+
     // The Shipyard's other control, and the one with no words on it at all — so, like the colony's
     // square, it is reached by tag. What it *shows* is a bell and no query can read a Canvas; what
     // this can drive is the cycle, and what that cycle is worth is the alert count above.
@@ -343,8 +351,15 @@ internal class RecordingNotifications : NotificationScheduler {
     var scheduled: List<LocalNotification> = emptyList()
         private set
 
+    var clearCount: Int = 0
+        private set
+
     override suspend fun replaceAll(notifications: List<LocalNotification>) {
         scheduled = notifications
+    }
+
+    override suspend fun clearDelivered() {
+        clearCount++
     }
 }
 

@@ -43,6 +43,24 @@ class CommitTest {
         assertEquals(1, scheduler.scheduled.size)
     }
 
+    // **The seam this has to be measured at**, because `commit` is the one thing that runs without a
+    // player in front of it: the shell's tick loop calls it whenever an event lands, and on Android
+    // that loop outlives the foreground. A clear folded in here would take down the alarm the system
+    // had posted moments before, and the colony would look as though it had never announced anything.
+    // Opening the app is the only thing that clears — see `App`'s launch effect.
+    @Test
+    fun `committing never takes down an alert the player has already been shown`() = runTest {
+        // given a colony with a build running
+        val scheduler = RecordingScheduler()
+        val session = GameSession(midBuild(), EPOCH)
+
+        // when
+        session.commit(GameStore(RecordingSaveFile()), GameNotifications(scheduler, English))
+
+        // then
+        assertEquals(0, scheduler.clearCount)
+    }
+
     @Test
     fun `alerts are booked against the instant the session is accurate as of`() = runTest {
         // given a build that finishes half an hour in, and a session already past it
@@ -128,8 +146,15 @@ private class RecordingScheduler : NotificationScheduler {
     var replaceCount: Int = 0
         private set
 
+    var clearCount: Int = 0
+        private set
+
     override suspend fun replaceAll(notifications: List<LocalNotification>) {
         scheduled = notifications
         replaceCount++
+    }
+
+    override suspend fun clearDelivered() {
+        clearCount++
     }
 }

@@ -10,8 +10,17 @@ internal class FakeNotificationScheduler : NotificationScheduler {
     var replaceCount: Int = 0
         private set
 
+    var clearCount: Int = 0
+        private set
+
     override suspend fun replaceAll(notifications: List<LocalNotification>) {
         scheduled = notifications
         replaceCount++
+    }
+
+    // Counted rather than recorded as a flag: the number is what the rule is about — a clear must
+    // happen when the app opens and must *not* ride along with a sync.
+    override suspend fun clearDelivered() {
+        clearCount++
     }
 }

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.notifications.data
 
 import android.app.AlarmManager
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -57,6 +58,16 @@ private class AndroidNotificationScheduler(private val context: Context) : Notif
             scheduled += notification.id
         }
         store.edit().putStringSet(SCHEDULED_IDS, scheduled).apply()
+    }
+
+    // The tray, not the schedule. `NotificationManager.cancelAll` takes down what this app has
+    // *posted*; the alarms that have not fired yet are `replaceAll`'s business and are untouched —
+    // cancelling those here would drop the schedule the launch is about to re-derive.
+    //
+    // Scoped to this app by the API itself: `cancelAll` reaches only notifications posted by this
+    // process's package, so there is nothing of anyone else's to take down by accident.
+    override suspend fun clearDelivered() {
+        context.getSystemService(NotificationManager::class.java).cancelAll()
     }
 
     // `setAndAllowWhileIdle`, deliberately, and it is the one place Android is meaningfully

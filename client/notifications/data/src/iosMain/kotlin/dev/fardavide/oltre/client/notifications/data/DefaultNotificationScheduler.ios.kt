@@ -61,6 +61,18 @@ private class IosNotificationScheduler : NotificationScheduler {
         }
     }
 
+    // **The one thing iOS will let this game do about a tray it cannot update.** `One in total`
+    // promises a single notification kept current and on iPhone delivers a stack, because replacing a
+    // *delivered* notification needs a request under the same identifier and nothing here runs while
+    // the app is shut — see #120. Clearing on open does not fix that; it bounds it, to one check-in's
+    // worth rather than every alert since the app was last opened.
+    //
+    // Delivered only. `removeAllPendingNotificationRequests` is `replaceAll`'s business and calling it
+    // here would cancel the schedule the launch is about to re-derive.
+    override suspend fun clearDelivered() {
+        UNUserNotificationCenter.currentNotificationCenter().removeAllDeliveredNotifications()
+    }
+
     // Asked once per launch, on the first sync — which is the app's first frame, when the
     // colony is loaded. Deliberately not deferred to a "better moment": the alerts *are* the
     // game on this platform, so a player who declines has understood what they declined.

@@ -22,4 +22,10 @@ private class PrintingNotificationScheduler : NotificationScheduler {
             println("  ${notification.at} — ${notification.title}")
         }
     }
+
+    // Printed rather than skipped, for the reason the schedule is: there is no tray here to clear,
+    // and what is worth seeing on the dev loop is that the launch asked at all.
+    override suspend fun clearDelivered() {
+        println("notifications: tray cleared")
+    }
 }

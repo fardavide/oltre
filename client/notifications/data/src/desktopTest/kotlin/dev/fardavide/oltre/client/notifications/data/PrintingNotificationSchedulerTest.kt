@@ -44,6 +44,17 @@ class PrintingNotificationSchedulerTest {
         assertTrue("${notification.at}" in printed, "the instant is the thing being checked")
     }
 
+    // There is no tray on the dev loop, so what is worth seeing is that the launch asked — the same
+    // argument as "nothing pending" above.
+    @Test
+    fun `clearing the tray says so even though desktop has no tray`() = runTest {
+        val printed = capturingOutput {
+            defaultNotificationScheduler().clearDelivered()
+        }
+
+        assertTrue("tray cleared" in printed, "was '$printed'")
+    }
+
     private suspend fun capturingOutput(block: suspend () -> Unit): String {
         val captured = ByteArrayOutputStream()
         val original = System.out
