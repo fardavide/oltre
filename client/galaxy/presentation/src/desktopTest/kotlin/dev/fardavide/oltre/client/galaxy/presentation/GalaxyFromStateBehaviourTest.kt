@@ -123,6 +123,40 @@ class GalaxyFromStateBehaviourTest {
     }
 
     @Test
+    fun `the orbit page of an uncharted star still sells the flight that would chart it`() {
+        // The other half of the page above: it withholds four facts and it must not withhold the
+        // control. This is the route a player actually walks — scrub, tap the bar, buy the probe —
+        // and it is the one that would have shipped a dead footer, because the footer's own rule
+        // predates the tier.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val aimed = mutableListOf<SystemAddress>()
+
+        galaxyScreen(
+            state = testGameState.copy(resources = Resources.of(metal = 100_000)),
+            onDispatchProbe = { aimed += it },
+        ) {
+            scrubTo(far)
+            openTheSelectedSystem()
+
+            // The page says what it is allowed to and prices the flight. The address is in the
+            // *name* slot rather than the coordinate one, because on this tier it is the only name
+            // there is — the coordinate slot carries the distance instead.
+            assertReads("[${home.galaxy}:$far]")
+            assertReads("systems out")
+            // Shouted by `SystemHead`, which uppercases the region and the detail as a rendering
+            // decision — the catalogue's own strings are lower case.
+            assertReads("UNCHARTED")
+            assertReads("CHARTS")
+            // And nothing the light has not reached: the star's generated name is on no row here.
+            assertNothingReads(systemNameAt(testGameState.galaxy.seed, home.galaxy, far))
+
+            dispatchAProbe()
+        }
+
+        assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = far)), aimed)
+    }
+
+    @Test
     fun `a probe landing widens the light and the head says so`() {
         // The loop closing, from one screen: the count line before the flight, the flight, and the
         // count line after it. This is the reading Davide gets back — *the area I unlocked* — as a

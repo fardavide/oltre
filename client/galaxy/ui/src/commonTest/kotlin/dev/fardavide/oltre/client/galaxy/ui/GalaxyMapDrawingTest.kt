@@ -313,6 +313,68 @@ class GalaxyMapDrawingTest {
     }
 
     @Test
+    fun `a stretch that starts inside its band is clipped at both of its own ends`() {
+        // The genesis shape, and the one the two tests above do not make: the light reaches a band
+        // partway along and stops partway along, so the clip has a real left *and* a real right
+        // rather than one of each being the band's own end.
+        val fold = Fold.full(width = WIDTH)
+        val first = MapGeometry.firstSystemOf(0)
+        val whole = bands(RegionTemperament.DEEP)
+        val middle = whole.mapIndexed { index, band ->
+            if (index == 0) band.copy(charted = (first + 10)..(first + 14)) else band
+        }
+
+        val before = render(mapOf(stars = emptyList(), bands = whole), fold)
+        val after = render(mapOf(stars = emptyList(), bands = middle), fold)
+
+        val lane = MapGeometry.laneMidOf(band = 0).roundToInt()
+        assertTrue(after[fold.x(first + 12).roundToInt(), lane].alpha > FIELD, "the lit middle has no field")
+        for (end in listOf(first, first + MapGeometry.PER_BAND - 1)) {
+            assertTrue(
+                after[fold.x(end).roundToInt(), lane].alpha < before[fold.x(end).roundToInt(), lane].alpha,
+                "the band kept weather at $end that the light does not reach",
+            )
+        }
+    }
+
+    @Test
+    fun `a disc keeps a bright star's halo and its cool hue`() {
+        // The mini path's own branch: a disc drops the dim and standard halos because a gradient two
+        // pixels across is a cost with nothing on the other side of it, and keeps the brights —
+        // including the third of them that lean the crystal hue.
+        val mini = Fold.mini(width = 148f, lane = 19f)
+        val system = MapGeometry.firstSystemOf(2) + 12
+        val cool = MapStarUiState(
+            system = system,
+            driftPermille = 0,
+            ink = MapStarInk.Charted(starClass = StarClass.BRIGHT, sizePermille = 1_000, coolHalo = true),
+            marks = emptySet(),
+        )
+        val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }
+
+        val painted = render(
+            GalaxyMapUiState(bands = dark, stars = listOf(cool), hours = emptyList(), names = emptyList(), mini = true),
+            mini,
+        )
+
+        // Ink beyond the disc itself, which on a mini fold can only be the halo — there are no
+        // spikes at this size and the bands are drawing nothing.
+        val x = mini.x(system).roundToInt()
+        val y = mini.y(system, driftPermille = 0).roundToInt()
+        val beyond = (2..5).count { step -> painted[x, (y - step)].alpha > FIELD }
+        assertTrue(beyond > 0, "a bright star on a disc lost its halo")
+
+        // And the other side of that branch: a dim star on a disc has no halo at all, because a
+        // gradient two pixels across is a cost with nothing on the other side of it.
+        val dim = cool.copy(ink = MapStarInk.Charted(StarClass.DIM, sizePermille = 1_000, coolHalo = false))
+        val plain = render(
+            GalaxyMapUiState(bands = dark, stars = listOf(dim), hours = emptyList(), names = emptyList(), mini = true),
+            mini,
+        )
+        assertEquals(0, (2..5).count { step -> plain[x, (y - step)].alpha > FIELD }, "a dim disc star grew a halo")
+    }
+
+    @Test
     fun `a band the light has never reached has no field at all`() {
         val fold = Fold.full(width = WIDTH)
         val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }

@@ -1527,6 +1527,34 @@ class GameSaveTest {
     }
 
     @Test
+    fun `a legacy save with no galaxy block at all is refused rather than charted from nothing`() {
+        // The hop's own guard. It cannot invent a span for a save that has no map in it, so it
+        // returns the document untouched and the decode fails on the missing key — which is
+        // `GameSave`'s standing choice everywhere: a save this build cannot read is one to say so
+        // about rather than to half-read.
+        val stripped = schema17(GameState.initial()).replace(""""galaxy":{""", """"galaxyBlock":{""")
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(stripped))
+    }
+
+    @Test
+    fun `a legacy coordinate the fold cannot read charts nothing and the save is refused`() {
+        // **The hop's `mapNotNull` guards, and what they are and are not for.** A coordinate missing
+        // its own fields is dropped rather than read as system 0 — which would widen the span to the
+        // start of the galaxy and hand the player a map nobody flew for. What the guard is *not* is a
+        // repair: the same malformed entry is still in `surveyed`, so the snapshot decode refuses it
+        // one step later, which is this format's standing answer. The guard's whole job is to make
+        // sure the migration in between neither throws nor invents.
+        val fresh = GameState.initial()
+        val far = GalaxyCoordinate(galaxy = fresh.galaxy.home.galaxy, system = 200, slot = 5)
+        val played = fresh.copy(galaxy = fresh.galaxy.copy(surveyed = fresh.galaxy.surveyed + far))
+        val tampered = schema17(played)
+            .replace(""""galaxy":${far.galaxy},"system":${far.system},"slot":${far.slot}""", """"slot":${far.slot}""")
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+    }
+
+    @Test
     fun `a colony that never left home wakes up charted around home alone`() {
         val legacy = schema17(GameState.initial())
 
@@ -1551,6 +1579,40 @@ class GameSaveTest {
             .replace(""""lo":141,"hi":201""", """"lo":201,"hi":141""")
 
         assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+    }
+
+    @Test
+    fun `a save whose charted span is outside the coordinate space decodes to a failure`() {
+        // **Through the decoder rather than through the constructor**, which is a different path and
+        // the only one a hand-edited file can reach: serialization builds a `ChartedSpan` with its
+        // own synthetic constructor, and `init` is the one thing both share. Every bound, both ways,
+        // because a span read off disk is the only span nothing has clamped.
+        val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        val span = """"galaxy":3,"lo":141,"hi":201"""
+
+        for (broken in listOf(
+            """"galaxy":0,"lo":141,"hi":201""",
+            """"galaxy":9,"lo":141,"hi":201""",
+            """"galaxy":3,"lo":0,"hi":201""",
+            """"galaxy":3,"lo":251,"hi":251""",
+            """"galaxy":3,"lo":141,"hi":251""",
+            """"galaxy":3,"lo":1,"hi":0""",
+        )) {
+            assertIs<DecodeResult.Failure>(GameSave.decode(genesis.replace(span, broken)), broken)
+        }
+    }
+
+    @Test
+    fun `a save charting one galaxy twice decodes to a failure`() {
+        // The uniqueness `GalaxyState.init` keeps, met the only way it can be broken: by hand. Two
+        // spans for one galaxy is a map with two frontiers and no rule for which is the light.
+        val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        val doubled = genesis.replace(
+            """"charted":[{"galaxy":3,"lo":141,"hi":201}]""",
+            """"charted":[{"galaxy":3,"lo":141,"hi":201},{"galaxy":3,"lo":10,"hi":20}]""",
+        )
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(doubled))
     }
 
     @Test

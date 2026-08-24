@@ -162,14 +162,19 @@ class GalaxyChartedTest {
         // reach the constructor — `withCharted` clamps, so nothing the game itself does can produce
         // one. Refused rather than corrected, for `GalaxyState`'s standing reason: a save the model
         // cannot hold is one to admit is unreadable rather than to silently reinterpret.
+        // Both ends of all three ranges, because a range check is two comparisons and a test that
+        // only ever pushed one way would leave the other unexercised.
+        val last = GalaxyBalance.SYSTEMS_PER_GALAXY
         assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 0, lo = 1, hi = 2) }
-        assertFailsWith<IllegalArgumentException> {
-            ChartedSpan(galaxy = GalaxyBalance.GALAXIES + 1, lo = 1, hi = 2)
-        }
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = GalaxyBalance.GALAXIES + 1, lo = 1, hi = 2) }
         assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = 0, hi = 2) }
-        assertFailsWith<IllegalArgumentException> {
-            ChartedSpan(galaxy = 1, lo = 1, hi = GalaxyBalance.SYSTEMS_PER_GALAXY + 1)
-        }
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = last + 1, hi = last + 1) }
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = 1, hi = 0) }
+        assertFailsWith<IllegalArgumentException> { ChartedSpan(galaxy = 1, lo = 1, hi = last + 1) }
+
+        // And the widest legal span is legal, so the bounds are exclusive of nothing they should let
+        // through — the whole galaxy is what two long probes actually buy.
+        assertEquals(last, ChartedSpan(galaxy = 1, lo = 1, hi = last).systems)
     }
 
     @Test
