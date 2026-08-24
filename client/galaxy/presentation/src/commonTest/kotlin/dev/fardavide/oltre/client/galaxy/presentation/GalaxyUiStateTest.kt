@@ -158,6 +158,17 @@ class GalaxyUiStateTest {
         // The address is the name, exactly as the caption two dp above says it.
         assertEquals("[3:240]", English.resolve(body.header.system))
         assertEquals("69 systems out", English.resolve(body.header.coordinate))
+        // And across a galaxy it is *units*, not systems: a hop is 250 of them, so one word
+        // everywhere would call a 250-system galaxy 571 systems out. The map's caption and this
+        // header read one function for that reason — they drifted apart once already.
+        val abroad = SystemSelection(galaxy = (homeGalaxy % GalaxyBalance.GALAXIES) + 1, system = 100)
+        val far = assertIs<GalaxyBodyUiState.System>(
+            state.toGalaxyUiState(nav = nav(GalaxyView.SYSTEM, abroad), now = EPOCH, timeZone = TimeZone.UTC).body,
+        )
+        assertTrue(
+            English.resolve(far.header.coordinate).endsWith(" units out"),
+            English.resolve(far.header.coordinate),
+        )
         assertEquals("uncharted", English.resolve(body.header.region))
         assertEquals("charts 49 systems", English.resolve(body.header.detail))
         // No orbits and no rows: a drawn body is a world count you can read off the picture.

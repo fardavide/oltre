@@ -255,19 +255,7 @@ private fun GameState.unchartedCaption(
         // **The address is the name, because it is the only one there is.** A system's name is
         // generated and generated is not free any more.
         system = Strings.systemAddress(at.galaxy, at.system),
-        // **Systems inside a galaxy and units across one**, because they are not the same figure and
-        // saying so would be a lie in a hundred-odd words. `distanceUnits` prices a galaxy hop at
-        // 250 — a flight cost, not a count — so a star one galaxy over would otherwise read `571
-        // systems out` about a galaxy that holds 250. The astronomy line under the system header has
-        // said `units out` for exactly this reason since 0.3, and this is that same word.
-        coordinate = when (at.galaxy) {
-            galaxy.home.galaxy -> Strings.systemsOut(abs(at.system - galaxy.home.system))
-            else -> Strings.unitsOut(
-                SurveyBalance.distanceUnits(from = SystemAddress.of(galaxy.home), to = target)
-                    .toLong()
-                    .groupedByThousands(),
-            )
-        },
+        coordinate = distanceFromHome(at),
         meta = meta,
         compactMeta = meta,
         trailing = when {
@@ -280,6 +268,25 @@ private fun GameState.unchartedCaption(
             else -> MapCaptionTrailingUiState.Dispatch(probe)
         },
         own = true,
+    )
+}
+
+// **How far away an uncharted star is, and it takes two words rather than one.** Systems inside a
+// galaxy and *units* across one, because they are not the same figure: `distanceUnits` prices a
+// galaxy hop at 250 — a flight cost, not a count — so one word everywhere would describe a star one
+// galaxy over as `571 systems out` about a galaxy that holds 250. The astronomy line under the
+// system header has said `units out` since 0.3 for exactly this reason.
+//
+// **In one place because it is asked in two**, and the two drifted apart the first time: the map's
+// caption was corrected and the orbit page's header, which is one tap away and says the same thing,
+// was not.
+internal fun GameState.distanceFromHome(at: SystemSelection): TextRes = when (at.galaxy) {
+    galaxy.home.galaxy -> Strings.systemsOut(abs(at.system - galaxy.home.system))
+    else -> Strings.unitsOut(
+        SurveyBalance.distanceUnits(
+            from = SystemAddress.of(galaxy.home),
+            to = SystemAddress(galaxy = at.galaxy, system = at.system),
+        ).toLong().groupedByThousands(),
     )
 }
 

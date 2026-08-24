@@ -213,7 +213,7 @@ private fun GameState.toSystemHeadUiState(
         },
         coordinate = when {
             charted -> Strings.systemAddressBare(galaxy = at.galaxy, system = at.system)
-            else -> Strings.systemsOut(SurveyBalance.distanceUnits(from = SystemAddress.of(galaxy.home), to = target))
+            else -> distanceFromHome(at)
         },
         // The region keeps its tap back out to the fold either way — a control that still works is
         // what lets this word be swapped rather than the row removed.
