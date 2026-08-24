@@ -37,8 +37,13 @@ import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.defaultPreferencesFile
 import dev.fardavide.oltre.client.save.data.defaultSaveFile
+import dev.fardavide.oltre.client.changelog.domain.ReleaseVersion
+import dev.fardavide.oltre.client.changelog.domain.shouldOpenChangelog
+import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
+import dev.fardavide.oltre.client.changelog.presentation.changelogFor
+import dev.fardavide.oltre.client.changelog.presentation.toBuildRowUiState
+import dev.fardavide.oltre.client.changelog.presentation.toChangelogUiState
 import dev.fardavide.oltre.client.settings.presentation.toAlertSheetUiState
-import dev.fardavide.oltre.client.settings.ui.AlertSheet
 import dev.fardavide.oltre.client.shipyard.presentation.toShipyardUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardScreen
 import dev.fardavide.oltre.client.tilt.data.TiltSource
@@ -113,6 +118,12 @@ fun App(
     // Still a parameter, and still for the reason it was one before there was a second table: a test
     // hands in whichever language the frame is about.
     translations: Translations = remember { translationsFor(Locale.current.toLanguageTag()) },
+    // **The one thing in the app whose language is chosen the same way and not by the same table.**
+    // The changelog is sixty-five documents' worth of content rather than a catalogue of ids —
+    // `.claude/docs/changelog-sheet.md` §4 — so it is picked from the same locale by a second
+    // function, beside `translationsFor` rather than inside it. A parameter for the reason
+    // `translations` is one: a test hands in whichever language the frame is about.
+    changelog: ChangelogText = remember { changelogFor(Locale.current.toLanguageTag()) },
     notifications: GameNotifications = remember(translations) {
         GameNotifications(defaultNotificationScheduler(), translations)
     },
@@ -158,7 +169,11 @@ fun App(
             // four-second timer, and a second tap had to restart the window rather than stack a
             // second bar — which a `Boolean` could not express. A sheet has no window: it is up until
             // something closes it, and the second tap is one of the things that closes it.
-            var settingsOpen by remember { mutableStateOf(false) }
+            //
+            // **Since 0.19 it is a face rather than a flag**, because the same sheet carries two of
+            // them: null is closed, and the two faces are the settings ladders and the changelog.
+            // See `SettingsSheet` for why that is one sheet and not two.
+            var sheetFace by remember { mutableStateOf<SheetFace?>(null) }
             // What this launch found, in two halves that are forgotten at two different moments —
             // because the two things that announce them live in two different places.
             //
@@ -217,14 +232,73 @@ fun App(
                 tiltSource.tilts().collect { lean.value = it }
             }
 
+            // Whether this launch found a colony on disk. `null` until the save has been read, which
+            // is a third state and a load-bearing one — see the changelog gate below.
+            var hadSave by remember { mutableStateOf<Boolean?>(null) }
+            var preferencesLoaded by remember { mutableStateOf(false) }
+
+            // The release this build is, which is the head of the changelog: there is no generated
+            // `BuildConfig` in this build and one string does not earn source generation.
+            // `ReleaseCatalogueIntegrationTest` is what keeps the two in step — it fails the build if
+            // the head of the catalogue is not `libs.versions.oltre`.
+            val runningVersion = changelog.releases.first().version
+
+            // Writes down that this build's changelog has been read. Called when the sheet is
+            // dismissed rather than when it is raised: a panel killed by a crash or a task switch has
+            // not been read, and showing it once more costs a swipe.
+            fun markChangelogSeen() {
+                if (remembered.lastSeenVersion == runningVersion.printed) return
+                val next = remembered.copy(lastSeenVersion = runningVersion.printed)
+                remembered = next
+                scope.launch { preferences.save(next) }
+            }
+
+            // **Every way out goes through here**, and that is not tidiness: the gear is one of the
+            // four exits the design names, and the first cut of this let it close the sheet without
+            // marking the changelog read — so a player who dismissed with the gear was shown the same
+            // release again on the next launch, for ever. Caught by `ChangelogAppBehaviourTest`
+            // rather than by an install, which is the whole reason the exits are one function.
+            fun closeSheet() {
+                sheetFace = null
+                markChangelogSeen()
+            }
+
             LaunchedEffect(preferences) {
                 val loaded = preferences.load()
                 remembered = loaded
                 galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
+                preferencesLoaded = true
+            }
+
+            // **"It must open on game updated"** (Davide, 2026-08-23). The rule is
+            // `shouldOpenChangelog` and every branch of it is a test; what is here is the two things
+            // it needs that only the composition root has — the file that remembers, and whether
+            // there is a colony at all.
+            //
+            // **Keyed on both files**, because neither answer is in either one alone: the version
+            // last shown is in the preferences and whether there is a colony at all is in the save,
+            // and on the release that adds this feature the second is the entire question — a player
+            // upgrading from 0.18 and a fresh install both arrive with nothing remembered.
+            //
+            // `null` on either side means the file has not come back yet, so this does nothing until
+            // both have.
+            LaunchedEffect(preferencesLoaded, hadSave) {
+                val existing = hadSave ?: return@LaunchedEffect
+                if (!preferencesLoaded) return@LaunchedEffect
+                val open = shouldOpenChangelog(
+                    lastSeen = remembered.lastSeenVersion?.let { ReleaseVersion.parse(it) },
+                    current = runningVersion,
+                    hasColony = existing,
+                )
+                // A first launch records the version without ever showing the sheet, so the *next*
+                // build is news and this one is not. Everything else waits for the sheet to be
+                // dismissed before it writes — a panel killed by a task switch has not been read.
+                if (open) sheetFace = SheetFace.CHANGELOG else markChangelogSeen()
             }
 
             LaunchedEffect(Unit) {
                 val saved = store.load()
+                hadSave = saved != null
                 val wall = wallClock.now()
                 // The offset comes out of the save's own instant, which is the whole reason the
                 // debug clock needs no file of its own: a colony written down in the future was
@@ -616,24 +690,38 @@ fun App(
                         // ways out the design names and the only one that is a control rather than a
                         // gesture. The strip is still on screen behind the scrim, so it is reachable
                         // exactly when it needs to be.
-                        onOpenSettings = { settingsOpen = !settingsOpen },
+                        // **The gear always opens the settings face**, whatever the sheet was last
+                        // wearing. A gear that reopened the changelog because that is where you left
+                        // it would be a control whose meaning depends on history.
+                        onOpenSettings = {
+                            if (sheetFace == null) sheetFace = SheetFace.SETTINGS else closeSheet()
+                        },
                     )
 
-                    // **The app's second modal, beside its first.** Every control on the sheet
-                    // commits on tap and none of them writes an event, so all three go through
-                    // `prefer` rather than `act` — see there.
-                    if (settingsOpen) {
-                        AlertSheet(
-                            uiState = current.state.toAlertSheetUiState(
+                    // **The app's second modal, beside its first — and since 0.19 it has two faces.**
+                    // Every control on the settings face commits on tap and none of them writes an
+                    // event, so all three go through `prefer` rather than `act` — see there.
+                    sheetFace?.let { face ->
+                        SettingsSheet(
+                            face = face,
+                            alerts = current.state.toAlertSheetUiState(
                                 now = current.lastUpdatedAt,
                                 timeZone = TimeZone.currentSystemDefault(),
                             ),
+                            changelog = changelog.toChangelogUiState(),
+                            build = changelog.toBuildRowUiState(),
                             // The same window every other compact decision in this file reads, and
-                            // the one the design measured the stacked ladder against.
+                            // the one the design measured the stacked ladder and the 12dp peek
+                            // against.
                             compact = maxWidth < OltreLayout.compactWidth,
                             // One callback for every way out — the handle, the scrim, the system
                             // back — so the sheet cannot be dismissed by a route this does not hear.
-                            onDismiss = { settingsOpen = false },
+                            //
+                            // **Dismissing is what marks the changelog read**, from either face:
+                            // reaching the settings ladders means passing the build row, and a
+                            // player who opened the gear has seen which version they are on.
+                            onDismiss = { closeSheet() },
+                            onOpenChangelog = { sheetFace = SheetFace.CHANGELOG },
                             onSelectMode = { mode -> prefer { state -> setAlertMode(state, mode) } },
                             onToggleCategory = { category ->
                                 prefer { state -> toggleAlertCategory(state, category) }

@@ -1,5 +1,10 @@
 # What changed — the in-game changelog (0.19)
 
+> **The round trip closed.** Claude Design returned *A Sky Per Build* on 2026-08-24 and it is
+> accepted and built. §§1–5 below were written before the frames existed and are kept as the brief;
+> everything the design decided is in **"What came back"** at the foot of this file, which is what
+> the code cites.
+
 The game has shipped 65 times in nineteen days and has never told a player so. The README carries
 every one of those entries and no phone has ever displayed it. This is the surface that does:
 **a bottom sheet of horizontally paged releases, newest first, one page per version, raised by the
@@ -145,14 +150,89 @@ the README — the release exists and the changelog skips it.
 
 ## Open, and deliberately
 
-- **The order of the doors.** Whether the gear's sheet gets a row that swaps its contents for the
-  changelog, dismisses and re-raises, or something else, is the design's to answer. The app has never
-  stacked a sheet on a sheet.
-- **What a patch release's page says when it changed nothing a player can see.** Several `0.x.y`
-  entries in the README are about coverage gates and CI. Those pages get a player-facing line or they
-  get the release's honest *"nothing you can see, but"* voice; either way no page is empty, because a
-  page you can swipe to and that says nothing is the sheet's version of a dead control.
-- **Whether the sheet remembers where it was left.** It opens on the newest page every time today.
+- **A player who skipped three builds sees no sign of it.** The sheet opens at the newest and has no
+  unseen state. Design raised it and did not decide it; the cheapest honest version is a second,
+  dimmer cap on the rail at the build last shown — which is one integer that is *already* being
+  stored. Worth doing the day somebody misses two releases and says so.
+- **1.0.0 empties the sky.** It falls out of the rule rather than being chosen — minor and patch are
+  both zero, so there is nothing but the one world the major finished — and it is the single most
+  visible frame the mark will ever draw. Accepted on purpose: the alternative is one clause carrying
+  the previous line's bodies forward, and that clause is the beginning of a table.
+- **Whether the sheet remembers where it was left.** It opens on the newest page every time.
+- **The 0.17 settings frames are stale by ~170dp.** They were drawn at 573dp of content and the sheet
+  is full height; the build row lands in exactly that space, so the two changes are one change
+  whenever that sheet is next redrawn.
+
+Closed by the round trip: *the order of the doors* (§4 — the sheet swaps its own contents) and *what
+a patch release's page says* (every page carries a player-facing line; the releases whose README
+entry is about CI are written for a player or they say plainly that nothing on screen changed, which
+is what `0.4.1` and `0.0.14` do).
+
+## What came back — *A Sky Per Build*, accepted 2026-08-24
+
+Five questions went out and five came back answered. What follows is what the code implements; the
+frames are `ChangelogSheet`, `ChangelogPage`, `VersionMark` and `ReleaseRail` in the Claude Design
+project, with the argument on the *A Sky Per Build* canvas.
+
+**1 — The card hugs the release; the sheet holds the air.** A full-height sheet over five lines of
+copy is 90% air however it is arranged, so the page does not fill it: the card is as tall as its
+release and sits at the foot of the viewport, and the slack collects under the title. A one-note page
+is a **short card, not an empty one**. The two things that must not jump between pages are the rail
+and the reading position of the last note, and bottom-aligning is what holds both.
+
+**2 — The mark is a distance, not an identifier.** `minor + patch` bodies on a golden-angle spiral
+over a world's limb: the first `minor` filled because a minor line is settled, the rest hollow
+because a patch rides on one that is not. The bearing carries `i + patch` and the radius `i / N`, so
+**a patch re-lays the whole sky rather than adding a dot to it** — which is also the distinctness
+proof, since two versions can only draw the same sky if they are the same release. A major empties
+the sky and puts a finished world on the limb.
+
+The rule is in `:client:changelog:domain`, not in the drawing, and the design asked for that in as
+many words: *"a 20dp screenshot diff cannot state where the ink is."* `VersionSkyTest` asserts every
+body inside the box, no two bodies touching at page size, and the limb never crossing the sky —
+across every version the project could plausibly reach, not the sixty-six it has.
+
+Three languages were weighed and refused: a **hash** (0.17.0 and 0.18.0 would look like strangers),
+**three arcs** (every sweep needs a denominator and there is none — and the app already has one
+completion gauge, on the player strip), and **a bar of ticks** (a mark that repeats the label is a
+second label that cannot be read).
+
+**3 — Sideways is taught by the edge, and by an edge that is missing.** 18dp of the next card at
+393dp, 12dp at 320. On the newest release nothing peeks to the left, so **the end of the run is drawn
+by the absence of a peek** and there is no first-page case in the code. Position is a rail with one
+tick per minor line — `patch == 0`, a pure function of the versions, so it keeps no table — and it
+scrubs, because sixty-five swipes is not a way to reach the first week.
+
+**4 — The settings sheet swaps once, and there is no way back.** No sheet over a sheet and no back
+stack: the sheet is already at full height, so its contents are replaced in place in 210ms and
+nothing resizes. The price is that returning to the two ladders costs a dismiss and a tap on the
+gear; what it buys is **one changelog face, identical however it was raised**, so the first-launch
+route and the settings route are the same code and the same drawing.
+
+**5 — Prehistory draws itself.** `0.0.x` has minor 0, so every body on those pages is a patch and
+every one is hollow, and the rail's far end carries its only long tickless stretch. No sepia, no
+label, no second layout — the rule already says it.
+
+### What implementation found that the frames could not
+
+- **The gear is behind the scrim.** The design lists the ways out as the handle, the scrim and the
+  system gesture, and the 0.18 code comment claims the gear is a fourth. It is not: a
+  `ModalBottomSheet` covers the window, so the strip underneath consumes nothing while the sheet is
+  up. This mattered because dismissal is what marks a release read — the first cut let the gear close
+  the sheet **without** marking it, which would have shown a player the same release for ever. Every
+  exit now goes through one function. `AlertSheetAppBehaviourTest` had been "dismissing" with the
+  gear since 0.18 without ever depending on the sheet actually closing.
+- **A full-height sheet cannot be dismissed by a test that taps its scrim**, because the scrim's
+  *centre* is behind the sheet and `performClick` aims at a node's middle. The robot performs the
+  scrim's own semantics action instead.
+- **The harness had to be told the news is old.** A colony on disk with nothing remembered is an
+  upgrade, so the sheet raises itself over the whole app — which broke eighteen existing tests that
+  then tapped controls behind a scrim. `app()` now opens a build whose changelog has been read, and
+  the changelog's own tests say what the file holds every time.
+- **A second field in `Preferences` would have cost the first one.** A required field added to a
+  serialized record turns every file an older build wrote into a parse failure, so an upgrading
+  player would have silently lost their galaxy landing. The store decodes a record with a default per
+  field; `Preferences` itself stays strict.
 
 ## What the round trip is for
 

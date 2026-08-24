@@ -11,14 +11,19 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.test.assertEquals
+import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
+import dev.fardavide.oltre.client.changelog.ui.ChangelogTestTags
 import dev.fardavide.oltre.client.colony.ui.ColonyTestTags
 import dev.fardavide.oltre.client.debug.data.ShakeDetector
 import dev.fardavide.oltre.client.design.core.OltreMotion
@@ -30,6 +35,7 @@ import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.client.save.data.GameStore
+import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.save.data.SaveFile
 import dev.fardavide.oltre.client.settings.ui.SettingsTestTags
@@ -57,6 +63,19 @@ import kotlinx.coroutines.runBlocking
 // and forty-one verified baselines said nothing about.
 // The completion sweep's whole crossing, delay included. Winding past it settles the level badge.
 private const val SWEEP_TOTAL_MILLIS: Long = 1_200
+
+// The settings sheet swapping its face, which is the design's own 210ms and one-shot.
+private const val SWAP_MILLIS: Long = 210
+
+// Material's own description for a `ModalBottomSheet`'s scrim. A literal because the string belongs
+// to Material rather than to this app's catalogue, and there is no other handle on the one node that
+// dismisses a sheet from outside it.
+private const val CLOSE_SHEET = "Close sheet"
+
+// Long enough for a `ModalBottomSheet` to finish going away. Material animates the hide before it
+// calls back, so a test that asserted straight after the tap would be asking about a sheet that is
+// still on its way out.
+private const val SHEET_HIDE_MILLIS: Long = 1_000
 
 @OptIn(ExperimentalTestApi::class)
 internal class AppRobot(private val test: ComposeUiTest, private val booked: RecordingNotifications) {
@@ -169,9 +188,45 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         test.waitForIdle()
     }
 
-    // The gear is its own way back, which is one of the four exits the design names. The others are
-    // gestures on a popup and belong to the platform rather than to this suite.
-    fun dismissTheSettings() = openTheSettings()
+    // **The scrim, which is the exit a test can actually take.** The gear is behind it — a
+    // `ModalBottomSheet` covers the window, scrim included, so the strip underneath consumes nothing
+    // while the sheet is up. Material gives the scrim an `onClick` and a content description of its
+    // own, and that is what a finger tapping outside the sheet lands on.
+    //
+    // Measured at 0.19: driving this through the gear silently did nothing, and the two tests that
+    // asked what dismissal *writes* are what noticed. `AlertSheetAppBehaviourTest` had used the gear
+    // since 0.18 without ever depending on the sheet actually closing.
+    fun dismissTheSettings() = apply {
+        // **The scrim's action rather than a tap on it**, and that is not a shortcut around the
+        // gesture — it is the only way to express it. This sheet is full height, so the scrim's
+        // *centre* is behind the sheet: `performClick` aims at a node's middle and would land on the
+        // panel it is trying to dismiss. Measured at 0.19, where three tests agreed the sheet was
+        // still up after being told to close.
+        test.onNodeWithContentDescription(CLOSE_SHEET).performSemanticsAction(SemanticsActions.OnClick)
+        // Material settles the sheet before it reports the dismissal, so whatever the callback writes
+        // down lands a whole hide animation after the gesture.
+        test.mainClock.advanceTimeBy(SHEET_HIDE_MILLIS)
+        test.waitForIdle()
+    }
+
+    // **The door from settings to the changelog**, which is the whole of what the build row is for.
+    // The swap takes 210ms and nothing under it moves, so this waits the length of the swap rather
+    // than settling an animation that has no end.
+    fun openTheChangelog() = apply {
+        test.onNodeWithTag(ChangelogTestTags.BUILD_ROW).performScrollTo().performClick()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+        test.waitForIdle()
+    }
+
+    fun assertChangelogShowing(showing: Boolean = true) = apply {
+        val found = test.onAllNodesWithTag(ChangelogTestTags.SHEET).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(showing, found, "the changelog is ${if (found) "up" else "not up"}")
+    }
+
+    fun assertSettingsShowing(showing: Boolean = true) = apply {
+        val found = test.onAllNodesWithTag(SettingsTestTags.SHEET).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(showing, found, "the settings sheet is ${if (found) "up" else "not up"}")
+    }
 
     fun chooseMode(mode: AlertMode) = apply {
         test.onNodeWithTag(SettingsTestTags.mode(mode)).performClick()
@@ -311,8 +366,36 @@ private class FixedClock(private val at: Instant) : Clock {
     override fun now(): Instant = at
 }
 
+// A preferences file that has already seen this build's changelog, which is what every test that is
+// not about the changelog wants. The version is read the way the app reads it — the head of the
+// catalogue — so a release bump needs nothing changed here.
+internal fun changelogAlreadyRead(): PreferencesStore {
+    val store = PreferencesStore(InMemorySaveFile())
+    runBlocking {
+        store.save(
+            Preferences(
+                galaxyLanding = null,
+                lastSeenVersion = EnglishChangelog.releases.first().version.printed,
+            ),
+        )
+    }
+    return store
+}
+
 @OptIn(ExperimentalTestApi::class)
-internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
+internal fun app(
+    saved: GameSnapshot?,
+    // **Handed in only when a test is about what the app remembers**, which since 0.19 is a real
+    // question: whether the changelog raises itself depends on the version last shown.
+    //
+    // **The default says this build's changelog has already been read**, and that is load-bearing
+    // rather than tidy: a colony on disk with nothing remembered is an upgrade, so the sheet raises
+    // itself over the whole app — which is exactly right for a player and fatal for eighteen tests
+    // that then tap a control behind a scrim. Every test about something else opens a build whose
+    // news has been seen; `ChangelogAppBehaviourTest` is where the other cases are driven.
+    preferences: PreferencesStore = changelogAlreadyRead(),
+    block: AppRobot.() -> Unit,
+) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
     // envelope, and a fixture that wrote its own JSON produced a blob the store could not read —
     // which `load` answers with null rather than an error, so the app quietly started a brand new
@@ -332,7 +415,7 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
                 // developer's own landing preference and *write* to it on the first tap of the
                 // switch. A behaviour test whose result depends on the machine it runs on is the one
                 // failure mode the whole `SaveFile` seam exists to prevent.
-                preferences = PreferencesStore(InMemorySaveFile()),
+                preferences = preferences,
                 notifications = GameNotifications(booked, English),
                 // Never shaken: the debug sheet is a modal over everything, and a test about what a
                 // launch says must not have one open on top of it.

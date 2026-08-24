@@ -437,4 +437,14 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.alertNextAt(hour = 17, minute = 42, updating = false))
     add(Strings.alertNextAt(hour = 17, minute = 42, updating = true))
     add(Strings.alertNothingPending())
+    add(Strings.changelogTitle())
+    // Both forms, like the alert clauses above and for the same reason: a catalogue of one release
+    // is reachable — it is what a fresh catalogue looks like — and the singular has to say so.
+    add(Strings.changelogDepth(1))
+    add(Strings.changelogDepth(65))
+    // Every month, because the month is the one argument here that indexes a table: an off-by-one
+    // would resolve eleven of the twelve and throw on the last.
+    (1..12).forEach { month -> add(Strings.releaseDate(day = 23, month = month, year = 2026)) }
+    add(Strings.buildLabel())
+    add(Strings.buildRowSpoken(TextRes("0.19.0"), TextRes("x")))
 }

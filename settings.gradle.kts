@@ -38,6 +38,8 @@ include(":sim")
 // the design came back: a version is three integers and "is there anything new" is a rule about two
 // of them, while everything else in this feature is either copy or a drawing.
 include(":client:changelog:domain")
+include(":client:changelog:presentation")
+include(":client:changelog:ui")
 include(":client:colony:presentation")
 include(":client:colony:ui")
 // The debug menu, and the first feature in the build to hold three layers: what an action decides

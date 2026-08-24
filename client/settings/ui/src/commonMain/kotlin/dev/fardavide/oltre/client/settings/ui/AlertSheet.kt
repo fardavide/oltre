@@ -28,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.fardavide.oltre.client.design.component.OltreBottomSheet
 import dev.fardavide.oltre.client.design.component.PressableFace
 import dev.fardavide.oltre.client.design.component.SectionLabel
 import dev.fardavide.oltre.client.design.component.oltreCardShape
@@ -65,32 +64,17 @@ import dev.fardavide.oltre.core.AlertMode
 // `ModalBottomSheet` renders into a scene root of its own, so no screenshot test can reach this
 // through `onRoot()` at all, and twenty generated branches nothing can execute is twenty branches
 // against the screenshot column of a gate that has no slack.
-@Composable
-@NonRestartableComposable
-fun AlertSheet(
-    uiState: AlertSheetUiState,
-    compact: Boolean,
-    onDismiss: () -> Unit,
-    onSelectMode: (AlertMode) -> Unit,
-    onToggleCategory: (AlertCategory) -> Unit,
-    onSelectDelivery: (AlertDelivery) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    OltreBottomSheet(onDismiss = onDismiss, modifier = modifier) {
-        AlertSheetContent(
-            uiState = uiState,
-            compact = compact,
-            onSelectMode = onSelectMode,
-            onToggleCategory = onToggleCategory,
-            onSelectDelivery = onSelectDelivery,
-        )
-    }
-}
-
 // Two settings, in the order they are decided: where the question is asked, then how many
 // notifications the answers arrive in. The panel of seven belongs to the *ladder* rather than to the
 // chip that owns it, so it sits under the ladder and the ladder never moves — choosing the other stop
 // does not displace the chip you did not choose.
+//
+// **There is no `AlertSheet` any more, and 0.19 is where it went.** This file used to hold a chrome
+// wrapper that put these contents inside an `OltreBottomSheet`; the changelog needs the *same* sheet
+// to carry a different face, so the composition root raises one sheet and swaps what is in it —
+// Claude Design's *A Sky Per Build* §4, which refuses a sheet over a sheet. A chrome wrapper here
+// would have been a second way to raise the same panel, and only one of the two could ever have been
+// the one a player sees.
 //
 // **`@NonRestartableComposable`, and here it changes nothing rather than costing something.** This
 // one is not trivial, unlike the four helpers below — but it takes three lambdas and a `UiState`
@@ -106,6 +90,15 @@ fun AlertSheetContent(
     onSelectMode: (AlertMode) -> Unit,
     onToggleCategory: (AlertCategory) -> Unit,
     onSelectDelivery: (AlertDelivery) -> Unit,
+    // **The foot of the column, filled by the composition root.** What goes there is the build row —
+    // the version you are running, and the door to the changelog — and it is a slot rather than a
+    // parameter because this module does not know the changelog exists and should not: the row is
+    // made of release copy and draws a mark that belongs to another feature.
+    //
+    // No default. An empty foot is a legitimate thing to ask for — the screenshot of these two
+    // controls alone is one — but it has to be asked for, or the day somebody forgets is the day the
+    // only door to the changelog goes missing and every test still passes.
+    build: @Composable () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -210,6 +203,11 @@ fun AlertSheetContent(
             }
             uiState.timing?.let { Note(text = it, tag = SettingsTestTags.TIMING) }
         }
+
+        // Last, under everything, which is where a version row belongs on every settings screen
+        // anybody has ever read. 0.17 drew this sheet at 573dp of content and it is full height now,
+        // so the row lands in space the sheet already had.
+        build()
     }
 }
 

@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-23 (0.18.0)
+Updated: 2026-08-24 (0.19.0)
 
 ## Landed
 
@@ -450,6 +450,20 @@ Updated: 2026-08-23 (0.18.0)
   (`:client:settings:{ui,presentation}`), four new baselines. See
   [`ask-once-sheet.md`](ask-once-sheet.md) for the design and [`decisions.md`](decisions.md) for what
   implementation decided on top of it.
+- **0.19.0 the in-game changelog** — built to Claude Design's *A Sky Per Build* (accepted
+  2026-08-24). The settings sheet grew a second face: sixty-six releases, one page each, newest
+  first, paged sideways, with the version and the date on every page and **a mark drawn from the
+  version number itself** — `minor + patch` bodies on a golden-angle spiral over a world's limb,
+  filled for the minor lines reached and hollow for the patches on the current one. It raises itself
+  on the first launch of a new build and not again; a fresh install records the version without ever
+  being shown it. Position is a rail with one tick per minor line, and it scrubs. The door from
+  settings is a `BUILD` row that swaps the sheet's contents in 210ms rather than stacking a second
+  sheet, which is why `AlertSheet`'s chrome wrapper is gone and the composition root raises the one
+  sheet. Copy is two documents rather than 260 catalogue ids, in English and Italian, with three
+  tests standing where the compiler cannot: the budget (40/90 characters), the translation pairing,
+  and the catalogue against the README *and* `libs.versions.oltre`. Three modules
+  (`:client:changelog:{domain,presentation,ui}`), five new baselines, and none of the existing 100-odd
+  moved. See [`changelog-sheet.md`](changelog-sheet.md) and [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -926,6 +940,21 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   carried through, and rewriting it would confiscate a hull from every colony already migrated past
   8. Closes `fleet-sheet.md` §9's open call, in both directions at once. See `balance-log.md` round
   28.
+
+## Pending, from 0.19.0
+
+- **Nobody has swiped the sheet on a phone.** Sixty-six pages of `HorizontalPager` with a Canvas on
+  every one of them is the first thing in this app whose *cost* is a question — desktop composes
+  three at a time and never flings with a finger. The rail's scrub is the other half: it is the
+  galaxy caption's gesture on a 2dp track, and 44dp of row is arithmetic rather than a measurement.
+- **The mark has never been seen at 29dp on a real screen.** At page size every body is separable by
+  a wide margin; the build row's mark is texture by design, and whether it reads as a mark or as
+  grit is a thing an eye decides.
+- **A player who skips three builds still sees only the newest.** Design raised it and did not decide
+  it; the integer it would need is already stored. See `decisions.md`.
+- **The 0.17 settings frames are stale by ~170dp** — drawn at 573dp of content against a full-height
+  sheet — and the build row lands in exactly that space. The next redraw of that sheet is one change,
+  not two.
 
 ## Pending, from 0.18.0
 
