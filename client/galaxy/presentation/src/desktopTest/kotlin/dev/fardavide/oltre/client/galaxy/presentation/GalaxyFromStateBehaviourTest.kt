@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import org.junit.Test
@@ -154,6 +155,71 @@ class GalaxyFromStateBehaviourTest {
         }
 
         assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = far)), aimed)
+    }
+
+    @Test
+    fun `a probe that lands inside the light buys no map`() {
+        // The other half of *a probe landing widens the light*, and the one a player will meet first
+        // because the doorstep is where the cheap flights are: a survey inside the hour of grace
+        // still buys worlds and buys no map at all. The head is where that is visible, and it is the
+        // reading that would be wrong if the widen were ever written as an unconditional rewrite.
+        // **It takes a wide light to have an inside at all**, which is the fact this test is really
+        // about: on a genesis span the only landing that widens nothing is home itself, because the
+        // hour of grace reaches past both ends of a 61-system stretch from anywhere in it. So the
+        // colony walks its frontier to the end of the galaxy first, and *then* probes the middle.
+        val far = SystemAddress(galaxy = home.galaxy, system = GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val rich = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val before = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(rich, far, at = EPOCH)).state,
+            from = EPOCH,
+            to = EPOCH + 3.days,
+        )
+        val near = SystemAddress(galaxy = home.galaxy, system = home.system + 20)
+        val landed = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(before, near, at = EPOCH + 3.days)).state,
+            from = EPOCH + 3.days,
+            to = EPOCH + 6.days,
+        )
+
+        // The fixture's premise: the probe really did land and really did find something, or the
+        // claim below would hold because nothing happened.
+        assertTrue(
+            landed.galaxy.surveyed.size > before.galaxy.surveyed.size,
+            "the fixture needs a probe that found worlds",
+        )
+        assertEquals(
+            before.galaxy.charted,
+            landed.galaxy.charted,
+            "a landing well inside the light must widen nothing",
+        )
+
+        // 141…250 after the long flight, and the same 110 after the short one.
+        galaxyScreen(state = before) { assertReads("110 OF 250 CHARTED") }
+        galaxyScreen(state = landed) { assertReads("110 OF 250 CHARTED") }
+    }
+
+    @Test
+    fun `the bar in the dark counts a probe down and quotes a flight it cannot sell`() {
+        // The two states the uncharted bar has besides the offer, and neither may become a second
+        // control: one probe per target is not suspended by the tier, and a colony that cannot pay
+        // is quoted rather than told why — the bar has room to say what a trip costs or to offer it.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val target = SystemAddress(galaxy = home.galaxy, system = far)
+        val rich = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(rich, target, at = EPOCH)).state
+
+        galaxyScreen(state = out) {
+            scrubTo(far)
+            assertTheCaptionReads("lands in")
+            assertTheCaptionOffersNoProbe()
+        }
+
+        // And with no hull at all the same star is priced and not sold.
+        galaxyScreen(state = testGameState.copy(ships = Ships.NONE, resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+            assertTheCaptionReads("probe")
+            assertTheCaptionOffersNoProbe()
+        }
     }
 
     @Test

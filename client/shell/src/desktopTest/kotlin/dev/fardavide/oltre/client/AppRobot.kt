@@ -312,7 +312,18 @@ private class FixedClock(private val at: Instant) : Clock {
 }
 
 @OptIn(ExperimentalTestApi::class)
-internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
+internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) = app(saved = saved, legacy = null, block = block)
+
+// **A save from an older build, launched.** `GameStore.save` always writes the *current* schema, so
+// nothing above could ever put the app through a migration — and a migration is the one thing in a
+// release that rewrites a save a player already has. What this overload adds is the ability to hand
+// the launch a blob written by a version that no longer exists.
+//
+// The blob is still produced by `GameSave.encode` and then *downgraded*, never hand-written, for the
+// reason the note below gives: a fixture that composed its own JSON produced something `load`
+// answers with null, and the app then started a brand new colony while every assertion passed.
+@OptIn(ExperimentalTestApi::class)
+internal fun app(saved: GameSnapshot?, legacy: String?, block: AppRobot.() -> Unit) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
     // envelope, and a fixture that wrote its own JSON produced a blob the store could not read —
     // which `load` answers with null rather than an error, so the app quietly started a brand new
@@ -320,6 +331,9 @@ internal fun app(saved: GameSnapshot?, block: AppRobot.() -> Unit) {
     val file = InMemorySaveFile()
     if (saved != null) {
         runBlocking { GameStore(file).save(saved) }
+    }
+    if (legacy != null) {
+        runBlocking { file.write(legacy) }
     }
     val booked = RecordingNotifications()
     runDesktopComposeUiTest(width = 393, height = 852) {
