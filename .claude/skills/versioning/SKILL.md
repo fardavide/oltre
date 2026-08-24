@@ -42,6 +42,14 @@ you it was wrong after the fact.
 - Every bump carries a `## Changelog` entry in `README.md`, same PR, newest first, heading
   exactly `### <version> — <YYYY-MM-DD>`. User-facing claims, not implementation notes.
   A bump with a stale changelog is a defect.
+- **And a page in the game, in both languages** — since 0.19 the README is not the only place a
+  release is written down. `EnglishChangelog` and `ItalianChangelog` in
+  `:client:changelog:presentation` each need an entry with the same version, the same date and the
+  same number of notes, inside a budget of 40 characters of headline and 90 of note. This is not a
+  convention you have to remember: `ReleaseCatalogueIntegrationTest` fails the build when the head of
+  the catalogue is not `libs.versions.oltre`, when a README heading has no page, and — since #118 —
+  when a release that was *published* has no page at all, which is what catches an entry being
+  deleted rather than never written.
 - After the squash merge the tag creates itself: `release-android.yml` fires on the `main` push
   that changed the catalogue and creates `v<version>` along with the GitHub Release it hangs on.
   Tag by hand only if that job did not run or failed — and if it failed, fix that instead, because

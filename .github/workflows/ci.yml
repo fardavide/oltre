@@ -29,7 +29,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # **Tags, because one test measures against what was actually published.**
+      # `ReleaseCatalogueIntegrationTest` asserts every `v<version>` tag has a changelog page — the
+      # one check in that file that does not take the README as its source, and therefore the only
+      # one that notices a release being deleted from the record entirely. A checkout fetches no
+      # tags by default, so without this the test sees an empty list; it fails rather than passes in
+      # that state, deliberately, so the omission cannot go quiet.
+      #
+      # **`fetch-depth: 0` rather than `fetch-tags: true`, and that is measured rather than
+      # preferred.** The first cut asked for `fetch-tags` and the job failed on exactly the guard
+      # above: the action logged `fetch-tags: true` and then ran
+      # `git fetch --prune --no-recurse-submodules --depth=1 origin +<sha>:refs/remotes/pull/119/merge`
+      # — no `--tags` anywhere, so not one tag reached the runner. Full history is unambiguous, and
+      # it costs a 62 MiB pack of 86 commits against a job that already runs for six minutes.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
@@ -97,7 +112,12 @@ jobs:
       contents: read
       pull-requests: write
     steps:
+      # Tags for the same reason the Unit tests job takes them — and by the same means, which that
+      # job's comment explains: this one runs the whole suite five times over,
+      # `ReleaseCatalogueIntegrationTest` included.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-java@v5
         with:
           distribution: temurin

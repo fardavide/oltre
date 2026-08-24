@@ -145,6 +145,15 @@ no changelog page fails the build rather than shipping a sheet that never opens.
 README does not have. Sixty-five hand-written entries and a permanent per-release obligation is
 precisely the shape that rots quietly; this is what makes it loud.
 
+**And the README is checked against the tags** — added at #118, because everything above measures the
+catalogue against the README and the README against nothing. Delete a release's heading *and* its page
+and the two lists still agree with each other, the head is still the running version, and nothing
+remembers the release happened. The tags do: `release-android.yml` cuts `v<version>` on the merge that
+publishes, so a tag is the only record in this repository that the changelog is not the source of.
+One direction only — twenty entries have no tag, because tagging became reliable at 0.2.0 — and the
+test **fails rather than passes when it can see no tags**, since a checkout fetches none by default
+and the honest-looking version of that test would have measured nothing for ever.
+
 **Version numbers are not contiguous and the test must not assume it.** There is no `0.0.12` entry in
 the README — the release exists and the changelog skips it.
 
