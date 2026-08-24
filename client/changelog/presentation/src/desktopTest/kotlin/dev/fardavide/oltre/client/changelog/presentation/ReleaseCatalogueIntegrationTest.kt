@@ -52,6 +52,51 @@ class ReleaseCatalogueIntegrationTest {
     // `### 0.18.0 — 2026-08-23`, in the order the README lists them, which is newest first. The
     // em dash is the README's own; a hyphen here would match nothing and the test would report an
     // empty changelog rather than a mismatched one — hence the guard below.
+    @Test
+    fun `every release that shipped has a page`() {
+        // **The one thing the other three cannot say.** Each of them measures the catalogue against
+        // the README, and the README against nothing — so deleting a release's heading *and* its page
+        // leaves two lists that still agree with each other, a head that is still the running version,
+        // and nothing anywhere that remembers the release happened.
+        //
+        // The tags are what remembers. `release-android.yml` cuts `v<version>` on the merge that
+        // publishes, so a tag is the record of something a player can actually have installed, and it
+        // is the only record this repository keeps that the changelog is not the source of.
+        //
+        // One direction only, deliberately: twenty entries have no tag, because tagging became
+        // reliable at 0.2.0 and the version being *released now* is tagged after this test runs.
+        val pages = EnglishChangelog.releases.map { it.version.printed }.toSet()
+        val orphaned = publishedVersions().filterNot { it in pages }
+
+        assertTrue(orphaned.isEmpty(), "shipped with no changelog page: $orphaned")
+    }
+
+    // `v0.19.0` → `0.19.0`, for every tag shaped like a release and none that is not.
+    //
+    // **It fails rather than passes when it can see no tags**, which is the whole reason this is
+    // worth writing down: `actions/checkout` fetches none by default, so the honest-looking version
+    // of this test — one that simply finds nothing to check — would pass on CI for ever while
+    // measuring nothing at all. See `fetch-tags` in `ci.yml`.
+    private fun publishedVersions(): List<String> {
+        val git = ProcessBuilder("git", "tag", "--list", "v*")
+            .directory(repoRoot())
+            .redirectErrorStream(true)
+            .start()
+        val output = git.inputStream.bufferedReader().use { it.readText() }
+
+        assertEquals(0, git.waitFor(), "git tag failed: $output")
+
+        val versions = output.lineSequence()
+            .mapNotNull { line -> TAG.matchEntire(line.trim())?.groupValues?.get(1) }
+            .toList()
+        assertTrue(
+            versions.isNotEmpty(),
+            "no release tags are visible — a shallow checkout fetches none, so this test would " +
+                "otherwise pass without checking anything. See `fetch-tags` in ci.yml.",
+        )
+        return versions
+    }
+
     private fun readmeReleases(): List<Pair<String, String>> {
         val headings = HEADING.findAll(repoFile("README.md").readText())
             .map { match -> match.groupValues[1] to match.groupValues[2] }
@@ -68,17 +113,23 @@ class ReleaseCatalogueIntegrationTest {
     }
 
     private fun repoFile(path: String): File {
-        val root = requireNotNull(System.getProperty("oltre.rootDir")) {
-            "oltre.rootDir is not set — see this module's build file"
-        }
-        val file = File(root, path)
+        val file = File(repoRoot(), path)
         assertTrue(file.isFile, "$path is not where this test expects the repository to be")
         return file
     }
+
+    private fun repoRoot(): File = File(
+        requireNotNull(System.getProperty("oltre.rootDir")) {
+            "oltre.rootDir is not set — see this module's build file"
+        },
+    )
 
     private companion object {
 
         val HEADING = Regex("""^### (\d+\.\d+\.\d+) — (\d{4}-\d{2}-\d{2})$""", RegexOption.MULTILINE)
         val VERSION = Regex("""^oltre = "(\d+\.\d+\.\d+)"$""", RegexOption.MULTILINE)
+
+        // Release tags only. A tag shaped any other way is somebody's bookmark and is not a release.
+        val TAG = Regex("""v(\d+\.\d+\.\d+)""")
     }
 }
