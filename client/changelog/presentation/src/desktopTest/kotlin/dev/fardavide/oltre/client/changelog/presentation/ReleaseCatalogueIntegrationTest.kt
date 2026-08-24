@@ -76,7 +76,9 @@ class ReleaseCatalogueIntegrationTest {
     // **It fails rather than passes when it can see no tags**, which is the whole reason this is
     // worth writing down: `actions/checkout` fetches none by default, so the honest-looking version
     // of this test — one that simply finds nothing to check — would pass on CI for ever while
-    // measuring nothing at all. See `fetch-tags` in `ci.yml`.
+    // measuring nothing at all. See `fetch-depth` in `ci.yml`, and the note there about the first
+    // attempt: `fetch-tags: true` was accepted by the action and produced a fetch with no `--tags`
+    // in it, which this guard is what caught.
     private fun publishedVersions(): List<String> {
         val git = ProcessBuilder("git", "tag", "--list", "v*")
             .directory(repoRoot())
