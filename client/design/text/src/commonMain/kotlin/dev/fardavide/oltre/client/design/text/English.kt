@@ -395,7 +395,11 @@ object English : Translations {
         StringId.SystemsCount -> "${args.text(0)} systems"
         StringId.SurveyedCount -> "${args.count(0)} surveyed"
         StringId.PinnedCount -> "${args.count(0)} pinned"
-        StringId.NothingCharted -> "nothing charted"
+        StringId.ChartedOfSystems -> "${args.text(0)} of ${args.text(1)} charted"
+        StringId.UnchartedWord -> "uncharted"
+        StringId.ChartsSystems -> args.count(0).let { "charts $it ${it.plural("system", "systems")}" }
+        StringId.SystemsOut -> args.count(0).let { "$it ${it.plural("system", "systems")} out" }
+        StringId.SystemRange -> "${args.number(0)}–${args.number(1)}"
         StringId.SystemAddressLabel -> "[${args.number(0)}:${args.number(1)}]"
         StringId.RelayEffect -> "Relay · contested · +18% range while held"
         StringId.DangerFromHere -> "danger ${args.number(0)} from here"

@@ -148,7 +148,13 @@ private fun GameState.applyEventsDueAt(instant: Instant): GameState {
     for (job in landed) {
         val found = GalaxyState.occupiedWorldsIn(next.galaxy.seed, job.target)
         next = next.copy(
-            galaxy = next.galaxy.copy(surveyed = next.galaxy.surveyed + found),
+            // Two knowledge tiers move here and they move on different facts. `surveyed` takes what
+            // the probe *found*; `withCharted` takes where it *went* — so a landing on a system with
+            // nothing around it still widens the map, which is the one case the two would disagree
+            // about and the reason the span is not derived from the set.
+            galaxy = next.galaxy
+                .copy(surveyed = next.galaxy.surveyed + found)
+                .withCharted(job.target),
             // **The scout comes home**, exactly as a run's hulls do two loops down: it was spent for
             // the flight, not consumed by it, so what surveying costs is a hull's absence rather than
             // a hull. Buy one and you may survey forever — one system at a time, which is the whole

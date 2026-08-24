@@ -466,7 +466,13 @@ object Italian : Translations {
         StringId.SystemsCount -> "${args.text(0)} sistemi"
         StringId.SurveyedCount -> "${args.count(0)} rilevati"
         StringId.PinnedCount -> "${args.count(0)} fissati"
-        StringId.NothingCharted -> "niente mappato"
+        StringId.ChartedOfSystems -> "${args.text(0)} di ${args.text(1)} mappati"
+        StringId.UnchartedWord -> "non mappato"
+        StringId.ChartsSystems -> args.count(0).let { "mappa $it ${it.plural("sistema", "sistemi")}" }
+        // "a 75 sistemi" — Italian says the distance as a destination rather than as a direction,
+        // which is what "out" is doing in the English.
+        StringId.SystemsOut -> args.count(0).let { "a $it ${it.plural("sistema", "sistemi")}" }
+        StringId.SystemRange -> "${args.number(0)}–${args.number(1)}"
         StringId.SystemAddressLabel -> "[${args.number(0)}:${args.number(1)}]"
         StringId.RelayEffect -> "Relè · conteso · +18% di portata mentre lo tieni"
         StringId.DangerFromHere -> "pericolo ${args.number(0)} da qui"

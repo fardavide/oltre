@@ -48,38 +48,64 @@ data class GalaxyMapUiState(
 // together, ten times, on one screen. Nobody has to be told what a Deep is.
 data class MapBandUiState(
     val region: Int,
+    // A region name once the light has touched the band, and the band's own index range — "26–50" —
+    // until then. The row is never empty, which is what keeps the dark from reading as a hole.
     val name: TextRes,
     // The tinted field behind the band — the region as weather rather than as a boundary. The hue
     // follows the temperament the way the world portrait's ramp does.
     val temperament: RegionTemperament,
+    // The stretch of this band the player has charted, clipped to the band's own ends, and null when
+    // the light has never reached it. **One field for two things because they are one thing**: a band
+    // with a name is exactly a band with a glow, and the weather stops where the knowledge does.
+    val charted: IntRange?,
     // The band the selection is standing in. One band is lit at a time and never none: the map opens
     // with home selected and a tap can only move the selection, never clear it.
     val lit: Boolean,
 )
 
-// A star, and everything the charted tier is allowed to say about one. **It may say how bright a
+// A star, and everything the tier it is in is allowed to say about one. **It may say how bright a
 // star is, which region it is in and whether you have been there. It may never say what is orbiting
 // it** — the portrait is the survey's reward and that is load-bearing.
+//
+// Position and drift are outside the ink, because fog does not take them: where a star is and how
+// far away it is are the two facts a player picks a target with, so they are on the drawing whatever
+// tier the star is in.
 data class MapStarUiState(
     val system: Int,
-    // Size and luminance both, which is what keeps knowledge and astronomy on separate channels: a
-    // surveyed dim star and an unsurveyed bright one are never the same mark.
-    val starClass: StarClass,
     // Thousandths of the band pitch, generated in `core` from the seed. Capped at half a pitch, so
     // it can never reorder two stars — the band reads as sky, and the drawing still cannot lie about
     // which of two systems comes first.
     val driftPermille: Int,
-    // Thousandths of the class radius, so two standards are siblings rather than clones. Never
-    // enough to promote a star into the next class.
-    val sizePermille: Int,
-    // A third of the brights lean the crystal hue in the halo only — variety inside a class, mixed
-    // from a resource hue the way the portrait ramp is, and never a status colour.
-    val coolHalo: Boolean,
+    val ink: MapStarInk,
     // What you know about it, as rings outside the disc. A set rather than a precedence, because
     // they are genuinely independent: your own star can be selected, and a system can be surveyed
     // with a probe on its way back to it.
     val marks: Set<MapStarMark>,
 )
+
+// **The knowledge tier, and it is the only thing that decides how a star is drawn** — a sealed pair
+// rather than a class beside a flag, so an uncharted star does not *carry* a class that every
+// drawing pass then has to remember not to use. The leak is unrepresentable rather than merely
+// untaken, which is the difference between a rule and a habit.
+sealed interface MapStarInk {
+
+    // The third tier. One size, one flat value, no halo, no spike, no class: you can see a star is
+    // there and where it is, and you cannot see what it is. **Survey does not buy a star's
+    // existence — it buys its character**, and that is the whole of what this withholds.
+    data object Grain : MapStarInk
+
+    data class Charted(
+        // Size and luminance both, which is what keeps knowledge and astronomy on separate channels:
+        // a surveyed dim star and an unsurveyed bright one are never the same mark.
+        val starClass: StarClass,
+        // Thousandths of the class radius, so two standards are siblings rather than clones. Never
+        // enough to promote a star into the next class.
+        val sizePermille: Int,
+        // A third of the brights lean the crystal hue in the halo only — variety inside a class,
+        // mixed from a resource hue the way the portrait ramp is, and never a status colour.
+        val coolHalo: Boolean,
+    ) : MapStarInk
+}
 
 // Every overlay the map has, and there are no more. Each is its own ring at its own radius, so two
 // facts about one star stack instead of one hiding the other.

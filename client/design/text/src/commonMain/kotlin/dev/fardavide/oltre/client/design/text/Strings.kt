@@ -865,7 +865,27 @@ object Strings {
 
     fun pinnedCount(count: Int): TextRes = message(StringId.PinnedCount, Arg.Count(count))
 
-    fun nothingCharted(): TextRes = message(StringId.NothingCharted)
+    // "61 of 250 charted" — fog's whole readout, on the head's count line and on a galaxy disc.
+    // Deliberately **not** a second progression gauge: the player strip counts what you are, this
+    // counts what you have looked at.
+    fun chartedOfSystems(charted: TextRes, systems: TextRes): TextRes =
+        message(StringId.ChartedOfSystems, Arg.Text(charted), Arg.Text(systems))
+
+    // The third knowledge tier, named. It sits under `charted` the way `Unsurveyed` sits under
+    // `surveyed`, and it is the only word the caption has for a star nobody has been near.
+    fun unchartedWord(): TextRes = message(StringId.UnchartedWord)
+
+    // "charts 25 systems" — the fog yield, and the reason a far star is worth more than a near one.
+    fun chartsSystems(count: Int): TextRes = message(StringId.ChartsSystems, Arg.Count(count))
+
+    // "75 systems out" — an uncharted star has no name to print, so its distance is what the
+    // caption's trailing figure says instead of a coordinate it has already used as the name.
+    fun systemsOut(count: Int): TextRes = message(StringId.SystemsOut, Arg.Count(count))
+
+    // "1–25" — a band whose name the light has not reached yet says where it is instead. The en
+    // dash is the house form for a range, as in `reachRange` above.
+    fun systemRange(from: Int, to: Int): TextRes =
+        message(StringId.SystemRange, Arg.Number(from.toLong()), Arg.Number(to.toLong()))
 
     // "[3:185]" — a system rather than a world, so two fields rather than three.
     fun systemAddress(galaxy: Int, system: Int): TextRes =

@@ -10,10 +10,14 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.SurveyBalance
 import dev.fardavide.oltre.core.SystemAddress
+import dev.fardavide.oltre.core.advance
 import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.worldAt
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 import org.junit.Test
 
@@ -80,6 +84,163 @@ class GalaxyFromStateBehaviourTest {
         }
 
         assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = elsewhere)), aimed)
+    }
+
+    @Test
+    fun `the bar under an uncharted star names its address and still offers a probe`() {
+        // **The whole of how the dark reads as an invitation, driven end to end.** Empty black says
+        // "nothing here" because nothing happens when you touch it; a grain star answers — it takes
+        // the selection, fills the bar, and offers the same button every other star offers. The one
+        // thing it says that a charted star does not is what a probe there would buy.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+
+        galaxyScreen(state = testGameState.copy(resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+
+            // The address is the name, because it is the only one there is.
+            assertTheCaptionReads("[${home.galaxy}:$far]")
+            assertTheCaptionReads("uncharted")
+            assertTheCaptionReads("charts")
+            // And the control is there rather than withheld.
+            assertTheCaptionReads("probe")
+        }
+    }
+
+    @Test
+    fun `opening an uncharted star does not hand over what the fog is withholding`() {
+        // **The bypass, and it is the whole tier.** The caption's entire bar is a tap target and the
+        // tap opens the orbit page — so a player could scrub to any grain star, tap once, and read
+        // the name, the region, the class and the world count that the bar two dp above had just
+        // refused to say. Every one of those is charted-tier.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val name = systemNameAt(testGameState.galaxy.seed, home.galaxy, far)
+
+        galaxyScreen(state = testGameState.copy(resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+            openTheSelectedSystem()
+
+            assertNothingReads(name)
+        }
+    }
+
+    @Test
+    fun `the orbit page of an uncharted star still sells the flight that would chart it`() {
+        // The other half of the page above: it withholds four facts and it must not withhold the
+        // control. This is the route a player actually walks — scrub, tap the bar, buy the probe —
+        // and it is the one that would have shipped a dead footer, because the footer's own rule
+        // predates the tier.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val aimed = mutableListOf<SystemAddress>()
+
+        galaxyScreen(
+            state = testGameState.copy(resources = Resources.of(metal = 100_000)),
+            onDispatchProbe = { aimed += it },
+        ) {
+            scrubTo(far)
+            openTheSelectedSystem()
+
+            // The page says what it is allowed to and prices the flight. The address is in the
+            // *name* slot rather than the coordinate one, because on this tier it is the only name
+            // there is — the coordinate slot carries the distance instead.
+            assertReads("[${home.galaxy}:$far]")
+            assertReads("systems out")
+            // Shouted by `SystemHead`, which uppercases the region and the detail as a rendering
+            // decision — the catalogue's own strings are lower case.
+            assertReads("UNCHARTED")
+            assertReads("CHARTS")
+            // And nothing the light has not reached: the star's generated name is on no row here.
+            assertNothingReads(systemNameAt(testGameState.galaxy.seed, home.galaxy, far))
+
+            dispatchAProbe()
+        }
+
+        assertEquals(listOf(SystemAddress(galaxy = home.galaxy, system = far)), aimed)
+    }
+
+    @Test
+    fun `a probe that lands inside the light buys no map`() {
+        // The other half of *a probe landing widens the light*, and the one a player will meet first
+        // because the doorstep is where the cheap flights are: a survey inside the hour of grace
+        // still buys worlds and buys no map at all. The head is where that is visible, and it is the
+        // reading that would be wrong if the widen were ever written as an unconditional rewrite.
+        // **It takes a wide light to have an inside at all**, which is the fact this test is really
+        // about: on a genesis span the only landing that widens nothing is home itself, because the
+        // hour of grace reaches past both ends of a 61-system stretch from anywhere in it. So the
+        // colony walks its frontier to the end of the galaxy first, and *then* probes the middle.
+        val far = SystemAddress(galaxy = home.galaxy, system = GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val rich = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val before = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(rich, far, at = EPOCH)).state,
+            from = EPOCH,
+            to = EPOCH + 3.days,
+        )
+        val near = SystemAddress(galaxy = home.galaxy, system = home.system + 20)
+        val landed = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(before, near, at = EPOCH + 3.days)).state,
+            from = EPOCH + 3.days,
+            to = EPOCH + 6.days,
+        )
+
+        // The fixture's premise: the probe really did land and really did find something, or the
+        // claim below would hold because nothing happened.
+        assertTrue(
+            landed.galaxy.surveyed.size > before.galaxy.surveyed.size,
+            "the fixture needs a probe that found worlds",
+        )
+        assertEquals(
+            before.galaxy.charted,
+            landed.galaxy.charted,
+            "a landing well inside the light must widen nothing",
+        )
+
+        // 141…250 after the long flight, and the same 110 after the short one.
+        galaxyScreen(state = before) { assertReads("110 OF 250 CHARTED") }
+        galaxyScreen(state = landed) { assertReads("110 OF 250 CHARTED") }
+    }
+
+    @Test
+    fun `the bar in the dark counts a probe down and quotes a flight it cannot sell`() {
+        // The two states the uncharted bar has besides the offer, and neither may become a second
+        // control: one probe per target is not suspended by the tier, and a colony that cannot pay
+        // is quoted rather than told why — the bar has room to say what a trip costs or to offer it.
+        val far = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY)
+        val target = SystemAddress(galaxy = home.galaxy, system = far)
+        val rich = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(rich, target, at = EPOCH)).state
+
+        galaxyScreen(state = out) {
+            scrubTo(far)
+            assertTheCaptionReads("lands in")
+            assertTheCaptionOffersNoProbe()
+        }
+
+        // And with no hull at all the same star is priced and not sold.
+        galaxyScreen(state = testGameState.copy(ships = Ships.NONE, resources = Resources.of(metal = 100_000))) {
+            scrubTo(far)
+            assertTheCaptionReads("probe")
+            assertTheCaptionOffersNoProbe()
+        }
+    }
+
+    @Test
+    fun `a probe landing widens the light and the head says so`() {
+        // The loop closing, from one screen: the count line before the flight, the flight, and the
+        // count line after it. This is the reading Davide gets back — *the area I unlocked* — as a
+        // number rather than as a picture.
+        val far = SystemAddress(
+            galaxy = home.galaxy,
+            system = (home.system + 70).coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY),
+        )
+        val before = testGameState.copy(resources = Resources.of(metal = 100_000))
+        val landed = advance(
+            assertIs<StartSurveyResult.Started>(startSurvey(before, far, at = EPOCH)).state,
+            from = EPOCH,
+            to = EPOCH + 3.days,
+        )
+
+        galaxyScreen(state = before) { assertReads("61 OF 250 CHARTED") }
+        // 141 unchanged at the near end, 241 + 30 clamped to 250 at the far one: 110 systems.
+        galaxyScreen(state = landed) { assertReads("110 OF 250 CHARTED") }
     }
 
     @Test
@@ -359,7 +520,10 @@ class GalaxyFromStateBehaviourTest {
                     surveyed = colony.galaxy.surveyed + (1..GalaxyBalance.SLOTS_PER_SYSTEM)
                         .map { GalaxyCoordinate(galaxy = far.galaxy, system = far.system, slot = it) }
                         .filter { worldAt(colony.galaxy.seed, it) != null },
-                ),
+                    // **Charted too, because a survey implies a landing.** Writing `surveyed` by hand
+                    // and leaving `charted` alone builds a state the game cannot reach — surveyed and
+                    // in the dark at once — and since 0.20 the orbit page would draw none of it.
+                ).withCharted(far),
             )
         }
 

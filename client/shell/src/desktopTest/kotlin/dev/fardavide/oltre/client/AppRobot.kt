@@ -399,6 +399,16 @@ internal fun app(
     // translations beside it stay English deliberately: what is being driven is the *document*, and
     // a frame in two languages at once would be asserting two things.
     changelog: ChangelogText = EnglishChangelog,
+    // **A save from an older build**, and the only way to put the launch through a migration:
+    // `GameStore.save` always writes the *current* schema, so `saved` above can never be a document
+    // this build has to upgrade — and a migration is the one thing in a release that rewrites a save
+    // a player already has.
+    //
+    // The blob is still produced by `GameSave.encode` and then *downgraded*, never hand-written, for
+    // the reason the note below gives: a fixture that composed its own JSON produced something
+    // `load` answers with null, and the app then started a brand new colony while every assertion
+    // passed.
+    legacy: String? = null,
     block: AppRobot.() -> Unit,
 ) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -408,6 +418,9 @@ internal fun app(
     val file = InMemorySaveFile()
     if (saved != null) {
         runBlocking { GameStore(file).save(saved) }
+    }
+    if (legacy != null) {
+        runBlocking { file.write(legacy) }
     }
     val booked = RecordingNotifications()
     runDesktopComposeUiTest(width = 393, height = 852) {

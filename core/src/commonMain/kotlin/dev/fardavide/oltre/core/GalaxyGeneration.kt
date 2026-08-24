@@ -104,6 +104,12 @@ internal fun percentFrom(stream: Long): Int = stream.boundedBy(100)
 // one line of arithmetic, plus the ability to compare one galaxy with another.
 fun regionOf(system: Int): Int = (system - 1) / GalaxyBalance.SYSTEMS_PER_REGION + 1
 
+// `regionOf` the other way round: the systems a region holds, 1-based at both ends, so region 1 is
+// 1..25 and region 10 is 226..250. Beside its inverse because the two have to agree, and they are
+// each one line of arithmetic that would otherwise be written twice in two layers.
+fun systemsOf(region: Int): IntRange =
+    ((region - 1) * GalaxyBalance.SYSTEMS_PER_REGION + 1)..(region * GalaxyBalance.SYSTEMS_PER_REGION)
+
 // The galaxy's ten regions in order, as a **permutation** of `REGION_TEMPERAMENTS` — see the note
 // there for why it is a shuffle of a fixed list and not ten draws.
 //

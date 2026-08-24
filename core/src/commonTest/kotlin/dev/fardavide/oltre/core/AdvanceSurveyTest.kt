@@ -249,21 +249,118 @@ class AdvanceSurveyTest {
     }
 
     @Test
-    fun `a star with nothing around it cannot be dispatched to at all`() {
-        // given the rare system whose fifteen slots are all empty — roughly one in 390. Whether a
-        // slot holds a world is *charted*, free and galaxy-wide, so there is genuinely nothing
-        // there a probe could learn, and `hasSurveyed` answers vacuously true.
-        //
-        // Pinned as a refusal rather than left to be discovered by a screen: a player must not be
-        // able to spend 150 metal and nine hours on a star to be told what the map already drew.
-        // What it costs is that a dispatch action has a sixth state to render, which is `nothing to
-        // survey` and emphatically not `already surveyed`.
+    fun `a probe that lands charts an hour of flight either side of its target`() {
+        // given
         val state = rich()
+        val to = target(state, systemsAway = 40)
+        val before = state.galaxy.chartedCountIn(to.galaxy)
+
+        // when
+        val landed = advance(state.dispatch(to), from = t0, to = t0 + 1.days)
+
+        // then the light reaches an hour past where the hull came down, and it did so on arrival
+        // rather than on dispatch — the map moves when the scout does
+        assertTrue(landed.galaxy.hasCharted(to))
+        assertEquals(
+            landed.galaxy.chartedCountIn(to.galaxy) - before,
+            state.galaxy.wouldChart(to),
+            "what the caption would have quoted is what the landing actually bought",
+        )
+    }
+
+    @Test
+    fun `a probe still in flight has charted nothing`() {
+        val state = rich()
+        val to = target(state, systemsAway = 40)
+        val dispatched = state.dispatch(to)
+
+        val partway = advance(dispatched, from = t0, to = t0 + 5.minutes)
+
+        assertEquals(1, partway.surveys.size, "the fixture needs a probe still out at five minutes")
+        assertEquals(state.galaxy.charted, partway.galaxy.charted)
+    }
+
+    @Test
+    fun `charting composes across a landing`() {
+        // The property `advance` is built on, on the new field: a span computed in one hop and a
+        // span computed through an instant inside the flight are the same span.
+        val state = rich()
+        val to = target(state, systemsAway = 40)
+        val dispatched = state.dispatch(to)
+
+        val direct = advance(dispatched, from = t0, to = t0 + 1.days)
+        val stepped = advance(
+            advance(dispatched, from = t0, to = t0 + 10.minutes),
+            from = t0 + 10.minutes,
+            to = t0 + 1.days,
+        )
+
+        assertEquals(direct.galaxy.charted, stepped.galaxy.charted)
+    }
+
+    @Test
+    fun `a star with nothing around it can be probed while the map has not reached it`() {
+        // **The rule the fog changed, and the reason it had to.** Until the third tier existed,
+        // "nothing left to learn" was a question about worlds alone, and the rare system whose
+        // fifteen slots are all empty — roughly one in 390 — answered it vacuously: whether a slot
+        // holds a world was *charted*, free and galaxy-wide, so you could see from home there was
+        // nothing there and spending 150 metal and nine hours to be told so was a refusal rather
+        // than a restriction.
+        //
+        // Under fog you cannot see it from home, because the map itself is now something a flight
+        // buys. So an uncharted star always has something left to learn even when it has no worlds,
+        // and refusing it would do two forbidden things at once: leak that emptiness for free, and
+        // withhold the one control every other star on the drawing offers.
+        val state = rich()
+        val worldless = firstWorldlessSystem(state.galaxy.seed)
+        assertTrue(
+            !state.galaxy.hasCharted(worldless),
+            "the fixture needs a worldless target the light has not reached",
+        )
 
         // then
+        assertIs<StartSurveyResult.Started>(startSurvey(state, worldless, at = t0))
+    }
+
+    @Test
+    fun `a star with nothing around it cannot be probed once the map has reached it`() {
+        // The other half, and it is the old rule intact wherever the old rule's premise still
+        // holds: a player cannot pay twice for what they already own. A charted worldless star has
+        // genuinely nothing left — no worlds to survey and no map to buy — so it refuses.
+        val state = rich()
+        val worldless = firstWorldlessSystem(state.galaxy.seed)
+        val reached = state.copy(galaxy = state.galaxy.withCharted(worldless))
+
+        // then
+        assertEquals(StartSurveyResult.AlreadySurveyed, startSurvey(reached, worldless, at = t0))
+    }
+
+    @Test
+    fun `a probe that finds nothing still charts where it went`() {
+        // **The case the whole span design rests on.** `surveyed` records what a probe found and
+        // the fog records where it went, and this is the one flight where the two disagree: a
+        // landing on a worldless system writes not one coordinate to `surveyed`, so a map derived
+        // from that set would refuse to move on the very flight the player most wants counted.
+        val state = rich()
+        val worldless = firstWorldlessSystem(state.galaxy.seed)
+        val dispatched = state.dispatch(worldless)
+
+        val landed = advance(dispatched, from = t0, to = t0 + 3.days)
+
+        // then it found nothing at all
+        assertEquals(state.galaxy.surveyed, landed.galaxy.surveyed)
+        // and the map moved anyway, an hour either side of where the hull came down
+        assertTrue(landed.galaxy.hasCharted(worldless))
+        val span = landed.galaxy.spanIn(worldless.galaxy)
         assertEquals(
-            StartSurveyResult.AlreadySurveyed,
-            startSurvey(state, firstWorldlessSystem(state.galaxy.seed), at = t0),
+            (worldless.system - SurveyBalance.GRACE_SYSTEMS).coerceAtLeast(1),
+            span?.lo,
+            "an untouched galaxy opens exactly the hour either side of the one landing",
+        )
+        assertEquals(
+            (worldless.system + SurveyBalance.GRACE_SYSTEMS)
+                .coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY),
+            span?.hi,
         )
     }
 

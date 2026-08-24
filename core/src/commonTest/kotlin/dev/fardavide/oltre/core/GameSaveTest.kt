@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":17,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":18,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -97,7 +97,10 @@ class GameSaveTest {
                 """{"galaxy":3,"system":171,"slot":8},{"galaxy":3,"system":171,"slot":10},""" +
                 """{"galaxy":3,"system":171,"slot":11}],""" +
                 """"ownership":[{"at":{"galaxy":3,"system":171,"slot":7},"holder":"player"}],""" +
-                """"deposits":[],"pinned":[]},""" +
+                // The fog, and it is two integers: an hour of flight either side of the one place a
+                // new colony is standing. 171 ± 30, so a genesis save opens on 61 of 250 systems.
+                // Absent for the other three galaxies rather than empty — nothing has been there.
+                """"deposits":[],"pinned":[],"charted":[{"galaxy":3,"lo":141,"hi":201}]},""" +
                 // Probes in flight. Empty at genesis, and the only key schema 6 added — what a
                 // survey writes to is `galaxy.surveyed` above, which has been there since 4.
                 """"surveys":[],""" +
@@ -1169,9 +1172,28 @@ class GameSaveTest {
     // question. What the hop has to decide is what a colony that never had the control was asking for,
     // and the answer is the behaviour it already had.
     private fun schema16(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema17(state)
             .replace(""""schemaVersion":17""", """"schemaVersion":16""")
             .replace(alertsKey(state), "")
+
+    // ── 17 -> 18: the fog ───────────────────────────────────────────────────────────────────
+
+    // A save written by 0.18, which had no `charted` key at all — the map was free and galaxy-wide,
+    // so there was nothing about it to record. Stripped rather than written empty, because an empty
+    // list means *a colony that has charted nothing anywhere*, and no save ever held that: every
+    // colony has at least been standing on its own doorstep.
+    private fun schema17(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":18""", """"schemaVersion":17""")
+            .replace(chartedKey(state), "")
+
+    // Derived from the state rather than pasted, for the reason the whole fixture chain is.
+    private fun chartedKey(state: GameState): String =
+        ""","charted":[""" +
+            state.galaxy.charted.joinToString(",") {
+                """{"galaxy":${it.galaxy},"lo":${it.lo},"hi":${it.hi}}"""
+            } +
+            "]"
 
     // Derived from the state rather than pasted, for the reason the whole fixture chain is: a frozen
     // string drifts into being a current save wearing an old number.
@@ -1451,6 +1473,146 @@ class GameSaveTest {
 
         assertEquals(setOf(target), roundTripped.state.galaxy.pinned)
         assertEquals(emptySet(), legacy.state.galaxy.pinned)
+    }
+
+    @Test
+    fun `a charted span survives a round trip`() {
+        val fresh = GameState.initial()
+        val reached = SystemAddress(galaxy = 1, system = 40)
+        val snapshot = GameSnapshot(
+            lastUpdatedAt = EPOCH,
+            state = fresh.copy(galaxy = fresh.galaxy.withCharted(reached)),
+        )
+
+        val roundTripped = assertIs<DecodeResult.Success>(GameSave.decode(GameSave.encode(snapshot))).snapshot
+
+        assertEquals(snapshot.state.galaxy.charted, roundTripped.state.galaxy.charted)
+        assertTrue(roundTripped.state.galaxy.hasCharted(reached))
+    }
+
+    @Test
+    fun `a colony carried forward wakes up charted around everything it reached`() {
+        // The 17 -> 18 hop folds the save's own contents, which is schema 15's precedent: a colony
+        // that has surveyed a system demonstrably got a hull to it, so it keeps the map it earned
+        // rather than being handed home alone. Both ends are widened by the hour of grace.
+        val fresh = GameState.initial()
+        // Far enough out to move the frontier, near enough that the galaxy's own end does not clamp
+        // it — the clamp has a test of its own and this one is about the fold.
+        val far = GalaxyCoordinate(galaxy = fresh.galaxy.home.galaxy, system = 200, slot = 5)
+        val played = fresh.copy(galaxy = fresh.galaxy.copy(surveyed = fresh.galaxy.surveyed + far))
+        val legacy = schema17(played)
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(legacy)).snapshot
+
+        val span = decoded.state.galaxy.spanIn(far.galaxy)
+        assertEquals(fresh.galaxy.home.system - 30, span?.lo)
+        assertEquals(far.system + 30, span?.hi)
+    }
+
+    @Test
+    fun `a colony that reached two galaxies wakes up charted in both`() {
+        // The hop folds `surveyed` **per galaxy**, so a colony that had been to another one keeps
+        // two spans rather than one merged across a coordinate space that does not join up.
+        val fresh = GameState.initial()
+        val abroad = GalaxyCoordinate(galaxy = 1, system = 60, slot = 5)
+        val played = fresh.copy(galaxy = fresh.galaxy.copy(surveyed = fresh.galaxy.surveyed + abroad))
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema17(played))).snapshot
+
+        assertEquals(listOf(1, fresh.galaxy.home.galaxy), decoded.state.galaxy.charted.map { it.galaxy })
+        assertEquals(30, decoded.state.galaxy.spanIn(1)?.lo)
+        assertEquals(90, decoded.state.galaxy.spanIn(1)?.hi)
+        // And the home galaxy is untouched by the trip.
+        assertEquals(fresh.galaxy.spanIn(fresh.galaxy.home.galaxy), decoded.state.galaxy.spanIn(fresh.galaxy.home.galaxy))
+    }
+
+    @Test
+    fun `a legacy save with no galaxy block at all is refused rather than charted from nothing`() {
+        // The hop's own guard. It cannot invent a span for a save that has no map in it, so it
+        // returns the document untouched and the decode fails on the missing key — which is
+        // `GameSave`'s standing choice everywhere: a save this build cannot read is one to say so
+        // about rather than to half-read.
+        val stripped = schema17(GameState.initial()).replace(""""galaxy":{""", """"galaxyBlock":{""")
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(stripped))
+    }
+
+    @Test
+    fun `a legacy coordinate the fold cannot read charts nothing and the save is refused`() {
+        // **The hop's `mapNotNull` guards, and what they are and are not for.** A coordinate missing
+        // its own fields is dropped rather than read as system 0 — which would widen the span to the
+        // start of the galaxy and hand the player a map nobody flew for. What the guard is *not* is a
+        // repair: the same malformed entry is still in `surveyed`, so the snapshot decode refuses it
+        // one step later, which is this format's standing answer. The guard's whole job is to make
+        // sure the migration in between neither throws nor invents.
+        val fresh = GameState.initial()
+        val far = GalaxyCoordinate(galaxy = fresh.galaxy.home.galaxy, system = 200, slot = 5)
+        val played = fresh.copy(galaxy = fresh.galaxy.copy(surveyed = fresh.galaxy.surveyed + far))
+        val tampered = schema17(played)
+            .replace(""""galaxy":${far.galaxy},"system":${far.system},"slot":${far.slot}""", """"slot":${far.slot}""")
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+    }
+
+    @Test
+    fun `a colony that never left home wakes up charted around home alone`() {
+        val legacy = schema17(GameState.initial())
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(legacy)).snapshot
+
+        assertEquals(GameState.initial().galaxy.charted, decoded.state.galaxy.charted)
+    }
+
+    @Test
+    fun `a colony saved before the map cost anything is charted nowhere it never went`() {
+        // The frozen schema-5 fixture runs the whole chain, so the new hop is exercised by it for
+        // free. What matters is the shape it lands in: one span, in the galaxy it lives in.
+        val legacy = assertIs<DecodeResult.Success>(GameSave.decode(VERSION_5_FULL)).snapshot
+
+        val galaxies = legacy.state.galaxy.charted.map { it.galaxy }
+        assertEquals(listOf(legacy.state.galaxy.home.galaxy), galaxies)
+    }
+
+    @Test
+    fun `a save whose charted span runs backwards decodes to a failure`() {
+        val tampered = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+            .replace(""""lo":141,"hi":201""", """"lo":201,"hi":141""")
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(tampered))
+    }
+
+    @Test
+    fun `a save whose charted span is outside the coordinate space decodes to a failure`() {
+        // **Through the decoder rather than through the constructor**, which is a different path and
+        // the only one a hand-edited file can reach: serialization builds a `ChartedSpan` with its
+        // own synthetic constructor, and `init` is the one thing both share. Every bound, both ways,
+        // because a span read off disk is the only span nothing has clamped.
+        val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        val span = """"galaxy":3,"lo":141,"hi":201"""
+
+        for (broken in listOf(
+            """"galaxy":0,"lo":141,"hi":201""",
+            """"galaxy":9,"lo":141,"hi":201""",
+            """"galaxy":3,"lo":0,"hi":201""",
+            """"galaxy":3,"lo":251,"hi":251""",
+            """"galaxy":3,"lo":141,"hi":251""",
+            """"galaxy":3,"lo":1,"hi":0""",
+        )) {
+            assertIs<DecodeResult.Failure>(GameSave.decode(genesis.replace(span, broken)), broken)
+        }
+    }
+
+    @Test
+    fun `a save charting one galaxy twice decodes to a failure`() {
+        // The uniqueness `GalaxyState.init` keeps, met the only way it can be broken: by hand. Two
+        // spans for one galaxy is a map with two frontiers and no rule for which is the light.
+        val genesis = GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = GameState.initial()))
+        val doubled = genesis.replace(
+            """"charted":[{"galaxy":3,"lo":141,"hi":201}]""",
+            """"charted":[{"galaxy":3,"lo":141,"hi":201},{"galaxy":3,"lo":10,"hi":20}]""",
+        )
+
+        assertIs<DecodeResult.Failure>(GameSave.decode(doubled))
     }
 
     @Test

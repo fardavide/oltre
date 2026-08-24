@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.format.toChipLabel
+import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyMapUiState
@@ -10,6 +11,7 @@ import dev.fardavide.oltre.client.galaxy.ui.MapCaptionUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapHourUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapNameTone
 import dev.fardavide.oltre.client.galaxy.ui.MapNameUiState
+import dev.fardavide.oltre.client.galaxy.ui.MapStarInk
 import dev.fardavide.oltre.client.galaxy.ui.MapStarMark
 import dev.fardavide.oltre.client.galaxy.ui.MapStarUiState
 import dev.fardavide.oltre.client.galaxy.ui.UniverseDiscUiState
@@ -24,6 +26,8 @@ import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.layoutAt
 import dev.fardavide.oltre.core.regionNameAt
 import dev.fardavide.oltre.core.regionOf
+import dev.fardavide.oltre.core.systemsOf
+import kotlin.math.abs
 import dev.fardavide.oltre.core.starClassAt
 import dev.fardavide.oltre.core.systemNameAt
 import dev.fardavide.oltre.core.temperamentsOf
@@ -67,11 +71,25 @@ private fun GameState.toGalaxyDiscUiState(galaxyIndex: Int): GalaxyMapUiState = 
 // the same list ten times over.
 private fun GameState.bandsOf(galaxy: Int, lit: Int): List<MapBandUiState> {
     val temperaments = temperamentsOf(this.galaxy.seed, galaxy)
+    // Hoisted out of the ten-band loop for the reason `temperaments` is: a lookup that is the same
+    // answer every time belongs above the loop that asks it.
+    val span = this.galaxy.spanIn(galaxy)
     return (1..GalaxyBalance.REGIONS_PER_GALAXY).map { region ->
+        val systems = systemsOf(region)
+        val charted = span
+            ?.let { maxOf(it.lo, systems.first)..minOf(it.hi, systems.last) }
+            ?.takeIf { !it.isEmpty() }
         MapBandUiState(
             region = region,
-            name = TextRes(regionNameAt(this.galaxy.seed, galaxy, region)),
+            // **A region's name is what the light buys at region scale**, and it arrives the first
+            // time the light touches any star in the band — about nine times in a galaxy's life,
+            // which is the one discrete event in an otherwise continuous reveal.
+            name = when (charted) {
+                null -> Strings.systemRange(systems.first, systems.last)
+                else -> TextRes(regionNameAt(this.galaxy.seed, galaxy, region))
+            },
             temperament = temperaments[region - 1],
+            charted = charted,
             lit = region == lit,
         )
     }
@@ -92,14 +110,25 @@ private fun GameState.starsOf(at: SystemSelection, mini: Boolean): List<MapStarU
     val known = galaxy.surveyed.filter { it.galaxy == at.galaxy }.mapTo(mutableSetOf()) { it.system }
     val inFlight = surveys.filter { it.target.galaxy == at.galaxy }.mapTo(mutableSetOf()) { it.target.system }
     val home = galaxy.home.takeIf { it.galaxy == at.galaxy }?.system
+    // Hoisted out of the 250-star loop, which is the whole of this file's cost budget: one lookup
+    // per draw rather than 250, and then one integer comparison a star.
+    val span = galaxy.spanIn(at.galaxy)
     return (1..GalaxyBalance.SYSTEMS_PER_GALAXY).map { system ->
         val layout = layoutAt(seed, at.galaxy, system)
         MapStarUiState(
             system = system,
-            starClass = starClassAt(seed, at.galaxy, system),
             driftPermille = layout.driftPermille,
-            sizePermille = layout.sizePermille,
-            coolHalo = layout.haloPermille < COOL_HALO_BELOW_PERMILLE,
+            // **Position is never in the ink and class always is**, so an uncharted star costs less
+            // to build rather than more: the generator is not asked what it is.
+            ink = when (span != null && system in span) {
+                true -> MapStarInk.Charted(
+                    starClass = starClassAt(seed, at.galaxy, system),
+                    sizePermille = layout.sizePermille,
+                    coolHalo = layout.haloPermille < COOL_HALO_BELOW_PERMILLE,
+                )
+
+                false -> MapStarInk.Grain
+            },
             marks = buildSet {
                 if (system in known) add(MapStarMark.SURVEYED)
                 if (system in inFlight) add(MapStarMark.IN_FLIGHT)
@@ -146,7 +175,17 @@ private fun GameState.hourMarksFor(galaxy: Int): List<MapHourUiState> {
 private fun GameState.namesFor(at: SystemSelection): List<MapNameUiState> {
     val home = galaxy.home.takeIf { it.galaxy == at.galaxy }?.system
     val pinned = galaxy.pinned.filter { it.galaxy == at.galaxy }.map { it.system }
-    return (pinned + listOfNotNull(home, at.system)).distinct().sorted().map { system ->
+    // **A name is a charted fact, so the light has to reach one before the map prints it.** Home and
+    // every pin are charted by construction — a pin requires a survey and a survey requires a
+    // landing, which is what set the span in the first place — so the only system this ever removes
+    // is the *selection*, which a thumb can park anywhere including the dark. Without it the map
+    // draws a star's real name eight dp from a caption that is saying `[3:240]` precisely because
+    // there is not one, which is the tier leaking through the loudest channel it has.
+    return (pinned + listOfNotNull(home, at.system))
+        .distinct()
+        .filter { galaxy.hasCharted(SystemAddress(galaxy = at.galaxy, system = it)) }
+        .sorted()
+        .map { system ->
         MapNameUiState(
             system = system,
             name = TextRes(systemNameAt(galaxy.seed, at.galaxy, system)),
@@ -159,12 +198,20 @@ private fun GameState.namesFor(at: SystemSelection): List<MapNameUiState> {
     }
 }
 
-// The bar under the fold. Two lines of what a system is before anybody has looked at it — every one
-// of them charted, so nothing here can leak what a survey is the reward for — and one trailing
-// element that is a control exactly when there is a probe to send.
+// The bar under the fold. Two lines of what a system is before anybody has *surveyed* it, and one
+// trailing element that is a control exactly when there is a probe to send.
+//
+// **Since fog there are two of those, not one**, because there are three tiers rather than two. On a
+// charted star this says what it always said. On an uncharted one it may say nothing the light has
+// not reached — no name, no class, no region, and above all no world count — so what it says instead
+// is the two facts that still make a choice: **where it is, and what a probe there would buy.**
+//
+// That second one is new and it is the answer to *how does the dark read as an invitation*. The
+// answer is not in the drawing, it is in the tap: every grain star answers when you touch it.
 internal fun GameState.toMapCaptionUiState(at: SystemSelection, now: Instant): MapCaptionUiState {
     val seed = galaxy.seed
     val target = SystemAddress(galaxy = at.galaxy, system = at.system)
+    if (!galaxy.hasCharted(target)) return unchartedCaption(at = at, target = target, now = now)
     val worlds = worldsIn(seed, target)
     val starClass = Strings.starClassName(starClassAt(seed, at.galaxy, at.system))
     val region = TextRes(regionNameAt(seed, at.galaxy, regionOf(at.system)))
@@ -184,6 +231,62 @@ internal fun GameState.toMapCaptionUiState(at: SystemSelection, now: Instant): M
         compactMeta = Strings.clauses(listOf(starClass, Strings.plainNumber(worlds))),
         trailing = trailingFor(at = at, target = target, worlds = worlds, now = now),
         own = true,
+    )
+}
+
+// The third tier's caption. It asks the generator **nothing** — not the name, not the class, not the
+// region and not the world count — which is not an optimisation but the tier itself: every one of
+// those is a fact the light has not reached, and `worldsIn` in particular would leak an empty system
+// through `trailingFor`'s `no worlds` branch, which is precisely what fog exists to stop.
+private fun GameState.unchartedCaption(
+    at: SystemSelection,
+    target: SystemAddress,
+    now: Instant,
+): MapCaptionUiState {
+    val flight = surveys.firstOrNull { it.target == target }
+    val probe = Strings.probeFlight(
+        SurveyBalance.duration(from = SystemAddress.of(galaxy.home), to = target).toChipLabel(),
+    )
+    // Both forms are the same string: `meta`'s compact rule drops the region because the band above
+    // the bar is named, and on an uncharted band that band shows its index range instead — so the
+    // justification for dropping anything is gone, and there is nothing here to drop anyway.
+    val meta = Strings.clauses(listOf(Strings.unchartedWord(), Strings.chartsSystems(galaxy.wouldChart(target))))
+    return MapCaptionUiState(
+        // **The address is the name, because it is the only one there is.** A system's name is
+        // generated and generated is not free any more.
+        system = Strings.systemAddress(at.galaxy, at.system),
+        coordinate = distanceFromHome(at),
+        meta = meta,
+        compactMeta = meta,
+        trailing = when {
+            flight != null -> MapCaptionTrailingUiState.Note(
+                Strings.probeLandsIn((flight.completesAt - now).coerceAtLeast(Duration.ZERO).toChipLabel()),
+            )
+            // The same fallback a charted star takes when the stores or the yard are short: the
+            // caption has room to say what a trip costs or to offer it, never room to say why not.
+            !canSendAProbe() -> MapCaptionTrailingUiState.Note(probe)
+            else -> MapCaptionTrailingUiState.Dispatch(probe)
+        },
+        own = true,
+    )
+}
+
+// **How far away an uncharted star is, and it takes two words rather than one.** Systems inside a
+// galaxy and *units* across one, because they are not the same figure: `distanceUnits` prices a
+// galaxy hop at 250 — a flight cost, not a count — so one word everywhere would describe a star one
+// galaxy over as `571 systems out` about a galaxy that holds 250. The astronomy line under the
+// system header has said `units out` since 0.3 for exactly this reason.
+//
+// **In one place because it is asked in two**, and the two drifted apart the first time: the map's
+// caption was corrected and the orbit page's header, which is one tap away and says the same thing,
+// was not.
+internal fun GameState.distanceFromHome(at: SystemSelection): TextRes = when (at.galaxy) {
+    galaxy.home.galaxy -> Strings.systemsOut(abs(at.system - galaxy.home.system))
+    else -> Strings.unitsOut(
+        SurveyBalance.distanceUnits(
+            from = SystemAddress.of(galaxy.home),
+            to = SystemAddress(galaxy = at.galaxy, system = at.system),
+        ).toLong().groupedByThousands(),
     )
 }
 
@@ -251,8 +354,12 @@ internal fun GameState.toUniverseUiState(at: SystemSelection): UniverseUiState =
             galaxy = index,
             label = Strings.galaxyLabel(index),
             map = toGalaxyDiscUiState(galaxyIndex = index),
-            known = Strings.surveyedCount(
-                galaxy.surveyed.filter { it.galaxy == index }.distinctBy { it.system }.size,
+            // **A disc says how much of its galaxy you have charted, not how much you have
+            // surveyed** — which is the honest line under a drawing that is now mostly grain, and
+            // the only fact that separates the four cards besides their fare.
+            known = Strings.chartedOfSystems(
+                charted = Strings.plainNumber(galaxy.chartedCountIn(index)),
+                systems = Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY),
             ),
             cost = if (home) null else Strings.runFlight(galaxyHopFrom(index).toChipLabel()),
             home = home,
@@ -268,24 +375,26 @@ internal fun GameState.toUniverseUiState(at: SystemSelection): UniverseUiState =
 internal fun GameState.toUniverseCaptionUiState(at: SystemSelection): MapCaptionUiState {
     val known = galaxy.surveyed.filter { it.galaxy == at.galaxy }.distinctBy { it.system }.size
     val home = at.galaxy == galaxy.home.galaxy
+    // **`nothingCharted` used to mean "nothing surveyed"**, and that word now means something else
+    // eight dp away on the same screen. So this line takes the head's own idiom rather than keeping
+    // a collision: how much of the galaxy is charted, then how much of it is surveyed.
+    val meta = Strings.clauses(
+        listOf(
+            Strings.chartedOfSystems(
+                charted = Strings.plainNumber(galaxy.chartedCountIn(at.galaxy)),
+                systems = Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY),
+            ),
+            Strings.surveyedCount(known),
+        ),
+    )
     return MapCaptionUiState(
         system = Strings.galaxyNamed(at.galaxy),
         // Nothing to say rather than a message that is empty: a galaxy has no address inside
         // itself, which is the same reason its caption has nothing to aim.
         coordinate = TextRes(""),
-        meta = Strings.clauses(
-            listOf(
-                Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
-                if (known == 0) Strings.nothingCharted() else Strings.surveyedCount(known),
-            ),
-        ),
+        meta = meta,
         // A galaxy's summary is two short facts and fits either width, so there is nothing to drop.
-        compactMeta = Strings.clauses(
-            listOf(
-                Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
-                if (known == 0) Strings.nothingCharted() else Strings.surveyedCount(known),
-            ),
-        ),
+        compactMeta = meta,
         trailing = if (home) {
             MapCaptionTrailingUiState.Note(Strings.homeNote())
         } else {

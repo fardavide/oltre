@@ -10,10 +10,18 @@ sealed interface StartSurveyResult {
     // quantity.
     data object AlreadySurveying : StartSurveyResult
 
-    // Every world around that star is already known. Refusing is not a restriction, it is the
-    // absence of a tax: a player cannot accidentally pay for information they own, and — unlike
-    // OGame's Discovery, which puts a seven-day cooldown on a coordinate — nothing ever expires
-    // back into needing to be re-bought. `surveyed` is monotone, permanently.
+    // Every world around that star is already known **and the map already reaches it**. Refusing is
+    // not a restriction, it is the absence of a tax: a player cannot accidentally pay for
+    // information they own, and — unlike OGame's Discovery, which puts a seven-day cooldown on a
+    // coordinate — nothing ever expires back into needing to be re-bought. `surveyed` is monotone,
+    // permanently, and so is `charted`.
+    //
+    // **Both halves are required, and the second one arrived with fog.** Before it, "nothing left to
+    // learn" was a question about worlds alone, and a star with fifteen empty slots answered it
+    // vacuously — you could see from home that there was nothing there. Under fog you cannot: the
+    // map itself is now something a flight buys, so an uncharted star always has something left to
+    // learn even when it has no worlds, and refusing it would both leak that emptiness for free and
+    // withhold a control every other star on the drawing offers.
     data object AlreadySurveyed : StartSurveyResult
 
     // No idle `SCOUT`. **The scarcity that a price could not buy** — see the verb below — and it is
@@ -50,7 +58,9 @@ sealed interface StartSurveyResult {
 // purchase it can afford out of the genesis stock, not two days of production.
 fun startSurvey(state: GameState, target: SystemAddress, at: Instant): StartSurveyResult {
     if (state.surveys.any { it.target == target }) return StartSurveyResult.AlreadySurveying
-    if (state.galaxy.hasSurveyed(target)) return StartSurveyResult.AlreadySurveyed
+    if (state.galaxy.hasCharted(target) && state.galaxy.hasSurveyed(target)) {
+        return StartSurveyResult.AlreadySurveyed
+    }
     if (!state.ships.covers(SurveyBalance.SHIPS)) return StartSurveyResult.NoIdleScout
     val cost = SurveyBalance.cost()
     if (!state.resources.covers(cost)) return StartSurveyResult.InsufficientResources

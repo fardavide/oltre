@@ -181,6 +181,33 @@ Rejected: everything known (deletes exploration, which Notion locks); nothing kn
 decide between); fog that lifts by proximity (a timer that rewards waiting, and waiting is what
 this game already asks too much of).
 
+### A third tier arrived underneath at 0.20.0, and this section is what let it in
+
+**Charted stopped being free.** Davide, 2026-08-16: *"perhaps even progressive disclosure? Eg you
+see only nearby systems, and you see more the more you survey"* — ruled the same day as the strong
+version, hide unexplored space. The settled design is `fog-sheet.md`; the short version is that
+charted is now an interval per galaxy, `[lo, hi]`, and you see one hour of flight past the furthest
+place a hull of yours has ever landed.
+
+**The rejection above is not weakened and it is the reason the design has the shape it has.** What
+was refused is fog that lifts by *time or proximity* — a timer wearing a map's clothes. This lifts by
+the player's own action, which is the opposite. And the sentence two paragraphs up did more work than
+any other line in this file:
+
+> a fully dark map is not explorable, it is empty — there is nothing to *choose* to survey
+
+That is a constraint on **how much may be dark**, and it is why nothing on the map is ever black.
+Every uncharted star is still drawn, still selectable, still priced, and still offers a probe. What
+it loses is its character, not its existence.
+
+**Two sentences in this section are now half true and are left standing as the record:**
+
+- *"Charted — free, whole galaxy, from the first launch"* is 0.2's rule and describes the tier's
+  *content* correctly. It is no longer free and it is no longer whole-galaxy.
+- *"At game start your home system is surveyed and nothing else is"* is unchanged. What is new is
+  that genesis also **charts** 61 systems — the hour either side of home — and nothing in the other
+  three galaxies.
+
 ## 6. Contested relay nodes — generated, inert
 
 Notion locks *"PvP over contested neutral nodes"*, and the mockup draws one

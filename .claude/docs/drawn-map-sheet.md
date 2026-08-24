@@ -358,6 +358,20 @@ Two things follow, and the second is why this is recorded here rather than only 
    as a threat to this section on the assumption that the win was seeing where things are. It is not.
    More of the map becoming *something you unlocked* runs with the grain of what actually landed.
 
+**That slice is 0.20.0 and this paragraph is what decided its shape** — see `fog-sheet.md`. It was
+handed to Claude Design as the build's own reading rather than left to be re-derived, and the design
+took it as the resolution of the whole tension: fog looks like a threat to the quote above only if
+the win was legibility. What the design protects instead is the *comparison* — the region you opened
+against the ones you have not — which needs the unopened ones **on screen**. So they are: an
+uncharted star is drawn as grain rather than blacked out, and §2's four overlays stack on it
+unchanged.
+
+Three things in this sheet moved with it, and each is written up in `fog-sheet.md` rather than here:
+**§1's glyph** gains a tier below its three classes; **§2's "a glyph may say how bright a star is"**
+is now a statement about a *charted* glyph; and **§4's discs lose their class texture**, because
+texture on a galaxy nobody has visited advertises which one has the brightest stars. §3's caption
+gains one state and no new fields.
+
 ---
 
 ## 9. Open, and Davide's

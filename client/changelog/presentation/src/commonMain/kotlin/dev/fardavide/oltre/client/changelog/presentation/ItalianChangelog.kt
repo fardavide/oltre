@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.20.0", "2026-08-24", "Ora la galassia è al buio",
+            "Una stella dove nessuno è stato è un punto di luce e nulla più.",
+            "Una sonda mappa tutto ciò che è più vicino di dove va, e un'ora oltre.",
+            "Parti da 61 sistemi su 250, e sono le tue navi a illuminare il resto.",
+        ),
+        release(
             "0.19.0", "2026-08-24", "Il gioco dice cosa è cambiato",
             "Ogni versione di Oltre, una pagina ciascuna, dalla più recente.",
             "Si apre da sé su una nuova versione e poi non più.",

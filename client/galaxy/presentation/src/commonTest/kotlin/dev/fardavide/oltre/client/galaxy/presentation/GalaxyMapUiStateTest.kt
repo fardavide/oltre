@@ -7,6 +7,7 @@ import dev.fardavide.oltre.client.galaxy.ui.GalaxyBodyUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapCaptionTrailingUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapHourUiState
 import dev.fardavide.oltre.client.galaxy.ui.MapNameTone
+import dev.fardavide.oltre.client.galaxy.ui.MapStarInk
 import dev.fardavide.oltre.client.galaxy.ui.MapStarMark
 import dev.fardavide.oltre.client.galaxy.ui.MapStarUiState
 import dev.fardavide.oltre.core.GalaxyBalance
@@ -93,24 +94,26 @@ class GalaxyMapUiStateTest {
 
     @Test
     fun `every system is a star in index order carrying the class the seed gave it`() {
-        // given
-        val state = fresh()
+        // given a galaxy the light has crossed, because a class is a charted fact since 0.20
+        val state = fresh().wholeGalaxyCharted()
 
         // when
         val stars = state.mapAt(state.homeSelection()).map.stars
 
         // then — 250 ascending, which is the design's load-bearing claim rather than a convenience:
-        // path order is index order, so the eye measures the same thing the arithmetic does.
+        // path order is index order, so the eye measures the same thing the arithmetic does. Note
+        // this half holds whatever the fog does: **position is never in the ink**, so every system
+        // is a star on the drawing even where nobody has been.
         assertEquals((1..GalaxyBalance.SYSTEMS_PER_GALAXY).toList(), stars.map { it.system })
         for (star in stars) {
-            assertEquals(starClassAt(state.galaxy.seed, HOME_GALAXY, star.system), star.starClass)
+            assertEquals(starClassAt(state.galaxy.seed, HOME_GALAXY, star.system), star.charted?.starClass)
         }
-        // Read off the header the system view prints for 3:171. A star class is astronomy — free
-        // from the first launch — so the two screens cannot be allowed to disagree about one.
-        assertEquals(StarClass.STANDARD, stars.at(state.galaxy.home.system).starClass)
+        // Read off the header the system view prints for 3:171. A star class is astronomy — and
+        // since fog it is astronomy you have been near — so the two screens cannot disagree about one.
+        assertEquals(StarClass.STANDARD, stars.at(state.galaxy.home.system).charted?.starClass)
         // All three classes really reach the drawing, or "size is class" is a channel carrying one
         // value and the assertion above holds vacuously.
-        assertEquals(StarClass.entries.size, stars.map { it.starClass }.distinct().size)
+        assertEquals(StarClass.entries.size, stars.mapNotNull { it.charted?.starClass }.distinct().size)
     }
 
     @Test
@@ -127,7 +130,7 @@ class GalaxyMapUiStateTest {
         // saying something false. **The band was Claude Design's 0.82 to 1.18 until a test executed
         // the drawing** and found the widest standard outgrowing the narrowest bright — see
         // `GalaxyMapDrawingTest`, which is the only place that could have caught it.
-        val state = fresh()
+        val state = fresh().wholeGalaxyCharted()
 
         val stars = state.mapAt(state.homeSelection()).map.stars
 
@@ -138,13 +141,13 @@ class GalaxyMapUiStateTest {
         )
         assertEquals(
             emptyList(),
-            stars.filter { it.sizePermille !in SIZE_FLOOR_PERMILLE..SIZE_CEILING_PERMILLE }
-                .map { it.system to it.sizePermille },
+            stars.filter { (it.charted?.sizePermille ?: SIZE_FLOOR_PERMILLE) !in SIZE_FLOOR_PERMILLE..SIZE_CEILING_PERMILLE }
+                .map { it.system to it.charted?.sizePermille },
         )
         // Both really vary across the sky. A bound holds trivially over a constant, and a constant is
         // exactly what this would be if the generator ever stopped answering.
         assertTrue(stars.any { it.driftPermille < 0 } && stars.any { it.driftPermille > 0 })
-        assertTrue(stars.map { it.sizePermille }.distinct().size > 1)
+        assertTrue(stars.mapNotNull { it.charted?.sizePermille }.distinct().size > 1)
     }
 
     @Test
@@ -229,12 +232,17 @@ class GalaxyMapUiStateTest {
         val pin = landed.galaxy.surveyed.filter { it.system == TARGET.system }.minBy { it.slot }
         val state = landed.copy(galaxy = landed.galaxy.copy(pinned = setOf(pin)))
 
-        // when — reading a fourth place, so all three tones are on screen at once
-        val names = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 60), now = LANDED).map.names
+        // when — reading a fourth place, so all three tones are on screen at once.
+        //
+        // **160 rather than 60, and fog is why**: a name is a charted fact, so a selection parked in
+        // the dark carries none. Home is 171 and the probe reached 211, so the light runs 141…241
+        // and 160 is a place inside it that is neither. `an uncharted star wears no name even when
+        // it is the selection` is the other side of this.
+        val names = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 160), now = LANDED).map.names
 
         // then — three names out of 250, in index order rather than in the order the reasons were
         // collected: they are labels on a drawing, so the drawing's order is the only one that reads.
-        assertEquals(listOf(60, state.galaxy.home.system, TARGET.system), names.map { it.system })
+        assertEquals(listOf(160, state.galaxy.home.system, TARGET.system), names.map { it.system })
         assertEquals(
             listOf(MapNameTone.SELECTED, MapNameTone.HOME, MapNameTone.PINNED),
             names.map { it.tone },
@@ -242,7 +250,7 @@ class GalaxyMapUiStateTest {
         // Real names off the same generator the system header reads — read off the run and pinned
         // here rather than derived, because a test that asked `systemNameAt` for its expectation
         // would agree with whatever answer it was given.
-        assertEquals(listOf("Torodra", "Elyotis", "Raxezon"), names.map { English.resolve(it.name) })
+        assertEquals(listOf("Corvimar", "Elyotis", "Raxezon"), names.map { English.resolve(it.name) })
     }
 
     @Test
@@ -378,6 +386,203 @@ class GalaxyMapUiStateTest {
         assertIs<MapCaptionTrailingUiState.Dispatch>(wealthy().mapAt(unknown).caption.trailing)
     }
 
+    // ── The third tier ──────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `every star inside the charted span is charted and every star outside it is not`() {
+        val state = fresh()
+        val span = requireNotNull(state.galaxy.spanIn(HOME_GALAXY))
+
+        val stars = state.mapAt(state.homeSelection()).map.stars
+
+        // The light is an interval, so this is the whole predicate in one line — and the count is
+        // the design's own opening figure: 171 ± 30 is 61 of 250.
+        assertEquals(
+            (span.lo..span.hi).toList(),
+            stars.filter { it.ink is MapStarInk.Charted }.map { it.system },
+        )
+        assertEquals(61, stars.count { it.ink is MapStarInk.Charted })
+        // And every one of the other 189 is still *drawn*: nothing is black, and position is the one
+        // fact fog never takes.
+        assertEquals(GalaxyBalance.SYSTEMS_PER_GALAXY, stars.size)
+    }
+
+    @Test
+    fun `a galaxy no hull has landed in has no charted star at all`() {
+        val state = fresh()
+        val elsewhere = (1..GalaxyBalance.GALAXIES).first { it != HOME_GALAXY }
+
+        val stars = state.mapAt(SystemSelection(galaxy = elsewhere, system = 120)).map.stars
+
+        assertEquals(emptyList(), stars.filter { it.ink is MapStarInk.Charted }.map { it.system })
+    }
+
+    @Test
+    fun `a band the light has never touched is labelled by its index range`() {
+        val state = fresh()
+
+        val bands = state.mapAt(state.homeSelection()).map.bands
+
+        // Home is 3:171, so the light runs 141…201 — and it touches **four** regions rather than
+        // three, because 201 is the first system of region 9. That one-system spill is the first
+        // thing the drawing says that a band rule could not: the light disagrees with the grid, and
+        // a player learns from day one that the fold is not what is being revealed.
+        assertEquals(listOf(6, 7, 8, 9), bands.filter { it.charted != null }.map { it.region })
+        assertEquals("1–25", English.resolve(bands[0].name))
+        assertEquals("226–250", English.resolve(bands[9].name))
+        // A region the light has reached says what it is called, which is the one discrete event in
+        // an otherwise continuous reveal — about nine of them in a galaxy's life.
+        assertEquals("Elyutis Reach", English.resolve(bands[6].name))
+    }
+
+    @Test
+    fun `the charted stretch of a band never runs past the band's own ends`() {
+        val state = fresh()
+
+        val bands = state.mapAt(state.homeSelection()).map.bands
+
+        // Region 6 is 126…150 and the light starts at 141, so its stretch is clipped at both ends:
+        // the band's own start on one side and the frontier on the other.
+        assertEquals(141..150, bands[5].charted)
+        // Region 7 is entirely inside the light.
+        assertEquals(151..175, bands[6].charted)
+        // Region 8 is 176…200, whole. Region 9 is 201…225 and the light stops at 201, so it holds
+        // exactly one lit system — the smallest stretch a band can carry and still have a name.
+        assertEquals(176..200, bands[7].charted)
+        assertEquals(201..201, bands[8].charted)
+        for (band in bands) {
+            val systems = (band.region - 1) * GalaxyBalance.SYSTEMS_PER_REGION + 1
+            band.charted?.let {
+                assertTrue(it.first >= systems, "region ${band.region} lit before it starts")
+                assertTrue(it.last <= systems + GalaxyBalance.SYSTEMS_PER_REGION - 1, "region ${band.region} overruns")
+            }
+        }
+    }
+
+    @Test
+    fun `the caption on an uncharted star names its address and prices what the flight would chart`() {
+        // **The answer to "how does the dark read as an invitation".** It is not in the drawing, it
+        // is in the tap: a grain star takes the selection, fills the bar, quotes a flight and offers
+        // the same button every other star offers — and the one thing it says that a charted star
+        // does not is what a probe there would *buy*.
+        val state = wealthy()
+        val target = SystemAddress(galaxy = HOME_GALAXY, system = 240)
+
+        val caption = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+
+        // The address is the name, because it is the only one there is.
+        assertEquals("[3:240]", English.resolve(caption.system))
+        // 240 - 171 = 69 systems from home.
+        assertEquals("69 systems out", English.resolve(caption.coordinate))
+        // The light ends at 201, so a landing at 240 pushes it to 250 — 49 new systems.
+        assertEquals("uncharted · charts 49 systems", English.resolve(caption.meta))
+        assertEquals(state.galaxy.wouldChart(target), 49)
+        // Both widths read the same: the compact rule drops the region because the band above the
+        // bar is named, and an uncharted band shows its index range instead.
+        assertEquals(English.resolve(caption.meta), English.resolve(caption.compactMeta))
+        // And it offers the probe. 30 + 69 = 99 minutes.
+        assertEquals(
+            MapCaptionTrailingUiState.Dispatch(Strings.probeFlight(Strings.durationHoursMinutes(1, 39))),
+            caption.trailing,
+        )
+    }
+
+    @Test
+    fun `an uncharted star wears no name even when it is the selection`() {
+        // **The loudest channel the tier could leak through, and it did.** A pin and home are both
+        // charted by construction, but a thumb parks the selection anywhere — so the map drew the
+        // generator's own name for a star eight dp from a caption saying `[3:240]` precisely because
+        // there is not one. Caught by looking at the recorded frame rather than by any assertion,
+        // which is what the baselines are for.
+        val state = fresh()
+
+        val names = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).map.names
+
+        assertEquals(emptyList(), names.filter { it.system == 240 })
+        // Home is still named, so this is a filter on the dark rather than on the selection.
+        assertEquals(listOf(state.galaxy.home.system), names.map { it.system })
+    }
+
+    @Test
+    fun `a probe out in the dark reads its clock rather than offering a second one`() {
+        // Design's own frame for this state: *"the map already draws the amber ring; the caption only
+        // has to read the clock."* The tier does not suspend the one-probe-per-target rule.
+        val target = SystemAddress(galaxy = HOME_GALAXY, system = 240)
+        val out = assertIs<StartSurveyResult.Started>(startSurvey(wealthy(), target, at = EPOCH)).state
+
+        val caption = out.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+
+        assertEquals("[3:240]", English.resolve(caption.system))
+        assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
+        assertEquals("probe lands in 1h 39m", caption.trailing.trailingLabel())
+    }
+
+    @Test
+    fun `a colony that cannot pay is quoted the dark flight and never offered it`() {
+        // The same rule a charted star keeps: the caption has room to say what a trip costs or to
+        // offer it, never room to say why it is not offering.
+        val broke = fresh().copy(ships = Ships.NONE)
+
+        val caption = broke.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+
+        assertEquals("uncharted · charts 49 systems", English.resolve(caption.meta))
+        assertIs<MapCaptionTrailingUiState.Note>(caption.trailing)
+    }
+
+    @Test
+    fun `an uncharted star in another galaxy is priced in units rather than in systems`() {
+        // **`distanceUnits` is a flight cost, not a count of systems** — a galaxy hop is 250 of them
+        // — so the same word across a hop would describe a 250-system galaxy as 571 systems out. The
+        // astronomy line under the system header has said `units out` since 0.3 for this reason.
+        val elsewhere = (1..GalaxyBalance.GALAXIES).first { it != HOME_GALAXY }
+
+        val near = fresh().mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption
+        val far = fresh().mapAt(SystemSelection(galaxy = elsewhere, system = 100)).caption
+
+        assertEquals("69 systems out", English.resolve(near.coordinate))
+        assertTrue(English.resolve(far.coordinate).endsWith(" units out"), English.resolve(far.coordinate))
+    }
+
+    @Test
+    fun `an uncharted star never leaks its class its region or its worlds`() {
+        // The tier in one assertion: whatever the generator knows about a star nobody has been near,
+        // none of it reaches the bar.
+        val state = wealthy()
+        val meta = English.resolve(state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = 240)).caption.meta)
+
+        for (leak in listOf("dim", "standard", "bright", "world", "Reach", "Deep", "Blaze")) {
+            assertFalse(meta.contains(leak), "$leak leaked through the fog: $meta")
+        }
+    }
+
+    @Test
+    fun `an uncharted star with nothing around it still offers a probe rather than saying so`() {
+        // **The one case that would have leaked through the tier.** A worldless system reads "no
+        // worlds" on a charted star and that is right; on an uncharted one it would be telling the
+        // player what is there before they have paid to look, and withholding the control every
+        // other star offers. Roughly one system in 390, so it is rare and it is not never.
+        val state = wealthy()
+        val worldless = firstWorldlessSystem(state.galaxy.seed)
+        assertFalse(state.galaxy.hasCharted(worldless), "the fixture needs an uncharted worldless target")
+
+        val caption = state.mapAt(SystemSelection(galaxy = worldless.galaxy, system = worldless.system)).caption
+
+        assertFalse(English.resolve(caption.meta).contains("world"), English.resolve(caption.meta))
+        assertIs<MapCaptionTrailingUiState.Dispatch>(caption.trailing)
+    }
+
+    @Test
+    fun `the caption on a charted star is what it always was`() {
+        // The other side of the branch: nothing about the two shipped tiers moved.
+        val state = fresh()
+
+        val caption = state.mapAt(state.homeSelection()).caption
+
+        assertEquals("Elyotis", English.resolve(caption.system))
+        assertEquals("[3:171]", English.resolve(caption.coordinate))
+        assertEquals("standard · Elyutis Reach · 7", English.resolve(caption.meta))
+    }
+
     @Test
     fun `the caption is never empty and never says nothing is selected`() {
         // The map opens on home and a tap can only move the selection, so there is no "nothing
@@ -385,15 +590,23 @@ class GalaxyMapUiStateTest {
         // the first thing a new player is shown is their own star with its own clock on it.
         //
         // Asserted across the whole galaxy rather than at one system, because the claim is about the
-        // coordinate space — every one of the 250 has a name, an address, a line of astronomy and
-        // something to say, including the empty ones, which say that they are empty.
+        // coordinate space — every one of the 250 has something to say, in every tier. **Fog does not
+        // weaken this and it is the point of the third tier**: a grain star answers when you touch
+        // it, which is the whole of how the dark reads as an invitation rather than as an absence.
+        // What moves is only *which* line carries the address: charted, it is the coordinate beside
+        // a name; uncharted, the address is the name and the coordinate is the distance.
         val state = fresh()
 
         for (system in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) {
             val caption = state.mapAt(SystemSelection(galaxy = HOME_GALAXY, system = system)).caption
+            val charted = state.galaxy.hasCharted(SystemAddress(galaxy = HOME_GALAXY, system = system))
 
             assertTrue(English.resolve(caption.system).isNotBlank(), "3:$system is nameless")
-            assertEquals("[$HOME_GALAXY:$system]", English.resolve(caption.coordinate))
+            assertEquals(
+                "[$HOME_GALAXY:$system]",
+                English.resolve(if (charted) caption.coordinate else caption.system),
+            )
+            assertTrue(English.resolve(caption.coordinate).isNotBlank(), "3:$system has no second line")
             assertTrue(English.resolve(caption.meta).isNotBlank(), "3:$system reads blank")
             // **The trailing type has no empty case at all any more**, which is a stronger statement
             // than the one this line used to make: `None` was a state the mapper could not produce
@@ -418,7 +631,11 @@ class GalaxyMapUiStateTest {
         // then — 250 systems of galaxy hop plus the flat half hour, at a minute a unit, from a home
         // system that is the same index in both: 30 + 250 = 280 minutes.
         assertEquals("Galaxy 2", English.resolve(caption.system))
-        assertEquals("250 systems · nothing charted", English.resolve(caption.meta))
+        // **`nothing charted` used to mean "nothing surveyed"**, and since 0.20 that word means
+        // something else eight dp up the same screen. So the line takes the head's own idiom rather
+        // than keeping a collision: how much of the galaxy the light reaches, then how much of it
+        // has been surveyed. A galaxy no hull has entered reads zero on both.
+        assertEquals("0 of 250 charted · 0 surveyed", English.resolve(caption.meta))
         assertEquals(MapCaptionTrailingUiState.Note(Strings.probeFlight(Strings.durationHoursMinutes(4, 40))), caption.trailing)
         // Not `own`, which is the accent edge: accent means "go tap this" and what it would be
         // pointing at here is a galaxy you have not chosen yet.
@@ -465,12 +682,28 @@ class GalaxyMapUiStateTest {
         )
         assertEquals(listOf(false, false, true, false), discs.map { it.home })
         assertEquals(listOf(false, false, true, false), discs.map { it.selected })
-        // Systems and not worlds: genesis surveys seven worlds and they are all in one system, so the
-        // line the empires will later share reads "1 surveyed" rather than "7".
-        assertEquals(listOf("0 surveyed", "0 surveyed", "1 surveyed", "0 surveyed"), discs.map { English.resolve(it.known) })
-        // Four different galaxies rather than one drawing shown four times — each disc carries its
-        // own seed's region names and its own temperament permutation.
-        assertEquals(discs.size, discs.map { disc -> disc.map.bands.map { it.name } }.distinct().size)
+        // **What a disc counts is what the light reaches, not what has been surveyed.** Under fog
+        // that is the only fact separating the four cards besides their fare — three of them are 250
+        // grains and a price — and it is the honest line under a drawing with no texture in it. The
+        // home galaxy reads 61 because genesis charts the hour either side of one system.
+        assertEquals(
+            listOf("0 of 250 charted", "0 of 250 charted", "61 of 250 charted", "0 of 250 charted"),
+            discs.map { English.resolve(it.known) },
+        )
+        // **Three of the four discs stopped differing by name at 0.20, and it is the design's own
+        // call rather than a regression.** A galaxy no hull has entered labels its bands with their
+        // index ranges, and those are the same ten numbers in every galaxy. Claude Design flagged it
+        // in as many words: *"the universe view no longer differentiates its four cards by anything
+        // but price. That is honest and it is thin."* Named region texture on an unvisited disc was
+        // a leak — it advertised which galaxy had the brightest stars before a hull ever left home.
+        assertEquals(2, discs.map { disc -> disc.map.bands.map { it.name } }.distinct().size)
+        // Each disc is still that galaxy's **own** fold rather than one drawing shown four times:
+        // drift is generated per galaxy and sits outside the ink, so it reaches a disc whatever tier
+        // its stars are in. This is what the name assertion above used to be carrying.
+        assertEquals(
+            discs.size,
+            discs.map { disc -> disc.map.stars.map { it.driftPermille } }.distinct().size,
+        )
         // And the home disc is the same fold the galaxy map draws, at a fifth of the size.
         assertEquals(
             state.mapAt(state.homeSelection()).map.bands.map { it.name },
@@ -561,6 +794,20 @@ class GalaxyMapUiStateTest {
     // set over: a probe flies a hull now, and a fixture with none can never raise a probe offer.
     private fun fresh(): GameState =
         GameState.initial(GalaxySeed(20_260_807)).copy(ships = Ships.of(ShipType.SCOUT, 1))
+
+    // **A galaxy the light has crossed end to end**, for the tests whose subject is the *drawing*
+    // rather than the fog: a star class, a drift and a size wobble are all facts about a charted
+    // star, and asking a fresh colony about all 250 of them would be asking 189 of them what colour
+    // they are in the dark. Two landings, one at each end, because that is a state the game can
+    // actually reach — the same rule `surveyed` above follows.
+    private fun GameState.wholeGalaxyCharted(): GameState = copy(
+        galaxy = galaxy
+            .withCharted(SystemAddress(galaxy = HOME_GALAXY, system = 1))
+            .withCharted(SystemAddress(galaxy = HOME_GALAXY, system = GalaxyBalance.SYSTEMS_PER_GALAXY)),
+    )
+
+    // The charted half of a star's ink, or null where the light has not reached it.
+    private val MapStarUiState.charted: MapStarInk.Charted? get() = ink as? MapStarInk.Charted
 
     private fun wealthy(): GameState = fresh().copy(resources = Resources.of(metal = 1_000_000))
 

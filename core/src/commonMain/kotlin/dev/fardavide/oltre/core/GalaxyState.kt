@@ -53,6 +53,34 @@ data class WorldDeposit(
     }
 }
 
+// **How far the light reaches in one galaxy** — the ends of what the player has charted there, and
+// the whole of what fog stores. Two integers a galaxy, four galaxies, eight numbers on day one and
+// eight after a year.
+//
+// An interval rather than a set of flags, because the ribbon's path order *is* index order: a rule
+// written in indices is a contiguous stretch of the drawn line, which is the thing a player can
+// point at and call the area they opened. Two hundred and fifty flags would be a save that grows
+// and a map with no areas in it.
+//
+// **Keyed on where a hull came down, never on what it found**, and that is the load-bearing half.
+// `surveyed` records findings; fog is about journeys, and the two are the same object only when
+// every journey finds something. A landing on a system whose fifteen slots are all empty writes
+// nothing to `surveyed` — so a span derived from it would silently refuse to move, on the one
+// flight the player most wants to have counted.
+@Serializable
+data class ChartedSpan(val galaxy: Int, val lo: Int, val hi: Int) {
+    init {
+        require(galaxy in 1..GalaxyBalance.GALAXIES) { "there is no galaxy $galaxy" }
+        require(lo in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) { "there is no system $lo" }
+        require(hi in 1..GalaxyBalance.SYSTEMS_PER_GALAXY) { "there is no system $hi" }
+        require(lo <= hi) { "a charted span cannot run backwards, was $lo..$hi" }
+    }
+
+    val systems: Int get() = hi - lo + 1
+
+    operator fun contains(system: Int): Boolean = system in lo..hi
+}
+
 // **The galaxy is never serialised.** 4,700 worlds of traits would dwarf the entire rest of the
 // snapshot, so what the save carries is the seed plus what the player has changed: which worlds
 // they have surveyed, who holds what, and what has been taken out of them. Every trait is
@@ -81,6 +109,13 @@ data class GalaxyState(
     // **Filters and the sort deliberately do not persist.** Claude Design, 2026-08-14: *"a filter
     // that outlives the check-in that set it is a screen lying about what it holds."*
     val pinned: Set<GalaxyCoordinate>,
+    // **The fog, and it is the whole of it.** One entry per galaxy a hull has actually landed in —
+    // so an untouched galaxy is *absent* rather than empty, which is the difference between "you
+    // have been here and charted nothing" and "you have never been". See `ChartedSpan`.
+    //
+    // Last in the constructor deliberately: `GameSaveTest.the on-disk shape is pinned` asserts the
+    // encoded string, and kotlinx writes fields in declaration order, so appending is an append.
+    val charted: List<ChartedSpan>,
 ) {
     init {
         require(ownership.distinctBy { it.at }.size == ownership.size) {
@@ -97,6 +132,9 @@ data class GalaxyState(
         }
         require(deposits.distinctBy { it.at }.size == deposits.size) {
             "a world cannot have two deposits, was ${deposits.map { it.at }}"
+        }
+        require(charted.distinctBy { it.galaxy }.size == charted.size) {
+            "a galaxy cannot have two charted spans, was ${charted.map { it.galaxy }}"
         }
     }
 
@@ -184,6 +222,50 @@ data class GalaxyState(
     fun hasSurveyed(system: SystemAddress): Boolean =
         occupiedWorldsIn(seed, system).all { it in surveyed }
 
+    // How far the light reaches in one galaxy, or null where no hull has ever landed in it.
+    fun spanIn(galaxy: Int): ChartedSpan? = charted.firstOrNull { it.galaxy == galaxy }
+
+    // **Whether the light reaches this star at all**, and note what it is not: unlike `hasSurveyed`
+    // directly above, this is never vacuously true. A span contains an index or it does not, so a
+    // system with nothing around it is uncharted exactly as long as anything else is.
+    fun hasCharted(system: SystemAddress): Boolean =
+        spanIn(system.galaxy)?.let { system.system in it } == true
+
+    // How many of a galaxy's systems the player has charted. Zero where nothing has landed.
+    fun chartedCountIn(galaxy: Int): Int = spanIn(galaxy)?.systems ?: 0
+
+    // **The widen, and it is the only writer.** Idempotent and monotone: a landing inside what is
+    // already charted returns `this` unchanged, which is what lets `advance` apply it at every
+    // boundary without the composability property caring where the boundary fell.
+    fun withCharted(system: SystemAddress): GalaxyState {
+        val reached = ChartedSpan(
+            galaxy = system.galaxy,
+            lo = (system.system - SurveyBalance.GRACE_SYSTEMS).coerceAtLeast(1),
+            hi = (system.system + SurveyBalance.GRACE_SYSTEMS)
+                .coerceAtMost(GalaxyBalance.SYSTEMS_PER_GALAXY),
+        )
+        val held = spanIn(system.galaxy)
+        val widened = when (held) {
+            null -> reached
+            else -> ChartedSpan(
+                galaxy = system.galaxy,
+                lo = minOf(held.lo, reached.lo),
+                hi = maxOf(held.hi, reached.hi),
+            )
+        }
+        if (widened == held) return this
+        // Sorted because list order is on disk and `GameSaveTest` pins the byte string.
+        return copy(
+            charted = (charted.filterNot { it.galaxy == system.galaxy } + widened).sortedBy { it.galaxy },
+        )
+    }
+
+    // **The fog yield** — how many systems a landing here would add to the map, which is what the
+    // caption quotes on an uncharted star. Defined as a difference of the widen rather than
+    // re-derived, so the number the player is shown and the number the landing writes cannot drift.
+    fun wouldChart(system: SystemAddress): Int =
+        withCharted(system).chartedCountIn(system.galaxy) - chartedCountIn(system.galaxy)
+
     companion object {
 
         // Genesis. The seed comes from outside core — the shell mints it, because core cannot read
@@ -201,7 +283,10 @@ data class GalaxyState(
                 // is five rows with no PINNED section — which is the honest state rather than an
                 // empty heading.
                 pinned = emptySet(),
-            )
+                // Empty, and then widened once below — so the clamp arithmetic lives in exactly one
+                // place and genesis is not a special case of the rule but an instance of it.
+                charted = emptyList(),
+            ).withCharted(SystemAddress.of(home))
         }
 
         // Every slot of a system that actually holds a world. Genesis surveys the home system with

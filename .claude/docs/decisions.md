@@ -4428,3 +4428,88 @@ with no window at all — measured on the reference colony at five and a half ho
 ships instead keeps one notification up to date, so the question does not arise; if `One per
 category` is ever reported as too quiet, the window is one `Duration` and one `chainedWithin` call.
 
+
+## Fog is an interval keyed on landings, not a rule over the surveyed set (0.20.0)
+
+The design is `fog-sheet.md`; this is what *implementation* decided on top of it, and the first entry
+is the one that mattered.
+
+**A survey is a finding; a flight is a fact.** The obvious cheap version derives both ends of the
+light from `galaxy.surveyed` — take the min and max system among surveyed worlds and widen each by
+thirty — and it needs no new field at all. It is wrong for one reason: `surveyed` holds **world**
+coordinates, so a landing on a system whose fifteen slots are all empty writes nothing, and the light
+does not move on the one flight the player most wants counted. `GalaxyState.charted` exists to buy
+that away, at eight integers that are eight on day one and eight after a year.
+
+**The frequency Design gave for that case is wrong by about forty times, and the call survives it.**
+The sheet says *"about one system in eight is empty"*. Measured over 6,000 systems — six seeds, four
+galaxies each — it is **18, or one in 333**; `0.55⁷ × 0.80⁸` from `GalaxyBalance`'s two occupancy
+rates predicts 0.26%, and `Galaxies.kt` already documented one in 390. Two of the sheet's arguments
+leaned on the number and both stand on their other legs (see `fog-sheet.md` §3), but the habit is the
+point: **a frequency in a design sheet is cheap to check, and nobody checked this one.** Same failure
+shape as balance-log round 27 — a conclusion carrying a premise nobody re-derived.
+
+### A probe is refused only where there is nothing left to learn — Davide, 2026-08-24
+
+The design says every uncharted star answers and offers the same button every other star offers. The
+shipped verb refused a **worldless** system outright: `startSurvey` returned `AlreadySurveyed`,
+because `hasSurveyed` is *vacuously true* when a system has no occupied slots, and the caption said
+`no worlds`. Under fog that leaks the emptiness for free — precisely what the tier exists to stop —
+and withholds a control every other star on the drawing has.
+
+Davide's call: **offer the probe; refuse only once charted.** `startSurvey` now requires *both*
+`hasCharted` and `hasSurveyed` to refuse.
+
+This overrules `AdvanceSurveyTest.a star with nothing around it cannot be dispatched to at all`
+(2026-08-16), and the reason it is fair to reopen rather than merely overruled is in that test's own
+justification: *"whether a slot holds a world is charted, free and galaxy-wide, so there is genuinely
+nothing there a probe could learn."* Fog is the thing that made that sentence untrue. It also makes
+the design's own justification above **reachable** — a worldless landing was impossible before, so the
+case the whole span rule is built for could not previously occur.
+
+### `MapStarInk` is sealed, and that is the typing rule doing real work
+
+A `charted: Boolean` beside `starClass` was the smaller change and was rejected. It leaves an
+uncharted star *carrying* a class that four drawing passes then have to remember not to use, which is
+a habit rather than a rule. `MapStarInk { Grain | Charted(starClass, sizePermille, coolHalo) }` makes
+the leak unrepresentable, and it cost almost nothing because the drawing test's fixtures were already
+behind a `star(system, starClass)` helper.
+
+**It caught the leak it was written for, in a place the type could not reach.** `namesFor` names home,
+every pin and the *selection* — and a thumb parks the selection anywhere. The first recorded frame of
+an uncharted selection drew the star's real generated name eight dp from a caption saying `[3:240]`
+precisely because there is not one. Home and pins are charted by construction (a pin requires a
+survey, a survey requires a landing, a landing set the span); the selection is not. **Found by looking
+at the baseline rather than by any assertion**, which is what baselines are for — and Design's own
+component had the guard the implementation had dropped.
+
+### Two drawing notes that would have been silent defects
+
+**`drawRegionField` clips rather than narrows.** The vertical squash is derived from `radiusX`, so
+shrinking `radiusX` to the charted stretch would flatten the band as well as shorten it. And `fold.x`
+reverses on odd bands, so the ends of the index *range* are not the ends of the drawn *stretch* — five
+of the ten bands need `min`/`max` the other way round. A fully-charted band short-circuits and draws
+byte-identically to before, which is what keeps a full map's baselines exactly where they were.
+
+**The spine forbids one axis of the spike test.** `an uncharted star carries no halo and no spike`
+reads only the *vertical* arm, because the spine is a horizontal polyline through the lane: the
+horizontal arm of a spike shares its pixels with the path the stars sit on, and no threshold can tell
+the two apart. Measured by probing the bitmap rather than assumed.
+
+### The grace is derived, so a probe rebalance moves the map with it
+
+`SurveyBalance.GRACE_SYSTEMS` is `(60 − BASE_MINUTES) / MINUTES_PER_UNIT`, computed inside
+`SurveyBalance` because both operands are private there. Pinning it at a literal 30 was the stabler
+choice and was rejected: the grace *means* an hour of flight, so a constant left behind would quietly
+start meaning something else. ⚠️ `SurveyBalance` declares itself PLACEHOLDER balance in its own
+header, so this is a live coupling — `GalaxyChartedTest.the grace is one hour of the probe's own
+clock` is what says so out loud if the probe's clock ever moves.
+
+### The universe view is now thin, on purpose
+
+Class texture on a disc was free before fog and is a **leak** after it: three of the four discs would
+advertise which galaxy has the brightest stars before a hull ever left home. Grain fixes it, and the
+cost is that the four cards differ only by their fare and their charted count. Claude Design flagged
+it rather than hiding it — *"That is honest and it is thin. I would rather it were thin than lying"* —
+and `galaxy_universe.png` is what records it. `Strings.nothingCharted()` went with it: it used the
+word *charted* to mean *surveyed*, which became a collision eight dp from the head's new count line.

@@ -183,6 +183,211 @@ class GalaxyMapDrawingTest {
         assertEquals(MapGeometry.HEIGHT_DP, Fold.full(width = WIDTH).height)
     }
 
+    // ── The third tier ──────────────────────────────────────────────────────────────────────
+    //
+    // **This class is the only thing that can see a star's appearance.** No robot verb reaches a
+    // pixel and a screenshot photographs grain as happily as it photographs sky, so every claim the
+    // fog design makes about how an uncharted star is drawn is asserted here or nowhere.
+
+    @Test
+    fun `an uncharted star is drawn smaller than the dimmest charted one`() {
+        // The grain-tier twin of `the size wobble can never promote a star into the next class`. The
+        // margin is 0.08dp at full size, and this is what stops a later radius tweak closing it.
+        val full = Fold.full(width = WIDTH)
+        val mini = Fold.mini(width = 148f, lane = 19f)
+
+        assertTrue(
+            full.radiusOf(MapStarInk.Grain) < full.radiusOf(StarClass.DIM, NARROWEST_PERMILLE),
+            "grain is not under the narrowest dim star",
+        )
+        assertTrue(
+            mini.radiusOf(MapStarInk.Grain) < mini.radiusOf(StarClass.DIM, NARROWEST_PERMILLE),
+            "grain is not under the narrowest dim star on a disc",
+        )
+    }
+
+    @Test
+    fun `an uncharted star takes no wobble at all`() {
+        // One size, flat — the whole reason `radiusOf(ink)` exists rather than a third class radius.
+        // A wobbling grain star would read as sky, which is exactly what the tier withholds.
+        val fold = Fold.full(width = WIDTH)
+
+        assertEquals(fold.radiusOf(MapStarInk.Grain), fold.grain)
+    }
+
+    @Test
+    fun `an uncharted star is drawn fainter than the dimmest charted one`() {
+        // Read back rather than compared as constants: the two thresholds this file already has
+        // cannot separate grain from a dim star, so the assertion is the two alphas against each
+        // other. Both are painted; one is a third of the other.
+        val fold = Fold.full(width = WIDTH)
+        val system = MapGeometry.firstSystemOf(0) + 12
+        val x = fold.x(system).roundToInt()
+        val y = fold.y(system, driftPermille = 0).roundToInt()
+
+        val dim = render(mapOf(stars = listOf(star(system, StarClass.DIM))), fold)[x, y].alpha
+        val grain = render(mapOf(stars = listOf(grain(system))), fold)[x, y].alpha
+
+        assertTrue(grain > PAINTED, "an uncharted star is not drawn at all")
+        assertTrue(grain < dim, "grain at $grain is not fainter than a dim star at $dim")
+    }
+
+    @Test
+    fun `an uncharted star carries no halo and no spike`() {
+        // **An uncharted BRIGHT is the leak the tier exists to close.** A spike is the loudest thing
+        // this drawing can say about a star, so a fixture that could not be grain in production is
+        // exactly the one worth pinning: the sealed ink makes it unrepresentable and this says so.
+        val fold = Fold.full(width = WIDTH)
+        val system = MapGeometry.firstSystemOf(4) + 12
+        val x = fold.x(system).roundToInt()
+        val y = fold.y(system, driftPermille = 0).roundToInt()
+        val reach = (fold.radiusOf(StarClass.BRIGHT, 1_000) * SPIKE_REACH_PROBE).roundToInt()
+        // No weather anywhere, because a region field is drawn across a whole band and would be the
+        // ink this reads rather than the spike.
+        val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }
+
+        val spiked = render(mapOf(stars = listOf(star(system, StarClass.BRIGHT)), bands = dark), fold)
+        val painted = render(mapOf(stars = listOf(grain(system)), bands = dark), fold)
+
+        // Read on the vertical arm only, and that is a finding rather than a shortcut: the spine is
+        // a horizontal polyline through the lane, so the horizontal arm of a spike shares its pixels
+        // with the path the stars sit on and no threshold can tell the two apart.
+        assertTrue(spiked[x, y - reach].alpha > PAINTED, "the fixture needs a charted star that does spike")
+        assertTrue(painted[x, y - reach].alpha < FIELD, "an uncharted star grew a spike")
+        assertTrue(painted[x, y + reach].alpha < FIELD, "an uncharted star grew a spike")
+    }
+
+    @Test
+    fun `a region field is painted only across the charted stretch of its band`() {
+        // The weather is knowledge too. A band lit at one end is tinted at that end and dark at the
+        // other, which is what makes a half-known region read as half-known.
+        // Read as a difference rather than against a threshold, because a neighbouring band's field
+        // reaches into this one's lane — the existing `behind its own band` test only ever asserts
+        // positively for that reason. What this has to show is that narrowing the stretch took ink
+        // away at the dark end and left it at the lit one.
+        val fold = Fold.full(width = WIDTH)
+        val first = MapGeometry.firstSystemOf(0)
+        val whole = bands(RegionTemperament.DEEP)
+        val half = whole.mapIndexed { index, band ->
+            if (index == 0) band.copy(charted = first..(first + 4)) else band
+        }
+
+        val before = render(mapOf(stars = emptyList(), bands = whole), fold)
+        val after = render(mapOf(stars = emptyList(), bands = half), fold)
+
+        val lane = MapGeometry.laneMidOf(band = 0).roundToInt()
+        val inside = fold.x(first + 2).roundToInt()
+        val outside = fold.x(first + MapGeometry.PER_BAND - 1).roundToInt()
+        assertTrue(after[inside, lane].alpha > FIELD, "the charted end of the band has no field")
+        assertTrue(
+            after[outside, lane].alpha < before[outside, lane].alpha,
+            "the dark end of the band kept the weather it had not earned",
+        )
+    }
+
+    @Test
+    fun `the charted stretch is clipped the right way round on a band that runs backwards`() {
+        // **`fold.x` reverses on odd bands**, so the ends of the index range are not the ends of the
+        // drawn stretch — a clip built as `x(lo)..x(hi)` is an inverted rect on five of the ten. Band
+        // 0 above cannot catch that because it runs left to right like a grid.
+        val fold = Fold.full(width = WIDTH)
+        val first = MapGeometry.firstSystemOf(1)
+        val whole = bands(RegionTemperament.DEEP)
+        val half = whole.mapIndexed { index, band ->
+            if (index == 1) band.copy(charted = first..(first + 4)) else band
+        }
+        // The fixture's premise, stated rather than assumed: on this band the low index is drawn to
+        // the *right* of the high one.
+        assertTrue(fold.x(first) > fold.x(first + 4), "band 1 does not run backwards")
+
+        val before = render(mapOf(stars = emptyList(), bands = whole), fold)
+        val after = render(mapOf(stars = emptyList(), bands = half), fold)
+
+        val lane = MapGeometry.laneMidOf(band = 1).roundToInt()
+        assertTrue(after[fold.x(first + 2).roundToInt(), lane].alpha > FIELD, "the lit end lost its field")
+        assertTrue(
+            after[fold.x(first + MapGeometry.PER_BAND - 1).roundToInt(), lane].alpha <
+                before[fold.x(first + MapGeometry.PER_BAND - 1).roundToInt(), lane].alpha,
+            "the dark end of a reversed band kept the weather it had not earned",
+        )
+    }
+
+    @Test
+    fun `a stretch that starts inside its band is clipped at both of its own ends`() {
+        // The genesis shape, and the one the two tests above do not make: the light reaches a band
+        // partway along and stops partway along, so the clip has a real left *and* a real right
+        // rather than one of each being the band's own end.
+        val fold = Fold.full(width = WIDTH)
+        val first = MapGeometry.firstSystemOf(0)
+        val whole = bands(RegionTemperament.DEEP)
+        val middle = whole.mapIndexed { index, band ->
+            if (index == 0) band.copy(charted = (first + 10)..(first + 14)) else band
+        }
+
+        val before = render(mapOf(stars = emptyList(), bands = whole), fold)
+        val after = render(mapOf(stars = emptyList(), bands = middle), fold)
+
+        val lane = MapGeometry.laneMidOf(band = 0).roundToInt()
+        assertTrue(after[fold.x(first + 12).roundToInt(), lane].alpha > FIELD, "the lit middle has no field")
+        for (end in listOf(first, first + MapGeometry.PER_BAND - 1)) {
+            assertTrue(
+                after[fold.x(end).roundToInt(), lane].alpha < before[fold.x(end).roundToInt(), lane].alpha,
+                "the band kept weather at $end that the light does not reach",
+            )
+        }
+    }
+
+    @Test
+    fun `a disc keeps a bright star's halo and its cool hue`() {
+        // The mini path's own branch: a disc drops the dim and standard halos because a gradient two
+        // pixels across is a cost with nothing on the other side of it, and keeps the brights —
+        // including the third of them that lean the crystal hue.
+        val mini = Fold.mini(width = 148f, lane = 19f)
+        val system = MapGeometry.firstSystemOf(2) + 12
+        val cool = MapStarUiState(
+            system = system,
+            driftPermille = 0,
+            ink = MapStarInk.Charted(starClass = StarClass.BRIGHT, sizePermille = 1_000, coolHalo = true),
+            marks = emptySet(),
+        )
+        val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }
+
+        val painted = render(
+            GalaxyMapUiState(bands = dark, stars = listOf(cool), hours = emptyList(), names = emptyList(), mini = true),
+            mini,
+        )
+
+        // Ink beyond the disc itself, which on a mini fold can only be the halo — there are no
+        // spikes at this size and the bands are drawing nothing.
+        val x = mini.x(system).roundToInt()
+        val y = mini.y(system, driftPermille = 0).roundToInt()
+        val beyond = (2..5).count { step -> painted[x, (y - step)].alpha > FIELD }
+        assertTrue(beyond > 0, "a bright star on a disc lost its halo")
+
+        // And the other side of that branch: a dim star on a disc has no halo at all, because a
+        // gradient two pixels across is a cost with nothing on the other side of it.
+        val dim = cool.copy(ink = MapStarInk.Charted(StarClass.DIM, sizePermille = 1_000, coolHalo = false))
+        val plain = render(
+            GalaxyMapUiState(bands = dark, stars = listOf(dim), hours = emptyList(), names = emptyList(), mini = true),
+            mini,
+        )
+        assertEquals(0, (2..5).count { step -> plain[x, (y - step)].alpha > FIELD }, "a dim disc star grew a halo")
+    }
+
+    @Test
+    fun `a band the light has never reached has no field at all`() {
+        val fold = Fold.full(width = WIDTH)
+        val dark = bands(RegionTemperament.DEEP).map { it.copy(charted = null) }
+
+        val painted = render(mapOf(stars = emptyList(), bands = dark), fold)
+
+        val centre = (fold.width / 2f).roundToInt()
+        assertTrue(
+            painted[centre, MapGeometry.laneMidOf(band = 0).roundToInt()].alpha < FIELD,
+            "an uncharted band was given weather it has not earned",
+        )
+    }
+
     private fun render(uiState: GalaxyMapUiState, fold: Fold): PixelMap {
         val width = fold.width.roundToInt()
         val height = fold.height.roundToInt()
@@ -208,18 +413,40 @@ private const val WIDTH = 361f
 private const val PAINTED = 0.05f
 private const val FIELD = 0.01f
 
+// The two ends of `core`'s size wobble, restated here because the tests above already restate them
+// inline and the grain assertions need the narrow end by name.
+private const val NARROWEST_PERMILLE = 870
+
+// `GalaxyMap`'s own `SPIKE_REACH`. Private there, and a test that probes for the absence of a spike
+// has to look where one would have been.
+private const val SPIKE_REACH_PROBE = 2.6f
+
+// Charted by default, and the two fixtures below say so together: every assertion written before
+// the third tier existed is about a map the light has reached, and defaulting the other way would
+// make nine of them fail on the fixture rather than on the drawing.
 private fun star(system: Int, starClass: StarClass): MapStarUiState = MapStarUiState(
     system = system,
-    starClass = starClass,
     driftPermille = 0,
-    sizePermille = 1_000,
-    coolHalo = false,
+    ink = MapStarInk.Charted(starClass = starClass, sizePermille = 1_000, coolHalo = false),
+    marks = emptySet(),
+)
+
+private fun grain(system: Int): MapStarUiState = MapStarUiState(
+    system = system,
+    driftPermille = 0,
+    ink = MapStarInk.Grain,
     marks = emptySet(),
 )
 
 private fun bands(temperament: RegionTemperament): List<MapBandUiState> =
     (1..MapGeometry.BANDS).map { region ->
-        MapBandUiState(region = region, name = TextRes("Region $region"), temperament = temperament, lit = region == 1)
+        MapBandUiState(
+            region = region,
+            name = TextRes("Region $region"),
+            temperament = temperament,
+            charted = MapGeometry.firstSystemOf(region - 1)..(MapGeometry.firstSystemOf(region - 1) + MapGeometry.PER_BAND - 1),
+            lit = region == 1,
+        )
     }
 
 private fun mapOf(

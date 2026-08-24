@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.20.0", "2026-08-24", "The galaxy is dark now",
+            "A star nobody has been near is a point of light and nothing else.",
+            "A probe charts everything nearer than where it went, and an hour further.",
+            "You open on 61 systems of 250, and your ships light the rest.",
+        ),
+        release(
             "0.19.0", "2026-08-24", "The game tells you what changed",
             "Every version Oltre has shipped, one page each, newest first.",
             "It opens itself on a new build and not again.",

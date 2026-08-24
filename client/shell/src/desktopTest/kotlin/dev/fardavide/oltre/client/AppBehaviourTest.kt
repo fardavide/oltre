@@ -3,7 +3,9 @@ package dev.fardavide.oltre.client
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.GameSave
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.Resources
@@ -14,6 +16,7 @@ import dev.fardavide.oltre.core.experienceOf
 import dev.fardavide.oltre.core.startResearch
 import kotlin.test.Test
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
@@ -84,7 +87,11 @@ class AppBehaviourTest {
             // before 0.11 moved it: the galaxy's own scale is the reading that proves the tab
             // arrived. It went to `NEAREST FIRST` when the ledger became the landing screen, and
             // that string does not exist any more — the sort left with the filters.
-            assertReads("250 SYSTEMS")
+            //
+            // And the scale itself moved at 0.20: a bare length was the honest line while the map
+            // was free, and the day it had to be earned the interesting number became how much of it
+            // you have. The word that proves the tab arrived is still on the head's count line.
+            assertReads("OF 250 CHARTED")
             // **The switch, and it is the one control on this tab that writes to disk.** Davide's
             // amendment to Claude Design's landing call: the tab opens on the map the first time and
             // on whichever list you last used after that. The write goes through the composition
@@ -168,6 +175,38 @@ class AppBehaviourTest {
     // A save is stamped with the instant it was written, and the app advances from there to now. The
     // wall clock is the real one — there is no seam in `App` to inject a clock through, and putting
     // one there for a test would be inventing an API the game does not need.
+    @Test
+    fun `a colony saved before the map cost anything opens on the map it earned`() {
+        // **The one thing in a release that rewrites a save a player already has**, driven through
+        // the launch rather than through `GameSave` alone. `GameSaveTest` proves the 17 → 18 hop
+        // produces the right span; what only this can prove is that the app then *renders* it — a
+        // migration that produced a state no screen could draw would pass every test in core.
+        //
+        // The blob is a current encoding with its version dropped and its `charted` key stripped,
+        // which is `GameSaveTest`'s own idiom: a fixture that composed its own JSON would be a blob
+        // the store answers null to, and the app would start a brand new colony while this passed.
+        val played = colony().let { state ->
+            val far = GalaxyCoordinate(galaxy = state.galaxy.home.galaxy, system = 200, slot = 5)
+            state.copy(galaxy = state.galaxy.copy(surveyed = state.galaxy.surveyed + far))
+        }
+        val spans = played.galaxy.charted.joinToString(",") { span ->
+            """{"galaxy":${span.galaxy},"lo":${span.lo},"hi":${span.hi}}"""
+        }
+        val chartedKey = ""","charted":[$spans]"""
+        val legacy = GameSave.encode(snapshot(state = played, agedBy = 3.hours))
+            .replace(""""schemaVersion":18""", """"schemaVersion":17""")
+            .replace(chartedKey, "")
+        assertTrue("charted" !in legacy, "the fixture has to be a save from before the key existed")
+
+        app(saved = null, legacy = legacy) {
+            open(OltreTab.GALAXY)
+            // Home is 171 and the colony reached 200, so the light runs 141…230 — ninety systems,
+            // and none of it handed back. A colony that woke up charted around home alone would
+            // read 61 here, which is the failure this exists to catch.
+            assertReads("90 OF 250 CHARTED")
+        }
+    }
+
     private fun snapshot(state: GameState, agedBy: kotlin.time.Duration): GameSnapshot =
         GameSnapshot(lastUpdatedAt = TEST_NOW - agedBy, debugUsed = false, state = state)
 

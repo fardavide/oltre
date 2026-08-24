@@ -26,6 +26,8 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StarClass
+import dev.fardavide.oltre.core.SurveyBalance
+import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.World
 import dev.fardavide.oltre.core.WorldTraits
 import dev.fardavide.oltre.core.WorldVerdict
@@ -79,12 +81,22 @@ internal fun GameState.toGalaxyUiState(
             // The probe footer is built here rather than above because it is the system view's
             // own furniture: it walks all fifteen slots and prices a flight, and the other three
             // views would have paid for that and thrown it away.
-            GalaxyView.SYSTEM -> GalaxyBodyUiState.System(
-                header = toSystemHeadUiState(at = at),
-                map = toSystemMapUiState(at = at, now = now),
-                probe = toProbeActionUiState(at = at, worlds = worldsOf(at), now = now, timeZone = timeZone),
-                rows = toSystemRows(at = at, now = now),
-            )
+            // **The orbit page obeys the third tier or the third tier does not exist.** The caption
+            // under the fold is a 44dp tap target on its whole width, so a player can scrub to any
+            // grain star and open this page — and every fact on it, the name and the region and the
+            // class and the world count and the drawn bodies and the relay, is charted-tier. Handing
+            // it an empty world list is what applies the tier: eight surfaces read `worlds`, and one
+            // decision at the top is cheaper than eight guards further down.
+            GalaxyView.SYSTEM -> {
+                val charted = galaxy.hasCharted(SystemAddress(galaxy = at.galaxy, system = at.system))
+                val worlds = if (charted) worldsOf(at) else emptyList()
+                GalaxyBodyUiState.System(
+                    header = toSystemHeadUiState(at = at, charted = charted, worlds = worlds),
+                    map = toSystemMapUiState(at = at, charted = charted, now = now),
+                    probe = toProbeActionUiState(at = at, worlds = worlds, now = now, timeZone = timeZone),
+                    rows = if (charted) toSystemRows(at = at, now = now) else emptyList(),
+                )
+            }
         },
         dispatch = dispatch?.let { selection ->
             // **The sheet's own system, which is not necessarily the page's.** A ledger row belongs
@@ -120,6 +132,11 @@ private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiSt
     } else {
         GalaxyBalance.SYSTEMS_PER_GALAXY
     }
+    val charted = if (universe) {
+        (1..GalaxyBalance.GALAXIES).sumOf { galaxy.chartedCountIn(it) }
+    } else {
+        galaxy.chartedCountIn(nav.at.galaxy)
+    }
     return GalaxyHeadUiState(
         mode = LedgerMode.MAP,
         scale = if (universe) GalaxyScale.UNIVERSE else GalaxyScale.GALAXY,
@@ -130,7 +147,15 @@ private fun GameState.toGalaxyHeadUiState(nav: GalaxyNavigation): GalaxyHeadUiSt
         },
         count = Strings.clauses(
             listOfNotNull(
-                Strings.systemsCount(systems.toLong().groupedByThousands()),
+                // **"61 of 250 charted" is fog's whole readout**, and it replaces the bare length
+                // rather than sitting beside it: a length nobody has walked any of was the honest
+                // line while the map was free, and it stopped being the interesting number the day
+                // the map had to be earned. It is deliberately not a second progression gauge —
+                // the strip 8dp above counts what you *are*, this counts what you have looked at.
+                Strings.chartedOfSystems(
+                    charted = charted.toLong().groupedByThousands(),
+                    systems = systems.toLong().groupedByThousands(),
+                ),
                 Strings.surveyedCount(known),
                 // Absent rather than zero, so a save with nothing pinned does not print a control
                 // it does not have. The same rule the ledger's own emptiness follows.
@@ -165,9 +190,12 @@ private fun GameState.toSystemRows(at: SystemSelection, now: Instant): List<Gala
     }
 }
 
-private fun GameState.toSystemHeadUiState(at: SystemSelection): SystemHeadUiState {
-    val worlds = worldsOf(at)
-    val starClass = starClassAt(galaxy.seed, at.galaxy, at.system)
+private fun GameState.toSystemHeadUiState(
+    at: SystemSelection,
+    charted: Boolean,
+    worlds: List<World>,
+): SystemHeadUiState {
+    val target = SystemAddress(galaxy = at.galaxy, system = at.system)
     return SystemHeadUiState(
         galaxies = (1..GalaxyBalance.GALAXIES).map { index ->
             GalaxyTabUiState(label = Strings.galaxyLabel(index), galaxy = index, selected = index == at.galaxy)
@@ -175,19 +203,42 @@ private fun GameState.toSystemHeadUiState(at: SystemSelection): SystemHeadUiStat
         scope = Strings.systemsCount(Strings.plainNumber(GalaxyBalance.SYSTEMS_PER_GALAXY)),
         // Generated names, so `TextRes.Raw` by construction: a star and a region are named from
         // the seed, and there is no language they could be translated into.
-        system = TextRes(systemNameAt(galaxy.seed, at.galaxy, at.system)),
-        coordinate = Strings.systemAddressBare(galaxy = at.galaxy, system = at.system),
-        region = TextRes(regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system))),
-        detail = detailFor(starClass, worlds.size, compact = false),
+        //
+        // **Uncharted takes the caption's own trade**, so the two surfaces say the same thing in the
+        // same order: the address is the name because it is the only one there is, and the figure
+        // beside it becomes the distance rather than an address repeated.
+        system = when {
+            charted -> TextRes(systemNameAt(galaxy.seed, at.galaxy, at.system))
+            else -> Strings.systemAddress(galaxy = at.galaxy, system = at.system)
+        },
+        coordinate = when {
+            charted -> Strings.systemAddressBare(galaxy = at.galaxy, system = at.system)
+            else -> distanceFromHome(at)
+        },
+        // The region keeps its tap back out to the fold either way — a control that still works is
+        // what lets this word be swapped rather than the row removed.
+        region = when {
+            charted -> TextRes(regionNameAt(galaxy.seed, at.galaxy, regionOf(at.system)))
+            else -> Strings.unchartedWord()
+        },
+        detail = when {
+            charted -> detailFor(starClassAt(galaxy.seed, at.galaxy, at.system), worlds.size, compact = false)
+            else -> Strings.chartsSystems(galaxy.wouldChart(target))
+        },
+        // Both readings are computed from an empty world list when the light has not reached here, so
+        // what survives is distance and danger — position facts, which fog never takes.
         astronomy = astronomyFor(at = at, worlds = worlds),
         shortAstronomy = astronomyFor(at = at, worlds = worlds, dropFromHere = true),
         isHome = at.galaxy == galaxy.home.galaxy && at.system == galaxy.home.system,
     )
 }
 
-private fun GameState.toSystemMapUiState(at: SystemSelection, now: Instant): SystemMapUiState {
+private fun GameState.toSystemMapUiState(at: SystemSelection, charted: Boolean, now: Instant): SystemMapUiState {
     val relay = relayAt(galaxy.seed, at.galaxy, at.system)
-    val occupied = (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
+    // **A drawn orbit is a world count you can read off the picture**, and the relay is a generated
+    // point of interest — so an uncharted system draws neither. What is left is the star, which is
+    // the same thing the fold shows as grain.
+    val occupied = if (!charted) emptyList() else (1..GalaxyBalance.SLOTS_PER_SYSTEM).mapNotNull { slot ->
         val coordinate = GalaxyCoordinate(galaxy = at.galaxy, system = at.system, slot = slot)
         val world = worldAt(galaxy.seed, coordinate)
         when {
