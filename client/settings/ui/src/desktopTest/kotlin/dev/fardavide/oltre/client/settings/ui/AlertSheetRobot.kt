@@ -45,6 +45,11 @@ internal fun alertSheet(
                         onSelectMode = onSelectMode,
                         onToggleCategory = onToggleCategory,
                         onSelectDelivery = onSelectDelivery,
+                        // Empty on purpose: what fills this slot is the changelog's build row, and
+                        // these tests are about the two ladders. The row is driven where it lives —
+                        // `BuildRowBehaviourTest` — and through the app, where the door it opens is
+                        // the thing worth asserting.
+                        build = {},
                     )
                 }
             }

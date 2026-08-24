@@ -206,7 +206,7 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
-### 0.19.0 — 2026-08-24
+### 0.20.0 — 2026-08-24
 
 - **The galaxy is dark now, and your ships are what light it.** The star map has a third tier under
   the two it had: a system nobody has been near is drawn as **grain** — a point you can see, at an
@@ -239,6 +239,27 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
   around every system it ever reached, not around home alone.
 - Distance is the one thing the dark does not take: the hour marks run to the edge of the galaxy
   through it, because how far away something is is what you choose a target with.
+
+### 0.19.0 — 2026-08-24
+
+- **The game tells you what changed.** A sheet of releases, one page each, newest first — swipe
+  sideways through every version Oltre has ever shipped. Sixty-six of them, back to the first
+  commit, each with what it did and the day it landed.
+- **It opens itself the first time you launch a new build**, and not again. A colony that has
+  already read this one stays where it was; a brand new colony is not handed nineteen days of
+  history before its first mine.
+- **Every page draws its own sky.** The version number *is* the picture: one body per minor line
+  you have lived through, filled for the ones that settled and hollow for the patches riding on the
+  current one, laid on a spiral over a world's limb. Nobody drew sixty-six of these and nobody will
+  draw the next one — 0.19.1 has its own the moment it is cut.
+- **The first week looks like the first week.** Those releases have no minor line at all, so their
+  skies are empty rings, and the rail at the foot of the sheet — one tick per minor line — carries
+  its longest gap there.
+- **The rail is a control**, not a position: sixty-five swipes is not a way to reach the first
+  week, so tap it or drag it and the run moves under you.
+- **The gear's sheet has a BUILD row now**, carrying the version you are running and what it did.
+  Tapping it turns that sheet into the changelog rather than raising a second one on top.
+- In Italian throughout, including all sixty-six pages.
 
 ### 0.18.0 — 2026-08-23
 

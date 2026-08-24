@@ -48,6 +48,13 @@ kotlin {
             // both here would be the composition root re-declaring what the layer above it already
             // exposes. `:client:debug` is the exception in the other direction: it *has* no
             // presentation, so its `ui` is what there is to name.
+            // The changelog, in three layers, and the composition root is where they meet: `domain`
+            // decides whether this launch has anything new to say, `presentation` turns the document
+            // into pages, and `ui` is the face the one sheet wears. `:client:settings:ui` reaches
+            // none of them — the build row that leads to the changelog is filled into a slot here.
+            implementation(projects.client.changelog.domain)
+            implementation(projects.client.changelog.presentation)
+            implementation(projects.client.changelog.ui)
             implementation(projects.client.colony.presentation)
             // All the layers of the debug feature, which is the composition root's privilege and
             // nobody else's: `domain` for the clock and the skip, `data` for the accelerometer, and
@@ -56,8 +63,19 @@ kotlin {
             implementation(projects.client.debug.data)
             implementation(projects.client.debug.domain)
             implementation(projects.client.debug.ui)
-            // No `:client:design:component` — the shell draws chrome (the rail, the tab bar), and
-            // none of the row-level components a screen is built from.
+            // **`:client:design:component`, for exactly one thing, and 0.19 is where that changed.**
+            // The rule was *no components here at all* — the shell draws chrome and none of the
+            // row-level pieces a screen is built from — and the half of it that matters is unchanged:
+            // nothing here draws a card, a chip, a dial or a row.
+            //
+            // What it takes is `OltreBottomSheet`, which is chrome by its own file's argument: it is
+            // *the only way this app raises a panel over a screen*. Until 0.19 every sheet was raised
+            // by the feature that filled it, because each one had a single face. The settings sheet
+            // now has two — the ladders and the changelog — and they come from two different
+            // features, so the only place that can raise it is the one place allowed to know both.
+            // The alternative was a wrapper in one feature that composed the other, which is the
+            // cross-feature edge this build warns about.
+            implementation(projects.client.design.component)
             implementation(projects.client.design.core)
             // The composition root chooses the language and hands it to the theme and to
             // `GameNotifications`, and it names the five destinations — so it uses the catalogue

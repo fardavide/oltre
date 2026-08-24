@@ -112,6 +112,9 @@ dependencies {
     kover(projects.client.design.icon)
     kover(projects.client.design.text)
     kover(projects.client.shell)
+    kover(projects.client.changelog.domain)
+    kover(projects.client.changelog.presentation)
+    kover(projects.client.changelog.ui)
     kover(projects.client.colony.presentation)
     kover(projects.client.colony.ui)
     kover(projects.client.debug.data)
@@ -462,7 +465,13 @@ fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name
 // makes it safe for `design`: nothing points *out* of it. `:client:dispatch:*` depends on `core` and
 // the design system and on no feature at all, so it cannot become the back door one tab reaches
 // another through. **A third name on this list needs that same property demonstrated, not assumed.**
-private val sharedSurfaces = setOf("design", "dispatch", "world")
+// `changelog` joined at 0.19 and it passes `world`'s test rather than inheriting it. The mark is
+// drawn twice — at 319dp as a page's whole picture, and at 29dp on the settings sheet's build row —
+// so `:client:settings:ui` reaches it and the cross-feature warning would fire on that edge forever.
+// What makes the exclusion safe is the property this list actually asks for: **nothing points out of
+// it.** `:client:changelog:*` depends on `core`, on its own domain and on the design system, and on
+// no feature at all, so it cannot become the back door one tab reaches another through.
+private val sharedSurfaces = setOf("design", "dispatch", "world", "changelog")
 
 fun featureOf(projectPath: String): String? = projectPath
     .removePrefix(":")

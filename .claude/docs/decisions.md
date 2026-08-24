@@ -4235,6 +4235,81 @@ something to look at while implementing a design that has already come back. `pl
 Claude Design project, imported and implemented rather than composed here. See
 [`ask-once-sheet.md`](ask-once-sheet.md).
 
+## A sky per build: the changelog moves into the game (0.19.0)
+
+A Claude Design round trip — *A Sky Per Build*, accepted 2026-08-24 — on Davide's request for an
+in-game changelog. The design and the four calls that scoped it are in
+[`changelog-sheet.md`](changelog-sheet.md); what belongs here is the handful of things that are
+decisions rather than drawings.
+
+**Four calls, taken before a line was written, and three of them cost something forever.** Every
+version gets a page (all 66, patches included); both languages, translated; any version change opens
+the sheet, patches included; and the graphic is drawn from the version number rather than authored.
+The first three are a permanent per-release tax — **a release that does not write its page in English
+and Italian fails the build** — and the fourth is the one call that avoids one: `0.31.2` gets its
+mark the day it is cut, from arithmetic, with nobody asked.
+
+**The copy is two documents, not 260 catalogue ids.** The global catalogue's discipline is an
+exhaustive `when` over `StringId`, and applied here that is ~260 constants and two ~260-line branches
+with each release's four lines scattered across three files. What replaces the compiler is
+`ChangelogTranslationTest`, and it catches strictly more: a release Italian never got, a date that
+drifted between two files, a page that lost a line in translation, and a run that is not newest-first.
+`ReleaseCatalogueIntegrationTest` adds the third leg — the catalogue is checked against the README's
+own headings *and* against `libs.versions.oltre`, so a version bumped without a page fails the build
+rather than shipping a sheet that never opens.
+
+**The mark is arithmetic in `domain`, not drawing in `ui`.** Design asked for this by name — *"a 20dp
+screenshot diff cannot state where the ink is"* — so `skyAt` returns geometry and `VersionSkyTest`
+asserts its three properties over every version the project could reach. What is left in Compose is
+four primitives. There is deliberately **no baseline of a mark on its own**.
+
+**`changelog` is the fourth `sharedSurfaces` entry**, and it passes `world`'s test rather than
+inheriting it: the mark is drawn at 319dp on a page and at 29dp on the settings sheet's build row, so
+`:client:settings:ui` reaches it — and nothing points *out* of `:client:changelog:*`, which is the
+property that list actually asks for.
+
+**The shell took `:client:design:component` for one thing.** The rule was no components in the shell
+at all; the half that matters is intact (nothing there draws a card, chip, dial or row). What it
+takes is `OltreBottomSheet`, because the settings sheet now has two faces from two different features
+and the only place allowed to know both is the composition root. `AlertSheet`'s chrome wrapper is
+gone; `AlertSheetContent` gained a slot the root fills with the build row.
+
+**The gear is behind the scrim, and that was load-bearing.** The 0.18 comment claims tapping the gear
+again is one of the four ways out. It is not — a `ModalBottomSheet` covers the window — and the first
+cut of this slice let it close the sheet *without* marking the release read, which would have shown a
+player the same changelog for ever. Every exit goes through one function now. Two further findings
+came out of the same knot: a test cannot dismiss a full-height sheet by tapping its scrim (the
+scrim's centre is behind the sheet, so `performClick` lands on the panel), and `app()` had to be told
+the news is old or eighteen existing tests drive controls behind a scrim.
+
+**A second field in `Preferences` would have cost the first one.** A required field added to a
+serialized record turns every file an older build wrote into a parse failure — so an upgrading player
+would have lost the galaxy landing they chose, over a preference they had never had the chance to
+set. The store decodes a record with a default per field; `Preferences` stays strict, so a caller
+still has to answer every field.
+
+**The page is measured, and the sky is what gives way.** The first cut took the design's page widths
+as constants, which are right at exactly the two widths it drew and wrong at every other: at 360dp —
+the commonest Android width, and the one `compact` flips *below* — a 319dp sky was laid inside a
+286dp card and the limb, which spans its whole box by construction, drew past the card's border.
+Measuring the page fixed that and exposed the same mistake in the other axis, because the mark is a
+square of the column: a wider sheet is a taller card, and a page that outgrows its viewport does not
+scroll — it starves its last note. So the mark **stops at 319dp** and takes only the height the copy
+leaves. A landscape iPhone is a 393dp-tall window and every line still lands.
+
+**None of it was visible from inside the suite**, which is the part worth keeping: every frame and
+every behaviour test ran at exactly 393 and exactly 320 — the same two numbers the code had hardcoded
+— so the tests and the defect shared an assumption. What catches it now measures the mark against the
+card at six real widths and the tallest page against the shortest window, and both fail against the
+old code.
+
+### Raised and not decided
+
+- **A player who skipped three builds sees no sign of it.** Design raised it; the cheapest honest
+  version is a dimmer second cap on the rail at the build last shown, from an integer already stored.
+- **1.0.0 empties the sky**, because minor and patch are both zero. It falls out of the rule and is
+  accepted on purpose — the alternative clause is the beginning of a table.
+
 ## The gear opens something, and the question moves up one level (0.18.0)
 
 A Claude Design round trip — *Ask Once*, accepted 2026-08-23 — on the gear 0.16 drew and 0.17

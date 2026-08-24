@@ -625,6 +625,21 @@ object English : Translations {
         StringId.AlertNextAtTotal ->
             "Next alert at ${args.clock()}, and it is brought up to date rather than repeated."
         StringId.AlertNothingPending -> "Nothing is in flight, so nothing is waiting to be sent."
+
+        // ── The changelog sheet ──────────────────────────────────────────────────────────────
+        StringId.ChangelogTitle -> "Changelog"
+        // How deep the run goes, answered before the first swipe. Plural by count because the day
+        // this reads "1 release" is the day somebody is looking at a fresh catalogue and wondering
+        // what broke.
+        StringId.ChangelogDepth -> if (args.count(0) == 1) "1 release" else "${args.count(0)} releases"
+        // "23 Aug 2026". Day first, because the sheet is read as a run of dates rather than as a
+        // single one, and an abbreviated month is what keeps the caption on one line beside a
+        // version at 262dp.
+        StringId.ReleaseDate -> "${args.number(0)} ${MONTHS[args.number(1).toInt() - 1]} ${args.number(2)}"
+        StringId.BuildLabel -> "BUILD"
+        // What a screen reader says for the row, which is the one place the version and what it did
+        // are read as one sentence rather than as two lines.
+        StringId.BuildRowSpoken -> "Version ${args.text(0)} — ${args.text(1)}. What changed."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────
@@ -709,6 +724,13 @@ object English : Translations {
     }
 
     private fun Long.pad2(): String = toString().padStart(2, '0')
+
+    // The one place the catalogue holds a calendar. Abbreviated to three letters because the date is
+    // a caption at the end of the version line and has to stay on it at 262dp.
+    private val MONTHS = listOf(
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    )
 
     private const val DECIMAL_SEPARATOR: Char = '.'
     private const val GROUPING_SEPARATOR: String = ","

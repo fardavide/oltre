@@ -1388,6 +1388,31 @@ object Strings {
     // A colony with nothing in flight, which is most colonies most of the time. The honest answer
     // rather than a hidden line: an empty slot where a time was would read as a control that failed.
     fun alertNothingPending(): TextRes = message(StringId.AlertNothingPending)
+
+    // ── The changelog sheet ──────────────────────────────────────────────────────────────────
+
+    fun changelogTitle(): TextRes = message(StringId.ChangelogTitle)
+
+    // "65 releases". `Count` rather than `Number` because it selects a form — the two are the same
+    // integer and only one of them may change the words around it.
+    fun changelogDepth(releases: Int): TextRes = message(StringId.ChangelogDepth, Arg.Count(releases))
+
+    // **The first calendar date the game has ever written.** The month arrives as its number and the
+    // language names it, which is the only shape that works: a pre-rendered "Aug" would have baked
+    // English into the argument, and a `LocalDate` would have put a platform type in the catalogue.
+    fun releaseDate(day: Int, month: Int, year: Int): TextRes = message(
+        StringId.ReleaseDate,
+        Arg.Number(day.toLong()),
+        Arg.Number(month.toLong()),
+        Arg.Number(year.toLong()),
+    )
+
+    fun buildLabel(): TextRes = message(StringId.BuildLabel)
+
+    // The settings row read as one sentence. The version goes in as text rather than as a number
+    // because it is three of them and the point is that it is a name.
+    fun buildRowSpoken(version: TextRes, headline: TextRes): TextRes =
+        message(StringId.BuildRowSpoken, Arg.Text(version), Arg.Text(headline))
 }
 
 // `internal`, so the only route to a `Message` is a named entry above. Everything the catalogue can

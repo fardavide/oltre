@@ -554,4 +554,21 @@ enum class StringId {
     AlertNextAt,
     AlertNextAtTotal,
     AlertNothingPending,
+
+    // ── The changelog sheet ─────────────────────────────────────────────────────────────────
+    //
+    // Five entries, and deliberately only five: the sixty-five releases themselves are two
+    // documents in `:client:changelog:presentation` rather than two hundred and sixty ids here.
+    // `.claude/docs/changelog-sheet.md` §4 is the argument — the short of it is that an exhaustive
+    // `when` can only catch a *missing* id, while the paired documents let a test catch a release
+    // Italian never got, a date that drifted and a page that lost a line in translation.
+    //
+    // What stays here is what the catalogue is actually for: the chrome, and a date. `ReleaseDate`
+    // is the first calendar date the game has ever written — every other instant it prints is a
+    // clock time or a duration — and the month name is exactly the kind of thing a table owns.
+    ChangelogTitle,
+    ChangelogDepth,
+    ReleaseDate,
+    BuildLabel,
+    BuildRowSpoken,
 }
