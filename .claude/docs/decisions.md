@@ -4513,3 +4513,150 @@ cost is that the four cards differ only by their fare and their charted count. C
 it rather than hiding it — *"That is honest and it is thin. I would rather it were thin than lying"* —
 and `galaxy_universe.png` is what records it. `Strings.nothingCharted()` went with it: it used the
 word *charted* to mean *surveyed*, which became a collision eight dp from the head's new count line.
+
+## The wire gets a module of its own, and it turns out to carry twelve verbs (2026-08-24, issue #107)
+
+Slice 0 of #106, the epic that moves the engine off the phone. Nothing a player sees moves, and
+nothing ships: `:protocol` is pure data with no I/O in it and no consumer yet.
+
+### Why not in `core`, which is the near miss rather than the obvious wrong answer
+
+`GameSave` is already in `core` and its header says why — *"client and server must agree on it byte
+for byte once multiplayer lands"* — which is exactly as true of a verb envelope. So the precedent
+argued for putting the wire there, and it was rejected on a narrower reading of `core`'s charter:
+**model + rules.** The save format is both, because a colony that cannot be decoded cannot be
+played. An auth envelope, an error taxonomy and an API version header are a rule about nothing in
+the game.
+
+They also move on a different clock. The wire gains a field when a *deploy* needs one; `core` gains
+one when a *mechanic* does. Folded together, every future auth change would be a change to the
+module whose one advertised property is that it depends on nothing — and that sentence, in force
+since 0.0.6 and enforced by module rule 6, is what every argument about where code goes eventually
+leans on.
+
+The client side was never available: rule 8 forbids `server` from reaching into `client/*`, and both
+ends read this. So `:protocol` is a sibling of `core`, takes `core` and nothing else, and carries
+`core`'s target set — the JVM one is the server's, the two iOS ones and Android are the client's.
+
+### `:protocol` states the shape; `core` states the rules
+
+The line that decides what a guard is allowed to do here, and it went the opposite way to the first
+draft. A verb carrying an empty manifest, a window too short to come home in, or a survey of a
+system already surveyed all construct happily. Every one of them has an answer in `core` already,
+and each answer is a **result the player can be shown** rather than an exception somebody has to
+catch — which is the same reason `buildShips` returns `NotForSale` instead of raising when
+`FleetBalance` refuses to price a hull.
+
+Two guards survive, and they are asymmetric on purpose:
+
+- `IdempotencyKey` refuses a blank string. A key is minted at the edge for the reason the galaxy
+  seed is, there is no first-class answer for a missing one, and it is malformed input and nothing
+  else.
+- `ApiVersion` refuses **nothing**, including zero and negative. It has a first-class answer
+  designed for it — the server replies `UnsupportedApiVersion` and the client says *"update the
+  app"* — so a constructor that threw would pre-empt the very negotiation the type exists for and
+  turn it into a parse failure. This was written as `require(value >= 1)` first, and the test that
+  was supposed to prove the lower bound of `isServed()` is what exposed it: the only version below
+  `OLDEST_SERVED` was one the constructor would not build, so the branch was dead and the guard was
+  answering a question that had a better answer.
+
+### Twelve verbs, not the nine #106 names
+
+The epic says nine and asserts *"that is the complete list — there is nothing else in `core` that
+mutates a `GameState`"*. That was true at 0.17.1, when it was written. **0.18 shipped the settings
+sheet**, which added `setAlertMode`, `toggleAlertCategory` and `setAlertDelivery` — three more, all
+colony-local, all wired to a control a player taps on the gear sheet.
+
+Left out, the sheet would go on working on the device and change nothing on the server, which after
+#113 is the thing that owns the answer. That is a dead control with the worst possible tell: it
+looks like it worked.
+
+**So the count in a ticket is a fact with a date on it, and this one had gone stale in five days.**
+What replaces trusting it is `ClientVerbTest`, which closes both halves of the hole — a member added
+to `ClientVerb` and to no sample stops `idOf` compiling, and an id added to the registry and to no
+sample fails an assertion. The registry is hand-written rather than derived from the sealed
+interface on purpose: deriving it would make the two agree by construction, which is exactly the
+property that would stop the pair catching anything. `offlineRule` is the second half — a `when`
+with no `else` in the *main* source set, so a thirteenth verb cannot compile without somebody
+deciding what it does on a train.
+
+### The offline split is on the type, not in the client
+
+#106 §3's table read back off the verb: ten are `QUEUE_AND_VALIDATE`, and `startRun` and
+`startSurvey` are `LOOK_DONT_ACT` from day one even though nothing else can currently take a
+coordinate. An outbox with a default arm would queue a galaxy-touching verb by omission, and the
+tell would be a player finding a world they had dispatched to already worked.
+
+### A rejection is data; an `ApiError` is the sync not happening
+
+Three sentences with nothing in common — *"sign in again"*, *"update the app"*, *"you cannot afford
+that"* — and a client that could not tell them apart would have to say the vaguest one to everybody.
+So the third lives inside a **successful** `SyncResponse` as a `VerbRejection`, because the colony
+still moved and still has to be drawn, and only the first two are `ApiError`s.
+
+`VerbRefusal` flattens `core`'s six refusing result types into fifteen constants rather than nesting
+one taxonomy per verb. That is a deliberate loss of precision, and it is recoverable: the verb is on
+the envelope the reason is attached to. What it buys is that #113's *"which of my queued taps did
+not make it"* screen is one `when` rather than a two-level nest.
+
+### CI could not see half of it, and that is a change to the workflow
+
+`assemble`, `check` and `Coverage` run on Linux and cannot compile for Apple at all. The `iOS
+framework` job links `:client:shell`'s framework, which compiles the shell's whole dependency
+closure — and that is what has been checking `core`'s Kotlin/Native half all along. **Nothing
+depends on `:protocol`** until `:client:net:data` lands in #112, so it is in no closure, and its
+Apple half would have been built by nothing.
+
+`./gradlew :protocol:compileTestKotlinIosSimulatorArm64` joins that job. **The test source set and
+not only `commonMain`**, which is the whole point: the trap #107 names by hand is a *compiler* rule
+that applies only to tests. Kotlin/Native rejects a backticked name containing `, . ; : / \ < > [ ]`
+where the JVM accepts it happily, so a comma in `protocol/src/commonTest` passes the entire local
+suite and takes CI down.
+
+**A compile task rather than `iosSimulatorArm64Test`**, and that was reconsidered rather than
+assumed. What this job can uniquely provide is the Native *compiler*; the assertions themselves
+already run on the JVM in the `Unit tests` job, so a second execution on a booted simulator buys a
+device's worth of flakiness for a second opinion on the same `assertEquals`. `./gradlew
+:protocol:build` runs them on Native locally — verified on this branch — which is where that check
+belongs. The line comes off the list the day the shell's closure reaches the module.
+
+### A module with no consumer is invisible to the two passes that render, and that cost an exclusion
+
+Measured before it was argued, which is the order the `test-coverage` skill asks for. Adding
+`:protocol` to the Kover aggregate puts 129 lines and 78 branches into every pass; the unit and
+unfiltered rows went **up**, because the module is fully tested, and four gated rows fell:
+
+| pass | metric | without `:protocol` | with |
+|---|---|---|---|
+| screenshot | line | 93.222% | 91.125% |
+| screenshot | branch | 57.529% | 55.666% |
+| behaviour | line | 92.259% | 91.190% |
+| behaviour | branch | 68.832% | 67.830% |
+
+**The first drop found was fixable and was fixed rather than excluded**, which is worth recording
+because it is the half that looks like the other half. The `all` and `unit` branch rows fell too —
+−0.130 and −0.238 — on twenty-one branches that turned out to be the **generated deserialization
+constructors' missing-field arms**: the bitmask check kotlinx-serialization emits, which is the one
+piece of behaviour in the module nobody wrote. `RequiredFieldsTest` decodes each payload with one
+required key dropped and asserts it is refused, which took the module from 57/78 branches to 76/78
+and turned both rows positive. It is also a test worth having on its own terms — it is `GameSave`'s
+*"a save that carries no schema version is refused"* one layer out.
+
+**What was left is structural.** A screenshot test renders a frame and a behaviour test drives
+Compose; both reach a module through a **consumer**, and `:protocol` has none until #112 lands
+`:client:net:data`. Paying the debt elsewhere was costed rather than dismissed — the skill is right
+that it is the correct answer and not a dodge — and it came to ~121 screenshot lines and ~119
+behaviour lines of unrelated coverage, about a third of everything the screenshot pass misses today,
+on a slice that is a wiring job.
+
+Davide's call: **exclude, and mention it on the related ticket.** So
+`classes("dev.fardavide.oltre.protocol.**")` joins the screenshot and behaviour filters as the fifth
+per-pass entry, and #112 carries the note that the behaviour half comes back out with it. The
+screenshot half is permanent and is `core`'s own exclusion three lines up, word for word.
+
+Two things that keep it inside 0.4.2's rules rather than beside them. **`integration` fell as well
+and is deliberately not excluded** — 2.477% → 2.453% and 0.202% → 0.200% both round to the same
+tenth, the gate cannot see them, and an exclusion that buys nothing costs the only thing this filter
+can never give back. And **the unit and unfiltered passes still see every line**: they report the
+module at 100.0% line and 97.4% branch, so an untested line here would still show up in the row
+whose job that is.

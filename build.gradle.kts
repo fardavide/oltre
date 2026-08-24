@@ -104,6 +104,7 @@ subprojects {
 // what it would report is how thoroughly the tests test themselves.
 dependencies {
     kover(projects.core)
+    kover(projects.protocol)
     kover(projects.sim)
     kover(projects.server)
     kover(projects.client.design.component)
@@ -287,6 +288,42 @@ kover {
                 if (testCategory == "screenshot" || testCategory == "behaviour") {
                     packages("*.design.text")
                 }
+                // ── The wire, and **only while measuring a pass that renders** ───────────────
+                //
+                // The fifth entry in this block, added at #107 with Davide's say-so and on a report
+                // rather than an argument by analogy. `:protocol` is the client/server contract:
+                // twelve verbs as data, an envelope, a sync pair, a rejection taxonomy and a
+                // version. It draws nothing, decides nothing and performs no I/O.
+                //
+                // **The screenshot half is `core`'s exclusion three lines up, word for word.** A
+                // screenshot test renders a frame; it cannot reach a wire contract, for exactly the
+                // reason it cannot reach a `core` rule. That half is permanent.
+                //
+                // **The behaviour half is temporary, and saying so is the condition it ships on.**
+                // A behaviour test drives Compose, and Compose reaches `:protocol` through a
+                // consumer — of which there is none yet, because #107 lands the contract and #112
+                // lands `:client:net:data` that reads it. Once the shell holds a fake transport, the
+                // behaviour suite drives every verb through this module and the pass reaches it
+                // honestly. **So this comes out in #112**, and its removal is self-checking in the
+                // way `client.tilt.data`'s was: the row goes *up* when it goes, or the tests owed
+                // were never written. Flagged on that ticket rather than left to be remembered.
+                //
+                // Measured on the branch that added the module, five passes, `--no-build-cache`:
+                // screenshot **93.222% → 91.125%** line and **57.529% → 55.666%** branch, behaviour
+                // **92.259% → 91.190%** line and **68.832% → 67.830%** branch — four gated rows on a
+                // PR that deleted no test and drew nothing less. `integration` fell too and is
+                // deliberately **not** listed: 2.477% → 2.453% and 0.202% → 0.200% both round to the
+                // same tenth, so the gate does not see them, and an exclusion that buys nothing is
+                // 0.4.2's whole lesson.
+                //
+                // Scoped to the two passes like the four entries above, which is what makes it safe:
+                // the unit and unfiltered passes see every line. They report the module at **100.0%
+                // line and 97.4% branch** — `RequiredFieldsTest` reaches even the generated
+                // missing-field arms — so this removes a number no test of these kinds could move
+                // and removes nothing the gate could see.
+                if (testCategory == "screenshot" || testCategory == "behaviour") {
+                    classes("dev.fardavide.oltre.protocol.**")
+                }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
                 classes("*ComposableSingletons*", "*\$\$serializer")
@@ -407,7 +444,7 @@ kover {
 // feature with nothing to decide is a ui module and no more — see `:client:debug:ui`, which has no
 // presentation because its logic already lives in `:client:debug:domain`.
 //
-// Only those four names are layers. `:core`, `:sim`, `:server`, `:client:design` and
+// Only those four names are layers. `:core`, `:protocol`, `:sim`, `:server`, `:client:design` and
 // `:client:shell` are not, and are deliberately unconstrained here: the composition root is the
 // one module that may see every layer — that is the whole of its job — and the graph already
 // stops it from being anything else, because nothing depends on it. Rule 1 (a module cannot

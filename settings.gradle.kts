@@ -33,6 +33,13 @@ plugins {
 }
 
 include(":core")
+// What the client and the server say to each other, and the second module in the build that both
+// ends read. It is not in `core` because `core`'s charter is *model + rules* and a verb envelope,
+// an error taxonomy and an API version are none of those — keeping them out is what preserves the
+// sentence that has held since 0.0.6, *"`core` depends on nothing"*. It is not on the client side
+// because rule 8 forbids `server` from reaching into `client/*`. So it is a sibling of `core`,
+// depending on it and on nothing else.
+include(":protocol")
 include(":sim")
 // What changed since the build you last opened. `domain` is the only layer that could exist before
 // the design came back: a version is three integers and "is there anything new" is a rule about two

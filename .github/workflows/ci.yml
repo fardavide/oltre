@@ -225,3 +225,23 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - run: ./gradlew :client:shell:linkDebugFrameworkIosSimulatorArm64
+
+      # **`:protocol` is reached by nothing yet, so without this line its Apple half is checked by
+      # no job on this workflow.** The link task above compiles the shell's whole dependency
+      # closure, which is what covers `core` — but nothing depends on `:protocol` until
+      # `:client:net:data` lands in #112, and the three Linux jobs cannot compile for Apple at all.
+      # A module whose whole purpose is to be read at both ends would then have one end unbuilt.
+      #
+      # **The test source set and not only `commonMain`**, which is the whole point: the trap #107
+      # warns about by name is a *compiler* rule, and it only applies to tests. Kotlin/Native rejects
+      # a backticked name containing `, . ; : / \ < > [ ]` where the JVM accepts it happily, so a
+      # comma in `protocol/src/commonTest` passes the entire local suite and takes CI down.
+      #
+      # A compile task rather than `iosSimulatorArm64Test`, deliberately. What this job can uniquely
+      # provide is the Native **compiler**; the assertions themselves already run on the JVM in the
+      # `Unit tests` job, so executing them a second time on a simulator buys a booted device's worth
+      # of flakiness for a second opinion on the same `assertEquals`. `./gradlew :protocol:build`
+      # runs them on Native locally, which is where that check belongs.
+      #
+      # Comes off this list the day the shell's closure reaches the module.
+      - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64

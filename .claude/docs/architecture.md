@@ -4,6 +4,10 @@
 
 ```
 core          KMP: jvm, iosArm64, iosSimulatorArm64, android. Pure model + rules.
+protocol      KMP, core's target set. What the client and the server say to each other: the twelve
+              verbs as data, the envelope, the sync request/response, the rejection taxonomy and
+              the API version. Depends on core and nothing else; holds no I/O and does not know
+              what a network is. A sibling of core rather than part of it — see below
 sim           JVM CLI. Headless balancing harness; fast-forwards weeks in ms. Never ships.
 client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, Android):
   :client:shell    Composition root + every platform's entry point (desktop main(), iOS
@@ -44,7 +48,7 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
                              behind every destination. No presentation layer — what it feeds is
                              a Canvas the shell already owns. `domain` depends on nothing at
                              all, not even core (see the dependency rule below).
-server        JVM + Ktor. Compiling stub until multiplayer starts.
+server        JVM + Ktor. Compiling stub until the engine moves (#106).
 iosApp/       Xcode wrapper around the client framework. An Info.plist, an asset catalogue and
               a few lines of Swift hosting MainViewController(). Not a Gradle module
 androidApp    Android packaging of :client:shell. A manifest, a theme and the launcher icons —
@@ -52,11 +56,40 @@ androidApp    Android packaging of :client:shell. A manifest, a theme and the la
               The one module allowed to depend on the composition root (rule 7)
 ```
 
+## Why `:protocol` is a sibling of `core` and not part of it
+
+Two places the wire could have gone, and both were live options (#107).
+
+**In `core`** has a precedent that fits almost exactly: `GameSave` is already there, and its own
+header says why — *"client and server must agree on it byte for byte once multiplayer lands"*. That
+is true of the wire too.
+
+**Its own module** is what was chosen, and the distinction is that `core`'s charter is *model +
+rules*. The save format is both — a colony that cannot be decoded cannot be played — where an auth
+envelope, an error taxonomy and an API version are a rule about **nothing in the game**. They also
+grow on a different clock: the wire gains a field when a deploy needs one, and `core` gains one when
+a mechanic does. Keeping them apart is what preserves the sentence that has held since 0.0.6,
+*"`core` depends on nothing"*, which module rule 6 enforces and which every argument about where
+code goes eventually leans on.
+
+It could not live on the client side either: rule 8 forbids `server` from reaching into `client/*`,
+and both ends read this.
+
+**What it does not hold is as load-bearing as what it does.** `:protocol` states the *shape* of a
+request; `core` states the *rules*. A verb carrying an empty manifest, a window too short to come
+home in, or a survey of a system already surveyed all construct happily here, because every one of
+them has an answer in `core` already and each answer is a result a player can be shown rather than
+an exception somebody has to catch. The two guards that do exist are about the wire and not the
+game, and even they are asymmetric on purpose — a blank `IdempotencyKey` is malformed input and
+nothing else, where an out-of-window `ApiVersion` has a first-class answer designed for it and a
+constructor that threw would pre-empt the negotiation.
+
 ## Dependency rule
 
 Dependencies point inward to `core`; `core` depends on **nothing** but `kotlinx-serialization`
 (justified in at 0.0.6 — the save format is a rule client and server must agree on; see
-[decisions.md](decisions.md)). `client/*`, `server` and `sim` depend on `core`; feature modules
+[decisions.md](decisions.md)). `:protocol` is the second module at that level and takes `core` and
+no more. `client/*`, `server` and `sim` depend on `core`; feature modules
 depend on `core` + whichever `:client:design:*` layers they actually use; `:client:shell` composes
 the features. **`:client:tilt:domain` is the one module that depends on nothing at all** — which way
 a device is being held is geometry, and it has no more to do with a colony than it has with a
@@ -128,8 +161,8 @@ The root project is exempt from 6–8: it is the build rather than a module, and
 Rules 2–8 are checked in the root `build.gradle.kts` and cover **test source sets too** — a
 `commonTest` dependency couples the modules exactly as much as a `commonMain` one. A module's
 layer is the last segment of its Gradle path, so only `domain`, `data` and `presentation` are
-layers; `:core`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and are
-unconstrained. That is deliberate for the shell: the composition root is the one module allowed
+layers; `:core`, `:protocol`, `:sim`, `:server`, `:client:design` and `:client:shell` are not, and
+are unconstrained. That is deliberate for the shell: the composition root is the one module allowed
 to see every layer, which is why nothing depends on it.
 
 Separately, **a feature depending on another feature is warned about, not rejected** — the rule is

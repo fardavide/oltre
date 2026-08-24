@@ -16,6 +16,13 @@ when_to_use: >
   `.claude/docs/brief.md`.
 - **Game rules go in `core`; orchestration goes in the consumer.** If a behaviour must agree
   between client and server, it is a `core` rule by definition.
+- **The wire goes in `:protocol`, which is a sibling of `core` and takes `core` and nothing else.**
+  The verbs as data, the envelope, the sync request/response, the rejection taxonomy, the API
+  version. It is not in `core` because `core`'s charter is *model + rules* and none of those is a
+  game rule; it is not on the client side because rule 8 forbids `server` from reaching there. It
+  holds **no I/O** — Ktor, routes and sockets are the server's and `:client:net:data`'s. And it
+  states the *shape* of a request, never the rules: a verb that `core` will refuse constructs
+  happily, because a refusal is a result the player can be shown and an exception is not.
 - **One directory per client feature, layer modules inside.** New feature = a directory under
   `client/` holding layer modules: `:client:<feature>:ui` always, `:presentation` / `:domain` /
   `:data` only when the feature actually needs them — no empty placeholder layers. `ui` holds the
@@ -56,6 +63,6 @@ when_to_use: >
   cannot depend on `data` or `presentation`; only a test source set may reach a `-testing` module;
   `core` depends on no module; nothing depends on `:client:shell`; `sim` and `server` never reach
   into `client/*`. Layer is the last segment of the
-  Gradle path, so `:client:shell` and `:client:design` are not layers and are not constrained by
-  2–4 — the shell may see every layer precisely because rule 7 stops anything seeing it. Read the
-  `module-rules` skill before adding a module or a project dependency.
+  Gradle path, so `:core`, `:protocol`, `:client:shell` and `:client:design` are not layers and are
+  not constrained by 2–4 — the shell may see every layer precisely because rule 7 stops anything
+  seeing it. Read the `module-rules` skill before adding a module or a project dependency.

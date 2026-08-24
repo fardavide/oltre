@@ -77,8 +77,13 @@ them alone and read the report.
   `OltreApplication`, `BootReceiver`, the notification scheduler and receiver, and the shake
   detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
-  here. The full list is in the root `build.gradle.kts`, each entry with its own argument; this
-  paragraph goes stale if that list moves, so read the file.
+  here. And a third group, **scoped to one pass rather than to the whole report**: composables in
+  the unit pass, everything that is not a drawing in the screenshot pass, the string catalogue in
+  the two that render, and `:protocol` in the two that render — a wire contract is unreachable by a
+  frame for `core`'s reason, and unreachable by a behaviour test only until #112 gives it a
+  consumer, which is why that half is marked to come out. The full list is in the root
+  `build.gradle.kts`, each entry with its own argument; this paragraph goes stale if that list
+  moves, so read the file.
 
   If a number looks wrong, it is the tests that are wrong.
 
