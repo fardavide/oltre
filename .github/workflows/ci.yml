@@ -245,3 +245,19 @@ jobs:
       #
       # Comes off this list the day the shell's closure reaches the module.
       - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64
+
+      # **`:client:net:data` is in exactly `:protocol`'s position, one slice later**, and for the
+      # same reason: #112 lands the module and #113 is what puts it in the shell's closure, so until
+      # then nothing on this workflow compiles its Apple half. That half is not incidental — it is
+      # where the Darwin engine lives, which is the one file in the module no machine in this
+      # repository can run.
+      #
+      # **One line covers both new modules.** `:client:net:data`'s `commonTest` depends on
+      # `:client:net:data-testing`, so compiling the test source set for this target compiles the
+      # fake's Apple half too. `-testing`'s own test source set holds nothing.
+      #
+      # The test source set and not only `commonMain`, for the reason spelled out above: the
+      # backtick trap is a compiler rule that applies only to tests.
+      #
+      # Comes off this list when #113 lands, together with the line above it.
+      - run: ./gradlew :client:net:data:compileTestKotlinIosSimulatorArm64

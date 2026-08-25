@@ -211,7 +211,7 @@ class OltreServerIntegrationTest {
         body: String,
         player: String? = "davide",
     ): HttpResponse = client.post(path) {
-        player?.let { header(PLAYER_HEADER, it) }
+        player?.let { header(Protocol.PLAYER_HEADER, it) }
         contentType(ContentType.Application.Json)
         setBody(body)
     }

@@ -5099,3 +5099,230 @@ do not move a gated number, and widening a filter that is already granted is sti
 do in passing. Three more are `error(…)` arms that cannot be reached without corrupting a row by
 hand: a missing `schema.sql`, a colony inserted and not there, and the elvis on a null exception
 message that #108 left.
+
+## The client learns to ask, and the outbox is the half that has to survive a kill (2026-08-25, issue #112)
+
+Slice 5 of #106, and the first one on the client side of the wire. Two new modules —
+`:client:net:data` and `:client:net:data-testing` — an outbox that persists, keys minted at the edge,
+a backoff, and a handwritten fake server. **Nothing a player can do changes and nothing ships**, so
+there is no version bump; #107, #108, #109 and #119 are the precedent.
+
+Nothing depends on either module when it is done. That is the slice as scoped: the shell cutover is
+#113's whole job, and it is the reason three separate things in this entry read as unfinished and are
+not.
+
+### The sanctioned tool was broken, and that is a rule rather than an anecdote
+
+`.claude/tools/gradle-without-agp.sh` swaps in a minimal overlay for the build files it covers. Two
+of those overlays had gone stale, and the failure mode is the expensive one: a *compile* error in a
+module the script claims to build, which a session cannot tell from its own breakage.
+
+- `:client:save:data` gained `alias(libs.plugins.kotlinxSerialization)` for `PreferencesStore`; the
+  overlay did not, so `serializer()` stopped resolving.
+- `:client:notifications:data` gained `api(projects.client.design.text)` for `TextRes`; the overlay
+  had neither that line, nor an `include(…)` for `:client:design:text`, nor a build file for it.
+
+Both are fixed, `:client:design:format` joins them (the script's own header claimed it was buildable
+and it was not included at all), and the header now states the rule: **adding a dependency to a
+covered module means adding it to the overlay in the same commit** — and if the dependency is a
+module the script does not yet include, it needs an `include(…)`, a `kover(…)` and an overlay build
+file of its own.
+
+### `OltreApi`, `Outbox`, `ColonySync` — and the transport decides nothing
+
+The same split #108 made on the other side of the wire, for the same reason: **a decision belongs
+where the kind of test that judges it can reach it.** `KtorOltreApi` encodes, posts, reads a status
+line and decodes; everything about *what to do with the answer* is `ColonySync`, which is a plain
+`…Test` driven by a handwritten fake and a clock a test moves by hand.
+
+`ApiResult` has three members and the split that earns the third is between `Refused` and
+`Unreachable`. `Refused` is the server having answered — it read the request and formed an opinion,
+and `ApiError` is that opinion. `Unreachable` is nothing having answered at all, which is the case
+the outbox exists for. **`ApiError` deliberately has no member for "no connection"**: it is the
+taxonomy of what a *server* says, and a server that says nothing has said nothing.
+
+### `act` asks once and `sync` retries, and that is about who is waiting
+
+Both go through one loop, with the policy as its parameter. `RetryPolicy.DEFAULT` is three attempts
+one and three seconds apart; `RetryPolicy.ONCE` is what a tap uses.
+
+The argument is not that a tap is less important. It is that **the outbox has already taken the
+verb** by the time the first attempt is made, so a second and third attempt buys a colony that
+arrives four seconds later and nothing else — with the screen waiting the whole time. A background
+sync has no such clock on it, which is why it is the one that retries.
+
+`RetryPolicy` holds **the waits themselves** rather than `(attempts, first, factor, cap)`, and the
+shape was chosen for the awkward case: a single-attempt policy has *no* waits, so
+`RetryPolicy(emptyList())` describes it completely, where a policy carrying a first delay and a
+factor it can never reach would hold two fields that mean nothing. It also makes the drain loop
+arithmetic-free — `waits[index]` is what to wait after the attempt at `index`, and running off the
+end **is** the last attempt.
+
+**No jitter**, deliberately. Jitter spreads a herd of clients that failed together; there is one
+device here, so it would buy nothing and cost the property that makes a backoff testable at all,
+which is that the waits are known before the run. The test is a step-by-step one — start the sync,
+move virtual time by hand, and assert that the second attempt has *not* happened at 999ms and has at
+1000ms. A total-elapsed assertion cannot tell three properly spaced calls from three that all landed
+at zero.
+
+### `StaleColony` is the only error worth asking again about, and `NotNow` is one member and not two
+
+#109 gave `ApiError.StaleColony` a producer, and this slice is the first thing that has to answer it.
+The answer is **sync again, and say nothing** — nothing the player queued was judged, the server lost
+its own compare-and-set and wrote nothing, so the verbs are still in the outbox and the colony on
+screen is still the one they last saw. There is nothing to tell them and nothing to undo.
+
+Everything else in the taxonomy is terminal by construction and returns immediately: a second
+`Unauthenticated` is still `Unauthenticated`, and three attempts at it would hold the sign-in screen
+back four seconds for no reason.
+
+**A sync that ran out of attempts answers `SyncOutcome.NotNow`, whether it never got through or lost
+the race every time.** Those were two members for a while and one is right: `ApiError`'s taxonomy
+splits what gets different *words*, and these two get the same silence, so splitting them would be a
+distinction the player could never be shown. `act` needs no such member at all — a tap that did not
+get through is `Queued` or `NotQueueable`, which is the whole of #106 §3 and is something to say.
+
+### A `5xx` whose body is not an `ApiError` is `Unreachable`, not `Malformed`
+
+This is the one decision in the slice that is about the deployment rather than about the wire.
+#106 §6 puts the server on Cloud Run, which **scales to zero** — so the first request after an idle
+spell can be answered by the load balancer rather than by the app: a `502` or a `503` carrying HTML,
+from something that never saw the colony. Read as `Malformed` that would surface to the player as an
+error *and*, worse, `ColonySync` would treat it as a settled answer and not queue the verb.
+
+A `4xx` is the other way round: something did read the request and formed an opinion about it, so a
+body this build cannot parse there is a disagreement about the contract, which is exactly what
+`ApiError.Malformed` is for. `Sync.kt` asked for that half by name — *"a response that cannot be read
+coherently is one #112 turns into `ApiError.Malformed`"* — and both `init` guards on `SyncResponse`
+run on decode, so a response with a key in `applied` and `rejected` at once arrives as one.
+
+### The outbox declares its own file rather than reaching `:client:save:data`
+
+`OutboxFile` is `SaveFile` with a different name, three methods and the same contract. That is
+deliberate. The obvious move is to reuse the interface that already exists one feature over, and it
+would create a `:client:net:data -> :client:save:data` edge — a **cross-feature** dependency, which
+the build warns about on every clean run precisely so that features do not start reaching through
+each other.
+
+So the outbox declares the port it needs, and the composition root — the one module allowed to see
+both — supplies something that writes bytes. That costs an adapter of about five lines at #113 and
+buys the property the warning defends. It is the same call `design`, `dispatch`, `world` and
+`changelog` each had to argue their way *out of*, made in the other direction.
+
+**An unreadable outbox is an empty outbox**, and this one is worth more than the shrug it looks like.
+`GameStore.load` makes the same call about a corrupt colony and it costs nothing there — the save is
+rewritten on the next event. Here it costs taps the player actually made, and there is no honest way
+to recover them: a queue that is half-parsed is a queue whose order is unknown, and replaying an
+unknown order is worse than replaying nothing. Against that, the alternative is refusing to start.
+
+### `PLAYER_HEADER` moves into `:protocol`
+
+#108 wrote it as an `internal const` in `:server`. The client needs the same string, and **a wire
+string spelled out at both ends is a wire string that can differ at both ends** — with the worst
+possible tell, because a header the server does not recognise reads exactly like a player who is not
+signed in. It is `Protocol.PLAYER_HEADER` now and both ends read it.
+
+`PlayerId` stays `:server`'s, and the asymmetry is the point: the *name of the header* is something
+both ends have to agree on, while *who a value in it belongs to* is the server's conclusion rather
+than the client's claim.
+
+### No content negotiation on the client, which is a deviation from the ticket's list
+
+#112 named `ktor-client-content-negotiation` among the artifacts to add. It is not in the catalogue
+and nothing uses it. `Protocol.json` is the one codec both ends speak and the properties that make it
+that one — `encodeDefaults`, and deliberately no `ignoreUnknownKeys` — are the contract rather than a
+preference; a plugin configured with a different dialect would be a client the server cannot read and
+nothing would say so. The server already decodes request bodies by hand for the same reason (`admit`
+in `Endpoints.kt`), and the client's *response* decoding is status-dependent in a way the plugin
+would flatten. A catalogue entry with no consumer is dead weight, so it is not there.
+
+### The fake does not run the game, and that is the load-bearing part of it
+
+`FakeOltreApi` hands back whatever colony it was given; it does not replay verbs through `core`. A
+second dispatch from `ClientVerb` into `core`'s twelve functions is **a second place a thirteenth
+verb can go missing**, which is precisely the failure `ClientVerbTest` and `offlineRule` exist to
+make impossible. A test that wants the colony to change says what it changed to.
+
+What it *does* model is the two server behaviours the client is built around, because a fake that got
+either wrong would let a broken client pass: **a key already applied is reported applied and not
+applied twice**, and **a refusal comes back inside a successful response** rather than as an error.
+
+### The queue-or-refuse split is read off `:protocol` in exactly one place
+
+`Outbox.queue` is the only line in the module that asks `ClientVerb.offlineRule`, and `ColonySync`
+never re-derives it — it offers the envelope to the outbox and branches on the answer. That is why
+`act` persists *before* it sends rather than after: a process killed mid-request still has the verb,
+and a galaxy-touching one was never written in the first place. **Twelve verbs, not the nine #112's
+own table lists** — the table predates 0.18's settings sheet, and nothing here copies it.
+
+### An integration test with a real socket, rather than an exclusion for that pass
+
+A new module with no consumer reads 0% in the passes it cannot reach, which #107 measured and #108
+and #109 each hit in their own shape. Here it took **four** gated values down at once: behaviour line
+92.259% → 91.329% and branch 68.832% → 68.237%, integration line 12.479% → 12.375% and branch 8.378%
+→ 8.336%. (The gate's 0.05 tolerance means it reports three; the integration branch rounds inside
+it.)
+
+The integration half was answered with a test rather than with a filter, and it is a better test than
+the row it fixes. `com.sun.net.httpserver` is in the JDK, so `OltreApiIntegrationTest` starts a real
+server on a loopback port and drives `KtorOltreApi` over a real socket with the real engine. **What
+that proves and a `MockEngine` cannot** is the thing that would be most expensive to have wrong: a
+refused connection has to arrive as an `IOException` and therefore as `ApiResult.Unreachable`, or
+every tap made with no signal propagates out of `act` instead of reaching the outbox — the queue
+never fills, and the failure only ever shows up on a train.
+
+It also keeps this module consistent with every other `data` module, none of which is excluded from
+the integration pass. Four tests took the row to **12.604%**, above the baseline, and the package
+from 0% to 27.7% in that pass.
+
+### What is left is the behaviour pass, and it is `:protocol`'s exclusion word for word
+
+**Davide's call, 2026-08-25: exclude, behaviour pass only.** It is the seventh entry in the per-pass
+filter block, and it is #107's fifth entry word for word: a behaviour test drives Compose, and
+Compose reaches a `data` module through a **consumer** — of which this one has none, because #112
+lands the module and its fake while the shell cutover is #113's. **So it comes out at #113, together
+with `:protocol`'s**, and its removal is self-checking in the way `client.tilt.data`'s was: the row
+goes *up* when it goes, or the tests owed were never written.
+
+Three things keep it inside 0.4.2's rules rather than beside them:
+
+- **It is scoped to one pass, and the two it is not in are load-bearing.** The screenshot filter
+  already carries `packages("*.data")`, so those rows did not move by a thousandth; the integration
+  rows were fixed with a test. Only `behaviour` is filtered.
+- **The unit and unfiltered passes see every line** and report the package at **97.3% and 98.2%**
+  line and **100%** branch in both, so a line no test reaches at all still shows up in the row whose
+  job that is. The two left over are the Android `actual` of `oltreHttpClient`, which no JVM test can
+  call, and the arm where a status line arrives and the body does not.
+- **`:client:net:data-testing` needs no entry and has none.** Every `-testing` module is omitted from
+  the Kover aggregate outright (0.9.1), so `FakeOltreApi` is not in the report to begin with — which
+  is the right answer for the same reason: counting a fake measures the tests testing themselves.
+
+### Two comments said #112 and both meant #113
+
+The root `build.gradle.kts` and the `test-coverage` skill each said, in as many words, that
+`:protocol`'s behaviour exclusion *"comes out at #112"*. They were right about the condition —
+*"once the shell holds a fake transport, the behaviour suite drives every verb through this
+module"* — and wrong about the number, and this slice is where that shows: #112 lands
+`:client:net:data` and **nothing in `client/*` depends on it when it is done**. Deleted a slice
+early, the behaviour row falls and the gate blocks a pull request that is otherwise correct. Both now
+say #113.
+
+The same off-by-one reaches `ci.yml` and `session-roles.md`, where the `:protocol` line's comment
+says it comes off "the day the shell's closure reaches the module" — true as written, and easy to
+read as #112. **It stays**, and `:client:net:data` adds a second line beside it. That one covers
+`:client:net:data-testing` too, because the fake is on the test classpath of the module being
+compiled; and the Apple half it checks is not incidental, since it is where the Darwin engine lives —
+the one file in the module no machine in this repository can run.
+
+### What #113 inherits
+
+Three things, and none of them is a loose end left by accident:
+
+- **An adapter of about five lines**, giving `Outbox` an `OutboxFile` over the platform save
+  directory. `:client:save:data`'s `defaultSaveFile()` is the shape to copy, and the composition root
+  is the module allowed to hold both.
+- **Two exclusions to delete** — `:protocol`'s behaviour half and this slice's — and a CI job with
+  two `compileTestKotlinIosSimulatorArm64` lines that both come off the same day.
+- **`FakeOltreApi` already tested**, which is the whole reason it landed here. `App()` is about to
+  require a network and the entire behaviour and screenshot suite runs on the desktop target; without
+  this ready, #113 turns every behaviour test in the repository red at once.
