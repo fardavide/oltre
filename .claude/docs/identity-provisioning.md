@@ -35,7 +35,7 @@ your eyes, and nothing else here does.
 
 | Yours, in a browser | Mine, at a command line |
 |---|---|
-| 6, 7, 8, 12–18, 22–34, 39, 40, 42 (`gcloud auth login`) | 1, 2, 3, 5 (the image itself), 9, 10, 11, 19–21, 35, 36, 37, 38, 41 |
+| 6, 7, 8, 12–18, 22–34, 39, 42 (`gcloud auth login` and billing) | 1, 2, 3, 9, 10, 11, 19–21, 35, 36, 37, 38, 40, 41 |
 
 For the steps where a portal hands you a value — a Key ID, five client IDs, a downloaded file — read
 it out and I will place it, `chmod` it, verify it and record it. You should never have to type
@@ -53,6 +53,9 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **30–35** — all five OAuth clients created and filed at `0600`, `google.env` complete, nothing
   left in `~/Downloads`. Web `…lm195vos`, iOS `…rb18lnl9` (+ its reversed form for step 48), Desktop
   `…n76952ma`, and the two Android clients `…2il2q71g` / `…d7drjab4`.
+- **40, 41** — decisions round written into `decisions.md`; the stale "no off-machine copy" note in
+  memory closed, and a second memory added for the sign-in credentials. GitHub secrets confirmed
+  unchanged at the four `ANDROID_*` — nothing identity-related belongs there yet.
 - **37, 38** — inventory written, and both keys re-derived and matched: p8 digest
   `95d11ed5…28d13d9b`, keystore SHA-1 `24:AA:53:…:DB:98` and SHA-256 `48:56:AF:…:8D:DC`. iCloud
   `caught-up`, no placeholder files.
@@ -60,8 +63,8 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
   public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
   and `apple.env` written.
 
-So the next thing that needs you is **step 22** — the server-to-server notification endpoint, which
-is optional today — and then **Part 4, Google**, from step 24.
+**Everything in the do-today half is now done except step 42**, which is optional and is the only
+thing left that needs you — see that step for what it costs and why it can also simply wait.
 
 ## If you only have 30 minutes
 
