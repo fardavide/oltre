@@ -1,6 +1,7 @@
 # Status
 
-Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107, #108 and #109, no bump)
+Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
+#109 and #112, no bump)
 
 ## Landed
 
@@ -526,6 +527,30 @@ Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107, #10
   `DATABASE_URL` still serves an in-memory colony and now says so in the log; **#111 is what sets
   that variable**, and a deployed server that fell back silently would lose every colony it was
   handed. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
+- **The client learns to ask — the network layer, the outbox and the fake that keeps the suite
+  green** — slice 5 of the online migration (issue #112 under epic #106). `:client:net:data` holds
+  `OltreApi` and its Ktor implementation, an outbox that writes every queued verb to a file before
+  the call is made, idempotency keys minted at the edge as 128 random bits, and `ColonySync`, which
+  is the only thing above the transport that decides anything. **The queue-or-refuse split is read
+  off `ClientVerb.offlineRule` in exactly one place** and never re-derived, which is why the twelve
+  verbs are twelve rather than the nine #112's own table lists. `act` asks once and `sync` retries
+  with a bounded backoff — the outbox has already taken the verb, so a second attempt buys a colony
+  four seconds later and nothing else, with the screen waiting. **`ApiError.StaleColony` is answered
+  by asking again and never by saying anything**, which is what #109 gave it a producer for; every
+  other error in the taxonomy is terminal and returns at once. A `5xx` whose body is not an
+  `ApiError` reads as `Unreachable` rather than `Malformed`, because Cloud Run scales to zero and the
+  first request after an idle spell can be answered by a load balancer that never saw the colony.
+  `:client:net:data-testing` lands here rather than at #113 and that is load-bearing: `App()` is
+  about to require a network and the whole behaviour and screenshot suite runs on the desktop target.
+  **`Protocol.PLAYER_HEADER` moves into `:protocol`** — a wire string spelled out at both ends is one
+  that can differ at both ends, and a header the server does not recognise reads exactly like a
+  player who never signed in. **`.claude/tools/gradle-without-agp.sh` had drifted from two real build
+  files and was fixed first**, because a compile error in a module it claims to cover cannot be told
+  from a session's own breakage. Coverage: the integration half of the new-module drop was answered
+  with a real-socket `…IntegrationTest` over a JDK `HttpServer` rather than a filter, and the
+  behaviour half with an exclusion Davide approved on the report, which comes out at #113 with
+  `:protocol`'s. No version bump — nothing a player can do changes. See
+  [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices

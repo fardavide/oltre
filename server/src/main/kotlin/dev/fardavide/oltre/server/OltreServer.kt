@@ -13,11 +13,6 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlin.time.Clock
 
-// **Who is asking, until `#110` makes it trustworthy.** A header rather than a query parameter or a
-// body field because that is where a credential goes and because this is the line the session token
-// replaces: what changes then is how the value is obtained, not where it is read from.
-internal const val PLAYER_HEADER: String = "X-Oltre-Player"
-
 // **The engine, answering — and nothing in this file decides anything.** Two routes and no more:
 // `#106` §2's whole list of what moves is *"the server holds the state and calls `advance`"*, and
 // everything a player can do to a colony is already one of twelve verbs on one envelope. What each
@@ -50,7 +45,10 @@ internal fun Application.oltre(repository: ColonyRepository, clock: Clock) {
     }
 }
 
-private fun ApplicationCall.player(): String? = request.headers[PLAYER_HEADER]
+// `Protocol.PLAYER_HEADER` rather than a constant of this module's own, which is where `#108` put
+// it: the name of a header is a thing both ends have to agree on, and a client that spelled it out
+// separately could disagree by one character and read as a player who never signed in.
+private fun ApplicationCall.player(): String? = request.headers[Protocol.PLAYER_HEADER]
 
 // The two arms exist because the two payloads are different types, and `respond` picks its
 // serializer from the **static** type of what it is handed. `Answer.Failed.error` is declared

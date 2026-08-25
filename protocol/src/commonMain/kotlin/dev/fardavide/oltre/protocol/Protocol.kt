@@ -31,4 +31,18 @@ object Protocol {
     // contract, and `ApiVersion` is the field that exists to settle those. Silently dropping it
     // would let a mismatch look like a success.
     val json: Json = Json { encodeDefaults = true }
+
+    // **Who is asking, until `#110` makes it trustworthy.** A header rather than a query parameter
+    // or a body field because that is where a credential goes, and because this is the line the
+    // session token replaces: what changes then is how the value is obtained, not where it is read
+    // from.
+    //
+    // It is here rather than in `:server`, where `#108` first wrote it, because **a wire string
+    // spelled out at both ends is a wire string that can differ at both ends** — and the failure is
+    // silent in the worst way, since a header the server does not recognise reads exactly like a
+    // player who is not signed in. That is trap 1's shape at one character instead of three verbs.
+    // `PlayerId` stays `:server`'s, and the asymmetry is deliberate: the *name of the header* is
+    // something both ends have to agree on, while *who a value in it belongs to* is the server's
+    // conclusion rather than the client's claim.
+    const val PLAYER_HEADER: String = "X-Oltre-Player"
 }

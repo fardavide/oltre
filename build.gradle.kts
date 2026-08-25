@@ -128,6 +128,7 @@ dependencies {
     kover(projects.client.fleets.ui)
     kover(projects.client.galaxy.presentation)
     kover(projects.client.galaxy.ui)
+    kover(projects.client.net.data)
     kover(projects.client.notifications.data)
     kover(projects.client.player.ui)
     kover(projects.client.research.presentation)
@@ -328,12 +329,19 @@ kover {
                 //
                 // **The behaviour half is temporary, and saying so is the condition it ships on.**
                 // A behaviour test drives Compose, and Compose reaches `:protocol` through a
-                // consumer — of which there is none yet, because #107 lands the contract and #112
-                // lands `:client:net:data` that reads it. Once the shell holds a fake transport, the
-                // behaviour suite drives every verb through this module and the pass reaches it
-                // honestly. **So this comes out in #112**, and its removal is self-checking in the
+                // consumer. **So this comes out in #113**, and its removal is self-checking in the
                 // way `client.tilt.data`'s was: the row goes *up* when it goes, or the tests owed
                 // were never written. Flagged on that ticket rather than left to be remembered.
+                //
+                // **#113 and not #112, which is what this said until #112 landed and found out.**
+                // The condition was always *"once the shell holds a fake transport, the behaviour
+                // suite drives every verb through this module"* — and that is exactly right; it was
+                // only the ticket number that was wrong. #112 lands `:client:net:data` and the fake
+                // that keeps the suite green, and **nothing in `client/*` depends on either of them
+                // when it is done**, because the shell cutover is #113's whole job and is out of
+                // #112's scope by name. A behaviour test reaches a module through a consumer, and
+                // until the shell is that consumer there is none. Deleted a slice early, the
+                // behaviour row falls and the gate blocks a PR that is otherwise correct.
                 //
                 // Measured on the branch that added the module, five passes, `--no-build-cache`:
                 // screenshot **93.222% → 91.125%** line and **57.529% → 55.666%** branch, behaviour
@@ -358,11 +366,12 @@ kover {
                 // It draws nothing, and the only thing that will ever speak to it is a socket.
                 //
                 // **Both halves are permanent, which is where it differs from `:protocol` directly
-                // above.** That module's behaviour exclusion comes out at #112, because the shell
+                // above.** That module's behaviour exclusion comes out at #113, because the shell
                 // will hold a fake transport and drive every verb through the contract. Nothing on
-                // the client will ever reach *this* code — #112's fake transport exists precisely so
-                // the suite never talks to a server — so a behaviour test can no more reach a route
-                // handler than a screenshot can reach a `core` rule, and neither will change.
+                // the client will ever reach *this* code — the fake transport #112 landed exists
+                // precisely so the suite never talks to a server — so a behaviour test can no more
+                // reach a route handler than a screenshot can reach a `core` rule, and neither will
+                // change.
                 //
                 // Measured on the branch that added the module, five passes, `--no-build-cache`:
                 // screenshot **93.222% → 90.447%** line and **57.529% → 54.928%** branch, behaviour
@@ -380,6 +389,52 @@ kover {
                 // for exactly this reason, rather than hidden here. See `decisions.md`.
                 if (testCategory == "screenshot" || testCategory == "behaviour") {
                     classes("dev.fardavide.oltre.server.**")
+                }
+                // ── The client's network layer, and **only while measuring the behaviour pass** ──
+                //
+                // The seventh entry in this block, added at #112 with Davide's say-so and on a
+                // report. `:client:net:data` is the transport, the outbox and the sync loop: it
+                // draws nothing, and the only thing it will ever speak to is a socket.
+                //
+                // **Behaviour only, and the three passes it is *not* in are what make it the
+                // narrowest entry here rather than the widest.** A behaviour test drives Compose,
+                // and Compose reaches a `data` module through a **consumer** — of which this one
+                // has none, because #112 lands the module and its fake while the shell cutover is
+                // #113's whole job and out of #112's scope by name. So this is `:protocol`'s entry
+                // three blocks up, word for word, and **it comes out at #113 with it**: the row
+                // goes *up* when it goes, or the tests owed were never written.
+                //
+                // - **The screenshot pass never saw it.** `packages("*.data")` is already in that
+                //   filter, so the screenshot rows did not move by a thousandth.
+                // - **The integration pass is deliberately not listed**, and that is the part worth
+                //   copying rather than the exclusion. It fell too — line 12.479% → 12.375% — and
+                //   the answer was a test rather than a filter: `OltreApiIntegrationTest` starts a
+                //   real `com.sun.net.httpserver` on a loopback port and drives the real engine
+                //   over a real socket, which took the row to **12.604%**, *above* the baseline.
+                //   That test earns its place independently of the number: a `MockEngine` cannot
+                //   prove that a refused connection arrives as an `IOException` and therefore as
+                //   `ApiResult.Unreachable`, and if it did not, every tap made with no signal would
+                //   propagate out of `act` instead of reaching the outbox. It also keeps this
+                //   module consistent with every other `data` module, none of which is excluded
+                //   from that pass.
+                // - **`:client:net:data-testing` is not here and needs no entry.** Every `-testing`
+                //   module is omitted from the Kover aggregate outright (see the `dependencies`
+                //   block above), so `FakeOltreApi` is not in the report at all.
+                //
+                // Measured on the branch that added the module, five passes, `--no-build-cache`:
+                // behaviour **92.259% → 91.329%** line and **68.832% → 68.237%** branch, on 112
+                // lines and 46 branches that contribute 0 covered to that pass. With this entry
+                // both land back on the baseline to three decimals, because nothing else moved.
+                //
+                // Scoped to the one pass, which is what makes it safe: the unit and unfiltered
+                // passes see every line and report the package at **97.3% and 98.2%** line and
+                // **100%** branch in both. What is left uncovered there is two lines and neither is
+                // reachable by any test here — the Android `actual` of `oltreHttpClient`, which no
+                // JVM test can call, and the arm where a status line arrives and the body does not.
+                // So this removes a number no test of this kind could move, and removes nothing the
+                // gate could see.
+                if (testCategory == "behaviour") {
+                    classes("dev.fardavide.oltre.client.net.data.**")
                 }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.

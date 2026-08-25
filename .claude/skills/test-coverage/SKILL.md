@@ -79,10 +79,14 @@ them alone and read the report.
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
   here. And a third group, **scoped to one pass rather than to the whole report**: composables
   **and the Postgres store** in the unit pass, everything that is not a drawing in the screenshot
-  pass, the string catalogue in the two that render, and `:protocol` and `:server` in the two that
-  render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason.
-  `:protocol`'s behaviour half comes out at #112, when the shell gains a consumer; `:server`'s does
-  not, because nothing on the client will ever reach a route. The unit pass's second entry is the
+  pass, the string catalogue in the two that render, `:protocol` and `:server` in the two that
+  render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason — and
+  `:client:net:data` in the behaviour pass alone.
+  `:protocol`'s behaviour half comes out at **#113**, when the shell gains a consumer — not #112,
+  which lands `:client:net:data` and its fake but leaves the shell cutover to the slice after it, so
+  the module still has no consumer a behaviour test can reach through. `:client:net:data`'s comes out
+  with it, on the same sentence. `:server`'s does not come out at all, because nothing on the client
+  will ever reach a route. The unit pass's second entry is the
   same sentence as its first: a unit test cannot render a composable, and it cannot open a database
   connection either — so `PostgresColonyRepository.kt` and `PostgresDatabase.kt` are excluded there
   **on the condition that they hold no decision**, the mapping being `ColonyRow.kt` and the retry

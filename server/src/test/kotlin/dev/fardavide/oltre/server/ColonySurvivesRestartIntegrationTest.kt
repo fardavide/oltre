@@ -111,7 +111,7 @@ class ColonySurvivesRestartIntegrationTest {
         SyncRequest(ApiVersion.CURRENT, envelopes.toList())
 
     private suspend fun HttpClient.post(path: String, request: SyncRequest): String = post(path) {
-        header(PLAYER_HEADER, "davide")
+        header(Protocol.PLAYER_HEADER, "davide")
         contentType(ContentType.Application.Json)
         setBody(Protocol.json.encodeToString(request))
     }.bodyAsText()
