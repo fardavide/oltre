@@ -47,8 +47,11 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **2** — `~/Documents/Keys/Oltre/identity/` created at `0700`, with its README.
 - **3** — release fingerprint re-derived and confirmed: `SHA1: 24:AA:53:…:DB:98` matches.
 - **36** — `session-jwt.key` generated, 88 base64 characters, `0600`.
+- **9, 10, 11** — `gh-pages` pushed, Pages pointed at `oltre.space`, certificate issued, Enforce
+  HTTPS on. `https://oltre.space/` serves the page and `www` redirects to the apex.
 
-So the first thing that needs you is **step 4**, and the first thing you click is **step 6**.
+So the next thing that needs you is **step 12** — the Apple Developer portal. Read step 13 before
+you save that dialog.
 
 ## If you only have 30 minutes
 
@@ -432,6 +435,29 @@ git -C /tmp/oltre-pages push -u origin gh-pages
 - Wait for the certificate, then tick **Enforce HTTPS** when it stops being greyed out. GitHub says
   *"it can take up to 24 hours before this option is available"*.
 
+**Two things met doing this for real, 2026-08-25.**
+
+**Pages may already be enabled**, in which case the API answers `409 GitHub Pages is already
+enabled` and the UI shows a site at `fardavide.github.io/oltre`. Not a problem — set the source and
+the domain on the existing site rather than creating one.
+
+**Setting the custom domain fails while Enforce HTTPS is on**, with a confusing
+`404 The certificate does not exist yet`. It is a genuine ordering problem, not a mistyped record:
+GitHub will not accept a domain it is expected to enforce HTTPS for before it has a certificate for
+it, and it cannot get one until the domain is set. Set the domain *alone*, let the certificate
+issue, then turn HTTPS enforcement back on:
+
+```
+gh api -X PUT repos/fardavide/oltre/pages -f cname=oltre.space
+```
+
+```
+gh api -X PUT repos/fardavide/oltre/pages -F https_enforced=true
+```
+
+Check `protected_domain_state` comes back `verified` — that is step 6b's account-level verification
+having landed, and it is what stops anyone else publishing to `oltre.space`.
+
 ## 11. Confirm — and know which failures are normal
 
 ```
@@ -447,6 +473,7 @@ none of them means you mistyped a record:
 | `HTTP/2 404` | DNS is right, Pages has not finished its first build. Minutes. |
 | Connection refused, or the Namecheap parking page | DNS has not propagated to your resolver yet. |
 | `HTTP/2 200` from something that is not your page | Wrong: an A record is mistyped. Re-check step 7. |
+| Plain `http://` answers `200` instead of `301` | Enforce HTTPS was just switched on and has not reached the edge. Minutes to hours; `https_enforced` in the API is already `true`. |
 
 `https://www.oltre.space/` should redirect to the apex — GitHub creates that redirect automatically
 when the apex is the configured custom domain.
