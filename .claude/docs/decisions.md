@@ -5368,3 +5368,277 @@ explain, and unbuilt things say so.
 **And the notes come from the README**, through `android_release.release_notes` — the same parser
 the release body already uses. Two copies of a changelog is two changelogs, and the second one is
 always the stale one.
+
+## A colony belongs to somebody, and the id is not the subject (2026-08-25, issue #110)
+
+Slice 3 of #106, on top of the store #109 landed. Apple and Google ID tokens verified against the
+providers' own key sets, a session this server signs itself, route authentication that finally makes
+`PlayerId` mean something, and `DELETE /v1/account`. Nothing a player sees moves and nothing ships,
+so there is no version bump; #107, #108, #109, #112 and #119 are the precedent.
+
+### The provisioning round, which is the only copy of this outside Davide's notes
+
+Davide provisioned everything on 2026-08-25, ahead of the slice, and his call was to **fold the
+record into #110 rather than write it in advance**. What follows is **identifiers and rules only**.
+No key material of any kind is in this repository or has been in a session: not the `.p8` body, not a
+client secret, not the session-signing key. All of it lives at `~/Documents/Keys/Oltre/identity/` at
+`0600` with an inventory README, and #111 is what mounts it from Secret Manager.
+
+| | |
+|---|---|
+| Apple team | `A7Q83J6LR4` |
+| Apple key id | `77FXWGUFQY` |
+| Apple Services ID | `dev.fardavide.oltre.signin` |
+| Apple primary App ID | `dev.fardavide.oltre` |
+| Google Cloud project | `oltre-506614` |
+| API hostname | `api.oltre.space` — permanent, and the Apple Return URL is registered against it |
+| Site | `oltre.space`, a static site from an orphan `gh-pages` branch |
+
+Three rules come with those, and the second is the one this slice could most easily have got wrong.
+
+- **`oltre-506614` was assigned by Google and cannot be renamed.** It is not a name anybody chose and
+  it is not to be "fixed" to something tidier.
+- **There are five OAuth clients and the server must accept two audiences.** The Web client is the
+  audience for **both phones**, and the Desktop client is a second one. A single-audience check
+  passes every test written against a generated keypair and then refuses the desktop build — which
+  is the only build the behaviour and screenshot suites run on. So `ProviderSpec.audiences` is a
+  `Set` that refuses to be empty, `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are comma-separated, and
+  `IdTokenVerifierTest` carries the assertion **in both directions**: the desktop client is accepted
+  alongside the web one, *and* a server configured with only the web one refuses it. One of those
+  alone proves nothing, because a verifier that ignored the audience entirely would pass it.
+  **Neither Android client id is named in code**, and neither needs to be.
+- **`google.env` records which Android client is release and which is debug on creation order rather
+  than on evidence** — neither downloaded file carries its SHA-1. Davide flagged it; treat it as
+  bookkeeping rather than as configuration, and check a fingerprint before relying on it.
+
+### `players.id` is a surrogate key, and that is what makes deletion mean deletion
+
+The obvious design keys the table on the provider subject. This does not, and two properties pay for
+the extra column:
+
+- **A deleted account signing in again gets a *new* id**, with nothing hanging off it. So "sign in
+  again and find a fresh colony" is not a rule anybody has to implement — it is what the schema does.
+  Keyed on the subject, the same Apple identity would land back on the same row, and every future
+  change to deletion would have to remember to break that.
+- **A provider's identifier never reaches a session token, a log line or a URL.** #106 §4 chose to
+  store the subject rather than the email precisely to hold less; putting the subject in the
+  credential that travels on every request would have given most of that back.
+
+`UNIQUE (provider, subject)` is what makes a second sign-in find the first colony, and it is the pair
+rather than the subject alone because nothing about a subject is globally unique — Apple and Google
+can both mint `1234` and mean two different people.
+
+**#109's `found` stopped writing the player row**, which is the one change this slice makes to an
+existing file's behaviour. It forged one from the `X-Oltre-Player` value because there was nothing
+else to hang the foreign key off; identity writes it at sign-in now, which is the only moment
+anybody has said who they are. `PostgresColonyRepositoryIntegrationTest` gained two fixture rows and
+one inverted assertion, and that inversion *is* the slice.
+
+### The player row is read on every authenticated request, and that is the price of "delete" meaning "now"
+
+A signature cannot be withdrawn. A session token minted a minute before an account was deleted stays
+cryptographically perfect until it expires, so without a check the account would keep working for up
+to an hour — and, worse, `POST /v1/colony` would insert a colony against a foreign key that no longer
+resolves. `SessionAuthenticator` therefore asks `players.exists` on every request.
+
+It costs one primary-key lookup on a path that sees **two to four requests per player per day**,
+which is the load #106 §6 sized the whole backend for. What it buys is that deletion is immediate
+rather than eventual, and that no route has to defend itself against a caller who is not there.
+
+**One consequence had to be reversed to make that safe**: `admit` moved *inside* `served`'s single
+`catch`. Identifying a caller is now a query, so it can fail — and left outside, a database that had
+gone away would leave Ktor to answer a bare 500 with no `ApiError` in it, which #112's client reads
+as `Unreachable` and retries forever rather than as a server having said something.
+
+### An hour and ninety days, and `SessionExpired` finally means what its comment said
+
+Two tokens, told apart by a `kind` claim rather than by a type — so the distinction is one the
+*signature* enforces, and a client that sent its refresh token on every request would not be quietly
+holding a ninety-day access token.
+
+- **Access: one hour.** It travels on every request, so its lifetime is the window a leaked one is
+  worth anything in. Longer would buy one saved round trip a day and cost exactly that window.
+- **Refresh: ninety days.** It is how long somebody can ignore this game and still not sign in again,
+  and a check-in game whose whole premise is that you leave it alone should not punish leaving it
+  alone. What makes it safe rather than merely convenient is the existence check above: a refresh
+  reads the player row, so an account deleted yesterday cannot slide anything forward today.
+
+`ApiError.SessionExpired`'s comment at #107 said it was *"the one that can be answered without a
+screen, once refresh exists"*. This is that: an expired **access** token is `SessionExpired`, the
+client refreshes, the player never learns it happened.
+
+**An expired *refresh* token is `Unauthenticated` and not `SessionExpired`**, which reads as
+inconsistent and is the point. `SessionExpired` means *"ask again in a moment"*; a client told that
+about the credential it asks *with* would loop forever. Ninety days without opening the game ends at
+the sign-in screen, and that line is what says so. The same answer covers a refresh token sent where
+an access token was wanted, and a token naming somebody who deleted their account.
+
+**Both tokens are HMAC and not a keypair.** There is one service, it both mints and reads these, and
+nobody else ever verifies one — so a shared secret is the honest shape. The day another service has
+to read a session is the day to argue for RS256, and it should have to be argued for then.
+
+### `X-Oltre-Player` is still read, and is no longer believed
+
+Trap 1 of #110, and the shape of it is worth keeping. #112 moved the header into `:protocol` and
+`KtorOltreApi` sends it on every request; deleting it here would stop `:client:net:data` compiling
+and take Build, Unit tests, Screenshot tests, Coverage and the iOS framework job down at once. It
+comes out at **#113**, when the client starts sending a bearer token instead.
+
+So the new scheme lands beside it and the *authenticator* decides which is trusted:
+
+- **With a session key configured**, `SessionAuthenticator` reads `Authorization: Bearer …` and
+  ignores the player header completely. `OltreServerIntegrationTest` pins that with a request that
+  carries a perfectly good `X-Oltre-Player: davide` and gets a `401`.
+- **With no session key**, `HeaderAuthenticator` resolves the header through the *same* upsert a real
+  sign-in uses, under the provider name `'header'` that #109 already wrote into the column. So the
+  dev loop exercises the identity path rather than bypassing it, and the only difference is who
+  vouched for the subject.
+
+**`Main.kt` refuses to start when `DATABASE_URL` is set and `SESSION_SIGNING_KEY` is not.** That pair
+is what a deployment *is*, and the combination it forbids is the dangerous one: a deployed server
+accepting a header would make impersonation a matter of typing somebody's id. Failing at boot means
+a misspelled variable is a deployment that does not start rather than one that starts and lets
+anybody in. It is the same shape as #109's `DATABASE_URL` fallback with the failure mode taken
+seriously rather than logged.
+
+### Nimbus, and neither of the two artifacts the ticket named
+
+#110 said the catalogue needs `ktor-server-auth` and `ktor-server-auth-jwt`. **Neither is here**, and
+this is #112's `ktor-client-content-negotiation` call made again: a catalogue line with no consumer
+is dead weight. Two reasons, and the second decided it:
+
+- `authenticate("session") { … }` puts the decision inside the routing file, which is the one file in
+  this module that is deliberately unreachable by a unit test. Everything below would then be judged
+  only by a test that stands up a server — undoing the split #108 and #109 each spent a slice making.
+- Its challenge is a bare `401` with no body unless it is replaced wholesale, and this taxonomy's
+  whole point is that `Unauthenticated` and `SessionExpired` are **different sentences**. Flattening
+  them would undo what `ApiError` was given at #107 and `ColonySync` was built around at #112.
+
+What *is* here is **`com.nimbusds:nimbus-jose-jwt`**, one line, and it is the only third-party
+addition in the slice. JOSE is where a subtle mistake is a real-world compromise rather than a
+failing test, so parsing a token, checking its algorithm and reading a JWKS document are a library's
+job. Nimbus rather than `com.auth0:java-jwt` because that one drags `jackson-databind` into a server
+that already speaks kotlinx-serialization, for nothing; and `jwks-rsa`'s `RemoteJWKSet` — which
+`ktor-server-auth-jwt` would have brought — is exactly the object this slice needed to *not* have,
+because it is a socket and a cache policy in one class no unit test can reach.
+
+**The JWKS client is the JDK's**, `java.net.http`, so there is no catalogue line for it at all.
+
+### The cache goes back to the provider for three reasons, and the third is a rotation
+
+`JwksKeys` holds the policy and `JwksHttp.kt` holds the socket — #108's move once more. Refetch when
+there is nothing held, when what is held is over an hour old, **or when a token names a key id that
+is not in it**.
+
+That third rule is what makes a rotation a blip instead of an outage: a TTL alone would refuse every
+token signed with a newly published key until the hour was up. And it is why there is a floor of one
+minute under it — without one, a client sending invented key ids is a client that makes this server
+call Apple once per request, and Apple answers that with a rate limit that takes sign-in down for
+everybody at once.
+
+**A document that is not a key set raises rather than reading as "no keys".** The distinction is the
+whole reason `JwksHttpIntegrationTest` exists: "no keys" surfaces to every player at once as *"your
+token is not valid"* and sends them all to a sign-in screen that cannot help them, where raising
+becomes `ApiError.Internal` — a 500 the client retries and an operator can go and look at. It is
+#112's `5xx`-carrying-HTML decision arriving from the other side of the server.
+
+### The seven cases, plus the two that are not on the list
+
+#110's Done-means names seven and they are all here, against a keypair generated in the test process
+and served by a handwritten fake — **nothing in this slice reaches a real issuer and nothing in CI
+ever should**. Valid, expired, wrong audience, wrong issuer, tampered signature, unknown key id,
+rotated key.
+
+Two more earn their place beside them:
+
+- **The algorithm.** RS256 is pinned rather than read out of the token, which closes the oldest hole
+  in JWT in both its shapes — a header saying `none`, and one saying `HS256` so that a *public* key
+  is used as a shared secret. Nimbus verifies whatever it is handed a verifier for, so the refusal
+  has to be this server's. The test also asserts the key set was never fetched, because a token that
+  is not eligible should not cost a round trip.
+- **The nonce.** It is the replay defence and **nothing fails without it**: a token captured from
+  somebody else's sign-in verifies perfectly. What it does not carry is the nonce this sign-in drew.
+  A missing claim is refused rather than treated as "nothing to compare", because Apple only includes
+  it when asked to — and `SignInNonce` is required on the wire so it cannot be forgotten by omission.
+
+The tampered case is a **genuine** tamper — the payload rewritten and the original signature kept,
+which is what somebody who wanted to be a different subject would actually do. Flipping a character
+in the signature segment would have tested base64 decoding and passed against a verifier that never
+checked a signature at all.
+
+### The recurring cost, and one obligation this slice does *not* discharge
+
+#110's last section asks for the recurring cost to be written down somewhere Davide meets it again.
+Here it is, with a correction that makes it smaller and a gap that makes it sharper.
+
+**Apple's client secret is a JWT signed with the `.p8` and expires within six months.** A silently
+expired one takes sign-in down for every player at once, with no warning and no error a player can
+act on. It has to be regenerated on a diary or by a script.
+
+**This slice needs it nowhere.** Verifying an ID token is a signature check against
+`https://appleid.apple.com/auth/keys`, and no client secret is involved; the native flow hands the
+app an identity token directly and the web flow can be asked for `response_type=code id_token` with
+`response_mode=form_post`, which returns one without a token exchange. So nothing here calls
+`/auth/token` and nothing here holds a secret.
+
+**What does need it is account deletion, and that is flagged rather than built.** Apple's guidance
+since June 2022 is that an app offering account deletion and Sign in with Apple must call the REST
+API to **revoke** the user's tokens — `/auth/revoke`, which needs the client secret and a token
+obtained from `/auth/token`, which in turn needs the authorization code from the client. None of
+that is in #110's scope by name, and the code never reaches this server today. `DELETE /v1/account`
+deletes everything on this side either way; what is missing is telling Apple.
+
+**Davide's call, 2026-08-25: it lands in #113**, with the deletion screen. Asked while the slice was
+open rather than left as a flag, because an App Review surface is cheaper to decide before a
+submission than during one. The reason it is #113 and not #111 is that **the blocker is
+client-side**: `/auth/revoke` needs a token from `/auth/token`, which needs the authorization code,
+which only the sign-in flow can produce — so #111 has one job here, which is to expose the `.p8` as
+a secret, and the obligation stays with the screen that triggers it.
+
+### What the coverage gate cost, and the exclusion it did not need
+
+Measured with `.github/scripts/measure-coverage.sh` against `main` at `1584873`, five passes,
+`--no-build-cache`. **The gate passes on all ten values, and no exclusion was added.**
+
+| pass | line | branch |
+|---|---|---|
+| all | 98.331 → **98.351** (+0.020) | 84.402 → **84.746** (+0.344) |
+| unit | 92.530 → **92.493** (−0.037, inside the gate's 0.05) | 86.815 → **87.026** (+0.211) |
+| integration | 12.604 → **14.394** (+1.790) | 8.381 → **9.565** (+1.184) |
+| screenshot | 93.222 → 93.222 | 57.529 → 57.529 |
+| behaviour | 92.259 → 92.259 | 68.832 → 68.832 |
+
+`:server` is excluded from the screenshot and behaviour passes outright and permanently (#108), so
+those four rows could not move and did not. Only unit, integration and the unfiltered total could.
+
+**The first measurement failed, and what it cost is the interesting part.** The unit row came in at
+**92.400** line (−0.129) and **86.528** branch (−0.287): 265 new covered lines against 37 new missed
+ones, which is a denominator growing faster than its tail. The answer was **seventeen more tests
+rather than an eighth exclusion**, and every one of them is a refusal that fails silently when it is
+missing — a session token whose header was rewritten to claim another algorithm, one signed with the
+right key by something that is not this server, a claims set that is not a claims set under a
+perfectly good signature, a JWKS key published with no `use` and one published with no `kid`, and the
+two arms of `SessionAuthenticator` that decide *which* 401. The row moved to **92.493 / 87.026**,
+which is inside the tolerance on one and above the baseline on the other.
+
+That is the shape to repeat rather than the number: **the rows that fell were the ones a unit test
+could still reach, and they were reached.** What is left uncovered in that pass is `OltreServer.kt`
+— routing, which holds no decision by construction, exactly as #108 recorded — `Main.kt`'s lambdas,
+and `JwksHttp.kt`.
+
+**The socket was answered with a test rather than a filter**, which is #112's move and the one
+trap 4 of #110 asks for by name. A JWKS fetch is a socket exactly as the Postgres store is a
+connection, so `JwksHttpIntegrationTest` starts a real `com.sun.net.httpserver` on a loopback port
+and drives `httpJwksSource` over it. It earns its place independently of the number, because
+*"a provider answering `502` must raise rather than read as no keys"* is the one property a fake
+source cannot prove — and reading it as no keys would tell every player at once that their token is
+invalid and send them to a sign-in screen that cannot help them.
+
+**`PostgresPlayerRepository` falls under #109's existing unit-pass entry**, `classes("dev.fardavide
+.oltre.server.Postgres*")`, without that pattern changing by a character. That entry's own condition
+is structural — *"nothing in these files decides anything"* — and this file meets it: it holds four
+statements, a transaction and no branch on an identity, a provider or a token. Who a token says
+somebody is, is `IdTokens.kt`; whether a session is good is `Sessions.kt`; what happens when a player
+is not there is `Authenticator.kt`. All three are plain `…Test`s. **This is a new file matching an
+existing pattern rather than a new exclusion**, and it is written down here so that it is a decision
+rather than something that happened.

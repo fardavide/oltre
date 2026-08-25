@@ -54,4 +54,19 @@ internal class InMemoryColonyRepository : ColonyRepository {
         this.applied += applied.map { player to it }
         WriteResult.WRITTEN
     }
+
+    // **The cascade, by hand.** `schema.sql` hangs `colonies` and `applied_verbs` off `players` with
+    // `ON DELETE CASCADE`, so on the other implementation this happens because a row went away; a
+    // map has no foreign keys, so `InMemoryPlayerRepository` calls this. Not on `ColonyRepository`
+    // for `prune`'s reason: the interface is the four questions a *request* asks, and this is what
+    // account deletion does between them.
+    //
+    // **Both tables, and forgetting the keys is the half that is easy to miss.** `applied_verbs`
+    // outlives a colony by design — that is what stops a retry being charged twice — so a delete
+    // that took only the colony would leave the keys of the deleted account to refuse the verbs of
+    // the fresh one that replaces it.
+    suspend fun forget(player: PlayerId): Unit = lock.withLock {
+        colonies.remove(player)
+        applied.removeAll { (owner, _) -> owner == player }
+    }
 }

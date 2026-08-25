@@ -88,9 +88,14 @@ them alone and read the report.
   with it, on the same sentence. `:server`'s does not come out at all, because nothing on the client
   will ever reach a route. The unit pass's second entry is the
   same sentence as its first: a unit test cannot render a composable, and it cannot open a database
-  connection either — so `PostgresColonyRepository.kt` and `PostgresDatabase.kt` are excluded there
-  **on the condition that they hold no decision**, the mapping being `ColonyRow.kt` and the retry
-  policy `Endpoints.kt`. The full list is in the root `build.gradle.kts`, each entry with its own
+  connection either — so `PostgresColonyRepository.kt`, `PostgresDatabase.kt` and, from #110,
+  `PostgresPlayerRepository.kt` are excluded there **on the condition that they hold no decision**,
+  the mapping being `ColonyRow.kt` and the retry policy `Endpoints.kt`. That third file matched the
+  existing `Postgres*` pattern rather than widening it, and it meets the condition for the same
+  reason: who a token says somebody is is `IdTokens.kt`, whether a session is good is `Sessions.kt`,
+  and what happens when a player is not there is `Authenticator.kt`. **A file added under that pattern
+  still has to earn it** — the condition is the entry, not the glob.
+  The full list is in the root `build.gradle.kts`, each entry with its own
   argument; this paragraph goes stale if that list moves, so read the file.
 
   If a number looks wrong, it is the tests that are wrong.

@@ -1,0 +1,37 @@
+package dev.fardavide.oltre.server
+
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
+// **The identity half of the store that dies with the process.** It is what every unit test in this
+// module runs against and what `./gradlew :server:run` serves with no database, exactly as
+// `InMemoryColonyRepository` is — and it is the pair with that class rather than a class of its own
+// standing, because deletion has to reach both.
+//
+// **The cascade is written out here and is a foreign key over there**, which is the one place the
+// two implementations genuinely differ. `schema.sql` puts `ON DELETE CASCADE` on `colonies` and on
+// `applied_verbs`, so Postgres forgets a colony because the row it hung off is gone; a map has no
+// such thing, so this asks the colony store to forget it. Both have to be true or the unit suite
+// above them is standing on a lie — `PostgresPlayerRepositoryIntegrationTest` asks the same
+// questions of the tables.
+internal class InMemoryPlayerRepository(
+    private val colonies: InMemoryColonyRepository,
+    private val ids: PlayerIds = PlayerIds.RANDOM,
+) : PlayerRepository {
+
+    private val lock = Mutex()
+    private val players = mutableMapOf<ProviderIdentity, PlayerId>()
+
+    override suspend fun resolve(identity: ProviderIdentity): PlayerId = lock.withLock {
+        players.getOrPut(identity) { ids.mint() }
+    }
+
+    override suspend fun exists(player: PlayerId): Boolean = lock.withLock { player in players.values }
+
+    override suspend fun forget(player: PlayerId): Boolean = lock.withLock {
+        val identity = players.entries.firstOrNull { it.value == player }?.key ?: return@withLock false
+        players.remove(identity)
+        colonies.forget(player)
+        true
+    }
+}

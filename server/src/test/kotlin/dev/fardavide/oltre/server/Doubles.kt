@@ -18,6 +18,15 @@ internal class MovableClock(private var at: Instant) : Clock {
     }
 }
 
+// **Player ids a test can read.** The real mint is a UUID, which is right for a surrogate key and
+// useless in an assertion: a test that wants to say *"the same subject came back to the same
+// player"* has to be able to name one. Counting from one also makes "a deleted account signs in
+// again and gets a **new** id" a thing a reader can see rather than take on trust.
+internal fun sequentialPlayerIds(): PlayerIds {
+    var minted = 0
+    return PlayerIds { PlayerId("player-${++minted}") }
+}
+
 // The store that is there and cannot answer. Handwritten, per the repository's fakes-not-mocks
 // convention, and it doubles exactly one thing — which is now a real network away.
 internal class UnreachableColonyRepository : ColonyRepository {
@@ -35,6 +44,47 @@ internal class UnreachableColonyRepository : ColonyRepository {
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
     ): WriteResult = error("no route to host")
+}
+
+// The same store, on the identity side. It exists for one property: sign-in touches a database a
+// network away, so `answering`'s `catch` has to turn that into `ApiError.Internal` rather than let
+// it escape the route — and the only way to be sure is to make the store fail.
+internal class UnreachablePlayerRepository : PlayerRepository {
+
+    override suspend fun resolve(identity: ProviderIdentity): PlayerId = error("no route to host")
+
+    override suspend fun exists(player: PlayerId): Boolean = error("no route to host")
+
+    override suspend fun forget(player: PlayerId): Boolean = error("no route to host")
+}
+
+// **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
+// `catch` on both route files reads `e.message`, and a `NullPointerException`, a
+// `ConcurrentModificationException` or a driver's own internal error routinely carries none — so
+// without the elvis the diagnostic in `ApiError.Internal` would be the string `"null"`, which is the
+// one thing worse than nothing for whoever is reading the log. It doubles both sides because both
+// `served` and `answering` make the same call.
+internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
+
+    override suspend fun found(player: PlayerId, snapshot: GameSnapshot): Founding = throw NullPointerException()
+
+    override suspend fun colonyOf(player: PlayerId): StoredColony? = throw NullPointerException()
+
+    override suspend fun appliedAmong(player: PlayerId, keys: Set<IdempotencyKey>): Set<IdempotencyKey> =
+        throw NullPointerException()
+
+    override suspend fun write(
+        player: PlayerId,
+        snapshot: GameSnapshot,
+        applied: Set<IdempotencyKey>,
+        expected: ColonyVersion,
+    ): WriteResult = throw NullPointerException()
+
+    override suspend fun resolve(identity: ProviderIdentity): PlayerId = throw NullPointerException()
+
+    override suspend fun exists(player: PlayerId): Boolean = throw NullPointerException()
+
+    override suspend fun forget(player: PlayerId): Boolean = throw NullPointerException()
 }
 
 // **The player's other device, syncing at the same moment.** The first `contentions` writes lose,

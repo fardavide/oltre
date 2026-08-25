@@ -10,9 +10,15 @@ import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -189,13 +195,134 @@ class OltreServerIntegrationTest {
         assertEquals(emptyList(), home.snapshot.state.runs)
     }
 
+    // ── Signed in ─────────────────────────────────────────────────────────────────────────────
+    //
+    // The four routes `#110` added, over the same test host. **What is under test is the wiring** —
+    // the paths, the status lines, the `Authorization` header's spelling and the 204 with no body —
+    // exactly as above: every rule about what makes a token good is `IdTokenVerifierTest`'s and
+    // `AuthEndpointsTest`'s, and standing up a server to judge one would be a slow test of the wrong
+    // thing.
+
+    @Test
+    fun `a sign-in over HTTP answers a session that founds a colony`() = testApplication {
+        signedInServer()
+
+        val session = post("/v1/auth/google", signIn()).session()
+
+        assertEquals(ApiVersion.CURRENT, session.apiVersion)
+        val founded = post("/v1/colony", sync(), player = null, bearer = session.accessToken)
+        assertEquals(HttpStatusCode.Created, founded.status)
+    }
+
+    @Test
+    fun `a colony endpoint reached with no bearer token is a 401 however the player header is spelled`() =
+        testApplication {
+            // **The half of trap 1 that is worth an integration test.** `Protocol.PLAYER_HEADER` is
+            // still read — `#112`'s client sends it on every request and deleting it would stop that
+            // client compiling — and a server holding a session key ignores it completely. This is
+            // the line that says the placeholder stopped being *believed* at `#110` even though it
+            // stops being *sent* at `#113`.
+            signedInServer()
+
+            val response = post("/v1/sync", sync(), player = "davide")
+
+            assertEquals(HttpStatusCode.Unauthorized, response.status)
+            assertEquals(ApiError.Unauthenticated, response.apiError())
+        }
+
+    @Test
+    fun `a token this server will not verify is a 401 rather than a 400`() = testApplication {
+        signedInServer()
+        val body = Protocol.json.encodeToString(
+            SignInRequest(ApiVersion.CURRENT, providerKey.sign(idTokenClaims(audience = "somebody.else")), TEST_NONCE),
+        )
+
+        val response = postRaw("/v1/auth/google", body, player = null)
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertEquals(ApiError.Unauthenticated, response.apiError())
+    }
+
+    @Test
+    fun `a refresh over HTTP trades one session for another`() = testApplication {
+        val clock = signedInServer()
+        val session = post("/v1/auth/google", signIn()).session()
+
+        clock.advanceBy(2.hours)
+        val body = Protocol.json.encodeToString(RefreshRequest(ApiVersion.CURRENT, session.refreshToken))
+        val refreshed = postRaw("/v1/auth/refresh", body, player = null).session()
+
+        assertEquals(clock.now() + 1.hours, refreshed.accessExpiresAt)
+        assertEquals(
+            HttpStatusCode.Created,
+            post("/v1/colony", sync(), player = null, bearer = refreshed.accessToken).status,
+        )
+    }
+
+    @Test
+    fun `deleting an account answers 204 with no body at all and the session stops working`() = testApplication {
+        // App Review 5.1.1(v). The empty body is the assertion that matters here: a `204` carrying
+        // JSON is a `204` some HTTP stacks will refuse to read.
+        signedInServer()
+        val session = post("/v1/auth/google", signIn()).session()
+        post("/v1/colony", sync(), player = null, bearer = session.accessToken)
+
+        val deleted = client.delete("/v1/account") { bearer(session.accessToken) }
+
+        assertEquals(HttpStatusCode.NoContent, deleted.status)
+        assertEquals("", deleted.bodyAsText())
+        assertEquals(HttpStatusCode.Unauthorized, post("/v1/sync", sync(), bearer = session.accessToken).status)
+    }
+
+    @Test
+    fun `deleting with no credential at all is a 401`() = testApplication {
+        signedInServer()
+
+        assertEquals(HttpStatusCode.Unauthorized, client.delete("/v1/account").status)
+    }
+
     // ── The harness ───────────────────────────────────────────────────────────────────────────
 
+    // No identity, which is the shape `./gradlew :server:run` has and the one that keeps every test
+    // above this line reading as it did at `#108`: a request names its player in a header. The
+    // bearer half is `signed in` below, where a server *with* a session key is stood up.
     private fun ApplicationTestBuilder.server(): MovableClock {
         val clock = MovableClock(TEST_NOW)
-        application { oltre(InMemoryColonyRepository(), clock) }
+        val colonies = InMemoryColonyRepository()
+        application {
+            oltre(colonies, InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds()), clock, identity = null)
+        }
         return clock
     }
+
+    // A server with a session key, so the bearer half of `Authenticator.kt` is the one in play. The
+    // provider is a keypair generated in this process and served by a handwritten fake — nothing in
+    // this suite reaches Apple or Google.
+    private fun ApplicationTestBuilder.signedInServer(): MovableClock {
+        val clock = MovableClock(TEST_NOW)
+        val colonies = InMemoryColonyRepository()
+        val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+        application {
+            oltre(
+                colonies = colonies,
+                players = players,
+                clock = clock,
+                identity = Identity(
+                    verifier = IdTokenVerifier(
+                        specs = mapOf(IdentityProvider.GOOGLE to testSpec()),
+                        keys = JwksKeys(FakeJwksSource(jwksOf(providerKey)), clock),
+                        clock = clock,
+                    ),
+                    sessions = Sessions(TEST_SIGNING_KEY, clock),
+                ),
+            )
+        }
+        return clock
+    }
+
+    private fun signIn(): String = Protocol.json.encodeToString(
+        SignInRequest(ApiVersion.CURRENT, providerKey.sign(idTokenClaims()), TEST_NONCE),
+    )
 
     private fun sync(vararg envelopes: VerbEnvelope): SyncRequest =
         SyncRequest(ApiVersion.CURRENT, envelopes.toList())
@@ -204,21 +331,44 @@ class OltreServerIntegrationTest {
         path: String,
         request: SyncRequest,
         player: String? = "davide",
-    ): HttpResponse = postRaw(path, Protocol.json.encodeToString(request), player)
+        bearer: SessionToken? = null,
+    ): HttpResponse = postRaw(path, Protocol.json.encodeToString(request), player, bearer)
+
+    private suspend fun ApplicationTestBuilder.post(path: String, body: String): HttpResponse =
+        postRaw(path, body, player = null)
 
     private suspend fun ApplicationTestBuilder.postRaw(
         path: String,
         body: String,
         player: String? = "davide",
+        bearer: SessionToken? = null,
     ): HttpResponse = client.post(path) {
         player?.let { header(Protocol.PLAYER_HEADER, it) }
+        bearer?.let { bearer(it) }
         contentType(ContentType.Application.Json)
         setBody(body)
+    }
+
+    // The scheme is built from `Protocol.BEARER_PREFIX` rather than spelled here, which is the same
+    // rule the player header follows and for the same reason: a wire string written out at both ends
+    // is one that can differ at both ends.
+    private fun HttpRequestBuilder.bearer(token: SessionToken) {
+        header(Protocol.AUTHORIZATION_HEADER, Protocol.BEARER_PREFIX + token.value)
     }
 
     private suspend fun HttpResponse.syncResponse(): SyncResponse =
         Protocol.json.decodeFromString(bodyAsText())
 
+    private suspend fun HttpResponse.session(): SessionResponse {
+        assertEquals(HttpStatusCode.OK, status, bodyAsText())
+        return Protocol.json.decodeFromString(bodyAsText())
+    }
+
     private suspend fun HttpResponse.apiError(): ApiError =
         Protocol.json.decodeFromString(bodyAsText())
+
+    private companion object {
+
+        val providerKey = ProviderKey("the-published-key")
+    }
 }

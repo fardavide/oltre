@@ -31,6 +31,19 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.kotlinx.coroutines.core)
 
+    // **The only third-party line in this slice, and the only one there should be.** JOSE is where a
+    // subtle mistake is a compromise rather than a failing test, so parsing a token, checking its
+    // algorithm and reading a JWKS document are a library's job. Fetching that document is not:
+    // Nimbus's own `RemoteJWKSet` would put a socket and a cache policy inside one object no unit
+    // test can reach, which is the shape `#108` and `#109` each spent a slice undoing. `JwksKeys`
+    // holds the policy, `JwksHttp.kt` holds the socket. See `libs.versions.toml`.
+    //
+    // **No `ktor-server-auth` and no `ktor-server-auth-jwt`**, which `#110` named — see
+    // `decisions.md`. Authentication here is a pure function from two header values to a `PlayerId`,
+    // and `authenticate {}` would move that decision into the routing file and flatten the one
+    // distinction the taxonomy asks for, which is `Unauthenticated` against `SessionExpired`.
+    implementation(libs.nimbus.jose.jwt)
+
     // The colony's home. A driver and a pool and no ORM — the save is already a self-contained JSON
     // document that `core` knows how to carry forward, so there is nothing to map and nothing a
     // framework would keep in step.

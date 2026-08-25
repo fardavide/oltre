@@ -102,7 +102,19 @@ class ColonySurvivesRestartIntegrationTest {
     private fun serverProcess(clock: Clock, block: suspend (HttpClient) -> Unit) = testApplication {
         connectionPool(postgres.embeddedPostgres.getJdbcUrl("postgres", "postgres")).use { pool ->
             pool.applySchema()
-            application { oltre(PostgresColonyRepository(pool, clock), clock) }
+            // No identity, so the header names the player exactly as it did at `#108` — and since
+            // `#110` that resolves through the *same* upsert a real sign-in uses, under the provider
+            // name `'header'`. So this test quietly gained a property: the `players` row has to
+            // survive the restart too, or the second process would resolve the header to a different
+            // id and find no colony at all.
+            application {
+                oltre(
+                    colonies = PostgresColonyRepository(pool, clock),
+                    players = PostgresPlayerRepository(pool, clock),
+                    clock = clock,
+                    identity = null,
+                )
+            }
             block(client)
         }
     }
