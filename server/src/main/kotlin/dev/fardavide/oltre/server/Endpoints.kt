@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.server
 
-import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.Protocol
@@ -41,8 +40,8 @@ internal suspend fun foundColony(
     body: String,
 ): Answer = served(repository, clock, player, body) { founder, now ->
     when (val founding = repository.found(founder, newColony(founder, now))) {
-        is Founding.Founded -> FoundColony(HttpStatusCode.Created, founding.snapshot)
-        is Founding.AlreadyThere -> FoundColony(HttpStatusCode.OK, founding.snapshot)
+        is Founding.Founded -> FoundColony(HttpStatusCode.Created, founding.colony)
+        is Founding.AlreadyThere -> FoundColony(HttpStatusCode.OK, founding.colony)
     }
 }
 
@@ -60,7 +59,21 @@ internal suspend fun syncColony(
 // The colony an endpoint found and what the status line says about having found it. Null is
 // `ApiError.NoColony`, which is not a failure: it is what a first launch of the online build meets
 // before the one-time upload.
-private data class FoundColony(val status: HttpStatusCode, val snapshot: GameSnapshot)
+private data class FoundColony(val status: HttpStatusCode, val colony: StoredColony)
+
+// **How many times one request will replay itself before giving up.** A sync that loses the
+// compare-and-set has not failed — another device wrote the colony between this request's read and
+// its write, so the work was done against a colony that is no longer the colony and the honest
+// answer is to do it again against the one that won.
+//
+// Three, and the number is a judgement rather than a measurement: contention here is two of *one
+// player's own devices* syncing in the same second, which is rare and never adversarial, so the
+// second attempt is very nearly always the last one. What the bound is actually for is the case
+// nobody plans for — a client in a loop, a retry storm after a deploy — where an unbounded retry
+// turns one wedged colony into a wedged instance. Losing three times in a row is `ApiError
+// .StaleColony`, and the client's answer to that is to sync again in a moment, which is the same
+// work with the queue in front of it drained.
+private const val WRITE_ATTEMPTS = 3
 
 // **One shape for both endpoints**, because they differ in exactly one step. Admit the request, get
 // the colony, replay what was queued against it, persist, answer.
@@ -78,39 +91,65 @@ private suspend fun served(
 
     // **The one place an exception becomes an answer.** `ApiError.Internal` is in the taxonomy
     // because a client that gets an unreadable 500 cannot tell it from a proxy having eaten the
-    // request, and everything below this line touches a store that `#109` will give a network. The
+    // request, and everything below this line touches a store that is a network away. The
     // `detail` is a diagnostic and never player copy — every word the game says is a `TextRes` built
     // through `Strings`, and a server cannot build one.
     return try {
-        val now = clock.now()
-        val found = colonyOf(admitted.player, now)
-            ?: return Answer.Failed(HttpStatusCode.NotFound, ApiError.NoColony)
+        // **The whole attempt is inside the loop, and every line of it has to be.** A retry that
+        // reused the colony it had already read would write the loser's work back over the winner's,
+        // and a retry that reused the keys it had already read would apply a verb the other device
+        // had just applied — a double-spend arriving through the mechanism built to prevent one. So
+        // a lost compare-and-set discards everything and asks again.
+        repeat(WRITE_ATTEMPTS) {
+            val now = clock.now()
+            val found = colonyOf(admitted.player, now)
+                ?: return Answer.Failed(HttpStatusCode.NotFound, ApiError.NoColony)
 
-        val queued = admitted.request.envelopes
-        val replayed = replay(
-            colony = found.snapshot,
-            envelopes = queued,
-            // Only the keys this request is asking about. The table is append-only and prunable, so
-            // reading back everything a player ever applied would grow with the account.
-            alreadyApplied = repository.appliedAmong(admitted.player, queued.map { it.idempotencyKey }.toSet()),
-            serverNow = now,
-        )
-        // The colony and the keys land together or not at all — see `ColonyRepository`. Keys that
-        // were already there are written again and the store treats that as the no-op it is.
-        repository.write(admitted.player, replayed.snapshot, replayed.applied)
-
-        Answer.Colony(
-            status = found.status,
-            response = SyncResponse(
-                // What this build speaks, rather than an echo of what was asked for. A client that
-                // reads a version beyond its own knows it is the one that is behind, which is only
-                // useful if the server states its own position.
-                apiVersion = ApiVersion.CURRENT,
+            val queued = admitted.request.envelopes
+            val replayed = replay(
+                colony = found.colony.snapshot,
+                envelopes = queued,
+                // Only the keys this request is asking about. The table is append-only and prunable,
+                // so reading back everything a player ever applied would grow with the account.
+                alreadyApplied = repository.appliedAmong(admitted.player, queued.map { it.idempotencyKey }.toSet()),
+                serverNow = now,
+            )
+            // The colony and the keys land together or not at all — see `ColonyRepository`. Keys
+            // that were already there are written again and the store treats that as the no-op it
+            // is. `expected` is what makes the pair a compare-and-set rather than a last-write-wins.
+            val written = repository.write(
+                player = admitted.player,
                 snapshot = replayed.snapshot,
                 applied = replayed.applied,
-                rejected = replayed.rejected,
-            ),
-        )
+                expected = found.colony.version,
+            )
+
+            when (written) {
+                WriteResult.WRITTEN -> return Answer.Colony(
+                    status = found.status,
+                    response = SyncResponse(
+                        // What this build speaks, rather than an echo of what was asked for. A
+                        // client that reads a version beyond its own knows it is the one that is
+                        // behind, which is only useful if the server states its own position.
+                        apiVersion = ApiVersion.CURRENT,
+                        snapshot = replayed.snapshot,
+                        applied = replayed.applied,
+                        rejected = replayed.rejected,
+                    ),
+                )
+
+                // Around again. `replay` is a pure function of `(colony, envelopes, serverNow)`
+                // precisely so that this is a second computation on fresher input rather than a
+                // repair of a half-finished one.
+                WriteResult.STALE -> Unit
+            }
+        }
+
+        // **Lost every time, and this is the only thing that produces `StaleColony`.** Nothing the
+        // player queued was judged — the verbs are still in their outbox and the colony they have is
+        // still the one they last saw — so there is nothing to say to them and nothing to undo. The
+        // client syncs again.
+        Answer.Failed(HttpStatusCode.Conflict, ApiError.StaleColony)
     } catch (e: CancellationException) {
         // **Not a failure and not ours.** A cancelled request is the caller having gone away — the
         // phone lost signal, the load balancer timed out — and swallowing it here would both answer

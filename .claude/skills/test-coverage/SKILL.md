@@ -77,12 +77,16 @@ them alone and read the report.
   `OltreApplication`, `BootReceiver`, the notification scheduler and receiver, and the shake
   detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
-  here. And a third group, **scoped to one pass rather than to the whole report**: composables in
-  the unit pass, everything that is not a drawing in the screenshot pass, the string catalogue in
-  the two that render, and `:protocol` and `:server` in the two that render — a wire contract and a
-  Ktor route are both unreachable by a frame for `core`'s reason. `:protocol`'s behaviour half comes
-  out at #112, when the shell gains a consumer; `:server`'s does not, because nothing on the client
-  will ever reach a route. The full list is in the root `build.gradle.kts`, each entry with its own
+  here. And a third group, **scoped to one pass rather than to the whole report**: composables
+  **and the Postgres store** in the unit pass, everything that is not a drawing in the screenshot
+  pass, the string catalogue in the two that render, and `:protocol` and `:server` in the two that
+  render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason.
+  `:protocol`'s behaviour half comes out at #112, when the shell gains a consumer; `:server`'s does
+  not, because nothing on the client will ever reach a route. The unit pass's second entry is the
+  same sentence as its first: a unit test cannot render a composable, and it cannot open a database
+  connection either — so `PostgresColonyRepository.kt` and `PostgresDatabase.kt` are excluded there
+  **on the condition that they hold no decision**, the mapping being `ColonyRow.kt` and the retry
+  policy `Endpoints.kt`. The full list is in the root `build.gradle.kts`, each entry with its own
   argument; this paragraph goes stale if that list moves, so read the file.
 
   If a number looks wrong, it is the tests that are wrong.

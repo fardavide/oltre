@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107 and #108, no bump)
+Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107, #108 and #109, no bump)
 
 ## Landed
 
@@ -507,6 +507,25 @@ Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107 and 
   look-don't-act and does not say how a server tells one sent live from one queued, and the clamped
   instant is the only evidence there is. `./gradlew :server:run` serves a colony playable end to end
   with `curl`. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
+- **A colony survives a restart — three tables and a compare-and-set** — slice 2 of the online
+  migration (issue #109 under epic #106). `PostgresColonyRepository` puts `players`, `colonies` and
+  `applied_verbs` behind the interface slice 1 shaped, with `snapshot_json` holding
+  `GameSave.encode` verbatim as `jsonb`; `schema.sql` is applied at startup and every statement in
+  it is `IF NOT EXISTS`, because Cloud Run starts this process again on every scale-up from zero.
+  **`ApiError.StaleColony` finally has something that produces it**: the interface widened so the
+  read hands back a version, the write asserts it, and a `served()` that loses replays the whole
+  attempt against the colony that won — up to three times, then `409`. That widening is a change to
+  slice 1 rather than the drop-in its own comment predicted, and the comment was right about the
+  other three methods. **Testcontainers is out and Zonky `embedded-postgres` is in** (Davide,
+  2026-08-25): there is no container runtime on Davide's machine, an unqualified `./gradlew check`
+  runs every category, and a suite that cannot run locally stops being run. The whole thing starts
+  two real PostgreSQL 17.10 instances and finishes in about three seconds, on this machine and on
+  `ubuntu-latest` alike, so `ci.yml` does not change. **#106 §6's "the same code modulo a driver" is
+  corrected here** rather than preserved by writing portable SQL — the exit to SQLite is a second
+  implementation of `ColonyRepository`, a class rather than a line. `./gradlew :server:run` with no
+  `DATABASE_URL` still serves an in-memory colony and now says so in the log; **#111 is what sets
+  that variable**, and a deployed server that fell back silently would lose every colony it was
+  handed. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices

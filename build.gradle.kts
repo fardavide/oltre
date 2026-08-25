@@ -169,8 +169,35 @@ kover {
                 // cannot be reached and nothing else: a ui-state mapper, a `cardState()` or a
                 // `tint()` sitting in the same file is still counted and still has to be tested.
                 // A path or package rule would have hidden those too.
+                //
+                // ── And the store, on exactly the same sentence ───────────────────────────────
+                //
+                // A unit test cannot render a composable; a unit test cannot open a connection to a
+                // database. `PostgresColonyRepository.kt` and `PostgresDatabase.kt` hold every line
+                // in `:server` that needs one — the pool, the DDL, the transaction and the seven
+                // statements — and the seventh entry in this block covers those two files and
+                // nothing else. Davide's call, 2026-08-25, on a failing report at #109: the unit
+                // row fell **92.503% → 91.730%** line and **86.629% → 86.284%** branch, on 76 lines
+                // and 18 branches that no test of this kind can reach.
+                //
+                // **The condition is structural and checkable, which is what earns it**, like
+                // `StepperGesture.kt`'s *"nothing in that file draws"*: **nothing in these two files
+                // decides anything.** The row-to-colony mapping is `ColonyRow.kt` — including what a
+                // row that will not decode means, which is a `when` with three arms and a unit test
+                // per arm — and the compare-and-set's retry policy is `Endpoints.kt`. Both were put
+                // there rather than inside the JDBC calls for exactly this reason, which is #108's
+                // move made once more: *a decision belongs where the kind of test that judges it can
+                // reach it.* A rule that drifted back into the store would leave this block quietly
+                // hiding it, so the two files earn the exclusion by holding nothing but connections
+                // and statements.
+                //
+                // Scoped to this pass like the entries around it, which is what keeps it safe: the
+                // integration and unfiltered passes see every line and report the two files at
+                // **99% and 98%**, so a statement no test runs at all still shows up in the row
+                // whose job that is. This removes a number no unit test could ever move.
                 if (testCategory == "unit") {
                     annotatedBy("androidx.compose.runtime.Composable")
+                    classes("dev.fardavide.oltre.server.Postgres*")
                 }
                 // ── Everything that is not a drawing, and **only while measuring the screenshot
                 // pass** ─────────────────────────────────────────────────────────────────────

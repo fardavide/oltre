@@ -4851,3 +4851,251 @@ One line stays uncovered in every pass and is left that way deliberately: `MainK
 not reach a lambda inside `main` — the same trailing-`*` question `AppKt*` had to answer. It is one
 line, it does not move a gated number, and widening a filter that is already granted is not something
 to do in passing.
+
+## A colony survives a restart, and the exit to SQLite costs a class (2026-08-25, issue #109)
+
+Slice 2 of #106, on top of the server #108 landed. Three tables, a JDBC store behind the existing
+`ColonyRepository`, and the compare-and-set that finally gives `ApiError.StaleColony` something that
+produces it. Nothing a player sees moves and nothing ships, so there is no version bump; #107, #108
+and #119 are the precedent.
+
+### §6's exit-cost sentence is wrong, and correcting it was the price of using Postgres properly
+
+#106 §6 chose Postgres over Firestore on exit cost, and said so in one sentence:
+
+> Cloud Run + Neon and Hetzner + SQLite become the same code modulo a driver, and moving between them
+> is `pg_dump` plus a redeploy — an afternoon, at any time.
+
+**That is not true and this slice is where it stops being claimed.** The schema uses `jsonb`,
+`timestamptz` and `ON CONFLICT`, and SQLite has none of them. There were two ways out: write
+conservative portable SQL and keep the sentence literally true, or use the database that was chosen
+and correct the sentence. **Davide's call, 2026-08-25: use Postgres properly.**
+
+The corrected claim, which is the one worth having:
+
+> The exit is a second implementation of `ColonyRepository` — a class rather than a line. Nothing
+> above the interface moves: not the replay, not the routes, not a test that is not an
+> `…IntegrationTest`. That is what having an interface at all buys, and it is still an afternoon.
+
+**Nothing about the hosting decision moves**, and it is worth saying why the correction does not
+reopen it. Cloud Run is stateless and scales to zero, so SQLite was never available *there* in the
+first place; the chain €0 → Cloud Run → a networked database holds without the exit argument. What
+changes is only the size of the escape hatch, from a line to a file.
+
+Two consequences, both cashed in immediately:
+
+- **`snapshot_json` is `jsonb` rather than `text`.** The value is a document Postgres can validate
+  and query into, so `SELECT snapshot_json ->> 'schemaVersion'` is an answer rather than an error —
+  which is the difference between "which colonies are still on schema 15" being a query and being a
+  script. Nothing in the server reads a field out of it; `core`'s migration ladder is what reads a
+  save, exactly as §5.4 says.
+- **`ON CONFLICT DO NOTHING` is what makes founding idempotent**, and the affected-row count is what
+  tells a first founding from a retry after a lost response. Written portably that would have been a
+  `SELECT` and an `INSERT` with a race between them.
+
+**Two features from the drafted DDL are deliberately not used**, and saying so is part of the
+correction rather than an omission from it. `gen_random_uuid()` is not there because `players.id` is
+the header value until #110 mints a real identity, and a surrogate key with nothing yet to key would
+be a migration written in advance of the thing it migrates. `FOR UPDATE SKIP LOCKED` is not there
+because nothing here is a work queue: the concurrency control *is* the version column, and an
+optimistic token costs nothing when two devices do not collide — which is almost always — where a
+lock costs a held connection every time.
+
+**H2 in `MODE=PostgreSQL` was measured and is out.** It rejects `timestamptz` outright (*"Unknown
+data type"*) and `ON CONFLICT … DO UPDATE` is a syntax error, so the SQL that shipped could not have
+been the SQL under test — which is the only property a fake database is bought for.
+
+### Zonky `embedded-postgres`, and why not Testcontainers
+
+#109's Done-means named Testcontainers. **There is no container runtime on Davide's machine at all**
+— no `docker`, `colima` or `podman` binary, no socket, nothing in `/Applications`. The root build
+file states that an absent `oltre.testCategory` *"means all of them — and what `check` does"*, so a
+Testcontainers `…IntegrationTest` would make `./gradlew check` fail locally and permanently, on the
+one machine that does the UI work, and take `measure-coverage.sh` with it. A suite that cannot be run
+locally is a suite that stops being run.
+
+**Davide's call, 2026-08-25: Zonky.** It unpacks a real PostgreSQL from a jar and runs it as a child
+process — no daemon, no image pull, no egress. The whole suite starts two of them and finishes in
+about three seconds. And it is one mechanism at both ends: `ubuntu-latest` runs it the same way, so
+`ci.yml` does not change and no job grows a service container.
+
+The pinning is the part that is easy to get wrong, and the obvious version of it is wrong:
+
+```kotlin
+testImplementation(platform(libs.embedded.postgres.binaries.bom))
+testImplementation(libs.embedded.postgres)
+testRuntimeOnly(libs.embedded.postgres.binaries.darwin.arm64v8)
+testRuntimeOnly(libs.embedded.postgres.binaries.linux.arm64v8)
+```
+
+`embedded-postgres:2.2.2` defaults its binaries to **14.22.0**, so pinning only the Mac artifact
+tests PostgreSQL 17 here and PostgreSQL 14 on CI — the same suite, two databases, and only one of
+them the one the SQL was written for. The `platform(…)` line is what lifts the transitive artifacts
+to 17.10.0; the two `testRuntimeOnly` lines add the arm64 platforms the pom omits entirely, because
+it ships amd64 only.
+
+**Measured on this machine before a line of the store was written**, which was the point of doing it
+first: `uname -m` is `arm64`, the user is `davide` and not root, `initdb` completes, and
+`SELECT version()` answers *"PostgreSQL 17.10 on x86_64-apple-darwin24.6.0"*. The triple in that
+string is where the binary was built and not where it is running — the extracted `bin/postgres` is a
+universal binary carrying both slices, so it runs native.
+
+Three hazards were designed around rather than discovered, and two of them only bite on a runner that
+is not this machine:
+
+- **`initdb` refuses to run as root** and Zonky has no uid handling. `ubuntu-latest` runs as `runner`.
+- **`initdb` fails with *"invalid locale settings"* when `LANG` and `LC_ALL` are both unset**, which
+  is the normal state of a minimal container. Zonky ships a Maven profile for exactly this and a
+  Gradle build inherits none of it, so the rule passes `.setLocaleConfig("locale", "C")` and
+  `.setLocaleConfig("encoding", "UTF-8")` unconditionally.
+- **This repository is on JUnit 4**, not the JUnit Platform: `kotlin-test` → `kotlin-test-junit` →
+  `junit:junit:4.13.2`, and nothing calls `useJUnitPlatform()`. So `kotlin.test.BeforeTest` is
+  `@Before` and runs **per method** — a database per test, had the rule gone there — and a JUnit 5
+  `@RegisterExtension` would be worse than slow: the platform is not running, so it would silently
+  never fire at all. `@ClassRule` with `EmbeddedPostgresRules.singleInstance()` is one database per
+  class, and `TRUNCATE` between tests.
+
+### The interface had to widen, and the comment that said it would not was half right
+
+#108's `ColonyRepository` carried no version anywhere, and `served()` called `write` once with no
+retry. **`ApiError.StaleColony` was in the taxonomy and produced by nothing.** The interface comment
+claiming the swap to a real store was *"a class rather than a redesign"* was true of three of the
+four methods and not of the fourth: a compare-and-set needs the read to hand back a token, the write
+to carry it, and the caller to do something when it loses. All three are changes to slice 1.
+
+So `colonyOf` and `found` answer a `StoredColony` — the colony **and** the version it was read at,
+travelling together because using one without the other is the bug — and `write` takes `expected` and
+answers `WriteResult`. The pair is what turns a last-write-wins into a compare-and-set.
+
+**The retry is `Endpoints.kt`'s and the atomicity is the database's**, and neither could be the
+other's. A `Mutex` is enough for one process and Cloud Run runs several sharing nothing but the
+database, so the exclusion has to be a `WHERE version = ?` that updates no row when it loses. What
+the caller then does about losing is a policy, and policy belongs where a unit test can reach it —
+the same rule #108 followed when it moved the rules out of the Ktor file.
+
+**The whole attempt is inside the loop, and every line of it has to be.** A retry that reused the
+colony it had already read would write the loser's work over the winner's; a retry that reused the
+keys it had already read would apply a verb the other device had just applied — a double-spend
+arriving through the very mechanism built to prevent one. `replay` is a pure function of
+`(colony, envelopes, serverNow)` precisely so that a second attempt is a second computation on
+fresher input rather than a repair of a half-finished one, and `ReplayTest` has pinned that since
+#108.
+
+**Three attempts, and the number is a judgement rather than a measurement.** Contention here is two
+of *one player's own devices* syncing in the same second: rare, never adversarial, and very nearly
+always settled by the second attempt. What the bound is for is the case nobody plans for — a client
+in a loop, a retry storm after a deploy — where an unbounded retry turns one wedged colony into a
+wedged instance. Losing three times is `409` and `ApiError.StaleColony`, whose whole content is
+*"nothing you queued was judged, ask again"*: the verbs are still in the outbox and the colony on the
+phone is still the last one the server agreed to.
+
+**`InMemoryColonyRepository` answers the same `WriteResult`**, including for a colony that was never
+founded. That is not symmetry for its own sake: `UPDATE … WHERE player_id = ? AND version = ?`
+touches no row whether the version moved on or the row is not there, and cannot tell the two apart —
+so a fake that distinguished them would make every unit test standing on it a lie. The two stores are
+tested with deliberately parallel files for the same reason.
+
+### Three tables, and the third one is the one with no ceiling
+
+`players`, `colonies`, `applied_verbs`, exactly #106 §5.4. No ORM, no entity mapping, and the whole
+migration story is one `schema.sql` of `IF NOT EXISTS` statements applied at startup — which has to
+be a no-op the second time, because Cloud Run starts this process again on every scale-up from zero.
+A framework would buy an ordered ladder; there is one shape and nothing has ever been deployed, so
+the day a column has to change is the day to argue for the tool.
+
+`schema_version` and `last_updated_at` are denormalised out of the JSON and are read by nothing in
+this code. They are there so that *"which colonies are still on schema 15"* and *"which colonies have
+not synced in a month"* are one query rather than a full scan and a parse — the two questions a
+deploy actually asks.
+
+**`players` is written and not yet used**, which is #109's half of #110. `colonies.player_id` is a
+foreign key, so the row has to exist before the first colony does; `provider` carries the placeholder
+`'header'` and `subject` the header value, so the shape #110 needs is already in the table and there
+is no live data to reshape underneath. There is none until #111.
+
+**`applied_verbs` is the one table with no natural bound**, so it is pruned: a key is only ever asked
+about by a client still retrying the verb that minted it, and thirty days is wide enough that the
+honest answer to *"could a retry still arrive?"* is no. The sweep runs on the process rather than on a
+request — a maintenance pass on the request path is one player's sync paying for everybody's — with
+the first pass at startup, which on a host that scales to zero is most of the mechanism.
+
+### What "survives a restart" was made to mean
+
+Two servers, one after the other, sharing nothing but a database: a fresh connection pool, a fresh
+`PostgresColonyRepository`, a fresh Ktor application, and not one object in common. The first founds a
+colony and starts a mine; a week passes with nothing running anywhere; the second opens the colony,
+and the mine has finished.
+
+That shape rather than a second `colonyOf` on the same repository, because the store on its own is
+exactly the thing a restart throws away — a test that kept it would be asserting the one property it
+was meant to be proving. The second test in the file is the half that is easy to forget:
+`applied_verbs` outliving the process too, so the phone that lost a response on a train resends the
+envelope and is not charged twice.
+
+### Pruning at startup rather than on a timer, because Cloud Run freezes the CPU
+
+The first cut launched a coroutine that swept `applied_verbs` every twenty-four hours. **On the host
+this is going to run, that loop would never once have fired.** Cloud Run throttles an instance's CPU
+to nearly nothing outside a request, so a background `delay(24.hours)` is a thing that reads as
+scheduled maintenance and does nothing — the dead-control rule's exact shape, arriving on a server
+where nobody would go looking for it.
+
+Startup is enough for the same reason: the host scales to zero and idles instances out in minutes, so
+a process that has been up long enough for the sweep to matter is one somebody configured to stay up,
+and that configuration is #111's along with the Cloud Scheduler ping it would want anyway. Failing
+there fails the boot, deliberately — a `DELETE` that cannot run against a database whose DDL applied
+a line earlier is not a hiccup.
+
+### The store falls back to memory with no `DATABASE_URL`, and says so
+
+`./gradlew :server:run` with no database still serves a colony that can be founded and played end to
+end, which is what slice 1 shipped and what the dev loop wants. The failure to avoid is a *deployed*
+server quietly doing the same because a variable was misspelled and losing every colony it is handed,
+so it is a line in the log rather than a silence. **#111 is what sets the variable**, and this is
+flagged on that slice rather than left to be noticed.
+
+### What the coverage gate cost, and what Davide was asked for
+
+Measured over five passes with `--no-build-cache`, against `main` at `a6b0529`. **The gate passes on
+all ten values**, and the slice takes the integration row from 11.552% to 12.479% line and 7.865% to
+8.378% branch, which is what a store tested by its own kind looks like.
+
+**One row fell and it was the predictable one.** A JDBC store is reachable only from a test that has a
+database, which by this repository's taxonomy makes every test of it an `…IntegrationTest` — so the
+unit row went **92.503% → 91.730%** line and **86.629% → 86.284%** branch on 76 lines and 18 branches
+that no test of that kind can reach.
+
+#108's answer to a falling unit row was structural rather than a filter, and **half of that answer
+applies here and half does not.** The half that does: the decisions came out of the store before the
+report was ever read — the row-to-colony mapping is `ColonyRow.kt`, including the three-armed `when`
+that decides what a row which will not decode *means*, and the compare-and-set's retry policy is
+`Endpoints.kt`. Both are unit-tested. The half that does not: what is left after that is genuinely a
+connection, a transaction and seven statements, and there is no better file to put them in. A seam
+with a fake `Sql` behind it would buy tests that assert which string was sent rather than whether the
+SQL is right, which is the one thing only a real database can say.
+
+**Davide's call, 2026-08-25: exclude `classes("dev.fardavide.oltre.server.Postgres*")` from the unit
+pass only.** It is the seventh entry in the per-pass filter block and it is the first entry's sentence
+again — *a unit test cannot render a composable*, and a unit test cannot open a database connection
+either. With it the unit rows land at **92.472%** line (−0.031, inside the gate's 0.05) and
+**86.677%** branch, which is *above* the baseline.
+
+Two things keep it inside 0.4.2's rules rather than beside them:
+
+- **The condition is structural and checkable**, like `StepperGesture.kt`'s *"nothing in that file
+  draws"*: **nothing in these two files decides anything.** A rule that drifted back into the store
+  would be quietly hidden by this entry, so the files earn it by holding nothing but connections and
+  statements — and the entry names two files rather than the package, so a new one has to be argued
+  for.
+- **The integration and unfiltered passes see every line**, and report the two files at
+  **49/50 and 16/17** — 98% and 94%. The package reads 80.4% integration and 97.1% in the unfiltered
+  pass. So a statement no test runs at all still shows up in the row whose job that is.
+
+**What is left uncovered in every pass is `Main.kt`, and it is left that way.** `MainKt$main$1` was
+one line at #108 and is now joined by `MainKt$postgres$1`, five more: the pool, the DDL and the
+startup prune, inside `runBlocking`. The existing entry-point exclusion names `MainKt` exactly and
+does not reach a lambda inside it — the same trailing-`*` question `AppKt*` had to answer. Six lines
+do not move a gated number, and widening a filter that is already granted is still not something to
+do in passing. Three more are `error(…)` arms that cannot be reached without corrupting a row by
+hand: a missing `schema.sql`, a colony inserted and not there, and the elvis on a null exception
+message that #108 left.
