@@ -53,6 +53,10 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **30–35** — all five OAuth clients created and filed at `0600`, `google.env` complete, nothing
   left in `~/Downloads`. Web `…lm195vos`, iOS `…rb18lnl9` (+ its reversed form for step 48), Desktop
   `…n76952ma`, and the two Android clients `…2il2q71g` / `…d7drjab4`.
+- **42** — `gcloud` installed and on the login PATH; APIs enabled; `oltre-apple-signin-p8` and
+  `oltre-session-jwt-key` created in `europe-west1`; service account `oltre-server` created and
+  granted `secretAccessor` per-secret. The stored p8 round-trips to the recorded digest, so Secret
+  Manager is a proven third copy. **The budget alert is the one thing left, and it is browser-only.**
 - **40, 41** — decisions round written into `decisions.md`; the stale "no off-machine copy" note in
   memory closed, and a second memory added for the sign-in credentials. GitHub secrets confirmed
   unchanged at the four `ANDROID_*` — nothing identity-related belongs there yet.
@@ -63,8 +67,8 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
   public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
   and `apple.env` written.
 
-**Everything in the do-today half is now done except step 42**, which is optional and is the only
-thing left that needs you — see that step for what it costs and why it can also simply wait.
+**The do-today half is finished.** The one thing outstanding is the budget alert in step 42, which
+has no CLI worth using — see that step. Everything from 43 onward waits on the server existing.
 
 ## If you only have 30 minutes
 
@@ -1279,9 +1283,23 @@ check is that they were recorded:
 gcloud secrets get-iam-policy oltre-apple-signin-p8 --project=oltre-506614
 ```
 
-And set the guard the zero-euro target otherwise has none of — a budget alert, in the console at
-**Billing → Budgets & alerts**, at €2/month with email at 50% and 100%. It is the only thing that
-would catch a load balancer or a minimum-instance setting being turned on later.
+**Done 2026-08-25**, except the budget alert. What ran, and what it produced:
+
+- Both APIs enabled.
+- `oltre-apple-signin-p8` and `oltre-session-jwt-key`, both `user-managed` replication pinned to
+  `europe-west1`.
+- Service account `oltre-server@oltre-506614.iam.gserviceaccount.com`.
+- `roles/secretmanager.secretAccessor` granted on each secret **individually**. Confirmed with
+  `get-iam-policy`: that service account is the only member on either.
+- **The stored p8 verified by round-trip** — reading version 1 back out and re-deriving its
+  public-key digest gives `95d11ed5…28d13d9b`, matching step 20. That is what makes Secret Manager a
+  genuine third copy rather than an assumption: unlike a GitHub secret it is readable back.
+
+**Still to do, and it has no CLI worth using: the budget alert.** Console,
+**Billing → Budgets & alerts**, €2/month, email at 50% and 100%. `gcloud billing budgets` exists but
+needs the Cloud Billing Budget API enabled and a JSON budget spec, which is more moving parts than
+the form. It is the only guard the zero-euro target has — the thing that would catch a load balancer
+or a minimum-instance setting being switched on months from now, when nobody is looking.
 
 Create `oltre-google-web-client-secret` and `oltre-database-url` later: an empty secret version is
 worse than a missing one, because the instance starts and then fails at the first query.
