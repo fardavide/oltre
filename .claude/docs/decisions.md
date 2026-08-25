@@ -5326,3 +5326,45 @@ Three things, and none of them is a loose end left by accident:
 - **`FakeOltreApi` already tested**, which is the whole reason it landed here. `App()` is about to
   require a network and the entire behaviour and screenshot suite runs on the desktop target; without
   this ready, #113 turns every behaviour test in the repository red at once.
+
+## The site is generated from what is published, not from what `main` carries (2026-08-25)
+
+`oltre.space` was a placeholder — a title, a sentence and nothing to press. It now carries the
+latest Android build, what that build changed, a link to every other one, and a plain statement
+that the iPhone half is on internal TestFlight. `site/index.html` is the template,
+`.github/scripts/build_site.py` fills it, `pages.yml` pushes the result to `gh-pages`. No version
+bump: the site is not the app, and `release-android.yml` only fires on the catalogue.
+
+**The input is `gh release view`, not `gradle/libs.versions.toml`, and that is the whole safety
+argument.** `main` carries the next version the moment a bump merges, but the APK it names does
+not exist until the release job has built and uploaded one — twenty minutes later. A page built
+from the catalogue would spend those twenty minutes offering a download that 404s, on the one
+control the page exists for. Asking GitHub what is published cannot describe a release that is not
+there; the cost is that the page lags a bump by one release build, which is exactly right.
+
+**The release trigger is `workflow_run`, and `release: published` would have failed silently.**
+`release-android.yml` creates the release with `github.token`, and GitHub does not start workflows
+from events a token raised. The `release` trigger is the obvious one, it is wrong here, and its
+failure mode is a site frozen at whatever version last touched `site/`. What does fire is the
+completion of the workflow itself.
+
+**Pages stays on deploy-from-branch.** Switching `build_type` to `workflow` would drop a branch and
+two files, and it is a repository *setting* change with `oltre.space` and its certificate on the
+other side of it. The branch push is four lines of `git` against official actions only, and it is
+reversible by pushing again.
+
+**The screenshots are the committed Roborazzi baselines**, copied in by the build rather than
+exported by hand. A landing page whose screens are stale mock-ups of screens the app no longer has
+is the ordinary outcome, and it is invisible until somebody who has the app looks at it. Here a
+renamed baseline fails the build — `ASSETS` names the path, and the page's own markup is checked
+against what the build wrote, so an image that would not load is a red job rather than a broken
+page. `TestTheRealSite` runs that build against this repository in the Coverage job.
+
+**The iPhone half is text, not a button.** Internal TestFlight has no public join URL, so anything
+clickable there would go nowhere, and a control that does nothing is worse than an absent one. It
+is a card that says what the state is — the fourth option in the global rule: enabled things
+explain, and unbuilt things say so.
+
+**And the notes come from the README**, through `android_release.release_notes` — the same parser
+the release body already uses. Two copies of a changelog is two changelogs, and the second one is
+always the stale one.
