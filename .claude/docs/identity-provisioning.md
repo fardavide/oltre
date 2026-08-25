@@ -49,9 +49,12 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **36** — `session-jwt.key` generated, 88 base64 characters, `0600`.
 - **9, 10, 11** — `gh-pages` pushed, Pages pointed at `oltre.space`, certificate issued, Enforce
   HTTPS on. `https://oltre.space/` serves the page and `www` redirects to the apex.
+- **19, 20, 21** — key `AuthKey_77FXWGUFQY.p8` in place at `0600`, verified P-256 / prime256v1,
+  public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
+  and `apple.env` written.
 
-So the next thing that needs you is **step 12** — the Apple Developer portal. Read step 13 before
-you save that dialog.
+So the next thing that needs you is **step 22** — the server-to-server notification endpoint, which
+is optional today — and then **Part 4, Google**, from step 24.
 
 ## If you only have 30 minutes
 
