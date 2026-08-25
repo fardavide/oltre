@@ -4852,6 +4852,523 @@ not reach a lambda inside `main` — the same trailing-`*` question `AppKt*` had
 line, it does not move a gated number, and widening a filter that is already granted is not something
 to do in passing.
 
+## A colony survives a restart, and the exit to SQLite costs a class (2026-08-25, issue #109)
+
+Slice 2 of #106, on top of the server #108 landed. Three tables, a JDBC store behind the existing
+`ColonyRepository`, and the compare-and-set that finally gives `ApiError.StaleColony` something that
+produces it. Nothing a player sees moves and nothing ships, so there is no version bump; #107, #108
+and #119 are the precedent.
+
+### §6's exit-cost sentence is wrong, and correcting it was the price of using Postgres properly
+
+#106 §6 chose Postgres over Firestore on exit cost, and said so in one sentence:
+
+> Cloud Run + Neon and Hetzner + SQLite become the same code modulo a driver, and moving between them
+> is `pg_dump` plus a redeploy — an afternoon, at any time.
+
+**That is not true and this slice is where it stops being claimed.** The schema uses `jsonb`,
+`timestamptz` and `ON CONFLICT`, and SQLite has none of them. There were two ways out: write
+conservative portable SQL and keep the sentence literally true, or use the database that was chosen
+and correct the sentence. **Davide's call, 2026-08-25: use Postgres properly.**
+
+The corrected claim, which is the one worth having:
+
+> The exit is a second implementation of `ColonyRepository` — a class rather than a line. Nothing
+> above the interface moves: not the replay, not the routes, not a test that is not an
+> `…IntegrationTest`. That is what having an interface at all buys, and it is still an afternoon.
+
+**Nothing about the hosting decision moves**, and it is worth saying why the correction does not
+reopen it. Cloud Run is stateless and scales to zero, so SQLite was never available *there* in the
+first place; the chain €0 → Cloud Run → a networked database holds without the exit argument. What
+changes is only the size of the escape hatch, from a line to a file.
+
+Two consequences, both cashed in immediately:
+
+- **`snapshot_json` is `jsonb` rather than `text`.** The value is a document Postgres can validate
+  and query into, so `SELECT snapshot_json ->> 'schemaVersion'` is an answer rather than an error —
+  which is the difference between "which colonies are still on schema 15" being a query and being a
+  script. Nothing in the server reads a field out of it; `core`'s migration ladder is what reads a
+  save, exactly as §5.4 says.
+- **`ON CONFLICT DO NOTHING` is what makes founding idempotent**, and the affected-row count is what
+  tells a first founding from a retry after a lost response. Written portably that would have been a
+  `SELECT` and an `INSERT` with a race between them.
+
+**Two features from the drafted DDL are deliberately not used**, and saying so is part of the
+correction rather than an omission from it. `gen_random_uuid()` is not there because `players.id` is
+the header value until #110 mints a real identity, and a surrogate key with nothing yet to key would
+be a migration written in advance of the thing it migrates. `FOR UPDATE SKIP LOCKED` is not there
+because nothing here is a work queue: the concurrency control *is* the version column, and an
+optimistic token costs nothing when two devices do not collide — which is almost always — where a
+lock costs a held connection every time.
+
+**H2 in `MODE=PostgreSQL` was measured and is out.** It rejects `timestamptz` outright (*"Unknown
+data type"*) and `ON CONFLICT … DO UPDATE` is a syntax error, so the SQL that shipped could not have
+been the SQL under test — which is the only property a fake database is bought for.
+
+### Zonky `embedded-postgres`, and why not Testcontainers
+
+#109's Done-means named Testcontainers. **There is no container runtime on Davide's machine at all**
+— no `docker`, `colima` or `podman` binary, no socket, nothing in `/Applications`. The root build
+file states that an absent `oltre.testCategory` *"means all of them — and what `check` does"*, so a
+Testcontainers `…IntegrationTest` would make `./gradlew check` fail locally and permanently, on the
+one machine that does the UI work, and take `measure-coverage.sh` with it. A suite that cannot be run
+locally is a suite that stops being run.
+
+**Davide's call, 2026-08-25: Zonky.** It unpacks a real PostgreSQL from a jar and runs it as a child
+process — no daemon, no image pull, no egress. The whole suite starts two of them and finishes in
+about three seconds. And it is one mechanism at both ends: `ubuntu-latest` runs it the same way, so
+`ci.yml` does not change and no job grows a service container.
+
+The pinning is the part that is easy to get wrong, and the obvious version of it is wrong:
+
+```kotlin
+testImplementation(platform(libs.embedded.postgres.binaries.bom))
+testImplementation(libs.embedded.postgres)
+testRuntimeOnly(libs.embedded.postgres.binaries.darwin.arm64v8)
+testRuntimeOnly(libs.embedded.postgres.binaries.linux.arm64v8)
+```
+
+`embedded-postgres:2.2.2` defaults its binaries to **14.22.0**, so pinning only the Mac artifact
+tests PostgreSQL 17 here and PostgreSQL 14 on CI — the same suite, two databases, and only one of
+them the one the SQL was written for. The `platform(…)` line is what lifts the transitive artifacts
+to 17.10.0; the two `testRuntimeOnly` lines add the arm64 platforms the pom omits entirely, because
+it ships amd64 only.
+
+**Measured on this machine before a line of the store was written**, which was the point of doing it
+first: `uname -m` is `arm64`, the user is `davide` and not root, `initdb` completes, and
+`SELECT version()` answers *"PostgreSQL 17.10 on x86_64-apple-darwin24.6.0"*. The triple in that
+string is where the binary was built and not where it is running — the extracted `bin/postgres` is a
+universal binary carrying both slices, so it runs native.
+
+Three hazards were designed around rather than discovered, and two of them only bite on a runner that
+is not this machine:
+
+- **`initdb` refuses to run as root** and Zonky has no uid handling. `ubuntu-latest` runs as `runner`.
+- **`initdb` fails with *"invalid locale settings"* when `LANG` and `LC_ALL` are both unset**, which
+  is the normal state of a minimal container. Zonky ships a Maven profile for exactly this and a
+  Gradle build inherits none of it, so the rule passes `.setLocaleConfig("locale", "C")` and
+  `.setLocaleConfig("encoding", "UTF-8")` unconditionally.
+- **This repository is on JUnit 4**, not the JUnit Platform: `kotlin-test` → `kotlin-test-junit` →
+  `junit:junit:4.13.2`, and nothing calls `useJUnitPlatform()`. So `kotlin.test.BeforeTest` is
+  `@Before` and runs **per method** — a database per test, had the rule gone there — and a JUnit 5
+  `@RegisterExtension` would be worse than slow: the platform is not running, so it would silently
+  never fire at all. `@ClassRule` with `EmbeddedPostgresRules.singleInstance()` is one database per
+  class, and `TRUNCATE` between tests.
+
+### The interface had to widen, and the comment that said it would not was half right
+
+#108's `ColonyRepository` carried no version anywhere, and `served()` called `write` once with no
+retry. **`ApiError.StaleColony` was in the taxonomy and produced by nothing.** The interface comment
+claiming the swap to a real store was *"a class rather than a redesign"* was true of three of the
+four methods and not of the fourth: a compare-and-set needs the read to hand back a token, the write
+to carry it, and the caller to do something when it loses. All three are changes to slice 1.
+
+So `colonyOf` and `found` answer a `StoredColony` — the colony **and** the version it was read at,
+travelling together because using one without the other is the bug — and `write` takes `expected` and
+answers `WriteResult`. The pair is what turns a last-write-wins into a compare-and-set.
+
+**The retry is `Endpoints.kt`'s and the atomicity is the database's**, and neither could be the
+other's. A `Mutex` is enough for one process and Cloud Run runs several sharing nothing but the
+database, so the exclusion has to be a `WHERE version = ?` that updates no row when it loses. What
+the caller then does about losing is a policy, and policy belongs where a unit test can reach it —
+the same rule #108 followed when it moved the rules out of the Ktor file.
+
+**The whole attempt is inside the loop, and every line of it has to be.** A retry that reused the
+colony it had already read would write the loser's work over the winner's; a retry that reused the
+keys it had already read would apply a verb the other device had just applied — a double-spend
+arriving through the very mechanism built to prevent one. `replay` is a pure function of
+`(colony, envelopes, serverNow)` precisely so that a second attempt is a second computation on
+fresher input rather than a repair of a half-finished one, and `ReplayTest` has pinned that since
+#108.
+
+**Three attempts, and the number is a judgement rather than a measurement.** Contention here is two
+of *one player's own devices* syncing in the same second: rare, never adversarial, and very nearly
+always settled by the second attempt. What the bound is for is the case nobody plans for — a client
+in a loop, a retry storm after a deploy — where an unbounded retry turns one wedged colony into a
+wedged instance. Losing three times is `409` and `ApiError.StaleColony`, whose whole content is
+*"nothing you queued was judged, ask again"*: the verbs are still in the outbox and the colony on the
+phone is still the last one the server agreed to.
+
+**`InMemoryColonyRepository` answers the same `WriteResult`**, including for a colony that was never
+founded. That is not symmetry for its own sake: `UPDATE … WHERE player_id = ? AND version = ?`
+touches no row whether the version moved on or the row is not there, and cannot tell the two apart —
+so a fake that distinguished them would make every unit test standing on it a lie. The two stores are
+tested with deliberately parallel files for the same reason.
+
+### Three tables, and the third one is the one with no ceiling
+
+`players`, `colonies`, `applied_verbs`, exactly #106 §5.4. No ORM, no entity mapping, and the whole
+migration story is one `schema.sql` of `IF NOT EXISTS` statements applied at startup — which has to
+be a no-op the second time, because Cloud Run starts this process again on every scale-up from zero.
+A framework would buy an ordered ladder; there is one shape and nothing has ever been deployed, so
+the day a column has to change is the day to argue for the tool.
+
+`schema_version` and `last_updated_at` are denormalised out of the JSON and are read by nothing in
+this code. They are there so that *"which colonies are still on schema 15"* and *"which colonies have
+not synced in a month"* are one query rather than a full scan and a parse — the two questions a
+deploy actually asks.
+
+**`players` is written and not yet used**, which is #109's half of #110. `colonies.player_id` is a
+foreign key, so the row has to exist before the first colony does; `provider` carries the placeholder
+`'header'` and `subject` the header value, so the shape #110 needs is already in the table and there
+is no live data to reshape underneath. There is none until #111.
+
+**`applied_verbs` is the one table with no natural bound**, so it is pruned: a key is only ever asked
+about by a client still retrying the verb that minted it, and thirty days is wide enough that the
+honest answer to *"could a retry still arrive?"* is no. The sweep runs on the process rather than on a
+request — a maintenance pass on the request path is one player's sync paying for everybody's — with
+the first pass at startup, which on a host that scales to zero is most of the mechanism.
+
+### What "survives a restart" was made to mean
+
+Two servers, one after the other, sharing nothing but a database: a fresh connection pool, a fresh
+`PostgresColonyRepository`, a fresh Ktor application, and not one object in common. The first founds a
+colony and starts a mine; a week passes with nothing running anywhere; the second opens the colony,
+and the mine has finished.
+
+That shape rather than a second `colonyOf` on the same repository, because the store on its own is
+exactly the thing a restart throws away — a test that kept it would be asserting the one property it
+was meant to be proving. The second test in the file is the half that is easy to forget:
+`applied_verbs` outliving the process too, so the phone that lost a response on a train resends the
+envelope and is not charged twice.
+
+### Pruning at startup rather than on a timer, because Cloud Run freezes the CPU
+
+The first cut launched a coroutine that swept `applied_verbs` every twenty-four hours. **On the host
+this is going to run, that loop would never once have fired.** Cloud Run throttles an instance's CPU
+to nearly nothing outside a request, so a background `delay(24.hours)` is a thing that reads as
+scheduled maintenance and does nothing — the dead-control rule's exact shape, arriving on a server
+where nobody would go looking for it.
+
+Startup is enough for the same reason: the host scales to zero and idles instances out in minutes, so
+a process that has been up long enough for the sweep to matter is one somebody configured to stay up,
+and that configuration is #111's along with the Cloud Scheduler ping it would want anyway. Failing
+there fails the boot, deliberately — a `DELETE` that cannot run against a database whose DDL applied
+a line earlier is not a hiccup.
+
+### The store falls back to memory with no `DATABASE_URL`, and says so
+
+`./gradlew :server:run` with no database still serves a colony that can be founded and played end to
+end, which is what slice 1 shipped and what the dev loop wants. The failure to avoid is a *deployed*
+server quietly doing the same because a variable was misspelled and losing every colony it is handed,
+so it is a line in the log rather than a silence. **#111 is what sets the variable**, and this is
+flagged on that slice rather than left to be noticed.
+
+### What the coverage gate cost, and what Davide was asked for
+
+Measured over five passes with `--no-build-cache`, against `main` at `a6b0529`. **The gate passes on
+all ten values**, and the slice takes the integration row from 11.552% to 12.479% line and 7.865% to
+8.378% branch, which is what a store tested by its own kind looks like.
+
+**One row fell and it was the predictable one.** A JDBC store is reachable only from a test that has a
+database, which by this repository's taxonomy makes every test of it an `…IntegrationTest` — so the
+unit row went **92.503% → 91.730%** line and **86.629% → 86.284%** branch on 76 lines and 18 branches
+that no test of that kind can reach.
+
+#108's answer to a falling unit row was structural rather than a filter, and **half of that answer
+applies here and half does not.** The half that does: the decisions came out of the store before the
+report was ever read — the row-to-colony mapping is `ColonyRow.kt`, including the three-armed `when`
+that decides what a row which will not decode *means*, and the compare-and-set's retry policy is
+`Endpoints.kt`. Both are unit-tested. The half that does not: what is left after that is genuinely a
+connection, a transaction and seven statements, and there is no better file to put them in. A seam
+with a fake `Sql` behind it would buy tests that assert which string was sent rather than whether the
+SQL is right, which is the one thing only a real database can say.
+
+**Davide's call, 2026-08-25: exclude `classes("dev.fardavide.oltre.server.Postgres*")` from the unit
+pass only.** It is the seventh entry in the per-pass filter block and it is the first entry's sentence
+again — *a unit test cannot render a composable*, and a unit test cannot open a database connection
+either. With it the unit rows land at **92.472%** line (−0.031, inside the gate's 0.05) and
+**86.677%** branch, which is *above* the baseline.
+
+Two things keep it inside 0.4.2's rules rather than beside them:
+
+- **The condition is structural and checkable**, like `StepperGesture.kt`'s *"nothing in that file
+  draws"*: **nothing in these two files decides anything.** A rule that drifted back into the store
+  would be quietly hidden by this entry, so the files earn it by holding nothing but connections and
+  statements — and the entry names two files rather than the package, so a new one has to be argued
+  for.
+- **The integration and unfiltered passes see every line**, and report the two files at
+  **49/50 and 16/17** — 98% and 94%. The package reads 80.4% integration and 97.1% in the unfiltered
+  pass. So a statement no test runs at all still shows up in the row whose job that is.
+
+**What is left uncovered in every pass is `Main.kt`, and it is left that way.** `MainKt$main$1` was
+one line at #108 and is now joined by `MainKt$postgres$1`, five more: the pool, the DDL and the
+startup prune, inside `runBlocking`. The existing entry-point exclusion names `MainKt` exactly and
+does not reach a lambda inside it — the same trailing-`*` question `AppKt*` had to answer. Six lines
+do not move a gated number, and widening a filter that is already granted is still not something to
+do in passing. Three more are `error(…)` arms that cannot be reached without corrupting a row by
+hand: a missing `schema.sql`, a colony inserted and not there, and the elvis on a null exception
+message that #108 left.
+
+## The client learns to ask, and the outbox is the half that has to survive a kill (2026-08-25, issue #112)
+
+Slice 5 of #106, and the first one on the client side of the wire. Two new modules —
+`:client:net:data` and `:client:net:data-testing` — an outbox that persists, keys minted at the edge,
+a backoff, and a handwritten fake server. **Nothing a player can do changes and nothing ships**, so
+there is no version bump; #107, #108, #109 and #119 are the precedent.
+
+Nothing depends on either module when it is done. That is the slice as scoped: the shell cutover is
+#113's whole job, and it is the reason three separate things in this entry read as unfinished and are
+not.
+
+### The sanctioned tool was broken, and that is a rule rather than an anecdote
+
+`.claude/tools/gradle-without-agp.sh` swaps in a minimal overlay for the build files it covers. Two
+of those overlays had gone stale, and the failure mode is the expensive one: a *compile* error in a
+module the script claims to build, which a session cannot tell from its own breakage.
+
+- `:client:save:data` gained `alias(libs.plugins.kotlinxSerialization)` for `PreferencesStore`; the
+  overlay did not, so `serializer()` stopped resolving.
+- `:client:notifications:data` gained `api(projects.client.design.text)` for `TextRes`; the overlay
+  had neither that line, nor an `include(…)` for `:client:design:text`, nor a build file for it.
+
+Both are fixed, `:client:design:format` joins them (the script's own header claimed it was buildable
+and it was not included at all), and the header now states the rule: **adding a dependency to a
+covered module means adding it to the overlay in the same commit** — and if the dependency is a
+module the script does not yet include, it needs an `include(…)`, a `kover(…)` and an overlay build
+file of its own.
+
+### `OltreApi`, `Outbox`, `ColonySync` — and the transport decides nothing
+
+The same split #108 made on the other side of the wire, for the same reason: **a decision belongs
+where the kind of test that judges it can reach it.** `KtorOltreApi` encodes, posts, reads a status
+line and decodes; everything about *what to do with the answer* is `ColonySync`, which is a plain
+`…Test` driven by a handwritten fake and a clock a test moves by hand.
+
+`ApiResult` has three members and the split that earns the third is between `Refused` and
+`Unreachable`. `Refused` is the server having answered — it read the request and formed an opinion,
+and `ApiError` is that opinion. `Unreachable` is nothing having answered at all, which is the case
+the outbox exists for. **`ApiError` deliberately has no member for "no connection"**: it is the
+taxonomy of what a *server* says, and a server that says nothing has said nothing.
+
+### `act` asks once and `sync` retries, and that is about who is waiting
+
+Both go through one loop, with the policy as its parameter. `RetryPolicy.DEFAULT` is three attempts
+one and three seconds apart; `RetryPolicy.ONCE` is what a tap uses.
+
+The argument is not that a tap is less important. It is that **the outbox has already taken the
+verb** by the time the first attempt is made, so a second and third attempt buys a colony that
+arrives four seconds later and nothing else — with the screen waiting the whole time. A background
+sync has no such clock on it, which is why it is the one that retries.
+
+`RetryPolicy` holds **the waits themselves** rather than `(attempts, first, factor, cap)`, and the
+shape was chosen for the awkward case: a single-attempt policy has *no* waits, so
+`RetryPolicy(emptyList())` describes it completely, where a policy carrying a first delay and a
+factor it can never reach would hold two fields that mean nothing. It also makes the drain loop
+arithmetic-free — `waits[index]` is what to wait after the attempt at `index`, and running off the
+end **is** the last attempt.
+
+**No jitter**, deliberately. Jitter spreads a herd of clients that failed together; there is one
+device here, so it would buy nothing and cost the property that makes a backoff testable at all,
+which is that the waits are known before the run. The test is a step-by-step one — start the sync,
+move virtual time by hand, and assert that the second attempt has *not* happened at 999ms and has at
+1000ms. A total-elapsed assertion cannot tell three properly spaced calls from three that all landed
+at zero.
+
+### `StaleColony` is the only error worth asking again about, and `NotNow` is one member and not two
+
+#109 gave `ApiError.StaleColony` a producer, and this slice is the first thing that has to answer it.
+The answer is **sync again, and say nothing** — nothing the player queued was judged, the server lost
+its own compare-and-set and wrote nothing, so the verbs are still in the outbox and the colony on
+screen is still the one they last saw. There is nothing to tell them and nothing to undo.
+
+Everything else in the taxonomy is terminal by construction and returns immediately: a second
+`Unauthenticated` is still `Unauthenticated`, and three attempts at it would hold the sign-in screen
+back four seconds for no reason.
+
+**A sync that ran out of attempts answers `SyncOutcome.NotNow`, whether it never got through or lost
+the race every time.** Those were two members for a while and one is right: `ApiError`'s taxonomy
+splits what gets different *words*, and these two get the same silence, so splitting them would be a
+distinction the player could never be shown. `act` needs no such member at all — a tap that did not
+get through is `Queued` or `NotQueueable`, which is the whole of #106 §3 and is something to say.
+
+### A `5xx` whose body is not an `ApiError` is `Unreachable`, not `Malformed`
+
+This is the one decision in the slice that is about the deployment rather than about the wire.
+#106 §6 puts the server on Cloud Run, which **scales to zero** — so the first request after an idle
+spell can be answered by the load balancer rather than by the app: a `502` or a `503` carrying HTML,
+from something that never saw the colony. Read as `Malformed` that would surface to the player as an
+error *and*, worse, `ColonySync` would treat it as a settled answer and not queue the verb.
+
+A `4xx` is the other way round: something did read the request and formed an opinion about it, so a
+body this build cannot parse there is a disagreement about the contract, which is exactly what
+`ApiError.Malformed` is for. `Sync.kt` asked for that half by name — *"a response that cannot be read
+coherently is one #112 turns into `ApiError.Malformed`"* — and both `init` guards on `SyncResponse`
+run on decode, so a response with a key in `applied` and `rejected` at once arrives as one.
+
+### The outbox declares its own file rather than reaching `:client:save:data`
+
+`OutboxFile` is `SaveFile` with a different name, three methods and the same contract. That is
+deliberate. The obvious move is to reuse the interface that already exists one feature over, and it
+would create a `:client:net:data -> :client:save:data` edge — a **cross-feature** dependency, which
+the build warns about on every clean run precisely so that features do not start reaching through
+each other.
+
+So the outbox declares the port it needs, and the composition root — the one module allowed to see
+both — supplies something that writes bytes. That costs an adapter of about five lines at #113 and
+buys the property the warning defends. It is the same call `design`, `dispatch`, `world` and
+`changelog` each had to argue their way *out of*, made in the other direction.
+
+**An unreadable outbox is an empty outbox**, and this one is worth more than the shrug it looks like.
+`GameStore.load` makes the same call about a corrupt colony and it costs nothing there — the save is
+rewritten on the next event. Here it costs taps the player actually made, and there is no honest way
+to recover them: a queue that is half-parsed is a queue whose order is unknown, and replaying an
+unknown order is worse than replaying nothing. Against that, the alternative is refusing to start.
+
+### `PLAYER_HEADER` moves into `:protocol`
+
+#108 wrote it as an `internal const` in `:server`. The client needs the same string, and **a wire
+string spelled out at both ends is a wire string that can differ at both ends** — with the worst
+possible tell, because a header the server does not recognise reads exactly like a player who is not
+signed in. It is `Protocol.PLAYER_HEADER` now and both ends read it.
+
+`PlayerId` stays `:server`'s, and the asymmetry is the point: the *name of the header* is something
+both ends have to agree on, while *who a value in it belongs to* is the server's conclusion rather
+than the client's claim.
+
+### No content negotiation on the client, which is a deviation from the ticket's list
+
+#112 named `ktor-client-content-negotiation` among the artifacts to add. It is not in the catalogue
+and nothing uses it. `Protocol.json` is the one codec both ends speak and the properties that make it
+that one — `encodeDefaults`, and deliberately no `ignoreUnknownKeys` — are the contract rather than a
+preference; a plugin configured with a different dialect would be a client the server cannot read and
+nothing would say so. The server already decodes request bodies by hand for the same reason (`admit`
+in `Endpoints.kt`), and the client's *response* decoding is status-dependent in a way the plugin
+would flatten. A catalogue entry with no consumer is dead weight, so it is not there.
+
+### The fake does not run the game, and that is the load-bearing part of it
+
+`FakeOltreApi` hands back whatever colony it was given; it does not replay verbs through `core`. A
+second dispatch from `ClientVerb` into `core`'s twelve functions is **a second place a thirteenth
+verb can go missing**, which is precisely the failure `ClientVerbTest` and `offlineRule` exist to
+make impossible. A test that wants the colony to change says what it changed to.
+
+What it *does* model is the two server behaviours the client is built around, because a fake that got
+either wrong would let a broken client pass: **a key already applied is reported applied and not
+applied twice**, and **a refusal comes back inside a successful response** rather than as an error.
+
+### The queue-or-refuse split is read off `:protocol` in exactly one place
+
+`Outbox.queue` is the only line in the module that asks `ClientVerb.offlineRule`, and `ColonySync`
+never re-derives it — it offers the envelope to the outbox and branches on the answer. That is why
+`act` persists *before* it sends rather than after: a process killed mid-request still has the verb,
+and a galaxy-touching one was never written in the first place. **Twelve verbs, not the nine #112's
+own table lists** — the table predates 0.18's settings sheet, and nothing here copies it.
+
+### An integration test with a real socket, rather than an exclusion for that pass
+
+A new module with no consumer reads 0% in the passes it cannot reach, which #107 measured and #108
+and #109 each hit in their own shape. Here it took **four** gated values down at once: behaviour line
+92.259% → 91.329% and branch 68.832% → 68.237%, integration line 12.479% → 12.375% and branch 8.378%
+→ 8.336%. (The gate's 0.05 tolerance means it reports three; the integration branch rounds inside
+it.)
+
+The integration half was answered with a test rather than with a filter, and it is a better test than
+the row it fixes. `com.sun.net.httpserver` is in the JDK, so `OltreApiIntegrationTest` starts a real
+server on a loopback port and drives `KtorOltreApi` over a real socket with the real engine. **What
+that proves and a `MockEngine` cannot** is the thing that would be most expensive to have wrong: a
+refused connection has to arrive as an `IOException` and therefore as `ApiResult.Unreachable`, or
+every tap made with no signal propagates out of `act` instead of reaching the outbox — the queue
+never fills, and the failure only ever shows up on a train.
+
+It also keeps this module consistent with every other `data` module, none of which is excluded from
+the integration pass. Four tests took the row to **12.604%**, above the baseline, and the package
+from 0% to 27.7% in that pass.
+
+### What is left is the behaviour pass, and it is `:protocol`'s exclusion word for word
+
+**Davide's call, 2026-08-25: exclude, behaviour pass only.** It is the seventh entry in the per-pass
+filter block, and it is #107's fifth entry word for word: a behaviour test drives Compose, and
+Compose reaches a `data` module through a **consumer** — of which this one has none, because #112
+lands the module and its fake while the shell cutover is #113's. **So it comes out at #113, together
+with `:protocol`'s**, and its removal is self-checking in the way `client.tilt.data`'s was: the row
+goes *up* when it goes, or the tests owed were never written.
+
+Three things keep it inside 0.4.2's rules rather than beside them:
+
+- **It is scoped to one pass, and the two it is not in are load-bearing.** The screenshot filter
+  already carries `packages("*.data")`, so those rows did not move by a thousandth; the integration
+  rows were fixed with a test. Only `behaviour` is filtered.
+- **The unit and unfiltered passes see every line** and report the package at **97.3% and 98.2%**
+  line and **100%** branch in both, so a line no test reaches at all still shows up in the row whose
+  job that is. The two left over are the Android `actual` of `oltreHttpClient`, which no JVM test can
+  call, and the arm where a status line arrives and the body does not.
+- **`:client:net:data-testing` needs no entry and has none.** Every `-testing` module is omitted from
+  the Kover aggregate outright (0.9.1), so `FakeOltreApi` is not in the report to begin with — which
+  is the right answer for the same reason: counting a fake measures the tests testing themselves.
+
+### Two comments said #112 and both meant #113
+
+The root `build.gradle.kts` and the `test-coverage` skill each said, in as many words, that
+`:protocol`'s behaviour exclusion *"comes out at #112"*. They were right about the condition —
+*"once the shell holds a fake transport, the behaviour suite drives every verb through this
+module"* — and wrong about the number, and this slice is where that shows: #112 lands
+`:client:net:data` and **nothing in `client/*` depends on it when it is done**. Deleted a slice
+early, the behaviour row falls and the gate blocks a pull request that is otherwise correct. Both now
+say #113.
+
+The same off-by-one reaches `ci.yml` and `session-roles.md`, where the `:protocol` line's comment
+says it comes off "the day the shell's closure reaches the module" — true as written, and easy to
+read as #112. **It stays**, and `:client:net:data` adds a second line beside it. That one covers
+`:client:net:data-testing` too, because the fake is on the test classpath of the module being
+compiled; and the Apple half it checks is not incidental, since it is where the Darwin engine lives —
+the one file in the module no machine in this repository can run.
+
+### What #113 inherits
+
+Three things, and none of them is a loose end left by accident:
+
+- **An adapter of about five lines**, giving `Outbox` an `OutboxFile` over the platform save
+  directory. `:client:save:data`'s `defaultSaveFile()` is the shape to copy, and the composition root
+  is the module allowed to hold both.
+- **Two exclusions to delete** — `:protocol`'s behaviour half and this slice's — and a CI job with
+  two `compileTestKotlinIosSimulatorArm64` lines that both come off the same day.
+- **`FakeOltreApi` already tested**, which is the whole reason it landed here. `App()` is about to
+  require a network and the entire behaviour and screenshot suite runs on the desktop target; without
+  this ready, #113 turns every behaviour test in the repository red at once.
+
+## The site is generated from what is published, not from what `main` carries (2026-08-25)
+
+`oltre.space` was a placeholder — a title, a sentence and nothing to press. It now carries the
+latest Android build, what that build changed, a link to every other one, and a plain statement
+that the iPhone half is on internal TestFlight. `site/index.html` is the template,
+`.github/scripts/build_site.py` fills it, `pages.yml` pushes the result to `gh-pages`. No version
+bump: the site is not the app, and `release-android.yml` only fires on the catalogue.
+
+**The input is `gh release view`, not `gradle/libs.versions.toml`, and that is the whole safety
+argument.** `main` carries the next version the moment a bump merges, but the APK it names does
+not exist until the release job has built and uploaded one — twenty minutes later. A page built
+from the catalogue would spend those twenty minutes offering a download that 404s, on the one
+control the page exists for. Asking GitHub what is published cannot describe a release that is not
+there; the cost is that the page lags a bump by one release build, which is exactly right.
+
+**The release trigger is `workflow_run`, and `release: published` would have failed silently.**
+`release-android.yml` creates the release with `github.token`, and GitHub does not start workflows
+from events a token raised. The `release` trigger is the obvious one, it is wrong here, and its
+failure mode is a site frozen at whatever version last touched `site/`. What does fire is the
+completion of the workflow itself.
+
+**Pages stays on deploy-from-branch.** Switching `build_type` to `workflow` would drop a branch and
+two files, and it is a repository *setting* change with `oltre.space` and its certificate on the
+other side of it. The branch push is four lines of `git` against official actions only, and it is
+reversible by pushing again.
+
+**The screenshots are the committed Roborazzi baselines**, copied in by the build rather than
+exported by hand. A landing page whose screens are stale mock-ups of screens the app no longer has
+is the ordinary outcome, and it is invisible until somebody who has the app looks at it. Here a
+renamed baseline fails the build — `ASSETS` names the path, and the page's own markup is checked
+against what the build wrote, so an image that would not load is a red job rather than a broken
+page. `TestTheRealSite` runs that build against this repository in the Coverage job.
+
+**The iPhone half is text, not a button.** Internal TestFlight has no public join URL, so anything
+clickable there would go nowhere, and a control that does nothing is worse than an absent one. It
+is a card that says what the state is — the fourth option in the global rule: enabled things
+explain, and unbuilt things say so.
+
+**And the notes come from the README**, through `android_release.release_notes` — the same parser
+the release body already uses. Two copies of a changelog is two changelogs, and the second one is
+always the stale one.
+
 ## The identity credentials exist before the slice that uses them (2026-08-25, issue #110)
 
 Provisioning done ahead of #110 so the session that writes the auth code is never blocked on a
@@ -4922,3 +5439,286 @@ them among IDE settings.
 **What is still open**: there is no Time Machine destination, so iCloud is the only copy not on that
 SSD; and iCloud is not end-to-end encrypted unless Advanced Data Protection is on, which is the real
 answer if the `.p8` should be opaque to Apple rather than merely survive a dead disk.
+
+
+## A colony belongs to somebody, and the id is not the subject (2026-08-25, issue #110)
+
+Slice 3 of #106, on top of the store #109 landed. Apple and Google ID tokens verified against the
+providers' own key sets, a session this server signs itself, route authentication that finally makes
+`PlayerId` mean something, and `DELETE /v1/account`. Nothing a player sees moves and nothing ships,
+so there is no version bump; #107, #108, #109, #112 and #119 are the precedent.
+
+### The provisioning round, and what it is a summary *of*
+
+**This said "the only copy outside Davide's notes" until #124 landed, and that is no longer true** —
+the two crossed in review. The walkthrough is
+[`identity-provisioning.md`](identity-provisioning.md), fifty-three steps of it, and the round
+directly above this one is where the choices behind it are argued. What is left here is the short
+form the code was written against: the identifiers a reader of *this* entry needs in front of them,
+and the three rules that would have cost the slice a day each if they had been got wrong. Where the
+two disagree, the walkthrough is the record and this is the summary.
+
+Davide provisioned everything on 2026-08-25, ahead of the slice, and his call was to **fold the
+record into #110 rather than write it in advance**. What follows is **identifiers and rules only**.
+No key material of any kind is in this repository or has been in a session: not the `.p8` body, not a
+client secret, not the session-signing key. All of it lives at `~/Documents/Keys/Oltre/identity/` at
+`0600` with an inventory README, and #111 is what mounts it from Secret Manager.
+
+| | |
+|---|---|
+| Apple team | `A7Q83J6LR4` |
+| Apple key id | `77FXWGUFQY` |
+| Apple Services ID | `dev.fardavide.oltre.signin` |
+| Apple primary App ID | `dev.fardavide.oltre` |
+| Google Cloud project | `oltre-506614` |
+| API hostname | `api.oltre.space` — permanent, and the Apple Return URL is registered against it |
+| Site | `oltre.space`, a static site from an orphan `gh-pages` branch |
+
+Three rules come with those, and the second is the one this slice could most easily have got wrong.
+
+- **`oltre-506614` was assigned by Google and cannot be renamed.** It is not a name anybody chose and
+  it is not to be "fixed" to something tidier.
+- **There are five OAuth clients and the server must accept two audiences.** The Web client is the
+  audience for **both phones**, and the Desktop client is a second one. A single-audience check
+  passes every test written against a generated keypair and then refuses the desktop build — which
+  is the only build the behaviour and screenshot suites run on. So `ProviderSpec.audiences` is a
+  `Set` that refuses to be empty, `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are comma-separated, and
+  `IdTokenVerifierTest` carries the assertion **in both directions**: the desktop client is accepted
+  alongside the web one, *and* a server configured with only the web one refuses it. One of those
+  alone proves nothing, because a verifier that ignored the audience entirely would pass it.
+  **Neither Android client id is named in code**, and neither needs to be.
+- **`google.env` records which Android client is release and which is debug on creation order rather
+  than on evidence** — neither downloaded file carries its SHA-1. Davide flagged it; treat it as
+  bookkeeping rather than as configuration, and check a fingerprint before relying on it.
+
+### `players.id` is a surrogate key, and that is what makes deletion mean deletion
+
+The obvious design keys the table on the provider subject. This does not, and two properties pay for
+the extra column:
+
+- **A deleted account signing in again gets a *new* id**, with nothing hanging off it. So "sign in
+  again and find a fresh colony" is not a rule anybody has to implement — it is what the schema does.
+  Keyed on the subject, the same Apple identity would land back on the same row, and every future
+  change to deletion would have to remember to break that.
+- **A provider's identifier never reaches a session token, a log line or a URL.** #106 §4 chose to
+  store the subject rather than the email precisely to hold less; putting the subject in the
+  credential that travels on every request would have given most of that back.
+
+`UNIQUE (provider, subject)` is what makes a second sign-in find the first colony, and it is the pair
+rather than the subject alone because nothing about a subject is globally unique — Apple and Google
+can both mint `1234` and mean two different people.
+
+**#109's `found` stopped writing the player row**, which is the one change this slice makes to an
+existing file's behaviour. It forged one from the `X-Oltre-Player` value because there was nothing
+else to hang the foreign key off; identity writes it at sign-in now, which is the only moment
+anybody has said who they are. `PostgresColonyRepositoryIntegrationTest` gained two fixture rows and
+one inverted assertion, and that inversion *is* the slice.
+
+### The player row is read on every authenticated request, and that is the price of "delete" meaning "now"
+
+A signature cannot be withdrawn. A session token minted a minute before an account was deleted stays
+cryptographically perfect until it expires, so without a check the account would keep working for up
+to an hour — and, worse, `POST /v1/colony` would insert a colony against a foreign key that no longer
+resolves. `SessionAuthenticator` therefore asks `players.exists` on every request.
+
+It costs one primary-key lookup on a path that sees **two to four requests per player per day**,
+which is the load #106 §6 sized the whole backend for. What it buys is that deletion is immediate
+rather than eventual, and that no route has to defend itself against a caller who is not there.
+
+**One consequence had to be reversed to make that safe**: `admit` moved *inside* `served`'s single
+`catch`. Identifying a caller is now a query, so it can fail — and left outside, a database that had
+gone away would leave Ktor to answer a bare 500 with no `ApiError` in it, which #112's client reads
+as `Unreachable` and retries forever rather than as a server having said something.
+
+### An hour and ninety days, and `SessionExpired` finally means what its comment said
+
+Two tokens, told apart by a `kind` claim rather than by a type — so the distinction is one the
+*signature* enforces, and a client that sent its refresh token on every request would not be quietly
+holding a ninety-day access token.
+
+- **Access: one hour.** It travels on every request, so its lifetime is the window a leaked one is
+  worth anything in. Longer would buy one saved round trip a day and cost exactly that window.
+- **Refresh: ninety days.** It is how long somebody can ignore this game and still not sign in again,
+  and a check-in game whose whole premise is that you leave it alone should not punish leaving it
+  alone. What makes it safe rather than merely convenient is the existence check above: a refresh
+  reads the player row, so an account deleted yesterday cannot slide anything forward today.
+
+`ApiError.SessionExpired`'s comment at #107 said it was *"the one that can be answered without a
+screen, once refresh exists"*. This is that: an expired **access** token is `SessionExpired`, the
+client refreshes, the player never learns it happened.
+
+**An expired *refresh* token is `Unauthenticated` and not `SessionExpired`**, which reads as
+inconsistent and is the point. `SessionExpired` means *"ask again in a moment"*; a client told that
+about the credential it asks *with* would loop forever. Ninety days without opening the game ends at
+the sign-in screen, and that line is what says so. The same answer covers a refresh token sent where
+an access token was wanted, and a token naming somebody who deleted their account.
+
+**Both tokens are HMAC and not a keypair.** There is one service, it both mints and reads these, and
+nobody else ever verifies one — so a shared secret is the honest shape. The day another service has
+to read a session is the day to argue for RS256, and it should have to be argued for then.
+
+### `X-Oltre-Player` is still read, and is no longer believed
+
+Trap 1 of #110, and the shape of it is worth keeping. #112 moved the header into `:protocol` and
+`KtorOltreApi` sends it on every request; deleting it here would stop `:client:net:data` compiling
+and take Build, Unit tests, Screenshot tests, Coverage and the iOS framework job down at once. It
+comes out at **#113**, when the client starts sending a bearer token instead.
+
+So the new scheme lands beside it and the *authenticator* decides which is trusted:
+
+- **With a session key configured**, `SessionAuthenticator` reads `Authorization: Bearer …` and
+  ignores the player header completely. `OltreServerIntegrationTest` pins that with a request that
+  carries a perfectly good `X-Oltre-Player: davide` and gets a `401`.
+- **With no session key**, `HeaderAuthenticator` resolves the header through the *same* upsert a real
+  sign-in uses, under the provider name `'header'` that #109 already wrote into the column. So the
+  dev loop exercises the identity path rather than bypassing it, and the only difference is who
+  vouched for the subject.
+
+**`Main.kt` refuses to start when `DATABASE_URL` is set and `SESSION_SIGNING_KEY` is not.** That pair
+is what a deployment *is*, and the combination it forbids is the dangerous one: a deployed server
+accepting a header would make impersonation a matter of typing somebody's id. Failing at boot means
+a misspelled variable is a deployment that does not start rather than one that starts and lets
+anybody in. It is the same shape as #109's `DATABASE_URL` fallback with the failure mode taken
+seriously rather than logged.
+
+### Nimbus, and neither of the two artifacts the ticket named
+
+#110 said the catalogue needs `ktor-server-auth` and `ktor-server-auth-jwt`. **Neither is here**, and
+this is #112's `ktor-client-content-negotiation` call made again: a catalogue line with no consumer
+is dead weight. Two reasons, and the second decided it:
+
+- `authenticate("session") { … }` puts the decision inside the routing file, which is the one file in
+  this module that is deliberately unreachable by a unit test. Everything below would then be judged
+  only by a test that stands up a server — undoing the split #108 and #109 each spent a slice making.
+- Its challenge is a bare `401` with no body unless it is replaced wholesale, and this taxonomy's
+  whole point is that `Unauthenticated` and `SessionExpired` are **different sentences**. Flattening
+  them would undo what `ApiError` was given at #107 and `ColonySync` was built around at #112.
+
+What *is* here is **`com.nimbusds:nimbus-jose-jwt`**, one line, and it is the only third-party
+addition in the slice. JOSE is where a subtle mistake is a real-world compromise rather than a
+failing test, so parsing a token, checking its algorithm and reading a JWKS document are a library's
+job. Nimbus rather than `com.auth0:java-jwt` because that one drags `jackson-databind` into a server
+that already speaks kotlinx-serialization, for nothing; and `jwks-rsa`'s `RemoteJWKSet` — which
+`ktor-server-auth-jwt` would have brought — is exactly the object this slice needed to *not* have,
+because it is a socket and a cache policy in one class no unit test can reach.
+
+**The JWKS client is the JDK's**, `java.net.http`, so there is no catalogue line for it at all.
+
+### The cache goes back to the provider for three reasons, and the third is a rotation
+
+`JwksKeys` holds the policy and `JwksHttp.kt` holds the socket — #108's move once more. Refetch when
+there is nothing held, when what is held is over an hour old, **or when a token names a key id that
+is not in it**.
+
+That third rule is what makes a rotation a blip instead of an outage: a TTL alone would refuse every
+token signed with a newly published key until the hour was up. And it is why there is a floor of one
+minute under it — without one, a client sending invented key ids is a client that makes this server
+call Apple once per request, and Apple answers that with a rate limit that takes sign-in down for
+everybody at once.
+
+**A document that is not a key set raises rather than reading as "no keys".** The distinction is the
+whole reason `JwksHttpIntegrationTest` exists: "no keys" surfaces to every player at once as *"your
+token is not valid"* and sends them all to a sign-in screen that cannot help them, where raising
+becomes `ApiError.Internal` — a 500 the client retries and an operator can go and look at. It is
+#112's `5xx`-carrying-HTML decision arriving from the other side of the server.
+
+### The seven cases, plus the two that are not on the list
+
+#110's Done-means names seven and they are all here, against a keypair generated in the test process
+and served by a handwritten fake — **nothing in this slice reaches a real issuer and nothing in CI
+ever should**. Valid, expired, wrong audience, wrong issuer, tampered signature, unknown key id,
+rotated key.
+
+Two more earn their place beside them:
+
+- **The algorithm.** RS256 is pinned rather than read out of the token, which closes the oldest hole
+  in JWT in both its shapes — a header saying `none`, and one saying `HS256` so that a *public* key
+  is used as a shared secret. Nimbus verifies whatever it is handed a verifier for, so the refusal
+  has to be this server's. The test also asserts the key set was never fetched, because a token that
+  is not eligible should not cost a round trip.
+- **The nonce.** It is the replay defence and **nothing fails without it**: a token captured from
+  somebody else's sign-in verifies perfectly. What it does not carry is the nonce this sign-in drew.
+  A missing claim is refused rather than treated as "nothing to compare", because Apple only includes
+  it when asked to — and `SignInNonce` is required on the wire so it cannot be forgotten by omission.
+
+The tampered case is a **genuine** tamper — the payload rewritten and the original signature kept,
+which is what somebody who wanted to be a different subject would actually do. Flipping a character
+in the signature segment would have tested base64 decoding and passed against a verifier that never
+checked a signature at all.
+
+### The recurring cost, and one obligation this slice does *not* discharge
+
+#110's last section asks for the recurring cost to be written down somewhere Davide meets it again.
+Here it is, with a correction that makes it smaller and a gap that makes it sharper.
+
+**Apple's client secret is a JWT signed with the `.p8` and expires within six months.** A silently
+expired one takes sign-in down for every player at once, with no warning and no error a player can
+act on. It has to be regenerated on a diary or by a script.
+
+**This slice needs it nowhere.** Verifying an ID token is a signature check against
+`https://appleid.apple.com/auth/keys`, and no client secret is involved; the native flow hands the
+app an identity token directly and the web flow can be asked for `response_type=code id_token` with
+`response_mode=form_post`, which returns one without a token exchange. So nothing here calls
+`/auth/token` and nothing here holds a secret.
+
+**What does need it is account deletion, and that is flagged rather than built.** Apple's guidance
+since June 2022 is that an app offering account deletion and Sign in with Apple must call the REST
+API to **revoke** the user's tokens — `/auth/revoke`, which needs the client secret and a token
+obtained from `/auth/token`, which in turn needs the authorization code from the client. None of
+that is in #110's scope by name, and the code never reaches this server today. `DELETE /v1/account`
+deletes everything on this side either way; what is missing is telling Apple.
+
+**Davide's call, 2026-08-25: it lands in #113**, with the deletion screen. Asked while the slice was
+open rather than left as a flag, because an App Review surface is cheaper to decide before a
+submission than during one. The reason it is #113 and not #111 is that **the blocker is
+client-side**: `/auth/revoke` needs a token from `/auth/token`, which needs the authorization code,
+which only the sign-in flow can produce — so #111 has one job here, which is to expose the `.p8` as
+a secret, and the obligation stays with the screen that triggers it.
+
+### What the coverage gate cost, and the exclusion it did not need
+
+Measured with `.github/scripts/measure-coverage.sh` against `main` at `1584873`, five passes,
+`--no-build-cache`. **The gate passes on all ten values, and no exclusion was added.**
+
+| pass | line | branch |
+|---|---|---|
+| all | 98.331 → **98.351** (+0.020) | 84.402 → **84.746** (+0.344) |
+| unit | 92.530 → **92.493** (−0.037, inside the gate's 0.05) | 86.815 → **87.026** (+0.211) |
+| integration | 12.604 → **14.394** (+1.790) | 8.381 → **9.565** (+1.184) |
+| screenshot | 93.222 → 93.222 | 57.529 → 57.529 |
+| behaviour | 92.259 → 92.259 | 68.832 → 68.832 |
+
+`:server` is excluded from the screenshot and behaviour passes outright and permanently (#108), so
+those four rows could not move and did not. Only unit, integration and the unfiltered total could.
+
+**The first measurement failed, and what it cost is the interesting part.** The unit row came in at
+**92.400** line (−0.129) and **86.528** branch (−0.287): 265 new covered lines against 37 new missed
+ones, which is a denominator growing faster than its tail. The answer was **seventeen more tests
+rather than an eighth exclusion**, and every one of them is a refusal that fails silently when it is
+missing — a session token whose header was rewritten to claim another algorithm, one signed with the
+right key by something that is not this server, a claims set that is not a claims set under a
+perfectly good signature, a JWKS key published with no `use` and one published with no `kid`, and the
+two arms of `SessionAuthenticator` that decide *which* 401. The row moved to **92.493 / 87.026**,
+which is inside the tolerance on one and above the baseline on the other.
+
+That is the shape to repeat rather than the number: **the rows that fell were the ones a unit test
+could still reach, and they were reached.** What is left uncovered in that pass is `OltreServer.kt`
+— routing, which holds no decision by construction, exactly as #108 recorded — `Main.kt`'s lambdas,
+and `JwksHttp.kt`.
+
+**The socket was answered with a test rather than a filter**, which is #112's move and the one
+trap 4 of #110 asks for by name. A JWKS fetch is a socket exactly as the Postgres store is a
+connection, so `JwksHttpIntegrationTest` starts a real `com.sun.net.httpserver` on a loopback port
+and drives `httpJwksSource` over it. It earns its place independently of the number, because
+*"a provider answering `502` must raise rather than read as no keys"* is the one property a fake
+source cannot prove — and reading it as no keys would tell every player at once that their token is
+invalid and send them to a sign-in screen that cannot help them.
+
+**`PostgresPlayerRepository` falls under #109's existing unit-pass entry**, `classes("dev.fardavide
+.oltre.server.Postgres*")`, without that pattern changing by a character. That entry's own condition
+is structural — *"nothing in these files decides anything"* — and this file meets it: it holds four
+statements, a transaction and no branch on an identity, a provider or a token. Who a token says
+somebody is, is `IdTokens.kt`; whether a session is good is `Sessions.kt`; what happens when a player
+is not there is `Authenticator.kt`. All three are plain `…Test`s. **This is a new file matching an
+existing pattern rather than a new exclusion**, and it is written down here so that it is a decision
+rather than something that happened.

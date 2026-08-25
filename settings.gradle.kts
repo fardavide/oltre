@@ -96,6 +96,16 @@ include(":client:galaxy:presentation")
 include(":client:galaxy:ui")
 // The frame-driven half of the Galaxy robot — see its build file for why the other half is not here.
 include(":client:galaxy:ui-testing")
+// The only module in `client/` that opens a socket, and the fake server that keeps the suite off
+// the network. `data-testing` rather than `testing` so rule 5 strips the suffix and reads the layer
+// — a fake of a data interface has no more business seeing a screen than the data module does.
+//
+// It is `client/net/` rather than a corner of `client/save/` because the two are different jobs at
+// the same layer: one holds the colony this build last saw, the other asks the server what the
+// colony actually is. The cross-feature warning is the reason there is no edge between them; see
+// `client/net/data/build.gradle.kts`.
+include(":client:net:data")
+include(":client:net:data-testing")
 include(":client:notifications:data")
 // Who is playing, above the rail. 0.16 shipped the `ui` alone and said in as many words that *"the
 // slice that makes the numbers real adds the layer then, with something to put in it"* — 0.17 is

@@ -5,20 +5,20 @@ import dev.fardavide.oltre.protocol.IdempotencyKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-// **A colony that lives exactly as long as the process does**, which is deliberate rather than
-// provisional: `#109` is the slice that gives it three tables, and putting them in now would mean
-// the replay and the store landed together with neither of them reviewed on its own.
+// **A colony that lives exactly as long as the process does.** It is no longer the only store — see
+// `PostgresColonyRepository` — and it stays for two reasons rather than as a leftover: it is what
+// every unit test in this module runs against, and it is what `./gradlew :server:run` serves when no
+// `DATABASE_URL` is set, so the dev loop needs no database.
 //
 // **The lock is not a formality.** Ktor serves requests concurrently, so two syncs for one player
-// can be inside `found` or `write` at the same moment — and the compare-and-set this design needs
-// (`ApiError.StaleColony` exists for losing it) is the same mutual exclusion one layer down. What
-// makes it correct here and not enough in `#109` is that the map is one process: a second server
-// instance shares no `Mutex`, which is why the real implementation's atomicity has to come from the
-// database rather than from Kotlin.
+// can be inside `found` or `write` at the same moment. What makes it correct here and not enough in
+// Postgres is that the map is one process: a second server instance shares no `Mutex`, which is why
+// the real implementation's atomicity comes from the database row rather than from Kotlin — and why
+// both of them answer the same `WriteResult`.
 internal class InMemoryColonyRepository : ColonyRepository {
 
     private val lock = Mutex()
-    private val colonies = mutableMapOf<PlayerId, GameSnapshot>()
+    private val colonies = mutableMapOf<PlayerId, StoredColony>()
 
     // `applied_verbs` keyed the way the table is: the pair, not the key alone. Two players can mint
     // the same string — nothing about an idempotency key is globally unique, and the wire says so by
@@ -29,19 +29,44 @@ internal class InMemoryColonyRepository : ColonyRepository {
     override suspend fun found(player: PlayerId, snapshot: GameSnapshot): Founding = lock.withLock {
         val existing = colonies[player]
         if (existing != null) return Founding.AlreadyThere(existing)
-        colonies[player] = snapshot
-        Founding.Founded(snapshot)
+        val founded = StoredColony(snapshot, ColonyVersion.FIRST)
+        colonies[player] = founded
+        Founding.Founded(founded)
     }
 
-    override suspend fun colonyOf(player: PlayerId): GameSnapshot? = lock.withLock { colonies[player] }
+    override suspend fun colonyOf(player: PlayerId): StoredColony? = lock.withLock { colonies[player] }
 
     override suspend fun appliedAmong(player: PlayerId, keys: Set<IdempotencyKey>): Set<IdempotencyKey> =
         lock.withLock { keys.filterTo(mutableSetOf()) { player to it in applied } }
 
-    override suspend fun write(player: PlayerId, snapshot: GameSnapshot, applied: Set<IdempotencyKey>) {
-        lock.withLock {
-            colonies[player] = snapshot
-            this.applied += applied.map { player to it }
-        }
+    override suspend fun write(
+        player: PlayerId,
+        snapshot: GameSnapshot,
+        applied: Set<IdempotencyKey>,
+        expected: ColonyVersion,
+    ): WriteResult = lock.withLock {
+        // **A colony that is not there loses exactly as a colony at another version does**, and the
+        // two are one comparison rather than two branches on purpose: `UPDATE … WHERE player_id = ?
+        // AND version = ?` touches no row in either case and cannot tell them apart either. A store
+        // that answered them differently would be a store the unit tests could not stand in for.
+        if (colonies[player]?.version != expected) return@withLock WriteResult.STALE
+        colonies[player] = StoredColony(snapshot, expected.next())
+        this.applied += applied.map { player to it }
+        WriteResult.WRITTEN
+    }
+
+    // **The cascade, by hand.** `schema.sql` hangs `colonies` and `applied_verbs` off `players` with
+    // `ON DELETE CASCADE`, so on the other implementation this happens because a row went away; a
+    // map has no foreign keys, so `InMemoryPlayerRepository` calls this. Not on `ColonyRepository`
+    // for `prune`'s reason: the interface is the four questions a *request* asks, and this is what
+    // account deletion does between them.
+    //
+    // **Both tables, and forgetting the keys is the half that is easy to miss.** `applied_verbs`
+    // outlives a colony by design — that is what stops a retry being charged twice — so a delete
+    // that took only the colony would leave the keys of the deleted account to refuse the verbs of
+    // the fresh one that replaces it.
+    suspend fun forget(player: PlayerId): Unit = lock.withLock {
+        colonies.remove(player)
+        applied.removeAll { (owner, _) -> owner == player }
     }
 }

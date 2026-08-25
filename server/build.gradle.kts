@@ -31,7 +31,36 @@ dependencies {
     implementation(libs.ktor.server.netty)
     implementation(libs.kotlinx.coroutines.core)
 
+    // **The only third-party line in this slice, and the only one there should be.** JOSE is where a
+    // subtle mistake is a compromise rather than a failing test, so parsing a token, checking its
+    // algorithm and reading a JWKS document are a library's job. Fetching that document is not:
+    // Nimbus's own `RemoteJWKSet` would put a socket and a cache policy inside one object no unit
+    // test can reach, which is the shape `#108` and `#109` each spent a slice undoing. `JwksKeys`
+    // holds the policy, `JwksHttp.kt` holds the socket. See `libs.versions.toml`.
+    //
+    // **No `ktor-server-auth` and no `ktor-server-auth-jwt`**, which `#110` named — see
+    // `decisions.md`. Authentication here is a pure function from two header values to a `PlayerId`,
+    // and `authenticate {}` would move that decision into the routing file and flatten the one
+    // distinction the taxonomy asks for, which is `Unauthenticated` against `SessionExpired`.
+    implementation(libs.nimbus.jose.jwt)
+
+    // The colony's home. A driver and a pool and no ORM — the save is already a self-contained JSON
+    // document that `core` knows how to carry forward, so there is nothing to map and nothing a
+    // framework would keep in step.
+    implementation(libs.hikari)
+    implementation(libs.postgresql)
+
     testImplementation(libs.kotlin.test)
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotlinx.coroutines.test)
+
+    // Real PostgreSQL for the integration suite. `platform(...)` is not decoration: without it the
+    // binaries resolve to 14.22.0 through `embedded-postgres`'s own default, so this machine would
+    // test 17 and CI would test 14 — and this slice's SQL is chosen for what 17 can do.
+    testImplementation(platform(libs.embedded.postgres.binaries.bom))
+    testImplementation(libs.embedded.postgres)
+    // The two platforms the pom omits — it ships amd64 only. Without the linux one an arm64 runner
+    // has no binary jar on the classpath at all and nothing starts.
+    testRuntimeOnly(libs.embedded.postgres.binaries.darwin.arm64v8)
+    testRuntimeOnly(libs.embedded.postgres.binaries.linux.arm64v8)
 }

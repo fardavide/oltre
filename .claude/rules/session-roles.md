@@ -225,7 +225,7 @@ as checking for it: the check costs one grep before pushing anything that adds a
 `commonTest` source set —
 
 ```
-grep -rn 'fun `[^`]*,[^`]*`(' core/src/commonTest/ protocol/src/commonTest/
+grep -rn 'fun `[^`]*,[^`]*`(' core/src/commonTest/ protocol/src/commonTest/ client/net/data/src/commonTest/
 ```
 
 **`:protocol` is in that grep from #107, and it needed one thing `core` did not.** `core` reaches
@@ -237,6 +237,16 @@ by no job on the workflow. `./gradlew :protocol:compileTestKotlinIosSimulatorArm
 `iOS framework` job for exactly that — the **test** source set, because the trap is a compiler rule
 that applies only to tests — and it comes off again the day the shell's closure reaches the module. **The general rule is the useful part: a new module with Apple targets that nothing yet
 depends on is unchecked until something says so out loud.**
+
+**#112 is the second instance and it shows the rule has to be applied rather than remembered.** The
+sentence above says `:protocol`'s line comes off "the day the shell's closure reaches the module",
+and it is easy to read *"until `:client:net:data` lands in #112"* as that day. It is not: #112 lands
+the module and its fake, and **the shell cutover is #113's whole job and out of #112's scope by
+name**, so after #112 the closure still reaches neither. Both lines stay, and `:client:net:data`
+adds a third — `./gradlew :client:net:data:compileTestKotlinIosSimulatorArm64`, which covers the
+`-testing` sibling too because that module is on its test classpath. The Apple half there is not
+incidental: it is where the Darwin engine lives, which is the one file in the module no machine in
+this repository can run.
 
 and it is cheaper than the round trip it saves.
 

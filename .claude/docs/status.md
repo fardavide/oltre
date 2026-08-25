@@ -1,6 +1,7 @@
 # Status
 
-Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107 and #108, no bump)
+Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
+#109, #110 and #112, no bump)
 
 ## Landed
 
@@ -507,6 +508,74 @@ Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107 and 
   look-don't-act and does not say how a server tells one sent live from one queued, and the clamped
   instant is the only evidence there is. `./gradlew :server:run` serves a colony playable end to end
   with `curl`. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
+- **A colony survives a restart — three tables and a compare-and-set** — slice 2 of the online
+  migration (issue #109 under epic #106). `PostgresColonyRepository` puts `players`, `colonies` and
+  `applied_verbs` behind the interface slice 1 shaped, with `snapshot_json` holding
+  `GameSave.encode` verbatim as `jsonb`; `schema.sql` is applied at startup and every statement in
+  it is `IF NOT EXISTS`, because Cloud Run starts this process again on every scale-up from zero.
+  **`ApiError.StaleColony` finally has something that produces it**: the interface widened so the
+  read hands back a version, the write asserts it, and a `served()` that loses replays the whole
+  attempt against the colony that won — up to three times, then `409`. That widening is a change to
+  slice 1 rather than the drop-in its own comment predicted, and the comment was right about the
+  other three methods. **Testcontainers is out and Zonky `embedded-postgres` is in** (Davide,
+  2026-08-25): there is no container runtime on Davide's machine, an unqualified `./gradlew check`
+  runs every category, and a suite that cannot run locally stops being run. The whole thing starts
+  two real PostgreSQL 17.10 instances and finishes in about three seconds, on this machine and on
+  `ubuntu-latest` alike, so `ci.yml` does not change. **#106 §6's "the same code modulo a driver" is
+  corrected here** rather than preserved by writing portable SQL — the exit to SQLite is a second
+  implementation of `ColonyRepository`, a class rather than a line. `./gradlew :server:run` with no
+  `DATABASE_URL` still serves an in-memory colony and now says so in the log; **#111 is what sets
+  that variable**, and a deployed server that fell back silently would lose every colony it was
+  handed. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
+- **The client learns to ask — the network layer, the outbox and the fake that keeps the suite
+  green** — slice 5 of the online migration (issue #112 under epic #106). `:client:net:data` holds
+  `OltreApi` and its Ktor implementation, an outbox that writes every queued verb to a file before
+  the call is made, idempotency keys minted at the edge as 128 random bits, and `ColonySync`, which
+  is the only thing above the transport that decides anything. **The queue-or-refuse split is read
+  off `ClientVerb.offlineRule` in exactly one place** and never re-derived, which is why the twelve
+  verbs are twelve rather than the nine #112's own table lists. `act` asks once and `sync` retries
+  with a bounded backoff — the outbox has already taken the verb, so a second attempt buys a colony
+  four seconds later and nothing else, with the screen waiting. **`ApiError.StaleColony` is answered
+  by asking again and never by saying anything**, which is what #109 gave it a producer for; every
+  other error in the taxonomy is terminal and returns at once. A `5xx` whose body is not an
+  `ApiError` reads as `Unreachable` rather than `Malformed`, because Cloud Run scales to zero and the
+  first request after an idle spell can be answered by a load balancer that never saw the colony.
+  `:client:net:data-testing` lands here rather than at #113 and that is load-bearing: `App()` is
+  about to require a network and the whole behaviour and screenshot suite runs on the desktop target.
+  **`Protocol.PLAYER_HEADER` moves into `:protocol`** — a wire string spelled out at both ends is one
+  that can differ at both ends, and a header the server does not recognise reads exactly like a
+  player who never signed in. **`.claude/tools/gradle-without-agp.sh` had drifted from two real build
+  files and was fixed first**, because a compile error in a module it claims to cover cannot be told
+  from a session's own breakage. Coverage: the integration half of the new-module drop was answered
+  with a real-socket `…IntegrationTest` over a JDK `HttpServer` rather than a filter, and the
+  behaviour half with an exclusion Davide approved on the report, which comes out at #113 with
+  `:protocol`'s. No version bump — nothing a player can do changes. See
+  [`decisions.md`](decisions.md).
+- **A colony belongs to somebody — Sign in with Apple and Google** — slice 3 of the online migration
+  (issue #110 under epic #106). `POST /v1/auth/apple` and `POST /v1/auth/google` verify a provider ID
+  token against that provider's own key set — signature, algorithm, issuer, audience, expiry, nonce —
+  and mint a session this server signs itself; `POST /v1/auth/refresh` trades the long half for a
+  fresh pair; `DELETE /v1/account` deletes, and cascades to the colony and every spent idempotency
+  key. **`players.id` is a surrogate key and not the provider subject**, which is what makes signing
+  in again after a deletion found a *fresh* colony rather than resurrect the old one, and what keeps
+  a provider's identifier out of every token, log line and URL. **The server accepts two audiences per
+  provider** — the Web client answers for both phones and the desktop dev loop has its own — and a
+  single-audience check would have passed every test and then refused the only build the behaviour
+  and screenshot suites run on. Sessions are an hour and ninety days: an expired access token is
+  `ApiError.SessionExpired` and the app fixes it silently, an expired refresh token is
+  `Unauthenticated` and the sign-in screen. **`X-Oltre-Player` is still read and is no longer
+  believed** — deleting it would stop `:client:net:data` compiling, so it comes out at #113 when the
+  client starts sending a bearer token; a server with a session key ignores it, and one without
+  resolves it through the same upsert a real sign-in uses. `Main.kt` **refuses to start** when
+  `DATABASE_URL` is set and `SESSION_SIGNING_KEY` is not, because that pair is what a deployment is.
+  The catalogue gains **one** line, `nimbus-jose-jwt`, and neither of the two `ktor-server-auth`
+  artifacts the ticket named — the JWKS client is the JDK's. The seven verification cases run against
+  a keypair generated in the test process and served by a handwritten fake; **nothing in this slice
+  reaches a real issuer**. Coverage: the gate passes on all ten values and **no exclusion was
+  added** — the first measurement took the unit row down 0.129 line and 0.287 branch, and the answer
+  was seventeen more tests rather than a filter, plus a real-socket `…IntegrationTest` for the JWKS
+  fetch. No version bump — nothing a player can do changes. See
+  [`decisions.md`](decisions.md), which also carries the provisioning record.
 
 
 ## Roadmap — v1 in vertical slices
@@ -560,6 +629,26 @@ carried here because the pressures that replace hard caps (upkeep, logistics, di
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
 
 ## Pending / not yet set up
+
+- **DIARISE: Apple's client secret expires within six months, and a silently expired one takes
+  sign-in down for everyone at once** — #110, 2026-08-25. It is a JWT signed with the `.p8`
+  (team `A7Q83J6LR4`, key `77FXWGUFQY`), Apple caps its `exp` at six months, and there is no warning
+  and no error a player can act on when it lapses. **Automate the regeneration or put it in a
+  calendar; it is not something a test can catch.**
+  **Nothing in the repository needs it *yet*, which is the part that makes it easy to forget.**
+  Verifying an ID token is a signature check against Apple's public key set and involves no secret at
+  all, so #110 shipped without one and would keep working without one forever.
+  **What does need it is account deletion.** Apple's guidance since June 2022 is that an app offering
+  account deletion *and* Sign in with Apple must call the REST API to **revoke** the user's tokens —
+  `/auth/revoke`, which needs the client secret and a token from `/auth/token`, which needs the
+  authorization code from the client. `DELETE /v1/account` deletes everything on this side already;
+  what is missing is telling Apple, and the authorization code never reaches this server today.
+  **Davide's call, 2026-08-25: it lands in #113**, with the deletion screen — asked and answered
+  rather than left open, because it is an App Review surface and those are cheaper to decide before a
+  submission than during one. The reason is that the blocker is client-side: the authorization code
+  has to come out of the sign-in flow, which is what that slice builds, so **#111 only has to expose
+  the `.p8` as a secret** and the obligation stays with the screen that triggers it.
+  See `decisions.md`, #110's round.
 
 - **DAVIDE'S CALL, RULED: the rate stays at 60 and round 17's guardrail is spent.** 0.8.0 built the
   Shipyard and ran the sweep `exploration-rewards-sheet.md` §6.4 said could veto the rate. It vetoed

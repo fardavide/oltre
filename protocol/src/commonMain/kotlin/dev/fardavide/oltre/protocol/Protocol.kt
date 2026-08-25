@@ -31,4 +31,33 @@ object Protocol {
     // contract, and `ApiVersion` is the field that exists to settle those. Silently dropping it
     // would let a mismatch look like a success.
     val json: Json = Json { encodeDefaults = true }
+
+    // **Who is asking, until `#110` makes it trustworthy.** A header rather than a query parameter
+    // or a body field because that is where a credential goes, and because this is the line the
+    // session token replaces: what changes then is how the value is obtained, not where it is read
+    // from.
+    //
+    // It is here rather than in `:server`, where `#108` first wrote it, because **a wire string
+    // spelled out at both ends is a wire string that can differ at both ends** — and the failure is
+    // silent in the worst way, since a header the server does not recognise reads exactly like a
+    // player who is not signed in. That is trap 1's shape at one character instead of three verbs.
+    // `PlayerId` stays `:server`'s, and the asymmetry is deliberate: the *name of the header* is
+    // something both ends have to agree on, while *who a value in it belongs to* is the server's
+    // conclusion rather than the client's claim.
+    const val PLAYER_HEADER: String = "X-Oltre-Player"
+
+    // **Who is asking, once `#110` made it trustworthy** — and it sits *beside* the line above
+    // rather than replacing it, deliberately. `#112` shipped a client that spells `PLAYER_HEADER`
+    // on every request, and the day it stops is the day it starts sending one of these instead,
+    // which is `#113`. Deleting the placeholder here would take that client's compilation with it.
+    //
+    // A standard `Authorization: Bearer …` rather than a header of this project's own, because a
+    // session token is exactly what that header was defined to carry: proxies, load balancers and
+    // logs already know not to print it, and Cloud Run — where this is going — is several of those.
+    const val AUTHORIZATION_HEADER: String = "Authorization"
+
+    // The scheme, with its trailing space, so that neither end builds the string by hand. Compared
+    // case-insensitively at the server, which RFC 7235 requires and a client's HTTP stack is
+    // entitled to rely on.
+    const val BEARER_PREFIX: String = "Bearer "
 }

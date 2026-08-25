@@ -1,0 +1,104 @@
+name: Publish the site
+
+# The landing page at oltre.space, rebuilt whenever anything it draws has moved.
+#
+# **The release trigger is `workflow_run` rather than `release: published`, and that is not a
+# style choice.** `release-android.yml` creates the release with `github.token`, and GitHub
+# refuses to start a workflow from an event a token raised — so a `release` trigger here would
+# never fire, silently, and the site would sit on whatever version it was last pushed with. What
+# does fire is the completion of the workflow itself.
+#
+# Rebuilding is idempotent: the page is derived entirely from the published release and the
+# README, so a run that finds nothing new writes nothing and pushes nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'README.md'
+      - '.github/scripts/build_site.py'
+      - '.github/workflows/pages.yml'
+      - 'art/icon/**'
+      # The screenshots on the page are the committed Roborazzi baselines, so a re-recorded
+      # screen is a change to the site. The job is half a minute; running it on every UI merge
+      # is cheaper than the page showing a screen the app no longer has.
+      - 'client/**/desktopTest/screenshots/**'
+  workflow_run:
+    workflows: ['Release Android']
+    types: [completed]
+  workflow_dispatch:
+
+# To push the built site to `gh-pages`, which is what Pages serves. Nothing else.
+permissions:
+  contents: write
+
+# Never two publishes at once — they would race on the same branch — and never cancel one half
+# way, because the loser of that race is a half-written site.
+concurrency:
+  group: publish-site
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A failed release published nothing, so there is nothing new to say. Any other trigger
+    # carries its own reason to run.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+
+      # The script decides every string on the page, including the link people come here to
+      # press. Its tests run before it does, in the job that depends on the answer — the same
+      # arrangement `release-android.yml` uses, and for the same reason.
+      - name: Test the site build
+        run: |
+          python3 -m pip install --quiet pytest
+          python3 -m pytest .github/scripts -q
+
+      # What is *published*, never what `main` happens to carry. The version bump merges some
+      # twenty minutes before the APK it names exists, and a page built from the catalogue would
+      # spend those twenty minutes offering a download that 404s.
+      - name: Ask GitHub what the latest release is
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release view --json tagName,publishedAt,url,assets > "$RUNNER_TEMP/release.json"
+
+      - name: Build the site
+        run: |
+          set -euo pipefail
+          python3 .github/scripts/build_site.py build \
+            --repo-root . \
+            --release "$RUNNER_TEMP/release.json" \
+            --out "$RUNNER_TEMP/site"
+
+      # A clone of `gh-pages` alone rather than a worktree of the checkout above: the checkout is
+      # shallow and on another branch, and this keeps the deploy independent of it.
+      - name: Publish to gh-pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          remote="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git clone --branch gh-pages --single-branch --depth 1 "$remote" "$RUNNER_TEMP/pages"
+
+          # `--delete`, and `.git` excluded from it: the site is generated wholesale, so a file
+          # that no longer has a source has to stop being served.
+          rsync -a --delete --exclude '.git' "$RUNNER_TEMP/site/" "$RUNNER_TEMP/pages/"
+
+          git -C "$RUNNER_TEMP/pages" config user.name 'github-actions[bot]'
+          git -C "$RUNNER_TEMP/pages" config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git -C "$RUNNER_TEMP/pages" add --all
+
+          if git -C "$RUNNER_TEMP/pages" diff --cached --quiet; then
+            echo "The site is already what it should be — nothing to publish." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          tag=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["tagName"])' "$RUNNER_TEMP/release.json")
+          git -C "$RUNNER_TEMP/pages" commit -m "Publish the site for $tag, from ${GITHUB_SHA:0:7}"
+          git -C "$RUNNER_TEMP/pages" push origin HEAD:gh-pages
+          echo "Published https://oltre.space/ — showing $tag." >> "$GITHUB_STEP_SUMMARY"

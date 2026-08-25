@@ -77,12 +77,25 @@ them alone and read the report.
   `OltreApplication`, `BootReceiver`, the notification scheduler and receiver, and the shake
   detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
-  here. And a third group, **scoped to one pass rather than to the whole report**: composables in
-  the unit pass, everything that is not a drawing in the screenshot pass, the string catalogue in
-  the two that render, and `:protocol` and `:server` in the two that render — a wire contract and a
-  Ktor route are both unreachable by a frame for `core`'s reason. `:protocol`'s behaviour half comes
-  out at #112, when the shell gains a consumer; `:server`'s does not, because nothing on the client
-  will ever reach a route. The full list is in the root `build.gradle.kts`, each entry with its own
+  here. And a third group, **scoped to one pass rather than to the whole report**: composables
+  **and the Postgres store** in the unit pass, everything that is not a drawing in the screenshot
+  pass, the string catalogue in the two that render, `:protocol` and `:server` in the two that
+  render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason — and
+  `:client:net:data` in the behaviour pass alone.
+  `:protocol`'s behaviour half comes out at **#113**, when the shell gains a consumer — not #112,
+  which lands `:client:net:data` and its fake but leaves the shell cutover to the slice after it, so
+  the module still has no consumer a behaviour test can reach through. `:client:net:data`'s comes out
+  with it, on the same sentence. `:server`'s does not come out at all, because nothing on the client
+  will ever reach a route. The unit pass's second entry is the
+  same sentence as its first: a unit test cannot render a composable, and it cannot open a database
+  connection either — so `PostgresColonyRepository.kt`, `PostgresDatabase.kt` and, from #110,
+  `PostgresPlayerRepository.kt` are excluded there **on the condition that they hold no decision**,
+  the mapping being `ColonyRow.kt` and the retry policy `Endpoints.kt`. That third file matched the
+  existing `Postgres*` pattern rather than widening it, and it meets the condition for the same
+  reason: who a token says somebody is is `IdTokens.kt`, whether a session is good is `Sessions.kt`,
+  and what happens when a player is not there is `Authenticator.kt`. **A file added under that pattern
+  still has to earn it** — the condition is the entry, not the glob.
+  The full list is in the root `build.gradle.kts`, each entry with its own
   argument; this paragraph goes stale if that list moves, so read the file.
 
   If a number looks wrong, it is the tests that are wrong.

@@ -9,12 +9,19 @@ android-targetSdk = "36"
 androidx-activity = "1.13.0"
 compose-material3 = "1.9.0"
 compose-multiplatform = "1.11.1"
+embedded-postgres = "2.2.2"
+embedded-postgres-binaries = "17.10.0"
+hikari = "6.3.0"
 kotlin = "2.4.10"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 kover = "0.9.9"
 ktor = "3.5.2"
+nimbus-jose-jwt = "10.9.1"
+# 42.7.10 rather than a round number: `embedded-postgres` drags the driver in transitively and
+# resolves it to exactly this, so anything lower is a version the tests would not be running.
+postgresql = "42.7.10"
 roborazzi = "1.70.0"
 turbine = "1.2.1"
 
@@ -25,16 +32,44 @@ compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", v
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+# Real PostgreSQL, unpacked from a jar and started as a child process — no daemon and no image
+# pull, which is what makes it runnable on Davide's Mac and on `ubuntu-latest` alike. The BOM is
+# what pins the *binaries*: `embedded-postgres` defaults them to 14.22.0, so without it macOS
+# would test 17 and CI would test 14. The two platform artifacts are the ones its own pom omits.
+embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
+embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
+embedded-postgres-binaries-darwin-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8", version.ref = "embedded-postgres-binaries" }
+embedded-postgres-binaries-linux-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-linux-arm64v8", version.ref = "embedded-postgres-binaries" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+# One engine per platform, because an engine is the platform. Darwin is `NSURLSession`, which is the
+# only stack that gets iOS's background and cellular behaviour right; OkHttp answers for both JVM
+# targets, so Android and desktop run the same client and a bug found on one is a bug fixed on both.
+ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
+# The wire under test. A `MockEngine` answers from a lambda instead of a socket, so the encode, the
+# header, the status line and the decode are all exercised for real and nothing is listening.
+ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
+ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negotiation", version.ref = "ktor" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+# JOSE, and the one thing in `#110` that is not written by hand. Verifying a provider's ID token is
+# where a subtle mistake is a real-world compromise rather than a failing test — `alg: none`,
+# RS256/HS256 confusion, a `kid` nobody looked up — so the parsing, the signature and the JWKS
+# document are a library's job. What is *not* the library's is the fetching: `RemoteJWKSet` would put
+# a socket and a cache policy inside one object no unit test can reach, which is exactly the split
+# `#108` and `#109` spent two slices undoing. Nimbus rather than `java-jwt` because it carries its
+# own JSON — `com.auth0:java-jwt` drags `jackson-databind` into a server that already speaks
+# kotlinx-serialization, for nothing.
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 roborazzi-compose-desktop = { module = "io.github.takahirom.roborazzi:roborazzi-compose-desktop", version.ref = "roborazzi" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 
