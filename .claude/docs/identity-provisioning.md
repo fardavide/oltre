@@ -53,6 +53,9 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **30–35** — all five OAuth clients created and filed at `0600`, `google.env` complete, nothing
   left in `~/Downloads`. Web `…lm195vos`, iOS `…rb18lnl9` (+ its reversed form for step 48), Desktop
   `…n76952ma`, and the two Android clients `…2il2q71g` / `…d7drjab4`.
+- **37, 38** — inventory written, and both keys re-derived and matched: p8 digest
+  `95d11ed5…28d13d9b`, keystore SHA-1 `24:AA:53:…:DB:98` and SHA-256 `48:56:AF:…:8D:DC`. iCloud
+  `caught-up`, no placeholder files.
 - **19, 20, 21** — key `AuthKey_77FXWGUFQY.p8` in place at `0600`, verified P-256 / prime256v1,
   public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
   and `apple.env` written.
