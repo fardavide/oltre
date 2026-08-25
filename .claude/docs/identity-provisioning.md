@@ -43,7 +43,7 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 
 **Already done, before you start:**
 
-- **1** — `.gitignore` widened and committed on this branch.
+- **1** — `.gitignore` deliberately left alone; the reasoning is recorded in the step.
 - **2** — `~/Documents/Dev/Oltre identity/` created at `0700`, with its README.
 - **3** — release fingerprint re-derived and confirmed: `SHA1: 24:AA:53:…:DB:98` matches.
 - **36** — `session-jwt.key` generated, 88 base64 characters, `0600`.
@@ -111,39 +111,37 @@ pipes through `shasum -a 256`, which is identical on both.
 
 # Part 1 — The net, before anything is downloaded
 
-## 1. Widen `.gitignore` first
+## 1. Nothing goes in `.gitignore` — and that is the decision, not an omission
 
-`.gitignore` today covers `*.jks`, `*.keystore` and `keystore.properties` and nothing else
-credential-shaped. A `.p8` or a `client_secret_*.json` dropped anywhere in the checkout is
-committable right now, and this is a public repository.
+An earlier draft of this document added `*.p8`, `*.p12`, `*.pem`, `*.mobileprovision`,
+`client_secret*.json` and `.env*` to `.gitignore`. **They came back out.** Davide, 2026-08-25:
+*"Do we need all those entries into gitignore, given we're not saving keys in the repo?"* Checked
+rather than argued, and the answer is no:
 
-Add to `/Users/davide/Dev/Projects/Oltre/.gitignore`:
+- **None of those file types exists anywhere in this project.** Zero matches across the whole tree.
+  They were guarding a path nothing travels.
+- **The credentials live in `~/Documents/Dev/Oltre identity/`** and arrive there from `~/Downloads`.
+  Neither path is inside a checkout, so there is no ordinary way for one to be staged.
+- **Secret scanning and push protection are both enabled** on `fardavide/oltre` — confirmed via the
+  API. A `.p8` is PEM-wrapped and a Google client secret starts `GOCSPX-`; both are shapes GitHub
+  recognises, so a push carrying one is blocked at the push rather than caught by a text file.
 
-```gitignore
-# Sign-in credentials. One-shot downloads that must never reach a public repository.
-*.p8
-*.p12
-*.pem
-*.mobileprovision
-client_secret*.json
-.env
-.env.*
-```
+And the argument that is easy to get backwards: **an ignored secret is an invisible secret.** A
+`.p8` that lands in the working tree while ignored produces a silent `git status` and sits there —
+copied into a tarball, an artifact, a container build. Unignored, it shows up red immediately *and*
+push protection still stops it leaving. For a file that must never be in a checkout at all, being
+loud is worth more than being hidden.
 
-**Already done — these lines are in `.gitignore` on the `identity-provisioning` branch**, committed
-alongside this document. Nothing to do; it is step 1 because it has to be true before step 19
-downloads anything, not because you have to type it.
+The existing `*.jks` / `*.keystore` / `keystore.properties` lines stay, and the difference is
+instructive: those cover a file that legitimately *transits* CI — the release workflow decodes the
+keystore from a secret into the runner's workspace. Nothing in this document does that.
 
-**Do not open a separate PR for it**, and do not cherry-pick it to `main` on its own: a merge to
-`main` archives to TestFlight and can cut a GitHub Release, so a twelve-line `.gitignore` change
-would cost a full CI cycle and publish a build. It rides along with this document's PR. Note also
-that Git honours the working-tree `.gitignore` whether or not it is committed, so the net was in
-force from the moment the file was saved — the commit is bookkeeping, not protection.
+**If that ever changes, add the line then, with a comment naming the file that made it necessary.**
+A `.gitignore` entry with no corresponding file is a guess, and guesses accumulate.
 
-**A `.gitignore` is a net, not a control.** If a secret does reach the public repo, rewriting
-history is cleanup, not remediation: GitHub keeps unreachable commits reachable by SHA and forks
-keep their own copies. **Revoke first, clean second** — for the p8 that means the revoke-and-replace
-path, for a Google client secret it means rotating it in the console.
+**What actually protects these credentials** is that they are never in the repository, that push
+protection is on, and that a leak is answered by *revoking*, not by rewriting history — GitHub keeps
+unreachable commits reachable by SHA, and forks keep their own copies. Revoke first, clean second.
 
 ## 2. Create the local secret directory
 

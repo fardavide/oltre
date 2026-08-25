@@ -15,18 +15,6 @@ captures/
 *.keystore
 keystore.properties
 
-# Sign-in credentials, for the same reason one line up. Each of these is a one-shot download —
-# Apple's `.p8` cannot be downloaded twice and a Google client secret is shown once — so a commit
-# that reached this public repository would be answered by revoking the credential, not by
-# rewriting history: GitHub keeps unreachable commits reachable by SHA, and forks keep their own.
-*.p8
-*.p12
-*.pem
-*.mobileprovision
-client_secret*.json
-.env
-.env.*
-
 # IDE
 .idea/
 *.iml
