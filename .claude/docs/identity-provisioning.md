@@ -50,8 +50,9 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **9, 10, 11** — `gh-pages` pushed, Pages pointed at `oltre.space`, certificate issued, Enforce
   HTTPS on. `https://oltre.space/` serves the page and `www` redirects to the apex.
 - **24** — Cloud project created; Google assigned the ID `oltre-506614`, recorded in `google.env`.
-- **30** — Web client created and its JSON filed at `0600`; client ID recorded in `google.env`,
-  nothing left in `~/Downloads`.
+- **30–35** — all five OAuth clients created and filed at `0600`, `google.env` complete, nothing
+  left in `~/Downloads`. Web `…lm195vos`, iOS `…rb18lnl9` (+ its reversed form for step 48), Desktop
+  `…n76952ma`, and the two Android clients `…2il2q71g` / `…d7drjab4`.
 - **19, 20, 21** — key `AuthKey_77FXWGUFQY.p8` in place at `0600`, verified P-256 / prime256v1,
   public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
   and `apple.env` written.
@@ -1006,25 +1007,30 @@ reuse the Web client's secret here.
 
 ## 35. Record the Google identifiers
 
-Again, not TextEdit.
+**Done.** `~/Documents/Keys/Oltre/identity/google.env` holds the project ID, all five client IDs and
+the reversed iOS client ID that step 48 needs.
 
-```
-(umask 077; nano ~/Documents/Keys/Oltre/identity/google.env)
-```
+**Every client has a downloadable file, and the download is how you tell them apart.** The console
+does not label a saved file with the client type, but the file's own shape does — which matters
+because two Android clients are indistinguishable by name:
 
-```
-OLTRE_GOOGLE_ACCOUNT=<the-google-account-that-owns-all-of-this>
-OLTRE_GOOGLE_PROJECT_ID=<what-step-24-actually-created>
-OLTRE_GOOGLE_WEB_CLIENT_ID=<...>.apps.googleusercontent.com
-OLTRE_GOOGLE_IOS_CLIENT_ID=<...>.apps.googleusercontent.com
-OLTRE_GOOGLE_ANDROID_RELEASE_CLIENT_ID=<...>.apps.googleusercontent.com
-OLTRE_GOOGLE_ANDROID_DEBUG_CLIENT_ID=<...>.apps.googleusercontent.com
-OLTRE_GOOGLE_DESKTOP_CLIENT_ID=<...>.apps.googleusercontent.com
-```
+| File shape | Which client |
+|---|---|
+| `{"web": {…}}` with `client_secret` | The Web client — audience #1 |
+| A `.plist` with `CLIENT_ID` and `REVERSED_CLIENT_ID` | iOS |
+| `{"installed": {…}}` **with** `client_secret` | Desktop — audience #2 |
+| `{"installed": {…}}` **without** `client_secret` | Android |
 
-All of these are public identifiers. They are recorded because the failure mode is not leaking them,
-it is losing track of which of five is which — and, for the first two, because nothing else in the
-repository or on disk records which account and project everything hangs off.
+That last row is the useful one. Android and iOS clients have no secret and never will; Web and
+Desktop do. So an `installed` file with a secret is the desktop client, and an `installed` file
+without one is Android — no need to remember which download was which.
+
+**What the files cannot tell you is which Android client is release and which is debug.** Neither
+records its SHA-1. Both are recorded in `google.env` on creation order, and the folder README says
+so plainly rather than pretending otherwise. It is bookkeeping, not configuration: an Android client
+ID is never named in code — the client binds a package and a fingerprint that Google checks at
+runtime, and a token from an Android app carries the *Web* client ID as its audience. Getting the
+two round the wrong way mislabels a record and breaks nothing.
 
 ## 36. Generate the server's own session-signing key
 
