@@ -264,7 +264,7 @@ mapping needs. It is one of the very few deployment-adjacent things not blocked 
 
 **6b — GitHub Pages domain verification.** Skip this if you are skipping the site today; if you are
 adding the A records, this is not optional (see step 7). Go to
-<https://github.com/fardavide/settings/pages> → **Add a domain** → `oltre.space` → GitHub shows a
+<https://github.com/settings/pages> → **Add a domain** → `oltre.space` → GitHub shows a
 TXT record named `_github-pages-challenge-fardavide` with a token. Copy both.
 
 GitHub is explicit about why: *"Domain takeovers can happen when you delete your repository, when
@@ -340,7 +340,7 @@ minutes and press it again.
 dig +short TXT oltre.space
 ```
 
-**8b** — at <https://github.com/fardavide/settings/pages>, click **Verify** on the domain you added.
+**8b** — at <https://github.com/settings/pages>, click **Verify** on the domain you added.
 
 ```
 dig +short TXT _github-pages-challenge-fardavide.oltre.space
