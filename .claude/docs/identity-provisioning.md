@@ -665,10 +665,17 @@ one-shot key there "for a few minutes" is how it gets lost.
 ## 20. Prove it is the right file, and fingerprint it
 
 ```
-openssl pkey -in ~/Documents/Keys/Oltre/identity/AuthKey_<KEYID>.p8 -noout -text
+openssl pkey -in ~/Documents/Keys/Oltre/identity/AuthKey_<KEYID>.p8 -noout -text_pub
 ```
 
-Expect `Private-Key: (256 bit)` and `ASN1 OID: prime256v1`. Anything else means the wrong file.
+Expect `Public-Key: (256 bit)`, `ASN1 OID: prime256v1` and `NIST CURVE: P-256`. Anything else means
+the wrong file — ES256 is defined over P-256 and nothing else will sign a client secret Apple
+accepts.
+
+**`-text_pub`, not `-text`.** The obvious command is `-noout -text`, and it prints the **private
+key** to the terminal. That is merely untidy when a human runs it in a scrollback they own; it is a
+real leak when an agent runs it, because the one-shot key then lives in a transcript. Same check,
+public half only.
 
 ```
 openssl pkey -in ~/Documents/Keys/Oltre/identity/AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
