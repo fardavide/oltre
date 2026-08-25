@@ -1,56 +1,87 @@
 # Identity provisioning — Apple and Google, step by step
 
-**Status:** ready to follow. Written 2026-08-25, for issue #110 under epic #106.
+**Status:** ready to follow. Written 2026-08-25 for issue #110 under epic #106.
 
-This is a tutorial, not a summary. Follow it top to bottom and tell me where it is wrong, vague or
-missing a step — corrections go back into this file rather than into a chat message, so the next
-person to do this reads the fixed version.
-
-Every value here was verified on 2026-08-25 against the repository, the machine, and Apple's and
-Google's current documentation. Where something is Apple's or Google's to generate, it is written
-`<LIKE_THIS>` and described so you can tell you have the right thing.
-
-**What this gets you:** everything issue #110 needs from a human, done before the slice starts, so
-the session that writes the auth code is never blocked on a portal.
-
-Two portals, one registrar, one local secret store. Around 90 minutes of clicking.
-**Steps 1–34 can all be finished today.** Steps 35–45 genuinely wait, and each one says on what.
-
-**Read these four before you click anything**, because each is a door that only opens one way:
-step 5 (the keystore just changed job), step 13 (the capability invalidates provisioning profiles),
-step 17 (the `.p8` downloads exactly once), step 26 (Google client secrets are shown exactly once).
+A tutorial, not a summary. Follow it and tell me where it is wrong, vague, or missing a step —
+corrections go into this file, so the next person to do this reads the fixed version rather than a
+chat thread. Every project value was re-derived on 2026-08-25 from the repository and this machine;
+provider claims come from Apple's and Google's own documentation and were then attacked by
+reviewers whose job was to refute them.
 
 ---
 
+Two portals, one registrar, one local secret store. Every value below is the real one for this
+project. The only placeholders are values Apple and Google generate for you; those are written
+`<LIKE_THIS>` and described so you can tell you have the right thing.
+
+**There is no end-to-end proof available today.** The only real verification is step 53 — sign in
+from both platforms and confirm the server sees one account — and that waits on a deployed server
+plus two builds. Everything before it verifies that *the consoles accepted your input*, which is a
+weaker claim than it feels like at the time. That is a reason to record what you did (steps 37 and
+40), not a reason to skip it.
+
+About 100 minutes end to end, comfortably split into two sittings. **Steps 1–42 can all be finished
+today.** Steps 43–53 genuinely wait, and each says on what.
+
+Four things to read before clicking anything: step 4 (the keystore just changed job), step 13 (the
+capability invalidates provisioning profiles, and the first thing that exercises that is a publish),
+step 17 (the p8 downloads once), step 29 (client secrets are shown once).
+
+## If you only have 30 minutes
+
+Do **1, 2, 3, 4, 5, 6a, 7, 8a, 12–21**, and stop.
+
+That is the net, the off-machine backup, the one DNS row that unblocks Cloud Run later, and the
+whole Apple half including the one-shot key. **Skip 9–11 and the four A records** — step 7 says why
+you must not repoint the apex unless you finish 8b, 9 and 10 in the same sitting. Google's five
+clients (24–36) is a separate half hour; nothing in it is urgent except that step 5 must come before
+step 32.
+
 ## Before you start
 
-- The Apple Developer account for team **A7Q83J6LR4**, signed in as **Account Holder or Admin**.
-  Both the Sign in with Apple capability and the key creation require one of those two roles.
-- A Google account. **Use the same one for Google Search Console and for the Google Cloud project.**
-  Cloud Run's custom-domain mapping checks that the Cloud project owner is a verified owner of
-  `oltre.space` in Search Console, and mismatched accounts is the usual way that fails.
-- The Namecheap account holding `oltre.space`.
-- A terminal with `keytool` (ships with the JDK), `openssl`, and `gh` already authenticated.
-  All three are present on this machine — checked.
-- Somewhere off this laptop for one passphrase — Apple Passwords or 1Password.
+- **The Apple Developer account for team `A7Q83J6LR4`, signed in as Account Holder or Admin.** Both
+  the capability and the key creation require one of those two roles.
+- **One Google account, chosen now**, owning both Search Console and the Cloud project. Cloud Run's
+  domain mapping checks that the Cloud project is a verified owner of `oltre.space` in Search
+  Console, and mismatched accounts is the usual way that fails. **Write it into `google.env` at step
+  35.**
 
-**Two things are not installed, and only one of them matters today.** Checked on 2026-08-25:
-`gcloud` and `firebase` are both absent (`node` and `npm` are present). Steps 1–34 need neither —
-the Cloud project and all five OAuth clients are created in a browser. Only step 35, which is
-optional groundwork, wants `gcloud`:
+  **Which account: one for all your personal dev work, not one per project.** The previous Google
+  developer account lapsed because it was welded to an address that stopped being used — and
+  per-project accounts multiply exactly that, since an account nobody signs into is an account that
+  quietly dies. Pick an address that outlives any single product. **Not one on `oltre.space`**: an
+  identity named after a project dies with the project, which is the same mistake one layer up.
+  Apple has already forced this shape on you — one team, `A7Q83J6LR4`, for everything — and matching
+  it on Google costs nothing.
 
-```
-brew install --cask google-cloud-sdk
-gcloud auth login
-```
+  **Per product, isolate with a Cloud project rather than an account.** That is where isolation
+  actually lives: quotas, budget alerts, service accounts and OAuth clients are all per-project, a
+  dead project deletes cleanly, and projects are free. `oltre-prod` here; the next thing gets its
+  own.
 
-**And step 35 needs billing enabled on the Cloud project**, which steps 22–34 do not. Creating a
-project, configuring the Auth Platform and creating OAuth clients are all free and need no card.
-Secret Manager and Cloud Run do require a billing account attached — that is the point at which
-epic §6's note applies: *"Cloud Run's free tier requires a billing account with a card on file. A
-request loop or a scraper can generate real spend, and a budget alert warns rather than caps."*
-If you would rather not attach a card today, stop after step 34; nothing later in the identity
-slice is blocked by it.
+  **How firmly this binds, since it is worth knowing before you commit.** The OAuth clients cannot
+  move between *projects* — that part is genuinely one-way, and it is why step 24 says to create the
+  project you will actually deploy from. The *account* binding is softer than it looks: a no-org
+  project is owned through IAM, so another Google account can be granted `roles/owner` and the
+  original removed. Treat the project as fixed and the login as recoverable-with-effort.
+- **A billing decision, before step 42.** A fresh project has no billing account, and
+  `gcloud services enable secretmanager.googleapis.com run.googleapis.com` fails on it with
+  `FAILED_PRECONDITION: Billing must be enabled…`. Secret Manager is not free either: $0.06 per
+  active secret version per location per month, $0.03 per 10,000 access operations, with a small
+  free allotment. Two secrets is about €0.12/month — real, but three orders of magnitude below the
+  load balancer that step 42 rejects on cost. Steps 1–41 need no billing at all.
+- **The Namecheap account holding `oltre.space`.**
+- **The GitHub account `fardavide`** — you will add an account-level domain verification.
+- **A terminal** with `keytool` (ships with the JDK), `openssl`, `shasum` and `gh` already
+  authenticated. **`gcloud` is not installed on this machine.** If you want Part 6 today:
+  `brew install --cask google-cloud-sdk`, then `gcloud init`, `gcloud auth login`. Budget 15
+  minutes for that alone, or skip Part 6.
+- **Somewhere off this laptop, and outside iCloud, for one passphrase** — see step 5.
+
+A note on `openssl`, because one digest in this guide is load-bearing. `/usr/bin/openssl` is
+LibreSSL 3.3.6 and prints a bare hex string; Homebrew's OpenSSL 3.6.3 (first in `PATH` here) prints
+`SHA2-256(stdin)= <hex>`. A restore may well be run on a machine without Homebrew, so this guide
+pipes through `shasum -a 256`, which is identical on both.
 
 ---
 
@@ -60,7 +91,7 @@ slice is blocked by it.
 
 `.gitignore` today covers `*.jks`, `*.keystore` and `keystore.properties` and nothing else
 credential-shaped. A `.p8` or a `client_secret_*.json` dropped anywhere in the checkout is
-committable right now, and this is a public repository. Do this before you download anything.
+committable right now, and this is a public repository.
 
 Add to `/Users/davide/Dev/Projects/Oltre/.gitignore`:
 
@@ -75,8 +106,16 @@ client_secret*.json
 .env.*
 ```
 
-Commit it on a branch and merge it, or let the identity slice carry it — but have the lines in the
-working tree before step 17.
+**Do not open a PR for this today. Edit the working tree and leave it uncommitted.** Git honours the
+working-tree `.gitignore` whether or not it is committed, so the net is fully in force the moment
+you save the file — and on this repo a merge to `main` archives to TestFlight and can cut a GitHub
+Release, so a one-line `.gitignore` change would cost a full CI cycle and publish a build. The
+identity slice's PR carries these lines.
+
+**A `.gitignore` is a net, not a control.** If a secret does reach the public repo, rewriting
+history is cleanup, not remediation: GitHub keeps unreachable commits reachable by SHA and forks
+keep their own copies. **Revoke first, clean second** — for the p8 that means the revoke-and-replace
+path, for a Google client secret it means rotating it in the console.
 
 ## 2. Create the local secret directory
 
@@ -87,18 +126,28 @@ Matches the existing convention: `~/.oltre` is already `0700` and holds `keystor
 mkdir -p -m 700 ~/.oltre/signin
 ```
 
+Everything below that writes a file into it does so under `umask 077`, so nothing exists at `0644`
+even briefly. The `0700` parent makes that near-harmless here; it costs nothing to close anyway.
+
 ## 3. Confirm the release fingerprint has not drifted
 
-Before you paste it into Google's console, re-derive it. The password is in
-`~/.oltre/keystore-password`.
+Before pasting it into Google's console, re-derive it.
+
+```
+pbcopy < ~/.oltre/keystore-password
+```
 
 ```
 keytool -list -v -alias oltre -keystore ~/.oltre/oltre-release.keystore
 ```
 
-Expect `SHA1: 24:AA:53:1D:64:20:C6:B9:65:86:FD:53:E6:B7:1A:E7:0C:3E:DB:98`. If it differs, stop —
-the APKs on your GitHub Releases are signed by a different key than you think, and everything
-downstream of step 22 would be wrong.
+`keytool` prompts for the store password — paste it. (It is not passed as `-storepass` on purpose:
+that would put it in `~/.zsh_history` and in the process table.)
+
+Expect `SHA1: 24:AA:53:1D:64:20:C6:B9:65:86:FD:53:E6:B7:1A:E7:0C:3E:DB:98` and
+`SHA256: 48:56:AF:68:C7:5D:02:E9:6C:51:70:5E:44:48:23:33:FE:5E:1F:A1:25:5F:24:38:2D:1E:23:AE:EF:B1:8D:DC`.
+If either differs, **stop** — the APKs on your GitHub Releases are signed by a different key than
+you think, and everything downstream of step 32 would be wrong.
 
 ## 4. Read this before step 5
 
@@ -114,80 +163,145 @@ downstream of step 22 would be wrong.
 
 ## 5. Make the off-machine encrypted copy — before registering the Android client
 
-```
-hdiutil create -size 20m -fs APFS -encryption AES-256 -volname "Oltre secrets" ~/Library/Mobile\ Documents/com~apple~CloudDocs/oltre-secrets.dmg
-```
-
-It prompts for a passphrase twice. **Put that passphrase in Apple Passwords or 1Password, not in
-`~/.oltre`** — a backup whose passphrase dies with the laptop is not a backup.
+Build the image **locally**, fill it, detach it, and only then move it into iCloud Drive. iCloud
+syncs a `.dmg` as one opaque file, so an image that is mounted and being written to while it sits
+inside the sync folder is the documented way to upload a torn copy.
 
 ```
-hdiutil attach ~/Library/Mobile\ Documents/com~apple~CloudDocs/oltre-secrets.dmg
+hdiutil create -size 20m -fs APFS -encryption AES-256 -volname "Oltre secrets" /tmp/oltre-secrets.dmg
+```
+
+It prompts for a passphrase twice.
+
+> **Where the passphrase goes, and why not only Apple Passwords.** In the scenario this backup
+> exists for — the laptop is gone — recovering a passphrase from iCloud Keychain needs another
+> trusted device or Apple's account-recovery flow. If this MacBook is the only trusted device that
+> is days, not minutes, and is not guaranteed. And the image itself is going to iCloud Drive, so
+> storing the passphrase there too puts both halves of the backup behind one Apple account. **Record
+> it in Apple Passwords or 1Password *and* somewhere outside that account** — paper in a drawer is
+> fine and is the version that survives everything else.
+
+```
+hdiutil attach /tmp/oltre-secrets.dmg
 cp -p ~/.oltre/oltre-release.keystore ~/.oltre/keystore-password /Volumes/Oltre\ secrets/
 ```
 
-Leave it mounted — step 31 adds the sign-in files to the same image. This is written to the real
-iCloud Drive path deliberately, so it is genuinely off-machine.
+Leave it mounted for now — step 38 adds the sign-in files, detaches it, and moves it into iCloud
+Drive. Nothing is off-machine until step 38 says so.
 
 ---
 
 # Part 2 — DNS and the two hostnames
 
-Do this before the portals: DNS propagation and GitHub's certificate issuance run in the background
+Do the DNS before the portals: propagation and GitHub's certificate issuance run in the background
 while you click.
 
 `oltre.space` is at Namecheap on **Namecheap BasicDNS** (`dns1.registrar-servers.com`,
-`dns2.registrar-servers.com`). The apex currently resolves to the Namecheap parking IP
-`162.255.119.165`; `api.oltre.space` does not resolve at all. Everything below happens at
-**Namecheap Dashboard → Domain List → Manage (oltre.space) → Advanced DNS**. Leave the nameservers
-alone — Advanced DNS only applies while BasicDNS is selected.
+`dns2.registrar-servers.com` — confirmed today). The apex resolves to the Namecheap parking IP
+`162.255.119.165`, `www` is a CNAME to `parkingpage.namecheap.com`, and `api.oltre.space` does not
+resolve at all. Records are edited at **Namecheap Dashboard → Domain List → Manage (oltre.space) →
+Advanced DNS**. Leave the nameservers alone — Advanced DNS only applies while BasicDNS is selected.
 
-## 6. Get the Google Search Console verification token first
+## 6. Collect both verification tokens first
 
-Go to <https://search.google.com/search-console>, signed in as the Google account that will own the
-Cloud project.
+Two portals hand you a TXT value. Get both before touching Namecheap so step 7 is one visit.
+
+**6a — Google Search Console** (required for Cloud Run's domain mapping later, and the only DNS work
+that matters if you are on the 30-minute path). Go to
+<https://search.google.com/search-console>, signed in as **the Google account that will own the
+Cloud project**.
 
 - **Add property** → the left-hand **Domain** box → type `oltre.space` → **Continue**.
-- Google shows a TXT record value that looks like
-  `google-site-verification=<44-CHARACTERS>`. Copy it. Leave the dialog open.
+- Google shows a TXT value of the form `google-site-verification=` followed by a 43-character
+  base64url token. **Copy it; do not retype it and do not count the characters** — Search Console
+  says only "your record should match exactly the verification record values given to you". Leave
+  the dialog open.
 
-This Domain property covers `api.oltre.space` as well, which is exactly what Cloud Run's domain
-mapping needs later. It is one of the very few deployment-adjacent things not blocked today.
+The Domain property covers `api.oltre.space` as well, which is exactly what Cloud Run's domain
+mapping needs. It is one of the very few deployment-adjacent things not blocked today.
 
-## 7. Edit the Namecheap records — one visit, six additions
+**6b — GitHub Pages domain verification.** Skip this if you are skipping the site today; if you are
+adding the A records, this is not optional (see step 7). Go to
+<https://github.com/fardavide/settings/pages> → **Add a domain** → `oltre.space` → GitHub shows a
+TXT record named `_github-pages-challenge-fardavide` with a token. Copy both.
 
-**Namecheap → Domain List → Manage (oltre.space) → Advanced DNS → Host Records.**
+GitHub is explicit about why: *"Domain takeovers can happen when you delete your repository, when
+your billing plan is downgraded, or after any other change which unlinks the custom domain or
+disables GitHub Pages while the domain remains configured for GitHub Pages and is not verified."*
+Verification is per-account, not per-repo — after it, only repositories owned by `fardavide` can
+publish to `oltre.space`.
 
-**Delete** the parking entries first (bin icon on the right of each row): typically an
-`A Record` or `URL Redirect Record` for host `@`, and a `CNAME Record` for host `www` pointing at
-`parkingpage.namecheap.com`.
+## 7. The one Namecheap visit — hygiene, then records
 
-Then **Add New Record**, six times:
+**Namecheap → Domain List → Manage (oltre.space).**
+
+**Do the registrar hygiene first, because it is the part nobody comes back for.** The Apple Return
+URL is `https://api.oltre.space/v1/auth/apple/callback` permanently, and Apple delivers
+authorisation codes there. Whoever controls the zone controls that host, and that is account
+takeover for the whole player base rather than downtime.
+
+- **Auto-Renew: ON.** `oltre.space` was registered 2026-08-25, so the deadline is 2027-08-25 with no
+  in-product warning of any kind.
+- **Registrar Lock: ON** (Namecheap calls it *Transfer Lock*, on the Domain tab).
+- **2FA on the Namecheap account**, with the recovery codes stored where step 39 says.
+- **Check the registrant email is one you actually read** — ICANN verification mail goes there, and
+  an unverified registrant contact suspends the domain.
+
+Then **Advanced DNS → Host Records**.
+
+**If you are on the 30-minute path, add only the Search Console TXT row and stop here.** The A
+records below repoint the apex at GitHub, and a custom domain pointed at GitHub Pages that is *not*
+verified and *not* configured is exactly the takeover shape GitHub warns about. Either do 6b, 7, 8b,
+9 and 10 in one sitting, or leave the parking records alone.
+
+Doing the whole thing: **delete** the parking entries first (bin icon at the right of each row) —
+the `A Record` for host `@` pointing at `162.255.119.165`, and the `CNAME Record` for host `www`
+pointing at `parkingpage.namecheap.com`. Between that deletion and step 10 the apex serves a GitHub
+404 rather than a parking page. That is expected, it is not you having broken the domain, and it
+lasts as long as the DNS TTL plus however long you take over steps 9–10.
+
+Then **Add New Record**:
 
 | Type | Host | Value | TTL |
 |---|---|---|---|
+| TXT Record | `@` | `google-site-verification=<43-CHAR-TOKEN>` | Automatic |
+| TXT Record | `_github-pages-challenge-fardavide` | `<TOKEN-FROM-STEP-6b>` | Automatic |
 | A Record | `@` | `185.199.108.153` | Automatic |
 | A Record | `@` | `185.199.109.153` | Automatic |
 | A Record | `@` | `185.199.110.153` | Automatic |
 | A Record | `@` | `185.199.111.153` | Automatic |
-| CNAME Record | `www` | `fardavide.github.io.` | Automatic |
-| TXT Record | `@` | `google-site-verification=<44-CHARACTERS>` | Automatic |
+| CNAME Record | `www` | `fardavide.github.io` | Automatic |
 
-Click the green tick on each row, then **Save all changes**.
+**Enter the CNAME value without a trailing dot.** Namecheap normalises it; GitHub's own instruction
+is that the record points at `<user>.github.io`, excluding the repository name. If Namecheap's
+validator objects to the bare form, add the dot — either is accepted by DNS, and step 8 verifies
+which one you got.
 
-Optional, and worth thirty seconds — IPv6 for GitHub Pages. Four `AAAA Record` rows on host `@`:
+Namecheap's Advanced DNS saves per row: click the green tick at the right of each row as you finish
+it. Some layouts also show a **Save all changes** button at the top of the Host Records block; if
+you do not see one, the green ticks were the save.
+
+Optional, thirty seconds — IPv6 for GitHub Pages. Four `AAAA Record` rows on host `@`:
 `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153`.
 
-Nothing for `api.oltre.space` yet: Cloud Run hands you the exact records when the domain mapping is
-created (step 35), and inventing them now would only have to be deleted.
+**Nothing for `api.oltre.space` yet.** Cloud Run hands you the exact records when the domain mapping
+is created (step 43), and inventing them now would only have to be deleted. Note that Apple does not
+resolve `api.oltre.space` when you register it at step 15 — that is precisely why no domain
+association file is needed.
 
-## 8. Verify in Search Console
+## 8. Verify both
 
-Back in the still-open dialog, click **Verify**. If it fails, wait a few minutes for the TXT to
-propagate and press it again. Check with:
+**8a** — back in the still-open Search Console dialog, click **Verify**. If it fails, wait a few
+minutes and press it again.
 
 ```
 dig +short TXT oltre.space
+```
+
+**8b** — at <https://github.com/fardavide/settings/pages>, click **Verify** on the domain you added.
+
+```
+dig +short TXT _github-pages-challenge-fardavide.oltre.space
 ```
 
 ## 9. Create the public site on a `gh-pages` branch
@@ -195,19 +309,29 @@ dig +short TXT oltre.space
 Use a dedicated orphan branch, not `main` and not `main`'s `/docs` folder. Two reasons: `/docs`
 already contains `ui-mockup.html`, which would become publicly served; and **merging to `main`
 publishes** — Xcode Cloud archives to TestFlight and the release workflow can cut a GitHub Release.
-A typo fix in a privacy policy should not be able to ship a build.
+A typo fix in a privacy policy should not be able to ship a build. (Pushing an orphan branch fires
+no CI: the workflow triggers only on push-to-`main` and `pull_request`.)
 
 In a throwaway clone, so nothing touches your working checkout:
 
 ```
 git clone https://github.com/fardavide/oltre.git /tmp/oltre-pages
-cd /tmp/oltre-pages
-git switch --orphan gh-pages
-touch .nojekyll
 ```
 
-Create `/tmp/oltre-pages/index.html`. Something minimal and honest — a title, one sentence, and
-nothing that pretends to be a privacy policy. Paste this if you do not want to write one:
+```
+git -C /tmp/oltre-pages switch --orphan gh-pages
+```
+
+```
+touch /tmp/oltre-pages/.nojekyll
+```
+
+`.nojekyll` turns off Jekyll, so the files served are exactly the files committed and directories
+beginning with a dot are published. That is what makes step 16's contingency host possible at all,
+and it means `/privacy` and `/terms` must later be `privacy/index.html` and `terms/index.html`
+rather than Markdown.
+
+Write `/tmp/oltre-pages/index.html`. Here it is in full, so this is a paste and not a writing task:
 
 ```html
 <!DOCTYPE html>
@@ -217,34 +341,43 @@ nothing that pretends to be a privacy policy. Paste this if you do not want to w
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Oltre</title>
     <style>
-      body { margin: 0; min-height: 100vh; display: grid; place-items: center;
-             background: #0b0e17; color: #e8eaf2;
-             font: 16px/1.6 ui-sans-serif, system-ui, sans-serif; }
-      main { max-width: 32rem; padding: 2rem; }
-      h1 { font-weight: 600; letter-spacing: 0.04em; margin: 0 0 0.5rem; }
-      p { color: #9aa3b8; margin: 0; }
+      :root { color-scheme: dark; }
+      body {
+        margin: 0; min-height: 100vh;
+        display: grid; place-items: center;
+        background: #05070f; color: #e6e8ef;
+        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        text-align: center; padding: 2rem;
+      }
+      h1 { font-size: 2.5rem; margin: 0 0 0.5rem; letter-spacing: 0.02em; }
+      p { margin: 0; max-width: 32rem; color: #9aa1b4; }
     </style>
   </head>
   <body>
     <main>
       <h1>Oltre</h1>
-      <p>An asynchronous space colonisation game. Everything progresses while the app is closed.</p>
+      <p>An asynchronous space colonisation game. In development.</p>
     </main>
   </body>
 </html>
-``` `.nojekyll` matters: it turns off Jekyll, so
-files served are exactly the files committed and directories beginning with a dot are published.
-That is what makes the step-16 contingency possible, and it means `/privacy` and `/terms` will need
-to be `privacy/index.html` and `terms/index.html` rather than Markdown.
-
-```
-git add -A
-git commit -m "Public site: home page for oltre.space"
-git push -u origin gh-pages
 ```
 
-Do **not** put placeholder privacy or terms pages up. A privacy policy a player could read and that
-is not true is worse than a 404. Those pages land with the identity release (step 39).
+"Honest" means it excludes exactly two things: any claim the app is available, and anything shaped
+like a privacy policy or terms page. **Do not put placeholder `/privacy` or `/terms` up.** A privacy
+policy a player could read and that is not true is worse than a 404. Those land with the identity
+release (step 46).
+
+```
+git -C /tmp/oltre-pages add -A
+```
+
+```
+git -C /tmp/oltre-pages commit -m "Public site: home page for oltre.space"
+```
+
+```
+git -C /tmp/oltre-pages push -u origin gh-pages
+```
 
 ## 10. Point GitHub Pages at the apex
 
@@ -254,16 +387,27 @@ is not true is worse than a 404. Those pages land with the identity release (ste
   Save.
 - **Custom domain:** type `oltre.space` → **Save**. GitHub runs a DNS check and commits a `CNAME`
   file containing `oltre.space` to the branch.
-- Wait for the certificate. It is usually minutes, occasionally up to 24 hours. When **Enforce
-  HTTPS** stops being greyed out, tick it.
+- Wait for the certificate, then tick **Enforce HTTPS** when it stops being greyed out. GitHub says
+  *"it can take up to 24 hours before this option is available"*.
 
-## 11. Confirm
+## 11. Confirm — and know which failures are normal
 
 ```
 curl -sI https://oltre.space/
 ```
 
-Expect `HTTP/2 200`. `https://www.oltre.space/` should redirect to the apex.
+`HTTP/2 200` is the finished state. Inside your window you may well get one of these instead, and
+none of them means you mistyped a record:
+
+| What you see | What it is |
+|---|---|
+| TLS handshake / certificate error | GitHub has not issued the certificate yet. Up to 24 hours. |
+| `HTTP/2 404` | DNS is right, Pages has not finished its first build. Minutes. |
+| Connection refused, or the Namecheap parking page | DNS has not propagated to your resolver yet. |
+| `HTTP/2 200` from something that is not your page | Wrong: an A record is mistyped. Re-check step 7. |
+
+`https://www.oltre.space/` should redirect to the apex — GitHub creates that redirect automatically
+when the apex is the configured custom domain.
 
 ---
 
@@ -274,45 +418,67 @@ server URL is wrong now that `api.oltre.space` is a settled, permanent hostname.
 
 ## 12. Enable Sign in with Apple on the App ID
 
-<https://developer.apple.com/account/resources/identifiers/list> → filter **App IDs** → click the row
-whose Bundle ID is `dev.fardavide.oltre`.
+<https://developer.apple.com/account/resources/identifiers/list> → **Identifiers** in the sidebar →
+filter **App IDs** → **select the row whose Bundle ID is `dev.fardavide.oltre`, then click Edit**.
 
-- Tick the **Sign in with Apple** checkbox.
-- An **Edit** / **Configure** button appears beside it. Click it and choose
-  **"Enable as a primary App ID"**. Save the modal.
-- **Save** at the top right.
+Apple's steps, verbatim: *"Select the App ID you want to update, then click Edit. Select the
+corresponding checkboxes to enable the app capabilities you want to allow. Click Save. If a warning
+dialog appears, click Confirm to finalize your changes."* There is an **Edit** button; do not go
+hunting for a checkbox on the row itself.
 
-## 13. Read the dialog, then confirm
+- Tick **Sign in with Apple**.
+- A **Configure** button appears beside it. Click it. The modal offers a choice Apple describes as
+  *"whether this App ID should be enabled as a primary or grouped with an existing primary App
+  ID"* — i.e. a pair reading roughly **"Enable as a primary App ID"** and **"Group with an existing
+  primary App ID"**. Choose **primary**. Save the modal.
+- **Save**, then **Confirm** in the warning dialog.
+
+There is only one app on this team, so primary is unambiguously right, and the Services ID in step 14
+must attach to a primary.
+
+## 13. Read the dialog, then confirm — and then trigger an archive
 
 > Apple's warning is real and says: *"Provisioning profiles that contain a modified App ID become
-> invalid. You'll need to regenerate the provisioning profiles that use that App ID."* Accept it.
+> invalid. You'll need to regenerate the provisioning profiles that use that App ID."* Also:
+> *"Enabling a capability will affect provisioning profiles for all eligible platforms."*
 >
-> You do **not** need to regenerate anything by hand. `iosApp/project.yml` sets
-> `CODE_SIGN_STYLE: Automatic`, and Xcode Cloud uses cloud signing — it mints certificates and
-> profiles at archive time, so the next `main` archive regenerates the profile carrying the new
-> entitlement. Xcode Cloud needs no configuration change, no new secret and no `ci_scripts` edit.
-> Locally, Xcode regenerates the development profile on the next build; if it does not, untick and
-> re-tick "Automatically manage signing" once.
+> **Expect not to regenerate anything by hand.** `iosApp/project.yml` sets
+> `CODE_SIGN_STYLE: Automatic` and Xcode Cloud uses cloud signing, so the next archive should mint a
+> profile carrying the new entitlement. Locally, Xcode should regenerate the development profile on
+> the next build; if it does not, untick and re-tick "Automatically manage signing" once. But note
+> that this is an expectation, not a documented guarantee: Apple's *Provisioning with managed
+> capabilities* page — the one that promises automatic inclusion — lists CarPlay, Multicast
+> Networking and similar, and **Sign in with Apple is not on it**. If the first archive fails
+> signing, regenerate the distribution profile by hand at
+> <https://developer.apple.com/account/resources/profiles/list>; there is nothing subtle about the
+> fix, only about noticing you need it.
 >
-> **Order matters.** Do this portal step *before* the entitlement in step 40 reaches `main`, or the
-> first archive after it fails signing — and that archive is a TestFlight publish.
-
-"Primary" versus "grouped" is close to one-way: an App ID enabled by grouping cannot itself group
-further identifiers, and the Services ID in step 14 must attach to a *primary*. There is only one app
-on this team, so primary is unambiguously right.
+> **So notice it on purpose.** Nothing on a pull request signs anything — CI's iOS job runs only
+> `./gradlew :client:shell:linkDebugFrameworkIosSimulatorArm64`, which compiles the framework and
+> never archives. Left alone, a regeneration failure surfaces as a broken Xcode Cloud archive on
+> `main`, i.e. a failed TestFlight publish, discovered by whatever unrelated feature merges next.
+> **Start an Xcode Cloud build by hand now, while you still remember you made this change.**
+>
+> **Order matters.** Do this portal step *before* the entitlement in step 47 reaches `main`, or the
+> first archive after it fails signing.
 
 ## 14. Register the Services ID
 
-<https://developer.apple.com/account/resources/identifiers/list> → blue **+** → **Services IDs** →
-Continue.
+<https://developer.apple.com/account/resources/identifiers/list> → the add button **(+)** on the top
+left → **Services IDs** → **Continue**.
 
-- **Description:** `Oltre Sign in with Apple` (plain ASCII; Apple rejects punctuation here)
+- **Description:** `Oltre Sign in with Apple`
 - **Identifier:** `dev.fardavide.oltre.signin`
 
-Continue → Register.
+**Continue** → review → **Register**.
 
-The identifier **cannot** be `dev.fardavide.oltre`. App IDs and Services IDs share one namespace
-across the entire developer programme, so that string is already taken by your own App ID.
+Apple documents no restriction on the description field, but the portal is known to reject some
+special characters. Plain ASCII avoids finding out.
+
+The identifier **cannot** be `dev.fardavide.oltre`: the portal answers *"An App ID with Identifier
+'…' is not available. Please enter a different string."* because your own App ID already holds it.
+(Apple does not document the namespace rule; the behaviour is consistent and the conclusion — pick a
+different string — does not depend on knowing why.)
 
 What this thing *is*: the OAuth `client_id` for every client that is not an Apple-native app talking
 to `AuthenticationServices`. It is a web credential, not a second app.
@@ -322,65 +488,109 @@ to `AuthenticationServices`. It is a web credential, not a second app.
 Click `dev.fardavide.oltre.signin` → tick **Sign in with Apple** → **Configure**.
 
 - **Primary App ID:** `dev.fardavide.oltre`
+- The modal has a section headed **Website URLs**. **If you do not see text inputs, click the plus
+  icon next to Website URLs first** — the fields are behind it, and this is where people conclude
+  the page is broken.
 - **Domains and Subdomains:** `api.oltre.space`  *(no scheme, no trailing slash)*
 - **Return URLs:** `https://api.oltre.space/v1/auth/apple/callback`
 
 **Done** → **Continue** → **Save**.
 
+Apple's own wording is that you *"provide your domains, subdomains, or return URLs as a
+comma-delimited list"* and *"must provide at least one domain or subdomain"* — which matters the
+first time you add a second URL. As an individual enrolee you may register **at most 10 website
+URLs** in total (organisations get 100), so do not start a URL-per-environment habit.
+
 Apple rejects `http`, `localhost`, bare IP addresses and any URL containing a fragment. Return URLs
 must be absolute with scheme, host and path, and must later match the `redirect_uri` parameter
-**byte for byte** — one trailing slash is enough to fail with `invalid_client`. As an individual
-account you may register at most 10 website URLs in total, so do not start a URL-per-environment
-habit.
+**byte for byte**. A mismatch fails the token exchange; do not diagnose it from the error code
+alone — Apple documents `invalid_client` as being about the client identifier, and a `redirect_uri`
+mismatch is normally reported as `invalid_grant`. Compare the two strings character by character
+instead.
+
+**Apple does not resolve the host here.** `api.oltre.space` returning nothing today is fine and is
+the same fact as step 16's "expect not to need this".
 
 ## 16. If — and only if — the portal demands a domain association file
 
-Apple's current help page states in as many words that you do **not** need to upload a file to your
-server to register domains and subdomains. Most third-party guides are stale on this. If the portal
-nevertheless asks for `apple-developer-domain-association.txt`:
+Apple's current help page states in as many words: *"You don't need to upload a file on your server
+to complete the registration process for domains and subdomains."* Numerous third-party guides are
+stale on this. **Expect not to need it.**
 
-- The file belongs at `https://api.oltre.space/.well-known/apple-developer-domain-association.txt`,
-  which does not exist yet — but `oltre.space` does, and GitHub Pages will serve
-  `.well-known/apple-developer-domain-association.txt` from the `gh-pages` branch **because you
-  committed `.nojekyll`**. Add it there, register the apex as the domain, and it must return HTTP
-  200 as `text/plain` with no redirect.
-- Expect not to need this.
+If the portal nevertheless demands
+`apple-developer-domain-association.txt`, the honest position is that **you are blocked until
+something can serve `https://api.oltre.space/.well-known/apple-developer-domain-association.txt`**
+with HTTP 200 as `text/plain` and no redirect. Hosting it on the apex does not help: Apple would be
+demanding the file for the domain being registered, and the Return URL's host must itself be a
+registered domain, so registering the apex instead leaves step 15 unfinishable.
+
+The two workable moves, in order of cost:
+
+1. **Defer step 15 only.** Steps 17–21 — the key — are unaffected, and the key is the one-shot half.
+   Come back to the Services ID configuration when the server (step 44) can answer that path.
+2. **Point `api.oltre.space` temporarily at any host you control that can serve one static file**,
+   register the domain, then repoint it. The Services ID configuration survives the repointing;
+   nothing re-checks.
 
 ## 17. Read this, then create the key
 
 > **The `.p8` downloads exactly once.** Apple: *"Save this file in a secure place because the key is
 > not saved in your developer account and you won't be able to download it again. If the Download
 > button is disabled, you previously downloaded the key."* There is no recovery path — a lost p8
-> means revoking the key and creating a replacement. **Do not close the browser tab until step 19
-> has both copies on disk.**
+> means revoking the key and creating a replacement. **Do not close the browser tab until step 20
+> has both copies on disk and the digest written down.**
 
-<https://developer.apple.com/account/resources/authkeys/list> → **+**
+## 18. Create the key
+
+<https://developer.apple.com/account/resources/authkeys/list> → **Keys** in the sidebar → the add
+button **(+)**.
+
+Apple's flow, and note there is **no Register button on this screen** — that belongs to the
+Identifiers flow:
 
 - **Key Name:** `Oltre Sign in with Apple`
-- Tick **Sign in with Apple**, click **Configure** beside it, select Primary App ID
-  `dev.fardavide.oltre`, **Save**.
-- **Continue** → **Register**.
+- Tick **Sign in with Apple**, then **Continue**.
+- Click **Configure** beside it, select Primary App ID `dev.fardavide.oltre`, **Continue**.
+- Review the key configuration, then **Confirm**.
+
+**Do not click Download yet.** Step 19 reads a value off this screen first.
 
 **Scope, since it is not obvious:** the key is scoped to a *primary App ID and its group* — not to
 the whole team, and not to the Services ID. Because `dev.fardavide.oltre.signin` is configured
 against `dev.fardavide.oltre`, **one key signs client secrets for both `client_id`s**. A primary App
-ID may hold at most two such keys; that headroom exists so you can rotate — create the new one, cut
-over, revoke the old one.
+ID may hold at most two such keys; that headroom exists so you can rotate.
 
-## 18. Download it and move it immediately
+## 19. Read the Key ID, then download and move the key
 
-Click **Download**. The file lands in `~/Downloads` as `AuthKey_<KEYID>.p8` — around 250 bytes of
-PKCS#8 PEM starting `-----BEGIN PRIVATE KEY-----`.
+The **Key ID** is the 10-character alphanumeric string shown with the key, e.g. `ABC123DEFG`. Write
+it down **now** — it is what you substitute into every command in step 20, and it is unrecoverable
+from the key material. It stays visible in the portal (unlike the key itself), and it is also in the
+filename, which is the only other reason a lost Key ID is recoverable.
+
+Now click **Download**, then **Done**. The file lands in `~/Downloads` as `AuthKey_<KEYID>.p8` —
+around 250 bytes of PKCS#8 PEM starting `-----BEGIN PRIVATE KEY-----`.
+
+Look before you move, because a glob in the one step where the file is unrecoverable is how an APNs
+or App Store Connect key from a previous year gets silently swept along:
 
 ```
-mv ~/Downloads/AuthKey_*.p8 ~/.oltre/signin/
-chmod 600 ~/.oltre/signin/AuthKey_*.p8
+ls -l ~/Downloads/AuthKey_*.p8
+```
+
+Then move **the one file, by name**:
+
+```
+mv ~/Downloads/AuthKey_<KEYID>.p8 ~/.oltre/signin/
+```
+
+```
+chmod 600 ~/.oltre/signin/AuthKey_<KEYID>.p8
 ```
 
 `~/Downloads` is indexed, swept by cleanup tools and readable by anything you run. Leaving a
 one-shot key there "for a few minutes" is how it gets lost.
 
-## 19. Prove it is the right file, and fingerprint it
+## 20. Prove it is the right file, and fingerprint it
 
 ```
 openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -noout -text
@@ -389,29 +599,26 @@ openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -noout -text
 Expect `Private-Key: (256 bit)` and `ASN1 OID: prime256v1`. Anything else means the wrong file.
 
 ```
-openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -pubout -outform DER | openssl dgst -sha256
+openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
 ```
 
-Write that digest down for step 32. It is not secret, and it is the only thing that lets you tell
-whether a restored backup is the same key — exactly the discipline already used for the keystore's
-certificate SHA-256.
+Write that 64-character hex digest down for step 38. It is not secret, and it is the only thing that
+lets you tell whether a restored backup is the same key — exactly the discipline already used for
+the keystore's certificate SHA-256.
 
 Only now close the browser tab.
 
-## 20. Read the Key ID and record the Apple identifiers
+## 21. Record the Apple identifiers
 
-<https://developer.apple.com/account/resources/authkeys/list> → click the key. The **Key ID** is the
-10-character alphanumeric string under the key name, e.g. `ABC123DEFG`. It is permanently visible in
-the portal, unlike the key itself, and it also happens to be in the filename — which is the only
-reason a lost Key ID is recoverable at all.
+**Do not use TextEdit** (`open -e`): its smart quotes and text substitutions will silently mangle a
+pasted client ID or redirect URI, and every value in these files must be byte-exact. Use a code
+editor, or a heredoc, or `nano`.
 
 ```
-touch ~/.oltre/signin/apple.env
-chmod 600 ~/.oltre/signin/apple.env
-open -e ~/.oltre/signin/apple.env
+(umask 077; nano ~/.oltre/signin/apple.env)
 ```
 
-Paste, filling in the Key ID:
+Contents, filling in the Key ID:
 
 ```
 OLTRE_APPLE_TEAM_ID=A7Q83J6LR4
@@ -421,13 +628,13 @@ OLTRE_APPLE_SERVICES_ID=dev.fardavide.oltre.signin
 OLTRE_APPLE_REDIRECT_URI=https://api.oltre.space/v1/auth/apple/callback
 ```
 
-None of these is secret — Team ID `A7Q83J6LR4` is already committed in `iosApp/project.yml`, which is
-correct and not a leak. They live here because the Key ID changes on every rotation and separating it
-from the key is what produces a broken deploy six months later.
+None of these is secret — Team ID `A7Q83J6LR4` is already committed in `iosApp/project.yml`, which
+is correct and not a leak. They live here because the Key ID changes on every rotation, and
+separating it from the key is what produces a broken deploy six months later.
 
-## 21. Register the server-to-server notification endpoint (optional today, cheap now)
+## 22. Register the server-to-server notification endpoint (optional today, cheap now)
 
-<https://developer.apple.com/account/resources/identifiers/list> → `dev.fardavide.oltre` →
+<https://developer.apple.com/account/resources/identifiers/list> → `dev.fardavide.oltre` → **Edit** →
 **Sign in with Apple** → **Configure** → **Server-to-Server Notification Endpoint**:
 
 ```
@@ -436,21 +643,52 @@ https://api.oltre.space/v1/auth/apple/notifications
 
 This is how you learn a player deleted their Apple Account or revoked the app, and it pairs with
 `/auth/revoke` for the in-app account deletion App Review requires. It is worth entering today
-purely because `api.oltre.space` is permanent — and it is harmless while the server does not exist,
-because nobody has signed in yet, so there is nothing to notify about. One endpoint per app group,
-shared by the App ID and the Services ID.
+purely because `api.oltre.space` is permanent, and it is harmless while the server does not exist —
+nobody has signed in, so there is nothing to notify about. One endpoint per app group, shared by the
+App ID and the Services ID.
+
+Two things to carry into the deployment slice:
+
+- **Apple requires TLS 1.2 or higher at that endpoint.** That is a constraint on the Cloud Run
+  service, not on this click.
+- The endpoint is a publicly reachable POST target. **It must verify Apple's signature before it
+  acts on anything** — see step 45's neighbourhood in Part 7.
+
+If the portal refuses the URL for any reason, leave the field blank, save the modal without it, and
+**re-open the App ID to confirm the primary Sign in with Apple configuration is still there** before
+moving on. Apple's Save/Confirm flow is where a silent drop would happen.
+
+Not applicable here, but worth knowing the direction of travel: **from 1 January 2026 developers
+based in the Republic of Korea must supply a notification endpoint** when registering a new Services
+ID or updating an existing one. Apple is making this mandatory jurisdiction by jurisdiction.
+
+## 23. Re-open everything and confirm it persisted
+
+Two minutes, and it is the only check available on this half. Apple's multi-button
+Done/Continue/Save flow is exactly where a value gets dropped without an error.
+
+- `dev.fardavide.oltre` → **Edit** → **Sign in with Apple** ticked, **Configure** shows *primary*,
+  and the notification endpoint still reads what you typed.
+- `dev.fardavide.oltre.signin` → **Configure** → **Primary App ID** is `dev.fardavide.oltre`, and
+  **Website URLs** still lists `api.oltre.space` and the full callback URL.
+- Keys list → the key is there, and its **Download** button is now greyed out. That is the expected
+  state and it confirms you have the only copy.
 
 ---
 
 # Part 4 — Google
 
-## 22. Create the Cloud project
+## 24. Create the Cloud project
 
 <https://console.cloud.google.com/projectcreate>
 
 - **Project name:** `Oltre`
-- **Project ID:** `oltre-prod` (globally unique; Google will suffix it if taken — note whatever you
-  end up with)
+- **Project ID:** `oltre-prod` — but read the rule before you type it. Google: an ID *"must be 6 to
+  30 characters"*, *"can only contain lowercase letters, numbers, and hyphens"*, *"must start with a
+  letter"*, *"cannot end with a hyphen"*, and **"cannot be in use or previously used; this includes
+  deleted projects"**. If `oltre-prod` is taken you get a validation error, not a silent suffix —
+  pick another (`oltre-prod-1`, `oltre-space`) and **write down what you actually used**, because
+  step 42 hard-codes `--project=` six times.
 - **Location:** No organisation.
 
 With no organisation attached, the Audience user type is forced to **External** and Internal is
@@ -459,26 +697,46 @@ greyed out. That is correct here; do not go looking for Internal.
 OAuth clients belong to a project and cannot be moved between projects. Use the same project that
 will host Cloud Run, so branding, clients and the service live together.
 
-## 23. Run the Auth Platform wizard
+## 25. Decide billing now, not at step 42
 
-<https://console.cloud.google.com/auth/overview> → **Get started**. This is where
-"APIs & Services → OAuth consent screen" moved to; most tutorials still name the old menu item,
-which no longer exists.
+Nothing from here to step 41 needs a billing account. **Step 42 does** — `gcloud services enable`
+fails on an unbilled project with `FAILED_PRECONDITION: Billing must be enabled for activation of
+service(s)`, and Cloud Run needs it too.
+
+The cost is not zero and is not close to the thing step 42 rejects: Secret Manager is **$0.06 per
+active secret version per location per month** and **$0.03 per 10,000 access operations**, with a
+free allotment covering the first 10,000 accesses. Two secrets is about €0.12/month. The load
+balancer step 42 turns down is tens of euros. "Zero-euro target" means "no standing infrastructure
+bill", and this is inside it.
+
+If you link a card, set the budget alert from step 42 in the same visit. If you do not, stop after
+step 41 today; nothing is lost.
+
+## 26. Run the Auth Platform wizard
+
+<https://console.cloud.google.com/auth/overview> → **Get started**. This is where "APIs & Services →
+OAuth consent screen" moved to; most tutorials still name the old menu item, which no longer exists.
 
 - **App name:** `Oltre`
 - **User support email:** a dropdown, not a free-text box — it offers only the signed-in Google
-  account or a Google Group you own — so an Apple private-relay alias will not appear in the list,
-  and neither will an address that is not attached to a Google account. Whatever you pick is shown
-  to every user who signs in, so choose deliberately.
+  account or a Google Group you own — an Apple private-relay alias will not appear in that list, and
+  neither will any address not attached to a Google account. **Whatever you pick is published on the consent screen to every user who signs in**, so if
+  the only option is a personal address you would rather not publish, create a Google Group first
+  and pick that instead. This is a decision, not a form field.
 - **Audience:** External
 - **Developer contact:** the same address
 - Agree to the User Data Policy → **Create**.
 
-Leave the App domain block (home page / privacy / terms / authorized domains) **empty** for now. It
-is only needed for brand verification, which is step 44 and is cosmetic. When you do fill it, add the
-authorized domain *before* the URLs — the page rejects URLs whose domain is not already listed.
+Leave the **Branding** page's App domain block (home page / privacy / terms / authorized domains)
+**empty** for now. It is only needed for brand verification, which is step 52 and is cosmetic. When
+you do fill it, add the authorized domain *before* the URLs — the page rejects URLs whose domain is
+not already listed.
 
-## 24. Add the scopes — three, and no more
+## 27. Add the scopes — three, and no more
+
+The Google Auth Platform's sidebar reads Overview / Branding / Audience / **Data Access** / Clients /
+Verification Center. **There is no "Scopes" item** — scopes live under **Data Access**, and that is
+the same trap step 26 warns about for the old consent-screen menu.
 
 <https://console.cloud.google.com/auth/scopes> → **Add or remove scopes** → tick:
 
@@ -498,12 +756,12 @@ You will store only `sub`. The email and profile claims arrive anyway from the m
 requesting them changes nothing about verification — but it does mean the server must never persist
 the email and must never log a raw ID token.
 
-## 25. Do nothing on the Audience page
+## 28. Do nothing on the Audience page
 
 <https://console.cloud.google.com/auth/audience>
 
-**Add no test users. Do not publish.** This is counter-intuitive and it is the single biggest piece
-of busywork you can avoid. Google's own wording:
+**Add no test users. Do not publish.** This is counter-intuitive, so here is the source, which is
+Google's *Manage App Audience* page — not the refresh-token page that gets quoted for it:
 
 > *"The only exception to this behavior is if your app requests a subset of the following: name,
 > email address, and user profile (through the userinfo.email, userinfo.profile, openid scopes or
@@ -511,24 +769,24 @@ of busywork you can avoid. Google's own wording:
 > user list, they will not see a warning message, and their authorizations will not expire after 7
 > days."*
 
-Oltre requests exactly that subset. So while the project sits in **Testing**: any Google account can
-sign in, there is no unverified-app warning, there is no 100-user cap in force, and the 7-day
-refresh-token expiry never applies. Adding a test user buys nothing and costs something permanent —
-*"a test user consumes a project's test user quota once added to the project"*, and removing them
-does not return the slot.
+Oltre requests exactly that subset, and the exception covers all three consequences of Testing
+status — the trusted-user list, the unverified-app warning, and the 7-day expiry — not just the
+expiry. So while the project sits in **Testing**: any Google account can sign in, there is no
+warning, the 100-user cap is not in force. Adding a test user buys nothing and costs something
+permanent: *"a test user consumes a project's test user quota once added to the project"*, and
+removing them does not return the slot.
+
+**The escape hatch, so this is not a cliff.** The risk here is not theoretical damage, it is that
+the failure would show up months later as "sign-in works for me and fails for testers". If a real
+tester ever gets `access_denied` with *"currently being tested and can only be accessed by
+developer-approved testers"*, add that one account as a test user and move on — one slot out of a
+hundred, and it tells you immediately that the exception is not applying. That is a cheap detector,
+not a reason to pre-emptively add anyone.
 
 The only thing Testing costs you is that the consent sheet shows the raw client identity rather than
-"Oltre" and a logo. Buying that is step 43–44.
+"Oltre" and a logo. Buying that is step 52.
 
-**Check this rather than trust it, because being wrong here is expensive.** If the exemption did not
-apply, every account that is not on the allow-list would be refused, and you would find out from a
-tester rather than from the console. The check costs a minute and happens at step 45, when there is
-something to sign in to: sign in with a **second Google account that is not on any list**. If it
-works with no "Google hasn't verified this app" interstitial, the exemption is real and no test user
-is ever needed. If it does not, add that account under **Test users** on the Audience page and open
-an issue on the epic — the guide is wrong and the next reader should not repeat it.
-
-## 26. Read this before creating clients
+## 29. Read this before creating clients
 
 > **A client secret is shown exactly once, on the creation dialog.** Since June 2025 the console
 > shows only the last four characters afterwards. **Download the JSON before closing each dialog.**
@@ -540,7 +798,7 @@ an issue on the epic — the guide is wrong and the next reader should not repea
 
 All five are created at <https://console.cloud.google.com/auth/clients> → **Create client**.
 
-## 27. Client 1 of 5 — Web application (the audience)
+## 30. Client 1 of 5 — Web application (the audience)
 
 - **Application type:** Web application
 - **Name:** `Oltre server`
@@ -549,11 +807,21 @@ All five are created at <https://console.cloud.google.com/auth/clients> → **Cr
 
 This client exists only to be the server-side audience. It needs no redirect URI because the server
 never runs a Google web redirect flow — Android and iOS use the platform SDKs, desktop uses loopback.
+This is the standard shape of a Credential Manager `serverClientId` client. Google's documentation
+does not state outright that both fields may be empty; **if the console refuses to save, put
+`https://api.oltre.space/v1/auth/google/unused` in Authorized redirect URIs.** Nothing will ever
+request it, and it is inside a domain you own.
+
+Afterwards, a correctly-created audience-only client shows: type Web application, no origins, no
+redirect URIs, one client ID, one secret. That is all it needs to be.
 
 Download the JSON on the dialog, then:
 
 ```
 mv ~/Downloads/client_secret_*.json ~/.oltre/signin/google-web-client.json
+```
+
+```
 chmod 600 ~/.oltre/signin/google-web-client.json
 ```
 
@@ -561,7 +829,7 @@ The client ID looks like `123456789012-abc123def456ghi789jkl012mno345pq.apps.goo
 the secret begins `GOCSPX-`. Your design (verify the ID token against JWKS) never uses that secret —
 store it anyway rather than lose it.
 
-## 28. Client 2 of 5 — iOS
+## 31. Client 2 of 5 — iOS
 
 - **Application type:** iOS
 - **Name:** `Oltre iOS`
@@ -572,9 +840,10 @@ store it anyway rather than lose it.
 
 Team ID is optional in the console but required if App Check / App Attest is ever turned on.
 
-## 29. Client 3 of 5 — Android, release key
+## 32. Client 3 of 5 — Android, release key
 
-Step 5's off-machine backup must be done before this one.
+**Step 5's off-machine copy must exist before this one** — this is the click that makes the keystore
+load-bearing for sign-in.
 
 - **Application type:** Android
 - **Name:** `Oltre Android (release)`
@@ -585,50 +854,77 @@ SHA-1 only — the console does not accept the SHA-256 that `./gradlew signingRe
 Play App Signing is not involved: you ship a self-signed APK on a GitHub Release, so the fingerprint
 Google sees at runtime is this keystore's own.
 
-## 30. Client 4 of 5 — Android, debug key
+## 33. Client 4 of 5 — Android, debug key
 
-Yes, a second client. An Android OAuth client holds exactly one package + SHA-1 pair.
+Yes, a second client. An Android OAuth client holds exactly one package + SHA-1 pair, and Google is
+explicit: *"For each SHA-1 fingerprint you obtain, you must create an OAuth Client ID of type
+Android."*
+
+Derive the fingerprint rather than trusting a literal — the debug keystore is machine-local,
+Android Studio regenerates it, and it expires:
+
+```
+keytool -list -v -alias androiddebugkey -keystore ~/.android/debug.keystore -storepass android
+```
+
+On this machine today that prints
+`39:1D:08:0B:9F:4A:80:87:0C:CA:4E:9A:5F:34:57:81:E4:3B:A1:E1`. **On a second machine, or after
+Android Studio regenerates `~/.android/debug.keystore`, it will be a different value and you will
+need another Android client for it** — or copy the existing debug keystore across, which is the
+cheaper habit.
 
 - **Application type:** Android
 - **Name:** `Oltre Android (debug)`
 - **Package name:** `dev.fardavide.oltre`
-- **SHA-1 certificate fingerprint:** `39:1D:08:0B:9F:4A:80:87:0C:CA:4E:9A:5F:34:57:81:E4:3B:A1:E1`
+- **SHA-1 certificate fingerprint:** whatever the command above printed
 
-Skip it and sign-in works in release and fails on every `./gradlew installDebug` build with
-`DEVELOPER_ERROR` / status 10 — an error that reads like a code bug for an afternoon.
+Skip this client and sign-in works in release and fails on every `./gradlew installDebug` build.
+Because this project uses Credential Manager, the symptom is a `GetCredentialException` reading
+**`[28444] Developer console is not set up correctly`** — not the `DEVELOPER_ERROR` / status 10 that
+older guides describe, which belongs to the deprecated `com.google.android.gms.auth.api.signin`
+path. Either way it reads like a code bug for an afternoon.
 
 If the console answers *"an OAuth2 client already exists for this package name and SHA-1"*, some
-other Google Cloud or Firebase project of yours has claimed `dev.fardavide.oltre`; the pair is
-globally unique and you must delete it there first.
+other Google Cloud or Firebase project of yours has claimed the pair; it is globally unique and you
+must delete it there first. To find it: sign in to <https://console.firebase.google.com> with each of
+your Google accounts in turn and look for a project containing an Android app with package
+`dev.fardavide.oltre`, then check <https://console.cloud.google.com/auth/clients> for each Cloud
+project the account can see. There is no cross-account search; it is a manual sweep, which is the
+argument for using one account throughout.
 
-## 31. Client 5 of 5 — Desktop app
+## 34. Client 5 of 5 — Desktop app
 
 - **Application type:** Desktop app
 - **Name:** `Oltre desktop`
 
-There are no further fields — the console asks for nothing else, and deliberately has no redirect-URI
-box: loopback is implicit for this client type and the port is chosen at runtime.
+There are no further fields — the console asks for nothing else, and deliberately has no
+redirect-URI box: loopback is implicit for this client type and the port is chosen at runtime.
 
 Download the JSON on the dialog:
 
 ```
 mv ~/Downloads/client_secret_*.json ~/.oltre/signin/google-desktop-client.json
+```
+
+```
 chmod 600 ~/.oltre/signin/google-desktop-client.json
 ```
 
-A secret **is** issued and it will ship inside the desktop binary. Google's own documentation says
-native apps cannot keep secrets and treats that as expected — the security comes from PKCE. Treat a
-leak of this one as a non-event, and never reuse the Web client's secret here.
+A secret **is** issued and it will ship inside the desktop binary. Google's own documentation treats
+that as expected — the security comes from PKCE. Treat a leak of this one as a non-event, and never
+reuse the Web client's secret here.
 
-## 32. Record the Google identifiers
+## 35. Record the Google identifiers
 
-```
-touch ~/.oltre/signin/google.env
-chmod 600 ~/.oltre/signin/google.env
-open -e ~/.oltre/signin/google.env
-```
+Again, not TextEdit.
 
 ```
+(umask 077; nano ~/.oltre/signin/google.env)
+```
+
+```
+OLTRE_GOOGLE_ACCOUNT=<the-google-account-that-owns-all-of-this>
+OLTRE_GOOGLE_PROJECT_ID=<what-step-24-actually-created>
 OLTRE_GOOGLE_WEB_CLIENT_ID=<...>.apps.googleusercontent.com
 OLTRE_GOOGLE_IOS_CLIENT_ID=<...>.apps.googleusercontent.com
 OLTRE_GOOGLE_ANDROID_RELEASE_CLIENT_ID=<...>.apps.googleusercontent.com
@@ -636,18 +932,18 @@ OLTRE_GOOGLE_ANDROID_DEBUG_CLIENT_ID=<...>.apps.googleusercontent.com
 OLTRE_GOOGLE_DESKTOP_CLIENT_ID=<...>.apps.googleusercontent.com
 ```
 
-All five are public identifiers. They are recorded here because the failure mode is not leaking them,
-it is losing track of which of five is which.
+All of these are public identifiers. They are recorded because the failure mode is not leaking them,
+it is losing track of which of five is which — and, for the first two, because nothing else in the
+repository or on disk records which account and project everything hangs off.
 
-## 33. Generate the server's own session-signing key
+## 36. Generate the server's own session-signing key
 
 Nobody hands you this one. It is the value that makes Oltre's own session tokens forgeable if it
 leaks, and it is the only credential here you can rotate freely — the cost of rotation is that every
 player signs in again.
 
 ```
-openssl rand -base64 64 | tr -d '\n' > ~/.oltre/signin/session-jwt.key
-chmod 600 ~/.oltre/signin/session-jwt.key
+(umask 077; openssl rand -base64 64 | tr -d '\n' > ~/.oltre/signin/session-jwt.key)
 ```
 
 Do not reuse the keystore password. Do not commit a default value to source as a "dev fallback" — a
@@ -657,86 +953,257 @@ dev fallback that ships is a server with a publicly known signing key.
 
 # Part 5 — Store, back up, and prove the backup
 
-## 34. Write the inventory, mirror, and test the restore
+## 37. Write the inventory
 
-Create `~/.oltre/signin/README.md` with: what each file is, which are secret, the p8 public-key
-SHA-256 from step 19, the Key ID, the Services ID, and the date each was created. Without it a
-restored p8 is an anonymous 250-byte file and nobody knows which Key ID it belongs to — and the Key
-ID is unrecoverable from the key material.
+Without it a restored p8 is an anonymous 250-byte file and nobody knows which Key ID it belongs to —
+and the Key ID is unrecoverable from the key material. Paste this into
+`~/.oltre/signin/README.md` and fill it in:
+
+```markdown
+# Oltre sign-in credentials
+
+Created <DATE>. Mirror in ~/Documents/Dev/Oltre sign-in/ and in oltre-secrets.dmg (iCloud Drive).
+
+| File | What it is | Secret? |
+|---|---|---|
+| AuthKey_<KEYID>.p8 | Apple Sign in with Apple key. ONE-SHOT: cannot be re-downloaded. | Yes |
+| apple.env | Apple identifiers, none secret. | No |
+| google-web-client.json | Google Web OAuth client (the server-side audience). | Yes (secret inside) |
+| google-desktop-client.json | Google Desktop OAuth client. Secret ships in the binary. | Nominally |
+| google.env | Owning Google account, project ID, five client IDs. None secret. | No |
+| session-jwt.key | Oltre's own session-JWT signing key. Freely rotatable. | Yes |
+
+## Verification values
+
+- p8 public-key SHA-256: <64 HEX CHARS>
+  openssl pkey -in AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
+- Android release cert SHA-1: 24:AA:53:1D:64:20:C6:B9:65:86:FD:53:E6:B7:1A:E7:0C:3E:DB:98
+- Android release cert SHA-256: 48:56:AF:68:C7:5D:02:E9:6C:51:70:5E:44:48:23:33:FE:5E:1F:A1:25:5F:24:38:2D:1E:23:AE:EF:B1:8D:DC
+
+## Identifiers
+
+- Apple Team ID: A7Q83J6LR4
+- Apple Key ID: <10 CHARS>            (also in the p8 filename; not recoverable from key material)
+- Apple Services ID: dev.fardavide.oltre.signin
+- Apple primary App ID: dev.fardavide.oltre
+- Google account: <ACCOUNT>
+- Google Cloud project: <PROJECT ID>
+
+## Which account owns which portal
+
+- Apple Developer (team A7Q83J6LR4): <APPLE ID>
+- Google Cloud + Search Console: <ACCOUNT>
+- GitHub (repo, Pages, domain verification): fardavide
+- Namecheap (oltre.space, expires 2027-08-25): <NAMECHEAP LOGIN>
+
+## Rotation
+
+- p8: create the second key (max two per primary App ID), deploy it, confirm the startup
+  self-check passes on the new one, THEN revoke the old. In that order.
+- session-jwt.key: regenerate freely; every player signs in again.
+- Google client secrets: two per client, so rotate by adding then removing.
+```
+
+## 38. Mirror, then test the restore — both keys
 
 Second local copy, matching the existing "Oltre Android signing" convention in `~/Documents/Dev`:
 
 ```
 mkdir -p -m 700 ~/Documents/Dev/"Oltre sign-in"
+```
+
+```
 cp -p ~/.oltre/signin/* ~/Documents/Dev/"Oltre sign-in"/
 ```
 
-Off-machine copy, into the image mounted at step 5:
+Into the image mounted at step 5, then detach it:
 
 ```
 cp -p ~/.oltre/signin/* /Volumes/Oltre\ secrets/
+```
+
+```
 hdiutil detach /Volumes/Oltre\ secrets
 ```
 
-Then **test the restore rather than assuming it**:
+**Now move it off-machine, and confirm the move finished.** This is the step where "off-machine"
+stops being an assertion.
+
+```
+mv /tmp/oltre-secrets.dmg ~/Library/Mobile\ Documents/com~apple~CloudDocs/
+```
+
+```
+brctl monitor --shallow ~/Library/Mobile\ Documents/com~apple~CloudDocs/ 
+```
+
+Watch until `oltre-secrets.dmg` stops showing upload progress, then `Ctrl-C`. Cross-check it in
+Finder: the file should show no cloud/upload badge, and iCloud Drive should not be paused or over
+quota. If iCloud is paused, out of quota, or silently failing, everything below still passes and you
+still have one copy on one SSD — which is the exact failure step 4 is about.
+
+**Then test the restore rather than assuming it.**
 
 ```
 hdiutil attach ~/Library/Mobile\ Documents/com~apple~CloudDocs/oltre-secrets.dmg
-openssl pkey -in /Volumes/Oltre\ secrets/AuthKey_<KEYID>.p8 -pubout -outform DER | openssl dgst -sha256
+```
+
+Read the passphrase from where step 5 recorded it, not from memory. If you cannot open the image
+using only the recorded copy, the recording is wrong and now is the only cheap time to find out.
+
+```
+openssl pkey -in /Volumes/Oltre\ secrets/AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
+```
+
+Must equal step 20's digest.
+
+```
+keytool -list -v -alias oltre -keystore /Volumes/Oltre\ secrets/oltre-release.keystore
+```
+
+Must print SHA-1 `24:AA:53:1D:64:20:C6:B9:65:86:FD:53:E6:B7:1A:E7:0C:3E:DB:98`. **This half is not
+optional.** Step 4 has just argued that this key now controls sign-in for every installed user;
+copying it and never proving the copy is the same mistake one level up.
+
+```
 hdiutil detach /Volumes/Oltre\ secrets
 ```
 
-The digest must equal step 19's. This is the only step that converts "I copied it somewhere" into
-"losing the laptop does not lose it".
+**Which copies are the minimum?** Three, and they are not redundant with each other: `~/.oltre` is
+the working copy, `~/Documents/Dev` survives a mistaken `rm` but not the SSD, and the encrypted
+image in iCloud survives the machine. Step 42's Secret Manager entry is a fourth and is
+different in kind — it is the copy the *server* reads, and unlike a GitHub secret it is readable
+back, so it doubles as a genuine off-site copy once this restore test has passed. Everything beyond
+those four is another place a one-shot key can leak from with no compensating recoverability.
 
-**Nothing goes into GitHub secrets today.** CI builds the APK and runs the tests, and needs neither
-the p8 nor any Google value to do that; the four existing `ANDROID_*` secrets remain the complete
-list. A GitHub secret is write-only, so it is not a backup — every extra copy of the p8 is another
-place it can leak from with no compensating recoverability. When the identity slice actually reads
-these at build time, that is the moment for:
+## 39. Accounts, 2FA and renewals
+
+After this guide runs, **four accounts hold state that cannot be reconstructed from the repository**:
+Apple Developer, Google Cloud, GitHub and Namecheap. Confirm 2FA is on for all four and that the
+recovery codes are stored where step 5's passphrase went — not in iCloud Keychain alone. The
+account-to-portal map is already in step 37's README template; that is the artefact that makes this
+recoverable by someone who is not you.
+
+Two renewals with no in-product warning and total blast radius:
+
+- **`oltre.space`, expires 2027-08-25.** Auto-Renew on (step 7).
+- **The Apple Developer Program membership, annual.** Expiry invalidates certificates and profiles,
+  stops TestFlight builds reaching testers, and makes the App ID and Services ID configuration
+  unusable. It is the one renewal that takes the whole Apple half down at once.
+
+Both are in the expiry-clocks table below.
+
+## 40. Record what you decided
+
+This project keeps irreversible choices in `.claude/docs/decisions.md`. Add a round covering:
+primary rather than grouped App ID; `europe-west1`; five OAuth clients and why there are two Android
+ones; Testing rather than Published, with the *Manage App Audience* quote; `api.oltre.space` as
+permanent; and the Google account and project ID.
+
+And close the open loop in memory:
+`~/.claude/projects/-Users-davide-Dev-Projects-Oltre/memory/android-release-keystore.md` currently
+says *"as of 2026-08-09 there is still no off-machine copy"* and *"raise this again rather than
+assume it was handled"*. Step 38 changed that fact. Update it, including the restore-test result and
+the digest, or the next session either re-raises it or — worse — trusts the stale note.
+
+## 41. Nothing goes into GitHub secrets today
+
+CI builds the APK and runs the tests, and needs neither the p8 nor any Google value to do that; the
+four existing `ANDROID_*` secrets remain the complete list. A GitHub secret is write-only, so it is
+not a backup — every extra copy of the p8 is another place it can leak from with no compensating
+recoverability.
+
+When the identity slice actually reads these at build time, that is the moment. The public client
+IDs can go on the command line; **the secret cannot**, because `--body` puts it in `~/.zsh_history`
+permanently and in the process table while it runs:
 
 ```
 gh secret set GOOGLE_OAUTH_WEB_CLIENT_ID --repo fardavide/oltre --body "<web-client-id>"
-gh secret set GOOGLE_OAUTH_IOS_CLIENT_ID --repo fardavide/oltre --body "<ios-client-id>"
-gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_ID --repo fardavide/oltre --body "<desktop-client-id>"
-gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_SECRET --repo fardavide/oltre --body "GOCSPX-..."
 ```
+
+```
+gh secret set GOOGLE_OAUTH_IOS_CLIENT_ID --repo fardavide/oltre --body "<ios-client-id>"
+```
+
+```
+gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_ID --repo fardavide/oltre --body "<desktop-client-id>"
+```
+
+```
+gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_SECRET --repo fardavide/oltre < ~/.oltre/signin/desktop-secret.txt
+```
+
+(`gh secret set` reads the value from standard input when `--body` is omitted.)
+
+**Why the desktop secret is a GitHub secret at all, given it ships in the binary and its leak is a
+non-event:** not to protect it, but so it never gets committed to the repository and so rotating it
+is a secret update rather than a source change. Settle that here so the identity slice does not
+re-litigate it.
 
 ---
 
 # Part 6 — One deployment decision worth locking today
 
-## 35. Pick the Cloud Run region now, because two things freeze around it
+## 42. Pick the Cloud Run region now, because two things freeze around it
 
 Cloud Run **custom domain mapping is a Preview feature**, documented by Google as having latency
 issues and as not recommended for production, and among EU regions it is supported **only in
 `europe-north1`, `europe-west1` and `europe-west4`**. The alternatives Google names are a global
-external Application Load Balancer — which carries a standing monthly cost and so breaks the
-zero-euro target — or Firebase Hosting, which is low cost and could also serve static content.
+external Application Load Balancer — a standing monthly cost, which breaks the zero-euro target —
+or Firebase Hosting, which is low cost and could also serve static content.
 
-**Recommendation: `europe-west1`.** It is on the supported list, it is EU, and it is close to the
-Frankfurt-ish Neon regions.
+**Recommendation: `europe-west1`.** On the supported list, EU, close to the Frankfurt-ish Neon
+regions.
 
-This matters today because Secret Manager replication locations **cannot be changed after creation**.
-If you want the groundwork done now (needs the `gcloud` CLI; none of it needs Cloud Run to exist):
+**And choosing the preview mapping now does not put the permanent-hostname promise at risk**, which
+is the reason it is safe to proceed at all. `api.oltre.space` is a name in a zone you control. If the
+mapping turns out to be too slow or is withdrawn, you repoint the same hostname at Firebase Hosting
+or a load balancer and every build already on a phone keeps working. The preview feature is
+replaceable; the hostname is not, and the hostname is the part that is committed.
 
-```
-gcloud services enable secretmanager.googleapis.com run.googleapis.com --project=oltre-prod
-gcloud secrets create oltre-apple-signin-p8 --project=oltre-prod --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/AuthKey_<KEYID>.p8
-gcloud secrets create oltre-session-jwt-key --project=oltre-prod --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/session-jwt.key
-gcloud iam service-accounts create oltre-server --project=oltre-prod --display-name="Oltre server runtime"
-```
-
-Then grant read access per-secret rather than project-wide, so "the server can read two secrets" does
-not become "the server can read everything":
+This matters *today* because Secret Manager replication locations **cannot be changed after
+creation**. Needs `gcloud` (not installed — see "Before you start") and a linked billing account
+(step 25). None of it needs Cloud Run to exist:
 
 ```
-gcloud secrets add-iam-policy-binding oltre-apple-signin-p8 --project=oltre-prod --member=serviceAccount:oltre-server@oltre-prod.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
-gcloud secrets add-iam-policy-binding oltre-session-jwt-key --project=oltre-prod --member=serviceAccount:oltre-server@oltre-prod.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud services enable secretmanager.googleapis.com run.googleapis.com --project=<PROJECT_ID>
 ```
 
-Secret Manager, unlike a GitHub secret, **is readable back** — so once step 34's restore test has
-passed, this doubles as a genuine third copy.
+```
+gcloud secrets create oltre-apple-signin-p8 --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/AuthKey_<KEYID>.p8
+```
+
+```
+gcloud secrets create oltre-session-jwt-key --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/session-jwt.key
+```
+
+```
+gcloud iam service-accounts create oltre-server --project=<PROJECT_ID> --display-name="Oltre server runtime"
+```
+
+Then grant read access per-secret rather than project-wide, so "the server can read two secrets"
+does not become "the server can read everything":
+
+```
+gcloud secrets add-iam-policy-binding oltre-apple-signin-p8 --project=<PROJECT_ID> --member=serviceAccount:oltre-server@<PROJECT_ID>.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+```
+
+```
+gcloud secrets add-iam-policy-binding oltre-session-jwt-key --project=<PROJECT_ID> --member=serviceAccount:oltre-server@<PROJECT_ID>.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+```
+
+`<PROJECT_ID>` is whatever step 24 actually created, not necessarily `oltre-prod`.
+
+**The bindings cannot be tested before a service exists** — there is nothing to run as. What you can
+check is that they were recorded:
+
+```
+gcloud secrets get-iam-policy oltre-apple-signin-p8 --project=<PROJECT_ID>
+```
+
+And set the guard the zero-euro target otherwise has none of — a budget alert, in the console at
+**Billing → Budgets & alerts**, at €2/month with email at 50% and 100%. It is the only thing that
+would catch a load balancer or a minimum-instance setting being turned on later.
 
 Create `oltre-google-web-client-secret` and `oltre-database-url` later: an empty secret version is
 worse than a missing one, because the instance starts and then fails at the first query.
@@ -745,64 +1212,76 @@ worse than a missing one, because the instance starts and then fails at the firs
 
 # Part 7 — What genuinely waits, and on what
 
-## 36. Cloud Run domain mapping for `api.oltre.space`
+## 43. Cloud Run domain mapping for `api.oltre.space`
 **Waits on:** a deployed Cloud Run service (nothing in `server/` produces a container image yet).
-When it exists, create the mapping in the region chosen at step 35; Google hands you the DNS records
-to add at Namecheap. Search Console ownership of `oltre.space` is already done (step 8), which is the
-part that could have blocked you.
+When it exists, create the mapping in `europe-west1`; Google hands you the DNS records to add at
+Namecheap. Search Console ownership of `oltre.space` is already done (step 8a), which is the part
+that could have blocked you.
 
-## 37. Google Secret Manager entries for the DB and the Web client secret, and the Cloud Run deploy
-**Waits on:** a Neon connection string and a container image. When deploying, put every secret in
-**one** `--set-secrets` flag — it is a dict flag and passing it twice replaces rather than merges,
-silently dropping the earlier entries. Mount the p8 as a **file** (`/secrets/apple/signin.p8`), not
-an env var: PEM newlines, and a mounted secret is re-read on every access whereas an env-var secret
-is resolved once before the instance starts and never changes for that instance's life.
+## 44. Secret Manager entries for the DB and the Web client secret, and the Cloud Run deploy
+**Waits on:** a Neon connection string and a container image. Three things the deploy command must
+get right:
 
-## 38. Add a startup self-check to the server
+- **`--service-account=oltre-server@<PROJECT_ID>.iam.gserviceaccount.com`.** Omit it and Cloud Run
+  runs as the Compute Engine default service account, which on a project with **no organisation** —
+  which step 24 specified — carries `roles/editor`, i.e. read access to every secret including the
+  p8 and the Neon connection string. The org policy that would prevent that grant
+  (`iam.automaticIamGrantsForDefaultServiceAccounts`) needs an organisation to be enforced by. Step
+  42 builds least privilege; this flag is what uses it, and nothing else in the pipeline would catch
+  its absence.
+- **One `--set-secrets` flag, not several.** It is a dict flag — *"all existing secrets will be
+  removed first"* — so passing it twice replaces rather than merges, silently dropping the earlier
+  entries.
+- **Mount the p8 as a file** (`/secrets/apple/signin.p8`), not an env var: PEM newlines, and a
+  mounted secret is re-read on every access whereas an env-var secret is resolved once before the
+  instance starts and never changes for that instance's life.
+
+## 45. Add a startup self-check, and rate-limit the auth endpoints
 **Waits on:** the auth code existing. Load the p8 and sign a throwaway ES256 JWT *before* the process
 binds the port. Cloud Run keeps the previous revision serving if a new one fails to become ready — so
 this converts "the key is broken" from an outage into a failed deploy. And unlike `PORT`, none of
 these values may have a default: a defaulted signing key is a silent catastrophe.
 
-## 39. Publish `https://oltre.space/privacy` and `https://oltre.space/terms`
+Two neighbours that belong in the same slice: **rate-limit `/v1/auth/*`** (it is an unauthenticated,
+publicly reachable surface that does cryptographic work per request), and **verify Apple's signature
+on the server-to-server notification endpoint from step 22 before acting on anything** — the payload
+is a JWT signed by Apple, and the endpoint is a POST target anyone can reach.
+
+## 46. Publish `https://oltre.space/privacy` and `https://oltre.space/terms`
 **Waits on:** the policy text, which must describe what the shipped build actually does — so it
 cannot be finalised before the build exists. Required for App Store submission and for Google brand
 verification; **not** required for sign-in to work, and not for TestFlight internal distribution.
 
 Commit `privacy/index.html` and `terms/index.html` to `gh-pages`. The skeleton below is the shape,
-not legal advice — it is what this app actually does, and the one judgement you have to supply is the
-retention period:
+not legal advice — it is what this app actually does, and the one judgement you supply is retention:
 
-> **What is collected.** When you sign in with Apple or Google, Oltre receives an identifier for your
-> account from that provider and stores it. It is a pseudonymous string; it is not your name or your
-> email address, and it identifies you only within Oltre.
+> **What is collected.** When you sign in with Apple or Google, Oltre receives an identifier for
+> your account from that provider and stores it. It is a pseudonymous string; it is not your name or
+> your email address, and it identifies you only within Oltre.
 >
 > **What is not collected.** Oltre does not store your email address, your name, or your provider
-> profile. It contains no analytics, no advertising and no third-party tracking. Nothing you do in
-> the game is shared with anyone.
+> profile. It contains no analytics, no advertising and no third-party tracking.
 >
 > **What else is stored.** The state of your colony — buildings, research, fleets, the event log —
 > and the instant it was last updated.
 >
-> **Where it is stored, and by whom.** On servers in the European Union, using Google Cloud Run
-> (Google Ireland Limited) and Neon (Postgres). The controller is Davide Farella; contact
-> `<CONTACT_ADDRESS>`.
+> **Where, and by whom.** On servers in the European Union, using Google Cloud Run (Google Ireland
+> Limited) and Neon (Postgres). The controller is Davide Farella; contact `<CONTACT_ADDRESS>`.
 >
 > **How long.** Until you delete your account, or after `<N>` months of inactivity.
 >
-> **Deleting it.** Settings → Delete account, inside the app. Deletion removes the account record and
-> the colony, and cannot be undone.
+> **Deleting it.** Settings → Delete account, inside the app. Deletion removes the account record
+> and the colony, and cannot be undone.
 >
 > **Your rights.** Under the GDPR you may request access to, correction of, or erasure of your data,
 > and may complain to your national data protection authority. Contact `<CONTACT_ADDRESS>`.
 
-Two things worth deciding rather than copying. **The contact address becomes public** on a page
-linked from the App Store — a dedicated alias is worth more than a personal inbox. And **the
-retention period has to be a number you will actually honour**: if nothing deletes inactive accounts,
-say "until you delete your account" and nothing more, rather than promising a sweep that does not
-exist.
+Two things to decide rather than copy. **The contact address becomes public** on a page linked from
+the App Store, so a dedicated alias beats a personal inbox. And **the retention period has to be a
+number you will honour**: if nothing sweeps inactive accounts, write "until you delete your account"
+and stop there rather than promising a sweep that does not exist.
 
-## 40. The iOS entitlement — the one the compiler cannot catch
+## 47. The iOS entitlement — the one the compiler cannot catch
 **Waits on:** the identity slice. `iosApp/project.yml` declares no entitlements block at all today,
 so `CODE_SIGN_ENTITLEMENTS` is unset and the archive ships without `com.apple.developer.applesignin`
 no matter what the App ID says. The app builds, launches and looks fine, and the Sign in with Apple
@@ -816,55 +1295,130 @@ catches. Under `targets.Oltre`, sibling of `settings`:
         com.apple.developer.applesignin: [Default]
 ```
 
+**XcodeGen resolves `entitlements.path` relative to the directory holding the spec**, so this writes
+`/Users/davide/Dev/Projects/Oltre/iosApp/iosApp/Oltre.entitlements` — the same nesting as the
+existing `info.path: iosApp/Info.plist`, which today resolves to
+`/Users/davide/Dev/Projects/Oltre/iosApp/iosApp/Info.plist`. Create it one level up and the archive
+ships without the entitlement, which is precisely the dead control this step exists to prevent.
+
 Then `xcodegen generate` in `iosApp/`, and commit the project **and** its shared scheme. Never
 hand-edit `project.pbxproj`. `Default` is the only value for normal operation.
 
-## 41. The iOS URL scheme for Google
-**Waits on:** the same slice. Add the reversed iOS client ID as a `CFBundleURLScheme` in
-`iosApp/project.yml`: strip `.apps.googleusercontent.com` from `OLTRE_GOOGLE_IOS_CLIENT_ID` and
-prefix `com.googleusercontent.apps.`. Miss it and the browser completes the Google flow and never
+## 48. The iOS URL scheme for Google
+**Waits on:** the same slice. The key is **`CFBundleURLSchemes`** (plural), an array of strings
+inside a dictionary inside the **`CFBundleURLTypes`** array — there is no `CFBundleURLScheme`. Under
+`targets.Oltre.info.properties` in `/Users/davide/Dev/Projects/Oltre/iosApp/project.yml`:
+
+```yaml
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.<REVERSED-IOS-CLIENT-ID>
+```
+
+The value is `OLTRE_GOOGLE_IOS_CLIENT_ID` with `.apps.googleusercontent.com` stripped and
+`com.googleusercontent.apps.` prefixed. Miss it and the browser completes the Google flow and never
 returns to the app — a hang with no error, which is again a dead control.
 
-## 42. In-app account deletion
-**Waits on:** the server owning an account record; there is nothing to delete server-side today. This
-is a hard App Store gate (5.1.1(v)), not a TestFlight one. It must start in the app, "typically in
-account settings"; a `mailto:` or support form is a rejection; deactivating is not deleting; and where
-Sign in with Apple was used it must also revoke the token through Apple's REST API. **Note the
-collision with invariant 2**: appending an `AccountDeleted` event does not satisfy this if the prior
+## 49. In-app account deletion
+**Waits on:** the server owning an account record; there is nothing to delete server-side today.
+Guideline 5.1.1(v): *"If your app supports account creation, you must also offer account deletion
+within the app."* It is a hard App Store gate, not a TestFlight one. It must start in the app; a
+`mailto:` or support form is a rejection; deactivating is not deleting; and where Sign in with Apple
+was used it must also revoke the token through Apple's REST API (`POST
+https://appleid.apple.com/auth/revoke`, which needs the p8 — see the expiry clocks). **Note the
+collision with invariant 2:** appending an `AccountDeleted` event does not satisfy this if the prior
 events still hold the subject id. The log has to go.
 
-## 43. The App Store Connect App Privacy answers
-**Waits on:** a build that actually collects the identifier being in testers' hands — Apple expects
-the published answers to describe the shipped version. Then: Identifiers → **User ID**, Linked to
-user **Yes** (forced: the subject id is the account key and every save row hangs off it), Used for
-tracking **No**, purpose **App Functionality**. The email inside the ID token needs no declaration
-*while it is genuinely not retained* — log a raw ID token once in Cloud Run and that stops being
-true and the published label becomes wrong. These answers can be changed at any time without
-shipping an app update.
+## 50. The sign-in screen is a design round trip with a constraint attached
+**Waits on:** Claude Design. Put this in the prompt rather than discovering it at submission: Apple's
+Human Interface Guidelines require you to *"prominently display a Sign in with Apple button"* and to
+*"make a Sign in with Apple button no smaller than other sign-in buttons, and avoid making people
+scroll to see the button"*, using Apple's own button treatment rather than a hand-rolled one. A
+sign-in screen with Google above a smaller custom Apple button is a rejection *after* the screen is
+designed, baselined and shipped — and fixing it then costs a new design round, new screenshot
+baselines and a new release.
 
-## 44. Google brand verification
-**Waits on:** step 39's pages, plus filling the branding App domain block (authorized domain
-`oltre.space` first, then the three URLs), plus **publishing** the app. Google's criterion is
-explicit: verification applies once the app is External **and** Published. Automated review takes
-minutes; a manual fallback is 2–3 business days. **A compliant result is valid for only 7 days** —
-if you do not press *Publish branding* inside that window the status reverts to "Need to re-verify".
-Cosmetic: without it the consent sheet shows the raw client identity instead of "Oltre" and a logo,
-which to a player reads like a phishing page. Logo must be square, ≤120×120 px, under 1 MB.
+Guideline 4.8 itself is satisfied by offering Apple alongside Google; it is the presentation rule
+that bites, and it is a design input, not an implementation detail.
 
-## 45. The cross-platform `sub` check — the one nothing replaces
+## 51. App Store Connect — App Privacy, and reviewer sign-in
+**Waits on:** a build that actually collects the identifier being in testers' hands; Apple expects
+the published answers to describe the shipped version.
+
+**App Privacy:** Identifiers → **User ID**, Linked to user **Yes** (forced: the subject id is the
+account key and every save row hangs off it), Used for tracking **No**, purpose **App Functionality**.
+The email inside the ID token needs no declaration *while it is genuinely not retained* — log a raw
+ID token once in Cloud Run and that stops being true and the published label becomes wrong. These
+answers can be changed at any time without shipping an app update.
+
+**Sign-In Information is mandatory for an app that requires login**, and guideline 2.1(a) says so
+plainly: *"include demo account info (and turn on your back-end service!) if your app includes a
+login."* "The reviewer can use their own Apple Account" is a routine rejection, because the reviewer's
+account will not have a working path through a server that has never seen it. This needs a decided
+answer — a provisioned reviewer account the server already knows, or a built-in demo mode (which
+Apple allows *"with prior approval"*) — and because it constrains the server design it belongs
+alongside step 49 rather than being met at submission.
+
+## 52. Google brand verification
+**Waits on:** step 46's pages, plus filling the Branding App domain block (authorized domain
+`oltre.space` first, then the three URLs), plus **publishing** the app: verification applies once the
+app is External **and** Published. Automated review takes minutes; a manual fallback is 2–3 business
+days. **A compliant result is valid for only 7 days** — if you do not press *Publish branding* inside
+that window the status reverts to "Need to re-verify". Logo must be square, ≤120×120 px, under 1 MB.
+
+**Reconciling this with step 28**, because Google's Android docs will contradict this guide if you
+read them cold. The *Sign in with Google on Android* prerequisites list brand verification as setup:
+*"Your brand must be verified for your app name to be visible to users on the Sign in with Google
+consent screen."* Read the sentence closely — what it gates is **your app name being visible**, not
+sign-in working. Without verification the flow completes and the consent sheet shows the raw client
+identity instead of "Oltre" and a logo, which to a player reads like a phishing page. It is a real
+thing to fix before a public launch and it is not a blocker for TestFlight or for you testing on your
+own phone. Both pages are right.
+
+## 53. The cross-platform `sub` check — the one nothing replaces
 **Waits on:** a live server plus a TestFlight build and an APK. Sign in with the **same Apple
 Account** from both and confirm the server sees an **identical `sub`** and creates one account, not
-two. Apple's `sub` is stable per team and app group; because `dev.fardavide.oltre.signin` is
-configured against primary App ID `dev.fardavide.oltre` they are one group and should agree — but
-nothing in the portal confirms it. If they disagree, the Services ID is attached to the wrong primary
-or the App ID was enabled as *grouped*. Catching that here means redoing step 12; catching it after
-players have accounts means a migration.
+two.
+
+Apple describes the user identifier as **team-scoped** — WWDC22's *Enhance your Sign in with Apple
+experience* calls it a *"unique, stable, team-scoped user identifier"*, the same across every app in
+your developer team and across web, iOS and Android — so this *should* agree by construction, and
+nothing in the portal confirms it. If it disagrees, the first hypothesis is **not** the grouping: on
+team scoping, the primary/grouped choice should not affect `sub` at all. Look instead at whether the
+two clients are really on team `A7Q83J6LR4`, and at whether the app has ever been transferred
+between teams (a transfer is the documented case where the identifier changes, and Apple publishes a
+migration note for it). Grouping still matters for other things — which primary a Services ID hangs
+off, and the private-relay address — so keep step 12's choice as made; just do not reach for it as
+the explanation here.
+
+Run the check anyway. It is cheap, it is the only end-to-end proof in the whole document, and
+catching a disagreement after players have accounts means a migration.
 
 (Google is different and simpler: Google's discovery document returns
-`subject_types_supported: ["public"]`, so `sub` is a **global** Google account identifier, identical
-across every client in every Cloud project. One account works on phone and desktop for that reason,
-and moving Cloud projects would *not* fork accounts. The flip side: it identifies the same human to
-every app using Google Sign-In, so never put it in a URL or a log. Store it as `VARCHAR(255)`.)
+`"subject_types_supported": ["public"]` — confirmed live today — so `sub` is a **global** Google
+account identifier, identical across every client in every Cloud project. One account works on phone
+and desktop for that reason, and moving Cloud projects would *not* fork accounts. The flip side: it
+identifies the same human to every app using Google Sign-In, so never put it in a URL or a log.
+Google specifies a maximum length of 255 characters and says *"always use the sub field as the
+unique-identifier key for the user"* — store it as `VARCHAR(255)`.)
+
+---
+
+# If you stop half-way
+
+Nothing here is left in a broken state by stopping, with one exception. Where you are:
+
+| Stopped after | State | Safe to leave? |
+|---|---|---|
+| 7, having deleted the parking records | Apex serves a GitHub 404 | Yes, but ugly. Finish 9–10, or re-add the parking A record. |
+| 7, having added only the TXT rows | Nothing changed for visitors | Yes — this is the 30-minute path's stopping point. |
+| 12 | App ID advertises a capability the app does not request | Yes. Nothing requests it. But the next `main` archive re-signs — see step 13. |
+| 15 | Services ID points at a host that does not resolve | Yes. Nothing calls it; Apple does not re-check. |
+| **19, before step 38** | **A one-shot, unrecoverable key exists in exactly one place** | **No. This is the one. Finish 38 before you close the laptop.** |
+| 22 | An endpoint registered for a server that does not exist | Yes. Nobody has signed in, so there is nothing to notify. |
+| 32–34 | Five OAuth clients nothing uses | Yes — but the six-month auto-delete clock starts now. See the irreversible list. |
+| 36 | A session key on disk that no server reads | Yes. Freely regenerable anyway. |
+| 41 | No `gcloud`, no billing, no Secret Manager | Yes. Part 6 is groundwork, not a dependency of anything above it. |
 
 ---
 
@@ -872,55 +1426,67 @@ every app using Google Sign-In, so never put it in a URL or a log. Store it as `
 
 Each of these appears in guides and none of it applies here.
 
-- **`apple-developer-domain-association.txt`.** Apple's current help page says outright you do not
-  need to upload a file to your server to register domains and subdomains. Listing `api.oltre.space`
-  in the Services ID configuration is the whole of it. Contingency in step 16 if the portal
-  disagrees.
+- **`apple-developer-domain-association.txt`.** Apple's current help page: *"You don't need to upload
+  a file on your server to complete the registration process for domains and subdomains."* Listing
+  `api.oltre.space` in the Services ID configuration is the whole of it. Contingency in step 16.
 - **Apple's Private Email Relay Service, and any SPF/DKIM work.** That service exists so you can
   *send* mail to a user's `@privaterelay.appleid.com` address. Your server sends no email and stores
-  only `sub`. Skipping it is the step.
+  only `sub`.
 - **Requesting Apple's `name` or `email` scopes.** Omit `scope` from the authorize request entirely.
-  Those scopes are returned exactly once, on a user's first-ever authorisation, and never again — so
-  a bug that drops them is unrecoverable for that user. Omitting them sidesteps that *and* removes
-  any need for relay configuration.
+  Those are returned exactly once, on a user's first-ever authorisation, and never again — so a bug
+  that drops them is unrecoverable for that user. Omitting them sidesteps that *and* removes any need
+  for relay configuration.
 - **Google OAuth app verification review.** Mandatory only for sensitive or restricted scopes. Your
   three are all non-sensitive.
-- **Google test users.** See step 25 — they buy nothing for this scope set and burn a permanent slot.
-- **Publishing the Google app**, unless you want brand verification. Nothing functional changes.
+- **Google test users.** See step 28 — they buy nothing for this scope set and burn a permanent slot.
+  Add one only as a diagnostic if a real tester is refused.
+- **Publishing the Google app**, unless you want brand verification. Nothing functional changes; see
+  step 52 for why Google's Android docs make it sound otherwise.
 - **A second Apple key.** One key signs client secrets for both `client_id`s because the Services ID
   is configured against the primary App ID.
-- **Regenerating provisioning profiles by hand** after step 12. Automatic signing and Xcode Cloud
-  handle it.
+- **Regenerating provisioning profiles by hand** after step 12 — *probably*. Automatic signing and
+  Xcode Cloud are expected to handle it; step 13 says how you find out if they did not.
 - **Anything Play Console.** No listing exists, so Play Data Safety and Play's mandatory web account
   deletion URL do not apply. They become obligations only if Android distribution moves off GitHub
   Releases — and if it ever does, choose *"Provide a copy of your app signing key"* in Play App
   Signing so SHA-1 `24:AA:53:…:98` survives and client 3 keeps working. Letting Google generate a new
-  key instead means every Play install fails with `DEVELOPER_ERROR` until a third Android OAuth
-  client is registered from Play Console → Protected with Play → Play Store distribution → Play app
-  signing.
-- **Adding anything to GitHub secrets today.** See step 34.
+  key instead means every Play install fails until a third Android OAuth client is registered from
+  Play Console → Protected with Play → Play Store distribution → Play app signing.
+- **Adding anything to GitHub secrets today.** See step 41.
 
 ---
 
 # Irreversible and destructive — the list
 
 1. **The `.p8` downloads once.** No recovery. Revoke-and-replace is the only path.
-2. **Enabling the capability invalidates existing provisioning profiles** for `dev.fardavide.oltre`.
-   Costless here, but only because signing is automatic — and only if the portal step precedes the
-   entitlement reaching `main`.
-3. **"Enable as a primary App ID" versus grouping** is close to one-way.
+2. **Enabling the capability invalidates existing provisioning profiles** for `dev.fardavide.oltre`
+   — Apple states this outright. Expected to be costless because signing is automatic, but the first
+   thing that exercises it is an Xcode Cloud archive, i.e. a TestFlight publish. Step 13.
+3. **Turning the Sign in with Apple capability back off is destructive.** Apple: *"Turning off the
+   Sign in with Apple capability will reset any saved configurations."* (Grouping itself is *not*
+   one-way — Apple documents an **Ungroup all apps** control and says *"Ungrouping a group of apps
+   will convert each grouped App ID to a primary. Authentication will continue to function"*, only
+   recommending a new Authentication Key per app afterwards. The genuinely one-way fact is the one
+   step 14 states: a grouped App ID cannot itself group further identifiers.)
 4. **Binding Google Sign-In to the release keystore** upgrades that key from "needed for updates" to
-   "needed for anyone to sign in". Step 5 exists for this.
+   "needed for anyone to sign in". Steps 5 and 38 exist for this.
 5. **Google client secrets are shown once**, last four characters thereafter, two per client.
 6. **Secret Manager replication locations are fixed at creation.**
-7. **A Google test user permanently consumes a slot.**
+7. **A Google test user permanently consumes a slot** — *"a test user consumes a project's test user
+   quota once added to the project"*, and removing them does not return it.
 8. **OAuth clients cannot move between Cloud projects**, and an Android client ID is bound to
    package + SHA-1, so re-issuing means a new app release.
-9. **A package + SHA-1 pair is globally unique** across all Google Cloud and Firebase projects.
-10. **Google auto-deletes OAuth clients** with no credential/token request *and* no configuration
-    change for six months — email warning 30 days before, restorable for 30 days after, permanent
-    thereafter. Provisioning all five today is fine; touching the config counts as activity, but do
-    not let the identity slice slip a year.
+9. **A Google Cloud project ID cannot be reused** — *"it cannot be in use or previously used; this
+   includes deleted projects"*. And **a package + SHA-1 pair is globally unique** across all Google
+   Cloud and Firebase projects.
+10. **Google auto-deletes OAuth clients** with no credential or token request *and* no configuration
+    change, programmatic or manual, for six months — email warning 30 days before, restorable within
+    30 days after deletion, permanent thereafter. Provisioning all five today is fine; touching the
+    config counts as activity, but do not let the identity slice slip a year.
+11. **A secret pushed to a public repository cannot be un-pushed.** GitHub keeps unreachable commits
+    reachable by SHA and forks keep their own copies, so a history rewrite is cleanup, not
+    remediation. **Revoke first, clean second.** Step 1 is the net that stops this; this entry is
+    what to do when a net fails.
 
 ---
 
@@ -940,13 +1506,14 @@ code.
 *The three options, and why only one is safe:*
 
 - **A — mint in-process, per request, `exp = now + 300`.** Recommended. No expiry event exists, so
-  none can be missed; failure surfaces at deploy via step 38's self-check while the old revision
+  none can be missed; failure surfaces at deploy via step 45's self-check while the old revision
   keeps serving. The p8 is already on the server, so a long-lived secret buys nothing.
 - **B — a scheduled GitHub Action writing a new Secret Manager version.** Fails silently and all at
-  once. GitHub disables cron workflows after 60 days without new commits (and only *commits* reset
-  that timer — not releases, tags, issues or merged PRs); scheduled-run failures notify only the last
-  committer; and an env-var-mounted secret does not pick up a new version without a redeploy, so a
-  job that "succeeded" can have changed nothing.
+  once. GitHub disables scheduled workflows *"when no repository activity has occurred in 60 days"*;
+  notifications for scheduled workflows go *"to the user who last modified the cron syntax in the
+  workflow file"* — which on a repo with one committer is you, and on any other repo is not
+  necessarily whoever broke it; and an env-var-mounted secret does not pick up a new version without
+  a redeploy, so a job that "succeeded" can have changed nothing.
 - **C — a calendar reminder.** The worst: one missed notification takes sign-in down for every user
   simultaneously, with no signal until they complain. Use C only as an annual backstop for the key
   itself — *is it still valid, does the backup still restore* — never as the mechanism.
@@ -960,11 +1527,14 @@ One more detail that bites: the secret's `sub` claim is **case-sensitive and mus
 
 | Thing | Clock |
 |---|---|
-| Apple `.p8` key | No expiry. Rotate by creating a second key (max two per primary App ID), cutting over, then revoking. |
+| **Apple Developer Program membership** | **Annual. Expiry invalidates certificates and profiles, stops TestFlight reaching testers, and makes the App ID and Services ID configuration unusable. Takes the whole Apple half down at once.** |
+| **`oltre.space` registration** | **Expires 2027-08-25. Auto-Renew on (step 7). Loss of the zone is account takeover, not downtime.** |
+| Apple `.p8` key | No expiry. Rotate by creating a second key (max two per primary App ID), deploying it, confirming step 45's self-check passes on the new one, **then** revoking the old. That order is the difference between a rotation and an outage. |
 | Apple authorisation code | Single-use, five minutes. A replayed code returns `invalid_grant`. |
 | Google brand verification result | 7 days to press *Publish branding*, else re-verify. |
-| Google OAuth client | Auto-deleted after 6 months of no use and no config change. |
+| Google OAuth client | Auto-deleted after 6 months of no use and no config change; restorable within 30 days. |
 | Google access token | 3600 s; irrelevant, you use the ID token. |
+| Android debug certificate | Machine-local and regenerable; a new one needs a new Android OAuth client (step 33). |
 | Oltre session-JWT key | No expiry. Freely rotatable; cost is everyone signs in again. |
 
 ---
@@ -976,14 +1546,15 @@ One more detail that bites: the secret's `sub` claim is **case-sensitive and mus
 | Apple Team ID | `A7Q83J6LR4` | No | Already in `iosApp/project.yml`; `apple.env`; JWT `iss` |
 | Apple Key ID | 10 chars, e.g. `ABC123DEFG` | No | `apple.env`; JWT `kid`; also in the p8 filename |
 | Apple `.p8` | `AuthKey_<KEYID>.p8`, ~250 B, `-----BEGIN PRIVATE KEY-----` | **Yes, one-shot** | `~/.oltre/signin/` 0600, `~/Documents/Dev/Oltre sign-in/`, the DMG, Secret Manager `oltre-apple-signin-p8`, mounted at `/secrets/apple/signin.p8` |
-| p8 public-key SHA-256 | `SHA2-256(stdin)= <hex>` | No | `README.md` in both copies — the thing that verifies a restore |
+| p8 public-key SHA-256 | 64 hex chars from `… | shasum -a 256` | No | `README.md` in both copies — the thing that verifies a restore |
 | Apple Services ID | `dev.fardavide.oltre.signin` | No | `apple.env`; the `client_id` in every Android/desktop browser URL |
 | iOS bundle identifier | `dev.fardavide.oltre` | No | Repo; the `client_id` for the native iOS flow |
 | Apple client secret JWT | ES256, `exp = now + 300` | Derived, never stored | In-memory only, in the body of the POST to `/auth/token` |
+| Google account + project ID | an address; `oltre-prod` or whatever step 24 gave | No | `google.env` — nothing else records them |
 | Google Web client ID | `NNNNNNNNNNNN-xxxx.apps.googleusercontent.com` | No | `google.env`; `setServerClientId` on Android; `serverClientID` on iOS; audience #1 |
 | Google Web client secret | `GOCSPX-…` | **Yes, one-shot** | `google-web-client.json` + backups. Unused by the JWKS design |
 | Google iOS client ID | same shape | No | `GIDConfiguration(clientID:)` |
-| Reversed iOS client ID | `com.googleusercontent.apps.NNNNNNNNNNNN-xxxx` | No | `iosApp/project.yml` `CFBundleURLSchemes` |
+| Reversed iOS client ID | `com.googleusercontent.apps.NNNNNNNNNNNN-xxxx` | No | `iosApp/project.yml`, under `CFBundleURLTypes` → `CFBundleURLSchemes` |
 | Google Android release client ID | same shape | No | Never named in code — the client binds package + fingerprint |
 | Google Android debug client ID | same shape | No | Same |
 | Google Desktop client ID | same shape | No | Embedded in the desktop binary; audience #2 |
@@ -993,7 +1564,7 @@ One more detail that bites: the secret's `sub` claim is **case-sensitive and mus
 
 ---
 
-# The four facts the client and server code must be built on
+# The five facts the client and server code must be built on
 
 Not steps — but they are decided by what you provision above, and getting any of them wrong produces
 an error with no useful message.
@@ -1010,16 +1581,18 @@ Desktop is the trap. Even on macOS, a Compose Desktop build cannot present the b
 `AuthenticationServices` is reachable only from a signed native bundle carrying the entitlement, and
 the same binary ships to Windows and Linux. It is a web client. And because Apple rejects
 `localhost` and IPs as return URLs, desktop Apple sign-in cannot use a loopback redirect the way
-Google can: it has to bounce through `https://api.oltre.space/v1/auth/apple/callback` and hand the
-result back to the app.
+Google can: it bounces through `https://api.oltre.space/v1/auth/apple/callback`. Fact 5 is how the
+result gets back.
 
-**2. The server accepts two audiences per provider, as an allow-list, never an equality check.**
+**2. The server accepts two audiences per provider, as an allow-list, and checks `azp` and `nonce`
+as well.**
 
 ```
 Apple  aud in { dev.fardavide.oltre, dev.fardavide.oltre.signin }
-Google aud in { WEB_CLIENT_ID, DESKTOP_CLIENT_ID }
-Google iss in { "https://accounts.google.com", "accounts.google.com" }   // both spellings are issued
 Apple  iss  = "https://appleid.apple.com"
+Google aud in { WEB_CLIENT_ID, DESKTOP_CLIENT_ID }
+Google azp in { WEB, IOS, ANDROID_RELEASE, ANDROID_DEBUG, DESKTOP }   // all five of your own
+Google iss in { "https://accounts.google.com", "accounts.google.com" }   // both spellings are issued
 ```
 
 Android and iOS both yield `aud = WEB_CLIENT_ID` (with `azp` carrying the platform client ID), which
@@ -1027,11 +1600,23 @@ is precisely what `setServerClientId` / `serverClientID` are for. Omit `serverCl
 `aud` silently becomes the iOS client ID and every iOS login is rejected by a server that looks
 correct.
 
+**`aud` alone is not enough.** Google's `azp` is *"only needed when the party requesting the ID token
+is not the same as the audience"* — which is exactly your situation on every platform. A Google ID
+token minted for somebody else's app that names your Web client ID as *its* server client ID arrives
+with `aud = WEB_CLIENT_ID` and an `azp` that is none of your five, and it passes an `aud`-only
+allow-list. Check `azp` against your own set.
+
+**And bind a nonce.** Google describes it as *"a random value generated by your app that enables
+replay protection"*; Apple's authorize request takes one too. Generate it per attempt, pass it in,
+verify it round-trips in the ID token, and reject a repeat. Without it a captured ID token replays
+for its whole validity window.
+
 **3. Two signing algorithms in one integration.** Apple signs its ID token with **RS256**; your Apple
-client secret is signed **ES256**. Pin each verifier to its own algorithm explicitly and never read
-`alg` from an incoming token header. Both providers rotate their JWKS and return several keys at
-once, so select by the token header's `kid` and re-fetch on an unknown one. Cache the JWKS; and do
-not call Google's `tokeninfo` endpoint in production — Google flags it as debug-only.
+client secret is signed **ES256**. Google's discovery document advertises RS256 only. Pin each
+verifier to its own algorithm explicitly and never read `alg` from an incoming token header. Both
+providers rotate their JWKS and return several keys at once, so select by the token header's `kid`
+and re-fetch on an unknown one. Cache the JWKS; and do not call Google's `tokeninfo` endpoint in
+production — Google flags it as debug-only.
 
 ```
 Apple  JWKS: https://appleid.apple.com/auth/keys
@@ -1044,29 +1629,49 @@ secret is not applicable to requests from clients registered as Android, iOS, or
 applications"* — and **Desktop app is not on that list**. PKCE does not substitute for it. The POST
 to `https://oauth2.googleapis.com/token` carries `client_id`, `client_secret`, `code`,
 `code_verifier`, `grant_type=authorization_code`, `redirect_uri=http://127.0.0.1:PORT`. The
-out-of-band flow (`urn:ietf:wg:oauth:2.0:oob`) is **removed**, not deprecated, and directing a Google
-OAuth request into an embedded webview returns `disallowed_useragent` — shell out to the real system
-browser.
+out-of-band flow (`urn:ietf:wg:oauth:2.0:oob`) is **no longer supported**, not merely deprecated, and
+directing a Google OAuth request into an embedded webview returns `disallowed_useragent` — shell out
+to the real system browser.
 
 And on Android, `GetGoogleIdOption` with `setFilterByAuthorizedAccounts(true)` throws
 `NoCredentialException` for a user who has never consented. Catch it and retry with `false`, or use
 `GetSignInWithGoogleOption` for the explicit button. Without that fallback the first tap on a fresh
 device does nothing visible — which is the exact defect this project forbids shipping.
 
+**5. The desktop Apple callback hands back a code, never a session.** This is the riskiest edge in
+the whole integration and it has no framework to fall back on, because the desktop client has no
+registered redirect of its own. Specify it now:
+
+- The app generates a per-attempt `state` (128 bits of entropy) and a `handoff_verifier`, keeps both
+  in memory, and sends **only `state`** to Apple in the authorize URL.
+- `POST /v1/auth/apple/callback` receives `code` + `state`, **rejects any `state` it did not issue**,
+  exchanges the code with Apple, mints the session, and stores it server-side keyed by
+  `SHA-256(handoff_verifier)` — single use, TTL 120 seconds.
+- The browser renders a plain "you can return to Oltre" page. **No token in the URL, no token in the
+  fragment, no token in the page.**
+- The desktop app calls `POST /v1/auth/desktop/claim` over TLS with `state` and the raw
+  `handoff_verifier`; the server returns the session exactly once and deletes it.
+
+The two obvious inventions — redirecting to whatever `http://127.0.0.1:PORT` the request names, or
+printing a token for the user to paste — hand the session to any local process, or to any page that
+can guess a port. Neither is acceptable, and both are what gets written if this is left as "hand the
+result back to the app".
+
 ---
 
 # Feedback
 
 This document is meant to be corrected. When something is wrong, missing, or assumes a step you
-could not follow, say so and it gets fixed here — including the parts that came from Apple's and
-Google's own documentation, which is stale often enough that a portal disagreeing with this file is
-worth recording rather than working around silently.
+could not follow, say so and it gets fixed here — including the parts taken from Apple's and
+Google's own documentation, which goes stale often enough that a portal disagreeing with this file
+is a finding worth recording rather than working around silently.
 
-Things most likely to be wrong, in order:
+Most likely to be wrong, in order:
 
-1. **Portal wording and button placement.** Apple and Google both reorganise. The paths are current
-   as of 2026-08-25; the shape of what you are doing outlasts the labels.
-2. **Step 25, no test users.** Verified from Google's documentation, doubted by one reviewer, and
-   checkable at step 45. See the note there.
-3. **Step 16, the domain association file.** Apple's help page says it is not needed; many
+1. **Portal wording and button placement.** Both companies reorganise. The paths are current as of
+   2026-08-25; the shape of what you are doing outlasts the labels.
+2. **Step 28, adding no test users.** Verified from Google's documentation and doubted by one
+   reviewer. The escape hatch in that step is the detector — if a tester is ever refused, the
+   exemption is not applying and the step is wrong.
+3. **Step 16, the domain association file.** Apple's current help page says it is not needed; many
    third-party guides disagree. If the portal asks for it, that is a real finding.
