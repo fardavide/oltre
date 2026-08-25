@@ -105,6 +105,42 @@ class RequiredFieldsTest {
         )
     }
 
+    @Test
+    fun `a sign-in missing its token or its nonce is refused`() {
+        assertEveryFieldRequired(
+            SignInRequest.serializer(),
+            SignInRequest(
+                apiVersion = ApiVersion.CURRENT,
+                idToken = IdToken("header.payload.signature"),
+                nonce = SignInNonce("drawn-by-the-client"),
+            ),
+        )
+    }
+
+    @Test
+    fun `a refresh missing its token is refused`() {
+        assertEveryFieldRequired(
+            RefreshRequest.serializer(),
+            RefreshRequest(apiVersion = ApiVersion.CURRENT, refreshToken = SessionToken("refresh")),
+        )
+    }
+
+    @Test
+    fun `a session missing either token or either expiry is refused`() {
+        // The two expiries are the ones worth pinning: a client that read them as absent would
+        // either refresh on every request or never, and neither failure says anything out loud.
+        assertEveryFieldRequired(
+            SessionResponse.serializer(),
+            SessionResponse(
+                apiVersion = ApiVersion.CURRENT,
+                accessToken = SessionToken("access"),
+                accessExpiresAt = NOW,
+                refreshToken = SessionToken("refresh"),
+                refreshExpiresAt = NOW,
+            ),
+        )
+    }
+
     // The three errors that carry a payload. The four that do not are `data object`s.
     @Test
     fun `an error missing its payload is refused`() {

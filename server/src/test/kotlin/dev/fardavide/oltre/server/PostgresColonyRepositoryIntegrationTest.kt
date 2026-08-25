@@ -39,6 +39,12 @@ class PostgresColonyRepositoryIntegrationTest {
     fun anEmptyColonyStore() {
         database.applySchema()
         database.emptyEveryTable()
+        // **`#110`'s one change to this suite.** `colonies.player_id` is a foreign key and `found`
+        // no longer forges the row it points at — identity does, at sign-in — so the two players
+        // this file uses have to exist before a colony can hang off either of them. That is the
+        // shape a deployed server has too: nobody has a colony who has not signed in.
+        database.givenPlayer(davide)
+        database.givenPlayer(someoneElse)
     }
 
     // ── The schema ────────────────────────────────────────────────────────────────────────────
@@ -81,13 +87,18 @@ class PostgresColonyRepositoryIntegrationTest {
     }
 
     @Test
-    fun `founding writes the player row the colony hangs off`() = runTest {
-        // `colonies.player_id` is a foreign key, so this is what stops the whole design failing on
-        // the first insert. `#110` is what makes the row mean something; until then it carries the
-        // header value and the placeholder provider — see `schema.sql`.
+    fun `founding writes no player row of its own`() = runTest {
+        // This asserted the opposite until `#110`, and the inversion is the slice. `found` forged a
+        // player row from the header value because there was nothing else to hang the foreign key
+        // off; now `PostgresPlayerRepository.resolve` writes it at sign-in, which is the only moment
+        // anybody has actually said who they are. What guarantees the row is there by the time this
+        // runs is the authenticator — see `PostgresPlayerRepositoryIntegrationTest`.
         repository.found(davide, freshColony())
 
-        assertEquals(listOf("header" to "davide"), database.playerIdentities())
+        assertEquals(
+            listOf("header" to "davide", "header" to "someone-else"),
+            database.playerIdentities(),
+        )
     }
 
     // ── The colony itself ─────────────────────────────────────────────────────────────────────
@@ -292,15 +303,16 @@ class PostgresColonyRepositoryIntegrationTest {
                 connection.update(
                     "INSERT INTO players (id, provider, subject, created_at) VALUES (?, ?, ?, now())",
                 ) {
-                    setString(1, davide.value)
+                    setString(1, "half-written")
                     setString(2, "header")
-                    setString(3, davide.value)
+                    setString(3, "half-written")
                 }
                 error("the connection went away")
             }
         }
 
-        assertEquals(emptyList(), database.playerIdentities())
+        // The two the fixture put there, and not the third.
+        assertEquals(listOf("header" to "davide", "header" to "someone-else"), database.playerIdentities())
     }
 
     // ── The pool ──────────────────────────────────────────────────────────────────────────────

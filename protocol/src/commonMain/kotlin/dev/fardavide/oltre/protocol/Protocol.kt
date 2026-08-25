@@ -45,4 +45,19 @@ object Protocol {
     // something both ends have to agree on, while *who a value in it belongs to* is the server's
     // conclusion rather than the client's claim.
     const val PLAYER_HEADER: String = "X-Oltre-Player"
+
+    // **Who is asking, once `#110` made it trustworthy** — and it sits *beside* the line above
+    // rather than replacing it, deliberately. `#112` shipped a client that spells `PLAYER_HEADER`
+    // on every request, and the day it stops is the day it starts sending one of these instead,
+    // which is `#113`. Deleting the placeholder here would take that client's compilation with it.
+    //
+    // A standard `Authorization: Bearer …` rather than a header of this project's own, because a
+    // session token is exactly what that header was defined to carry: proxies, load balancers and
+    // logs already know not to print it, and Cloud Run — where this is going — is several of those.
+    const val AUTHORIZATION_HEADER: String = "Authorization"
+
+    // The scheme, with its trailing space, so that neither end builds the string by hand. Compared
+    // case-insensitively at the server, which RFC 7235 requires and a client's HTTP stack is
+    // entitled to rely on.
+    const val BEARER_PREFIX: String = "Bearer "
 }

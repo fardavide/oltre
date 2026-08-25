@@ -1,7 +1,7 @@
 # Status
 
 Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
-#109 and #112, no bump)
+#109, #110 and #112, no bump)
 
 ## Landed
 
@@ -551,6 +551,31 @@ Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` 
   behaviour half with an exclusion Davide approved on the report, which comes out at #113 with
   `:protocol`'s. No version bump — nothing a player can do changes. See
   [`decisions.md`](decisions.md).
+- **A colony belongs to somebody — Sign in with Apple and Google** — slice 3 of the online migration
+  (issue #110 under epic #106). `POST /v1/auth/apple` and `POST /v1/auth/google` verify a provider ID
+  token against that provider's own key set — signature, algorithm, issuer, audience, expiry, nonce —
+  and mint a session this server signs itself; `POST /v1/auth/refresh` trades the long half for a
+  fresh pair; `DELETE /v1/account` deletes, and cascades to the colony and every spent idempotency
+  key. **`players.id` is a surrogate key and not the provider subject**, which is what makes signing
+  in again after a deletion found a *fresh* colony rather than resurrect the old one, and what keeps
+  a provider's identifier out of every token, log line and URL. **The server accepts two audiences per
+  provider** — the Web client answers for both phones and the desktop dev loop has its own — and a
+  single-audience check would have passed every test and then refused the only build the behaviour
+  and screenshot suites run on. Sessions are an hour and ninety days: an expired access token is
+  `ApiError.SessionExpired` and the app fixes it silently, an expired refresh token is
+  `Unauthenticated` and the sign-in screen. **`X-Oltre-Player` is still read and is no longer
+  believed** — deleting it would stop `:client:net:data` compiling, so it comes out at #113 when the
+  client starts sending a bearer token; a server with a session key ignores it, and one without
+  resolves it through the same upsert a real sign-in uses. `Main.kt` **refuses to start** when
+  `DATABASE_URL` is set and `SESSION_SIGNING_KEY` is not, because that pair is what a deployment is.
+  The catalogue gains **one** line, `nimbus-jose-jwt`, and neither of the two `ktor-server-auth`
+  artifacts the ticket named — the JWKS client is the JDK's. The seven verification cases run against
+  a keypair generated in the test process and served by a handwritten fake; **nothing in this slice
+  reaches a real issuer**. Coverage: the gate passes on all ten values and **no exclusion was
+  added** — the first measurement took the unit row down 0.129 line and 0.287 branch, and the answer
+  was seventeen more tests rather than a filter, plus a real-socket `…IntegrationTest` for the JWKS
+  fetch. No version bump — nothing a player can do changes. See
+  [`decisions.md`](decisions.md), which also carries the provisioning record.
 
 
 ## Roadmap — v1 in vertical slices
@@ -604,6 +629,26 @@ carried here because the pressures that replace hard caps (upkeep, logistics, di
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
 
 ## Pending / not yet set up
+
+- **DIARISE: Apple's client secret expires within six months, and a silently expired one takes
+  sign-in down for everyone at once** — #110, 2026-08-25. It is a JWT signed with the `.p8`
+  (team `A7Q83J6LR4`, key `77FXWGUFQY`), Apple caps its `exp` at six months, and there is no warning
+  and no error a player can act on when it lapses. **Automate the regeneration or put it in a
+  calendar; it is not something a test can catch.**
+  **Nothing in the repository needs it *yet*, which is the part that makes it easy to forget.**
+  Verifying an ID token is a signature check against Apple's public key set and involves no secret at
+  all, so #110 shipped without one and would keep working without one forever.
+  **What does need it is account deletion.** Apple's guidance since June 2022 is that an app offering
+  account deletion *and* Sign in with Apple must call the REST API to **revoke** the user's tokens —
+  `/auth/revoke`, which needs the client secret and a token from `/auth/token`, which needs the
+  authorization code from the client. `DELETE /v1/account` deletes everything on this side already;
+  what is missing is telling Apple, and the authorization code never reaches this server today.
+  **Davide's call, 2026-08-25: it lands in #113**, with the deletion screen — asked and answered
+  rather than left open, because it is an App Review surface and those are cheaper to decide before a
+  submission than during one. The reason is that the blocker is client-side: the authorization code
+  has to come out of the sign-in flow, which is what that slice builds, so **#111 only has to expose
+  the `.p8` as a secret** and the obligation stays with the screen that triggers it.
+  See `decisions.md`, #110's round.
 
 - **DAVIDE'S CALL, RULED: the rate stays at 60 and round 17's guardrail is spent.** 0.8.0 built the
   Shipyard and ran the sweep `exploration-rewards-sheet.md` §6.4 said could veto the rate. It vetoed

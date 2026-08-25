@@ -28,15 +28,15 @@ internal class PostgresColonyRepository(
     private val clock: Clock,
 ) : ColonyRepository {
 
+    // **The player row is not written here any more** — `#110`. `#109` forged one from the header
+    // value because there was nothing else to hang the foreign key off; now `PostgresPlayerRepository
+    // .resolve` writes it at sign-in, which is the only moment anybody has actually said who they
+    // are. What guarantees it is there by the time this runs is the authenticator: every request
+    // that reaches a route has already had its player looked up, and one that names somebody the
+    // table does not hold is `ApiError.Unauthenticated` long before here.
     override suspend fun found(player: PlayerId, snapshot: GameSnapshot): Founding =
         dataSource.transaction { connection ->
             val now = clock.now()
-            connection.update(INSERT_PLAYER) {
-                setString(1, player.value)
-                setString(2, HEADER_PROVIDER)
-                setString(3, player.value)
-                setObject(4, now.atUtc())
-            }
             // **`ON CONFLICT DO NOTHING` is what makes founding idempotent**, and the row count is
             // what tells the two apart: one row inserted is a colony that did not exist, zero is a
             // retry after a lost response. Both then read the row back, so the caller gets the
@@ -146,17 +146,6 @@ internal class PostgresColonyRepository(
 // through `#112`'s outbox draining on every launch since. Wide enough that the honest answer to
 // "could a retry still arrive?" is no; narrow enough that the table is bounded by active play.
 internal val APPLIED_RETENTION: Duration = 30.days
-
-// What `players.provider` says until `#110` makes it mean something. The header is not a provider
-// and this is not identity — it is the placeholder `#109` writes so the column is never null and the
-// shape the next slice needs is already in the table. See `schema.sql`.
-private const val HEADER_PROVIDER = "header"
-
-private const val INSERT_PLAYER = """
-    INSERT INTO players (id, provider, subject, created_at)
-    VALUES (?, ?, ?, ?)
-    ON CONFLICT (id) DO NOTHING
-"""
 
 // `player_id` last and not first, which is the table's order — see `bindColony` for why: it is what
 // lets the insert and the compare-and-set share one binding.

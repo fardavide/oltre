@@ -11,12 +11,22 @@
 -- preserve it. The escape hatch is a second implementation of `ColonyRepository`, which is a class
 -- rather than a line, and is what the interface exists to make cheap.
 
--- Who a colony belongs to. **`#110` is the slice that gives this table a reason to exist**: until a
--- session token is verified, a request names its player in the `X-Oltre-Player` header and that
--- string is the id. `provider` and `subject` are the columns that identity will be resolved through
--- — a verified Apple or Google subject — and they carry the placeholder until then, so the shape
--- the next slice needs is already here and nothing has to be reshaped underneath live data. There
--- is no live data: nothing is deployed until `#111`.
+-- Who a colony belongs to, and **since `#110` this table is the only thing that says so**. A row is
+-- written at sign-in and nowhere else: `PostgresPlayerRepository.resolve` inserts `(provider,
+-- subject)` — a verified Apple or Google subject, never an email (`#106` §4) — and hands back `id`,
+-- which is a surrogate key and not the subject. `#109` wrote the shape and forged rows from the
+-- `X-Oltre-Player` header under the provider name `'header'`; that path survives only where no
+-- `SESSION_SIGNING_KEY` is configured, which is the dev loop and nothing that is deployed.
+--
+-- `UNIQUE (provider, subject)` is what makes a second sign-in find the same colony, and the pair
+-- rather than the subject alone because nothing about a subject is globally unique — Apple and
+-- Google can both mint `1234` and mean two different people.
+--
+-- **The two foreign keys below are the whole of account deletion**, which App Review 5.1.1(v)
+-- requires and `#110` implements: `DELETE FROM players WHERE id = ?` takes the colony and every
+-- spent idempotency key with it, in one transaction, with no ordering for the code to get wrong. And
+-- the surrogate key is what makes the *next* sign-in a fresh colony rather than a resurrection —
+-- the same subject comes back to a new `id`, which has nothing hanging off it.
 CREATE TABLE IF NOT EXISTS players (
     id         text        PRIMARY KEY,
     provider   text        NOT NULL,

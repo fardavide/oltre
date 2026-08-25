@@ -18,6 +18,7 @@ kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 kover = "0.9.9"
 ktor = "3.5.2"
+nimbus-jose-jwt = "10.9.1"
 # 42.7.10 rather than a round number: `embedded-postgres` drags the driver in transitively and
 # resolves it to exactly this, so anything lower is a version the tests would not be running.
 postgresql = "42.7.10"
@@ -59,6 +60,15 @@ ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negoti
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+# JOSE, and the one thing in `#110` that is not written by hand. Verifying a provider's ID token is
+# where a subtle mistake is a real-world compromise rather than a failing test — `alg: none`,
+# RS256/HS256 confusion, a `kid` nobody looked up — so the parsing, the signature and the JWKS
+# document are a library's job. What is *not* the library's is the fetching: `RemoteJWKSet` would put
+# a socket and a cache policy inside one object no unit test can reach, which is exactly the split
+# `#108` and `#109` spent two slices undoing. Nimbus rather than `java-jwt` because it carries its
+# own JSON — `com.auth0:java-jwt` drags `jackson-databind` into a server that already speaks
+# kotlinx-serialization, for nothing.
+nimbus-jose-jwt = { module = "com.nimbusds:nimbus-jose-jwt", version.ref = "nimbus-jose-jwt" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 roborazzi-compose-desktop = { module = "io.github.takahirom.roborazzi:roborazzi-compose-desktop", version.ref = "roborazzi" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }

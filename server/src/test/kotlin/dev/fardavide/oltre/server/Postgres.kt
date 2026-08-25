@@ -49,6 +49,26 @@ internal fun DataSource.playerIdentities(): List<Pair<String, String>> =
 
 internal fun DataSource.scalar(sql: String): String? = rows(sql).singleOrNull()
 
+internal fun DataSource.rowsIn(table: String): Int = scalar("SELECT count(*) FROM $table")?.toInt() ?: 0
+
+// **A player row, written straight in.** Since `#110` the `players` table is identity's and nothing
+// else writes it — `PostgresColonyRepository.found` used to forge a row from the header value and no
+// longer does, because a colony now hangs off somebody who actually signed in. `colonies.player_id`
+// is a foreign key, so the colony suite has to put its two players there first, and it does it with
+// SQL rather than through `PostgresPlayerRepository`: what that class does is its own file's
+// business, and a fixture that went through it would fail two suites for one bug.
+internal fun DataSource.givenPlayer(player: PlayerId) {
+    connection.use { connection ->
+        connection.prepareStatement(
+            "INSERT INTO players (id, provider, subject, created_at) VALUES (?, 'header', ?, now())",
+        ).use { statement ->
+            statement.setString(1, player.value)
+            statement.setString(2, player.value)
+            statement.executeUpdate()
+        }
+    }
+}
+
 private fun DataSource.execute(sql: String) {
     connection.use { connection -> connection.createStatement().use { it.execute(sql) } }
 }

@@ -181,6 +181,16 @@ kover {
                 // row fell **92.503% → 91.730%** line and **86.629% → 86.284%** branch, on 76 lines
                 // and 18 branches that no test of this kind can reach.
                 //
+                // **#110 added a third file under this pattern without changing a character of it**,
+                // and saying so is the point of this paragraph rather than an aside.
+                // `PostgresPlayerRepository.kt` is the `players` table — four statements, one
+                // transaction, and no branch on an identity, a provider or a token — so it meets the
+                // condition below rather than merely matching the glob. Who a token says somebody is
+                // is `IdTokens.kt`; whether a session is still good is `Sessions.kt`; what happens
+                // when a player is not there is `Authenticator.kt`. All three are plain `…Test`s, and
+                // a fourth file that drifted a decision back into the store would be quietly hidden
+                // here — which is what the condition, and this note, exist to stop.
+                //
                 // **The condition is structural and checkable, which is what earns it**, like
                 // `StepperGesture.kt`'s *"nothing in that file draws"*: **nothing in these two files
                 // decides anything.** The row-to-colony mapping is `ColonyRow.kt` — including what a
