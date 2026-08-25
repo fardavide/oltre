@@ -49,6 +49,9 @@ it out and I will place it, `chmod` it, verify it and record it. You should neve
 - **36** — `session-jwt.key` generated, 88 base64 characters, `0600`.
 - **9, 10, 11** — `gh-pages` pushed, Pages pointed at `oltre.space`, certificate issued, Enforce
   HTTPS on. `https://oltre.space/` serves the page and `www` redirects to the apex.
+- **24** — Cloud project created; Google assigned the ID `oltre-506614`, recorded in `google.env`.
+- **30** — Web client created and its JSON filed at `0600`; client ID recorded in `google.env`,
+  nothing left in `~/Downloads`.
 - **19, 20, 21** — key `AuthKey_77FXWGUFQY.p8` in place at `0600`, verified P-256 / prime256v1,
   public-key digest `95d11ed5…28d13d9b` recorded in the folder README, no copy left in `~/Downloads`,
   and `apple.env` written.
@@ -85,7 +88,7 @@ step 32.
 
   **Per product, isolate with a Cloud project rather than an account.** That is where isolation
   actually lives: quotas, budget alerts, service accounts and OAuth clients are all per-project, a
-  dead project deletes cleanly, and projects are free. `oltre-prod` here; the next thing gets its
+  dead project deletes cleanly, and projects are free. `oltre-506614` here; the next thing gets its
   own.
 
   **How firmly this binds, since it is worth knowing before you commit.** The OAuth clients cannot
@@ -762,12 +765,20 @@ Done/Continue/Save flow is exactly where a value gets dropped without an error.
 <https://console.cloud.google.com/projectcreate>
 
 - **Project name:** `Oltre`
-- **Project ID:** `oltre-prod` — but read the rule before you type it. Google: an ID *"must be 6 to
-  30 characters"*, *"can only contain lowercase letters, numbers, and hyphens"*, *"must start with a
-  letter"*, *"cannot end with a hyphen"*, and **"cannot be in use or previously used; this includes
-  deleted projects"**. If `oltre-prod` is taken you get a validation error, not a silent suffix —
-  pick another (`oltre-prod-1`, `oltre-space`) and **write down what you actually used**, because
-  step 42 hard-codes `--project=` six times.
+- **Project ID:** **`oltre-506614`** — what Google actually assigned, 2026-08-25.
+
+**Done.** The rest of this step is kept because the ID it produced is not the one this guide
+originally told you to type, and the reason matters.
+
+**You may not get to choose it.** The console derives an ID from the project name and appends
+random digits; the *Edit* control that lets you override it is easy to miss and is not always
+offered. This guide previously said to type `oltre-prod`, which was wrong in a way that would only
+have surfaced at step 42, six `--project=` flags later.
+
+**And it is immutable.** Google: a project ID *"cannot be changed after the project is created"*.
+So `oltre-506614` is permanent for as long as the project is — renaming the *project* is possible
+and cosmetic, renaming the *ID* is not. Recorded in `google.env`; nothing else in this repository
+holds it.
 - **Location:** No organisation.
 
 With no organisation attached, the Audience user type is forced to **External** and Internal is
@@ -1221,39 +1232,39 @@ creation**. Needs `gcloud` (not installed — see "Before you start") and a link
 (step 25). None of it needs Cloud Run to exist:
 
 ```
-gcloud services enable secretmanager.googleapis.com run.googleapis.com --project=<PROJECT_ID>
+gcloud services enable secretmanager.googleapis.com run.googleapis.com --project=oltre-506614
 ```
 
 ```
-gcloud secrets create oltre-apple-signin-p8 --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Keys/Oltre/identity/AuthKey_<KEYID>.p8
+gcloud secrets create oltre-apple-signin-p8 --project=oltre-506614 --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Keys/Oltre/identity/AuthKey_<KEYID>.p8
 ```
 
 ```
-gcloud secrets create oltre-session-jwt-key --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Keys/Oltre/identity/session-jwt.key
+gcloud secrets create oltre-session-jwt-key --project=oltre-506614 --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Keys/Oltre/identity/session-jwt.key
 ```
 
 ```
-gcloud iam service-accounts create oltre-server --project=<PROJECT_ID> --display-name="Oltre server runtime"
+gcloud iam service-accounts create oltre-server --project=oltre-506614 --display-name="Oltre server runtime"
 ```
 
 Then grant read access per-secret rather than project-wide, so "the server can read two secrets"
 does not become "the server can read everything":
 
 ```
-gcloud secrets add-iam-policy-binding oltre-apple-signin-p8 --project=<PROJECT_ID> --member=serviceAccount:oltre-server@<PROJECT_ID>.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding oltre-apple-signin-p8 --project=oltre-506614 --member=serviceAccount:oltre-server@oltre-506614.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
 ```
 
 ```
-gcloud secrets add-iam-policy-binding oltre-session-jwt-key --project=<PROJECT_ID> --member=serviceAccount:oltre-server@<PROJECT_ID>.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+gcloud secrets add-iam-policy-binding oltre-session-jwt-key --project=oltre-506614 --member=serviceAccount:oltre-server@oltre-506614.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
 ```
 
-`<PROJECT_ID>` is whatever step 24 actually created, not necessarily `oltre-prod`.
+That project ID is fixed and immutable — see step 24.
 
 **The bindings cannot be tested before a service exists** — there is nothing to run as. What you can
 check is that they were recorded:
 
 ```
-gcloud secrets get-iam-policy oltre-apple-signin-p8 --project=<PROJECT_ID>
+gcloud secrets get-iam-policy oltre-apple-signin-p8 --project=oltre-506614
 ```
 
 And set the guard the zero-euro target otherwise has none of — a budget alert, in the console at
@@ -1277,7 +1288,7 @@ that could have blocked you.
 **Waits on:** a Neon connection string and a container image. Three things the deploy command must
 get right:
 
-- **`--service-account=oltre-server@<PROJECT_ID>.iam.gserviceaccount.com`.** Omit it and Cloud Run
+- **`--service-account=oltre-server@oltre-506614.iam.gserviceaccount.com`.** Omit it and Cloud Run
   runs as the Compute Engine default service account, which on a project with **no organisation** —
   which step 24 specified — carries `roles/editor`, i.e. read access to every secret including the
   p8 and the Neon connection string. The org policy that would prevent that grant
@@ -1605,7 +1616,7 @@ One more detail that bites: the secret's `sub` claim is **case-sensitive and mus
 | Apple Services ID | `dev.fardavide.oltre.signin` | No | `apple.env`; the `client_id` in every Android/desktop browser URL |
 | iOS bundle identifier | `dev.fardavide.oltre` | No | Repo; the `client_id` for the native iOS flow |
 | Apple client secret JWT | ES256, `exp = now + 300` | Derived, never stored | In-memory only, in the body of the POST to `/auth/token` |
-| Google account + project ID | an address; `oltre-prod` or whatever step 24 gave | No | `google.env` — nothing else records them |
+| Google account + project ID | an address; `oltre-506614` | No | `google.env` — nothing else records them |
 | Google Web client ID | `NNNNNNNNNNNN-xxxx.apps.googleusercontent.com` | No | `google.env`; `setServerClientId` on Android; `serverClientID` on iOS; audience #1 |
 | Google Web client secret | `GOCSPX-…` | **Yes, one-shot** | `google-web-client.json` + backups. Unused by the JWKS design |
 | Google iOS client ID | same shape | No | `GIDConfiguration(clientID:)` |
