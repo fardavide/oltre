@@ -181,11 +181,31 @@ generate` rather than touching `project.pbxproj`.
 
 ## Install
 
+[**oltre.space**](https://oltre.space) carries the latest Android build and what it changed.
+
 Android builds are published as GitHub Releases. Take the latest APK from
 [Releases](https://github.com/fardavide/oltre/releases) and open it on the phone; Android asks
 once for permission to install from your browser. Updates install over the top.
 
-iPhone builds go to TestFlight on every merge to `main`.
+iPhone builds go to TestFlight on every merge to `main`, for internal testers.
+
+## Site
+
+[oltre.space](https://oltre.space) is generated, never hand-written: `site/index.html` is the
+template, `.github/scripts/build_site.py` fills it from the release GitHub reports as published
+and the README changelog entry for that version, and `pages.yml` pushes the result to the
+`gh-pages` branch.
+
+```bash
+gh release view --json tagName,publishedAt,url,assets > /tmp/release.json
+python3 .github/scripts/build_site.py build --release /tmp/release.json --out build/site
+```
+
+Edit `site/`; never the `gh-pages` branch, which every build overwrites. The screenshots on the
+page are the committed Roborazzi baselines — the build fails rather than the page if one moves.
+`site/static/CNAME` is byte-identical to the one GitHub wrote when the custom domain was set —
+no trailing newline, deliberately. It is what keeps `oltre.space` pointed here, and a deploy that
+drops it unsets the domain.
 
 ## Icon
 
