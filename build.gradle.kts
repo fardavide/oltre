@@ -324,6 +324,36 @@ kover {
                 if (testCategory == "screenshot" || testCategory == "behaviour") {
                     classes("dev.fardavide.oltre.protocol.**")
                 }
+                // ── The server, and **only while measuring a pass that renders** ─────────────
+                //
+                // The sixth entry, added at #108 with Davide's say-so and on a report. `:server` is
+                // two Ktor routes, the replay that drives `core`'s twelve verbs, and a colony store.
+                // It draws nothing, and the only thing that will ever speak to it is a socket.
+                //
+                // **Both halves are permanent, which is where it differs from `:protocol` directly
+                // above.** That module's behaviour exclusion comes out at #112, because the shell
+                // will hold a fake transport and drive every verb through the contract. Nothing on
+                // the client will ever reach *this* code — #112's fake transport exists precisely so
+                // the suite never talks to a server — so a behaviour test can no more reach a route
+                // handler than a screenshot can reach a `core` rule, and neither will change.
+                //
+                // Measured on the branch that added the module, five passes, `--no-build-cache`:
+                // screenshot **93.222% → 90.447%** line and **57.529% → 54.928%** branch, behaviour
+                // **92.259% → 90.839%** line and **68.832% → 67.414%** branch — four gated rows on a
+                // PR that deleted no test and drew nothing less. With this entry all four land back
+                // on the baseline to three decimals, because the package contributes 0 covered and
+                // 172 missed lines to each of those passes and nothing else moved.
+                //
+                // Scoped to the two passes that render, which is what makes it safe: the unit,
+                // integration and unfiltered passes see every line and report the package at
+                // **93%, 76% and 99.4%**. So this removes a number no test of these kinds could
+                // move, and removes nothing the gate could see. What is uncovered in the unit pass
+                // is `OltreServer.kt` — `install`, `routing`, `respond` — and that file holds no
+                // decisions by construction: they were moved into `Endpoints.kt` and `Genesis.kt`
+                // for exactly this reason, rather than hidden here. See `decisions.md`.
+                if (testCategory == "screenshot" || testCategory == "behaviour") {
+                    classes("dev.fardavide.oltre.server.**")
+                }
                 // Compiler- and plugin-generated classes. Counting them measures the Compose
                 // compiler and kotlinx-serialization, not this project's tests.
                 classes("*ComposableSingletons*", "*\$\$serializer")

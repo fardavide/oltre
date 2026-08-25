@@ -79,11 +79,11 @@ them alone and read the report.
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
   here. And a third group, **scoped to one pass rather than to the whole report**: composables in
   the unit pass, everything that is not a drawing in the screenshot pass, the string catalogue in
-  the two that render, and `:protocol` in the two that render — a wire contract is unreachable by a
-  frame for `core`'s reason, and unreachable by a behaviour test only until #112 gives it a
-  consumer, which is why that half is marked to come out. The full list is in the root
-  `build.gradle.kts`, each entry with its own argument; this paragraph goes stale if that list
-  moves, so read the file.
+  the two that render, and `:protocol` and `:server` in the two that render — a wire contract and a
+  Ktor route are both unreachable by a frame for `core`'s reason. `:protocol`'s behaviour half comes
+  out at #112, when the shell gains a consumer; `:server`'s does not, because nothing on the client
+  will ever reach a route. The full list is in the root `build.gradle.kts`, each entry with its own
+  argument; this paragraph goes stale if that list moves, so read the file.
 
   If a number looks wrong, it is the tests that are wrong.
 
@@ -277,6 +277,24 @@ its `Canvas { }` lambda so the ink could be measured.
 **Rule of thumb.** Before adding a unit test that names something in a file full of composables,
 ask what else loading that file drags in. If the answer is "a screen", move the thing being tested
 instead.
+
+### The general rule: a decision belongs where the kind of test that judges it can reach it
+
+The section above is one instance and it is not about Compose. **Any file that mixes rules with a
+framework the unit kind cannot enter will read low forever, and the fix is the file rather than the
+filter.** #108 is the other end of the app: `:server`'s first cut put the routes, the admission and
+the replay's caller in one Ktor file, so every rule in it was reachable only by a test that stands up
+a server — which by the taxonomy at the top of this skill makes that test an `…IntegrationTest`. The
+unit row fell 92.5% → 92.1% on a slice whose `all` row went *up*.
+
+Splitting `Endpoints.kt` (a request arrives as a claimed player and the text of a body, and leaves as
+a status and a payload) from `OltreServer.kt` (`install`, `routing`, `receiveText`, `respond`) put
+the row back at 92.5% and left a route file that holds no decisions **by construction** — which is
+also what makes its own exclusion honest rather than a place to hide things.
+
+**The tell is the same in both directions**: a row falls, the code is tested, and the untested part
+is the part the framework owns. Ask which kind of test *could* reach it. If the honest answer is
+"none of them", the decisions are in the wrong file.
 
 ### A defaulted parameter nothing overrides is untested surface
 
