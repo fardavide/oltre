@@ -48,11 +48,12 @@ client/       Directory of KMP + Compose Multiplatform modules (desktop, iOS, An
                              behind every destination. No presentation layer — what it feeds is
                              a Canvas the shell already owns. `domain` depends on nothing at
                              all, not even core (see the dependency rule below).
-server        JVM + Ktor. The engine, answering: two routes (`POST /v1/colony`, `POST /v1/sync`),
-              the twelve verbs replayed through core, and a ColonyRepository whose implementation
-              is a map until #109 gives it three tables. Reads no clock and holds no state of its
-              own — both are parameters of `oltre(repository, clock)`, so the whole of it is
-              driven by a test.
+server        JVM + Ktor + Postgres. The engine, answering: two routes (`POST /v1/colony`,
+              `POST /v1/sync`), the twelve verbs replayed through core, and a ColonyRepository
+              with two implementations — three tables over JDBC when DATABASE_URL is set, a map
+              when it is not, and the same compare-and-set on a colony's version either way.
+              Reads no clock and holds no state of its own — both are parameters of
+              `oltre(repository, clock)`, so the whole of it is driven by a test.
 iosApp/       Xcode wrapper around the client framework. An Info.plist, an asset catalogue and
               a few lines of Swift hosting MainViewController(). Not a Gradle module
 androidApp    Android packaging of :client:shell. A manifest, a theme and the launcher icons —

@@ -9,12 +9,18 @@ android-targetSdk = "36"
 androidx-activity = "1.13.0"
 compose-material3 = "1.9.0"
 compose-multiplatform = "1.11.1"
+embedded-postgres = "2.2.2"
+embedded-postgres-binaries = "17.10.0"
+hikari = "6.3.0"
 kotlin = "2.4.10"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 kover = "0.9.9"
 ktor = "3.5.2"
+# 42.7.10 rather than a round number: `embedded-postgres` drags the driver in transitively and
+# resolves it to exactly this, so anything lower is a version the tests would not be running.
+postgresql = "42.7.10"
 roborazzi = "1.70.0"
 turbine = "1.2.1"
 
@@ -25,6 +31,15 @@ compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", v
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }
 compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "compose-multiplatform" }
 compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "compose-multiplatform" }
+# Real PostgreSQL, unpacked from a jar and started as a child process — no daemon and no image
+# pull, which is what makes it runnable on Davide's Mac and on `ubuntu-latest` alike. The BOM is
+# what pins the *binaries*: `embedded-postgres` defaults them to 14.22.0, so without it macOS
+# would test 17 and CI would test 14. The two platform artifacts are the ones its own pom omits.
+embedded-postgres = { module = "io.zonky.test:embedded-postgres", version.ref = "embedded-postgres" }
+embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-postgres-binaries-bom", version.ref = "embedded-postgres-binaries" }
+embedded-postgres-binaries-darwin-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8", version.ref = "embedded-postgres-binaries" }
+embedded-postgres-binaries-linux-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-linux-arm64v8", version.ref = "embedded-postgres-binaries" }
+hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
@@ -35,6 +50,7 @@ ktor-server-content-negotiation = { module = "io.ktor:ktor-server-content-negoti
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }
 ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
+postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 roborazzi-compose-desktop = { module = "io.github.takahirom.roborazzi:roborazzi-compose-desktop", version.ref = "roborazzi" }
 turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 

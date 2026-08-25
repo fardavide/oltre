@@ -213,14 +213,75 @@ class EndpointsTest {
             body(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW, key = "mine")),
         ).response().snapshot
 
-        assertEquals(answered, repository.colonyOf(PlayerId(DAVIDE)))
+        assertEquals(answered, repository.colonyOf(PlayerId(DAVIDE))?.snapshot)
+    }
+
+    // ── The compare-and-set ───────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a sync that loses the compare-and-set replays against the colony that won`() = runTest {
+        foundColony(repository, clock, DAVIDE, body())
+        val contended = ContendedColonyRepository(repository, contentions = 1)
+
+        val answer = syncColony(
+            contended,
+            clock,
+            DAVIDE,
+            body(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW, key = "mine")),
+        )
+
+        assertEquals(HttpStatusCode.OK, answer.status)
+        assertEquals(setOf(IdempotencyKey("mine")), answer.response().applied)
+        assertEquals(2, contended.attempts)
+        // And the mine is on the colony that was actually kept, not on the one that lost.
+        assertEquals(answer.response().snapshot, repository.colonyOf(PlayerId(DAVIDE))?.snapshot)
+    }
+
+    @Test
+    fun `a verb the other device already applied is not applied again by the retry`() = runTest {
+        // The property the whole retry rests on, and the reason every read is inside the loop: the
+        // second attempt re-reads the spent keys, so a verb delivered to both devices is paid for
+        // once. Reusing the first attempt's reading of `appliedAmong` would double-spend it.
+        foundColony(repository, clock, DAVIDE, body())
+        val mine = IdempotencyKey("mine")
+        val contended = ContendedColonyRepository(repository, contentions = 1, otherDeviceApplied = setOf(mine))
+
+        val answer = syncColony(
+            contended,
+            clock,
+            DAVIDE,
+            body(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW, key = "mine")),
+        )
+
+        assertEquals(setOf(mine), answer.response().applied)
+        assertEquals(emptyList(), answer.response().rejected)
+        assertEquals(0, answer.response().snapshot.state.eventLog.count { it is Event.BuildStarted })
+    }
+
+    @Test
+    fun `a sync that never wins the compare-and-set says the colony is stale rather than overwriting it`() = runTest {
+        foundColony(repository, clock, DAVIDE, body())
+        val contended = ContendedColonyRepository(repository, contentions = Int.MAX_VALUE)
+
+        val answer = syncColony(
+            contended,
+            clock,
+            DAVIDE,
+            body(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW, key = "mine")),
+        )
+
+        assertEquals(HttpStatusCode.Conflict, answer.status)
+        assertEquals(ApiError.StaleColony, answer.error())
+        // Bounded, and nothing the player queued was applied — the outbox is still theirs to resend.
+        assertEquals(3, contended.attempts)
+        assertEquals(emptySet(), repository.appliedAmong(PlayerId(DAVIDE), setOf(IdempotencyKey("mine"))))
     }
 
     @Test
     fun `a store that cannot answer is reported as the server's fault rather than the player's`() = runTest {
         // `ApiError.Internal` is the one member of the taxonomy nothing in the happy path produces,
-        // and a constant nothing can ever produce is a sentence the client will never draw. `#109`
-        // puts a database behind this interface, which is exactly the thing that will be unreachable.
+        // and a constant nothing can ever produce is a sentence the client will never draw. There is
+        // a database behind this interface now, which is exactly the thing that goes unreachable.
         val answer = foundColony(UnreachableColonyRepository(), clock, DAVIDE, body())
 
         assertEquals(HttpStatusCode.InternalServerError, answer.status)
