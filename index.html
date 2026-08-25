@@ -1,26 +1,556 @@
 <!DOCTYPE html>
+<!--
+  The landing page at https://oltre.space, as a template.
+
+  Every double-braced placeholder is filled in by `.github/scripts/build_site.py`, from the
+  release that is actually published and the README changelog entry that names it — so the
+  version, the date, the APK link and the notes below cannot describe a release that does not
+  exist. Edit this file for anything else; never edit the copy on the `gh-pages` branch, which
+  is generated output and is overwritten by every build.
+
+  Local asset paths (`icon.svg`, `shots/*.png`) are copied in from the repository by the same
+  script, which fails if a path here has no source. A broken image is a dead control.
+-->
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Oltre</title>
+    <meta name="theme-color" content="#05070D">
+    <title>Oltre — an asynchronous space colonisation game</title>
+    <meta name="description" content="Short check-in sessions; everything progresses while the app is closed. Exponential cost curves, distance as travel time, permanent fleet loss. Free, for Android and iPhone.">
+
+    <link rel="canonical" href="https://oltre.space/">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Oltre">
+    <meta property="og:title" content="Oltre — an asynchronous space colonisation game">
+    <meta property="og:description" content="Short check-in sessions; everything progresses while the app is closed. Exponential cost curves, distance as travel time, permanent fleet loss.">
+    <meta property="og:url" content="https://oltre.space/">
+    <meta property="og:image" content="https://oltre.space/icon.png">
+    <meta name="twitter:card" content="summary">
+
     <style>
-      :root { color-scheme: dark; }
-      body {
-        margin: 0; min-height: 100vh;
-        display: grid; place-items: center;
-        background: #05070f; color: #e6e8ef;
-        font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        text-align: center; padding: 2rem;
+      :root {
+        color-scheme: dark;
+
+        /* Lifted from OltreColors — the app's palette, so the site and the game read as one thing. */
+        --background: #05070D;
+        --surface: #0A0E18;
+        --text: #E9EDF5;
+        --text-secondary: #8B94A8;
+        --text-tertiary: #5C6478;
+        --accent: #4C8DFF;
+        --warn: #FFB454;
+        --ok: #4ADE80;
+
+        --edge: rgba(233, 237, 245, 0.08);
+        --edge-bright: rgba(233, 237, 245, 0.16);
+
+        --mono: ui-monospace, "SF Mono", SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+        --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+
+        --gutter: clamp(1.25rem, 5vw, 2.5rem);
+        --measure: 62rem;
       }
-      h1 { font-size: 2.5rem; margin: 0 0 0.5rem; letter-spacing: 0.02em; }
-      p { margin: 0; max-width: 32rem; color: #9aa1b4; }
+
+      *, *::before, *::after { box-sizing: border-box; }
+
+      html { -webkit-text-size-adjust: 100%; }
+
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--text);
+        font: 400 16px/1.65 var(--sans);
+        letter-spacing: 0.01em;
+        overflow-x: hidden;
+      }
+
+      /* ---- The sky -------------------------------------------------------------------------
+         Two star tiles of different sizes, so the repeat of one never lines up with the repeat
+         of the other, over two soft glows. No images, no requests, and it drifts slowly enough
+         that you notice it only if you stop reading. */
+
+      .sky {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        /* The star tiles below are laid out larger than the viewport so the drift never reveals
+           an edge; the overhang is clipped here rather than left to the viewport's own. */
+        overflow: hidden;
+        background:
+          radial-gradient(1200px 720px at 50% -12%, rgba(76, 141, 255, 0.11), transparent 68%),
+          radial-gradient(900px 520px at 88% 108%, rgba(255, 180, 84, 0.05), transparent 66%),
+          var(--background);
+      }
+
+      .sky::before, .sky::after {
+        content: "";
+        position: absolute;
+        inset: -20%;
+        background-repeat: repeat;
+      }
+
+      .sky::before {
+        background-size: 760px 760px;
+        opacity: 0.9;
+        animation: drift-far 300s linear infinite;
+        background-image:
+          radial-gradient(1.1px 1.1px at 37px 92px, rgba(233, 237, 245, 0.85), transparent),
+          radial-gradient(1px 1px at 128px 410px, rgba(233, 237, 245, 0.55), transparent),
+          radial-gradient(1.4px 1.4px at 201px 58px, rgba(233, 237, 245, 0.95), transparent),
+          radial-gradient(1px 1px at 263px 619px, rgba(139, 148, 168, 0.7), transparent),
+          radial-gradient(1.2px 1.2px at 312px 241px, rgba(233, 237, 245, 0.7), transparent),
+          radial-gradient(1px 1px at 355px 712px, rgba(233, 237, 245, 0.45), transparent),
+          radial-gradient(1.3px 1.3px at 409px 144px, rgba(95, 208, 232, 0.6), transparent),
+          radial-gradient(1px 1px at 441px 505px, rgba(233, 237, 245, 0.6), transparent),
+          radial-gradient(1.1px 1.1px at 498px 330px, rgba(233, 237, 245, 0.8), transparent),
+          radial-gradient(1px 1px at 534px 88px, rgba(139, 148, 168, 0.65), transparent),
+          radial-gradient(1.5px 1.5px at 571px 660px, rgba(233, 237, 245, 0.9), transparent),
+          radial-gradient(1px 1px at 612px 392px, rgba(233, 237, 245, 0.5), transparent),
+          radial-gradient(1.2px 1.2px at 663px 201px, rgba(255, 180, 84, 0.45), transparent),
+          radial-gradient(1px 1px at 701px 548px, rgba(233, 237, 245, 0.6), transparent),
+          radial-gradient(1.1px 1.1px at 742px 300px, rgba(233, 237, 245, 0.7), transparent),
+          radial-gradient(1px 1px at 89px 281px, rgba(233, 237, 245, 0.5), transparent),
+          radial-gradient(1.3px 1.3px at 154px 733px, rgba(233, 237, 245, 0.75), transparent),
+          radial-gradient(1px 1px at 232px 466px, rgba(139, 148, 168, 0.6), transparent),
+          radial-gradient(1.2px 1.2px at 289px 17px, rgba(233, 237, 245, 0.65), transparent),
+          radial-gradient(1px 1px at 376px 571px, rgba(233, 237, 245, 0.55), transparent),
+          radial-gradient(1.4px 1.4px at 427px 297px, rgba(233, 237, 245, 0.85), transparent),
+          radial-gradient(1px 1px at 486px 684px, rgba(95, 208, 232, 0.5), transparent),
+          radial-gradient(1.1px 1.1px at 523px 451px, rgba(233, 237, 245, 0.6), transparent),
+          radial-gradient(1.2px 1.2px at 596px 120px, rgba(233, 237, 245, 0.75), transparent),
+          radial-gradient(1px 1px at 648px 447px, rgba(139, 148, 168, 0.55), transparent),
+          radial-gradient(1.3px 1.3px at 719px 66px, rgba(233, 237, 245, 0.8), transparent);
+      }
+
+      .sky::after {
+        background-size: 520px 520px;
+        opacity: 0.55;
+        animation: drift-near 190s linear infinite;
+        background-image:
+          radial-gradient(1px 1px at 46px 178px, rgba(233, 237, 245, 0.7), transparent),
+          radial-gradient(1.2px 1.2px at 97px 449px, rgba(233, 237, 245, 0.55), transparent),
+          radial-gradient(1px 1px at 145px 63px, rgba(139, 148, 168, 0.6), transparent),
+          radial-gradient(1.3px 1.3px at 198px 312px, rgba(233, 237, 245, 0.8), transparent),
+          radial-gradient(1px 1px at 241px 501px, rgba(233, 237, 245, 0.5), transparent),
+          radial-gradient(1.1px 1.1px at 287px 131px, rgba(95, 208, 232, 0.55), transparent),
+          radial-gradient(1px 1px at 330px 388px, rgba(233, 237, 245, 0.6), transparent),
+          radial-gradient(1.2px 1.2px at 372px 235px, rgba(233, 237, 245, 0.7), transparent),
+          radial-gradient(1px 1px at 415px 470px, rgba(139, 148, 168, 0.5), transparent),
+          radial-gradient(1.3px 1.3px at 459px 96px, rgba(233, 237, 245, 0.75), transparent),
+          radial-gradient(1px 1px at 492px 341px, rgba(233, 237, 245, 0.55), transparent),
+          radial-gradient(1.1px 1.1px at 73px 392px, rgba(233, 237, 245, 0.65), transparent),
+          radial-gradient(1px 1px at 168px 206px, rgba(233, 237, 245, 0.45), transparent),
+          radial-gradient(1.2px 1.2px at 255px 20px, rgba(255, 180, 84, 0.4), transparent),
+          radial-gradient(1px 1px at 391px 60px, rgba(233, 237, 245, 0.6), transparent);
+      }
+
+      @keyframes drift-far { to { transform: translate3d(-760px, 380px, 0); } }
+      @keyframes drift-near { to { transform: translate3d(-520px, 260px, 0); } }
+
+      /* ---- Layout -------------------------------------------------------------------------- */
+
+      .page {
+        max-width: var(--measure);
+        margin: 0 auto;
+        padding: 0 var(--gutter) 5rem;
+      }
+
+      section { margin-top: clamp(4rem, 10vw, 7rem); }
+
+      .label {
+        font: 600 0.75rem/1 var(--mono);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--text-tertiary);
+        margin: 0 0 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .label::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--edge);
+      }
+
+      /* ---- Hero ----------------------------------------------------------------------------- */
+
+      .hero {
+        padding: clamp(4rem, 12vw, 7.5rem) 0 0;
+        text-align: center;
+      }
+
+      .mark {
+        width: clamp(88px, 18vw, 116px);
+        height: auto;
+        border-radius: 24%;
+        display: block;
+        margin: 0 auto 1.75rem;
+        box-shadow: 0 0 0 1px var(--edge), 0 24px 70px -24px rgba(76, 141, 255, 0.55);
+      }
+
+      h1 {
+        font: 700 clamp(3rem, 12vw, 4.75rem)/1 var(--mono);
+        letter-spacing: -0.02em;
+        margin: 0;
+      }
+
+      .tagline {
+        font: 500 clamp(1.0625rem, 2.6vw, 1.3125rem)/1.5 var(--sans);
+        color: var(--text);
+        max-width: 34ch;
+        margin: 1.25rem auto 0;
+        text-wrap: balance;
+      }
+
+      .lede {
+        color: var(--text-secondary);
+        max-width: 46ch;
+        margin: 1rem auto 0;
+        font-size: 0.9375rem;
+        text-wrap: balance;
+      }
+
+      /* ---- Getting it ----------------------------------------------------------------------- */
+
+      .get {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.875rem;
+        margin: 2.5rem 0 0;
+      }
+
+      .download, .testflight {
+        text-align: left;
+        border-radius: 14px;
+        padding: 0.9375rem 1.375rem;
+        min-width: 15.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .download {
+        background: var(--accent);
+        color: #05070D;
+        text-decoration: none;
+        font: 600 1rem/1.25 var(--mono);
+        box-shadow: 0 18px 44px -20px rgba(76, 141, 255, 0.9);
+        transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+      }
+
+      .download:hover, .download:focus-visible {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
+        box-shadow: 0 22px 52px -20px rgba(76, 141, 255, 1);
+      }
+
+      .download:active { transform: translateY(1px); }
+
+      .download .sub {
+        font: 400 0.75rem/1.3 var(--mono);
+        letter-spacing: 0.06em;
+        color: rgba(5, 7, 13, 0.72);
+      }
+
+      /* Not a link, and deliberately not shaped like one: internal TestFlight has no public
+         join URL, so anything clickable here would go nowhere. */
+      .testflight {
+        background: var(--surface);
+        border: 1px solid var(--edge);
+        font: 600 1rem/1.25 var(--mono);
+        color: var(--text-secondary);
+      }
+
+      .testflight .sub {
+        font: 400 0.75rem/1.3 var(--mono);
+        letter-spacing: 0.06em;
+        color: var(--text-tertiary);
+      }
+
+      .testflight .tag {
+        display: inline-block;
+        font: 600 0.625rem/1 var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--warn);
+        border: 1px solid rgba(255, 180, 84, 0.35);
+        border-radius: 999px;
+        padding: 0.3125rem 0.5rem;
+        margin-left: 0.5rem;
+        vertical-align: 0.125em;
+      }
+
+      .fine {
+        color: var(--text-tertiary);
+        font-size: 0.8125rem;
+        max-width: 42ch;
+        margin: 1.5rem auto 0;
+        text-wrap: balance;
+      }
+
+      /* ---- Screens --------------------------------------------------------------------------- */
+
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: clamp(1.25rem, 3vw, 2rem);
+      }
+
+      .shot { margin: 0; }
+
+      .shot .frame {
+        aspect-ratio: 393 / 852;
+        border-radius: 20px;
+        overflow: hidden;
+        background: var(--background);
+        border: 1px solid var(--edge);
+        box-shadow: 0 30px 70px -40px rgba(0, 0, 0, 0.9);
+      }
+
+      .shot img {
+        width: 100%;
+        height: 100%;
+        display: block;
+        object-fit: cover;
+        object-position: top center;
+      }
+
+      .shot figcaption {
+        margin-top: 0.875rem;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        color: var(--text-secondary);
+      }
+
+      .shot figcaption b {
+        display: block;
+        font: 600 0.75rem/1 var(--mono);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text);
+        margin-bottom: 0.375rem;
+      }
+
+      /* ---- Release --------------------------------------------------------------------------- */
+
+      .release {
+        background: var(--surface);
+        border: 1px solid var(--edge);
+        border-radius: 18px;
+        padding: clamp(1.5rem, 4vw, 2.25rem);
+      }
+
+      .release .label { margin-bottom: 1.25rem; }
+
+      .release-head {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 0.75rem 1rem;
+        margin-bottom: 1.5rem;
+      }
+
+      .release-head .version {
+        font: 700 clamp(1.5rem, 5vw, 2rem)/1 var(--mono);
+        letter-spacing: -0.01em;
+      }
+
+      .release-head time {
+        font: 400 0.8125rem/1 var(--mono);
+        letter-spacing: 0.08em;
+        color: var(--text-tertiary);
+      }
+
+      .release-head .latest {
+        font: 600 0.625rem/1 var(--mono);
+        letter-spacing: 0.14em;
+        color: var(--ok);
+        border: 1px solid rgba(74, 222, 128, 0.3);
+        border-radius: 999px;
+        padding: 0.3125rem 0.5rem;
+      }
+
+      .notes {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 1rem;
+      }
+
+      .notes li {
+        position: relative;
+        padding-left: 1.375rem;
+        color: var(--text-secondary);
+        font-size: 0.9375rem;
+      }
+
+      .notes li::before {
+        content: "";
+        position: absolute;
+        left: 0.25rem;
+        top: 0.6875rem;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+
+      .notes strong { color: var(--text); font-weight: 600; }
+      .notes em { color: var(--text); font-style: italic; }
+
+      .notes code {
+        font: 400 0.875em/1 var(--mono);
+        color: var(--warn);
+        background: rgba(255, 180, 84, 0.08);
+        border-radius: 5px;
+        padding: 0.15em 0.35em;
+      }
+
+      .more {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 2rem;
+        font: 600 0.8125rem/1 var(--mono);
+        letter-spacing: 0.06em;
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        padding-bottom: 2px;
+      }
+
+      .more:hover, .more:focus-visible { border-bottom-color: var(--accent); }
+
+      /* ---- Footer ---------------------------------------------------------------------------- */
+
+      footer {
+        margin-top: clamp(4rem, 10vw, 7rem);
+        padding-top: 2rem;
+        border-top: 1px solid var(--edge);
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 0.75rem 1.5rem;
+        font: 400 0.75rem/1.6 var(--mono);
+        letter-spacing: 0.06em;
+        color: var(--text-tertiary);
+      }
+
+      footer a { color: var(--text-secondary); text-decoration: none; }
+      footer a:hover, footer a:focus-visible { color: var(--text); }
+
+      :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+
+      @media (prefers-reduced-motion: reduce) {
+        .sky::before, .sky::after { animation: none; }
+        * { transition: none !important; }
+      }
     </style>
   </head>
+
   <body>
-    <main>
-      <h1>Oltre</h1>
-      <p>An asynchronous space colonisation game. In development.</p>
-    </main>
+    <div class="sky" aria-hidden="true"></div>
+
+    <div class="page">
+      <header class="hero">
+        <img class="mark" src="icon.svg" width="512" height="512" alt="">
+        <h1>Oltre</h1>
+        <p class="tagline">A space colonisation game that runs while your phone is in your pocket.</p>
+        <p class="lede">
+          Five minutes to plan, hours for it to happen. Exponential cost curves, distance measured
+          in travel time, and fleets that do not come back. Single player against scripted empires
+          — multiplayer is the destination.
+        </p>
+
+        <div class="get">
+          <a class="download" href="https://github.com/fardavide/oltre/releases/download/v0.20.1/oltre-0.20.1.apk">
+            Download for Android
+            <span class="sub">v0.20.1 · APK · 10.2 MB</span>
+          </a>
+          <p class="testflight">
+            <span>iPhone<span class="tag">TESTFLIGHT</span></span>
+            <span class="sub">Internal testing — invitation only for now</span>
+          </p>
+        </div>
+
+        <p class="fine">
+          Android 8.0 or newer. Android asks once for permission to install from your browser;
+          updates install over the top, so the colony survives them.
+        </p>
+      </header>
+
+      <section class="screens">
+        <h2 class="label">Screens</h2>
+        <div class="shots">
+          <figure class="shot">
+            <div class="frame">
+              <img src="shots/colony.png" width="393" height="852" alt="The Colony screen: a returning fleet, the power card, and the facility list with countdowns.">
+            </div>
+            <figcaption>
+              <b>Colony</b>
+              What your plant supplies against what your facilities draw, and every upgrade with
+              its cost, its build time and its countdown.
+            </figcaption>
+          </figure>
+          <figure class="shot">
+            <div class="frame">
+              <img src="shots/galaxy.png" width="393" height="852" alt="The Galaxy screen: surveyed worlds, nearest first, each with its planet disc and what is still in the ground.">
+            </div>
+            <figcaption>
+              <b>Galaxy</b>
+              Every world you have surveyed, nearest first. The disc is drawn from what the world
+              is: fill is temperature, size is gravity, banding is pressure.
+            </figcaption>
+          </figure>
+          <figure class="shot">
+            <div class="frame">
+              <img src="shots/fleets.png" width="393" height="852" alt="The Fleets screen: three runs out at once, each with its destination and time remaining.">
+            </div>
+            <figcaption>
+              <b>Fleets</b>
+              What is away, where it went and when it lands. A run out is a run back; nothing
+              teleports.
+            </figcaption>
+          </figure>
+          <figure class="shot">
+            <div class="frame">
+              <img src="shots/research.png" width="393" height="852" alt="The Research screen: one slot running, with the ladders it unlocks below.">
+            </div>
+            <figcaption>
+              <b>Research</b>
+              One slot, and every ladder wants it. What you learn decides which worlds will have
+              you.
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="release">
+        <h2 class="label">Latest release</h2>
+        <div class="release-head">
+          <span class="version">0.20.1</span>
+          <time datetime="2026-08-24">24 August 2026</time>
+          <span class="latest">LATEST</span>
+        </div>
+        <ul class="notes">
+          <li><strong>Opening the game clears the alerts it has already sent you.</strong> Everything waiting in the notification tray is about something the colony is now showing you properly, so it stops asking to be dismissed by hand. Alerts still to come are untouched — nothing you were promised is lost.</li>
+        </ul>
+        <a class="more" href="https://github.com/fardavide/oltre/releases">Every release, back to the first commit →</a>
+      </section>
+
+      <footer>
+        <span>Oltre — all rights reserved.</span>
+        <span><a href="https://github.com/fardavide/oltre">Source on GitHub</a></span>
+      </footer>
+    </div>
   </body>
 </html>
