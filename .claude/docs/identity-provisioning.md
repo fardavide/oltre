@@ -27,6 +27,29 @@ Four things to read before clicking anything: step 4 (the keystore just changed 
 capability invalidates provisioning profiles, and the first thing that exercises that is a publish),
 step 17 (the p8 downloads once), step 29 (client secrets are shown once).
 
+## Who does what
+
+**Anything at a command line is mine — ask and I run it.** Your half is the browser: two developer
+portals, a registrar, Search Console, and GitHub's settings pages. Those need your credentials and
+your eyes, and nothing else here does.
+
+| Yours, in a browser | Mine, at a command line |
+|---|---|
+| 5 (typing the passphrase only), 6, 7, 8, 12–18, 22–34, 39, 40, 42 (`gcloud auth login`) | 1, 2, 3, 5 (the image itself), 9, 10, 11, 19–21, 35, 36, 37, 38, 41 |
+
+For the steps where a portal hands you a value — a Key ID, five client IDs, a downloaded file — read
+it out and I will place it, `chmod` it, verify it and record it. You should never have to type
+`openssl` or `hdiutil`.
+
+**Already done, before you start:**
+
+- **1** — `.gitignore` widened and committed on this branch.
+- **2** — `~/Documents/Dev/Oltre identity/` created at `0700`, with its README.
+- **3** — release fingerprint re-derived and confirmed: `SHA1: 24:AA:53:…:DB:98` matches.
+- **36** — `session-jwt.key` generated, 88 base64 characters, `0600`.
+
+So the first thing that needs you is **step 4**, and the first thing you click is **step 6**.
+
 ## If you only have 30 minutes
 
 Do **1, 2, 3, 4, 5, 6a, 7, 8a, 12–21**, and stop.
@@ -107,11 +130,15 @@ client_secret*.json
 .env.*
 ```
 
-**Do not open a PR for this today. Edit the working tree and leave it uncommitted.** Git honours the
-working-tree `.gitignore` whether or not it is committed, so the net is fully in force the moment
-you save the file — and on this repo a merge to `main` archives to TestFlight and can cut a GitHub
-Release, so a one-line `.gitignore` change would cost a full CI cycle and publish a build. The
-identity slice's PR carries these lines.
+**Already done — these lines are in `.gitignore` on the `identity-provisioning` branch**, committed
+alongside this document. Nothing to do; it is step 1 because it has to be true before step 19
+downloads anything, not because you have to type it.
+
+**Do not open a separate PR for it**, and do not cherry-pick it to `main` on its own: a merge to
+`main` archives to TestFlight and can cut a GitHub Release, so a twelve-line `.gitignore` change
+would cost a full CI cycle and publish a build. It rides along with this document's PR. Note also
+that Git honours the working-tree `.gitignore` whether or not it is committed, so the net was in
+force from the moment the file was saved — the commit is bookkeeping, not protection.
 
 **A `.gitignore` is a net, not a control.** If a secret does reach the public repo, rewriting
 history is cleanup, not remediation: GitHub keeps unreachable commits reachable by SHA and forks
@@ -120,15 +147,20 @@ path, for a Google client secret it means rotating it in the console.
 
 ## 2. Create the local secret directory
 
-Matches the existing convention: `~/.oltre` is already `0700` and holds `keystore-password`,
-`keystore.b64` and `oltre-release.keystore` at `0600`. Do not invent a second root.
+**Done** — the folder exists at `0700` with a README describing every file it will hold, filed as a
+sibling of `~/Documents/Dev/Oltre Android signing/`. That is where this machine already keeps
+project key material: `~/Documents/Security codes/` is for personal credentials, and the recorded
+call is that a project artifact goes under `Dev/` instead.
 
 ```
 mkdir -p -m 700 ~/Documents/Dev/"Oltre identity"
 ```
 
 Everything below that writes a file into it does so under `umask 077`, so nothing exists at `0644`
-even briefly. The `0700` parent makes that near-harmless here; it costs nothing to close anyway.
+even briefly. The `0700` parent makes that near-harmless; it costs nothing to close anyway.
+
+**`~/.oltre/` keeps its one job** — the keystore's working copy, which local signing reads. Nothing
+in this document adds to it.
 
 ## 3. Confirm the release fingerprint has not drifted
 
@@ -943,6 +975,8 @@ it is losing track of which of five is which — and, for the first two, because
 repository or on disk records which account and project everything hangs off.
 
 ## 36. Generate the server's own session-signing key
+
+**Done** — 88 base64 characters at `0600`, no trailing newline.
 
 Nobody hands you this one. It is the value that makes Oltre's own session tokens forgeable if it
 leaks, and it is the only credential here you can rotate freely — the cost of rotation is that every
