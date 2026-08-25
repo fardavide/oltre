@@ -76,7 +76,8 @@ step 32.
   authenticated. **`gcloud` is not installed on this machine.** If you want Part 6 today:
   `brew install --cask google-cloud-sdk`, then `gcloud init`, `gcloud auth login`. Budget 15
   minutes for that alone, or skip Part 6.
-- **Somewhere off this laptop, and outside iCloud, for one passphrase** — see step 5.
+- **Apple Passwords**, for one passphrase — see step 5. It syncs to the iPhone, which is what makes
+  it reachable when the Mac is not.
 
 A note on `openssl`, because one digest in this guide is load-bearing. `/usr/bin/openssl` is
 LibreSSL 3.3.6 and prints a bare hex string; Homebrew's OpenSSL 3.6.3 (first in `PATH` here) prints
@@ -123,7 +124,7 @@ Matches the existing convention: `~/.oltre` is already `0700` and holds `keystor
 `keystore.b64` and `oltre-release.keystore` at `0600`. Do not invent a second root.
 
 ```
-mkdir -p -m 700 ~/.oltre/signin
+mkdir -p -m 700 ~/Documents/Dev/"Oltre identity"
 ```
 
 Everything below that writes a file into it does so under `umask 077`, so nothing exists at `0644`
@@ -173,13 +174,18 @@ hdiutil create -size 20m -fs APFS -encryption AES-256 -volname "Oltre secrets" /
 
 It prompts for a passphrase twice.
 
-> **Where the passphrase goes, and why not only Apple Passwords.** In the scenario this backup
-> exists for — the laptop is gone — recovering a passphrase from iCloud Keychain needs another
-> trusted device or Apple's account-recovery flow. If this MacBook is the only trusted device that
-> is days, not minutes, and is not guaranteed. And the image itself is going to iCloud Drive, so
-> storing the passphrase there too puts both halves of the backup behind one Apple account. **Record
-> it in Apple Passwords or 1Password *and* somewhere outside that account** — paper in a drawer is
-> fine and is the version that survives everything else.
+> **Where the passphrase goes: Apple Passwords** — Davide's call, 2026-08-25. **1Password is no
+> longer on this machine** (no app, no `op` CLI, only a stale group container and emergency-kit PDFs
+> from 2020 and 2023 in `~/Documents/Security codes/`), so Apple Passwords is the store that is
+> actually there, and it syncs to the iPhone — which is what makes it recoverable in the scenario
+> this backup exists for.
+>
+> **The trade-off, stated rather than hidden:** the image goes to iCloud Drive and the passphrase
+> lives in iCloud Keychain, so one Apple account reaches both halves. That is accepted deliberately.
+> The realistic failure here is a dead SSD, not somebody targeting the account — and a passphrase
+> stored somewhere so safe you cannot reach it protects nothing. If you want the belt-and-braces
+> version later, a second copy on paper is what survives everything else, including losing the Apple
+> account itself.
 
 ```
 hdiutil attach /tmp/oltre-secrets.dmg
@@ -580,11 +586,11 @@ ls -l ~/Downloads/AuthKey_*.p8
 Then move **the one file, by name**:
 
 ```
-mv ~/Downloads/AuthKey_<KEYID>.p8 ~/.oltre/signin/
+mv ~/Downloads/AuthKey_<KEYID>.p8 ~/Documents/Dev/"Oltre identity"/
 ```
 
 ```
-chmod 600 ~/.oltre/signin/AuthKey_<KEYID>.p8
+chmod 600 ~/Documents/Dev/"Oltre identity"/AuthKey_<KEYID>.p8
 ```
 
 `~/Downloads` is indexed, swept by cleanup tools and readable by anything you run. Leaving a
@@ -593,13 +599,13 @@ one-shot key there "for a few minutes" is how it gets lost.
 ## 20. Prove it is the right file, and fingerprint it
 
 ```
-openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -noout -text
+openssl pkey -in ~/Documents/Dev/"Oltre identity"/AuthKey_<KEYID>.p8 -noout -text
 ```
 
 Expect `Private-Key: (256 bit)` and `ASN1 OID: prime256v1`. Anything else means the wrong file.
 
 ```
-openssl pkey -in ~/.oltre/signin/AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
+openssl pkey -in ~/Documents/Dev/"Oltre identity"/AuthKey_<KEYID>.p8 -pubout -outform DER | shasum -a 256
 ```
 
 Write that 64-character hex digest down for step 38. It is not secret, and it is the only thing that
@@ -615,7 +621,7 @@ pasted client ID or redirect URI, and every value in these files must be byte-ex
 editor, or a heredoc, or `nano`.
 
 ```
-(umask 077; nano ~/.oltre/signin/apple.env)
+(umask 077; nano ~/Documents/Dev/"Oltre identity"/apple.env)
 ```
 
 Contents, filling in the Key ID:
@@ -818,11 +824,11 @@ redirect URIs, one client ID, one secret. That is all it needs to be.
 Download the JSON on the dialog, then:
 
 ```
-mv ~/Downloads/client_secret_*.json ~/.oltre/signin/google-web-client.json
+mv ~/Downloads/client_secret_*.json ~/Documents/Dev/"Oltre identity"/google-web-client.json
 ```
 
 ```
-chmod 600 ~/.oltre/signin/google-web-client.json
+chmod 600 ~/Documents/Dev/"Oltre identity"/google-web-client.json
 ```
 
 The client ID looks like `123456789012-abc123def456ghi789jkl012mno345pq.apps.googleusercontent.com`;
@@ -903,11 +909,11 @@ redirect-URI box: loopback is implicit for this client type and the port is chos
 Download the JSON on the dialog:
 
 ```
-mv ~/Downloads/client_secret_*.json ~/.oltre/signin/google-desktop-client.json
+mv ~/Downloads/client_secret_*.json ~/Documents/Dev/"Oltre identity"/google-desktop-client.json
 ```
 
 ```
-chmod 600 ~/.oltre/signin/google-desktop-client.json
+chmod 600 ~/Documents/Dev/"Oltre identity"/google-desktop-client.json
 ```
 
 A secret **is** issued and it will ship inside the desktop binary. Google's own documentation treats
@@ -919,7 +925,7 @@ reuse the Web client's secret here.
 Again, not TextEdit.
 
 ```
-(umask 077; nano ~/.oltre/signin/google.env)
+(umask 077; nano ~/Documents/Dev/"Oltre identity"/google.env)
 ```
 
 ```
@@ -943,7 +949,7 @@ leaks, and it is the only credential here you can rotate freely — the cost of 
 player signs in again.
 
 ```
-(umask 077; openssl rand -base64 64 | tr -d '\n' > ~/.oltre/signin/session-jwt.key)
+(umask 077; openssl rand -base64 64 | tr -d '\n' > ~/Documents/Dev/"Oltre identity"/session-jwt.key)
 ```
 
 Do not reuse the keystore password. Do not commit a default value to source as a "dev fallback" — a
@@ -957,12 +963,12 @@ dev fallback that ships is a server with a publicly known signing key.
 
 Without it a restored p8 is an anonymous 250-byte file and nobody knows which Key ID it belongs to —
 and the Key ID is unrecoverable from the key material. Paste this into
-`~/.oltre/signin/README.md` and fill it in:
+`~/Documents/Dev/"Oltre identity"/README.md` and fill it in:
 
 ```markdown
 # Oltre sign-in credentials
 
-Created <DATE>. Mirror in ~/Documents/Dev/Oltre sign-in/ and in oltre-secrets.dmg (iCloud Drive).
+Created <DATE>. Mirror in ~/Documents/Dev/"Oltre identity"/ and in oltre-secrets.dmg (iCloud Drive).
 
 | File | What it is | Secret? |
 |---|---|---|
@@ -1009,17 +1015,17 @@ Created <DATE>. Mirror in ~/Documents/Dev/Oltre sign-in/ and in oltre-secrets.dm
 Second local copy, matching the existing "Oltre Android signing" convention in `~/Documents/Dev`:
 
 ```
-mkdir -p -m 700 ~/Documents/Dev/"Oltre sign-in"
+mkdir -p -m 700 ~/Documents/Dev/"Oltre identity"
 ```
 
 ```
-cp -p ~/.oltre/signin/* ~/Documents/Dev/"Oltre sign-in"/
+cp -p ~/Documents/Dev/"Oltre identity"/* ~/Documents/Dev/"Oltre identity"/
 ```
 
 Into the image mounted at step 5, then detach it:
 
 ```
-cp -p ~/.oltre/signin/* /Volumes/Oltre\ secrets/
+cp -p ~/Documents/Dev/"Oltre identity"/* /Volumes/Oltre\ secrets/
 ```
 
 ```
@@ -1130,7 +1136,7 @@ gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_ID --repo fardavide/oltre --body "<des
 ```
 
 ```
-gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_SECRET --repo fardavide/oltre < ~/.oltre/signin/desktop-secret.txt
+gh secret set GOOGLE_OAUTH_DESKTOP_CLIENT_SECRET --repo fardavide/oltre < ~/Documents/Dev/"Oltre identity"/desktop-secret.txt
 ```
 
 (`gh secret set` reads the value from standard input when `--body` is omitted.)
@@ -1170,11 +1176,11 @@ gcloud services enable secretmanager.googleapis.com run.googleapis.com --project
 ```
 
 ```
-gcloud secrets create oltre-apple-signin-p8 --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/AuthKey_<KEYID>.p8
+gcloud secrets create oltre-apple-signin-p8 --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Dev/"Oltre identity"/AuthKey_<KEYID>.p8
 ```
 
 ```
-gcloud secrets create oltre-session-jwt-key --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/.oltre/signin/session-jwt.key
+gcloud secrets create oltre-session-jwt-key --project=<PROJECT_ID> --replication-policy=user-managed --locations=europe-west1 --data-file=$HOME/Documents/Dev/"Oltre identity"/session-jwt.key
 ```
 
 ```
@@ -1545,7 +1551,7 @@ One more detail that bites: the secret's `sub` claim is **case-sensitive and mus
 |---|---|---|---|
 | Apple Team ID | `A7Q83J6LR4` | No | Already in `iosApp/project.yml`; `apple.env`; JWT `iss` |
 | Apple Key ID | 10 chars, e.g. `ABC123DEFG` | No | `apple.env`; JWT `kid`; also in the p8 filename |
-| Apple `.p8` | `AuthKey_<KEYID>.p8`, ~250 B, `-----BEGIN PRIVATE KEY-----` | **Yes, one-shot** | `~/.oltre/signin/` 0600, `~/Documents/Dev/Oltre sign-in/`, the DMG, Secret Manager `oltre-apple-signin-p8`, mounted at `/secrets/apple/signin.p8` |
+| Apple `.p8` | `AuthKey_<KEYID>.p8`, ~250 B, `-----BEGIN PRIVATE KEY-----` | **Yes, one-shot** | `~/Documents/Dev/"Oltre identity"/` 0600, `~/Documents/Dev/"Oltre identity"/`, the DMG, Secret Manager `oltre-apple-signin-p8`, mounted at `/secrets/apple/signin.p8` |
 | p8 public-key SHA-256 | 64 hex chars from `… | shasum -a 256` | No | `README.md` in both copies — the thing that verifies a restore |
 | Apple Services ID | `dev.fardavide.oltre.signin` | No | `apple.env`; the `client_id` in every Android/desktop browser URL |
 | iOS bundle identifier | `dev.fardavide.oltre` | No | Repo; the `client_id` for the native iOS flow |
