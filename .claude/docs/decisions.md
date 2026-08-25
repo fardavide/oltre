@@ -4660,3 +4660,194 @@ tenth, the gate cannot see them, and an exclusion that buys nothing costs the on
 can never give back. And **the unit and unfiltered passes still see every line**: they report the
 module at 100.0% line and 97.4% branch, so an untested line here would still show up in the row
 whose job that is.
+
+## The engine answers over HTTP, and "stale" had to be given a meaning (2026-08-25, issue #108)
+
+Slice 1 of #106, on top of the contract #107 landed. Two routes, an in-memory store behind a
+`ColonyRepository`, and the replay — which is the only real logic in it. Nothing a player sees moves
+and nothing ships, so there is no version bump; #107 and #119 are the precedent.
+
+**The engine is not written here and that is the whole point.** `advance` and the twelve verbs are
+already pure and already take time as a parameter, so the server's simulation is `core` unmodified.
+What this slice writes is the thing that calls them. `server/Main.kt` has carried a comment since
+0.0.1 saying it exists *"so that `core` is consumed from the server side from day one and the module
+wiring never rots"*; this is the slice that collects on it.
+
+### Two routes, and both of them take a `SyncRequest`
+
+`POST /v1/colony` founds a colony; `POST /v1/sync` is everything else. The second route's body is
+obviously a `SyncRequest`. **The first one's is too**, and that is a decision rather than reuse:
+founding a colony *is* a sync against a colony that does not exist yet, so the alternative was
+inventing a second request type in `:protocol` — or, worse, putting `apiVersion` in a query string,
+where a version negotiation cannot be reviewed alongside the thing it negotiates. The two routes
+then differ in exactly one step, which is what lets one function serve both.
+
+The consequence worth stating: a client may found a colony and act on it in one request, and gets
+that for free rather than by anybody having designed it.
+
+### Founding is idempotent, for `IdempotencyKey`'s own reason
+
+A `POST /v1/colony` whose response is lost gets retried. A retry that minted a second galaxy would
+throw the first one away — the same double-spend `IdempotencyKey` exists to prevent one route over,
+arriving at the one route that has no envelope to hang a key on. So `found` answers `Founded` or
+`AlreadyThere`, both carrying the colony, and the difference reaches the client only as `201` against
+`200`.
+
+That is also what makes `/v1/sync` on a colony-less player a **`404` and `ApiError.NoColony`** rather
+than an implicit creation: the two routes are distinguished by exactly that, and `NoColony` is what a
+first launch of the online build meets before the one-time upload.
+
+### `:protocol` states the shape, so the route pre-validates nothing
+
+Read off #107 and unchanged here. A verb carrying an empty manifest, a window too short to come home
+in or a survey of a system already surveyed all arrive intact, are replayed, and come back as a
+`VerbRejection` carrying `core`'s own answer. The route never asks whether a verb is a good idea; it
+asks `core` and reports what it said.
+
+`VerbRefusal` is the six refusable result types flattened into fifteen constants, and the six
+mapping functions are `when`s with no `else`, so a refusal added to a `core` result type fails to
+compile here rather than reaching a client as a success. They are tested against **constructed**
+results rather than provoked ones — every refusal is a `data object`, so the arm is reachable in a
+line where reaching it through the rules would take a colony built to fail.
+
+### The clamp is #106's; "stale" is the part it did not settle
+
+§3 says `clientInstant` is clamped into `[lastAcceptedAt, serverNow]`, and it says `startRun` and
+`startSurvey` are look-don't-act. What it does not say is **how a server tells a verb sent live from
+a verb queued offline**, and the envelope carries no flag for it — deliberately, since a client that
+lied about one would be believed.
+
+The only evidence is the instant. A client that queued a verb did so because it had no connection, so
+the gap between the claim and the sync is the offline window it waited out; a client that sent one
+live is a network round trip behind, which is seconds. So a galaxy-touching verb is refused
+`NotQueueable` when it would be applied more than `FRESH_WINDOW` before the server's own instant.
+
+**Five minutes, invented here and confirmed by Davide on 2026-08-25** against one and thirty. It is
+far longer than any request and far shorter than any absence: it covers a slow connection, a retry
+and a phone whose clock is a little behind, and it covers nothing that was queued. A minute would
+make a slow connection look like a queue; half an hour would put the server squarely inside the
+window §3 calls unresolvable.
+
+**The part that is not arbitrary is what the window is measured against: the clamped instant, not the
+claim.** The question the rule exists to ask is *"is this about to be applied to a world that has
+moved on"*, and the clamped instant is where it would be applied. A colony synced a moment ago pulls
+an old claim up to its own instant, and a verb applied there is not retroactive at all — so a client
+with a badly wrong clock is answered rather than punished, while a client that genuinely waited out
+three hours is refused. A rule written against the raw claim would have got both of those backwards.
+
+Read off `ClientVerb.offlineRule` and never re-derived, which is the second half of the guard
+`:protocol` sets: a thirteenth verb cannot reach the replay without somebody having decided what it
+does on a train.
+
+### A refusal keeps nothing at all, including the advance it was judged against
+
+The obvious implementation keeps the advance — time passed whether or not the verb landed — and it is
+one line longer for nothing. The final advance to `serverNow` covers the same span, so composability
+says the two produce the identical colony, and keeping nothing is what makes #108's *"keep the result
+only if `core` accepted it"* literally true rather than nearly true.
+
+`ReplayTest` pins the composability property across a sync boundary, which is `brief.md`'s required
+test arriving at its second home: one sync to `t2` and two syncs through `t1` hand back the same
+colony, and both equal `advance(s, t0, t2)`.
+
+### The body is decoded by hand, so a malformed one is an answer
+
+`ContentNegotiation` is installed and serves the **responses**; the request is `receiveText()` and
+`Protocol.json.decodeFromString`. That looks like working around the plugin and is the opposite: a
+body that does not parse has a designed answer in the taxonomy — `ApiError.Malformed`, which is
+`GameSave.decode`'s shape one layer out — and letting the plugin raise it would turn a first-class
+answer into an exception somebody has to catch and translate back. It also keeps `Protocol.json`'s
+refusal of unknown keys visible at the point where the refusal is answered.
+
+`ApiError.Internal` is produced by exactly one `catch`, and `CancellationException` is rethrown
+through it: a cancelled request is the caller having gone away, and answering a socket nobody holds
+would also break the coroutine trying to unwind.
+
+### Nothing in the Ktor file decides anything, and the coverage gate is what proved it had to be
+
+The first cut put the routes, the admission and the replay's caller in one file with `Application`
+and `install` — the obvious shape, and every rule in it was then reachable only by a test that stands
+up a server. **By this repository's taxonomy that makes every test of those rules an
+`…IntegrationTest`**, so the unit row fell 92.5% → 92.1% and the branch row with it, on a slice whose
+`all` row went *up*.
+
+The tempting reading is that the unit pass needs an exclusion, the way it excludes composables. It
+does not: it needs the decisions to stop living behind a socket. So `Endpoints.kt` holds what the two
+routes *do* — a request arrives as the two things it actually carries, a claimed player and the text
+of a body, and leaves as a status and a payload — and `OltreServer.kt` holds `install`, `routing`,
+`receiveText` and `respond`, and nothing else. `Genesis.kt` came out for the same reason one step
+further down.
+
+**This is `PlayerStripGeometry.kt`'s lesson arriving at the other end of the app**, and it is worth
+naming as one rule rather than two: *a decision belongs where the kind of test that judges it can
+reach it.* There it meant lifting constants out of a file full of composables; here it means lifting
+rules out of a file full of Ktor. Both times the coverage gate is what noticed, and both times the
+fix was a better file rather than a filter.
+
+What the integration suite is left with is what only a request can prove — that the header is spelled
+the way the client will spell it, that a status line agrees with its body, that the sealed hierarchies
+reach the wire with their discriminators, and that a colony can be founded, played across a week and
+read back by something that knows only the contract.
+
+### The repository is four questions shaped by the SQL that will answer them
+
+`#109` puts three tables behind this, so the interface is written so that swap is a class rather than
+a redesign. Two of the four have their shape for that reason alone:
+
+- `appliedAmong(player, keys)` asks *"which of these has this player already applied?"* rather than
+  handing back everything they ever applied. The second would be an unbounded read that grows with
+  the account; the first is one `WHERE idempotency_key IN (…)`.
+- `write(player, snapshot, applied)` takes the colony **and** the keys, because they have to land or
+  fail together. A snapshot without its keys re-applies every verb on the next retry, and keys without
+  the snapshot are verbs the player paid for and did not get. One method is what lets #109 make it one
+  transaction; two would make the atomicity the caller's problem, and the caller cannot solve it.
+
+The in-memory implementation keys `applied_verbs` on the **pair** rather than the key alone. Nothing
+about an idempotency key is globally unique — the wire says so by checking only that one was minted —
+so a set of bare keys would let one player's retry swallow another's verb.
+
+### The galaxy seed gains the player, and moves into a file of its own
+
+`GameSession.resume` minted it from the device clock (`GameSession.kt:60`); the server mints it now,
+because the server is the composition root. Derived rather than drawn, exactly as before — a pure
+function of its arguments is one a test can pin. What is new is that the **player** is mixed in
+alongside the instant: one device founds one colony, where a server founds them for everybody, and two
+people signing up inside the same millisecond would otherwise open in the identical galaxy and never
+know it.
+
+It lives in `Genesis.kt` rather than beside the route that calls it, for the reason the section above
+gives: genesis is a rule and routing is plumbing, and they are judged by different kinds of test.
+
+### What the coverage gate cost, and what Davide was asked for
+
+Measured over five passes with `--no-build-cache`, against `main` at `6f04ece`. The slice raises the
+`all` row (98.358% → 98.371% line, 84.055% → 84.254% branch) and takes the integration row from
+2.453% to 11.552%, which is what a module tested by its own kind looks like. Two rows still fell and
+one of them was fixed rather than filtered.
+
+**The unit row was a design problem and is fixed in the code** — see the section above. 92.493% →
+92.503% line and 86.459% → 86.629% branch once the decisions left the Ktor file.
+
+**The screenshot and behaviour rows are structural**, and there is no version of this module a frame
+or a Compose driver can reach: screenshot 93.222% → 90.447% line and 57.529% → 54.928% branch,
+behaviour 92.259% → 90.839% and 68.832% → 67.414%. The package contributes 0 covered and 172 missed
+lines to each of those two passes.
+
+Davide's call, 2026-08-25: **exclude from both.** `classes("dev.fardavide.oltre.server.**")` joins
+the per-pass filter as its sixth entry, and all four rows land back on the baseline to three
+decimals. Two things keep it inside 0.4.2's rules rather than beside them:
+
+- **Both halves are permanent, unlike `:protocol`'s directly above it.** That module's behaviour
+  exclusion comes out at #112, when the shell holds a fake transport and drives every verb through
+  the contract. Nothing on the client will ever reach `:server` — #112's fake exists precisely so the
+  suite never talks to a server — so there is no future round trip that would make this measurable.
+- **The unit, integration and unfiltered passes see every line**, and report the package at 93%, 76%
+  and 99.4%. The twelve lines the unit pass misses are `install`, `routing` and `respond`, and that
+  file holds no decisions *by construction* — which is the point of having moved them out rather
+  than of having hidden them.
+
+One line stays uncovered in every pass and is left that way deliberately: `MainKt$main$1`, the
+`embeddedServer { }` lambda. The existing entry-point exclusion names `MainKt` exactly, so it does
+not reach a lambda inside `main` — the same trailing-`*` question `AppKt*` had to answer. It is one
+line, it does not move a gated number, and widening a filter that is already granted is not something
+to do in passing.

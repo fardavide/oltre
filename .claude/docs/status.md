@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-24 (0.20.1, plus `:protocol` — issue #107, no bump)
+Updated: 2026-08-25 (0.20.1, plus `:protocol` and `:server` — issues #107 and #108, no bump)
 
 ## Landed
 
@@ -491,6 +491,22 @@ Updated: 2026-08-24 (0.20.1, plus `:protocol` — issue #107, no bump)
   CI's `iOS framework` job gained `:protocol:iosSimulatorArm64Test`, because the module is in no
   dependency closure and its Apple half would otherwise have been compiled by nothing. See
   [`decisions.md`](decisions.md).
+- **`:server` stops being a stub — the engine answers over HTTP** — slice 1 of the online migration
+  (issue #108 under epic #106). `POST /v1/colony` founds a colony and **mints the galaxy seed**,
+  which is the one responsibility that moves off the client at this slice (`GameSession.kt:60` until
+  now); `POST /v1/sync` is everything else — the queued envelopes go up, the authoritative colony
+  comes back, and what became of each verb comes back with it. Both take a `SyncRequest`, because
+  founding a colony *is* a sync against a colony that does not exist yet. **The engine is not written
+  here**: `advance` and the twelve verbs are `core`'s, unmodified, which is the bet `Main.kt` has
+  been holding open since 0.0.1. The replay is the only real logic — check the key, clamp the claim
+  into `[lastAcceptedAt, serverNow]`, advance, apply, keep it **only if `core` accepted it**, then
+  advance to now and persist — and a refusal keeps nothing, including the advance it was judged
+  against. Storage is a map behind a `ColonyRepository` whose four methods are shaped by the SQL
+  #109 will answer them with; auth is a `X-Oltre-Player` header until #110. **`FRESH_WINDOW` is an
+  invented number** (five minutes) and Davide's to move: #106 §3 says a galaxy-touching verb is
+  look-don't-act and does not say how a server tells one sent live from one queued, and the clamped
+  instant is the only evidence there is. `./gradlew :server:run` serves a colony playable end to end
+  with `curl`. No version bump — nothing a player can do changes. See [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices

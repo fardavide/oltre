@@ -26,8 +26,9 @@
 #
 # The practical split for a cloud session, then:
 #
-#   buildable here      :core, :protocol, :sim, :client:save:data, :client:notifications:data,
-#                       :client:design:format, :client:debug:domain, :client:debug:data
+#   buildable here      :core, :protocol, :sim, :server, :client:save:data,
+#                       :client:notifications:data, :client:design:format, :client:debug:domain,
+#                       :client:debug:data
 #   not buildable here  every Compose module — :client:shell, :client:*:presentation,
 #                       :client:design:{core,icon,component}
 #
@@ -43,6 +44,7 @@
 #
 #   .claude/tools/gradle-without-agp.sh :sim:run
 #   .claude/tools/gradle-without-agp.sh :core:jvmTest :sim:test
+#   .claude/tools/gradle-without-agp.sh :server:test
 #   .claude/tools/gradle-without-agp.sh :client:debug:domain:desktopTest
 #   .claude/tools/gradle-without-agp.sh :core:jvmTest --tests '*BalanceCurveTest*'
 #
@@ -129,6 +131,9 @@ dependencyResolutionManagement {
 include(":core")
 include(":protocol")
 include(":sim")
+// `:server` needs no build-file overlay of its own — it applies `kotlinJvm` and nothing else, so it
+// is in `:sim`'s position: AGP was never in it, and everything it asks for is on Maven Central.
+include(":server")
 include(":client:save:data")
 include(":client:notifications:data")
 include(":client:debug:domain")
@@ -159,6 +164,7 @@ subprojects {
 dependencies {
     kover(projects.core)
     kover(projects.protocol)
+    kover(projects.server)
     kover(projects.client.save.data)
     kover(projects.client.notifications.data)
     kover(projects.client.debug.data)
@@ -173,6 +179,7 @@ kover {
             excludes {
                 classes("*ComposableSingletons*", "*\$\$serializer")
                 packages("dev.fardavide.oltre.sim")
+                classes("dev.fardavide.oltre.server.MainKt")
             }
         }
         total {

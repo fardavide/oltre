@@ -23,6 +23,12 @@ when_to_use: >
   holds **no I/O** — Ktor, routes and sockets are the server's and `:client:net:data`'s. And it
   states the *shape* of a request, never the rules: a verb that `core` will refuse constructs
   happily, because a refusal is a result the player can be shown and an exception is not.
+- **`:server` is the engine answering, and it decides nothing the engine decides.** Two routes over
+  `:protocol`'s contract; the twelve verbs are replayed through the same `core` the phone runs, and
+  whatever `core` says is mapped to the wire rather than second-guessed. Nothing in it reads a clock
+  or holds state: `oltre(repository, clock)` takes both, so the whole module is driven by a test.
+  Rules that must agree with the client still belong in `core`; what lives here is the replay's
+  *order* (check the key, clamp, advance, apply, keep only if accepted) and the wire's mapping.
 - **One directory per client feature, layer modules inside.** New feature = a directory under
   `client/` holding layer modules: `:client:<feature>:ui` always, `:presentation` / `:domain` /
   `:data` only when the feature actually needs them — no empty placeholder layers. `ui` holds the
