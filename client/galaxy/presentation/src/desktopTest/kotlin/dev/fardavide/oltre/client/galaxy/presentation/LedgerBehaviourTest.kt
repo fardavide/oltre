@@ -292,7 +292,7 @@ class LedgerBehaviourTest {
                             onLandingChange = {},
                             onOpenResearch = {},
                             onDispatchProbe = {},
-                            onDispatchRun = { _, _, _, _ -> },
+                            onDispatchRun = { _, _, _, _ -> true },
                             onToggleAnnounce = {},
                         )
                     }

@@ -233,7 +233,11 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(
             state = TWO_HULL_STATE,
             landing = GalaxyLanding.WORLDS,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(RUNNABLE)
             sendWith(berths = 2)
@@ -254,7 +258,11 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(
             state = TWO_HULL_STATE,
             landing = GalaxyLanding.WORLDS,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(RUNNABLE)
             send()
@@ -584,7 +592,11 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(
             state = testGameState,
             landing = GalaxyLanding.WORLDS,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(RUNNABLE)
             bringBack(ResourceKind.CRYSTAL)
@@ -621,7 +633,11 @@ class DispatchSheetBehaviourTest {
         galaxyScreen(
             state = wellTravelledState,
             landing = GalaxyLanding.WORLDS,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(elsewhere)
             assertTheSheetReads(English.resolve(elsewhere.label()))

@@ -125,7 +125,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 // that reaches Research — so the fourth and fifth verbs are wired to
                                 // nothing and the assertions stay about the one journey under test.
                                 onDispatchProbe = {},
-                                onDispatchRun = { _, _, _, _ -> },
+                                onDispatchRun = { _, _, _, _ -> true },
                                 onToggleAnnounce = {},
                             )
                         },
@@ -148,7 +148,7 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 timeZone = TimeZone.UTC,
                                 // This harness is about the adaptation ladder reaching Research from
                                 // a Galaxy row; the Fleets tab is here to exist, not to be driven.
-                                onDispatchRun = { _, _, _, _ -> },
+                                onDispatchRun = { _, _, _, _ -> true },
                                 onToggleAnnounce = {},
                             )
                         },

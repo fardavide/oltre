@@ -373,6 +373,14 @@ internal class AppRobot(
         test.waitForIdle()
     }
 
+    // **The map card's verb**, which is the second of the two that cannot be held. Reached by tag
+    // because the word on it changes with the window — `Dispatch probe` at 393 and `Dispatch` at 320
+    // — and a robot that could only find one of them would pass on a phone and fail on an iPad.
+    fun dispatchTheProbe() = apply {
+        test.onNodeWithTag(GalaxyTestTags.DISPATCH).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
     // No words on it, like the other two squares in the app — so it is reached by tag as well.
     fun tapTheBellOnTheSheet() = apply {
         test.onNodeWithTag(DispatchTestTags.ANNOUNCE).performClick()

@@ -27,7 +27,10 @@ internal fun fleetsScreen(
     now: Instant = Instant.fromEpochMilliseconds(0),
     since: Instant = now,
     width: Int = PHONE_WIDTH,
-    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit = { _, _, _, _ -> },
+    // `true` — the tap was kept, which is what a colony with signal always answers and is the frame
+    // every test here is about. A harness that wants a refused run says `false` and gets a sheet that
+    // stays up, which is the whole of the behaviour.
+    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean = { _, _, _, _ -> true },
     onToggleAnnounce: () -> Unit = {},
     block: FleetsRobot.() -> Unit,
 ) {

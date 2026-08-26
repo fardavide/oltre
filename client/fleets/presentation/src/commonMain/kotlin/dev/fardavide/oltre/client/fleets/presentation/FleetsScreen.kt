@@ -44,7 +44,9 @@ fun FleetsScreen(
     // The fifth verb, reaching a second finger. It takes all three subjects at once because they are
     // three facets of one commitment rather than three decisions — see `startRun`, and see
     // `GalaxyScreen`, which hands it over the same way.
-    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit,
+    // Answers whether the tap was kept — `GalaxyScreen`'s parameter, said the same way because it
+    // raises the same sheet.
+    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean,
     // The sheet's bell, handed over the same way `GalaxyScreen` hands it over — one standing answer,
     // written by whichever verb is tapped next.
     onToggleAnnounce: () -> Unit,
@@ -90,10 +92,12 @@ fun FleetsScreen(
             // the player was actually shown — see `GalaxyScreen`, where the same three lines guard
             // the same mistake.
             (uiState.dispatch as? DispatchUiState.Offer)?.let { offer ->
-                onDispatchRun(offer.at, offer.gathering, offer.manifest, offer.window)
-                // The state after the tap is its own receipt — a card appears in In flight above and
-                // the run count on the row goes up — so the sheet has nothing left to say.
-                open = null
+                val kept = onDispatchRun(offer.at, offer.gathering, offer.manifest, offer.window)
+                // **Closes on a tap that was kept and stays up on one that was not** — see
+                // `GalaxyScreen`, which raises the same sheet and makes the same call for the same
+                // reason. With signal the state after the tap is its own receipt: a card appears in
+                // In flight above and the run count on the row goes up.
+                if (kept) open = null
             }
         },
         onToggleAnnounce = onToggleAnnounce,

@@ -801,17 +801,35 @@ fun App(
                     }
                 }
 
-                fun send(verb: ClientVerb, transition: (GameState, Instant) -> GameState) {
+                // **It answers whether the tap was kept**, and that answer has to be synchronous
+                // because one screen acts on it: the dispatch sheet closes on a run that was kept and
+                // stays up on one that was refused, and it decides in the frame the button was
+                // pressed. Every other caller ignores the answer, which is right — a card that is
+                // held redraws itself from `held` and needs nobody to tell it.
+                //
+                // **Answered from what is already known rather than from the round trip**, which is
+                // the only way it *can* be synchronous: a queueable verb is always kept — the outbox
+                // takes it whatever the network is doing — and a galaxy-touching one is kept only if
+                // the server is answering. The late case that this cannot see is a server that is
+                // reachable and refuses the run on its own freshness window; that arrives through
+                // `refuse` a moment later and lands on the map card's line, which is the row form the
+                // design drew for exactly the case where there is no sheet to put a block in.
+                fun send(verb: ClientVerb, transition: (GameState, Instant) -> GameState): Boolean {
                     // **A tap on a held control withdraws it**, which is the amber ghost's whole
                     // behaviour and is answered here rather than at six call sites: the ui-state that
                     // drew the ghost was derived from the same `held`, so the two cannot disagree
                     // about which control is outstanding. A second callback per row would be ten new
                     // lambdas threaded through five screens for one line of logic.
-                    heldKey(verb)?.let { return withdraw(it) }
+                    heldKey(verb)?.let {
+                        withdraw(it)
+                        // Withdrawn rather than sent, and the sheet has nothing to stay open for.
+                        return true
+                    }
                     // Whatever landed while the app was closed stops being news the moment the
                     // player changes the colony themselves.
                     finishedWhileAway = null
-                    if (verb.offlineRule == OfflineRule.QUEUE_AND_VALIDATE) {
+                    val queueable = verb.offlineRule == OfflineRule.QUEUE_AND_VALIDATE
+                    if (queueable) {
                         val next = current.acting(debugClock, wallClock = wallClock.now(), transition = transition)
                         session = next
                         if (next.hasNewEventsSince(current)) {
@@ -819,6 +837,7 @@ fun App(
                         }
                     }
                     dispatch(verb)
+                    return queueable || reachable
                 }
 
 
@@ -987,7 +1006,7 @@ fun App(
                     // way — so this is declared once rather than pasted into both. The first cut of
                     // 0.13 did paste it, and the twenty lines the Fleets copy added were reachable by
                     // no test in the repository, which is how the coverage gate found them.
-                    val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit =
+                    val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean =
                         { target, gathering, ships, window ->
                             send(ClientVerb.StartRun(target, gathering, ships, window)) { state, at ->
                                 when (
