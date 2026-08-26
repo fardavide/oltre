@@ -145,22 +145,21 @@ private fun ApplicationCall.credentials(): Credentials = Credentials(
 // **One request's worth of quota, spent before the handler runs.** The `Retry-After` header goes out
 // beside the body deliberately: the number is in the `ApiError` for this app's own client, which
 // `#113` will read, and in the header for everything else on the wire that already knows what one is.
+// **Every line here is plumbing, and it is short because the decisions are not.** Which caller a
+// request counts as is `clientKey`; whether they are over quota is `RateLimiter.admit`; what a refusal
+// says is `RateVerdict.Refused.answer`. All three are judged by plain unit tests, which this file's
+// contents can never be.
+//
+// `remoteAddress` and not `remoteHost`, which resolves a name — a reverse lookup per request, on the
+// one path that is reachable without a session and must therefore stay cheap.
 private suspend fun ApplicationCall.limited(limiter: RateLimiter, handle: suspend () -> Answer) {
-    // `remoteAddress` and not `remoteHost`, which resolves a name — a reverse lookup per request, on
-    // the one path that is reachable without a session and must therefore stay cheap.
-    val caller = clientKey(
-        forwardedFor = request.headers[HttpHeaders.XForwardedFor],
-        remoteHost = request.origin.remoteAddress,
-    )
-
-    when (val verdict = limiter.admit(caller)) {
-        is RateVerdict.Refused -> {
-            response.header(HttpHeaders.RetryAfter, verdict.retryAfterSeconds.toString())
-            send(Answer.Failed(HttpStatusCode.TooManyRequests, ApiError.TooManyRequests(verdict.retryAfterSeconds)))
-        }
-
-        RateVerdict.Allowed -> send(handle())
+    val caller = clientKey(request.headers[HttpHeaders.XForwardedFor], request.origin.remoteAddress)
+    val verdict = limiter.admit(caller)
+    if (verdict is RateVerdict.Refused) {
+        response.header(HttpHeaders.RetryAfter, verdict.retryAfterSeconds.toString())
+        return send(verdict.answer())
     }
+    send(handle())
 }
 
 // The arms exist because the payloads are different types, and `respond` picks its serializer from

@@ -148,6 +148,16 @@ internal fun testSpec(
     jwksUri = TEST_JWKS_URI,
 )
 
+// **A signature the verifier cannot even attempt**, which is a different failure from one that does
+// not match and reaches a different arm. An RSA signature is exactly as long as the modulus, so a
+// shorter one is refused by the JCA before any arithmetic happens — `Signature.verify` raises rather
+// than answering false, and Nimbus hands that on as a `JOSEException`. Both are the same sentence to
+// a caller and neither may take the request with it.
+internal fun IdToken.withSignatureTruncated(): IdToken {
+    val (header, payload, signature) = value.split('.')
+    return IdToken("$header.$payload.${signature.take(8)}")
+}
+
 // **A genuinely tampered token**, which is the attack rather than a corrupted string: the payload is
 // rewritten and the *original* signature is kept, exactly as somebody who wanted to be a different
 // subject would do it. Flipping a character in the signature segment would test base64 decoding

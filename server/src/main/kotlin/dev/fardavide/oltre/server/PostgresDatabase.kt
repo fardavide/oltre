@@ -22,13 +22,39 @@ import javax.sql.DataSource
 // concurrency it serves is a pool that holds a scarce thing open to no end.
 //
 // **`#111` owns whether this number is right**, because it is the slice that knows how many
-// instances Cloud Run is allowed to run at once — the product of the two is what Neon sees.
+// instances Cloud Run is allowed to run at once — the product of the two is what Neon sees. Answered:
+// `--max-instances=3`, so fifteen at the absolute ceiling and far below Neon's limit.
 private const val MAX_CONNECTIONS = 5
+
+// **Zero, and it is the line that keeps the free tier free.** HikariCP's default is
+// `minimumIdle == maximumPoolSize`, which means a *fixed* pool: five connections opened at startup and
+// held for the life of the process, with `idleTimeout` ignored entirely.
+//
+// That default and `#111`'s keep-warm ping would have combined into a bill. The ping keeps a Cloud
+// Run instance alive around the clock so that a player never meets a cold start — and an instance
+// alive with a fixed pool is five connections open to Neon around the clock, which means Neon's
+// compute **never autosuspends**. Neon's free plan meters *compute hours* and cannot have autosuspend
+// disabled, so a colony nobody was playing would have burned the month's allowance and suspended the
+// project. Neither half is wrong on its own; together they are an outage with a fortnight's fuse.
+//
+// So the pool drains to nothing when nothing is happening, and a sync opens a connection when it
+// needs one. **That costs a connection setup on the first request after a quiet spell** — a TLS
+// handshake to Neon, plus Neon's own wake-up if it has suspended. At the load `#106` §6 sized for,
+// two to four requests per player per day, that is the right way round: the alternative is paying for
+// a connection to be held open all day so that four of them are marginally faster.
+private const val MINIMUM_IDLE = 0
+
+// How long an idle connection is kept before the pool lets it go. HikariCP refuses anything under ten
+// seconds and falls back to its ten-minute default, which here would be ten minutes of Neon compute
+// after every sync — so this is a floor being respected rather than a number being tuned.
+private const val IDLE_TIMEOUT_MILLIS = 10_000L
 
 internal fun connectionPool(url: String): HikariDataSource = HikariDataSource(
     HikariConfig().apply {
         jdbcUrl = url
         maximumPoolSize = MAX_CONNECTIONS
+        minimumIdle = MINIMUM_IDLE
+        idleTimeout = IDLE_TIMEOUT_MILLIS
         poolName = "oltre"
     },
 )

@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.ApiError
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlin.time.Clock
@@ -33,6 +35,14 @@ internal sealed interface RateVerdict {
         // to break, arriving through the answer that breaks it.
         val retryAfterSeconds: Int
             get() = ((retryAfter.inWholeMilliseconds + MILLIS_PER_SECOND - 1) / MILLIS_PER_SECOND).toInt()
+
+        // **What a refusal is on the wire, decided here rather than in the routing file.** It is a
+        // decision and not plumbing — which status, which member of the taxonomy, and that the number
+        // in the body is the same one the header carries — and `OltreServer.kt` is the one file in
+        // this module a unit test cannot reach. `#108` moved the route rules out for this reason and
+        // `#109` moved the store's; this is the same move, three lines wide.
+        fun answer(): Answer.Failed =
+            Answer.Failed(HttpStatusCode.TooManyRequests, ApiError.TooManyRequests(retryAfterSeconds))
     }
 }
 

@@ -1,5 +1,7 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.ApiError
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -172,6 +174,17 @@ class RetryAfterTest {
     fun `a part of a second rounds up rather than away`() {
         assertEquals(1, RateVerdict.Refused(900.milliseconds).retryAfterSeconds)
         assertEquals(16, RateVerdict.Refused(15.seconds + 1.milliseconds).retryAfterSeconds)
+    }
+
+    // **The body says the same number the header does**, which is the one thing a caller reading
+    // either of them can be wrong about. `429` and `TooManyRequests` rather than `Internal`, because
+    // a refusal that named itself a server error would be a refusal every client retries at once.
+    @Test
+    fun `a refusal is a 429 carrying the same wait it was given`() {
+        val answer = RateVerdict.Refused(15.seconds).answer()
+
+        assertEquals(HttpStatusCode.TooManyRequests, answer.status)
+        assertEquals(ApiError.TooManyRequests(retryAfterSeconds = 15), answer.error)
     }
 }
 
