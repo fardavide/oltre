@@ -1359,9 +1359,11 @@ that must not enter one.
 
 1. <https://console.neon.tech> → sign up → **create a project in an EU region** (`aws-eu-central-1`,
    Frankfurt, is the closest to `europe-west1`). Free plan.
-2. Copy the **pooled** connection string — the one whose host carries `-pooler`. Cloud Run starts and
-   stops instances all day and each one opens a pool; the pooled endpoint is what stops that
-   exhausting Neon's connection limit on the free plan.
+2. Copy the **pooled** connection string — the one whose host carries `-pooler`, which the console
+   offers behind a *Connection pooling* toggle. Cloud Run starts and stops instances all day and each
+   one opens a pool; the pooled endpoint keeps that off Neon's connection limit and skips a Postgres
+   backend start on every connection, which matters here because the pool deliberately drains to
+   nothing between syncs (see `PostgresDatabase.kt`).
 3. Put it in Secret Manager, pinned to the same location as the other two — **replication locations
    cannot be changed after creation** (step 42):
 
@@ -1372,6 +1374,30 @@ gcloud secrets create oltre-database-url --project=oltre-506614 --replication-po
 **Paste the string, press Return, then Ctrl-D.** `--data-file=-` reads standard input, so the value
 never reaches your shell history — which is the whole reason it is not written as an `echo`. If your
 paste added a trailing newline, that is fine: it is stripped where it is read.
+
+**Paste it exactly as the console prints it.** Neon gives a *libpq* URI —
+`postgresql://user:password@host/database?sslmode=require` — and the server converts it (see
+`DatabaseUrl.kt`). **Do not turn it into a JDBC URL by hand**: that is what `#109` assumed it would
+be given, and it is the one form no provider prints. Hand-editing it is also how `sslmode` gets
+dropped.
+
+> **And it does not go into a chat, an issue or a commit — including to Claude.** This rule already
+> exists at the top of this document for the `.p8`; it says *session* and it means it. A connection
+> string pasted into an agent session is a password in a transcript, and the answer is not to worry
+> about it afterwards but to **reset the role's password in Neon and start again** — Neon console →
+> **Branches → Roles → the role → Reset password**, which takes seconds and invalidates the old one.
+> Learned on 2026-08-26, from doing it.
+>
+> **If a rotation happens after the first deploy**, it is one command and a redeploy rather than a
+> new secret:
+>
+> ```
+> gcloud secrets versions add oltre-database-url --project=oltre-506614 --data-file=-
+> ```
+>
+> The service pins `oltre-database-url:latest`, so the new version reaches the next revision and not
+> the running one — which makes the redeploy that picks it up a free chance to do `#111`'s
+> colony-survives-a-redeploy check.
 
 4. Let the server — and only the server — read it:
 

@@ -49,15 +49,26 @@ private const val MINIMUM_IDLE = 0
 // after every sync — so this is a floor being respected rather than a number being tuned.
 private const val IDLE_TIMEOUT_MILLIS = 10_000L
 
-internal fun connectionPool(url: String): HikariDataSource = HikariDataSource(
-    HikariConfig().apply {
-        jdbcUrl = url
-        maximumPoolSize = MAX_CONNECTIONS
-        minimumIdle = MINIMUM_IDLE
-        idleTimeout = IDLE_TIMEOUT_MILLIS
-        poolName = "oltre"
-    },
-)
+// **`DATABASE_URL` is whatever the provider printed**, and turning that into something a JDBC driver
+// will take is `DatabaseUrl.kt`'s — deliberately, because it is a decision and this file is excluded
+// from the unit coverage pass on the condition that it holds none.
+internal fun connectionPool(url: String): HikariDataSource {
+    val connection = databaseConnection(url)
+    return HikariDataSource(
+        HikariConfig().apply {
+            jdbcUrl = connection.jdbcUrl
+            // Set only when the URL actually carried one. HikariCP treats a `null` username as
+            // "not configured" and an empty one as a username, and the second would fail to
+            // authenticate against a server that would have accepted the first.
+            connection.username?.let { username = it }
+            connection.password?.let { password = it }
+            maximumPoolSize = MAX_CONNECTIONS
+            minimumIdle = MINIMUM_IDLE
+            idleTimeout = IDLE_TIMEOUT_MILLIS
+            poolName = "oltre"
+        },
+    )
+}
 
 // **The whole migration story, and it is one file applied at startup.** Every statement in
 // `schema.sql` is `IF NOT EXISTS`, so applying it to a database that already has the schema is a

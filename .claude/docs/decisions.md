@@ -5979,6 +5979,41 @@ spell: a TLS handshake, plus Neon's own wake-up if it has suspended. At two to f
 player per day that is the right way round, and the alternative is paying to hold a connection open
 all day so that four of them are marginally faster.
 
+### `DATABASE_URL` is a libpq URI, and #109 assumed it was a JDBC one
+
+Found the only way it could be: by being handed a real Neon connection string and reading it before
+using it. Every provider — Neon, Supabase, Railway, Fly, Heroku — prints
+`postgresql://user:password@host/database?sslmode=require`, because that is what `psql` takes. #109
+fed the variable straight to HikariCP, which wants `jdbc:postgresql://…`.
+
+**The two are not interchangeable and the failure is total rather than subtle.** A libpq URI has no
+`jdbc:` scheme, so HikariCP finds no driver for it at all; and even with the scheme fixed, the
+PostgreSQL driver does not read credentials out of an authority, so `user:password@host` would be
+parsed as a *hostname*. Nothing shipped was wrong, because nothing had ever been deployed — this is a
+slice-4 bug that could only exist until slice 4.
+
+So `DATABASE_URL` now takes either. Three things about how:
+
+- **The conversion is in `DatabaseUrl.kt` and not in `PostgresDatabase.kt`.** That file is excluded
+  from the unit coverage pass on the condition that *nothing in it decides anything*, and this
+  decides several things — which is precisely the drift that exclusion's own comment warns would be
+  quietly hidden by it. Fourteen unit tests and one integration test, which is the split the rest of
+  this module already uses.
+- **The credentials are lifted out into HikariCP's `username` and `password`** rather than re-encoded
+  into a query string. A password containing `&`, `+`, `/` or a space is what a generated one
+  eventually is, and re-encoding it would be two ends having to agree on how — silently, months later.
+- **The integration test is the half that matters.** A conversion that is self-consistent and wrong
+  passes every unit test in the file; only feeding the result to a real driver says the answer is a
+  URL Postgres accepts. `PostgresColonyRepositoryIntegrationTest` opens a pool on a
+  console-shaped libpq URL against the embedded server.
+
+**And the credential rule covers a chat.** The provisioning walkthrough has said since #124 that key
+material never enters a session; on 2026-08-26 a Neon string was pasted into one anyway, which is a
+password in a transcript. The answer is a rotation and not a note — Neon resets a role's password in
+seconds — and the walkthrough now says so where the string is copied, rather than only at the top
+where it is easy to read as being about the `.p8`. Worth keeping because the rule was already
+written and was still not in front of the person at the moment it applied.
+
 ### A test double that was not thread-safe, found by a race it lost
 
 `sequentialPlayerIds()` counted with a plain `var`, and `PostgresPlayerRepositoryIntegrationTest`

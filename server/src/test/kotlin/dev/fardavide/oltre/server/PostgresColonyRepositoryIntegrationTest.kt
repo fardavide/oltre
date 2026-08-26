@@ -332,6 +332,24 @@ class PostgresColonyRepositoryIntegrationTest {
         }
     }
 
+    // **The form every provider actually prints, against a real driver.** `DatabaseUrlTest` says what
+    // `postgresql://user@host/db` is converted *into*; only this can say that the answer is a URL the
+    // PostgreSQL driver takes and connects with. The two halves are the point: a conversion that is
+    // self-consistent and wrong would pass the unit file completely, and the symptom would be a
+    // revision that never boots after a four-minute deploy.
+    @Test
+    fun `a libpq url of the shape a console prints connects`() = runTest {
+        val port = postgres.embeddedPostgres.port
+
+        val pool = connectionPool("postgresql://postgres@localhost:$port/postgres")
+        pool.use {
+            it.applySchema()
+            val pooled = PostgresColonyRepository(it, clock)
+
+            assertEquals(pooled.found(davide, freshColony()).colony, pooled.colonyOf(davide))
+        }
+    }
+
     private companion object {
 
         @get:ClassRule
