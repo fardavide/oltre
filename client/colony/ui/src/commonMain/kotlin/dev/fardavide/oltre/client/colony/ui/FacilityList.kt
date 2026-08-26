@@ -187,9 +187,13 @@ private fun FacilityRow(
                             row.power?.let { PowerTerm(power = it) }
                         }
                         row.fix?.let { FixLine(fix = it, mono = mono) }
-                        // A running row has no verdict, so nothing is displaced — but its square can
-                        // still be held, and the direction has to be said somewhere.
-                        VerdictOrHeld(row = row, compact = compact)
+                        // **The held line and never the verdict.** A running row is the one state
+                        // where nobody is choosing — the decision was made when the player tapped and
+                        // the slot belongs to the arrow — so `VerdictOrHeld` is the wrong helper here
+                        // even though the two other branches want it: it would draw the verdict a
+                        // running row is defined by not having. Its *square* can still be held, and
+                        // that is what this line is for.
+                        row.held.line?.let { HeldNote(text = it) }
                     }
                     FacilityActionUiState.Upgrade,
                     is FacilityActionUiState.AffordableIn,

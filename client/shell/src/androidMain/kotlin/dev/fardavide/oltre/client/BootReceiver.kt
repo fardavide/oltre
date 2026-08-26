@@ -32,10 +32,15 @@ class BootReceiver : BroadcastReceiver() {
         val pending = goAsync()
         CoroutineScope(Dispatchers.Default).launch {
             try {
+                // **A device with no save has nothing to re-book**, and since 0.21 that is a state
+                // the app can genuinely be in: `resume` no longer founds a colony out of a null
+                // save, because founding is the server's. A phone that rebooted before its owner
+                // ever signed in gets no alarms, which is right — there is nothing in flight.
+                val saved = GameStore(defaultSaveFile()).load() ?: return@launch
                 // `resume` advances the saved colony to now, so what is left in flight is
                 // genuinely still in flight. Syncing the raw snapshot instead would book alerts
                 // for builds that finished while the phone was off.
-                val session = resume(GameStore(defaultSaveFile()).load(), now = Clock.System.now())
+                val session = resume(saved, now = Clock.System.now())
                 // **`English` by name, and it is the honest reading rather than a shortcut.** There
                 // is one language, and at boot there is no composition and no shell to have chosen
                 // one — so the receiver names the table the app would have named. #87 is what turns

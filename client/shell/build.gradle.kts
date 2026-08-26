@@ -132,6 +132,11 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(projects.client.design.screenshotTesting)
+                // **The fake server, and rule 5's whole shape**: a testing module reached from a test
+                // source set and from nowhere else. It is what keeps the behaviour suite off a socket
+                // pointed at production — `#106` §8 — and it is the reason `App` takes an `OltreApi`
+                // at all rather than building one for itself.
+                implementation(projects.client.net.dataTesting)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)

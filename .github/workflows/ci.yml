@@ -224,40 +224,28 @@ jobs:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
+      # This compiles the shell's whole dependency closure, which since 0.21 reaches `:protocol`,
+      # `:client:net:data`, `:client:net:domain` and `:client:auth:data` — every module that had, or
+      # would have had, a line of its own on this job.
       - run: ./gradlew :client:shell:linkDebugFrameworkIosSimulatorArm64
 
-      # **`:protocol` is reached by nothing yet, so without this line its Apple half is checked by
-      # no job on this workflow.** The link task above compiles the shell's whole dependency
-      # closure, which is what covers `core` — but nothing depends on `:protocol` until
-      # `:client:net:data` lands in #112, and the three Linux jobs cannot compile for Apple at all.
-      # A module whose whole purpose is to be read at both ends would then have one end unbuilt.
+      # **Two lines came off here at #113, exactly as they said they would**, and what is left is the
+      # rule they came from rather than the lines: *a new module with Apple targets that nothing yet
+      # depends on is unchecked until something says so out loud.* `:protocol` had one from #107 and
+      # `:client:net:data` from #112, both because the link task above reaches a module only through
+      # the shell's closure and neither was in it. The cutover put them there.
       #
-      # **The test source set and not only `commonMain`**, which is the whole point: the trap #107
-      # warns about by name is a *compiler* rule, and it only applies to tests. Kotlin/Native rejects
-      # a backticked name containing `, . ; : / \ < > [ ]` where the JVM accepts it happily, so a
-      # comma in `protocol/src/commonTest` passes the entire local suite and takes CI down.
+      # **What the closure does not cover is a *test* source set**, and that is the trap this job
+      # exists for. `#107` records it: Kotlin/Native rejects a backticked test name containing
+      # `, . ; : / \ < > [ ]` where the JVM accepts it happily, so a comma in a `commonTest` passes
+      # the entire local suite and takes CI down. A link task compiles `commonMain` and no test.
       #
-      # A compile task rather than `iosSimulatorArm64Test`, deliberately. What this job can uniquely
-      # provide is the Native **compiler**; the assertions themselves already run on the JVM in the
-      # `Unit tests` job, so executing them a second time on a simulator buys a booted device's worth
-      # of flakiness for a second opinion on the same `assertEquals`. `./gradlew :protocol:build`
-      # runs them on Native locally, which is where that check belongs.
+      # The check that replaces the two lines is a grep before pushing, which is what
+      # `.claude/rules/session-roles.md` already asks for and costs a second:
       #
-      # Comes off this list the day the shell's closure reaches the module.
-      - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64
-
-      # **`:client:net:data` is in exactly `:protocol`'s position, one slice later**, and for the
-      # same reason: #112 lands the module and #113 is what puts it in the shell's closure, so until
-      # then nothing on this workflow compiles its Apple half. That half is not incidental — it is
-      # where the Darwin engine lives, which is the one file in the module no machine in this
-      # repository can run.
+      #   grep -rn 'fun `[^`]*,[^`]*`(' */src/commonTest/ */*/*/src/commonTest/
       #
-      # **One line covers both new modules.** `:client:net:data`'s `commonTest` depends on
-      # `:client:net:data-testing`, so compiling the test source set for this target compiles the
-      # fake's Apple half too. `-testing`'s own test source set holds nothing.
-      #
-      # The test source set and not only `commonMain`, for the reason spelled out above: the
-      # backtick trap is a compiler rule that applies only to tests.
-      #
-      # Comes off this list when #113 lands, together with the line above it.
-      - run: ./gradlew :client:net:data:compileTestKotlinIosSimulatorArm64
+      # A compile task rather than `iosSimulatorArm64Test`, deliberately — what this job can uniquely
+      # provide is the Native **compiler**, and the assertions already run on the JVM in the
+      # `Unit tests` job.
+      - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64 :client:net:data:compileTestKotlinIosSimulatorArm64 :client:auth:data:compileTestKotlinIosSimulatorArm64
