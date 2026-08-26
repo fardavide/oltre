@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.21.0", "2026-08-27", "La tua colonia ora vive altrove",
+            "Accedi con Apple o Google, e la colonia ti segue su ogni dispositivo.",
+            "Un tocco senza rete resta in attesa e lo dice. Toccalo di nuovo per annullarlo.",
+            "Una spedizione e una sonda non possono attendere, e lo dicono al tocco.",
+        ),
+        release(
             "0.20.1", "2026-08-24", "Aprire il gioco svuota le notifiche",
             "Gli avvisi che hai già letto spariscono quando riapri la colonia.",
             "Quelli ancora da arrivare restano al loro posto.",

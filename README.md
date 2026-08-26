@@ -227,6 +227,24 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.21.0 — 2026-08-27
+
+- **Your colony lives on a server now, and the game opens with a way in.** Sign in with Apple or with
+  Google and the colony comes back to you on any device you sign in on. There is one screen before
+  the game and nothing else changes: the colony you had is the colony you get.
+- **A tap with no signal is kept and says so.** An upgrade, a project, an adaptation, a hull or a bell
+  tapped with no network goes amber and reads *held* — it starts the moment the network is back.
+  Pressing the amber button again takes the request back, because nothing was sent.
+- **A run and a probe are the two things that cannot wait.** They aim at a galaxy other players are in
+  too, so instead of promising to send them later the game says so at the tap and names the fact that
+  stops it. Nothing is queued and nothing happens behind your back.
+- **A line above the game says when the network went and how much is waiting.** It carries the
+  connection and the count and never the state of a control — what is held is written on the card
+  that is holding it.
+- **You can delete your account from inside the game.** Settings has an Account section: it shows what
+  the account holds in your colony's own numbers, then says the thing the numbers cannot — signing in
+  again starts an empty colony. Two steps to cross, and *Keep it* is the wider button.
+
 ### 0.20.1 — 2026-08-24
 
 - **Opening the game clears the alerts it has already sent you.** Everything waiting in the

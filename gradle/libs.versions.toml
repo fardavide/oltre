@@ -1,6 +1,6 @@
 [versions]
 # Project version — single source, referenced by every module and the changelog.
-oltre = "0.20.1"
+oltre = "0.21.0"
 
 agp = "9.3.1"
 android-compileSdk = "36"

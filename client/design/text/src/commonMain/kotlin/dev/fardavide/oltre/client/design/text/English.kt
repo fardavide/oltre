@@ -725,6 +725,7 @@ object English : Translations {
         StringId.DeleteFactColony ->
             "${args.text(0)} · ${args.count(1)} " +
                 "${args.count(1).plural("facility", "facilities")}, level ${args.number(2)}"
+        StringId.DeleteFactFleetEmpty -> "No hulls yet, and nothing in flight."
         StringId.DeleteFactFleet ->
             "${args.text(0)}, and the ${args.count(1)} " +
                 "${args.count(1).plural("run", "runs")} in flight"

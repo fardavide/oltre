@@ -34,6 +34,7 @@ import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
+import dev.fardavide.oltre.client.auth.ui.DeleteTestTags
 import dev.fardavide.oltre.client.auth.ui.GateTestTags
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.client.net.data.IdempotencyKeys
@@ -130,6 +131,36 @@ internal class AppRobot(
 
     fun assertProviderNotOffered(provider: AuthProvider) = apply {
         test.onNodeWithTag(GateTestTags.provider(provider)).assertDoesNotExist()
+    }
+
+    // ── The door out of the account ──────────────────────────────────────────────────────────
+    //
+    // Three taps that only mean anything together, and the one flow in the app that cannot be undone
+    // — which is why it is two faces deep and why every step of it is driven here rather than
+    // asserted at a mapper.
+
+    fun openTheAccountDeletion() = apply {
+        test.onNodeWithTag(SettingsTestTags.DELETE_ACCOUNT).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    // The same button on both faces, because the sheet knows which one it is wearing: on the warning
+    // face it crosses to the last step, on the last step it does the thing.
+    fun pressTheDeleteButton() = apply {
+        test.onNodeWithTag(DeleteTestTags.ACTION).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    fun keepTheAccount() = apply {
+        test.onNodeWithTag(DeleteTestTags.KEEP).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    fun assertDeletionsAsked(count: Int) = apply {
+        assertEquals(count, server.deletions().size, "deletions: ${server.deletions()}")
     }
 
     // ── The offline era ──────────────────────────────────────────────────────────────────────

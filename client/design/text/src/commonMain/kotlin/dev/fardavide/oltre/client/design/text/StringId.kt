@@ -667,6 +667,11 @@ enum class StringId {
     DeleteFactResearchLabel,
     DeleteFactColony,
     DeleteFactFleet,
+    // **The fleet row on a colony that has none**, which is not an edge case: a first launch opens
+    // with no hull at all — the first one is the first purchase — so this is the *ordinary* reading
+    // for a player who signs in and immediately changes their mind. A list of nothing has no
+    // grammar, so it gets a sentence rather than a joined run.
+    DeleteFactFleetEmpty,
     DeleteFactMap,
     DeleteFactResearch,
     DeleteConfirmTitle,

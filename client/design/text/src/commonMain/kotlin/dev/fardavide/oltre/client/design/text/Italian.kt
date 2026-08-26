@@ -813,6 +813,7 @@ object Italian : Translations {
         StringId.DeleteFactColony ->
             "${args.text(0)} · ${args.count(1)} " +
                 "${args.count(1).plural("struttura", "strutture")}, livello ${args.number(2)}"
+        StringId.DeleteFactFleetEmpty -> "Ancora nessuno scafo, e niente in volo."
         StringId.DeleteFactFleet ->
             "${args.text(0)}, e le ${args.count(1)} " +
                 "${args.count(1).plural("spedizione", "spedizioni")} in volo"

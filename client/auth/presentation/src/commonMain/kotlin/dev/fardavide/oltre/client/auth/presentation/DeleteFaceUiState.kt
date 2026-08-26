@@ -106,10 +106,14 @@ private fun GameState.wholeFleet(): Ships =
 
 // "4 skiffs and 1 hauler", in the language's own list punctuation. Hull types in their declared order
 // rather than the map's, so two colonies with the same fleet read the same.
-private fun Ships.spoken(): dev.fardavide.oltre.client.design.text.TextRes = Strings.listed(
-    ShipType.entries
-        .mapNotNull { type -> counts[type]?.let { Strings.ships(it, type) } },
-)
+//
+// **Null on a colony with no fleet**, which is a first launch rather than an edge case: the opening
+// stock buys a hull and does not grant one. `Strings.listed` has no grammar for an empty list, and
+// the row says so in a sentence instead — see `Strings.deleteFactFleet`.
+private fun Ships.spoken(): dev.fardavide.oltre.client.design.text.TextRes? = ShipType.entries
+    .mapNotNull { type -> counts[type]?.let { Strings.ships(it, type) } }
+    .takeIf { it.isNotEmpty() }
+    ?.let(Strings::listed)
 
 private fun AuthProvider.spoken(): AuthProviderName = when (this) {
     AuthProvider.APPLE -> AuthProviderName.APPLE

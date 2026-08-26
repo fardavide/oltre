@@ -509,6 +509,9 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.deleteFactColony(TextRes("x"), facilities = 13, level = 7))
     add(Strings.deleteFactFleet(TextRes("x"), runs = 1))
     add(Strings.deleteFactFleet(TextRes("x"), runs = 3))
+    // A colony with no fleet, which is what a first launch is: the opening stock buys a hull and does
+    // not grant one, so this arm is reachable on the very first frame.
+    add(Strings.deleteFactFleet(hulls = null, runs = 0))
     add(Strings.deleteFactMap(surveyed = 1, pinned = 1))
     add(Strings.deleteFactMap(surveyed = 84, pinned = 6))
     add(Strings.deleteFactResearch(projects = 1, adaptations = 1))

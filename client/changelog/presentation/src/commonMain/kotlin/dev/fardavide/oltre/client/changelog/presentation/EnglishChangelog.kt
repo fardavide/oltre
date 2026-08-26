@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.21.0", "2026-08-27", "Your colony lives somewhere else now",
+            "Sign in with Apple or Google, and the colony follows you to any device.",
+            "A tap with no signal is held and says so. Tapping it again takes it back.",
+            "A run and a probe cannot wait, so they say so at the tap instead.",
+        ),
+        release(
             "0.20.1", "2026-08-24", "The tray empties when you open the game",
             "Alerts you have already been shown are cleared when the colony comes back up.",
             "Alerts still to come are untouched.",

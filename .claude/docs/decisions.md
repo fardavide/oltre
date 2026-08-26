@@ -6368,3 +6368,121 @@ bundle Roboto and use mono for Apple, and no platform font appears anywhere. Dav
 **mono for both** — one font in the entire product, and a knowing deviation from a written Google
 guideline on an OAuth app that is deliberately in *Testing* and never published. The day it is
 published is the day that trade is re-taken.
+
+## Nothing is local now — the gate, the held state and the shell cutover (2026-08-27, issue #113)
+
+Slice 6 of #106, second half. #133 landed the layer underneath; this is everything the design draws
+and the cutover that makes it reachable. **The colony is the server's from this release**: `App`
+holds an `OltreApi`, every tap becomes a `ClientVerb`, and the save on disk stopped being the truth
+and became *the last truth this device was told*. Minor bump — a player can do something they could
+not do before, on the strictest reading of that test: they can sign in.
+
+### `resume` no longer founds a colony, and that is the cutover in one function
+
+Until now a null save meant *a new colony*, and `resume` drew a `GalaxySeed` from the clock to mint
+one. A shared galaxy cannot allow that: two devices signing into one account would each have
+invented a map and neither would be the one the server holds. Founding is `POST /v1/colony`'s, keyed
+on the player and the instant the *server* saw.
+
+What is left that is local is the debug menu's reset, which is where the seed is drawn now — and it
+deliberately tells the server nothing, because its job is *put this device back to a fresh colony so
+I can look at a first launch* and the next sync replaces it. `BootReceiver` gained the other half of
+the same sentence: a phone that rebooted before its owner ever signed in has no alarms to re-book.
+
+### The gate is shown until there is a session **and** a colony
+
+Two facts, and the screen answers to both. A device with a save opens on it whatever the network is
+doing — that is the whole of what a save is for now — and a device without one stays on the gate,
+where *"your colony runs there, so there is no offline start"* is the only honest thing to say.
+
+**`sync` on a launch that has a colony and `found` on one that does not**, which is not a shortcut:
+`found` sends no envelopes, so a launch that always founded would leave a queue written before the
+app was closed sitting on disk until the player next tapped something. A `NoColony` answer falls
+through to founding, because a colony deleted on another device is a case a save cannot rule out.
+
+### `HeldActions` is a `domain` module, and `net` became a shared surface
+
+*Which control is held* is a fold over queued verbs that eight mappers ask. It is a `domain` module
+for `:client:dispatch:domain`'s reason — arithmetic a test can execute — and because `domain` is the
+only layer both sides may reach: `data` may depend on it, and so may `presentation`, which may never
+depend on `data`. `net` joined `sharedSurfaces` on the property that list actually asks for: nothing
+points out of it.
+
+**A held square draws the request rather than the state**, inverted once in `asSquare` rather than
+in four mappers. The hull card is the exception that proves it: its control has three stops, so the
+request is read off `cycleHullAlert` — the same function the tap will run — instead of a boolean.
+
+### A tap on a held control withdraws, and it is answered in one place
+
+The amber ghost is still a target. Answering it inside `send` rather than at six call sites is what
+makes the ui-state that drew the ghost and the branch that acts on it read the same `held`; a second
+callback per row would have been ten new lambdas threaded through five screens for one line.
+
+### `onDispatchRun` answers whether the tap was kept
+
+The dispatch sheet closes on a run that happened and stays up on one that was refused — the design's
+own shape, because the refusal is about the *target* rather than about the run the player assembled.
+The sheet has to decide in the frame the button was pressed, and the answer cannot come from the
+round trip. So the callback returns a `Boolean` and the composition root answers it from what it
+already knows: a queueable verb is always kept, a galaxy-touching one only if the server is
+answering. The case that leaves is a server that is reachable and refuses on its own freshness
+window; that lands on the map card's line, which is the row form the design drew for exactly the
+case where there is no sheet to put a block in.
+
+### Which providers each platform draws, and the gap that is not closed
+
+**iOS draws both.** Apple is `AuthenticationServices` natively; Google is `ASWebAuthenticationSession`
+with PKCE against the iOS client, rather than the GoogleSignIn SDK — a CocoaPods or SPM dependency
+inside a *generated* Xcode project, which nothing in this repository could compile-check, against a
+system sheet whose whole contribution is the same OAuth round trip. The redirect is the reversed
+client id the provisioning walkthrough's step 48 already specifies.
+
+**Android draws Google only**, through Credential Manager: no browser, no redirect to register, no
+custom scheme in the manifest, and no leg of the flow that can leave the app and fail to come back.
+
+**Desktop draws Google only, and only when the machine has the credential.** Google calls it an
+*installed application* and its token endpoint wants the client secret; that secret is documented as
+not confidential and is still not going in the repository, so the desktop build reads it from the
+environment the dev loop already sources. Absent, there is no button — not a button that fails.
+
+**Apple is absent on Android and desktop, and that is a gap rather than a decision.** Away from an
+Apple platform it is a browser flow whose Return URL Apple insists is `https`, and the one registered
+is `https://api.oltre.space/v1/auth/apple/callback` — a *server* endpoint, which #113 puts out of
+scope by name. A button that opened a browser which never came back would be the worst control this
+app has ever shipped, so there is no button. Closing it needs either that server endpoint or a static
+bounce page on `oltre.space` with its own registered Return URL.
+
+### The one-time upload is not in this release, and it cannot be
+
+#113 asks for *the one-time upload of an existing local save, which the server adopts after running
+`GameSave`'s ladder*. There is no wire method for it: `OltreApi` has six calls and `POST /v1/colony`
+takes no body — it mints. Adding one is a `:protocol` change **and** a server endpoint, and server
+work is out of this ticket's scope by name, so the two halves of the sentence contradict each other.
+
+What this release does instead is **never destroy the local save**: signing in adopts the server's
+colony and leaves the file on disk untouched, so the slice that lands the upload still has it to
+send. The consequence is real and is the first thing to check on a device — see the pull request.
+
+### `FakeOltreApi` learned to run the game, behind a flag
+
+#112 argued against it in as many words: a second dispatch from `ClientVerb` into `core`'s twelve
+functions is a second place a thirteenth verb can go missing. The objection is answered rather than
+waived — the dispatch is a `when` with **no `else`**, so a missing verb fails to compile — and it had
+to be, because a fake that ignored what it was sent would hand the unchanged colony back and visibly
+undo every tap the behaviour suite makes. Off by default, so every test written against the shallower
+fake still means what it meant.
+
+### `DESTINATION_HEIGHT` moved with the chrome, in the same commit
+
+612 → 590. The offline line costs 22dp of a destination, and 0.12.0 is the release that shipped a map
+whose only control was off the bottom of the screen because a bar was added and this constant was not.
+It is the *offline* height deliberately: the shorter destination is the one that can lose a control,
+so the suite measures the case that can fail.
+
+### The two Kover exclusions and the two CI lines came off, as recorded
+
+`:protocol`'s behaviour half and `:client:net:data`'s whole entry both shipped at #107 and #112 on the
+condition *"once the shell holds a fake transport, the behaviour suite drives every verb through this
+module"*. This is that slice. The two `compileTestKotlinIosSimulatorArm64` lines went with them: the
+shell's link task reaches both modules now, and what is left on that job is the *test* source sets,
+which no link task compiles and which are where the backtick-comma trap lives.

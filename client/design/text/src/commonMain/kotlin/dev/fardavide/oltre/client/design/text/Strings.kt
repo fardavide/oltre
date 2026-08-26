@@ -1615,8 +1615,14 @@ object Strings {
         Arg.Number(level.toLong()),
     )
 
-    fun deleteFactFleet(hulls: TextRes, runs: Int): TextRes =
+    // **Null hulls is the first launch rather than an edge case**, so it gets a sentence of its own:
+    // a colony opens with no hull at all — the first one is the first purchase — and a list of
+    // nothing has no grammar to join.
+    fun deleteFactFleet(hulls: TextRes?, runs: Int): TextRes = if (hulls == null) {
+        message(StringId.DeleteFactFleetEmpty)
+    } else {
         message(StringId.DeleteFactFleet, Arg.Text(hulls), Arg.Count(runs))
+    }
 
     fun deleteFactMap(surveyed: Int, pinned: Int): TextRes =
         message(StringId.DeleteFactMap, Arg.Count(surveyed), Arg.Count(pinned))
