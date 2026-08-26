@@ -98,6 +98,11 @@ private const val SHEET_HIDE_MILLIS: Long = 1_000
 // a slow machine without letting a genuinely stuck screen hang the suite.
 private const val SLOW_ANSWER_MILLIS: Long = 10_000
 
+// **A minute of ticks plus room for the sync that follows one.** The retry is the slowest thing the
+// app does on its own, and it is deliberately slow: a player cannot see a difference finer than the
+// clock the chrome line prints.
+private const val RETRY_WINDOW_MILLIS: Long = 90_000
+
 @OptIn(ExperimentalTestApi::class)
 internal class AppRobot(
     private val test: ComposeUiTest,
@@ -223,6 +228,15 @@ internal class AppRobot(
     fun waitUntilItReads(text: String) = apply {
         test.waitUntil(timeoutMillis = SLOW_ANSWER_MILLIS) {
             test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    // **For the one thing that takes a whole minute**: the tick loop retries a queue it could not
+    // send once every sixty ticks, which is the only moment in the app that notices the network
+    // coming back. Nothing else in this robot waits that long, and nothing else should.
+    fun waitUntilItDoesNotRead(text: String) = apply {
+        test.waitUntil(timeoutMillis = RETRY_WINDOW_MILLIS) {
+            test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isEmpty()
         }
     }
 

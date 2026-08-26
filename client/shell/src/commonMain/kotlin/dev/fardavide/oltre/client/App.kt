@@ -129,6 +129,10 @@ private val ARRIVAL_WINDOW: Duration = 2.seconds
 // worth storing at. See `arrive`.
 private const val MILLIS_PER_MINUTE: Long = 60_000
 
+// How many one-second ticks between attempts to drain a queue that could not be sent. See the tick
+// loop, which is the only thing in the app that notices the network coming back.
+private const val TICKS_PER_RETRY: Int = 60
+
 // The shell is the impure boundary: it reads the clock, reads and writes the save file, books
 // the local notifications, ticks the UI, and holds the current session. Game state itself only
 // ever moves through core's advance/startUpgrade.
@@ -686,12 +690,29 @@ fun App(
                 }
             } else {
                 LaunchedEffect(Unit) {
+                    var ticks = 0
                     while (true) {
                         delay(1.seconds)
                         val previous = session ?: continue
                         val next = previous.ticked(debugClock, wallClock = wallClock.now())
                         session = next
                         if (next.hasNewEventsSince(previous)) next.commit(store, notifications, debugClock)
+
+                        // **Something has to try again, or the amber is a lie.** A held card says
+                        // *"it starts when the network is back"*, and until 0.21 nothing in the app
+                        // would have noticed the network coming back: the queue drained on a launch
+                        // and on a tap and at no other moment, so a player who regained signal
+                        // mid-session sat with three amber cards until they touched one.
+                        //
+                        // **Only while something is outstanding and the last attempt failed**, which
+                        // is what keeps this from being a poll: a colony with signal never reaches
+                        // this line, and one with nothing queued has nothing to send. A minute
+                        // because that is the resolution the chrome line prints at — a player cannot
+                        // see a difference finer than the clock they are being shown.
+                        ticks++
+                        if (ticks % TICKS_PER_RETRY == 0 && !reachable && held.count > 0) {
+                            arrive(colony.sync(), debugClock, wallClock.now())
+                        }
                     }
                 }
 

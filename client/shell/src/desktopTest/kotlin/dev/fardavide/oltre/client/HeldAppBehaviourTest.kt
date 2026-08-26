@@ -92,6 +92,28 @@ class HeldAppBehaviourTest {
         }
     }
 
+    // **The amber says *it starts when the network is back*, and this is what makes that true.**
+    // Until the tick loop learned to retry, nothing in the app noticed the network coming back: the
+    // queue drained on a launch and on a tap and at no other moment, so a player who regained signal
+    // mid-session sat with three amber cards until they touched one.
+    //
+    // The server is offline when the app opens and answering a minute later, and nothing is tapped in
+    // between — which is the whole of the assertion.
+    @Test
+    fun `a held verb goes up on its own when the network comes back`() {
+        val server = offlineServer()
+        app(saved = colony(), api = server, queued = listOf(queuedUpgrade())) {
+            assertReads("Upgrade held.")
+            waitUntilItReads("1 action held")
+
+            server.offline = false
+            server.colony = colony()
+
+            waitUntilItDoesNotRead("Upgrade held.")
+            assertOfflineLine(showing = false)
+        }
+    }
+
     // **A tap with signal is not held at all**, which is the other half of the pair and the one that
     // would fail silently: a card that went amber on a working connection would be the app reporting
     // on itself rather than on the network.
