@@ -113,6 +113,9 @@ dependencies {
     kover(projects.client.design.icon)
     kover(projects.client.design.text)
     kover(projects.client.shell)
+    kover(projects.client.auth.data)
+    kover(projects.client.auth.presentation)
+    kover(projects.client.auth.ui)
     kover(projects.client.changelog.domain)
     kover(projects.client.changelog.presentation)
     kover(projects.client.changelog.ui)
@@ -129,6 +132,7 @@ dependencies {
     kover(projects.client.galaxy.presentation)
     kover(projects.client.galaxy.ui)
     kover(projects.client.net.data)
+    kover(projects.client.net.domain)
     kover(projects.client.notifications.data)
     kover(projects.client.player.ui)
     kover(projects.client.research.presentation)
@@ -630,7 +634,14 @@ fun isTestConfiguration(name: String): Boolean = name.startsWith("test") || name
 // What makes the exclusion safe is the property this list actually asks for: **nothing points out of
 // it.** `:client:changelog:*` depends on `core`, on its own domain and on the design system, and on
 // no feature at all, so it cannot become the back door one tab reaches another through.
-private val sharedSurfaces = setOf("design", "dispatch", "world", "changelog")
+// `net` joined at 0.20 and it demonstrates that same property rather than inheriting it. Since the
+// colony moved off the phone, *is this control held?* is a question every screen has to ask —
+// `:client:net:domain` answers it, and eight presentation modules reach it, so the warning would fire
+// eight times on every clean build. **Nothing points out of it:** `:client:net:domain` depends on
+// `:protocol` alone and `:client:net:data` on those two and Ktor, so neither can carry one feature
+// into another. Note the direction that makes the edge legal at all — a `presentation` may see a
+// `domain` and may never see a `data`, which is why the projection is in the layer it is in.
+private val sharedSurfaces = setOf("design", "dispatch", "world", "changelog", "net")
 
 fun featureOf(projectPath: String): String? = projectPath
     .removePrefix(":")

@@ -23,6 +23,11 @@ object English : Translations {
         // The day is never padded, because "04d" reads like a countdown to a launch rather than a
         // wait; the hour beside it is, so a column of these stays tabular.
         StringId.DurationDaysHours -> "${args.number(0)}d ${args.number(1).pad2()}h"
+        StringId.DurationSeconds -> "${args.number(0)}s"
+        // The seconds are padded and the minutes are not, which is `DurationHoursMinutes`' rule one
+        // order of magnitude down: the leading unit is a magnitude and the trailing one is a
+        // remainder, and a remainder that loses its zero stops being tabular.
+        StringId.DurationMinutesSeconds -> "${args.number(0)}m ${args.number(1).pad2()}s"
         StringId.Countdown -> "${args.number(0).pad2()}:${args.number(1).pad2()}:${args.number(2).pad2()}"
         StringId.WatchedAt -> "→ affordable ${args.clock()}"
 
@@ -640,6 +645,102 @@ object English : Translations {
         // What a screen reader says for the row, which is the one place the version and what it did
         // are read as one sentence rather than as two lines.
         StringId.BuildRowSpoken -> "Version ${args.text(0)} — ${args.text(1)}. What changed."
+
+        // ── The gate ─────────────────────────────────────────────────────────────────────────
+        StringId.SignInWhyLead -> "The galaxy is shared, and your colony runs on the server."
+        StringId.SignInWhyFoot -> "An account is the only way back to it."
+        // No full stop: it is a caption rather than a sentence, and the one line on the screen that
+        // is a promise about what has *not* happened.
+        StringId.SignInFoot -> "No colony is created until you are in"
+        // Apple's own string, verbatim and mandated. Google's is near enough the same.
+        StringId.SignInWithApple -> "Sign in with Apple"
+        StringId.SignInWithGoogle -> "Sign in with Google"
+        StringId.SignInWaitingLead -> "Signing in."
+        StringId.SignInWaitingBody -> "Waiting for the server to answer."
+        StringId.SignInNoAnswerLead -> "The server did not answer."
+        StringId.SignInNoAnswerBody ->
+            "Your colony runs there, so there is no offline start. Try again when you have signal."
+        StringId.SignInRefusedLead -> "${args.text(0)} did not sign you in."
+        StringId.SignInRefusedBody ->
+            "Nothing was created and nothing was lost. Try again, or use ${args.text(0)}."
+        StringId.SignInThrottledLead -> "Asked too often."
+        StringId.SignInThrottledBody -> "Ask again in ${args.text(0)}."
+        StringId.SignInAskAgainNow -> "You can ask again now."
+        StringId.ProviderApple -> "Apple"
+        StringId.ProviderGoogle -> "Google"
+
+        // ── Accepted, and not a fact yet ─────────────────────────────────────────────────────
+        StringId.HeldButton -> "Held"
+        StringId.HeldUpgradeFoot -> "Upgrade held. It starts when the network is back."
+        StringId.HeldStartFoot -> "Start held. It begins when the network is back."
+        StringId.HeldBuildFoot -> "Build held. It starts when the network is back."
+        StringId.HeldBuildAndAlertFoot -> "Build held, and the alert held off with it. Both land together."
+        StringId.HeldWatchOnFoot -> "Watch held — the bell is set when the network is back."
+        // **The one string on these five surfaces the design did not draw**, because no frame holds a
+        // watch requested *off* on a card — the hull card's off is folded into the build's sentence
+        // above. Built to the drawn one's shape rather than invented from nothing; overrulable.
+        StringId.HeldWatchOffFoot -> "Watch held — the bell is off when the network is back."
+        StringId.HeldAnnounceFoot -> "Held — you are told when it lands, once the run is confirmed."
+        StringId.HeldTurningOn -> "Held — on when the network is back."
+        StringId.HeldTurningOff -> "Held — off when the network is back."
+        StringId.HeldLadderNote -> "Asked for ${args.text(0)}. Held until the network is back."
+        StringId.OfflineSince ->
+            "No network since ${args.clock()} · ${args.count(2)} " +
+                "${args.count(2).plural("action", "actions")} held"
+        // The noun goes and both numbers stay, which is the rule at 320: never a figure, never a name.
+        StringId.OfflineSinceCompact -> "No network since ${args.clock()} · ${args.count(2)} held"
+
+        // ── Refused outright ─────────────────────────────────────────────────────────────────
+        StringId.RefusedRunLead -> "A run cannot be held."
+        StringId.RefusedRunBody ->
+            "${args.text(0)} is in a shared galaxy and may have changed while you were offline. " +
+                "Dispatch when the network is back."
+        StringId.RefusedRunBodyCompact ->
+            "${args.text(0)} may have changed. Dispatch when the network is back."
+        StringId.RefusedProbeLead -> "A probe cannot be held."
+        StringId.RefusedProbeBody -> "The system may have changed while you were offline."
+        StringId.RefusedProbeBodyCompact -> "The system may have changed."
+        StringId.RefusedDeleteLead -> "This cannot be held."
+        StringId.RefusedDeleteBody ->
+            "The account is removed on the server, and the server has to answer. " +
+                "Try again when the network is back."
+
+        // ── The account, and the door out of it ──────────────────────────────────────────────
+        StringId.AccountLabel -> "ACCOUNT"
+        StringId.AccountSignedInWith -> "Signed in with ${args.text(0)}"
+        StringId.AccountSince ->
+            "${args.text(0)} · since ${args.number(1)} ${MONTHS[args.number(2).toInt() - 1]}"
+        StringId.DeleteAccountRow -> "Delete account"
+        StringId.DeleteAccountRowNote -> "The colony goes with it."
+        StringId.DeleteFaceTitle -> "Delete account"
+        StringId.DeleteFaceIntro -> "The account goes, and everything the account holds goes with it."
+        StringId.DeleteFaceSecond ->
+            "Signing in again with the same Apple or Google account does not return any of it. " +
+                "It starts a new, empty colony."
+        StringId.DeleteFaceAction -> "Delete account"
+        StringId.DeleteFactColonyLabel -> "COLONY"
+        StringId.DeleteFactFleetLabel -> "FLEET"
+        StringId.DeleteFactMapLabel -> "MAP"
+        StringId.DeleteFactResearchLabel -> "RESEARCH"
+        StringId.DeleteFactColony ->
+            "${args.text(0)} · ${args.count(1)} " +
+                "${args.count(1).plural("facility", "facilities")}, level ${args.number(2)}"
+        StringId.DeleteFactFleet ->
+            "${args.text(0)}, and the ${args.count(1)} " +
+                "${args.count(1).plural("run", "runs")} in flight"
+        StringId.DeleteFactMap ->
+            "${args.count(0)} ${args.count(0).plural("system", "systems")} surveyed, " +
+                "${args.count(1)} ${args.count(1).plural("world", "worlds")} pinned"
+        StringId.DeleteFactResearch ->
+            "${args.count(0)} ${args.count(0).plural("project", "projects")} and " +
+                "${args.count(1)} ${args.count(1).plural("adaptation", "adaptations")}"
+        StringId.DeleteConfirmTitle -> "Delete ${args.text(0)}?"
+        StringId.DeleteConfirmIntro ->
+            "This is the last step. The next tap removes the account and the colony from the server."
+        StringId.DeleteConfirmSecond ->
+            "Nothing here comes back, and a new ${args.text(0)} sign-in starts an empty colony."
+        StringId.DeleteKeep -> "Keep it"
+        StringId.DeleteConfirmAction -> "Delete"
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

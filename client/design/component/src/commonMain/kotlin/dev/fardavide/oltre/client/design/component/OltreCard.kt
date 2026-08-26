@@ -33,6 +33,17 @@ enum class OltreCardState {
     // In flight. The only lit thing on the screen from four rows away, which is the whole answer
     // to "why can nothing else start" on a screen with one slot.
     RUNNING,
+
+    // **Accepted by the phone and not yet by the server.** Amber 6% inside amber 22% — the fleet
+    // strip's own pair, at the fleet strip's scale — because the fleet strip is where this app
+    // already says *a thing of yours is out there and has not landed*. Held is that sentence about
+    // an intent instead of a hull.
+    //
+    // **Deliberately not `RUNNING`'s accent border.** A running card earned accent by getting an
+    // answer: it has a countdown and a bar because the clock is real. A held card has neither,
+    // because there is no instant to count to — and that absence, next to a card that has one, is
+    // most of what tells the two apart at a glance.
+    HELD,
 }
 
 // **This does not settle its colours, and 0.13.2 is where that was tried and taken back out.** The
@@ -109,6 +120,10 @@ internal fun OltreCardState.fill(): Color = when (this) {
     OltreCardState.WAITING -> Color(0xFF0C0E14)
     // accent 6% over background, pairing with the accent border it already had
     OltreCardState.RUNNING -> Color(0xFF090F1C)
+    // **`FleetStrip`'s own fill, by its own arithmetic and to the same hex** — warn at 6% over the
+    // background — because a held card and a fleet in transit are the same claim about two different
+    // kinds of thing, and the design asked for one surface rather than two that nearly match.
+    OltreCardState.HELD -> Color(0xFF141111)
 }
 
 // The stop is at 0.12 rather than at 0.5 for the same reason the alphas are one step apart: this has
@@ -123,6 +138,11 @@ private fun OltreCardState.bevel(): Brush = Brush.verticalGradient(
 // `Brush` is opaque to an assertion and two colours are not.
 internal fun OltreCardState.bevelTop(): Color = when (this) {
     OltreCardState.RUNNING -> OltreColors.accent.copy(alpha = 0.62f)
+    // **Flat rather than bevelled, and both stops are the fleet strip's single 22%.** The bevel says
+    // *this card is catching the light from the rail*; the fleet strip has never had one, and a held
+    // card is the fleet strip's surface. A held card with a lit top edge would be borrowing depth
+    // from the family it is deliberately not in.
+    OltreCardState.HELD -> OltreColors.warn.copy(alpha = 0.22f)
     OltreCardState.ACTIONABLE,
     OltreCardState.WAITING,
     -> Color.White.copy(alpha = 0.17f)
@@ -130,6 +150,7 @@ internal fun OltreCardState.bevelTop(): Color = when (this) {
 
 internal fun OltreCardState.bevelFoot(): Color = when (this) {
     OltreCardState.RUNNING -> OltreColors.accent.copy(alpha = 0.45f)
+    OltreCardState.HELD -> OltreColors.warn.copy(alpha = 0.22f)
     OltreCardState.ACTIONABLE,
     OltreCardState.WAITING,
     -> Color.White.copy(alpha = 0.09f)

@@ -23,6 +23,13 @@ enum class StringId {
     DurationHoursMinutes,
     DurationHours,
     DurationDaysHours,
+    // **The two shortest waits the game writes, and the gate is the only thing that asks for
+    // them.** Everything else in this list starts at a minute, because nothing else in the game
+    // finishes sooner. A sign-in throttle does — the server sends a number of seconds — and the
+    // design's rule is two units at most, so under a minute prints `41s` and over it prints
+    // `4m 12s`.
+    DurationSeconds,
+    DurationMinutesSeconds,
     Countdown,
     WatchedAt,
 
@@ -571,4 +578,100 @@ enum class StringId {
     ReleaseDate,
     BuildLabel,
     BuildRowSpoken,
+
+    // ── The gate ────────────────────────────────────────────────────────────────────────────
+    //
+    // The first screen in the game that is not about a colony, and the only one with two objects on
+    // it that Oltre does not own. **The two provider strings are in the catalogue because the
+    // platforms translate them and we do not** — `Accedi con Apple` is Apple's Italian, not ours, and
+    // a `Raw` here would have shipped the English to every language. Everything else on the screen is
+    // the game's own voice.
+    //
+    // `SignIn…` rather than `Gate…`, because `GateClause` and its five siblings above are about a
+    // *requirement* gating a facility, and a reader who has to disambiguate a prefix will eventually
+    // get it wrong.
+    SignInWhyLead,
+    SignInWhyFoot,
+    SignInFoot,
+    SignInWithApple,
+    SignInWithGoogle,
+    SignInWaitingLead,
+    SignInWaitingBody,
+    SignInNoAnswerLead,
+    SignInNoAnswerBody,
+    SignInRefusedLead,
+    SignInRefusedBody,
+    SignInThrottledLead,
+    SignInThrottledBody,
+    SignInAskAgainNow,
+    // The two providers by name, and the one place in the catalogue where every language says the
+    // same thing on purpose: these are trademarks, and a table that could translate one is a table
+    // that will. They are entries rather than `TextRes.Raw` because they are *arguments* to two
+    // sentences the languages do order differently.
+    ProviderApple,
+    ProviderGoogle,
+
+    // ── Accepted, and not a fact yet ─────────────────────────────────────────────────────────
+    //
+    // The amber half of the offline era. Every one of these is a **card's foot or a row's second
+    // line** — the third carrier of held, after a surface and a face — and each says which way the
+    // request went, because that is the one thing a 29dp square cannot.
+    HeldButton,
+    HeldUpgradeFoot,
+    HeldStartFoot,
+    HeldBuildFoot,
+    HeldBuildAndAlertFoot,
+    HeldWatchOnFoot,
+    HeldWatchOffFoot,
+    HeldAnnounceFoot,
+    // The direction, said plainly, for every bell whose row has no richer sentence of its own.
+    HeldTurningOn,
+    HeldTurningOff,
+    HeldLadderNote,
+    // The one new piece of chrome in this era, and the only line in the app that carries a fact
+    // about the *network* rather than about the colony. It never carries the state of a control.
+    OfflineSince,
+    OfflineSinceCompact,
+
+    // ── Refused outright ─────────────────────────────────────────────────────────────────────
+    //
+    // The red half. Three verbs aim at something the server owns and this phone cannot promise —
+    // two at a shared galaxy, one at the account itself — so they refuse at the tap and name the
+    // fact that stops them. Never a code, never a dialog, never an apology.
+    RefusedRunLead,
+    RefusedRunBody,
+    RefusedRunBodyCompact,
+    RefusedProbeLead,
+    RefusedProbeBody,
+    RefusedProbeBodyCompact,
+    RefusedDeleteLead,
+    RefusedDeleteBody,
+
+    // ── The account, and the door out of it ──────────────────────────────────────────────────
+    //
+    // App Review guideline 5.1.1(v) asks for the door; what is here is more than it asks for, and
+    // the extra is the second fact — that signing in again with the same account starts an empty
+    // colony. Numbers cannot teach that and it is the thing a player most needs to know.
+    AccountLabel,
+    AccountSignedInWith,
+    AccountSince,
+    DeleteAccountRow,
+    DeleteAccountRowNote,
+    DeleteFaceTitle,
+    DeleteFaceIntro,
+    DeleteFaceSecond,
+    DeleteFaceAction,
+    DeleteFactColonyLabel,
+    DeleteFactFleetLabel,
+    DeleteFactMapLabel,
+    DeleteFactResearchLabel,
+    DeleteFactColony,
+    DeleteFactFleet,
+    DeleteFactMap,
+    DeleteFactResearch,
+    DeleteConfirmTitle,
+    DeleteConfirmIntro,
+    DeleteConfirmSecond,
+    DeleteKeep,
+    DeleteConfirmAction,
 }

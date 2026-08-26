@@ -7,6 +7,7 @@ android-compileSdk = "36"
 android-minSdk = "26"
 android-targetSdk = "36"
 androidx-activity = "1.13.0"
+androidx-credentials = "1.5.0"
 compose-material3 = "1.9.0"
 compose-multiplatform = "1.11.1"
 embedded-postgres = "2.2.2"
@@ -18,6 +19,9 @@ kotlinx-datetime = "0.8.0"
 kotlinx-serialization = "1.11.0"
 kover = "0.9.9"
 ktor = "3.5.2"
+# The Google ID request type Credential Manager takes. Google's own artifact, versioned separately
+# from androidx because it is not androidx — it is the shape of the option, and nothing else.
+google-id = "1.1.1"
 nimbus-jose-jwt = "10.9.1"
 # 42.7.10 rather than a round number: `embedded-postgres` drags the driver in transitively and
 # resolves it to exactly this, so anything lower is a version the tests would not be running.
@@ -27,6 +31,15 @@ turbine = "1.2.1"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+# **Sign in with Google on Android, without a browser.** Credential Manager is the platform's own
+# sheet: it hands back an ID token minted for the *server* client id, so there is no redirect to
+# register, no custom scheme in the manifest and no leg of the flow that can leave the app and fail to
+# come back. The `play-services-auth` artifact is the provider behind it and is what actually talks to
+# Google — split from the API so a device without Play Services fails to *offer* the credential rather
+# than failing to link.
+androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "androidx-credentials" }
+androidx-credentials-play-services = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "androidx-credentials" }
+google-id = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "google-id" }
 compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "compose-multiplatform" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose-multiplatform" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "compose-material3" }

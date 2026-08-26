@@ -58,6 +58,11 @@ object Italian : Translations {
         // `g` for *giorni*, and the padding is English's decision rather than English's grammar: the
         // day is never padded and the hour beside it always is, so a column of these stays tabular.
         StringId.DurationDaysHours -> "${args.number(0)}g ${args.number(1).pad2()}h"
+        // `s` and `m` are the symbols rather than abbreviations of the Italian words, exactly as the
+        // hour above is `h` and not `o` — the units are the international ones and every other
+        // duration in this table already writes them that way.
+        StringId.DurationSeconds -> "${args.number(0)}s"
+        StringId.DurationMinutesSeconds -> "${args.number(0)}m ${args.number(1).pad2()}s"
         StringId.Countdown -> "${args.number(0).pad2()}:${args.number(1).pad2()}:${args.number(2).pad2()}"
         StringId.WatchedAt -> "→ acquistabile ${args.clock()}"
 
@@ -723,6 +728,107 @@ object Italian : Translations {
         // to a mine. `versione` is what the row says underneath it.
         StringId.BuildLabel -> "BUILD"
         StringId.BuildRowSpoken -> "Versione ${args.text(0)} — ${args.text(1)}. Cosa è cambiato."
+
+        // ── The gate ─────────────────────────────────────────────────────────────────────────
+        StringId.SignInWhyLead -> "La galassia è condivisa, e la tua colonia gira sul server."
+        StringId.SignInWhyFoot -> "Un account è l'unico modo per tornarci."
+        StringId.SignInFoot -> "Nessuna colonia viene creata prima che tu sia dentro"
+        // **Apple's and Google's own Italian**, not a translation of the English above it. Both
+        // platforms publish these strings and both mandate them; a table that translated them itself
+        // would be putting the game's voice on the one object on the screen the game does not own.
+        StringId.SignInWithApple -> "Accedi con Apple"
+        StringId.SignInWithGoogle -> "Accedi con Google"
+        StringId.SignInWaitingLead -> "Accesso in corso."
+        StringId.SignInWaitingBody -> "In attesa della risposta del server."
+        StringId.SignInNoAnswerLead -> "Il server non ha risposto."
+        StringId.SignInNoAnswerBody ->
+            "La tua colonia gira lì, quindi non c'è un avvio offline. Riprova quando hai segnale."
+        // *Non ti ha fatto accedere* rather than a passive: the English names the provider as the
+        // subject on purpose — it is a fact about what happened and not an accusation — and Italian
+        // keeps that by keeping the same subject.
+        StringId.SignInRefusedLead -> "${args.text(0)} non ti ha fatto accedere."
+        StringId.SignInRefusedBody ->
+            "Non è stato creato niente e non è andato perso niente. Riprova, oppure usa ${args.text(0)}."
+        StringId.SignInThrottledLead -> "Troppe richieste."
+        StringId.SignInThrottledBody -> "Riprova fra ${args.text(0)}."
+        StringId.SignInAskAgainNow -> "Puoi riprovare adesso."
+        StringId.ProviderApple -> "Apple"
+        StringId.ProviderGoogle -> "Google"
+
+        // ── Accepted, and not a fact yet ─────────────────────────────────────────────────────
+        //
+        // *In attesa* is the whole of the amber vocabulary and it is one phrase everywhere, exactly
+        // as *held* is: a control that said it three ways would be three states to learn.
+        StringId.HeldButton -> "In attesa"
+        StringId.HeldUpgradeFoot -> "Potenziamento in attesa. Parte quando torna la rete."
+        StringId.HeldStartFoot -> "Avvio in attesa. Comincia quando torna la rete."
+        StringId.HeldBuildFoot -> "Costruzione in attesa. Parte quando torna la rete."
+        StringId.HeldBuildAndAlertFoot ->
+            "Costruzione in attesa, e con lei l'avviso da spegnere. Arrivano insieme."
+        StringId.HeldWatchOnFoot -> "Avviso in attesa — la campana si attiva quando torna la rete."
+        StringId.HeldWatchOffFoot -> "Avviso in attesa — la campana si spegne quando torna la rete."
+        StringId.HeldAnnounceFoot ->
+            "In attesa — sarai avvisato all'arrivo, appena la spedizione è confermata."
+        StringId.HeldTurningOn -> "In attesa — attivo quando torna la rete."
+        StringId.HeldTurningOff -> "In attesa — spento quando torna la rete."
+        StringId.HeldLadderNote -> "Hai chiesto ${args.text(0)}. In attesa che torni la rete."
+        StringId.OfflineSince ->
+            "Rete assente dalle ${args.clock()} · ${args.count(2)} " +
+                "${args.count(2).plural("azione", "azioni")} in attesa"
+        StringId.OfflineSinceCompact ->
+            "Rete assente dalle ${args.clock()} · ${args.count(2)} in attesa"
+
+        // ── Refused outright ─────────────────────────────────────────────────────────────────
+        StringId.RefusedRunLead -> "Una spedizione non può restare in attesa."
+        StringId.RefusedRunBody ->
+            "${args.text(0)} è in una galassia condivisa e potrebbe essere cambiato mentre eri " +
+                "offline. Spedisci quando torna la rete."
+        StringId.RefusedRunBodyCompact ->
+            "${args.text(0)} potrebbe essere cambiato. Spedisci quando torna la rete."
+        StringId.RefusedProbeLead -> "Una sonda non può restare in attesa."
+        StringId.RefusedProbeBody -> "Il sistema potrebbe essere cambiato mentre eri offline."
+        StringId.RefusedProbeBodyCompact -> "Il sistema potrebbe essere cambiato."
+        StringId.RefusedDeleteLead -> "Questo non può restare in attesa."
+        StringId.RefusedDeleteBody ->
+            "L'account si elimina sul server, e il server deve rispondere. " +
+                "Riprova quando torna la rete."
+
+        // ── The account, and the door out of it ──────────────────────────────────────────────
+        StringId.AccountLabel -> "ACCOUNT"
+        StringId.AccountSignedInWith -> "Accesso con ${args.text(0)}"
+        StringId.AccountSince ->
+            "${args.text(0)} · dal ${args.number(1)} ${MONTHS[args.number(2).toInt() - 1]}"
+        StringId.DeleteAccountRow -> "Elimina account"
+        StringId.DeleteAccountRowNote -> "Se ne va anche la colonia."
+        StringId.DeleteFaceTitle -> "Elimina account"
+        StringId.DeleteFaceIntro -> "Se ne va l'account, e con lui tutto quello che l'account tiene."
+        StringId.DeleteFaceSecond ->
+            "Rifare l'accesso con lo stesso account Apple o Google non riporta niente di tutto " +
+                "questo. Comincia una colonia nuova e vuota."
+        StringId.DeleteFaceAction -> "Elimina account"
+        StringId.DeleteFactColonyLabel -> "COLONIA"
+        StringId.DeleteFactFleetLabel -> "FLOTTA"
+        StringId.DeleteFactMapLabel -> "MAPPA"
+        StringId.DeleteFactResearchLabel -> "RICERCA"
+        StringId.DeleteFactColony ->
+            "${args.text(0)} · ${args.count(1)} " +
+                "${args.count(1).plural("struttura", "strutture")}, livello ${args.number(2)}"
+        StringId.DeleteFactFleet ->
+            "${args.text(0)}, e le ${args.count(1)} " +
+                "${args.count(1).plural("spedizione", "spedizioni")} in volo"
+        StringId.DeleteFactMap ->
+            "${args.count(0)} ${args.count(0).plural("sistema", "sistemi")} rilevati, " +
+                "${args.count(1)} ${args.count(1).plural("mondo", "mondi")} segnati"
+        StringId.DeleteFactResearch ->
+            "${args.count(0)} ${args.count(0).plural("progetto", "progetti")} e " +
+                "${args.count(1)} ${args.count(1).plural("adattamento", "adattamenti")}"
+        StringId.DeleteConfirmTitle -> "Eliminare ${args.text(0)}?"
+        StringId.DeleteConfirmIntro ->
+            "Questo è l'ultimo passo. Il prossimo tocco rimuove l'account e la colonia dal server."
+        StringId.DeleteConfirmSecond ->
+            "Niente di questo torna, e un nuovo accesso ${args.text(0)} comincia una colonia vuota."
+        StringId.DeleteKeep -> "Tienila"
+        StringId.DeleteConfirmAction -> "Elimina"
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

@@ -44,6 +44,13 @@ include(":sim")
 // What changed since the build you last opened. `domain` is the only layer that could exist before
 // the design came back: a version is three integers and "is there anything new" is a rule about two
 // of them, while everything else in this feature is either copy or a drawing.
+// The gate, and the first thing a player sees. `data` is the platform sign-in — three of them, and
+// the only module in the app whose job is finished before the game starts; `presentation` maps five
+// states into words; `ui` draws them. No `domain`: what the gate decides is *which sentence*, which is
+// a presentation module's whole subject.
+include(":client:auth:data")
+include(":client:auth:presentation")
+include(":client:auth:ui")
 include(":client:changelog:domain")
 include(":client:changelog:presentation")
 include(":client:changelog:ui")
@@ -106,6 +113,12 @@ include(":client:galaxy:ui-testing")
 // `client/net/data/build.gradle.kts`.
 include(":client:net:data")
 include(":client:net:data-testing")
+// What the outbox means to a screen, which is a different question from what it holds. `domain`
+// arrived at 0.20 for the reason `:client:dispatch:domain`'s did: *which control is held* is a fold
+// over queued verbs, eight mappers ask it, and a fold is a thing a test can execute where eight
+// copies of it are eight chances to disagree. It is also the only layer both sides may reach — `data`
+// may depend on `domain`, and so may `presentation`, which `data` itself can never be.
+include(":client:net:domain")
 include(":client:notifications:data")
 // Who is playing, above the rail. 0.16 shipped the `ui` alone and said in as many words that *"the
 // slice that makes the numbers real adds the layer then, with something to put in it"* — 0.17 is
