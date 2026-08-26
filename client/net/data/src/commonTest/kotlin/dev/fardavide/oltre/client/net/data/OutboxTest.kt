@@ -135,6 +135,80 @@ class OutboxTest {
         assertEquals(1, file.clearCount)
     }
 
+    // **The amber ghost reading `Held` is still a target**, and this is what it presses. Nothing has
+    // been sent, so there is nothing to countermand — withdrawing is a deletion from a file rather
+    // than a message to anybody.
+    @Test
+    fun `a held verb the player withdrew leaves the queue`() = runTest {
+        // given
+        val outbox = Outbox(FakeOutboxFile())
+        outbox.queue(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), "mine"))
+
+        // when
+        val result = outbox.withdraw(IdempotencyKey("mine"))
+
+        // then
+        assertEquals(WithdrawResult.WITHDRAWN, result)
+        assertEquals(emptyList(), outbox.queued())
+    }
+
+    @Test
+    fun `withdrawing one held verb leaves the others in the order they were tapped`() = runTest {
+        // given
+        val outbox = Outbox(FakeOutboxFile())
+        val first = envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), "first")
+        val second = envelope(ClientVerb.StartResearch(Technology.PHOTOVOLTAICS), "second", NOW + 3.minutes)
+        val third = envelope(ClientVerb.ToggleFlightAlerts, "third", NOW + 5.minutes)
+        outbox.queue(first)
+        outbox.queue(second)
+        outbox.queue(third)
+
+        // when
+        outbox.withdraw(IdempotencyKey("second"))
+
+        // then
+        assertEquals(listOf(first, third), outbox.queued())
+    }
+
+    // **The race the design named and did not solve**: the queue can flush between the tap that held
+    // a verb and the tap that would withdraw it, and then the card has already changed shape under
+    // the finger. There is nothing to take back and nothing to apologise for — but the caller has to
+    // be able to tell, because a screen that reported "withdrawn" about a verb the server accepted
+    // would be lying about the one thing this whole state exists to be honest about.
+    @Test
+    fun `withdrawing a verb the server already took changes nothing and says so`() = runTest {
+        // given
+        val outbox = Outbox(FakeOutboxFile())
+        val other = envelope(ClientVerb.StartResearch(Technology.PHOTOVOLTAICS), "other")
+        outbox.queue(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), "flushed"))
+        outbox.queue(other)
+        outbox.answered(setOf(IdempotencyKey("flushed")))
+
+        // when
+        val result = outbox.withdraw(IdempotencyKey("flushed"))
+
+        // then
+        assertEquals(WithdrawResult.ALREADY_SENT, result)
+        assertEquals(listOf(other), outbox.queued())
+    }
+
+    // The same guard `answered` carries, for the same reason: a withdrawal that matched nothing must
+    // not rewrite the file, or every stale tap would cost a disk write.
+    @Test
+    fun `withdrawing a verb that was never queued writes nothing`() = runTest {
+        // given
+        val file = FakeOutboxFile()
+        val outbox = Outbox(file)
+        outbox.queue(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), "mine"))
+        val writesSoFar = file.writeCount
+
+        // when
+        outbox.withdraw(IdempotencyKey("never tapped"))
+
+        // then
+        assertEquals(writesSoFar, file.writeCount)
+    }
+
     // The honest position rather than a comfortable one: this loses taps the player made, and there
     // is no way to recover them — a half-parsed queue is a queue whose order is unknown. What it
     // buys is that the app opens.
