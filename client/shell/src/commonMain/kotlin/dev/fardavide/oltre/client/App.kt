@@ -125,6 +125,10 @@ import kotlinx.datetime.TimeZone
 // comfortably past it and well short of anything a player would still be reading.
 private val ARRIVAL_WINDOW: Duration = 2.seconds
 
+// The resolution the chrome line prints at, and therefore the resolution the instant behind it is
+// worth storing at. See `arrive`.
+private const val MILLIS_PER_MINUTE: Long = 60_000
+
 // The shell is the impure boundary: it reads the clock, reads and writes the save file, books
 // the local notifications, ticks the UI, and holds the current session. Game state itself only
 // ever moves through core's advance/startUpgrade.
@@ -383,9 +387,17 @@ fun App(
                         // and *"no network since 11:31"* is only answerable by something that was
                         // remembered. Held in memory alone it would read *never* on every cold start
                         // and the line would be missing exactly when it is most needed.
-                        val next = remembered.copy(lastReachedAt = at.toEpochMilliseconds().toString())
-                        remembered = next
-                        preferences.save(next)
+                        //
+                        // **Stored to the minute, which is what makes the write rare rather than
+                        // per-tap.** The line prints `HH:MM`, so anything finer is a disk write that
+                        // cannot change a pixel — and every tap syncs, so without the truncation this
+                        // would rewrite a preferences file on every button in the game.
+                        val minute = (at.toEpochMilliseconds() / MILLIS_PER_MINUTE * MILLIS_PER_MINUTE).toString()
+                        if (remembered.lastReachedAt != minute) {
+                            val next = remembered.copy(lastReachedAt = minute)
+                            remembered = next
+                            preferences.save(next)
+                        }
                         held = HeldActions(outbox.queued())
                         // **`resume` and not a bare assignment**: the snapshot is stamped at the
                         // instant the *server* wrote it, and the phone has to advance it to now the
