@@ -9,11 +9,18 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInNonce
+import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
+import io.ktor.http.HttpMethod
 import kotlinx.coroutines.test.runTest
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -22,6 +29,9 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 // **The one boundary this module has, crossed for real.** `KtorOltreApiTest` drives the same class
@@ -41,8 +51,9 @@ import kotlin.time.Instant
 class OltreApiIntegrationTest {
 
     private lateinit var server: HttpServer
+    private var lastMethod: String = ""
     private var lastPath: String = ""
-    private var lastPlayer: String? = null
+    private var lastAuthorization: String? = null
     private var lastBody: String = ""
     private var status: Int = 200
     private var answer: String = ""
@@ -62,7 +73,7 @@ class OltreApiIntegrationTest {
     }
 
     @Test
-    fun `a sync over a real socket carries the header and comes back with the colony`() = runTest {
+    fun `a sync over a real socket carries the session and comes back with the colony`() = runTest {
         // given
         answer = Protocol.json.encodeToString(colony())
 
@@ -71,7 +82,7 @@ class OltreApiIntegrationTest {
 
         // then — what went out
         assertEquals("/v1/sync", lastPath)
-        assertEquals("davide", lastPlayer)
+        assertEquals(Protocol.BEARER_PREFIX + "davide", lastAuthorization)
         assertEquals(
             SyncRequest(apiVersion = ApiVersion.CURRENT, envelopes = listOf(UPGRADE)),
             Protocol.json.decodeFromString<SyncRequest>(lastBody),
@@ -105,6 +116,77 @@ class OltreApiIntegrationTest {
         assertEquals(ApiResult.Refused(ApiError.Unauthenticated), api().sync(PLAYER, emptyList()))
     }
 
+    @Test
+    fun `a sign-in over a real socket reaches the provider's route and comes back with a session`() = runTest {
+        // given
+        answer = Protocol.json.encodeToString(session())
+
+        // when
+        val result = api().signInWithApple(IdToken("apple.id.token"), SignInNonce("a-nonce"))
+
+        // then — what went out, including the absence that matters: a sign-in carries no session,
+        // because it is what produces one, and `/v1/auth/*` is the unauthenticated surface
+        assertEquals("/v1/auth/apple", lastPath)
+        assertNull(lastAuthorization)
+        assertEquals(
+            SignInRequest(ApiVersion.CURRENT, IdToken("apple.id.token"), SignInNonce("a-nonce")),
+            Protocol.json.decodeFromString<SignInRequest>(lastBody),
+        )
+
+        // and — what came back
+        assertEquals(ApiResult.Answered(session()), result)
+    }
+
+    @Test
+    fun `a refresh over a real socket trades the refresh token for a fresh pair`() = runTest {
+        // given
+        answer = Protocol.json.encodeToString(session())
+
+        // when
+        val result = api().refresh(SessionToken("the.refresh.token"))
+
+        // then
+        assertEquals("/v1/auth/refresh", lastPath)
+        assertEquals(
+            RefreshRequest(ApiVersion.CURRENT, SessionToken("the.refresh.token")),
+            Protocol.json.decodeFromString<RefreshRequest>(lastBody),
+        )
+        assertIs<ApiResult.Answered<SessionResponse>>(result)
+    }
+
+    // **A success with no body at all, over a real engine.** This is the arm a `MockEngine` is least
+    // able to speak for: a `204` legitimately carries no content and no `Content-Length`, and a
+    // transport that reached for the body anyway would turn the one irreversible call in the API
+    // into an error the player would be shown after their account had already gone.
+    @Test
+    fun `deleting an account over a real socket succeeds on a bodiless response`() = runTest {
+        // given
+        status = 204
+        answer = ""
+
+        // when
+        val result = api().deleteAccount(PLAYER)
+
+        // then
+        assertEquals(HttpMethod.Delete.value, lastMethod)
+        assertEquals("/v1/account", lastPath)
+        assertEquals(Protocol.BEARER_PREFIX + "davide", lastAuthorization)
+        assertEquals(ApiResult.Answered(Unit), result)
+    }
+
+    // The other side of it: deletion cannot be held, so a refusal has to arrive as one rather than
+    // as an optimistic success. An account that is still there after the app said it was gone is the
+    // worst outcome this call has.
+    @Test
+    fun `a deletion the server refuses over a real socket is not mistaken for success`() = runTest {
+        // given
+        status = 401
+        answer = Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated)
+
+        // when / then
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), api().deleteAccount(PLAYER))
+    }
+
     // **The one that matters most, and the one a `MockEngine` cannot answer.** A refused connection
     // has to arrive as `Unreachable` — anything else and a tap made with no signal never reaches the
     // outbox at all.
@@ -130,15 +212,34 @@ class OltreApiIntegrationTest {
     )
 
     private fun answer(exchange: HttpExchange) {
+        lastMethod = exchange.requestMethod
         lastPath = exchange.requestURI.path
-        lastPlayer = exchange.requestHeaders.getFirst(Protocol.PLAYER_HEADER)
+        lastAuthorization = exchange.requestHeaders.getFirst(Protocol.AUTHORIZATION_HEADER)
         lastBody = exchange.requestBody.readBytes().decodeToString()
 
+        // **`-1` and not `0`, which is what makes this a real `204`.** `com.sun.net.httpserver`
+        // reads the second argument as "there is a body of this length"; zero means chunked and
+        // still writes the framing. Passing `-1` is the only way to get the bodiless response the
+        // server actually sends, which is the whole point of testing this one over a socket.
         val bytes = answer.encodeToByteArray()
+        if (bytes.isEmpty()) {
+            exchange.sendResponseHeaders(status, -1)
+            exchange.close()
+            return
+        }
+
         exchange.responseHeaders.add("Content-Type", "application/json")
         exchange.sendResponseHeaders(status, bytes.size.toLong())
         exchange.responseBody.use { it.write(bytes) }
     }
+
+    private fun session(): SessionResponse = SessionResponse(
+        apiVersion = ApiVersion.CURRENT,
+        accessToken = SessionToken("an.access.token"),
+        accessExpiresAt = NOW + 1.hours,
+        refreshToken = SessionToken("a.refresh.token"),
+        refreshExpiresAt = NOW + 90.days,
+    )
 
     private fun colony(): SyncResponse = SyncResponse(
         apiVersion = ApiVersion.CURRENT,
@@ -151,7 +252,7 @@ class OltreApiIntegrationTest {
 
         val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
-        val PLAYER = PlayerHandle("davide")
+        val PLAYER = SessionToken("davide")
 
         val UPGRADE = VerbEnvelope(
             verb = ClientVerb.StartUpgrade(BuildingType.METAL_MINE),

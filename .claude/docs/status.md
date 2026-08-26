@@ -721,6 +721,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   has to come out of the sign-in flow, which is what that slice builds, so **#111 only has to expose
   the `.p8` as a secret** and the obligation stays with the screen that triggers it.
   See `decisions.md`, #110's round.
+  **Superseded 2026-08-26: it is #132, and the reason is worth keeping** — the client half turns out
+  not to be separable, which is what the plan above assumed. `Protocol.json` is
+  `encodeDefaults = true` with deliberately no `ignoreUnknownKeys`, and the server decodes every body
+  through that same codec, so a client that added the authorization code to `SignInRequest` would
+  have **every sign-in answered `400 Malformed` by the live service**. Holding the code client-side
+  instead is no better: Apple's codes expire in minutes and a deletion happens weeks after a sign-in,
+  so the thing that has to be kept is Apple's *refresh* token, which only the server can obtain. Wire
+  field, exchange and schema column land together. The diary entry above is unchanged and still owed.
 
 - **DAVIDE'S CALL, RULED: the rate stays at 60 and round 17's guardrail is spent.** 0.8.0 built the
   Shipyard and ran the sweep `exploration-rewards-sheet.md` §6.4 said could veto the rate. It vetoed

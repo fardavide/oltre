@@ -3,12 +3,35 @@ package dev.fardavide.oltre.client.net.data
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.RejectionReason
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.protocol.VerbRejection
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Instant
+
+// **A fixed instant rather than a clock read**, for the reason nothing in `core` reads one: a fake
+// whose expiries moved with the wall clock would make a test that asserts *"this refreshes at"* pass
+// or fail depending on when it ran.
+private val FAKE_SIGNED_IN_AT: Instant = Instant.parse("2026-08-26T09:00:00Z")
+
+// The two lifetimes `#110` settled, said again here so a test reading this file can see them: an
+// hour on the credential that travels on every request, ninety days on the one that does not.
+private val FAKE_SESSION: SessionResponse = SessionResponse(
+    apiVersion = ApiVersion.CURRENT,
+    accessToken = SessionToken("fake.access.token"),
+    accessExpiresAt = FAKE_SIGNED_IN_AT + 1.hours,
+    refreshToken = SessionToken("fake.refresh.token"),
+    refreshExpiresAt = FAKE_SIGNED_IN_AT + 90.days,
+)
 
 // **A server that is not there.** Handwritten, per the repository's no-mocking-framework rule, and
 // it is the one this slice exists to deliver as much as `OltreApi` is: `#106` §8 — the whole
@@ -50,6 +73,12 @@ class FakeOltreApi(
     // reason an idempotency key is not optional. One call applies its envelopes and then reads as
     // `Unreachable`; the flag clears itself, so the retry sees a server that already holds the keys.
     var losesNextResponse: Boolean = false,
+
+    // The session a sign-in or a refresh hands back. One fixed pair rather than a fresh one per
+    // call, deliberately: a fake that minted a new string every time would let a client pass that
+    // never stored what it was given, and *"the app keeps asking"* is exactly the bug the gate is
+    // most likely to have.
+    var session: SessionResponse = FAKE_SESSION,
 ) : OltreApi {
 
     // Verbs this server refuses rather than applies, and why. Keyed by the verb and not by the key,
@@ -66,12 +95,21 @@ class FakeOltreApi(
     // The `applied_verbs` table, in a map. Append-only here as it is there.
     private val applied = mutableSetOf<IdempotencyKey>()
 
-    private val foundings = mutableListOf<PlayerHandle>()
+    private val foundings = mutableListOf<SessionToken>()
 
     private val syncs = mutableListOf<Sent>()
 
+    private val signIns = mutableListOf<SignIn>()
+
+    private val deletions = mutableListOf<SessionToken>()
+
     // One request, as the two things it actually carries.
-    data class Sent(val player: PlayerHandle, val envelopes: List<VerbEnvelope>)
+    data class Sent(val access: SessionToken, val envelopes: List<VerbEnvelope>)
+
+    // A sign-in, as the three things it carries. The provider is a field here even though it is the
+    // *path* on the wire, because a test asserting "they tapped Apple" should not have to know which
+    // method that turned into.
+    data class SignIn(val provider: AuthProvider, val idToken: IdToken, val nonce: SignInNonce)
 
     fun lastSync(): Sent? = syncs.lastOrNull()
 
@@ -80,10 +118,37 @@ class FakeOltreApi(
     // is what an idempotency test is about.
     fun syncs(): List<Sent> = syncs.toList()
 
-    fun foundings(): List<PlayerHandle> = foundings.toList()
+    fun foundings(): List<SessionToken> = foundings.toList()
 
-    override suspend fun foundColony(player: PlayerHandle): ApiResult<SyncResponse> {
-        foundings += player
+    fun signIns(): List<SignIn> = signIns.toList()
+
+    // **What `DELETE /v1/account` was asked with**, and it is a list rather than a flag because
+    // deleting twice is not an error and a test about the second attempt has to be able to see it.
+    fun deletions(): List<SessionToken> = deletions.toList()
+
+    override suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
+        signIn(AuthProvider.APPLE, idToken, nonce)
+
+    override suspend fun signInWithGoogle(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
+        signIn(AuthProvider.GOOGLE, idToken, nonce)
+
+    // **A fresh pair, and the same pair every time.** A fake that minted a new string per call would
+    // let a client pass that never stored what it was given — the bug being guarded against is a
+    // client that keeps asking rather than one that keeps a session.
+    override suspend fun refresh(refreshToken: SessionToken): ApiResult<SessionResponse> =
+        refuseOrElse { ApiResult.Answered(session) }
+
+    override suspend fun deleteAccount(access: SessionToken): ApiResult<Unit> = refuseOrElse {
+        deletions += access
+        // Everything this server holds about them goes, which is what makes signing in again a new
+        // colony rather than the old one — `players.id` is a surrogate key, and that is the whole
+        // reason the second sign-in cannot land back on the first row.
+        colony = null
+        ApiResult.Answered(Unit)
+    }
+
+    override suspend fun foundColony(access: SessionToken): ApiResult<SyncResponse> {
+        foundings += access
         return answer(emptyList()) {
             // Idempotent, like the route it doubles: a second call after a lost response gets the
             // colony that is already there rather than a second galaxy.
@@ -91,15 +156,35 @@ class FakeOltreApi(
         }
     }
 
-    override suspend fun sync(player: PlayerHandle, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> {
-        syncs += Sent(player, envelopes)
+    override suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> {
+        syncs += Sent(access, envelopes)
         return answer(envelopes) {}
     }
 
-    private fun answer(envelopes: List<VerbEnvelope>, before: () -> Unit): ApiResult<SyncResponse> {
+    private fun signIn(
+        provider: AuthProvider,
+        idToken: IdToken,
+        nonce: SignInNonce,
+    ): ApiResult<SessionResponse> {
+        signIns += SignIn(provider, idToken, nonce)
+        return refuseOrElse { ApiResult.Answered(session) }
+    }
+
+    // The three refusals every call shares, in the order the real server applies them. Lifted out of
+    // `answer` so that the routes with no colony behind them get exactly the same treatment — a fake
+    // where `offline` meant something different on the gate than on a sync would let a broken client
+    // through on the one screen that has nowhere to fall back to.
+    private fun <T> refuseOrElse(block: () -> ApiResult<T>): ApiResult<T> {
         if (offline) return ApiResult.Unreachable
         transientErrors.removeFirstOrNull()?.let { return ApiResult.Refused(it) }
         error?.let { return ApiResult.Refused(it) }
+        return block()
+    }
+
+    private fun answer(envelopes: List<VerbEnvelope>, before: () -> Unit): ApiResult<SyncResponse> =
+        refuseOrElse { answered(envelopes, before) }
+
+    private fun answered(envelopes: List<VerbEnvelope>, before: () -> Unit): ApiResult<SyncResponse> {
         before()
         val held = colony ?: return ApiResult.Refused(ApiError.NoColony)
 

@@ -14,6 +14,8 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.RejectionReason
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.VerbRefusal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -26,13 +28,25 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 private val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
-private val PLAYER = PlayerHandle("davide")
+private val PLAYER = SessionToken("davide")
+
+// The session every test here starts signed in with. Expiries far enough out that the keeper never
+// refreshes unasked — a test about a sync should not be quietly a test about a refresh.
+private fun signedIn(): SessionResponse = SessionResponse(
+    apiVersion = ApiVersion.CURRENT,
+    accessToken = PLAYER,
+    accessExpiresAt = NOW + 1.hours,
+    refreshToken = SessionToken("davide.refresh"),
+    refreshExpiresAt = NOW + 90.days,
+)
 
 private val UPGRADE = ClientVerb.StartUpgrade(BuildingType.METAL_MINE)
 
@@ -55,7 +69,13 @@ private class Scenario(
     val clock: FakeClock = FakeClock(NOW),
     val keys: FakeIdempotencyKeys = FakeIdempotencyKeys("key"),
     val retry: RetryPolicy = RetryPolicy.ONCE,
+    // Signed in and in date, which is the state every test below is about *except* the four that
+    // say otherwise. A `SessionStore` rather than a token, so that a test can look at what the
+    // renewal wrote.
+    val store: FakeSessionStore = FakeSessionStore(signedIn()),
 ) {
+
+    val sessions: SessionKeeper = SessionKeeper(api = api, store = store, clock = clock)
 
     val sync: ColonySync = ColonySync(
         api = api,
@@ -63,6 +83,7 @@ private class Scenario(
         keys = keys,
         clock = clock,
         retry = retry,
+        sessions = sessions,
     )
 
     // What the app becomes after it is killed and reopened: the same file, the same server, a new
@@ -73,6 +94,7 @@ private class Scenario(
         keys = FakeIdempotencyKeys("second run"),
         clock = clock,
         retry = retry,
+        sessions = SessionKeeper(api = api, store = store, clock = clock),
     )
 }
 
@@ -84,12 +106,12 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW + 2.seconds, seed = 99)))
 
         // when
-        val outcome = scenario.sync.act(PLAYER, UPGRADE)
+        val outcome = scenario.sync.act(UPGRADE)
 
         // then
         assertEquals(ActOutcome.Synced(fakeColony(NOW + 2.seconds, seed = 99), emptyList()), outcome)
         assertEquals(listOf(UPGRADE), scenario.api.lastSync()?.envelopes?.map { it.verb })
-        assertEquals(PLAYER, scenario.api.lastSync()?.player)
+        assertEquals(PLAYER, scenario.api.lastSync()?.access)
     }
 
     // The colony came back, so the queue is empty — and the file is gone rather than holding `[]`.
@@ -99,7 +121,7 @@ class ColonySyncTest {
         val scenario = Scenario()
 
         // when
-        scenario.sync.act(PLAYER, UPGRADE)
+        scenario.sync.act(UPGRADE)
 
         // then
         assertNull(scenario.file.content)
@@ -114,14 +136,14 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
 
         // when — tapped on a train, and the process it was tapped in goes away
-        val outcome = scenario.sync.act(PLAYER, UPGRADE)
+        val outcome = scenario.sync.act(UPGRADE)
 
         // then
         assertEquals(ActOutcome.Queued, outcome)
 
         // and when — the app opens again with signal
         scenario.api.offline = false
-        val reopened = scenario.reopened().sync(PLAYER)
+        val reopened = scenario.reopened().sync()
 
         // then — the tap goes up, and it is the one that was made rather than a fresh one
         assertIs<SyncOutcome.Synced>(reopened)
@@ -138,8 +160,8 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), losesNextResponse = true))
 
         // when
-        assertEquals(ActOutcome.Queued, scenario.sync.act(PLAYER, UPGRADE))
-        val second = scenario.sync.sync(PLAYER)
+        assertEquals(ActOutcome.Queued, scenario.sync.act(UPGRADE))
+        val second = scenario.sync.sync()
 
         // then — the same envelope went up twice under one key
         val sent = scenario.api.syncs().map { it.envelopes.single().idempotencyKey }
@@ -163,7 +185,7 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
 
         // when
-        val outcome = scenario.sync.act(PLAYER, SURVEY)
+        val outcome = scenario.sync.act(SURVEY)
 
         // then
         assertEquals(ActOutcome.NotQueueable, outcome)
@@ -179,7 +201,7 @@ class ColonySyncTest {
         val scenario = Scenario()
 
         // when
-        val outcome = scenario.sync.act(PLAYER, SURVEY)
+        val outcome = scenario.sync.act(SURVEY)
 
         // then
         assertIs<ActOutcome.Synced>(outcome)
@@ -191,11 +213,11 @@ class ColonySyncTest {
     fun `a live dispatch carries whatever was already queued in front of it`() = runTest {
         // given
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
-        scenario.sync.act(PLAYER, UPGRADE)
+        scenario.sync.act(UPGRADE)
 
         // when
         scenario.api.offline = false
-        scenario.sync.act(PLAYER, SURVEY)
+        scenario.sync.act(SURVEY)
 
         // then
         assertEquals(listOf(UPGRADE, SURVEY), scenario.api.lastSync()?.envelopes?.map { it.verb })
@@ -210,12 +232,12 @@ class ColonySyncTest {
         // given
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
         scenario.api.refusals[UPGRADE] = RejectionReason.Refused(VerbRefusal.INSUFFICIENT_RESOURCES)
-        scenario.sync.act(PLAYER, UPGRADE)
-        scenario.sync.act(PLAYER, ClientVerb.StartResearch(Technology.PHOTOVOLTAICS))
+        scenario.sync.act(UPGRADE)
+        scenario.sync.act(ClientVerb.StartResearch(Technology.PHOTOVOLTAICS))
 
         // when
         scenario.api.offline = false
-        val outcome = scenario.sync.sync(PLAYER)
+        val outcome = scenario.sync.sync()
 
         // then — the refusal is named, with the envelope it came from
         assertIs<SyncOutcome.Synced>(outcome)
@@ -235,7 +257,7 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW + 1.seconds, seed = 314)))
 
         // when
-        val outcome = scenario.sync.sync(PLAYER)
+        val outcome = scenario.sync.sync()
 
         // then
         assertEquals(SyncOutcome.Synced(fakeColony(NOW + 1.seconds, seed = 314), emptyList()), outcome)
@@ -251,7 +273,7 @@ class ColonySyncTest {
         scenario.api.transientErrors += ApiError.StaleColony
 
         // when
-        val outcome = scenario.sync.sync(PLAYER)
+        val outcome = scenario.sync.sync()
 
         // then — asked twice, and what came back is a colony rather than an error
         assertIs<SyncOutcome.Synced>(outcome)
@@ -267,7 +289,7 @@ class ColonySyncTest {
         repeat(3) { scenario.api.transientErrors += ApiError.StaleColony }
 
         // when / then
-        assertEquals(SyncOutcome.NotNow, scenario.sync.sync(PLAYER))
+        assertEquals(SyncOutcome.NotNow, scenario.sync.sync())
         assertEquals(3, scenario.api.syncs().size)
     }
 
@@ -281,7 +303,7 @@ class ColonySyncTest {
         scenario.api.error = ApiError.Unauthenticated
 
         // when / then
-        assertEquals(SyncOutcome.Failed(ApiError.Unauthenticated), scenario.sync.sync(PLAYER))
+        assertEquals(SyncOutcome.Failed(ApiError.Unauthenticated), scenario.sync.sync())
         assertEquals(1, scenario.api.syncs().size)
     }
 
@@ -296,7 +318,7 @@ class ColonySyncTest {
         scenario.api.error = ApiError.Unauthenticated
 
         // when
-        val outcome = scenario.sync.act(PLAYER, UPGRADE)
+        val outcome = scenario.sync.act(UPGRADE)
 
         // then
         assertEquals(ActOutcome.Failed(ApiError.Unauthenticated), outcome)
@@ -305,21 +327,77 @@ class ColonySyncTest {
         assertEquals(listOf(UPGRADE), Outbox(scenario.file).queued().map { it.verb })
     }
 
-    // A verb queued before the session expired is still queued after it. The failure was about the
-    // request and not about the verb, so nothing was judged and nothing is dropped.
+    // **The one error the player is never shown.** `#110` split `SessionExpired` from
+    // `Unauthenticated` for exactly this, and this is the test that makes the promise real: the
+    // access token ran out mid-session, the app refreshed it and asked again, and what comes back is
+    // the colony rather than a screen.
     @Test
-    fun `a verb queued before a session expired is still queued after it`() = runTest {
-        // given
-        val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
-        scenario.sync.act(PLAYER, UPGRADE)
+    fun `a session that expires mid sync is refreshed and nobody is told`() = runTest {
+        // given — the server says the token is spent, once
+        val scenario = Scenario()
+        scenario.api.transientErrors += ApiError.SessionExpired
 
         // when
+        val outcome = scenario.sync.sync()
+
+        // then
+        assertIs<SyncOutcome.Synced>(outcome)
+
+        // and — the second attempt carried the token the refresh minted, not the spent one
+        assertEquals(SessionToken("fake.access.token"), scenario.api.lastSync()?.access)
+    }
+
+    // **A renewal does not spend an attempt**, which is what makes a tap land rather than queue.
+    // `RetryPolicy.ONCE` has exactly one, so folding the refresh into it would send every
+    // expired-token tap to `Queued` — eventually correct, and visibly wrong to somebody holding the
+    // phone with full signal.
+    @Test
+    fun `a tap made as the session expires still lands rather than being queued`() = runTest {
+        // given
+        val scenario = Scenario()
+        scenario.api.transientErrors += ApiError.SessionExpired
+
+        // when
+        val outcome = scenario.sync.act(UPGRADE)
+
+        // then
+        assertIs<ActOutcome.Synced>(outcome)
+        assertNull(scenario.file.content)
+    }
+
+    // A verb queued before the session expired is still queued after it. The failure was about the
+    // request and not about the verb, so nothing was judged and nothing is dropped — and what
+    // reaches the shell is `Unauthenticated`, because the app has already had its moment to fix
+    // this by itself and could not.
+    @Test
+    fun `a verb queued before a session ran out for good is still queued after it`() = runTest {
+        // given
+        val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
+        scenario.sync.act(UPGRADE)
+
+        // when — the signal is back, and this session is finished: the sync is refused and so is
+        // the refresh that would have rescued it
         scenario.api.offline = false
         scenario.api.error = ApiError.SessionExpired
 
         // then
-        assertEquals(SyncOutcome.Failed(ApiError.SessionExpired), scenario.sync.sync(PLAYER))
+        assertEquals(SyncOutcome.Failed(ApiError.Unauthenticated), scenario.sync.sync())
         assertEquals(listOf(UPGRADE), Outbox(scenario.file).queued().map { it.verb })
+    }
+
+    // The device has never been signed in on, so there is nothing to send and nothing to refresh.
+    // It reaches the shell as the one sentence that has a screen behind it.
+    @Test
+    fun `a sync with no session at all ends at the gate without asking anybody`() = runTest {
+        // given
+        val scenario = Scenario(store = FakeSessionStore(null))
+
+        // when
+        val outcome = scenario.sync.sync()
+
+        // then
+        assertEquals(SyncOutcome.Failed(ApiError.Unauthenticated), outcome)
+        assertEquals(emptyList(), scenario.api.syncs())
     }
 
     // **The whole of "does not hammer a dead server", and it is asserted step by step rather than
@@ -335,7 +413,7 @@ class ColonySyncTest {
         var outcome: SyncOutcome? = null
 
         // when — the sync is started and time is moved by hand
-        val running = launch { outcome = scenario.sync.sync(PLAYER) }
+        val running = launch { outcome = scenario.sync.sync() }
         runCurrent()
 
         // then — asked once immediately, and not again until the first wait is over
@@ -372,7 +450,7 @@ class ColonySyncTest {
         // when — `runTest` skips a `delay` rather than sleeping through it, so the scheduler is the
         // only thing that can say something did *not* wait
         val before = testScheduler.currentTime
-        assertEquals(ActOutcome.Queued, scenario.sync.act(PLAYER, UPGRADE))
+        assertEquals(ActOutcome.Queued, scenario.sync.act(UPGRADE))
 
         // then
         assertEquals(1, scenario.api.syncs().size)
@@ -388,7 +466,7 @@ class ColonySyncTest {
         )
 
         // when
-        scenario.sync.act(PLAYER, UPGRADE)
+        scenario.sync.act(UPGRADE)
 
         // then — a claim rather than a fact, which the server clamps; what matters here is that it
         // is the tap's own instant and not the sync's.
@@ -401,7 +479,7 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = null, founds = fakeColony(NOW, seed = 5)))
 
         // when
-        val outcome = scenario.sync.found(PLAYER)
+        val outcome = scenario.sync.found()
 
         // then
         assertEquals(SyncOutcome.Synced(fakeColony(NOW, seed = 5), emptyList()), outcome)
@@ -416,7 +494,7 @@ class ColonySyncTest {
         val scenario = Scenario(api = FakeOltreApi(colony = null))
 
         // when / then
-        assertEquals(SyncOutcome.Failed(ApiError.NoColony), scenario.sync.sync(PLAYER))
+        assertEquals(SyncOutcome.Failed(ApiError.NoColony), scenario.sync.sync())
     }
 
     @Test
@@ -429,7 +507,7 @@ class ColonySyncTest {
         )
 
         // when
-        val outcome = scenario.sync.sync(PLAYER)
+        val outcome = scenario.sync.sync()
 
         // then — whole rather than flattened, because *"update the app"* and *"this server is older
         // than you are"* are two different sentences.
@@ -443,7 +521,7 @@ class ColonySyncTest {
         val scenario = Scenario()
 
         // when
-        scenario.sync.sync(PLAYER)
+        scenario.sync.sync()
 
         // then — the empty request is what brings the colony up to date, so it is the normal case
         assertTrue(scenario.api.lastSync()?.envelopes?.isEmpty() == true)

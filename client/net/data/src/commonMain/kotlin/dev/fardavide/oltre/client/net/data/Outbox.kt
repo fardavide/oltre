@@ -22,6 +22,22 @@ enum class QueueResult {
     NOT_QUEUEABLE,
 }
 
+// **What pressing the amber ghost did**, and it is two answers because the queue can move under the
+// finger. An enum rather than a `Boolean` for `QueueResult`'s reason: a caller that has to tell the
+// player which of these happened cannot forget one.
+enum class WithdrawResult {
+
+    // It was still outstanding and it is gone. Nothing was ever sent, so nothing was countermanded.
+    WITHDRAWN,
+
+    // **The queue flushed between the tap that held it and the tap that would withdraw it.** Not an
+    // error and not a failure — the verb the player wanted is on its way to happening, which is what
+    // they asked for in the first place. It is its own answer because the card has already changed
+    // shape underneath them, and a screen that said *"withdrawn"* here would be lying about the one
+    // thing the held state exists to be honest about.
+    ALREADY_SENT,
+}
+
 // **Everything the player did that the server has not answered yet**, in the order they did it, on
 // disk. *"A queued verb that evaporates when the app is killed is worse than one that was
 // refused"* — so every mutation here is a write, and nothing is held in memory between calls. That
@@ -84,6 +100,24 @@ class Outbox(private val file: OutboxFile) {
         // signal answers a key the file has never held — and without this, each one would delete a
         // file that is not there.
         if (remaining.size != outstanding.size) write(remaining)
+    }
+
+    // **The one way out of the held state, and it is a deletion rather than a message.** A held verb
+    // has not been sent — that is the whole of what held means — so taking it back costs nobody an
+    // apology and needs no server to agree.
+    //
+    // **It is deliberately not undo.** Undo would have to reach something that already happened; this
+    // can only reach something that has not. The two are told apart by whether the key is still in
+    // the file, and the answer says which, because between the tap that held a verb and the tap that
+    // would withdraw it the queue may have drained — see `WithdrawResult.ALREADY_SENT`.
+    suspend fun withdraw(key: IdempotencyKey): WithdrawResult {
+        val outstanding = queued()
+        val remaining = outstanding.filterNot { it.idempotencyKey == key }
+        // Nothing matched means nothing written, which is `answered`'s guard for `answered`'s
+        // reason: a stale tap must not cost a disk write.
+        if (remaining.size == outstanding.size) return WithdrawResult.ALREADY_SENT
+        write(remaining)
+        return WithdrawResult.WITHDRAWN
     }
 
     private suspend fun write(envelopes: List<VerbEnvelope>) {

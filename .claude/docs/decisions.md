@@ -6235,3 +6235,136 @@ One line because it cost one round trip: `gcloud beta run domain-mappings create
 prompt could not be answered because you are not in an interactive session"* rather than doing
 anything. `gcloud components install beta --quiet` first. Written into step 43 where the command is.
 
+
+
+## Nothing is local now, and the layer underneath it goes first (2026-08-26, issue #113)
+
+Slice 6 of #106, split. The Claude Design round trip came back — *Nothing Is Local Now*, five
+surfaces and ten held controls — and implementing it is still #113's. What landed here is the layer
+beneath it: the bearer cutover, the four auth calls, the outbox's way out of a held state, and the
+thing that keeps a session alive. **Nothing a player can do changes and nothing ships**, so there is
+no version bump; #107, #108, #109, #112 and #119 are the precedent.
+
+### The split is vertical, and that is why it had to be argued rather than assumed
+
+Everything in #113 is downstream of the cutover: the gate is only reachable because the colony moved,
+and a held card only exists because a verb can be outstanding. So there is no horizontal cut — no
+"do the design system first" — and the honest line is a *layer* rather than a *feature*.
+
+What put it here rather than one slice later is the part no machine in this repository can run.
+**Apple and Google sign-in, on iOS, Android and desktop, is three integrations in front of the screen
+that gates the whole game**, and a broken one is not a degraded app: it is an app that cannot be
+opened. That is a different risk from 0.4.2's parallax, which is the precedent a session might reach
+for — a motion constant invented on paper costs a lazy starfield and a second install, where an
+invented sign-in costs the only tester their only build. So the loop that made the tilt exception safe
+does not transfer, and the two halves ship separately.
+
+### `PlayerHandle` is deleted rather than renamed
+
+It meant *"a name this client typed"*. What travels now means *"a session this server signed"*, and
+those are different enough that keeping the name would have been precisely the lie the type existed to
+prevent. `:protocol`'s `SessionToken` already said the second thing, so the client stopped declaring
+its own.
+
+**The header goes with it, and the assertion that it is gone is its own test.** `#110` left
+`X-Oltre-Player` readable and unbelieved, and a client that kept sending it alongside a bearer would
+work perfectly against today's server while claiming an identity it has not proved — so
+`a request no longer claims a player by name` asserts the absence rather than trusting it. The
+real-socket integration test moved to the new header too: what it is for is proving that a *real*
+engine puts the credential where the server reads it, and that claim has to be about the credential
+that is actually sent.
+
+### Two sign-in methods rather than one taking a provider
+
+`Auth.kt` had already settled that the provider is the path — the two tokens are verified against
+different issuers, different audiences and different key sets, so one route would have to branch on
+its own body. The client mirrors that: `signInWithApple` and `signInWithGoogle`, no enum in the
+signature.
+
+**`AuthProvider` exists anyway, in `:protocol`, and carries no `@Serializable`.** The gate has two
+buttons and something has to carry which was pressed from a finger to the method that spells the
+route; both `:client:auth` and `:client:net:data` need to name it without depending on each other,
+which makes `:protocol` the only honest home. The missing annotation is the load-bearing part: the
+moment it has one it has become the body field the whole shape was chosen to avoid.
+
+### `send` takes a null deserializer, and `204` is the reason
+
+`DELETE /v1/account` is the one call whose success carries nothing. Read through the same path as
+every other response it would be a body that failed to parse, which is the opposite of what it means
+— so the absence of a deserializer *is* the statement that there is nothing to read. Every other arm
+of the transport is unchanged and shared, which matters more than the four lines it saves: the
+`5xx`-is-`Unreachable` call, the `4xx`-is-`Malformed` call and the `IOException` width are decisions
+#112 made once, and a second post method would have been a second place to get them wrong.
+
+### `SessionKeeper`, and the line that makes `SessionExpired` a sentence nobody reads
+
+#110 gave the two tokens different lifetimes and said in as many words that an expired access token
+is *"the one that can be answered without a screen, once refresh exists"*. This is that, and three
+decisions in it are worth more than the class.
+
+**`ColonySync` resolves the token rather than taking one.** A caller holding it would have to know
+when to refresh, which is a decision, and this module exists so the screen above it makes none. It
+also means there is exactly one place that answers `SessionExpired` and therefore exactly one place
+that can get it wrong.
+
+**A renewal does not spend a retry attempt**, and that is the difference between a tap landing and a
+tap queueing. `RetryPolicy.ONCE` has exactly one attempt, so folding the refresh into it would send
+every expired-token tap to `Queued` — eventually correct, and visibly wrong to somebody standing
+there with full signal. Once only: a second `SessionExpired` on a token this server has just minted
+is not a clock disagreement any more, and it surfaces as `Unauthenticated` rather than as the member
+whose meaning is *"ask again in a moment"*, because a client told that about the credential it asks
+with would loop forever.
+
+**A refresh nobody answered keeps the session.** This is the arm that justifies `ApiResult` splitting
+`Refused` from `Unreachable` at all: clearing here would send somebody to a sign-in screen they cannot
+use, on a train, and throw away the credential that will work when the signal comes back. The refusal
+arm does clear, because a refresh token that was in date and was refused anyway is an account deleted
+on another device.
+
+**And the refresh token's own expiry is checked before it is offered.** Ninety days ends at the gate
+without a round trip, because `SessionResponse` puts both instants on the wire — which is the reason
+that field is there rather than left to be decoded out of a credential the client did not sign.
+
+### `SessionStore` is a port, and it is deliberately not the save file
+
+`OutboxFile`'s argument made a third time: reusing `:client:save:data`'s `SaveFile` would create the
+cross-feature edge the build warns about on every clean run. It holds the whole `SessionResponse`
+rather than the two strings, for the expiry reason above.
+
+Keeping it out of `GameStore` is `PreferencesStore`'s call rather than a new one, with the asymmetry
+worth stating: a corrupt save costs a colony the server still holds, and a corrupt session costs a
+sign-in, which is a screen the player can answer. Neither should be able to take the other down.
+
+### `WithdrawResult` has two members because the queue moves under the finger
+
+The design turns a held card's action button into an amber ghost reading `Held`, and that ghost is
+still a target: pressing it withdraws the request. Nothing has been sent, so there is nothing to
+countermand and nobody to tell — it is a deletion from a file.
+
+**It is not undo, and the second member is what says so.** The queue can drain between the tap that
+held a verb and the tap that would take it back; the design names that race and does not solve it.
+`ALREADY_SENT` exists so that a screen is never in the position of claiming it took back something the
+server already has, which is the one thing the held state exists to be honest about.
+
+### Two decisions taken and moved elsewhere
+
+**Apple token revocation is #132 and not this slice.** #110 and #113 both recorded it as landing here
+on the reasoning that the blocker was client-side. It is — and the client half is not separable.
+`Protocol.json` is `encodeDefaults = true` with deliberately no `ignoreUnknownKeys`, and the server
+decodes every body through that same codec, so a client that added an authorization code to
+`SignInRequest` would have every sign-in answered `400 Malformed` by the live service. Keeping the
+code client-side instead is no better: Apple's codes expire in minutes and a deletion happens weeks
+after a sign-in, so the thing that has to be kept is Apple's *refresh* token, which only the server can
+obtain. Wire field, exchange and schema column land together or not at all.
+
+**The two provider buttons are JetBrains Mono, which is a deviation and is Davide's.** The design drew
+them in the platform fonts and raised the consequence itself: they would be the only non-deterministic
+pixels in the suite, since platform fonts resolve differently on the macOS that records baselines and
+the Linux that verifies them. The premise turned out to be half wrong. **Apple does not mandate a
+typeface** — the HIG prefers the system font and explicitly permits a custom button to change the
+title font, binding only the proportion, which is why the 43%-of-height rule is kept. **Google does
+mandate Roboto Medium**, and it is bundleable, so a third option existed that nobody had costed:
+bundle Roboto and use mono for Apple, and no platform font appears anywhere. Davide's call was
+**mono for both** — one font in the entire product, and a knowing deviation from a written Google
+guideline on an OAuth app that is deliberately in *Testing* and never published. The day it is
+published is the day that trade is re-taken.

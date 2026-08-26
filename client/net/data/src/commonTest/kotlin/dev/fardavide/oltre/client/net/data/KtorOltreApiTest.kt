@@ -4,8 +4,14 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInNonce
+import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
@@ -26,12 +32,15 @@ import kotlinx.io.readString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 private val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
-private val PLAYER = PlayerHandle("davide")
+private val PLAYER = SessionToken("an.access.token")
 
 private const val BASE_URL = "https://oltre.example"
 
@@ -39,6 +48,14 @@ private val UPGRADE = VerbEnvelope(
     verb = ClientVerb.StartUpgrade(BuildingType.METAL_MINE),
     clientInstant = NOW,
     idempotencyKey = IdempotencyKey("key"),
+)
+
+private fun session(): SessionResponse = SessionResponse(
+    apiVersion = ApiVersion.CURRENT,
+    accessToken = SessionToken("an.access.token"),
+    accessExpiresAt = NOW + 1.hours,
+    refreshToken = SessionToken("a.refresh.token"),
+    refreshExpiresAt = NOW + 90.days,
 )
 
 private fun colonyResponse(): SyncResponse = SyncResponse(
@@ -89,11 +106,13 @@ class KtorOltreApiTest {
         )
     }
 
-    // The header both ends read, and it is `Protocol.PLAYER_HEADER` at both ends rather than a
-    // string spelled out twice — a client that disagreed by one character would read as a player
-    // who never signed in, and nothing would say so.
+    // **The cutover, in one assertion.** `#112` sent `X-Oltre-Player` and a deployed server has
+    // ignored it outright since `#110`; what a request carries now is a session this server signed
+    // itself. Both strings are `Protocol`'s rather than spelled out here, for the reason the header
+    // moved into that module in the first place — a client that disagreed by one character would
+    // read exactly like a player who never signed in, and nothing would say so.
     @Test
-    fun `a request says who is asking`() = runTest {
+    fun `a request says who is asking with a session the server signed`() = runTest {
         // given
         val records = mutableListOf<HttpRequestData>()
 
@@ -102,7 +121,27 @@ class KtorOltreApiTest {
             .sync(PLAYER, emptyList())
 
         // then
-        assertEquals("davide", records.single().headers[Protocol.PLAYER_HEADER])
+        assertEquals(
+            Protocol.BEARER_PREFIX + "an.access.token",
+            records.single().headers[Protocol.AUTHORIZATION_HEADER],
+        )
+    }
+
+    // The other half of the cutover, and it is worth its own assertion rather than being implied by
+    // the one above: the placeholder is *gone*, not merely unread. A client still sending it would
+    // work against today's server and would be claiming an identity it has not proved the day
+    // anything reads the header again.
+    @Test
+    fun `a request no longer claims a player by name`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(colonyResponse()), HttpStatusCode.OK, JSON) }
+            .sync(PLAYER, emptyList())
+
+        // then
+        assertNull(records.single().headers[Protocol.PLAYER_HEADER])
     }
 
     @Test
@@ -253,6 +292,204 @@ class KtorOltreApiTest {
         val error = assertIs<ApiError.Malformed>(assertIs<ApiResult.Refused>(result).error)
         assertTrue(error.detail.contains("400"), "no status in ${error.detail}")
         assertTrue(error.detail.contains("nothing useful"), "no body in ${error.detail}")
+    }
+
+    // **The provider is the path and not a field**, which is `Auth.kt`'s call and the reason there
+    // are two methods here rather than one taking an enum. The two tokens are verified against
+    // different issuers, different audiences and different key sets, so a single route would have to
+    // branch on its own body to decide who to believe.
+    @Test
+    fun `signing in with apple posts the token and the nonce to apple's route`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(session()), HttpStatusCode.OK, JSON) }
+            .signInWithApple(IdToken("apple.id.token"), SignInNonce("a-nonce"))
+
+        // then
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/auth/apple", request.url.encodedPath)
+        assertEquals(
+            SignInRequest(ApiVersion.CURRENT, IdToken("apple.id.token"), SignInNonce("a-nonce")),
+            Protocol.json.decodeFromString<SignInRequest>(request.bodyText()),
+        )
+    }
+
+    @Test
+    fun `signing in with google posts to google's route`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(session()), HttpStatusCode.OK, JSON) }
+            .signInWithGoogle(IdToken("google.id.token"), SignInNonce("a-nonce"))
+
+        // then
+        assertEquals("/v1/auth/google", records.single().url.encodedPath)
+    }
+
+    // **A sign-in is the one call that carries no session**, because it is what produces one. Sending
+    // an expired token here would be harmless today and is exactly the sort of thing that stops being
+    // harmless: `/v1/auth/*` is the unauthenticated surface, and a credential on it is a credential
+    // in a log that nobody is treating as one.
+    @Test
+    fun `a sign-in carries no session of its own`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(session()), HttpStatusCode.OK, JSON) }
+            .signInWithApple(IdToken("apple.id.token"), SignInNonce("a-nonce"))
+
+        // then
+        assertNull(records.single().headers[Protocol.AUTHORIZATION_HEADER])
+    }
+
+    @Test
+    fun `a session that comes back is handed up whole`() = runTest {
+        // given / when
+        val result = api { respond(Protocol.json.encodeToString(session()), HttpStatusCode.OK, JSON) }
+            .signInWithApple(IdToken("apple.id.token"), SignInNonce("a-nonce"))
+
+        // then — both tokens and both expiries, because the client refreshes on the stated instant
+        // rather than by decoding a credential it only ever carries
+        assertEquals(ApiResult.Answered(session()), result)
+    }
+
+    // A provider token this server will not accept. One sentence for every refusal is the server's
+    // call — telling a client *which* check failed tells anybody holding a stolen token which check
+    // to work on — and what matters here is only that the sentence survives the wire.
+    @Test
+    fun `a sign-in the server refused comes back as unauthenticated`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated),
+                HttpStatusCode.Unauthorized,
+                JSON,
+            )
+        }.signInWithApple(IdToken("stolen.id.token"), SignInNonce("a-nonce"))
+
+        // then
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), result)
+    }
+
+    // **The one error that says *when* rather than *what*.** `/v1/auth/*` is publicly reachable and
+    // does a signature check per request, so it is the one surface where a loop costs real money —
+    // and the gate needs the number, because "ask again in 41s" and "try again later" are different
+    // sentences.
+    @Test
+    fun `a rate limit comes back carrying the wait the gate has to print`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString<ApiError>(ApiError.TooManyRequests(41)),
+                HttpStatusCode.TooManyRequests,
+                JSON,
+            )
+        }.signInWithApple(IdToken("apple.id.token"), SignInNonce("a-nonce"))
+
+        // then
+        assertEquals(ApiResult.Refused(ApiError.TooManyRequests(41)), result)
+    }
+
+    @Test
+    fun `a refresh trades the refresh token for a fresh pair`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(session()), HttpStatusCode.OK, JSON) }
+            .refresh(SessionToken("the.refresh.token"))
+
+        // then
+        val request = records.single()
+        assertEquals("/v1/auth/refresh", request.url.encodedPath)
+        assertEquals(
+            RefreshRequest(ApiVersion.CURRENT, SessionToken("the.refresh.token")),
+            Protocol.json.decodeFromString<RefreshRequest>(request.bodyText()),
+        )
+    }
+
+    // **A refresh token that has itself run out is `Unauthenticated` and not `SessionExpired`.** That
+    // reads as inconsistent and is the point: `SessionExpired` means *"ask again in a moment"*, and a
+    // client told that about the credential it asks *with* would loop forever.
+    @Test
+    fun `a refresh token ninety days old ends at the gate rather than in a loop`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated),
+                HttpStatusCode.Unauthorized,
+                JSON,
+            )
+        }.refresh(SessionToken("the.stale.refresh.token"))
+
+        // then
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), result)
+    }
+
+    // App Review guideline 5.1.1(v). `DELETE` with the session and no body at all — there is nothing
+    // in either direction to disagree about, which is why this route alone does no version
+    // negotiation.
+    @Test
+    fun `deleting an account sends the session and nothing else`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond("", HttpStatusCode.NoContent) }.deleteAccount(PLAYER)
+
+        // then
+        val request = records.single()
+        assertEquals(HttpMethod.Delete, request.method)
+        assertEquals("/v1/account", request.url.encodedPath)
+        assertEquals(
+            Protocol.BEARER_PREFIX + "an.access.token",
+            request.headers[Protocol.AUTHORIZATION_HEADER],
+        )
+    }
+
+    // **`204` and an empty body is the success**, and it has to be read as one rather than as a body
+    // that failed to parse. Deleting twice answers the same way — a client that lost the response to
+    // the first attempt will send a second, and telling it its account does not exist is telling it
+    // the thing it asked for.
+    @Test
+    fun `an account that went away answers with nothing and that is the success`() = runTest {
+        // given / when
+        val result = api { respond("", HttpStatusCode.NoContent) }.deleteAccount(PLAYER)
+
+        // then
+        assertEquals(ApiResult.Answered(Unit), result)
+    }
+
+    @Test
+    fun `deleting with a session the server will not accept is refused rather than assumed done`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated),
+                HttpStatusCode.Unauthorized,
+                JSON,
+            )
+        }.deleteAccount(PLAYER)
+
+        // then
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), result)
+    }
+
+    // **Deletion cannot be held**, which is the design's own call and the reason this arm matters:
+    // the account is removed on the server and the server has to answer, so a request that never
+    // arrived must read as nothing having happened rather than as a deletion in flight.
+    @Test
+    fun `a deletion that never reached anybody reads as unreachable`() = runTest {
+        // given / when
+        val result = api { throw IOException("no route to host") }.deleteAccount(PLAYER)
+
+        // then
+        assertEquals(ApiResult.Unreachable, result)
     }
 
     // Every way a request can fail to happen is one answer, because there is one thing to do about
