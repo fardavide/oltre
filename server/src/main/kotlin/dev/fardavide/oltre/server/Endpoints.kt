@@ -43,6 +43,18 @@ internal sealed interface Answer {
         override val status: HttpStatusCode = HttpStatusCode.NoContent
     }
 
+    // **Heard, and there was nothing to say back.** Apple's server-to-server notifications, which are
+    // the one route on this server whose caller is not a player: Apple retries anything that is not a
+    // `2xx`, and there is no payload it would read if there were one.
+    //
+    // Its own member rather than `Deleted` reused, even though the two put the same status on the
+    // wire, because the names are what the route files are read through — a `consent-revoked` that
+    // answered `Deleted` would say the opposite of what it did.
+    data object Noted : Answer {
+
+        override val status: HttpStatusCode = HttpStatusCode.NoContent
+    }
+
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
 

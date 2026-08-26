@@ -90,6 +90,36 @@ class PostgresPlayerRepositoryIntegrationTest {
         assertEquals(1, database.rowsIn("players"))
     }
 
+    // ── Finding ───────────────────────────────────────────────────────────────────────────────
+
+    // **`find` is `resolve` with the insert taken away, and that is exactly what has to be proved
+    // here.** `#111` added it for Apple's server-to-server notifications, where the caller is Apple
+    // and the answer *"nobody"* is a real one — a notification about a subject that never signed in
+    // here must not mint a row for it on the way to deleting it. Sharing the `SELECT` with `resolve`
+    // is what makes that safe and is also how it could go wrong.
+    @Test
+    fun `finding an identity that signed in gives the row it made`() = runTest {
+        val player = players.resolve(mine)
+
+        assertEquals(player, players.find(mine))
+    }
+
+    @Test
+    fun `finding an identity nobody has seen writes nothing`() = runTest {
+        assertNull(players.find(mine))
+        assertEquals(0, database.rowsIn("players"))
+    }
+
+    // The pair is provider-scoped, so the same subject under another provider is another person —
+    // Apple and Google can both mint `1234` and mean two different people. A `find` that looked at
+    // the subject alone would hand Apple somebody else's colony to delete.
+    @Test
+    fun `finding is scoped to the provider as well as the subject`() = runTest {
+        players.resolve(mine)
+
+        assertNull(players.find(ProviderIdentity(ProviderName("apple"), "subject-a")))
+    }
+
     // ── Existing ──────────────────────────────────────────────────────────────────────────────
 
     @Test

@@ -18,6 +18,13 @@ internal interface PlayerRepository {
     // prevent one layer down.
     suspend fun resolve(identity: ProviderIdentity): PlayerId
 
+    // **Find, and pointedly not create** — the sibling of `resolve` and the reason the two are
+    // separate methods rather than a flag. `#111` added it for Apple's server-to-server
+    // notifications, where the caller is Apple rather than a player: a notification about somebody
+    // who never signed in here has to answer *"nobody"*, and `resolve` would answer it by minting a
+    // row for a subject that has never held a colony and is being deleted.
+    suspend fun find(identity: ProviderIdentity): PlayerId?
+
     // **Asked on every authenticated request, and that is what makes deletion mean deletion.** A
     // session token is a signed claim about a player, and a signature cannot be un-signed: without
     // this, an account deleted a minute ago keeps working until its access token runs out. One

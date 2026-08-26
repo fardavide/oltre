@@ -46,6 +46,20 @@ internal class PostgresPlayerRepository(
         )
     }
 
+    // The second half of `resolve`'s statement pair, on its own and without the insert in front of
+    // it. Null is "nobody has ever signed in as that", which is a real answer here rather than a
+    // failure — see `PlayerRepository.find`.
+    override suspend fun find(identity: ProviderIdentity): PlayerId? = dataSource.transaction { connection ->
+        connection.query(
+            SELECT_PLAYER,
+            bind = {
+                setString(1, identity.provider.value)
+                setString(2, identity.subject)
+            },
+            read = { rows -> if (rows.next()) PlayerId(rows.getString(1)) else null },
+        )
+    }
+
     override suspend fun exists(player: PlayerId): Boolean = dataSource.transaction { connection ->
         connection.query(
             SELECT_EXISTS,

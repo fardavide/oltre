@@ -4,6 +4,8 @@ import dev.fardavide.oltre.protocol.Protocol
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
 import kotlinx.coroutines.runBlocking
+import kotlin.io.path.Path
+import kotlin.io.path.readText
 import kotlin.time.Clock
 
 // The process, and nothing else — the wiring is `oltre` one file over, where a test can drive it.
@@ -28,15 +30,38 @@ fun main() {
         println("SESSION_SIGNING_KEY is not set: a request names its player in a header and proves nothing.")
     }
 
+    // **Step 45, and it runs here rather than lazily on the first revoke.** Loading Apple's `.p8` and
+    // signing a throwaway ES256 token *before* the port is bound is what turns a truncated file, the
+    // wrong secret mounted or a key on the wrong curve into a **failed deploy** — Cloud Run keeps the
+    // previous revision serving when a new one never becomes ready. Deferred, the same mistake would
+    // be an outage beginning the first time somebody deletes their account, months later.
+    //
+    // Nothing in this build calls `/auth/revoke` yet: that is `#113`'s, with the deletion screen. The
+    // key is mounted anyway because a secret nobody exercises is a secret nobody knows is broken.
+    val apple = appleSigningKey(System::getenv) { path -> Path(path).readText() }
+    if (apple == null) {
+        println("$APPLE_KEY_FILE is not set: this server cannot call Apple's REST API. See `#113`.")
+    } else {
+        // The token is discarded — it is never sent to Apple, and its subject says so. What is kept
+        // is the fact that signing worked, which is the whole of the check.
+        apple.selfCheck(Clock.System.now())
+        println("Apple signing key ${apple.keyId} loaded and signs $ES256.")
+    }
+
     val (colonies, players) = url?.let(::postgres) ?: inMemory()
     val identity = configured?.let {
+        val keys = JwksKeys(httpJwksSource(), Clock.System)
         Identity(
-            verifier = IdTokenVerifier(
-                specs = it.specs(),
-                keys = JwksKeys(httpJwksSource(), Clock.System),
+            verifier = IdTokenVerifier(specs = it.specs(), keys = keys, clock = Clock.System),
+            sessions = Sessions(it.signingKey, Clock.System),
+            // The same key set and the same spec the verifier holds: an ID token and one of Apple's
+            // notifications are signed by the same keys, and a second cache would be a second thing
+            // to go stale.
+            notifications = AppleNotificationVerifier(
+                spec = it.specs().getValue(IdentityProvider.APPLE),
+                keys = keys,
                 clock = Clock.System,
             ),
-            sessions = Sessions(it.signingKey, Clock.System),
         )
     }
 
@@ -90,3 +115,8 @@ private fun inMemory(): Pair<ColonyRepository, PlayerRepository> {
 
 private const val DATABASE_URL = "DATABASE_URL"
 private const val DEFAULT_PORT = 8080
+
+// Named here only so the log line above can say which variable is absent. `AppleKey.kt` owns the
+// string; this is the one place that has to print it.
+private const val APPLE_KEY_FILE = "APPLE_SIGNIN_KEY_FILE"
+private const val ES256 = "ES256"

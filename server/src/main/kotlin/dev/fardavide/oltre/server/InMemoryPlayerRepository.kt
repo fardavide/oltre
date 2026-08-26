@@ -26,6 +26,8 @@ internal class InMemoryPlayerRepository(
         players.getOrPut(identity) { ids.mint() }
     }
 
+    override suspend fun find(identity: ProviderIdentity): PlayerId? = lock.withLock { players[identity] }
+
     override suspend fun exists(player: PlayerId): Boolean = lock.withLock { player in players.values }
 
     override suspend fun forget(player: PlayerId): Boolean = lock.withLock {

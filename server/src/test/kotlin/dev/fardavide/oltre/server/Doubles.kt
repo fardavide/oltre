@@ -2,6 +2,7 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Duration
 import kotlin.time.Instant
@@ -22,9 +23,17 @@ internal class MovableClock(private var at: Instant) : Clock {
 // useless in an assertion: a test that wants to say *"the same subject came back to the same
 // player"* has to be able to name one. Counting from one also makes "a deleted account signs in
 // again and gets a **new** id" a thing a reader can see rather than take on trust.
+//
+// **Counted atomically, and that is a fix rather than a flourish.** `PostgresPlayerRepositoryIntegration
+// Test` resolves the same identity from two threads at once — which is the point of that test — and a
+// plain `var` lets both read the same number and mint `player-1` twice. The insert then conflicts on
+// `players_pkey` rather than on `(provider, subject)`, which is the one conflict `DO NOTHING` does not
+// cover, and the test fails having proved nothing about the upsert it was written for. It is a defect
+// in this double and not in the store: the real mint is `UUID.randomUUID()`, which two threads cannot
+// collide on. Found by #111, on a run where the race happened to be lost.
 internal fun sequentialPlayerIds(): PlayerIds {
-    var minted = 0
-    return PlayerIds { PlayerId("player-${++minted}") }
+    val minted = AtomicInteger()
+    return PlayerIds { PlayerId("player-${minted.incrementAndGet()}") }
 }
 
 // The store that is there and cannot answer. Handwritten, per the repository's fakes-not-mocks
@@ -52,6 +61,8 @@ internal class UnreachableColonyRepository : ColonyRepository {
 internal class UnreachablePlayerRepository : PlayerRepository {
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = error("no route to host")
+
+    override suspend fun find(identity: ProviderIdentity): PlayerId? = error("no route to host")
 
     override suspend fun exists(player: PlayerId): Boolean = error("no route to host")
 
@@ -81,6 +92,8 @@ internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
     ): WriteResult = throw NullPointerException()
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = throw NullPointerException()
+
+    override suspend fun find(identity: ProviderIdentity): PlayerId? = throw NullPointerException()
 
     override suspend fun exists(player: PlayerId): Boolean = throw NullPointerException()
 

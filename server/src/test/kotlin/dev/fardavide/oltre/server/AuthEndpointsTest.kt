@@ -43,6 +43,11 @@ class AuthEndpointsTest {
             clock = clock,
         ),
         sessions = sessions,
+        notifications = AppleNotificationVerifier(
+            spec = testSpec(IdentityProvider.APPLE),
+            keys = JwksKeys(source, clock),
+            clock = clock,
+        ),
     )
     private val authenticator = SessionAuthenticator(sessions, players)
 
