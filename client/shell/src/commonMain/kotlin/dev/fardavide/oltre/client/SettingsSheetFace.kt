@@ -14,6 +14,8 @@ import dev.fardavide.oltre.client.changelog.ui.BuildRow
 import dev.fardavide.oltre.client.changelog.ui.BuildRowUiState
 import dev.fardavide.oltre.client.changelog.ui.ChangelogSheetContent
 import dev.fardavide.oltre.client.changelog.ui.ChangelogUiState
+import dev.fardavide.oltre.client.auth.ui.DeleteFaceContent
+import dev.fardavide.oltre.client.auth.ui.DeleteFaceUiState
 import dev.fardavide.oltre.client.settings.ui.AlertSheetContent
 import dev.fardavide.oltre.client.settings.ui.AlertSheetUiState
 import dev.fardavide.oltre.core.AlertCategory
@@ -59,6 +61,13 @@ fun SettingsSheetFace(
     onSelectMode: (AlertMode) -> Unit,
     onToggleCategory: (AlertCategory) -> Unit,
     onSelectDelivery: (AlertDelivery) -> Unit,
+    // The two doors out of the account, and the one action in the app that cannot be undone. `delete`
+    // is null wherever there is no account face to draw, which is the same nullability the sheet's own
+    // Account section carries and for the same reason.
+    delete: DeleteFaceUiState?,
+    onOpenDelete: () -> Unit,
+    onKeepAccount: () -> Unit,
+    onDeleteAccount: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedContent(
@@ -84,9 +93,25 @@ fun SettingsSheetFace(
                 onSelectMode = onSelectMode,
                 onToggleCategory = onToggleCategory,
                 onSelectDelivery = onSelectDelivery,
+                onDeleteAccount = onOpenDelete,
                 build = { BuildRow(uiState = build, onOpenChangelog = onOpenChangelog) },
             )
             SheetFace.CHANGELOG -> ChangelogSheetContent(uiState = changelog, compact = compact)
+            // **The third and fourth faces, and they arrive the way the changelog does** — the sheet
+            // swaps its contents in place, so there is still no sheet over a sheet and no back stack.
+            //
+            // `delete` cannot be null here by construction: the only way to reach either face is the
+            // Account row, which is only drawn when there is an account. Drawing nothing rather than
+            // asserting, because a crash on the way to a deletion screen is the worst possible place
+            // for one — and `DeleteAccountBehaviourTest` is what makes the pairing a fact.
+            SheetFace.DELETE_WARN, SheetFace.DELETE_CONFIRM -> delete?.let {
+                DeleteFaceContent(
+                    uiState = it,
+                    compact = compact,
+                    onKeep = onKeepAccount,
+                    onAct = onDeleteAccount,
+                )
+            }
         }
     }
 }
@@ -97,6 +122,13 @@ enum class SheetFace {
 
     SETTINGS,
     CHANGELOG,
+
+    // All reading and no consequence: four rows of what the account holds, then the fact the numbers
+    // cannot teach. Red begins here, as an outline.
+    DELETE_WARN,
+
+    // The last step, and the only filled red button in the product.
+    DELETE_CONFIRM,
 }
 
 private const val SWAP_MILLIS = 210

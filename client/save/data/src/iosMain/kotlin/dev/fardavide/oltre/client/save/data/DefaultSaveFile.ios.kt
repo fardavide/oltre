@@ -22,6 +22,16 @@ actual fun defaultSaveFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$S
 
 actual fun defaultPreferencesFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$PREFERENCES_FILE_NAME")
 
+actual fun defaultOutboxFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$OUTBOX_FILE_NAME")
+
+// **Documents, like the other three, and that is worth a second look rather than a shrug.** The
+// session is the one file here that is a credential, and iOS has a Keychain for those. It is not used,
+// deliberately: what is stored is a token this server minted and can revoke, its access half lasts an
+// hour, and the Documents directory is already app-private and unreadable by anything else on the
+// device. The Keychain would buy survival across a reinstall, which is precisely the thing a sign-in
+// screen exists to handle.
+actual fun defaultSessionFile(): SaveFile = IosSaveFile("${documentsDirectory()}/$SESSION_FILE_NAME")
+
 private fun documentsDirectory(): String =
     NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, true).first() as String
 

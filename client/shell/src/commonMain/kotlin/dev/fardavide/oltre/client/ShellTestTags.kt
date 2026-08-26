@@ -8,6 +8,10 @@ internal object ShellTestTags {
     // asserted on bounds, which needs a stable handle on the node that carries it.
     const val RESOURCE_RAIL_CONTENT = "resource-rail-content"
 
+    // The offline chrome line, which is an *absence* on a colony with signal — so an assertion that
+    // it is not there is as load-bearing as one that it is, and both need a handle.
+    const val OFFLINE = "offline-line"
+
     fun tab(tab: OltreTab): String = "tab-${tab.name.lowercase()}"
 
     // The rate shares a line with the stock rather than sitting under it, so the pair — not the

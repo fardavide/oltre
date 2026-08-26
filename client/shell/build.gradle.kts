@@ -52,6 +52,14 @@ kotlin {
             // decides whether this launch has anything new to say, `presentation` turns the document
             // into pages, and `ui` is the face the one sheet wears. `:client:settings:ui` reaches
             // none of them — the build row that leads to the changelog is filled into a slot here.
+            // The gate, the deletion face, the three platform sign-ins, and the queue read as a set
+            // of controls. The composition root is the only module that may see all four, which is
+            // the whole of its job.
+            implementation(projects.client.auth.data)
+            implementation(projects.client.auth.presentation)
+            implementation(projects.client.auth.ui)
+            implementation(projects.client.net.data)
+            implementation(projects.client.net.domain)
             implementation(projects.client.changelog.domain)
             implementation(projects.client.changelog.presentation)
             implementation(projects.client.changelog.ui)

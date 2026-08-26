@@ -42,13 +42,14 @@ class PreferencesStore(private val file: SaveFile) {
     private data class Record(
         val galaxyLanding: String? = null,
         val lastSeenVersion: String? = null,
+        val provider: String? = null,
     )
 
     private fun Record.toPreferences(): Preferences =
-        Preferences(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion)
+        Preferences(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion, provider = provider)
 
     private fun Preferences.toRecord(): Record =
-        Record(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion)
+        Record(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion, provider = provider)
 
     private companion object {
 
