@@ -140,8 +140,8 @@ jobs:
       # **The audiences are repository *variables* and not secrets**, because they are not secret: an
       # OAuth client id travels in every redirect a browser makes. They are out of the file so that
       # adding a sixth client is a settings change rather than a commit, and so this repository does
-      # not carry a list of Davide's clients. The team and the key id are literals above because
-      # `decisions.md` already names both.
+      # not carry a list of Davide's clients. The team and the key id are spelled out in the command
+      # because `decisions.md` already names both and neither ever changes without a key rotation.
       #
       # They are checked in the first step of the job, before anything is compiled.
       - name: Deploy

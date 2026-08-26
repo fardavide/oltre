@@ -5722,3 +5722,333 @@ somebody is, is `IdTokens.kt`; whether a session is good is `Sessions.kt`; what 
 is not there is `Authenticator.kt`. All three are plain `…Test`s. **This is a new file matching an
 existing pattern rather than a new exclusion**, and it is written down here so that it is a decision
 rather than something that happened.
+
+
+## A URL that answers, and the half of it that is not a URL (2026-08-26, issue #111)
+
+Slice 4 of #106. A container, a Cloud Run service in `europe-west1`, Workload Identity Federation
+instead of a service-account key, the startup self-check and rate limit step 45 asked for, and the
+Apple notification endpoint step 22 registered eight months of `api.oltre.space`'s permanence ago.
+Nothing a player sees moves and nothing ships, so there is no version bump; #107, #108, #109, #110,
+#112 and #119 are the precedent.
+
+**What is *not* done and cannot be done here is Neon**, which needs an account and hands back key
+material. Everything downstream of it — the first deploy, therefore the service, therefore the domain
+mapping, the scheduler ping, the measured cold start and the redeploy check — is one paste away and
+is written as one: [`identity-provisioning.md`](identity-provisioning.md) step 44a.
+
+### #111's own scope line about `ApiVersion` was wrong against what shipped
+
+The ticket says the version *"becomes a request header the server reads"*. It is not and was never
+going to be: #107 put `apiVersion` in the **body** of all five wire types — `SyncRequest`,
+`SyncResponse`, `SignInRequest`, `RefreshRequest`, `SessionResponse` — and `readRequest` in
+`Endpoints.kt` is what negotiates it, answering `426` with the window. `DELETE /v1/account`
+deliberately has no negotiation at all because it has no body, and #110 argued that: a build refusing
+to delete data because it disliked a number is not a thing to build.
+
+**So nothing was added.** A header would be a `:protocol` change and an `ApiVersion.CURRENT` bump for
+a second copy of a field that already works, and it is written down here rather than left as a
+discrepancy somebody rediscovers while reading the ticket next to the code.
+
+### The container is a JRE over `installDist`, and the two-step is the point
+
+`#111`'s scope line, taken literally. The `application` plugin already produces a directory holding a
+start script and every jar; the deploy workflow runs `:server:installDist` where Gradle's cache is
+warm, and the `Dockerfile` copies the answer. A self-contained multi-stage build would re-download
+the world on every deploy inside a builder with no cache.
+
+The consequence is stated in the file rather than discovered: **`docker build .` alone fails**, and
+the error names the missing path. `.dockerignore` is written deny-all-then-allow, because a list of
+exclusions gets one entry behind the tree the first time somebody adds a directory and the failure is
+silent and slow rather than loud.
+
+Two JVM flags earn their lines. **`MaxRAMPercentage=75`** because the default heap is a *quarter* of
+the container, which is 128 MiB of 512 — right on a shared machine, wrong on a container holding one
+process, and the failure is a colony replaying a long absence and dying of `OutOfMemoryError` rather
+than being slow. **`UseSerialGC`** spelled out rather than inherited, because the JVM picks it below
+two CPUs and **startup CPU boost temporarily gives the instance more** — exactly when the ergonomics
+are read. Left implicit, the boost would silently buy a concurrent collector nothing needs.
+
+### Workload Identity Federation, and a second service account that can read nothing
+
+No service-account JSON in a GitHub secret, which #111 asks for by name. Provisioned 2026-08-26 and
+read back:
+
+| | |
+|---|---|
+| Artifact Registry | `europe-west1-docker.pkg.dev/oltre-506614/oltre` |
+| Pool / provider | `github` / `fardavide-oltre`, condition `assertion.repository=='fardavide/oltre'` |
+| Deploy identity | `oltre-deployer@`, bound to that repository alone |
+| Runtime identity | `oltre-server@`, unchanged from step 42 |
+
+**Two accounts and not one, which is the part worth keeping.** `oltre-deployer` holds
+`roles/run.admin`, `artifactregistry.writer` on one repository, and `iam.serviceAccountUser` on
+`oltre-server@` — and **no `secretAccessor` on anything**. The account that deploys the service
+cannot read what the service reads, so a compromised workflow can ship a bad image and cannot exfil
+the Neon string or the `.p8`. Merging the two would have been one fewer thing to create and would
+have made the deploy pipeline a path to every secret in the project.
+
+### The deploy is triggered by its own paths, and the check that a smoke test cannot do
+
+Davide's call: **push to `main` filtered on `server/`, `protocol/`, `core/`, the `Dockerfile` and the
+workflow itself**, plus manual dispatch. Independent of the release workflows, which is #106 §8 and
+not a preference — a server deploy can never be atomic with a client release, so a server fix must
+not wait for a version bump. A merge that moves a screenshot baseline is not a server change, and a
+deploy log listing every merge is a log nobody can read as a record of what the server is running.
+
+**The workflow refuses a revision that is serving colonies from memory.** #111's Done-means added
+that check after #109 and the reason is exact: with `DATABASE_URL` absent or misspelled the server
+falls back to the in-memory store, and *that store founds colonies and serves syncs perfectly well* —
+so every other assertion a smoke test could make passes with the database not connected at all. Two
+things can tell them apart. One is the redeploy check, which is a human minute and is in the
+Done-means. The other is the startup log, which prints a line saying what it is doing — and grepping
+a deployed revision's logs for that line is a step in the workflow, because a fallback that is
+correct locally is a failure in production and nothing else in the pipeline would notice.
+
+**Rolling back is one `gcloud run services update-traffic`, and the workflow prints it** into the run
+summary with the five most recent revisions beside it. In a document it would be a line nobody reads
+until the moment they cannot afford to go looking for it.
+
+### `--set-env-vars` needs `^@^`, and this repository is the reason
+
+The trap the walkthrough had not spotted, found by writing the command out. `--set-env-vars` is a
+gcloud **dict flag delimited by commas** — and `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are
+themselves comma-separated lists, because there is one OAuth client per platform and the server must
+accept two audiences per provider (#110). Written the obvious way, the second audience becomes an
+environment variable *named after an OAuth client id* with an empty value.
+
+The failure it produces is #110's trap word for word, arriving through a shell instead of through a
+type: every phone signs in and the **desktop build is refused** — the only build the behaviour and
+screenshot suites run on. gcloud's leading `^<delimiter>^` is what that syntax is for.
+
+**And the audiences are GitHub repository *variables*, not secrets and not literals.** None of them is
+secret — an OAuth client id travels in every redirect a browser makes, and Apple's are already in
+`iosApp/project.yml` — so a secret would be theatre. Out of the file rather than in it so that adding
+a sixth client is a settings change; and the workflow **fails before the deploy** if either is empty,
+because otherwise the answer is a revision that will not boot and a four-minute round trip to learn
+that a settings field is blank.
+
+### The self-check signs rather than loads, and the case that says why
+
+Step 45 asks for the `.p8` to be loaded and a throwaway ES256 token signed **before the port is
+bound**, so that a broken key is a failed deploy — Cloud Run keeps the previous revision serving when
+a new one never becomes ready. `Main.kt` does exactly that, and `appleSigningKey` refuses a half-set
+configuration outright: the step's *"none of these values may have a default"* reaching the code the
+way `identityConfig` already reads `SESSION_SIGNING_KEY`.
+
+**Loading is not enough, and one case is the whole argument.** A P-384 key is a perfectly good
+`ECPrivateKey`: the PEM decodes, the `KeyFactory` accepts it, the cast holds — and it cannot sign
+ES256, because the algorithm names the curve as well as the hash. A check that stopped at *"the file
+parsed"* would go green and fail the first time somebody deleted their account, months later.
+
+**Nothing in this build calls Apple's REST API**, which is why the key is easy to leave unexercised
+and why it is exercised anyway. `/auth/revoke` is #113's, with the deletion screen — Davide's call on
+2026-08-25, because the blocker is the authorization code and only the sign-in flow produces one.
+This slice's whole job with the key was to expose it as a secret; a secret nobody exercises is a
+secret nobody knows is broken.
+
+The asymmetry with `SESSION_SIGNING_KEY` is deliberate and is not an oversight: a deployed server
+with no session key means anybody can name any player, which is a compromise, so `Main.kt` refuses to
+boot. A deployed server with no `.p8` means one obligation to Apple goes unmet on a route that does
+not exist yet, so it logs and carries on.
+
+### The rate limit is a generic cell rate algorithm, and it is per instance and says so
+
+`/v1/auth/*` and nothing else, which is step 45's shape rather than a blanket. Those are the only
+routes reachable without a session and the only ones that do a signature check *before* knowing who
+is asking; everything else costs a bearer-token read first, so a caller who cannot sign in cannot
+reach it. An integration test pins that the colony routes are **not** limited, because a limiter
+installed at `/v1` instead would refuse a player mid-session and no unit test would notice.
+
+**Twenty a minute per caller with the whole burst available at once.** A real sign-in is one request
+and a refresh is one an hour per device, so this is about a thousand times what a player does and
+four orders of magnitude below what a loop does. The burst is the whole allowance rather than a
+trickle because the honest failure is a phone retrying a flaky sign-in three times in five seconds,
+and that must not read as an attack.
+
+Three decisions inside it are worth more than the numbers:
+
+- **Keyed on the *last* hop of `X-Forwarded-For`.** Everything before it is whatever the caller wrote.
+  The two ways of being wrong are not symmetric: read the last hop and a trusted proxy in front would
+  pool every caller into one bucket — too strict, immediately visible, nobody let through who should
+  not be. Read the first and a caller rotating a forged header defeats the class outright, silently,
+  which is the failure nobody finds until the bill arrives.
+- **The map has a ceiling, because the map is the attack surface the limiter adds.** A caller rotating
+  its address mints an entry per request. Callers who have recovered are dropped first, which is the
+  whole of the eviction in a normal minute; under an actual flood the one **closest to recovery** goes,
+  because evicting the worst offender would hand a fresh burst to whoever is trying hardest.
+- **Per instance, stated rather than implied.** Cloud Run runs as many instances as it likes and they
+  share nothing, so N instances allow N times this — and the alternative is a round trip to a shared
+  store on the one path that must stay cheap. `--max-instances=3` is what bounds N, and the budget
+  alert is what bounds the consequence.
+
+### `ApiError.TooManyRequests` is a `:protocol` change, and it is additive on purpose
+
+A 429 needs a body, and the alternative was a bare one. **The client's own code is what decided it**:
+`KtorOltreApi.unreadable` turns an unparseable `4xx` into `ApiError.Malformed` — *"that did not make
+sense"* — and then never asks again, which is the opposite of what a rate limit means. Leaving the
+member to #113, on the *"a line with no consumer is dead weight"* argument this repository keeps
+making, would have shipped a server whose refusal the client is already written to misread.
+
+**No `ApiVersion` bump**, on `ApiVersion.CURRENT`'s own rule: a version moves when the other end
+*cannot ignore* the change. An older build never receives this, because the only routes that emit it
+are ones no shipped client calls — #112's client speaks `/v1/colony` and `/v1/sync`, and the sign-in
+screen that speaks the rest is #113's. It is the mirror of *"adding a verb is not one of those"*.
+`Retry-After` goes out beside it, so everything on the wire that already knows what a wait is gets one.
+
+### Apple's notification endpoint: here rather than #113, and only one of the four events deletes
+
+Davide's call, 2026-08-26, asked while the slice was open rather than left as a flag in a PR body.
+`POST /v1/auth/apple/notifications` was entered into the App ID at **step 22**, months before there
+was a server, purely because `api.oltre.space` is permanent and re-entering it later is another trip
+through a Save/Confirm flow the walkthrough warns drops values silently. Nothing is sent today because
+nobody has signed in; it starts 404ing the day #113 ships.
+
+**It lands here because it is server code and #113 is not a server slice.** Every piece it needs was
+already in `:server` — `JwksKeys` fetches Apple's key set, the RS256 pin and the issuer and audience
+rules are `IdTokens.kt`'s, `players.forget` is #110's — and #113 is a local session already carrying a
+design round trip, the sign-in screen, `/auth/revoke` and the shell cutover.
+
+**Nothing acts before the signature is checked**, which is the whole reason it is not four lines: the
+URL is public, the body is JSON, and one of the four things it can say is *delete this account*. The
+signature half is **shared with `IdTokenVerifier` rather than copied** — `signedClaims` was extracted
+for it, a pure refactor that left every #110 test untouched — because a second copy of the machinery
+where a mistake is a real-world compromise is the last thing to duplicate. The claims half is not
+shared, and that is the point of the split: an ID token and a notification are signed identically and
+carry entirely different claims.
+
+**Apple's notification tokens carry no `exp`**, unlike its ID tokens, so freshness is read off `iat` or
+not at all: a day back, five minutes forward for skew. A notification refused for arriving four
+seconds early would be a deletion this server never hears about.
+
+**And `account-delete` is the only one that deletes.** The obvious reading of `consent-revoked` is the
+wrong one: it is the player turning Sign in with Apple off in Settings, which is an unlink — signing
+in again re-consents and hands back **the same subject**. A colony deleted there would be a year of
+play destroyed by a toggle Apple itself lets anybody undo. `email-disabled` and `email-enabled` are
+acknowledged and are about nothing this server holds, because #106 §4 chose the subject over the
+email precisely so there would be less to have an opinion about.
+
+Two smaller calls that follow from the caller being Apple rather than a player. **An event type this
+build has never heard of is refused rather than shrugged at**, so Apple retries it and a line lands in
+the log — Apple adds types, and answering *"fine"* to one nobody read would leave nothing anywhere
+saying it had arrived. And **`204` whether a row went away or not**, exactly as `DELETE /v1/account`
+is: Apple retries a non-`2xx` for days, so telling it that an account it is reporting the deletion of
+does not exist would have it come back about a fact both ends already agree on.
+
+`PlayerRepository` gained **`find`, which is pointedly not `resolve`**. A notification about somebody
+who never signed in here has to answer *"nobody"*; `resolve` is find-**or-create** and would answer it
+by minting a row for a subject that has never held a colony, on the way to deleting it.
+
+### The keep-warm ping needed a route, and the route had to touch nothing
+
+#106 §6 puts a Cloud Scheduler job on the service every ten minutes so a player never meets the cold
+start, and it never said what to ping. Nothing existing would do: `/v1/sync` needs a session, and an
+unmatched path is a `404` that Cloud Scheduler counts as a failed job and retries. So `GET /health`,
+outside `/v1` because it is not part of the wire contract — no body, nothing to negotiate — and `204`
+because there is nothing true to put in a body that the status line does not already say.
+
+**It reaches no store, and that is the decision rather than laziness.** A health check that asked the
+database whether it was there is the better endpoint on almost any other host. Here it would keep
+**Neon** awake around the clock: Neon's free plan bills *compute hours* and scales the branch to zero
+after a few minutes idle, so a ping every ten minutes would run it for the whole month against an
+allowance of a small fraction of that. **The €0 in §6 depends on this route doing nothing**, which is
+exactly the kind of coupling that gets refactored away by somebody making a health check more useful
+— so the integration test hands the server repositories that raise when they are touched, and the
+assertion is that the ping still answers.
+
+### And the ping would have kept Neon awake anyway, through the connection pool
+
+The half of that decision that only shows up when the two pieces are put side by side, and the most
+expensive thing this slice nearly shipped.
+
+**HikariCP's default is `minimumIdle == maximumPoolSize`**, which means a *fixed* pool: five
+connections opened at startup and held for the life of the process, with `idleTimeout` ignored
+outright. #109 set `maximumPoolSize = 5` and left the rest, and wrote into the file that *"`#111` owns
+whether this number is right"*.
+
+**So a route that touches nothing would still have kept Neon awake.** The ping keeps a Cloud Run
+instance alive around the clock — that is what it is for — and an instance alive with a fixed pool is
+five connections open to Neon around the clock, which is compute that never autosuspends. Neon's free
+plan meters compute hours and does not let Free disable autosuspend, so a colony nobody was playing
+would have burned the month's allowance and suspended the project. **Neither half is wrong on its
+own**; together they are an outage with a fortnight's fuse and no symptom until it fires.
+
+`minimumIdle = 0` and a ten-second `idleTimeout` — HikariCP's floor, so it is a limit being respected
+rather than a number being tuned. The cost is a connection setup on the first request after a quiet
+spell: a TLS handshake, plus Neon's own wake-up if it has suspended. At two to four requests per
+player per day that is the right way round, and the alternative is paying to hold a connection open
+all day so that four of them are marginally faster.
+
+### A test double that was not thread-safe, found by a race it lost
+
+`sequentialPlayerIds()` counted with a plain `var`, and `PostgresPlayerRepositoryIntegrationTest`
+resolves the same identity from two threads at once — which is the whole point of that test. Both
+threads can read the same number, mint `player-1` twice, and the insert then conflicts on
+`players_pkey` rather than on `(provider, subject)` — the one conflict `ON CONFLICT … DO NOTHING`
+does not cover. The test fails having proved nothing about the upsert it exists for.
+
+**A defect in the double and not in the store**, which is why it is worth a paragraph rather than a
+line: the real mint is `UUID.randomUUID()` and two threads cannot collide on one, so nothing shipped
+was ever wrong. It had been latent since #110 and surfaced here only because a coverage measurement
+runs the suite five times.
+
+### What the coverage gate cost, and again no exclusion
+
+Measured with `.github/scripts/measure-coverage.sh` against `main` at `fdd4167`, five passes,
+`--no-build-cache`. **The first measurement failed the gate on four values** — unit line 92.5 → 92.4,
+unit branch 87.0 → 86.5, and both totals with them.
+
+**The answer was tests and two deletions, not an eighth exclusion**, which is #110's move made again
+and is the shape to copy rather than the numbers. What the report actually pointed at was three
+things:
+
+- **Refusals nobody had written a test for.** A public POST target's body is whatever anybody felt
+  like sending, so `payloadOf` and `eventIn` are mostly branches: an envelope that is a JSON array, a
+  `payload` that is an object or a number or blank, an `events` claim whose `type` is a number and
+  whose `sub` is missing. Every one is a real refusal that fails silently when it is absent, and the
+  uncovered branch was the report saying so.
+- **Two arms that no test could ever reach**, which are a different thing and were deleted rather than
+  covered. `KeyFactory.getInstance("EC").generatePrivate(...)` returns an `ECPrivateKey` or throws, so
+  `as?` plus a fallback message described a state the JCA does not have; and `minByOrNull` on a map
+  that is at its ceiling cannot be empty. Both became plain forms. **An unreachable arm is not a
+  coverage problem, it is a comment pretending to be code** — and leaving it would have made the next
+  reader think there was a case to handle.
+- **Two integration gaps that were worth closing on their own terms.** `PostgresPlayerRepository.find`
+  shares its `SELECT` with `resolve` and had no test of its own, which is exactly how the *creating*
+  half could come back; and the `429` had never left the server, so nothing said the `Retry-After`
+  header and the `ApiError` carry the same number.
+
+That took three of the four rows back, and the fourth needed one more thing.
+
+| pass | line | branch |
+|---|---|---|
+| all | 98.351 → **98.363** (+0.013) | 84.746 → **84.950** (+0.204) |
+| unit | 92.493 → **92.444** (−0.049, inside the gate's 0.05) | 87.026 → **87.163** (+0.137) |
+| integration | 14.394 → **14.852** (+0.457) | 9.565 → **9.958** (+0.393) |
+| screenshot | 93.222 → 93.222 | 57.529 → 57.529 |
+| behaviour | 92.259 → 92.259 | 68.832 → 68.832 |
+
+### The unit row is a routing problem, and it passes by a thousandth
+
+Worth its own heading because the number above is thin and the next slice meets the same wall.
+
+**Every uncovered line this slice added to the unit pass is in `OltreServer.kt`** — checked rather
+than assumed, by diffing the per-class counters against `main`: that file went 26 → 38, and no other
+file in the repository moved by a line. Which is what #108 said would happen. Routing holds no
+decision by construction *because the decisions were moved out of it*, so the only thing a slice that
+adds routes can do to the unit row is lower it.
+
+**What closed the gap was moving the one decision that had drifted back in.** `limited()` was
+building the refusal itself — which status, which member of the taxonomy, and that the number in the
+body matches the header — inside the one file in this module a unit test cannot reach.
+`RateVerdict.Refused.answer()` is that, three lines, in `RateLimit.kt` with a test. It is #108's own
+move made a fourth time, and the gate is what pointed at it: **the number was thin because the code
+was in the wrong place, and fixing the second fixed the first.**
+
+**And the margin is 0.001, which is not a result to be pleased with.** #113 adds a sign-in screen and
+more routes, and it will arrive here again with less room. The honest options then are an exclusion
+for `OltreServerKt*` in the unit pass — Davide's call, on a failing report, and #108 deliberately did
+not take it — or the recognition that a per-kind ratchet with no floor charges a fee for every route
+a server grows. Flagged rather than pre-empted: this slice passes without one, so asking for one now
+would be asking on a green report.
+
