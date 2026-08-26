@@ -10,6 +10,7 @@ import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
+import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.tilt.domain.Tilt
 import io.github.takahirom.roborazzi.captureRoboImage
@@ -75,7 +76,37 @@ class MainScaffoldScreenshotTest {
         captureFrame(name = "main_scaffold_slide_over", width = SLIDE_OVER_WIDTH)
     }
 
-    private fun captureFrame(name: String, width: Int = PHONE_WIDTH) {
+    // **The one new piece of chrome the offline era adds**, and the frame that holds where it sits:
+    // under the rail, above the destination, and 22dp tall — which is exactly the height every
+    // destination loses and `GalaxyRobot.DESTINATION_HEIGHT` had to move by.
+    @Test
+    fun `the frame with no network`() {
+        captureFrame(
+            name = "main_scaffold_offline",
+            offline = OfflineLineUiState(
+                text = Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = false),
+            ),
+        )
+    }
+
+    // The same line at 320, where the noun goes and both numbers stay — the design's rule for this
+    // width, and the one string in the frame that is authored twice.
+    @Test
+    fun `the frame with no network in a Slide Over window`() {
+        captureFrame(
+            name = "main_scaffold_offline_slide_over",
+            width = SLIDE_OVER_WIDTH,
+            offline = OfflineLineUiState(
+                text = Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = true),
+            ),
+        )
+    }
+
+    private fun captureFrame(
+        name: String,
+        width: Int = PHONE_WIDTH,
+        offline: OfflineLineUiState? = null,
+    ) {
         runDesktopComposeUiTest(width = width, height = 852) {
             mainClock.autoAdvance = false
             setContent {
@@ -91,6 +122,7 @@ class MainScaffoldScreenshotTest {
                             galaxy = { _, _ -> Text("galaxy-under-test") },
                             shipyard = { Text("shipyard-under-test") },
                             fleets = { Text("fleets-under-test") },
+                            offline = offline,
                             // The gear is drawn and never tapped: what it opens is `App`'s, and a
                             // sheet is a popup that `onRoot()` could not photograph anyway.
                             onOpenSettings = {},

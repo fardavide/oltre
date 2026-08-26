@@ -29,6 +29,7 @@ internal fun alertSheetUiState(
                 AlertMode.BY_CATEGORY -> Strings.alertModeByCategory()
             },
             selected = entry == mode,
+            asked = false,
         )
     },
     modeNote = Strings.alertModeNote(mode),
@@ -41,6 +42,7 @@ internal fun alertSheetUiState(
                 label = Strings.alertCategoryName(category),
                 note = if (category == AlertCategory.PRICE_REACHED) Strings.alertPriceWatchNote(on) else null,
                 on = on,
+                held = false,
                 spoken = Strings.clauses(
                     listOf(Strings.alertCategoryName(category), Strings.alertBellState(on)),
                 ),
@@ -49,7 +51,12 @@ internal fun alertSheetUiState(
     },
     deliveryLabel = Strings.deliveryLabel(),
     deliveries = AlertDelivery.entries.map { entry ->
-        AlertDeliveryStep(delivery = entry, label = Strings.deliveryName(entry), selected = entry == delivery)
+        AlertDeliveryStep(
+            delivery = entry,
+            label = Strings.deliveryName(entry),
+            selected = entry == delivery,
+            asked = false,
+        )
     },
     example = when (delivery) {
         // **The catalogue's own name, not `TextRes("Metal Mine")`** — a raw string resolves to itself
@@ -69,4 +76,8 @@ internal fun alertSheetUiState(
     // baseline of this sheet has to be able to show, because it is what the sheet is missing rather
     // than what it says.
     timing = timing.takeIf { delivery != AlertDelivery.EACH },
+    // **No Account section on any frame built from a fixture**, deliberately: who is signed in is the
+    // composition root's to know, and the sheet's own baselines are about the two controls. The
+    // section has a frame of its own in `:client:shell`, where an account exists.
+    account = null,
 )

@@ -155,7 +155,13 @@ class ChangelogAppBehaviourTest {
     private fun seeded(lastSeenVersion: String?, galaxyLanding: String? = null): PreferencesStore {
         val store = PreferencesStore(InMemorySaveFile())
         runBlocking {
-            store.save(Preferences(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion))
+            store.save(
+                Preferences(
+                    galaxyLanding = galaxyLanding,
+                    lastSeenVersion = lastSeenVersion,
+                    provider = null,
+                ),
+            )
         }
         return store
     }

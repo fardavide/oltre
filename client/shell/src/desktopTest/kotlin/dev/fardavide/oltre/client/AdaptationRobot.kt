@@ -152,6 +152,9 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 onToggleAnnounce = {},
                             )
                         },
+                        // Null: this harness is a colony with signal, which is the ordinary case and
+                        // the one every frame that is not about the network wants.
+                        offline = null,
                         // Never tapped: this harness is about the adaptation ladder reaching Research
                         // from a Galaxy row. `AlertSheetAppBehaviourTest` is where the gear is driven.
                         onOpenSettings = {},

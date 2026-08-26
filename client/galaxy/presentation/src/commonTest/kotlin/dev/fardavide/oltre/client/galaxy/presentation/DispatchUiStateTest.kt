@@ -16,6 +16,7 @@ import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GalaxyState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
@@ -1038,8 +1039,16 @@ class DispatchUiStateTest {
             // this test stayed in this module when the mapper left it** — `:client:dispatch` cannot
             // see `toProbeActionUiState` and should not, because a sheet raised from a landing has no
             // probe footer above it at all.
-            probe = state.toProbeActionUiState(at = its, worlds = worldsIn(its), now = EPOCH, timeZone = TimeZone.UTC)
-                .asDispatchProbeOffer(),
+            probe = state.toProbeActionUiState(
+                at = its,
+                worlds = worldsIn(its),
+                now = EPOCH,
+                timeZone = TimeZone.UTC,
+                // A colony with signal, which is what every assertion in this file is about: the
+                // queue's effect on the sheet has tests of its own.
+                held = HeldActions.NONE,
+                refusal = null,
+            ).asDispatchProbeOffer(),
             now = EPOCH,
         )
     }

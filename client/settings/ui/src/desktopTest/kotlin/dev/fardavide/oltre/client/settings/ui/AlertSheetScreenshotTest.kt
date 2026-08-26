@@ -104,6 +104,7 @@ class AlertSheetScreenshotTest {
                             onSelectMode = {},
                             onToggleCategory = {},
                             onSelectDelivery = {},
+                            onDeleteAccount = {},
                             // Empty, so these four baselines keep photographing exactly the two
                             // controls they were recorded for. The build row has a frame of its own
                             // in `:client:changelog:ui`.

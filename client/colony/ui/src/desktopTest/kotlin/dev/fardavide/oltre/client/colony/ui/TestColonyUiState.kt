@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.colony.ui
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.SheetLadderStep
 import dev.fardavide.oltre.client.design.component.SheetPointer
 import dev.fardavide.oltre.client.design.component.VerdictUiState
@@ -67,6 +68,7 @@ internal val testColonyUiState = ColonyUiState(
                 pointer = null,
             ),
             finishedWhileAway = false,
+            held = HeldUiState.NONE,
         ),
         FacilityRowUiState(
             building = BuildingType.SOLAR_PLANT,
@@ -115,6 +117,7 @@ internal val testColonyUiState = ColonyUiState(
                 pointer = null,
             ),
             finishedWhileAway = false,
+            held = HeldUiState.NONE,
         ),
         FacilityRowUiState(
             building = BuildingType.DEUTERIUM_SYNTHESIZER,
@@ -153,6 +156,7 @@ internal val testColonyUiState = ColonyUiState(
                 pointer = null,
             ),
             finishedWhileAway = false,
+            held = HeldUiState.NONE,
         ),
         FacilityRowUiState(
             building = BuildingType.NANITE_FACTORY,
@@ -202,6 +206,7 @@ internal val testColonyUiState = ColonyUiState(
                 pointer = SheetPointer(name = TextRes("Robotics Factory"), detail = TextRes("LV 7 → 8 · 41m")),
             ),
             finishedWhileAway = false,
+            held = HeldUiState.NONE,
         ),
     ),
     returningFleet = ReturningFleetUiState(
@@ -273,6 +278,7 @@ internal val roboticsFacilityRow = FacilityRowUiState(
         pointer = null,
     ),
     finishedWhileAway = false,
+    held = HeldUiState.NONE,
 )
 
 // A plant with headroom still to spare, which is the frame the whole design is about: a row whose
@@ -316,4 +322,5 @@ internal val inertPlantFacilityRow = FacilityRowUiState(
         pointer = SheetPointer(name = TextRes("Metal Mine"), detail = TextRes("LV 5 · back in 2h 06m")),
     ),
     finishedWhileAway = false,
+    held = HeldUiState.NONE,
 )

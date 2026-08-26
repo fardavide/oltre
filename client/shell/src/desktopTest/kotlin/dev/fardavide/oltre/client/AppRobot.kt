@@ -392,6 +392,9 @@ internal fun changelogAlreadyRead(): PreferencesStore {
             Preferences(
                 galaxyLanding = null,
                 lastSeenVersion = EnglishChangelog.releases.first().version.printed,
+                // Null: what a signed-in device remembers is filled by the sign-in, and every harness
+                // in this file is handed a session outright rather than pressing a provider button.
+                provider = null,
             ),
         )
     }

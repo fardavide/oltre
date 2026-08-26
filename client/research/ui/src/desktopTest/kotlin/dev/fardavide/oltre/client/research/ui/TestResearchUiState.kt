@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.research.ui
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.component.SheetAction
 import dev.fardavide.oltre.client.design.component.SheetFooter
@@ -604,6 +605,7 @@ private fun technologyRow(
     duration: String,
     action: ResearchActionUiState,
     watch: WatchUiState?,
+    held: HeldUiState = HeldUiState.NONE,
 ): TechnologyRowUiState = TechnologyRowUiState(
     technology = technology,
     name = TextRes(name),
@@ -625,6 +627,7 @@ private fun technologyRow(
     // No frame in this file is the launch that found something finished — the sweep has its own,
     // and a band baked into one of these would assert an animation rather than a screen.
     finishedWhileAway = false,
+    held = held,
 )
 
 // The ladder's verdict is not passed in: it *is* the shortlist, so taking it from anywhere else
@@ -639,6 +642,7 @@ private fun adaptationRow(
     shortlist: ShortlistUiState,
     action: ResearchActionUiState,
     watch: WatchUiState?,
+    held: HeldUiState = HeldUiState.NONE,
 ): AdaptationRowUiState = AdaptationRowUiState(
     technology = technology,
     name = TextRes(name),
@@ -659,6 +663,7 @@ private fun adaptationRow(
     ),
     watch = watch,
     finishedWhileAway = false,
+    held = held,
 )
 
 // The heading and the footer of the sheet a row opens, and none of its prose — see the note above
