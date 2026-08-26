@@ -239,7 +239,7 @@ private fun FacilityRow(
             if (row.held.action) {
                 HeldAction(
                     onClick = { onUpgrade(row.building) },
-                    modifier = Modifier.testTag(ColonyTestTags.card(row.building) + HELD_SUFFIX),
+                    modifier = Modifier.testTag(ColonyTestTags.action(row.building)),
                 )
             } else when (val action = row.action) {
                 FacilityActionUiState.Upgrade -> Text(
@@ -254,6 +254,7 @@ private fun FacilityRow(
                     modifier = Modifier
                         .pressable(shape = oltreActionShape) { onUpgrade(row.building) }
                         .background(OltreColors.accent, oltreActionShape)
+                        .testTag(ColonyTestTags.action(row.building))
                         .padding(horizontal = 11.dp, vertical = 7.dp),
                 )
                 // The ghost time, and beside it the square that books an alert for the instant it
@@ -393,8 +394,3 @@ private fun VerdictOrHeld(row: FacilityRowUiState, compact: Boolean) {
         HeldNote(text = line)
     }
 }
-
-// The tag the ghost carries, so a behaviour test can press the thing that withdraws rather than the
-// thing that would have started an upgrade. Suffixed onto the card's own tag, so a row's controls
-// stay findable from one name.
-internal const val HELD_SUFFIX = ".held"

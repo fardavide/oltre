@@ -376,7 +376,16 @@ fun App(
                 when (outcome) {
                     is SyncOutcome.Synced -> {
                         reachable = true
-                        lastReachedAt = clock.now(wall)
+                        val at = clock.now(wall)
+                        lastReachedAt = at
+                        // **Written down, because the line it feeds outlives a launch.** A player who
+                        // opened the app on a train and closed it is still offline the next morning,
+                        // and *"no network since 11:31"* is only answerable by something that was
+                        // remembered. Held in memory alone it would read *never* on every cold start
+                        // and the line would be missing exactly when it is most needed.
+                        val next = remembered.copy(lastReachedAt = at.toEpochMilliseconds().toString())
+                        remembered = next
+                        preferences.save(next)
                         held = HeldActions(outbox.queued())
                         // **`resume` and not a bare assignment**: the snapshot is stamped at the
                         // instant the *server* wrote it, and the phone has to advance it to now the
@@ -445,13 +454,6 @@ fun App(
                 markChangelogSeen()
             }
 
-            LaunchedEffect(preferences) {
-                val loaded = preferences.load()
-                remembered = loaded
-                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
-                provider = loaded.provider.toAuthProvider()
-                preferencesLoaded = true
-            }
 
             // **"It must open on game updated"** (Davide, 2026-08-23). The rule is
             // `shouldOpenChangelog` and every branch of it is a test; what is here is the two things
@@ -495,6 +497,19 @@ fun App(
                 // delivery target that is the smaller half — iOS terminates backgrounded apps freely,
                 // and a notification tapped after one is a cold launch — but it is a real gap, and
                 // closing it needs a foreground signal the shell does not have today.
+                // **First, and in the same effect as everything else** — it had one of its own until
+                // 0.21 and could not keep it: the sync below now *writes* a preference, so a load
+                // racing it would read the file back and put the older value on screen. Two effects
+                // that both touch one record is one effect.
+                val loaded = preferences.load()
+                remembered = loaded
+                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
+                provider = loaded.provider.toAuthProvider()
+                // **Read back rather than started from nothing**, which is the whole point of writing
+                // it down: a cold launch with no signal has to be able to say *since when*.
+                lastReachedAt = loaded.lastReachedAt?.toLongOrNull()?.let(Instant::fromEpochMilliseconds)
+                preferencesLoaded = true
+
                 notifications.clearDelivered()
                 val saved = store.load()
                 hadSave = saved != null
@@ -544,11 +559,21 @@ fun App(
                 // device with no save: one that has a colony is already showing it, and a waiting
                 // line over a working game would be the app reporting on itself.
                 if (saved == null) gate = GateState.Waiting
-                // **`found` rather than `sync`, and it is safe to call on every launch**: the far end
-                // is idempotent, so a device that already has a colony gets the one that is there
-                // rather than a second galaxy. That is what lets one call cover a first sign-in and
-                // the ten thousandth launch — see `OltreApi.foundColony`.
-                arrive(colony.found(), clock, wall)
+                // **`sync` when this device holds a colony and `found` when it does not**, and the
+                // difference is not a shortcut: `found` sends no envelopes, so a launch that always
+                // founded would leave a queue written before the app was closed sitting on disk until
+                // the player next tapped something. `sync` is the call that drains it.
+                //
+                // **`NoColony` falls through to founding**, which is the case a save cannot rule out:
+                // the colony this device holds may have been deleted on another one, and the honest
+                // answer to *the server has never heard of you* is to ask it to found one. `found` is
+                // idempotent, so the fallback costs a round trip and can never mint a second galaxy.
+                val opened = if (saved == null) colony.found() else colony.sync()
+                if (opened is SyncOutcome.Failed && opened.error == ApiError.NoColony) {
+                    arrive(colony.found(), clock, wall)
+                } else {
+                    arrive(opened, clock, wall)
+                }
             }
 
             // The roll's window. Without it the rail would roll a second time from a figure nobody

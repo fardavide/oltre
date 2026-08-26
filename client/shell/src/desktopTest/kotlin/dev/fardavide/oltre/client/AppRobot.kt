@@ -4,7 +4,6 @@ import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assert
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasAnyDescendant
@@ -21,6 +20,7 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
@@ -91,6 +91,11 @@ private const val CLOSE_SHEET = "Close sheet"
 // calls back, so a test that asserted straight after the tap would be asking about a sheet that is
 // still on its way out.
 private const val SHEET_HIDE_MILLIS: Long = 1_000
+
+// **Comfortably past `RetryPolicy.DEFAULT`**, which is three attempts one second and then three
+// seconds apart — four seconds of waiting before a sync with no signal gives up. Ten leaves room for
+// a slow machine without letting a genuinely stuck screen hang the suite.
+private const val SLOW_ANSWER_MILLIS: Long = 10_000
 
 @OptIn(ExperimentalTestApi::class)
 internal class AppRobot(
@@ -177,6 +182,19 @@ internal class AppRobot(
         test.onNodeWithText(text, substring = true).assertIsDisplayed()
     }
 
+    // **For the one thing in the app that takes real seconds to answer**: a sync with no signal is
+    // three attempts four seconds apart — `RetryPolicy.DEFAULT`, which is deliberately not a tight
+    // loop — so a screen waiting on one is genuinely still waiting when the launch goes idle.
+    //
+    // Every other assertion in this robot is immediate and should stay so: waiting for a screen that
+    // is already right is how a suite becomes slow, and waiting for one that will never be right is
+    // how it becomes flaky. This is used where the app really is expected to change its mind.
+    fun waitUntilItReads(text: String) = apply {
+        test.waitUntil(timeoutMillis = SLOW_ANSWER_MILLIS) {
+            test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     // How many rows read something, which is the only unambiguous way to ask about a level badge
     // from outside the feature that owns the row tags: five of Research's six rows are genuinely at
     // level 0, so "does a row read LV 0" cannot distinguish the sixth holding its old level from
@@ -207,6 +225,14 @@ internal class AppRobot(
 
     // The one control in the app with no words on it, so the one the shell reaches by tag. See
     // `ColonyTestTags`, which is public for this.
+    // **The row's action, whichever of the four it is showing** — reached by tag rather than by the
+    // word on it, because since 0.21 a held row says `Held` and a robot that tapped by text could
+    // reach one state or the other and never the control. See `ColonyTestTags.action`.
+    fun tapTheActionOn(building: BuildingType) = apply {
+        test.onNodeWithTag(ColonyTestTags.action(building)).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
     fun tapTheWatchOn(building: BuildingType) = apply {
         test.onNodeWithTag(ColonyTestTags.watch(building)).performClick()
         test.waitForIdle()
@@ -451,6 +477,11 @@ internal fun changelogAlreadyRead(): PreferencesStore {
                 // Null: what a signed-in device remembers is filled by the sign-in, and every harness
                 // in this file is handed a session outright rather than pressing a provider button.
                 provider = null,
+                // **A device that has been online before**, which is what makes the chrome line
+                // answerable at all: *"no network since"* needs an instant, and one that has genuinely
+                // never reached the server draws no line. An hour before the fixture's clock, so the
+                // line names a time rather than the same second everything else in the test does.
+                lastReachedAt = (TEST_NOW - 1.hours).toEpochMilliseconds().toString(),
             ),
         )
     }

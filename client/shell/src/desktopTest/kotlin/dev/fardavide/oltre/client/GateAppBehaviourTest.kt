@@ -1,12 +1,11 @@
 package dev.fardavide.oltre.client
 
-import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
-import dev.fardavide.oltre.client.auth.ui.GateTestTags
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
+import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.IdToken
@@ -139,7 +138,11 @@ class GateAppBehaviourTest {
     @Test
     fun `a signed-in device with no colony and no network stays on the gate`() {
         app(saved = null, api = FakeOltreApi().apply { offline = true }) {
-            assertReads("The server did not answer.")
+            // **Waited for rather than asserted immediately**, because this is the one screen in the
+            // app that is genuinely still deciding when the launch goes idle: a sync with no signal
+            // is three attempts over four seconds, and until the third the honest thing on screen is
+            // *"Signing in."*
+            waitUntilItReads("The server did not answer.")
             assertDoesNotRead("Metal Mine")
         }
     }
@@ -171,17 +174,4 @@ class GateAppBehaviourTest {
             assertProviderNotOffered(AuthProvider.APPLE)
         }
     }
-}
-
-private fun AppRobot.pressProvider(provider: AuthProvider) = apply {
-    test.onNodeWithTag(GateTestTags.provider(provider)).performClick()
-    test.waitForIdle()
-}
-
-private fun AppRobot.assertProviderOffered(provider: AuthProvider) = apply {
-    test.onNodeWithTag(GateTestTags.provider(provider)).assertIsDisplayed()
-}
-
-private fun AppRobot.assertProviderNotOffered(provider: AuthProvider) = apply {
-    test.onNodeWithTag(GateTestTags.provider(provider)).assertDoesNotExist()
 }

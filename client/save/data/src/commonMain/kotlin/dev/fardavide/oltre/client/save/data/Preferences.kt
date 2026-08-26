@@ -38,6 +38,15 @@ data class Preferences(
     // remembered, and then those sentences name both providers instead of one — which is what the
     // string table already does everywhere else.
     val provider: String?,
+    // **When the server last answered**, as epoch milliseconds in a string for the three fields
+    // above's reason: this module carries a value through and has no opinion about what it names.
+    //
+    // It is remembered rather than held in memory because the line it feeds outlives a launch: a
+    // player who opened the app on a train and closed it is still offline the next morning, and
+    // *"no network since 11:31"* is only answerable by something that was written down. A file this
+    // build cannot parse reads as *never*, which draws no line at all — the same answer a device that
+    // has genuinely never been online gets, and the honest one.
+    val lastReachedAt: String?,
 ) {
 
     companion object {
@@ -45,7 +54,11 @@ data class Preferences(
         // A first launch, and every failure `PreferencesStore.load` swallows. Named rather than
         // defaulted into the constructor, so a caller building preferences has to say what it
         // wants in every field and the compiler catches the one it forgot.
-        val NONE: Preferences =
-            Preferences(galaxyLanding = null, lastSeenVersion = null, provider = null)
+        val NONE: Preferences = Preferences(
+            galaxyLanding = null,
+            lastSeenVersion = null,
+            provider = null,
+            lastReachedAt = null,
+        )
     }
 }

@@ -160,6 +160,9 @@ class ChangelogAppBehaviourTest {
                     galaxyLanding = galaxyLanding,
                     lastSeenVersion = lastSeenVersion,
                     provider = null,
+                    // Null: nothing in this file is about the network, and a device that has never
+                    // reached the server draws no chrome line — which is the frame these tests want.
+                    lastReachedAt = null,
                 ),
             )
         }
