@@ -1,6 +1,9 @@
 package dev.fardavide.oltre.client.dispatch.presentation
 
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.design.component.WatchAsk
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.perMillion
 import dev.fardavide.oltre.client.design.format.toChipLabel
@@ -86,6 +89,14 @@ fun GameState.toDispatchUiState(
     selection: DispatchSelection,
     probe: DispatchProbeOffer?,
     now: Instant,
+    // **The bell can be held; the verb below it cannot.** A run and a probe aim at a shared galaxy, so
+    // they refuse at the tap rather than queueing — which is why the queue reaches this sheet for one
+    // control only, and why the refusal is a separate parameter rather than something read off here.
+    held: HeldActions = HeldActions.NONE,
+    // What the last tap on this sheet's verb produced, or null. **A fact about a tap and not about the
+    // world**, which is why it arrives from the shell rather than being derived: the same sheet drawn
+    // a second later, untouched, has nothing to say.
+    refusal: RefusalUiState? = null,
 ): DispatchUiState? {
     val target = selection.at
     if (target == galaxy.home) return null
@@ -114,7 +125,9 @@ fun GameState.toDispatchUiState(
                     // The standing position of the bell, exactly as the offer below carries it: the
                     // ask is stamped onto the job by the verb, so the square shows the answer the
                     // flight *would* be sent with rather than anything about this world.
-                    announce = probeAlertSquare(),
+                    announce = probeAlertSquare(held = held),
+                    announceHeld = announceHeldLine(held),
+                    refusal = refusal,
                 )
             },
         )
@@ -482,7 +495,9 @@ fun GameState.toDispatchUiState(
         vein = if (clamped) Strings.theWholeDeposit() else Strings.veinLeft((inTheGround - haul).groupedByThousands(), inTheGround - haul),
         // The bell's standing position. A run's ask is stamped by `startRun` from this same flag, so
         // what the square shows is exactly what the tap below it would send.
-        announce = runAlertSquare(),
+        announce = runAlertSquare(held = held),
+        announceHeld = announceHeldLine(held),
+        refusal = refusal,
         legs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = false),
         compactLegs = legsLine(flight = flight, station = station, working = working, clamped = clamped, compact = true),
         danger = dangerLine(world = world, danger = danger, compact = false),
@@ -811,16 +826,27 @@ private fun otherLift(
 //
 // Null under `BY_CATEGORY`, where the flight is announced by its kind and there is nothing left to
 // ask. Absence rather than a disabled control, which is how this app says that everywhere else.
-private fun GameState.runAlertSquare(): WatchSquareUiState? =
-    flightAlertSquare(AlertCategory.FLEET_RETURNS)
+private fun GameState.runAlertSquare(held: HeldActions): WatchSquareUiState? =
+    flightAlertSquare(AlertCategory.FLEET_RETURNS, held)
 
-private fun GameState.probeAlertSquare(): WatchSquareUiState? = flightAlertSquare(AlertCategory.PROBES)
+private fun GameState.probeAlertSquare(held: HeldActions): WatchSquareUiState? =
+    flightAlertSquare(AlertCategory.PROBES, held)
 
-private fun GameState.flightAlertSquare(category: AlertCategory): WatchSquareUiState? = when {
-    !alerts.asksOnRow(category) -> null
-    announceFlights -> WatchSquareUiState.ASKED
-    else -> WatchSquareUiState.UNASKED
+private fun GameState.flightAlertSquare(category: AlertCategory, held: HeldActions): WatchSquareUiState? {
+    if (!alerts.asksOnRow(category)) return null
+    val outstanding = held.flightAlert != null
+    // A held square draws the request, which on a toggle is the opposite of what the colony says.
+    return WatchSquareUiState(
+        asked = if (announceFlights != outstanding) WatchAsk.ONE else WatchAsk.NONE,
+        held = outstanding,
+    )
 }
+
+// **The bell's direction in words**, because 29dp cannot carry it. The dispatch sheet gets the richer
+// of the two sentences the design drew — what being told actually means, and that it waits on the run
+// being confirmed — because it is the one place with room for it.
+private fun GameState.announceHeldLine(held: HeldActions): TextRes? =
+    if (held.flightAlert == null) null else Strings.heldAnnounceFoot(on = !announceFlights)
 
 // "1 hauler · 2 skiffs", or just "2 skiffs" when there is one kind. The pair is a string rather than
 // a join so a language can put its own separator and its own order round it.

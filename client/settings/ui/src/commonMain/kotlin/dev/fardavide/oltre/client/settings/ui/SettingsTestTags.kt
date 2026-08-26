@@ -20,6 +20,9 @@ object SettingsTestTags {
     const val EXAMPLE = "settings-delivery-example"
     const val TIMING = "settings-delivery-timing"
 
+    // The row that opens the deletion face — the only row in the sheet that opens anything.
+    const val DELETE_ACCOUNT = "settings-delete-account"
+
     // Keyed by the stop rather than by the label, for `DispatchTestTags.window`'s reason: a label is
     // a `TextRes` whose text depends on which table a test happens to be running under.
     fun mode(mode: AlertMode): String = "settings-mode-${mode.name.lowercase()}"

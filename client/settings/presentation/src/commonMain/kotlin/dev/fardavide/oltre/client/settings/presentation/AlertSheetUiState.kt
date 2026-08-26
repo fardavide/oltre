@@ -6,6 +6,8 @@ import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.settings.ui.AlertCategoryRow
 import dev.fardavide.oltre.client.settings.ui.AlertDeliveryStep
 import dev.fardavide.oltre.client.settings.ui.AlertModeStep
+import dev.fardavide.oltre.client.net.domain.HeldActions
+import dev.fardavide.oltre.client.settings.ui.AccountUiState
 import dev.fardavide.oltre.client.settings.ui.AlertSheetUiState
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.AlertDelivery
@@ -22,7 +24,17 @@ import kotlin.time.Instant
 // Almost all of it is a straight rendering of `GameState.alerts` — which chip is lit, which of the
 // seven bells are on — and one line is not: `timing` says when the next alert is actually due, which
 // is a fact about this colony rather than about the setting.
-fun GameState.toAlertSheetUiState(now: Instant, timeZone: TimeZone): AlertSheetUiState = AlertSheetUiState(
+fun GameState.toAlertSheetUiState(
+    now: Instant,
+    timeZone: TimeZone,
+    // Ten of the app's held controls, three of them here. Defaulted to an empty queue — a colony with
+    // signal — and the shell hands in the real one.
+    held: HeldActions = HeldActions.NONE,
+    // **Who is signed in, which nothing in a `GameState` has ever known.** Null draws no Account
+    // section at all, which is what every frame built from a fixture wants and is also the honest
+    // answer on a build that has no account: there is nothing to administer.
+    account: AccountUiState? = null,
+): AlertSheetUiState = AlertSheetUiState(
     title = Strings.settingsTitle(),
     alertsLabel = Strings.alertsLabel(),
     modes = AlertMode.entries.map { mode ->
@@ -33,15 +45,21 @@ fun GameState.toAlertSheetUiState(now: Instant, timeZone: TimeZone): AlertSheetU
                 AlertMode.BY_CATEGORY -> Strings.alertModeByCategory()
             },
             selected = alerts.mode == mode,
+            asked = held.alertMode?.asked == mode,
         )
     },
-    modeNote = Strings.alertModeNote(alerts.mode),
+    // **The held line displaces the note**, which is the sheet's own rule for the two lines under a
+    // ladder: what the mode means was already true, and what you asked for has not landed.
+    modeNote = held.alertMode?.let { Strings.heldLadderNote(Strings.alertModeName(it.asked)) }
+        ?: Strings.alertModeNote(alerts.mode),
     // **Null rather than an empty list under `PER_ITEM`.** The panel is not collapsed there — it does
     // not exist, because the option that owns it is not chosen — and the two are different things to
     // look at. See `AlertSheetUiState`.
     categories = when (alerts.mode) {
         AlertMode.PER_ITEM -> null
-        AlertMode.BY_CATEGORY -> AlertCategory.entries.map { it.toRow(on = it in alerts.categories) }
+        AlertMode.BY_CATEGORY -> AlertCategory.entries.map {
+            it.toRow(on = it in alerts.categories, held = held.alertCategory(it) != null)
+        }
     },
     deliveryLabel = Strings.deliveryLabel(),
     deliveries = AlertDelivery.entries.map { delivery ->
@@ -49,22 +67,31 @@ fun GameState.toAlertSheetUiState(now: Instant, timeZone: TimeZone): AlertSheetU
             delivery = delivery,
             label = Strings.deliveryName(delivery),
             selected = alerts.delivery == delivery,
+            asked = held.alertDelivery?.asked == delivery,
         )
     },
     example = alerts.delivery.example(),
-    timing = timing(now = now, timeZone = timeZone),
+    // The held line displaces *when*, for the mode note's reason one control up.
+    timing = held.alertDelivery?.let { Strings.heldLadderNote(Strings.deliveryName(it.asked)) }
+        ?: timing(now = now, timeZone = timeZone),
+    account = account,
 )
 
-private fun AlertCategory.toRow(on: Boolean): AlertCategoryRow {
+private fun AlertCategory.toRow(on: Boolean, held: Boolean): AlertCategoryRow {
     val label = Strings.alertCategoryName(this)
     return AlertCategoryRow(
         category = this,
         label = label,
-        // The only second line in the panel, on the only row that governs whether a control appears
-        // elsewhere in the app. Off states the consequence rather than the setting, because off
-        // removes the watch rather than muting it.
-        note = if (this == AlertCategory.PRICE_REACHED) Strings.alertPriceWatchNote(on) else null,
+        // The only second line in the panel — until a row is held, and then every one of the seven
+        // has one, because the square cannot say which way the request went and this is the row that
+        // can. It displaces the price watch's own exception line, which is the more urgent of the two.
+        note = when {
+            held -> Strings.heldTurning(on = !on)
+            this == AlertCategory.PRICE_REACHED -> Strings.alertPriceWatchNote(on)
+            else -> null
+        },
         on = on,
+        held = held,
         spoken = Strings.clauses(listOf(label, Strings.alertBellState(on))),
     )
 }

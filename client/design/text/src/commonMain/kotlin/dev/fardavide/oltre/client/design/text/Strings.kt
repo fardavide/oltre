@@ -1327,6 +1327,14 @@ object Strings {
 
     fun alertModeByCategory(): TextRes = message(StringId.AlertModeByCategory)
 
+    // The same two entries reached by their value rather than by name, for the one caller that has an
+    // `AlertMode` in hand and needs the chip's own words back: the held note says *which stop* was
+    // asked for, and it must be the string on the chip rather than a second name for it.
+    fun alertModeName(mode: AlertMode): TextRes = when (mode) {
+        AlertMode.PER_ITEM -> alertModePerItem()
+        AlertMode.BY_CATEGORY -> alertModeByCategory()
+    }
+
     // The one line the ladder carries, and it has two clauses on purpose: what the mode means, then
     // what it does to the screen the player came from. The second clause is what stops a colony full
     // of rows that suddenly have no square reading as a bug.

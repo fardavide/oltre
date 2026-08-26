@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.dispatch.ui
 
+import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.GalaxyCoordinate
@@ -142,6 +143,16 @@ sealed interface DispatchUiState {
         // **Null under `AlertMode.BY_CATEGORY`.** The sheet's call 1 reaches this control too: a run
         // is announced by its kind there, so the bell beside the verb has nothing left to decide.
         val announce: WatchSquareUiState?,
+        // **The bell's direction, in the one slot the sheet already has for a line.** A held bell says
+        // *not confirmed* and cannot say which way; this is the row that says it. Null with signal.
+        val announceHeld: TextRes?,
+        // **What stops the button, when something does.** A run aims at a world in a galaxy other
+        // players are also in, so it cannot be held: it refuses at the tap and names the fact.
+        //
+        // A block above the button rather than a change to the button: the button holds its place and
+        // the sheet grows, which is what lets the sentence name the target and what keeps the control
+        // answering. Null until a tap produces one — this is a fact about a tap, not about the world.
+        val refusal: RefusalUiState?,
     ) : DispatchUiState
 
     // **A mode rather than a refusal, and that distinction is Design's.** A dry world keeps its whole
@@ -255,7 +266,14 @@ sealed interface RefuseActionUiState {
     // It carries the bell for the same reason the offer does — a probe is a flight, and the sheet
     // that sends one is the only place there is to ask about it. The same control and the same
     // standing answer: what the player set on a run's sheet is what this one opens showing.
-    data class Probe(val label: TextRes, val announce: WatchSquareUiState?) : RefuseActionUiState
+    data class Probe(
+        val label: TextRes,
+        val announce: WatchSquareUiState?,
+        val announceHeld: TextRes?,
+        // The offer's own field, and for the offer's own reason: a probe aims at a shared galaxy too,
+        // so the sheet that sends one refuses in the same shape.
+        val refusal: RefusalUiState?,
+    ) : RefuseActionUiState
 
     // A reading, not a control — the idiom the unaffordable probe already spends. There is nothing
     // to send, so there is no button to grey out.

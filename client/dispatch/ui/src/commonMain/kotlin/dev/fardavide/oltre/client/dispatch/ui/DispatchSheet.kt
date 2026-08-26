@@ -26,6 +26,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.OltreBottomSheet
+import dev.fardavide.oltre.client.design.component.HeldNote
+import dev.fardavide.oltre.client.design.component.RefusalBlock
+import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.component.WatchSquare
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -282,7 +285,12 @@ private fun Offer(
         Detail(text = if (compact) uiState.compactLegs else uiState.legs)
         Detail(text = if (compact) uiState.compactDanger else uiState.danger)
     }
-    Committing(announce = uiState.announce, onToggleAnnounce = onToggleAnnounce) {
+    Committing(
+        announce = uiState.announce,
+        announceHeld = uiState.announceHeld,
+        refusal = uiState.refusal,
+        onToggleAnnounce = onToggleAnnounce,
+    ) {
         Verb(label = Strings.dispatchVerb(), tag = DispatchTestTags.SEND, primary = true, onClick = onDispatch)
     }
 }
@@ -313,7 +321,12 @@ private fun Refuse(
         // The one refusal in the app that hands back a verb rather than a wait — so it is the one
         // refusal that carries a bell, because a bell with no flight behind it would be a control
         // asking about nothing.
-        is RefuseActionUiState.Probe -> Committing(announce = action.announce, onToggleAnnounce = onToggleAnnounce) {
+        is RefuseActionUiState.Probe -> Committing(
+            announce = action.announce,
+            announceHeld = action.announceHeld,
+            refusal = action.refusal,
+            onToggleAnnounce = onToggleAnnounce,
+        ) {
             Verb(label = action.label, tag = DispatchTestTags.SHEET_ACTION, primary = true, onClick = onDispatchProbe)
         }
         // A reading, not a control — the idiom the unaffordable probe already spends. It carries the
@@ -345,25 +358,39 @@ private fun Refuse(
 @NonRestartableComposable
 private fun Committing(
     announce: WatchSquareUiState?,
+    announceHeld: TextRes?,
+    refusal: RefusalUiState?,
     onToggleAnnounce: () -> Unit,
     verb: @Composable () -> Unit,
 ) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        // The verb keeps its weight either way, so a sheet with no bell on it is a full-width verb
-        // rather than a verb with a gap where a control used to be.
-        Box(modifier = Modifier.weight(1f)) { verb() }
-        announce?.let {
-            WatchSquare(
-                state = it,
-                onClick = onToggleAnnounce,
-                stacked = true,
-                modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
-            )
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        // **Above the button and never over it.** The button holds its place and the sheet grows,
+        // which is what keeps the manifest and the clock on screen: the refusal is about the target,
+        // not about the run the player just assembled, and reopening the sheet should not cost them
+        // the assembly.
+        refusal?.let {
+            RefusalBlock(lead = it.lead, body = it.body, modifier = Modifier.testTag(DispatchTestTags.REFUSAL))
         }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            // The verb keeps its weight either way, so a sheet with no bell on it is a full-width verb
+            // rather than a verb with a gap where a control used to be.
+            Box(modifier = Modifier.weight(1f)) { verb() }
+            announce?.let {
+                WatchSquare(
+                    state = it,
+                    onClick = onToggleAnnounce,
+                    stacked = true,
+                    modifier = Modifier.testTag(DispatchTestTags.ANNOUNCE),
+                )
+            }
+        }
+        // Under the pair, because it is about the square on the right of it and there is nowhere
+        // else on this sheet a line can go without displacing something the run needs.
+        announceHeld?.let { HeldNote(text = it) }
     }
 }
 

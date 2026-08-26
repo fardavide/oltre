@@ -1,7 +1,10 @@
 package dev.fardavide.oltre.client.galaxy.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.design.component.WatchAsk
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
@@ -37,6 +40,8 @@ internal fun GameState.toProbeActionUiState(
     worlds: List<World>,
     now: Instant,
     timeZone: TimeZone,
+    held: HeldActions,
+    refusal: RefusalUiState?,
 ): ProbeActionUiState {
     val target = SystemAddress(galaxy = at.galaxy, system = at.system)
 
@@ -141,9 +146,22 @@ internal fun GameState.toProbeActionUiState(
             // nothing left to decide — the sheet's call 1, reaching the one bell that is not on a row.
             announce = when {
                 !alerts.asksOnRow(AlertCategory.PROBES) -> null
-                announceFlights -> WatchSquareUiState.ASKED
-                else -> WatchSquareUiState.UNASKED
+                // A held square draws the request, which on a toggle is the opposite of the answer
+                // the colony currently holds.
+                else -> WatchSquareUiState(
+                    asked = if (announceFlights != (held.flightAlert != null)) WatchAsk.ONE else WatchAsk.NONE,
+                    held = held.flightAlert != null,
+                )
             },
+            announceHeld = if (held.flightAlert == null) {
+                null
+            } else {
+                Strings.heldTurning(on = !announceFlights)
+            },
+            // **The two clauses joined**, because on a line there is no room for a block — the design's
+            // *"same sentence, one line shorter"*. Joining them is a decision about language, which is
+            // why it happens here and not in the composable that draws it.
+            refusal = refusal?.let { Strings.sentences(listOf(it.lead, it.body)) },
         )
     }
     val wait = timeUntilAffordable(resources, cost, buildings, research)

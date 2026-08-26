@@ -16,6 +16,8 @@ import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
@@ -62,6 +64,11 @@ fun GalaxyScreen(
     // takes no subject, unlike the two above it: what it moves is the standing answer the next
     // flight will be sent with, and the verb is what writes that onto a job. See `toggleFlightAlerts`.
     onToggleAnnounce: () -> Unit,
+    // What the phone has accepted and the server has not, and what the last tap on a verb that
+    // cannot be held produced. Both are facts about the network rather than about the map, which is
+    // why they arrive from the composition root — see the same pair on the colony's mapper.
+    held: HeldActions = HeldActions.NONE,
+    refusal: RefusalUiState? = null,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -92,7 +99,14 @@ fun GalaxyScreen(
     // else.
     var open by remember(state.galaxy.seed, at) { mutableStateOf<DispatchSelection?>(null) }
     val nav = GalaxyNavigation(view = view, at = at, query = query, seenAt = seenAt)
-    val uiState = state.toGalaxyUiState(nav = nav, now = now, timeZone = timeZone, dispatch = open)
+    val uiState = state.toGalaxyUiState(
+        nav = nav,
+        now = now,
+        timeZone = timeZone,
+        dispatch = open,
+        held = held,
+        refusal = refusal,
+    )
     GalaxyPage(
         uiState = uiState,
         onSelectMode = { mode ->

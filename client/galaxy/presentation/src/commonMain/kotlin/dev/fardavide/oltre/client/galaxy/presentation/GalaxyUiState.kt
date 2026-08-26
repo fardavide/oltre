@@ -24,6 +24,8 @@ import dev.fardavide.oltre.client.galaxy.ui.SystemMapUiState
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.StarClass
 import dev.fardavide.oltre.core.SurveyBalance
@@ -55,6 +57,9 @@ internal fun GameState.toGalaxyUiState(
     now: Instant,
     timeZone: TimeZone,
     dispatch: DispatchSelection? = null,
+    held: HeldActions = HeldActions.NONE,
+    // What the last tap on a probe produced, or null. A fact about a tap rather than about the map.
+    refusal: RefusalUiState? = null,
 ): GalaxyUiState {
     val at = nav.at
     // Searched once, then handed to both halves: the head prints the count of exactly what the body
@@ -93,7 +98,14 @@ internal fun GameState.toGalaxyUiState(
                 GalaxyBodyUiState.System(
                     header = toSystemHeadUiState(at = at, charted = charted, worlds = worlds),
                     map = toSystemMapUiState(at = at, charted = charted, now = now),
-                    probe = toProbeActionUiState(at = at, worlds = worlds, now = now, timeZone = timeZone),
+                    probe = toProbeActionUiState(
+                        at = at,
+                        worlds = worlds,
+                        now = now,
+                        timeZone = timeZone,
+                        held = held,
+                        refusal = refusal,
+                    ),
                     rows = if (charted) toSystemRows(at = at, now = now) else emptyList(),
                 )
             }
@@ -109,9 +121,18 @@ internal fun GameState.toGalaxyUiState(
                 // can be sent, and a second copy of that decision inside the sheet is a second place
                 // for the two to disagree about one flight. The sheet's own module cannot price a
                 // survey and must not learn to — see `DispatchProbeOffer`.
-                probe = toProbeActionUiState(at = its, worlds = worldsOf(its), now = now, timeZone = timeZone)
+                probe = toProbeActionUiState(
+                    at = its,
+                    worlds = worldsOf(its),
+                    now = now,
+                    timeZone = timeZone,
+                    held = held,
+                    refusal = refusal,
+                )
                     .asDispatchProbeOffer(),
                 now = now,
+                held = held,
+                refusal = refusal,
             )
         },
     )

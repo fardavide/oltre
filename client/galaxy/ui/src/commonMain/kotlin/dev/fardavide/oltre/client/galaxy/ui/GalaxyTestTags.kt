@@ -65,6 +65,10 @@ object GalaxyTestTags {
     // afford would be asking about a flight that is not going anywhere.
     const val ANNOUNCE = "galaxy-announce"
 
+    // The footer's one line, whichever of its three things is on it. Tagged so a behaviour test can
+    // read *what the card is saying* without knowing which of the three it happens to be.
+    const val PROBE_NOTE = "galaxy-probe-note"
+
     // The astronomy line under the system header. Stated once because the distance band is
     // identical for all fifteen slots of a system — see `FleetBalance.danger`.
     const val ASTRONOMY = "galaxy-astronomy"
