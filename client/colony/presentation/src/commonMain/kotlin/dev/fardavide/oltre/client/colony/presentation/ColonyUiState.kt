@@ -8,6 +8,7 @@ import dev.fardavide.oltre.client.colony.ui.FacilityPowerUiState
 import dev.fardavide.oltre.client.colony.ui.FacilityRowUiState
 import dev.fardavide.oltre.client.colony.ui.ReturningFleetUiState
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.SheetLadderStep
 import dev.fardavide.oltre.client.design.component.SheetLine
 import dev.fardavide.oltre.client.design.component.SheetPointer
@@ -23,6 +24,7 @@ import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.BuildJob
@@ -71,6 +73,10 @@ fun GameState.toColonyUiState(
     timeZone: TimeZone,
     finishedWhileAway: BuildingType? = null,
     watching: TextRes? = null,
+    // **What the phone has accepted and the server has not**, which is the one input here that is not
+    // about the colony at all. Defaulted to an empty queue — a colony with signal, which is what every
+    // frame that is not about the network wants — and the shell hands in the real one.
+    held: HeldActions = HeldActions.NONE,
 ): ColonyUiState = ColonyUiState(
     energy = buildings.toEnergyUiState(research),
     facilities = BuildingType.entries.map {
@@ -80,6 +86,7 @@ fun GameState.toColonyUiState(
             now = now,
             timeZone = timeZone,
             finishedWhileAway = it == finishedWhileAway,
+            held = held,
         )
     },
     returningFleet = runs.toStrip(home = galaxy.home, now = now, research = research),
@@ -172,6 +179,7 @@ private fun GameState.toFacilityRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    held: HeldActions,
 ): FacilityRowUiState {
     val level = buildings.levelOf(building)
     val toLevel = BuildingLevel(level.value + 1)
@@ -186,6 +194,14 @@ private fun GameState.toFacilityRow(
     val untilAffordable = timeUntilAffordable(resources, cost, buildings, research).takeIf { it.isFinite() }
     val waiting = job == null && !locked && short.isNotEmpty()
     val purpose = purposeOfNextLevel(building)
+    // **What this row has outstanding, computed once so the four places that read it cannot
+    // disagree**: the card's surface, the button, the square and the line under them.
+    val heldUpgrade = held.upgrade(building) != null
+    val heldWatch = held.watch(WatchTarget.Facility(building)) != null
+    // Which way the square's request went. A held toggle asks for the opposite of what the colony
+    // currently says, and this is the only place that has both facts in scope.
+    val askingWatchOn = WatchTarget.Facility(building) !in subscribed &&
+        watching != WatchTarget.Facility(building)
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),
@@ -266,6 +282,20 @@ private fun GameState.toFacilityRow(
                 untilAffordable?.let { Strings.availableIn(it.toChipLabel()) } ?: Strings.availableNever(),
             )
         },
+        held = HeldUiState(
+            action = heldUpgrade,
+            watch = heldWatch,
+            // **The upgrade's sentence wins when both are held**, because it is the bigger of the two
+            // things the player is waiting on and the card has one line. The facility card cannot say
+            // both in one sentence the way the hull card can — a hull's build and its alert land
+            // together and that is the whole of what its combined line says, where an upgrade and a
+            // bell are two unrelated requests that happen to be on one row.
+            line = when {
+                heldUpgrade -> Strings.heldUpgradeFoot()
+                heldWatch -> Strings.heldWatchFoot(on = askingWatchOn)
+                else -> null
+            },
+        ),
     )
 }
 

@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.research.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
@@ -84,6 +85,10 @@ data class TechnologyRowUiState(
     // launch. See the same field on the colony's facility rows — it is a fact about this launch
     // rather than about the empire.
     val finishedWhileAway: Boolean,
+    // **What this row has asked for and the server has not answered.** A fact about the queue rather
+    // than about the empire, which is why it sits beside the empire's own fields — see the same field
+    // on the colony's facility rows.
+    val held: HeldUiState,
 )
 
 // The same fields as an applied row, and deliberately its own type rather than a widened one:
@@ -112,6 +117,7 @@ data class AdaptationRowUiState(
     // has to be drawn by the same parts as a watched technology.
     val watch: WatchUiState?,
     val finishedWhileAway: Boolean,
+    val held: HeldUiState,
 )
 
 // What the next level of this ladder would buy, counted over the worlds the player has **already

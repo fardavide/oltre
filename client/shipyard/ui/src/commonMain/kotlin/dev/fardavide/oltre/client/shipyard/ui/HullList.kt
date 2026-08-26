@@ -21,6 +21,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.HeldAction
+import dev.fardavide.oltre.client.design.component.HeldNote
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.ProgressBar
 import dev.fardavide.oltre.client.design.component.WatchableAction
@@ -76,7 +78,9 @@ private fun HullCard(hull: HullUiState, compact: Boolean, onBuild: () -> Unit, o
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .oltreCard(hull.cardState())
+            // A held *build* takes the surface; a held bell does not. The colony's rule, and the
+            // same rule because it is the same card.
+            .oltreCard(if (hull.held.action) OltreCardState.HELD else hull.cardState())
             .testTag(ShipyardTestTags.card(hull.type))
             .padding(11.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp),
@@ -134,7 +138,15 @@ private fun HullCard(hull: HullUiState, compact: Boolean, onBuild: () -> Unit, o
                 onToggleWatch = onToggleAlert,
                 watchModifier = Modifier.testTag(ShipyardTestTags.alert(hull.type)),
             ) {
-                when (val action = hull.action) {
+                // **The amber ghost wins over both verbs**, as it does on every other card: a queued
+                // build replaces whichever the card was showing with `Held`, and pressing it
+                // withdraws the request.
+                if (hull.held.action) {
+                    HeldAction(
+                        onClick = onBuild,
+                        modifier = Modifier.testTag(ShipyardTestTags.action(hull.type)),
+                    )
+                } else when (val action = hull.action) {
                     BuildActionUiState.Build -> Text(
                         text = Strings.build().resolve(),
                         color = Color.White,
@@ -171,6 +183,10 @@ private fun HullCard(hull: HullUiState, compact: Boolean, onBuild: () -> Unit, o
         // grey, and the bar underneath. A probe and a hull are both a card with a job and no level,
         // which is the case that shape was drawn for.
         hull.yard?.let { yard -> YardFooter(yard = yard, type = hull.type) }
+        // **Last on the card, and the only foot in the app that can carry two requests in one
+        // sentence.** A build and its alert land together, and saying so once is the whole reason
+        // `HeldUiState` can see both — see `Strings.heldBuildFoot`.
+        hull.held.line?.let { HeldNote(text = it) }
     }
 }
 

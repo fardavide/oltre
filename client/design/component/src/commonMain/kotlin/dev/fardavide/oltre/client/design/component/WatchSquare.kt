@@ -103,10 +103,19 @@ data class WatchSquareUiState(val asked: WatchAsk, val held: Boolean) {
 // `held` is the caller's to know: a `WatchUiState` is derived from the colony, and whether a tap on
 // it has reached the server is derived from the outbox. Required rather than defaulted, because the
 // obvious default is also the value that means *the feature is switched off*.
-fun WatchUiState.asSquare(held: Boolean): WatchSquareUiState = WatchSquareUiState(
-    asked = if (this == WatchUiState.Offered) WatchAsk.NONE else WatchAsk.ONE,
-    held = held,
-)
+//
+// **A held square draws the request rather than the state, which is why this inverts.** The colony
+// still says what the server last agreed to; what has not been confirmed is the *opposite* of that,
+// because a held toggle is a toggle. The design says it plainly — *"a held row asks for the opposite
+// of what the server is on, so the request is what the square draws"* — and inverting here is what
+// stops four mappers each having to remember it.
+fun WatchUiState.asSquare(held: Boolean): WatchSquareUiState {
+    val on = this != WatchUiState.Offered
+    return WatchSquareUiState(
+        asked = if (on != held) WatchAsk.ONE else WatchAsk.NONE,
+        held = held,
+    )
+}
 
 // The one new affordance the watch slice adds, and deliberately the only one: a 29dp square beside
 // the ghost time that books an alert for the instant the row already prints.

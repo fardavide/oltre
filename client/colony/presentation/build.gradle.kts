@@ -41,6 +41,11 @@ kotlin {
             implementation(projects.client.design.component)
             implementation(projects.client.design.text)
             implementation(projects.client.design.format)
+            // **What the outbox means to a row**, and the one input on this screen that is not about
+            // the colony. `presentation -> domain` is the edge rule 3 leaves open on purpose; the
+            // queue itself is a `data` module this may never see, which is exactly why the projection
+            // is a layer down from it. See the root build script for why `net` is a shared surface.
+            implementation(projects.client.net.domain)
 
             implementation(libs.kotlinx.datetime)
         }

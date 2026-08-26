@@ -23,6 +23,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
+import dev.fardavide.oltre.client.design.component.HeldAction
+import dev.fardavide.oltre.client.design.component.HeldNote
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.RowVerdict
@@ -92,7 +94,11 @@ private fun FacilityRow(
             // Ahead of the fill, as everywhere else: `pressable` scales what is drawn inside it, and
             // a background declared first is drawn outside.
             .pressable(shape = oltreCardShape) { onOpenDetail(row.building) }
-            .oltreCard(row.action.cardState())
+            // **A held *action* takes the whole surface; a held square does not.** The design's own
+            // frame is the authority: a card whose upgrade is queued is amber, and a card whose bell
+            // is queued keeps its ordinary fill and says so in its foot. The surface answers *is this
+            // row's own thing outstanding*, and a bell is about being told rather than about the row.
+            .oltreCard(if (row.held.action) OltreCardState.HELD else row.action.cardState())
             // Over the fill and over the content, which is what makes it read as light falling on
             // the card rather than as a shape drawn on it.
             .completionSweep(sweep)
@@ -164,7 +170,7 @@ private fun FacilityRow(
                             fontSize = 10.5.sp,
                             modifier = Modifier.padding(top = 4.dp),
                         )
-                        row.verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                        VerdictOrHeld(row = row, compact = compact)
                     }
                     // The one row with no verdict, and the only state where nobody is choosing: the
                     // decision was made when the player tapped, so the slot belongs to the arrow.
@@ -181,11 +187,14 @@ private fun FacilityRow(
                             row.power?.let { PowerTerm(power = it) }
                         }
                         row.fix?.let { FixLine(fix = it, mono = mono) }
+                        // A running row has no verdict, so nothing is displaced — but its square can
+                        // still be held, and the direction has to be said somewhere.
+                        VerdictOrHeld(row = row, compact = compact)
                     }
                     FacilityActionUiState.Upgrade,
                     is FacilityActionUiState.AffordableIn,
                     -> {
-                        row.verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                        VerdictOrHeld(row = row, compact = compact)
                         row.fix?.let { FixLine(fix = it, mono = mono) }
                         TermsLine {
                             row.costs.forEach { chip -> CostChip(chip = chip) }
@@ -218,7 +227,17 @@ private fun FacilityRow(
                     )
                 }
             }
-            when (val action = row.action) {
+            // **The amber ghost wins over every other action state.** Whatever the row would
+            // otherwise offer, a queued upgrade replaces it with `Held` — a target, not a disabled
+            // control: pressing it withdraws the request. It is one branch ahead of the `when` rather
+            // than four branches inside it, because the queue is a fact about the row and not about
+            // which of its four states the colony happens to be in.
+            if (row.held.action) {
+                HeldAction(
+                    onClick = { onUpgrade(row.building) },
+                    modifier = Modifier.testTag(ColonyTestTags.card(row.building) + HELD_SUFFIX),
+                )
+            } else when (val action = row.action) {
                 FacilityActionUiState.Upgrade -> Text(
                     text = Strings.upgradeVerb().resolve(),
                     color = Color.White,
@@ -238,7 +257,7 @@ private fun FacilityRow(
                 // are different things: one is how long you have to wait, the other is whether you
                 // want to be told when the wait is over.
                 is FacilityActionUiState.AffordableIn -> WatchableAction(
-                    watch = row.watch?.asSquare(),
+                    watch = row.watch?.asSquare(held = row.held.watch),
                     stacked = compact,
                     onToggleWatch = { onToggleWatch(row.building) },
                     watchModifier = Modifier.testTag(ColonyTestTags.watch(row.building)),
@@ -277,7 +296,7 @@ private fun FacilityRow(
                     LevelDial(level = row.level.value, percent = action.progressPercent)
                     row.watch?.let { watch ->
                         WatchSquare(
-                            state = watch.asSquare(),
+                            state = watch.asSquare(held = row.held.watch),
                             onClick = { onToggleWatch(row.building) },
                             // Never stacked: a running row's action is a line of three things, and
                             // its card is taller than 44dp already.
@@ -353,3 +372,25 @@ private fun PowerTerm(power: FacilityPowerUiState) {
         )
     }
 }
+
+// **Held displaces the verdict rather than adding a line**, which is the design's own fix for the map
+// card's bell generalised: a held card has no countdown and no bar, so the slot the verdict was in is
+// free — and *what you asked for and have not got* is the more urgent of the two things a card could
+// say about itself.
+//
+// Three callers, one rule. Written as a function rather than three copies because the day the rule
+// changes it has to change once.
+@Composable
+private fun VerdictOrHeld(row: FacilityRowUiState, compact: Boolean) {
+    val line = row.held.line
+    if (line == null) {
+        row.verdict?.let { RowVerdict(verdict = it, compact = compact) }
+    } else {
+        HeldNote(text = line)
+    }
+}
+
+// The tag the ghost carries, so a behaviour test can press the thing that withdraws rather than the
+// thing that would have started an upgrade. Suffixed onto the card's own tag, so a row's controls
+// stay findable from one name.
+internal const val HELD_SUFFIX = ".held"
