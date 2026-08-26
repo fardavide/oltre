@@ -1295,16 +1295,33 @@ gcloud secrets get-iam-policy oltre-apple-signin-p8 --project=oltre-506614
   public-key digest gives `95d11ed5…28d13d9b`, matching step 20. That is what makes Secret Manager a
   genuine third copy rather than an assumption: unlike a GitHub secret it is readable back.
 
-**The budget alert: set 2026-08-25**, €2/month with email at 50% and 100%, in the console at
-**Billing → Budgets & alerts**. It is the only guard the zero-euro target has — the thing that would
-catch a load balancer or a minimum-instance setting being switched on months from now, when nobody
-is looking.
+**The budget alert is Davide's own and is not tracked here** — his call, 2026-08-26: *"ignore this
+whole limit thingy, I'll handle it myself."* Nothing in this document or in `#111` is waiting on it,
+and no session should raise it again.
 
-Browser-only, deliberately, and **it is also the one step here nobody verified afterwards.**
-`gcloud billing budgets list` needs the Cloud Billing Budget API enabled *and* application-default
-credentials with a quota project, which is a third API and a second auth mode to read back a number
-that is visible on the page that set it. So this step rests on having seen it, not on a check —
-worth knowing if the first surprising bill ever arrives.
+One measurement is worth keeping, because it is a *method* rather than a finding. This step used to
+say reading the budget back needed application-default credentials and a quota project, and that
+therefore it *"rests on having seen it, not on a check"*. **That is not true** — a plain access token
+does it, and the whole thing takes four minutes:
+
+```
+gcloud services enable billingbudgets.googleapis.com --project=oltre-506614
+```
+
+```
+curl -s -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "x-goog-user-project: oltre-506614" "https://billingbudgets.googleapis.com/v1/billingAccounts/01E99B-523E96-8DC1CF/budgets" | jq .
+```
+
+`{}` is an empty list. To know whether that means *no budgets* or *not allowed to see them*, ask —
+`403` never appears for a filtered list, so the permission has to be checked separately:
+
+```
+curl -s -X POST -H "Authorization: Bearer $(gcloud auth print-access-token)" -H "x-goog-user-project: oltre-506614" -H "Content-Type: application/json" -d '{"permissions":["billing.budgets.list"]}' "https://cloudbilling.googleapis.com/v1/billingAccounts/01E99B-523E96-8DC1CF:testIamPermissions" | jq .
+```
+
+Both APIs were enabled on 2026-08-26 and left enabled; neither costs anything. **The general point is
+the one worth carrying: a step whose own text says nobody verified it is a step to go and verify, and
+the stated reason for not being able to may itself be wrong.**
 
 Create `oltre-google-web-client-secret` and `oltre-database-url` later: an empty secret version is
 worse than a missing one, because the instance starts and then fails at the first query.
@@ -1313,21 +1330,40 @@ worse than a missing one, because the instance starts and then fails at the firs
 
 # Part 7 — What genuinely waits, and on what
 
-> **Steps 43, 44 and 45 are `#111`, and all of it is done except two things Davide has to do
-> himself** — the Namecheap record in 43 and the budget-alert test in 45a. `#129` merged on
-> 2026-08-26, the first deploy created the service, and 43, 44d and the three checks the Done-means
-> could not pass by assuming all ran that hour. What each one produced is in its own step below.
+> **Steps 43, 44 and 45 are `#111`, and it is closed.** `#129` merged on 2026-08-26, the first deploy
+> created the service, and 43, 44d and the three checks the Done-means could not pass by assuming all
+> ran that hour. Davide added the Namecheap record the same afternoon; the managed certificate issues
+> on Google's own clock afterwards and nothing waits on it. **45a was dropped on his call** once the
+> budget it asked about turned out never to have existed. What each step produced is below.
 
 ## 43. Cloud Run domain mapping for `api.oltre.space`
 
-**Created 2026-08-26. What is left is one DNS record, and it is Davide's** — Namecheap is his
-account and nothing in a session can reach it. The mapping is waiting on it and says so:
-`DomainRoutable` is true, `CertificateProvisioned` is `Unknown` with *"You must configure your DNS
-records for certificate issuance to begin."*
+**Done 2026-08-26.** Mapping created at 11:11, Davide added the record that afternoon,
+`CertificateProvisioned` went true at **13:17**, and `https://api.oltre.space/health` answers `204`
+with a TLS handshake of 0.25 s. About fifty minutes from record to certificate.
 
 | Host | Type | Value |
 |---|---|---|
 | `api` | `CNAME` | `ghs.googlehosted.com.` |
+
+**How to tell propagation from a misconfiguration, which is the only question worth asking while it
+is pending.** The mapping's message changes as Google gets further: *"You must configure your DNS
+records for certificate issuance to begin"* means it has seen nothing, and *"The challenge data was
+not visible through the public internet… The system will retry"* means it has. Check the record
+through **Google's own resolver** rather than yours, because that is the one doing the looking:
+
+```
+dig +short api.oltre.space CNAME @8.8.8.8
+```
+
+`ghs.googlehosted.com.` and no stray `A` record on `api` is a correct configuration, and everything
+after that is waiting. Note also that `lastTransitionTime` does **not** advance on a retry that
+changes nothing — the condition has not transitioned — so it is not a progress indicator.
+
+**Nothing is blocked meanwhile and nothing should be made to wait on it.** The `run.app` URL serves
+everything, `#111`'s Done-means asks for *"a public URL"* rather than for this one, and the keep-warm
+ping is pointed at `run.app` precisely so it does not fail every ten minutes until the certificate
+lands. Repointing it afterwards is 44d's one-line update.
 
 **Waits on:** the first successful deploy — so on 44a. Search Console ownership of `oltre.space` is
 already done (step 8a), which is the part that could have blocked you, and the `gcloud` account is the
@@ -1504,10 +1540,17 @@ that one command.
 ### 44d. The keep-warm ping — **done 2026-08-26**
 
 `oltre-keep-warm` exists, `*/10 * * * *`, in `europe-west1`, pointed at
-`https://oltre-server-6bi5dbyb5a-ew.a.run.app/health` — **the `run.app` URL, because step 43's
-certificate is not issued yet and a ping at `api.oltre.space` would fail every ten minutes until it
-is.** Repointing it is one `gcloud scheduler jobs update http … --uri=…` the day the certificate goes
-true.
+**`https://api.oltre.space/health`**. It was created against the `run.app` URL — deliberately, because
+step 43's certificate had not issued and a ping at the name would have failed every ten minutes until
+it did — and repointed the same afternoon once it had:
+
+```
+gcloud scheduler jobs update http oltre-keep-warm --project=oltre-506614 --location=europe-west1 --uri="https://api.oltre.space/health"
+```
+
+Confirmed by a forced run *and* by the next scheduled one, both `204` against the new URL in the
+execution log. **Reading back the job's `httpTarget.uri` is not the check** — that only says what was
+typed; the execution log is what says the ping arrived.
 
 **Forced once and read back rather than assumed**, which is what a scheduled job most deserves: it is
 a control nobody looks at again, and one that silently stopped firing would look exactly like one
@@ -1604,23 +1647,14 @@ anything — it is a POST target anybody can reach and one of the four things it
 account*. **Only `account-delete` deletes**: `consent-revoked` is the player turning Sign in with
 Apple off in Settings, which is an unlink, and signing in again hands back the same subject.
 
-## 45a. The budget alert — **yours, and it is the one thing `#111` cannot pass by assuming**
+## 45a. The budget alert — **Davide's, and off this page**
 
-The alert itself exists: **€2/month with email at 50% and 100%, set 2026-08-25** (step 42). What
-`#111` asks for is that it has been **tested by lowering its threshold once**, and step 42 already
-records why that matters here more than usual — *"it is also the one step here nobody verified
-afterwards"*, because reading it back needs a third API and a second auth mode.
+**Davide's call, 2026-08-26: *"ignore this whole limit thingy, I'll handle it myself."*** So the
+budget is not tracked in this document, is not a line in `#111`, and is not a task for any session.
+`#111` closed without it.
 
-<https://console.cloud.google.com/billing> → **Budgets & alerts** → the Oltre budget → **Edit**:
-
-1. Lower the amount to **€0.01** and save.
-2. Wait for the mail. Google evaluates budgets several times a day rather than instantly, so this is
-   *not* a same-minute check — give it a day before concluding anything.
-3. **Set it back to €2** and confirm on the page that it saved.
-
-If no mail arrives, the alert has never worked and nothing else would have told you. That is the
-whole value of doing it: the alert is the only guard the zero-euro target has, and an untested one is
-a guard nobody has seen fire.
+The step is kept as a heading rather than deleted so that a reader following the numbering does not
+wonder what happened to it, and so that nobody re-adds it as an open item. **Do not raise it again.**
 
 ## 46. Publish `https://oltre.space/privacy` and `https://oltre.space/terms`
 **Waits on:** the policy text, which must describe what the shipped build actually does — so it
