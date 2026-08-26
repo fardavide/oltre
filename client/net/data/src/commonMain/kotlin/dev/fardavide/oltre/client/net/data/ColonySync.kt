@@ -77,19 +77,24 @@ class ColonySync(
     private val keys: IdempotencyKeys,
     private val clock: Clock,
     private val retry: RetryPolicy,
+    // **Who is asking, resolved here rather than passed in.** A caller that held the token would
+    // have to know when to refresh it, which is a decision, and this module exists so that the
+    // screen above it makes none. It also means there is exactly one place that can answer
+    // `SessionExpired`, and therefore exactly one place that can get it wrong.
+    private val sessions: SessionKeeper,
 ) {
 
     // The one-time call a first launch makes. Idempotent at the far end, so a retry after a lost
     // response finds the colony that is already there rather than minting a second galaxy.
-    suspend fun found(access: SessionToken): SyncOutcome = drain(retry) { api.foundColony(access) }
+    suspend fun found(): SyncOutcome = drain(retry) { api.foundColony(it) }
 
     // Bring the colony up to date and drain whatever is queued. An empty queue is the normal case:
     // it is what opening the app sends.
-    suspend fun sync(access: SessionToken): SyncOutcome {
+    suspend fun sync(): SyncOutcome {
         // Read once. A retry asks the same question again rather than a different one — the outbox
         // cannot have changed, because nothing was answered.
         val outgoing = outbox.queued()
-        return drain(retry) { api.sync(access, outgoing) }
+        return drain(retry) { api.sync(it, outgoing) }
     }
 
     // **A tap.** The order below is the whole of it and each step is load-bearing:
@@ -105,7 +110,7 @@ class ColonySync(
     // **One attempt, where `sync` retries**, and that is a choice about who is waiting rather than
     // an omission: the outbox has already taken the verb, so a second and third attempt buys a
     // colony four seconds later and nothing else, with the screen waiting the whole time.
-    suspend fun act(access: SessionToken, verb: ClientVerb): ActOutcome {
+    suspend fun act(verb: ClientVerb): ActOutcome {
         val envelope = VerbEnvelope(
             verb = verb,
             // A claim rather than a fact, and the server says so: it clamps this into
@@ -122,7 +127,7 @@ class ColonySync(
             QueueResult.NOT_QUEUEABLE -> outbox.queued() + envelope
         }
 
-        return when (val outcome = drain(RetryPolicy.ONCE) { api.sync(access, outgoing) }) {
+        return when (val outcome = drain(RetryPolicy.ONCE) { api.sync(it, outgoing) }) {
             is SyncOutcome.Synced -> ActOutcome.Synced(outcome.colony, outcome.rejected)
             is SyncOutcome.Failed -> ActOutcome.Failed(outcome.error)
             SyncOutcome.NotNow -> when (kept) {
@@ -132,14 +137,33 @@ class ColonySync(
         }
     }
 
-    // **Ask, and ask again only for the two answers that are worth asking again about.**
+    // **Ask, and ask again only for the answers that are worth asking again about.**
     //
     // Everything else in `ApiError` is terminal by construction and returning it immediately is the
     // point: a second `Unauthenticated` is still `Unauthenticated`, and three attempts at it would
     // delay the sign-in screen by four seconds for no reason.
-    private suspend fun drain(policy: RetryPolicy, send: suspend () -> ApiResult<SyncResponse>): SyncOutcome {
-        repeat(policy.attempts) { index ->
-            when (val result = send()) {
+    private suspend fun drain(
+        policy: RetryPolicy,
+        send: suspend (SessionToken) -> ApiResult<SyncResponse>,
+    ): SyncOutcome {
+        // **Resolved once, outside the loop, and refreshed inside it.** A token good enough to start
+        // with stays good for three attempts three seconds apart; the case that is not covered by
+        // that arithmetic is the server disagreeing, which is what `SessionExpired` below is.
+        var access = sessions.current() ?: return SyncOutcome.Failed(ApiError.Unauthenticated)
+
+        // **A renewal does not spend an attempt**, and that is the difference between a tap landing
+        // and a tap being queued for later. `RetryPolicy.ONCE` has exactly one attempt, so folding
+        // the renewal into it would mean every expired-token tap fell through to `Queued` — correct,
+        // eventually, and visibly wrong to somebody standing in front of it with full signal.
+        //
+        // Once, though. A second `SessionExpired` on a token this server has just minted is not a
+        // clock disagreement any more, and asking a third time would be a loop with a screen on the
+        // end of it.
+        var renewed = false
+        var index = 0
+
+        while (index < policy.attempts) {
+            when (val result = send(access)) {
                 is ApiResult.Answered -> return reconcile(result.value)
 
                 // **`StaleColony` is answered by syncing again, never by saying anything.** Nothing
@@ -147,8 +171,34 @@ class ColonySync(
                 // times and wrote nothing — so the verbs are still in the outbox and the colony on
                 // screen is still the one they last saw. There is nothing to tell them and nothing
                 // to undo. See `Endpoints.kt`, which is the only thing that produces it.
-                is ApiResult.Refused -> if (result.error != ApiError.StaleColony) {
-                    return SyncOutcome.Failed(result.error)
+                is ApiResult.Refused -> when {
+                    result.error == ApiError.StaleColony -> Unit
+
+                    // **The one error the player is never shown**, and this is the line that keeps
+                    // that promise. `#110` split it from `Unauthenticated` for exactly this: an
+                    // access token running out is a thing the app fixes by itself, without a screen
+                    // and without anybody noticing.
+                    //
+                    // A renewal that fails ends at the gate rather than looping: `renew` already
+                    // knows the difference between a refusal and a silence, and returns null for
+                    // both — the outbox is intact either way, so a train and a deleted account cost
+                    // the same nothing.
+                    result.error == ApiError.SessionExpired && !renewed -> {
+                        renewed = true
+                        access = sessions.renew() ?: return SyncOutcome.Failed(ApiError.Unauthenticated)
+                        // Straight back round, without spending an attempt and without waiting:
+                        // nothing is congested, the credential was simply stale.
+                        continue
+                    }
+
+                    // Renewed, and the server still says the token is expired. Whatever that is, it
+                    // is not something a fourth request fixes — and it must not surface as
+                    // `SessionExpired`, because that member means *"ask again in a moment"* and the
+                    // moment has been had. One meaning reaches the shell: sign in again.
+                    result.error == ApiError.SessionExpired ->
+                        return SyncOutcome.Failed(ApiError.Unauthenticated)
+
+                    else -> return SyncOutcome.Failed(result.error)
                 }
 
                 ApiResult.Unreachable -> Unit
@@ -157,6 +207,7 @@ class ColonySync(
             // Running off the end of the list **is** the last attempt, which is why the policy is a
             // list of waits rather than a count and a formula.
             policy.waits.getOrNull(index)?.let { delay(it) }
+            index++
         }
         return SyncOutcome.NotNow
     }
