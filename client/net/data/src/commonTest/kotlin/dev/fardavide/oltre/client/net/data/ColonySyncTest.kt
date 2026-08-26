@@ -14,6 +14,7 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.RejectionReason
+import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.VerbRefusal
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
@@ -32,7 +33,7 @@ import kotlin.time.Instant
 
 private val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
-private val PLAYER = PlayerHandle("davide")
+private val PLAYER = SessionToken("davide")
 
 private val UPGRADE = ClientVerb.StartUpgrade(BuildingType.METAL_MINE)
 
@@ -89,7 +90,7 @@ class ColonySyncTest {
         // then
         assertEquals(ActOutcome.Synced(fakeColony(NOW + 2.seconds, seed = 99), emptyList()), outcome)
         assertEquals(listOf(UPGRADE), scenario.api.lastSync()?.envelopes?.map { it.verb })
-        assertEquals(PLAYER, scenario.api.lastSync()?.player)
+        assertEquals(PLAYER, scenario.api.lastSync()?.access)
     }
 
     // The colony came back, so the queue is empty — and the file is gone rather than holding `[]`.

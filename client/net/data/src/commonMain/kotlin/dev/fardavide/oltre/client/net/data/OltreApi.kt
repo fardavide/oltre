@@ -1,22 +1,12 @@
 package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
-import kotlin.jvm.JvmInline
-
-// **Who is asking.** Until `#110` it is whatever the client puts in `Protocol.PLAYER_HEADER` and
-// nothing has verified it; after `#110` it is a session token the server minted, and the only thing
-// that changes here is where the string comes from. A type rather than a `String` all the way down
-// for the reason the model uses one everywhere else — the day it is minted rather than typed, the
-// compiler has to be able to find every place that carries it.
-@JvmInline
-value class PlayerHandle(val value: String) {
-
-    init {
-        require(value.isNotBlank()) { "a player handle names somebody and cannot be blank" }
-    }
-}
 
 // **What came back, and there are three answers because there are three different things to do.**
 //
@@ -37,26 +27,45 @@ sealed interface ApiResult<out T> {
     data object Unreachable : ApiResult<Nothing>
 }
 
-// **The whole of what the client can ask**, which is two questions because the server has two
-// routes and everything a player can do to a colony is already one of twelve verbs on one envelope.
+// **The whole of what the client can ask.** Two questions about a colony and three about who is
+// holding it — `#112` shipped only the first pair, because until `#113` there was no way to become
+// anybody.
 //
 // It is an interface rather than the Ktor class itself so that the suite has something to hand the
-// shell that is not a socket — `#106` §8, and the reason `:client:net:data-testing` lands in this
-// slice rather than in `#113`: the whole behaviour and screenshot suite runs on the desktop target,
-// and it must not try to reach production.
+// shell that is not a socket — `#106` §8: the whole behaviour and screenshot suite runs on the
+// desktop target, and it must not try to reach production.
 //
-// **Neither method takes a `SyncRequest`.** The client's API version is a fact about this build
-// rather than a choice a caller makes, so the implementation states it and a caller cannot get it
-// wrong. What a caller supplies is the only thing it knows: which envelopes are outstanding.
+// **No method takes a request object.** The client's API version is a fact about this build rather
+// than a choice a caller makes, so the implementation states it and a caller cannot get it wrong.
+// What a caller supplies is the only thing it knows.
 interface OltreApi {
+
+    // **Two methods rather than one taking a provider, because the provider is the path.** That is
+    // `Auth.kt`'s call and it is not cosmetic: the two tokens are verified against different
+    // issuers, different audiences and different key sets, so a single route would have to branch on
+    // its own body to decide who to believe.
+    //
+    // Neither carries a session — this is what produces one.
+    suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse>
+
+    suspend fun signInWithGoogle(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse>
+
+    // **What `ApiError.SessionExpired` is answered with**, and the reason a player who checks in
+    // twice a day never sees the gate twice. A fresh *pair* comes back rather than a fresh access
+    // token alone, so the ninety days slides forward every time the game is opened.
+    suspend fun refresh(refreshToken: SessionToken): ApiResult<SessionResponse>
+
+    // App Review guideline 5.1.1(v), and the one call whose success carries nothing at all: the
+    // server answers `204`, and it answers `204` the second time too.
+    suspend fun deleteAccount(access: SessionToken): ApiResult<Unit>
 
     // Found this player's colony, and mint its galaxy while doing it. Idempotent at the far end — a
     // second call after a lost response gets the colony that is already there rather than a second
     // one — which is why it needs no envelope and no key of its own.
-    suspend fun foundColony(player: PlayerHandle): ApiResult<SyncResponse>
+    suspend fun foundColony(access: SessionToken): ApiResult<SyncResponse>
 
     // Everything queued since the last sync goes up in the order the player tapped it; the
     // authoritative colony comes back, and what became of each verb comes back with it. An empty
     // list is the normal case rather than a degenerate one — it is what opening the app sends.
-    suspend fun sync(player: PlayerHandle, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse>
+    suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse>
 }

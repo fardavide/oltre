@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.net.data
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.protocol.VerbRejection
@@ -80,15 +81,15 @@ class ColonySync(
 
     // The one-time call a first launch makes. Idempotent at the far end, so a retry after a lost
     // response finds the colony that is already there rather than minting a second galaxy.
-    suspend fun found(player: PlayerHandle): SyncOutcome = drain(retry) { api.foundColony(player) }
+    suspend fun found(access: SessionToken): SyncOutcome = drain(retry) { api.foundColony(access) }
 
     // Bring the colony up to date and drain whatever is queued. An empty queue is the normal case:
     // it is what opening the app sends.
-    suspend fun sync(player: PlayerHandle): SyncOutcome {
+    suspend fun sync(access: SessionToken): SyncOutcome {
         // Read once. A retry asks the same question again rather than a different one — the outbox
         // cannot have changed, because nothing was answered.
         val outgoing = outbox.queued()
-        return drain(retry) { api.sync(player, outgoing) }
+        return drain(retry) { api.sync(access, outgoing) }
     }
 
     // **A tap.** The order below is the whole of it and each step is load-bearing:
@@ -104,7 +105,7 @@ class ColonySync(
     // **One attempt, where `sync` retries**, and that is a choice about who is waiting rather than
     // an omission: the outbox has already taken the verb, so a second and third attempt buys a
     // colony four seconds later and nothing else, with the screen waiting the whole time.
-    suspend fun act(player: PlayerHandle, verb: ClientVerb): ActOutcome {
+    suspend fun act(access: SessionToken, verb: ClientVerb): ActOutcome {
         val envelope = VerbEnvelope(
             verb = verb,
             // A claim rather than a fact, and the server says so: it clamps this into
@@ -121,7 +122,7 @@ class ColonySync(
             QueueResult.NOT_QUEUEABLE -> outbox.queued() + envelope
         }
 
-        return when (val outcome = drain(RetryPolicy.ONCE) { api.sync(player, outgoing) }) {
+        return when (val outcome = drain(RetryPolicy.ONCE) { api.sync(access, outgoing) }) {
             is SyncOutcome.Synced -> ActOutcome.Synced(outcome.colony, outcome.rejected)
             is SyncOutcome.Failed -> ActOutcome.Failed(outcome.error)
             SyncOutcome.NotNow -> when (kept) {

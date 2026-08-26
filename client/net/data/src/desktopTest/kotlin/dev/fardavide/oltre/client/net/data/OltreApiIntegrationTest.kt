@@ -11,6 +11,7 @@ import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
@@ -42,7 +43,7 @@ class OltreApiIntegrationTest {
 
     private lateinit var server: HttpServer
     private var lastPath: String = ""
-    private var lastPlayer: String? = null
+    private var lastAuthorization: String? = null
     private var lastBody: String = ""
     private var status: Int = 200
     private var answer: String = ""
@@ -62,7 +63,7 @@ class OltreApiIntegrationTest {
     }
 
     @Test
-    fun `a sync over a real socket carries the header and comes back with the colony`() = runTest {
+    fun `a sync over a real socket carries the session and comes back with the colony`() = runTest {
         // given
         answer = Protocol.json.encodeToString(colony())
 
@@ -71,7 +72,7 @@ class OltreApiIntegrationTest {
 
         // then — what went out
         assertEquals("/v1/sync", lastPath)
-        assertEquals("davide", lastPlayer)
+        assertEquals(Protocol.BEARER_PREFIX + "davide", lastAuthorization)
         assertEquals(
             SyncRequest(apiVersion = ApiVersion.CURRENT, envelopes = listOf(UPGRADE)),
             Protocol.json.decodeFromString<SyncRequest>(lastBody),
@@ -131,7 +132,7 @@ class OltreApiIntegrationTest {
 
     private fun answer(exchange: HttpExchange) {
         lastPath = exchange.requestURI.path
-        lastPlayer = exchange.requestHeaders.getFirst(Protocol.PLAYER_HEADER)
+        lastAuthorization = exchange.requestHeaders.getFirst(Protocol.AUTHORIZATION_HEADER)
         lastBody = exchange.requestBody.readBytes().decodeToString()
 
         val bytes = answer.encodeToByteArray()
@@ -151,7 +152,7 @@ class OltreApiIntegrationTest {
 
         val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
-        val PLAYER = PlayerHandle("davide")
+        val PLAYER = SessionToken("davide")
 
         val UPGRADE = VerbEnvelope(
             verb = ClientVerb.StartUpgrade(BuildingType.METAL_MINE),

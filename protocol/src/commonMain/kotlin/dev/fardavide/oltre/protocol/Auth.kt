@@ -61,6 +61,25 @@ value class SignInNonce(val value: String) {
     }
 }
 
+// **Who vouched for the player**, and it is deliberately *not* a field on `SignInRequest`: the
+// provider is the path. What this type is for is the client side of that — the gate has two buttons,
+// something has to carry which one was pressed from the finger to the method that spells the route,
+// and both `:client:auth` and `:client:net:data` need to name it without depending on each other.
+//
+// It is here rather than in either of them for `PLAYER_HEADER`'s reason one level up: this is a fact
+// about the contract — there are exactly two issuers this server will believe — rather than a
+// preference either end is free to hold. `:server`'s `IdentityProvider` is the same closed set said
+// again in that module's own words, and the two converging is a tidy-up worth doing the day
+// something forces it rather than today.
+//
+// **No `@Serializable`, and that is the point.** Nothing here goes on the wire. The moment this
+// gains a serial name it has become the body field that `SignInRequest` was shaped to avoid.
+enum class AuthProvider {
+
+    APPLE,
+    GOOGLE,
+}
+
 // One sign-in. The provider is the **path** rather than a field — `/v1/auth/apple` against
 // `/v1/auth/google` — because the two are verified against different issuers, different audiences
 // and different key sets, and a field would make one route that has to branch on its own body.

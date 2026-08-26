@@ -2,11 +2,19 @@ package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.Protocol
+import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SignInNonce
+import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import io.ktor.client.HttpClient
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.delete
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -33,34 +41,86 @@ class KtorOltreApi(
     private val baseUrl: String,
 ) : OltreApi {
 
-    override suspend fun foundColony(player: PlayerHandle): ApiResult<SyncResponse> =
-        post("/v1/colony", player, emptyList())
+    // **The unauthenticated surface**, and the one that carries no session because it is what makes
+    // one. Two methods because the provider is the path — see `OltreApi` and `Auth.kt`.
+    override suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
+        signIn("/v1/auth/apple", idToken, nonce)
 
-    override suspend fun sync(player: PlayerHandle, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> =
-        post("/v1/sync", player, envelopes)
+    override suspend fun signInWithGoogle(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
+        signIn("/v1/auth/google", idToken, nonce)
 
-    private suspend fun post(
+    override suspend fun refresh(refreshToken: SessionToken): ApiResult<SessionResponse> =
+        send(SessionResponse.serializer()) {
+            post("/v1/auth/refresh", RefreshRequest(ApiVersion.CURRENT, refreshToken), RefreshRequest.serializer())
+        }
+
+    // **The one call with no body in either direction.** `204` is the success and it is also what a
+    // second attempt gets, so there is nothing to decode and nothing to negotiate — which is why
+    // this route alone states no `ApiVersion`.
+    override suspend fun deleteAccount(access: SessionToken): ApiResult<Unit> = send(null) {
+        client.delete(baseUrl + "/v1/account") { bearer(access) }
+    }
+
+    override suspend fun foundColony(access: SessionToken): ApiResult<SyncResponse> =
+        sync("/v1/colony", access, emptyList())
+
+    override suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> =
+        sync("/v1/sync", access, envelopes)
+
+    private suspend fun signIn(
         path: String,
-        player: PlayerHandle,
+        idToken: IdToken,
+        nonce: SignInNonce,
+    ): ApiResult<SessionResponse> = send(SessionResponse.serializer()) {
+        post(path, SignInRequest(ApiVersion.CURRENT, idToken, nonce), SignInRequest.serializer())
+    }
+
+    private suspend fun sync(
+        path: String,
+        access: SessionToken,
         envelopes: List<VerbEnvelope>,
-    ): ApiResult<SyncResponse> {
+    ): ApiResult<SyncResponse> = send(SyncResponse.serializer()) {
+        post(path, SyncRequest(ApiVersion.CURRENT, envelopes), SyncRequest.serializer()) { bearer(access) }
+    }
+
+    private suspend fun <T> post(
+        path: String,
+        body: T,
+        serializer: kotlinx.serialization.SerializationStrategy<T>,
+        configure: HttpRequestBuilder.() -> Unit = {},
+    ): HttpResponse = client.post(baseUrl + path) {
+        configure()
+        contentType(ContentType.Application.Json)
+        // **Encoded by hand rather than by content negotiation, and the server does the same in the
+        // other direction and for the same reason** — see `admit` in `Endpoints.kt`. `Protocol.json`
+        // is the one codec both ends speak, and the properties that make it that one
+        // (`encodeDefaults`, and deliberately no `ignoreUnknownKeys`) are the contract rather than a
+        // preference. A plugin configured with a different dialect would be a client the server
+        // cannot read, and nothing would say so.
+        //
+        // **The version is stated here and not by the caller.** Which contract this build speaks is
+        // a fact about the build; a parameter would be an invitation to send the wrong one.
+        setBody(Protocol.json.encodeToString(serializer, body))
+    }
+
+    // **A standard `Authorization: Bearer …`**, and both halves of the string are `Protocol`'s
+    // rather than spelled out here — a header this end got wrong by one character would read exactly
+    // like a player who never signed in, which is the failure that moved the name into that module.
+    private fun HttpRequestBuilder.bearer(access: SessionToken) {
+        header(Protocol.AUTHORIZATION_HEADER, Protocol.BEARER_PREFIX + access.value)
+    }
+
+    // **One shape for every call**, because every one of them fails in exactly the same three ways
+    // and the arms below are the whole of what this class decides. `null` for the deserializer is
+    // the `204` case: a success carrying no body, which has to be read as one rather than as a body
+    // that failed to parse.
+    @Suppress("UNCHECKED_CAST")
+    private suspend fun <T> send(
+        deserializer: kotlinx.serialization.DeserializationStrategy<T>?,
+        request: suspend () -> HttpResponse,
+    ): ApiResult<T> {
         val response = try {
-            client.post(baseUrl + path) {
-                header(Protocol.PLAYER_HEADER, player.value)
-                contentType(ContentType.Application.Json)
-                // **Encoded by hand rather than by content negotiation, and the server does the
-                // same in the other direction and for the same reason** — see `admit` in
-                // `Endpoints.kt`. `Protocol.json` is the one codec both ends speak, and the
-                // properties that make it that one (`encodeDefaults`, and deliberately no
-                // `ignoreUnknownKeys`) are the contract rather than a preference. A plugin
-                // configured with a different dialect would be a client the server cannot read,
-                // and nothing would say so.
-                //
-                // **The version is stated here and not by the caller.** Which contract this build
-                // speaks is a fact about the build; a parameter would be an invitation to send the
-                // wrong one.
-                setBody(Protocol.json.encodeToString(SyncRequest(ApiVersion.CURRENT, envelopes)))
-            }
+            request()
         } catch (e: CancellationException) {
             // Not a failure and not ours — `served()`'s arm on the server, for its reason. A
             // cancelled request is the caller having gone away, and swallowing it would break the
@@ -87,17 +147,22 @@ class KtorOltreApi(
             return ApiResult.Unreachable
         }
 
-        return if (response.status.isSuccess()) {
-            decode(response) { ApiResult.Answered(Protocol.json.decodeFromString<SyncResponse>(it)) }
-        } else {
-            decode(response) { ApiResult.Refused(Protocol.json.decodeFromString<ApiError>(it)) }
+        if (response.status.isSuccess() && deserializer == null) {
+            return ApiResult.Answered(Unit as T)
+        }
+        return decode(response) { text ->
+            if (response.status.isSuccess()) {
+                ApiResult.Answered(Protocol.json.decodeFromString(deserializer!!, text))
+            } else {
+                ApiResult.Refused(Protocol.json.decodeFromString<ApiError>(text))
+            }
         }
     }
 
-    private suspend fun decode(
+    private suspend fun <T> decode(
         response: HttpResponse,
-        read: (String) -> ApiResult<SyncResponse>,
-    ): ApiResult<SyncResponse> {
+        read: (String) -> ApiResult<T>,
+    ): ApiResult<T> {
         val text = try {
             response.bodyAsText()
         } catch (e: CancellationException) {
@@ -135,7 +200,7 @@ class KtorOltreApi(
     // what `ApiError.Malformed` is for. `detail` is a diagnostic and never player copy, exactly as
     // on the server: every word the game says is a `TextRes` built through `Strings`, and a
     // transport cannot build one.
-    private fun unreadable(response: HttpResponse, text: String): ApiResult<SyncResponse> =
+    private fun <T> unreadable(response: HttpResponse, text: String): ApiResult<T> =
         if (response.status.value >= 500) {
             ApiResult.Unreachable
         } else {
