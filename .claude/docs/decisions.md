@@ -6087,3 +6087,108 @@ not take it — or the recognition that a per-kind ratchet with no floor charges
 a server grows. Flagged rather than pre-empted: this slice passes without one, so asking for one now
 would be asking on a green report.
 
+## The URL answers, and the check that could not be passed on paper needed a row nobody can create
+(2026-08-26, issue #111)
+
+The deployment half of #111, done the hour #129 merged. Everything here is `gcloud`, CI and this
+document; no code changed and nothing a player can do moves, so there is still no version bump —
+#107, #108, #109, #110, #112, #119 and #129 are the precedent.
+
+**The first deploy created the service and went green on the first attempt**, including the step that
+greps the revision's log for the in-memory fallback line. The failure that had been written down as
+the likely one — a pooled Neon endpoint that had never been enabled — did not happen: step 44a's
+insistence on copying the string from behind the *Connection pooling* toggle rather than editing a
+`-pooler` into the hostname is what made that a non-event.
+
+| | |
+|---|---|
+| Service | `oltre-server`, `europe-west1`, `https://oltre-server-6bi5dbyb5a-ew.a.run.app` |
+| Runtime identity | `oltre-server@`, startup CPU boost on, `--max-instances=3` |
+| Revisions | `00001-qcx` (first deploy), `00002-jcz` (the forced redeploy) |
+| Domain mapping | `api.oltre.space` created, `DomainRoutable` true, certificate waiting on one DNS record |
+
+### A deployed server has no seam, so the redeploy check had to write a row and delete it
+
+The one line in the Done-means that cannot be passed by assuming, and the interesting part is not
+the result but what it took, because nothing in the ticket anticipated it.
+
+**A deployed server accepts exactly one credential: a bearer token it signed, naming a player the
+`players` table still holds.** That is #110's design working, and it is airtight in both directions —
+`SessionAuthenticator` ignores `X-Oltre-Player` outright, `Main.kt` refuses to boot with a
+`DATABASE_URL` and no session key, and the only thing that ever writes a `players` row is
+`resolve`, reached only from a verified Apple or Google ID token. Which means **there is no way to
+found a colony against the deployed service from outside a real sign-in**, and #113 is the slice that
+builds one.
+
+So the row was inserted straight into Neon under the provider name the dev loop already uses,
+`(header, redeploy-check-111)`, and a session token was minted locally against the same signing key
+the service holds. Neither credential entered a session, a shell history or this document: both were
+read from `~/Documents/Keys/Oltre/identity/` by a throwaway script that printed statuses and digests
+and nothing else.
+
+**Then it was deleted, and the deletion is the second half of the check.** `DELETE FROM players`
+cascades, so the colony went with it — confirmed by counting the `colonies` row — and a *perfectly
+signed* token naming the deleted player came back `401 {"type":"Unauthenticated"}` from the live
+service. That is `Authenticator.kt`'s existence check, the line App Review 5.1.1(v) is the reason
+for, observed in production rather than in a test.
+
+**The check itself, in order:**
+
+| | revision | `/v1/sync` | galaxy | Postgres `version` |
+|---|---|---|---|---|
+| founded | `00001-qcx` | `201` | `2663977…` | 3 |
+| before | `00001-qcx` | `200` | `2663977…` | 4 |
+| after a forced redeploy | `00002-jcz` | `200` | `2663977…` | 5 |
+| after a rollback | `00001-qcx` | `200` | `2663977…` | 6 |
+
+**The identity that survives is the galaxy and not the snapshot**, which took one wrong attempt to
+notice. A sync advances `lastUpdatedAt`, so the snapshot hashes differently every single time and a
+digest comparison would fail on a colony that had survived perfectly. The galaxy is minted once, at
+founding, from a seed the server drew — so it is the one thing a *second* colony could not coincide
+with, and the one thing an in-memory revision would have lost. A check written the obvious way would
+have been red for the wrong reason, which is the same class of mistake as a smoke test that is green
+for the wrong one.
+
+### The rollback was done on the same colony, which makes it two checks for one
+
+`gcloud run services update-traffic … --to-revisions=oltre-server-00001-qcx=100`, the line the
+workflow prints into its own run summary, then `--to-latest` to put it back. Both took about twenty
+seconds.
+
+Doing it while the check's colony existed is what makes it worth more than a confirmation that the
+command parses: **the colony survived the rollback too**, which is the property that actually matters
+when somebody reaches for this. A rollback that served a colony from a revision that had lost it
+would be the outage the rollback was supposed to end.
+
+### The cold start is 4.9 seconds, not the one to two §6 assumed
+
+Measured before the scheduler job was created, because afterwards there is nothing left to measure.
+Thirty-two minutes idle, then one request, then another.
+
+| | `curl` total | Cloud Run's request log |
+|---|---|---|
+| cold | 5.063 s | **4.538 s** |
+| warm | 0.166 s, 0.162 s | 0.0044 s, 0.0050 s |
+| the scheduler's ping | — | 0.0090 s |
+
+**Two columns rather than one, and the second is the number.** `curl` from a laptop carries a TLS
+handshake and a round trip — that is essentially the whole warm figure, 0.166 s of which the server
+accounts for 0.004. What Cloud Run logs is what the server did, and a thousandfold gap between cold
+and warm is not something a network measurement would have shown clearly.
+
+**#106 §6 said startup CPU boost takes Ktor to one or two seconds. It is on, and the answer is 4.9.**
+No conclusion is drawn about why — a JVM, Netty, a schema application and a pool construction are all
+in there and nobody has profiled it — but the estimate is corrected here rather than left standing as
+a thing the next slice would plan against.
+
+**And it makes the ping worth more rather than less**, which is the point of having asked for a number
+at all: ten minutes sits well inside Cloud Run's idle window, so the instance never gets the chance to
+go cold, and what is being avoided is five seconds in an app whose whole premise is a five-minute
+check-in. Had it come back at 400 ms the honest answer would have been to drop the job.
+
+### `gcloud beta` is not installed, and it will not prompt for it in a session
+
+One line because it cost one round trip: `gcloud beta run domain-mappings create` exits with *"This
+prompt could not be answered because you are not in an interactive session"* rather than doing
+anything. `gcloud components install beta --quiet` first. Written into step 43 where the command is.
+

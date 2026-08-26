@@ -1313,16 +1313,29 @@ worse than a missing one, because the instance starts and then fails at the firs
 
 # Part 7 — What genuinely waits, and on what
 
-> **Steps 43, 44 and 45 are `#111`.** 44 and 45 are done, including Neon — what is left needs the
-> service to exist, and the service is created by the first run of the deploy workflow, which needs
-> `#129` merged. So the order is: **merge, deploy, then 43 and 44d**, and 45a (the budget alert) is
-> the one thing on this page that is nobody's but Davide's.
+> **Steps 43, 44 and 45 are `#111`, and all of it is done except two things Davide has to do
+> himself** — the Namecheap record in 43 and the budget-alert test in 45a. `#129` merged on
+> 2026-08-26, the first deploy created the service, and 43, 44d and the three checks the Done-means
+> could not pass by assuming all ran that hour. What each one produced is in its own step below.
 
 ## 43. Cloud Run domain mapping for `api.oltre.space`
+
+**Created 2026-08-26. What is left is one DNS record, and it is Davide's** — Namecheap is his
+account and nothing in a session can reach it. The mapping is waiting on it and says so:
+`DomainRoutable` is true, `CertificateProvisioned` is `Unknown` with *"You must configure your DNS
+records for certificate issuance to begin."*
+
+| Host | Type | Value |
+|---|---|---|
+| `api` | `CNAME` | `ghs.googlehosted.com.` |
 
 **Waits on:** the first successful deploy — so on 44a. Search Console ownership of `oltre.space` is
 already done (step 8a), which is the part that could have blocked you, and the `gcloud` account is the
 same one that verified it.
+
+**`gcloud beta` is not installed by default and the create command will not prompt for it** in a
+non-interactive session — it exits with *"This prompt could not be answered"*. One
+`gcloud components install beta --quiet` first, and it is a one-off.
 
 ```
 gcloud beta run domain-mappings create --service=oltre-server --domain=api.oltre.space --project=oltre-506614 --region=europe-west1
@@ -1488,17 +1501,33 @@ The four things the deploy command has to get right, three of which fail **silen
 pre-create: `gcloud run deploy` creates a service that does not exist, and every flag it needs is on
 that one command.
 
-### 44d. The keep-warm ping — one command, after the first deploy
+### 44d. The keep-warm ping — **done 2026-08-26**
 
-`#106` §6 puts a Cloud Scheduler job on the service every ten minutes so a player never meets the
-cold start. Cloud Run bills per request, so 144 a day is free, and the free tier allows three jobs.
-The API is enabled already.
+`oltre-keep-warm` exists, `*/10 * * * *`, in `europe-west1`, pointed at
+`https://oltre-server-6bi5dbyb5a-ew.a.run.app/health` — **the `run.app` URL, because step 43's
+certificate is not issued yet and a ping at `api.oltre.space` would fail every ten minutes until it
+is.** Repointing it is one `gcloud scheduler jobs update http … --uri=…` the day the certificate goes
+true.
+
+**Forced once and read back rather than assumed**, which is what a scheduled job most deserves: it is
+a control nobody looks at again, and one that silently stopped firing would look exactly like one
+that works. `gcloud scheduler jobs run` and then the execution log —
+`AttemptFinished … URL_CRAWLED. Original HTTP response code number = 204` — with the matching
+`Google-Cloud-Scheduler` entry in the service's own request log, 9 ms. Two things about doing it that
+way, both cheap and both nearly missed:
+
+- **`gcloud scheduler jobs run` returns before the attempt happens.** The forced run showed up in the
+  Cloud Run request log about forty seconds later. Looking too early reads as a job that does
+  nothing, which is the one conclusion worth not jumping to.
+- **`jobs describe` is not the place to look.** `lastAttemptTime` and `status` stayed empty through
+  two successful attempts. The execution log is the record; the job resource is not.
+
+`#106` §6 put the job on the service every ten minutes so a player never meets the cold start. Cloud
+Run bills per request, so 144 a day is free, and the free tier allows three jobs.
 
 ```
-gcloud scheduler jobs create http oltre-keep-warm --project=oltre-506614 --location=europe-west1 --schedule="*/10 * * * *" --uri="https://api.oltre.space/health" --http-method=GET --attempt-deadline=30s --description="Keeps the Cloud Run instance warm. Touches no store — see below."
+gcloud scheduler jobs create http oltre-keep-warm --project=oltre-506614 --location=europe-west1 --schedule="*/10 * * * *" --uri="https://oltre-server-6bi5dbyb5a-ew.a.run.app/health" --http-method=GET --attempt-deadline=30s --description="Keeps the Cloud Run instance warm. Touches no store — see below."
 ```
-
-Use the `run.app` URL until step 43's certificate is provisioned, then point it at `api.oltre.space`.
 
 **`/health` returns `204` and reaches nothing, and that is load-bearing rather than lazy.** A health
 check that asked the database whether it was there would be the better endpoint on almost any other
@@ -1508,25 +1537,42 @@ would run it for the whole month against an allowance of a fraction of that. The
 this route doing nothing, and an integration test asserts it by handing the server repositories that
 raise if they are touched.
 
-**Measure the cold start before creating the job**, or there is nothing left to measure — that is
-`#111`'s Done-means, and the point of it is that the ten-minute interval should be sized by a number:
+**Measured 2026-08-26, before the job was created**, because once the ping exists there is nothing
+left to measure. Thirty-two minutes after the last request, so the instance had well and truly idled
+out:
+
+| | `curl` total | Cloud Run's own request log |
+|---|---|---|
+| cold | **5.063 s** | **4.538 s** |
+| warm | **0.166 s**, then 0.162 s | 0.0044 s, then 0.0050 s |
+| the scheduler's own ping | — | 0.0090 s |
+
+**So the cold start is about 4.9 seconds and not the one to two `#106` §6 assumed**, with startup CPU
+boost already on. The two columns are worth having side by side: `curl` from a laptop carries a TLS
+handshake and a transatlantic-ish round trip, which is the whole of the warm number — 0.166 s of
+which the server accounts for 0.004. Cloud Run's log is what the server did, and it is the honest
+figure for what a player would feel.
+
+**Which settles the interval rather than merely justifying it.** Ten minutes is comfortably inside
+Cloud Run's idle window, so the instance never gets the chance to go cold; and the thing being
+avoided is five seconds of an app that is *supposed* to open in a glance, not one. A slower cold
+start makes the ping worth more, not less.
+
+```
+curl -o /dev/null -s -w 'cold: %{time_total}s\n' https://oltre-server-6bi5dbyb5a-ew.a.run.app/health
+```
+
+```
+gcloud logging read 'resource.type=cloud_run_revision AND resource.labels.service_name=oltre-server AND httpRequest.requestUrl:"/health"' --project=oltre-506614 --freshness=10m --limit=5 --format='value(timestamp, httpRequest.status, httpRequest.userAgent, httpRequest.latency)'
+```
+
+And **do not** reach for:
 
 ```
 gcloud run services update oltre-server --project=oltre-506614 --region=europe-west1 --no-cpu-boost
 ```
 
-…is *not* what to do. Leave the boost on; it is what takes Ktor to one to two seconds. Instead, wait
-fifteen minutes after the last request so the instance has idled out, then:
-
-```
-curl -o /dev/null -s -w 'cold: %{time_total}s\n' https://api.oltre.space/health
-```
-
-```
-curl -o /dev/null -s -w 'warm: %{time_total}s\n' https://api.oltre.space/health
-```
-
-The difference is the cold start. Put both numbers in `#111`.
+Leave the boost on; it is what keeps that 4.9 from being worse.
 
 ## 45. The startup self-check and the rate limit — **done, `#111`**
 

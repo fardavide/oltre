@@ -593,8 +593,11 @@ Updated: 2026-08-26 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` 
   an unlink that hands back the same subject on the next sign-in. `ApiError.TooManyRequests` is the one
   wire change and needs no version bump. **#111's own scope line about `ApiVersion` was wrong**: the
   version is a body field on all five wire types and always was, so nothing was added. No version
-  bump. **Not finished: Neon**, which needs an account and hands back key material — see the pending
-  entries below and `identity-provisioning.md` step 44a. See [`decisions.md`](decisions.md).
+  bump. **And it is deployed**: the first run of that workflow created the service, the domain mapping
+  and the keep-warm ping followed, the cold start measured **4.9 s against 0.004 s warm**, and the
+  colony was checked across a redeploy *and* a rollback rather than assumed. What is left is two
+  things only Davide can do — one Namecheap record, and lowering the budget alert once to watch it
+  fire. See the pending entries below and [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -649,16 +652,27 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
-- **Neon and the two audiences are done, and what is left needs the service to exist** — #111,
-  2026-08-26. `oltre-database-url` holds the **pooled** connection string, verified by round trip and
-  readable by `oltre-server@` alone; `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are repository
-  variables. **The service is created by the first run of the deploy workflow**, so the domain
-  mapping, the scheduler ping, the measured cold start, the redeploy check and the rollback all wait
-  on #129 being merged rather than on anything anybody has to type.
+- **The service exists and serves a colony out of Neon** — #111, 2026-08-26. #129 merged, the deploy
+  workflow's first run created `oltre-server` in `europe-west1`, and it went green including the step
+  that greps the revision's log for the in-memory fallback line. `oltre-database-url` holds the
+  **pooled** connection string, readable by `oltre-server@` alone; `APPLE_CLIENT_IDS` and
+  `GOOGLE_CLIENT_IDS` are repository variables with two audiences each. The `run.app` URL is
+  `https://oltre-server-6bi5dbyb5a-ew.a.run.app`, and nothing in the client hard-codes either it or
+  `api.oltre.space` yet.
   **The Neon role's password was rotated once on the day it was created**, because the first one was
   pasted into an agent session — the rule that key material never enters one covers a chat, and
   `identity-provisioning.md` step 44a now says so where the string is copied rather than only at the
   top of the page.
+
+- **DAVIDE: one DNS record, and `api.oltre.space` is waiting on it** — #111, 2026-08-26. The Cloud Run
+  domain mapping is created and `DomainRoutable` is true; `CertificateProvisioned` cannot even begin
+  until the record exists, and Google says so in the mapping's own condition message. Namecheap is
+  Davide's account and nothing in a session can reach it.
+  **Domain List → oltre.space → Manage → Advanced DNS**, add host `api`, type `CNAME`, value
+  `ghs.googlehosted.com.` — and **leave the apex records from step 7 alone**, they are what serves the
+  site. The certificate goes true minutes to hours later and `curl` answers a TLS error until it does,
+  which is the expected state rather than a failure. The `run.app` URL keeps working throughout, which
+  is why the keep-warm ping points at it and not at the name.
 
 - **DAVIDE: the budget alert has never been seen to fire, and #111 asks for it to be** — 2026-08-26.
   The alert exists (€2/month, email at 50% and 100%, set 2026-08-25), and step 42 already records that
@@ -669,18 +683,23 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   **It is the only guard the zero-euro target has**, and an untested guard is one nobody has watched
   work. `--max-instances=3` on the service is the other half and bounds how fast a loop could spend.
 
-- **The three checks #111 cannot pass by assuming, all of them minutes after the first deploy** —
-  2026-08-26. Each one is written where it will be wanted rather than only here.
-  **The colony survives a redeploy**: found one, force a new revision, sync, and it is still there.
-  Every other assertion in that list passes with the database not connected at all, because the
-  in-memory fallback founds colonies and serves syncs perfectly well — so this is the only check that
-  the fallback fails. The workflow greps the revision's log for the fallback line as well, which is
-  the cheap half of the same question.
-  **The cold start, measured and written into #111**, so the ten-minute Cloud Scheduler ping is sized
-  by a number rather than by §6's estimate of one to two seconds.
-  **A rollback done once on purpose**: the workflow prints the command and the five most recent
-  revisions into its own run summary, because the moment it is wanted is the moment nobody wants to go
-  looking for it.
+- **The three checks #111 could not pass by assuming were all performed, and one of them cost more
+  than it looks** — 2026-08-26. Numbers and method in [`decisions.md`](decisions.md).
+  **The colony survived a redeploy and a rollback**: founded on revision `00001`, still there on
+  `00002` after a forced redeploy, still there on `00001` after rolling traffic back — same galaxy,
+  Postgres `version` climbing 3 → 6 throughout. What it cost is the part worth knowing:
+  **there is no way to found a colony against a deployed server from outside a real sign-in**, because
+  a deployed server accepts only a bearer token it signed naming a player the `players` table holds,
+  and the only thing that writes such a row is a verified Apple or Google token. So the check inserted
+  one row into Neon directly and deleted it after — and the deletion is the other half, since a
+  perfectly signed token naming the deleted player then came back `401` from the live service.
+  **The cold start is 4.9 s against 0.004 s warm**, measured before the scheduler job existed and
+  written into #111. That is roughly two and a half times #106 §6's estimate, with startup CPU boost
+  on, which makes the ten-minute ping worth more rather than less.
+  **The keep-warm job exists and was forced once and read back**: `oltre-keep-warm`, every ten
+  minutes, pointed at the `run.app` URL. Note for whoever repoints it at `api.oltre.space` once the
+  certificate is issued — `jobs describe` shows an empty `lastAttemptTime` even after successful
+  attempts, so the **execution log** is the only place that says whether it fired.
 
 - **DIARISE: Apple's client secret expires within six months, and a silently expired one takes
   sign-in down for everyone at once** — #110, 2026-08-25. It is a JWT signed with the `.p8`
