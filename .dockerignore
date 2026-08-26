@@ -1,0 +1,10 @@
+# **Everything, and then one directory back.** The image needs exactly what `installDist` produced,
+# and the repository around it is a Compose app, 102 screenshot baselines, a static site and a Gradle
+# cache — a build context of hundreds of megabytes that would be uploaded to the daemon on every
+# deploy and then ignored.
+#
+# Written as deny-all-then-allow rather than as a list of what to skip, deliberately: a list gets one
+# entry behind the tree the first time somebody adds a directory, and the failure is silent and slow
+# rather than loud.
+*
+!server/build/install/server

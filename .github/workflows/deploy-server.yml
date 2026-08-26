@@ -1,0 +1,211 @@
+name: Deploy server
+
+# **Independent of the release workflows, which is `#106` §8 and not a preference.** Merging to `main`
+# archives to TestFlight and a version change cuts an Android release, so a server deploy can never be
+# atomic with a client one — and the server has to keep answering the build already on somebody's
+# phone. Two consequences live in this file: it is triggered by its own paths rather than by a
+# version, and it never touches `ApiVersion`.
+#
+# **Filtered on what the server is actually made of.** A merge that moves a screenshot baseline is not
+# a server change, and a deploy log that lists every merge is a log nobody can read as a record of
+# what the server is running. `core` and `protocol` are in the list because the engine and the wire
+# are compiled into the image.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/**'
+      - 'protocol/**'
+      - 'core/**'
+      - 'Dockerfile'
+      - '.dockerignore'
+      - 'gradle/libs.versions.toml'
+      - '.github/workflows/deploy-server.yml'
+  workflow_dispatch:
+
+# **One deploy at a time and the running one is not cancelled**, which is the opposite of `ci.yml`'s
+# setting and for a reason: cancelling a CI run wastes a runner, cancelling a `gcloud run deploy`
+# half-way leaves a service whose revision nobody can name from the outside.
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+env:
+  PROJECT: oltre-506614
+  REGION: europe-west1
+  SERVICE: oltre-server
+  REPOSITORY: europe-west1-docker.pkg.dev/oltre-506614/oltre
+  # **The runtime identity, and omitting it is step 44's first silent failure.** Cloud Run would
+  # otherwise run as the Compute Engine default service account, which on a project with no
+  # organisation carries `roles/editor` — read access to every secret in the project, including the
+  # `.p8` and the Neon connection string. The org policy that would prevent that grant needs an
+  # organisation to be enforced by, and there is none. Nothing else in this pipeline would notice.
+  RUNTIME_ACCOUNT: oltre-server@oltre-506614.iam.gserviceaccount.com
+  # The deploy identity, which is a different account on purpose: it may push an image and update a
+  # service, and it may read no secret at all.
+  DEPLOY_ACCOUNT: oltre-deployer@oltre-506614.iam.gserviceaccount.com
+  # **No service-account JSON in a GitHub secret**, which `#111` asks for by name. A key file is a
+  # credential with no expiry that half a dozen people can copy; this is a short-lived token minted
+  # for one workflow run in one repository, and the condition on the provider is what pins it there.
+  WORKLOAD_IDENTITY_PROVIDER: projects/640101315805/locations/global/workloadIdentityPools/github/providers/fardavide-oltre
+
+jobs:
+  deploy:
+    name: Build and deploy to Cloud Run
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # What Workload Identity Federation actually needs: the runner asks GitHub for an OIDC token
+      # about itself and hands it to Google. Without this line the token cannot be minted and the
+      # `auth` step fails with a message about the audience rather than about the permission.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # **First, before anything is compiled.** These two are what the deploy command reads, and the
+      # server refuses to boot without them — correctly, and four minutes after this point. Failing
+      # here says which settings field is empty instead of leaving a revision that never goes ready.
+      # The values themselves are set in `Deploy` below, where the reason they are variables rather
+      # than secrets is argued.
+      - name: Refuse to deploy with no audiences configured
+        run: |
+          missing=""
+          [ -n "${{ vars.APPLE_CLIENT_IDS }}" ] || missing="$missing APPLE_CLIENT_IDS"
+          [ -n "${{ vars.GOOGLE_CLIENT_IDS }}" ] || missing="$missing GOOGLE_CLIENT_IDS"
+          if [ -n "$missing" ]; then
+            echo "::error::Repository variables not set:$missing — Settings → Secrets and variables → Actions → Variables."
+            exit 1
+          fi
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+
+      # **The image is built from `installDist` rather than by a builder**, which is the Dockerfile's
+      # own argument: Gradle's cache is warm here and would be cold anywhere else. `:server:installDist`
+      # compiles `core` and `protocol` on the way, so this is also the check that the thing being
+      # deployed compiles at all.
+      - name: Build the distribution
+        run: ./gradlew :server:installDist
+
+      # **The suite runs before anything is pushed.** `ci.yml` has already run it on the merge commit,
+      # and this costs four minutes to make that a fact about *this* run rather than an assumption
+      # about a green check somebody could have re-run. A deploy is the one workflow where being sure
+      # is worth more than being quick.
+      - name: Test what is about to be deployed
+        run: ./gradlew :server:test :protocol:jvmTest :core:jvmTest
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOY_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Let Docker push to Artifact Registry
+        run: gcloud auth configure-docker europe-west1-docker.pkg.dev --quiet
+
+      # **Tagged with the commit and with `latest`.** The commit tag is what a rollback names and what
+      # makes "which build is the server running" a question with an answer; `latest` is a
+      # convenience for a human deploying by hand and is never what the service is pinned to.
+      - name: Build the image
+        run: docker build --tag "$REPOSITORY/$SERVICE:$GITHUB_SHA" --tag "$REPOSITORY/$SERVICE:latest" .
+
+      - name: Push the image
+        run: docker push --all-tags "$REPOSITORY/$SERVICE"
+
+      # **One `--set-secrets` flag and never several**, which is step 44's second silent failure: it is
+      # a dict flag, documented as *"all existing secrets will be removed first"*, so a second one
+      # replaces rather than merges and drops the earlier entries without a word. All three live on
+      # this line for that reason and must stay on it.
+      #
+      # **The `.p8` is mounted as a file and the other two are environment variables**, which is step
+      # 44's third. A PEM carries newlines, and a mounted secret is re-read on every access where an
+      # env-var secret is resolved once before the instance starts and is fixed for that instance's
+      # life — so a rotated key reaches a file mount and never reaches an env var.
+      #
+      # **`^@^` and not a comma, which is the trap this flag sets for exactly this project.**
+      # `--set-env-vars` is a dict flag delimited by commas, and `APPLE_CLIENT_IDS` and
+      # `GOOGLE_CLIENT_IDS` are *themselves* comma-separated lists — there is one OAuth client per
+      # platform and the server must accept two audiences per provider. Written the obvious way, the
+      # second audience becomes a variable named after an OAuth client id with an empty value, and the
+      # server boots with a provider that accepts one client: every phone signs in and the desktop
+      # build, which is the only build the behaviour and screenshot suites run, does not.
+      # gcloud's own answer is a leading `^<delimiter>^`, and this is what it is for.
+      #
+      # **The audiences are repository *variables* and not secrets**, because they are not secret: an
+      # OAuth client id travels in every redirect a browser makes. They are out of the file so that
+      # adding a sixth client is a settings change rather than a commit, and so this repository does
+      # not carry a list of Davide's clients. The team and the key id are literals above because
+      # `decisions.md` already names both.
+      #
+      # They are checked in the first step of the job, before anything is compiled.
+      - name: Deploy
+        env:
+          APPLE_CLIENT_IDS: ${{ vars.APPLE_CLIENT_IDS }}
+          GOOGLE_CLIENT_IDS: ${{ vars.GOOGLE_CLIENT_IDS }}
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --project="$PROJECT" \
+            --region="$REGION" \
+            --image="$REPOSITORY/$SERVICE:$GITHUB_SHA" \
+            --service-account="$RUNTIME_ACCOUNT" \
+            --set-secrets=DATABASE_URL=oltre-database-url:latest,SESSION_SIGNING_KEY=oltre-session-jwt-key:latest,/secrets/apple/signin.p8=oltre-apple-signin-p8:latest \
+            --set-env-vars="^@^APPLE_CLIENT_IDS=$APPLE_CLIENT_IDS@GOOGLE_CLIENT_IDS=$GOOGLE_CLIENT_IDS@APPLE_TEAM_ID=A7Q83J6LR4@APPLE_KEY_ID=77FXWGUFQY@APPLE_SIGNIN_KEY_FILE=/secrets/apple/signin.p8" \
+            --allow-unauthenticated \
+            --cpu-boost \
+            --cpu=1 \
+            --memory=512Mi \
+            --min-instances=0 \
+            --max-instances=3 \
+            --concurrency=80 \
+            --timeout=60s \
+            --port=8080 \
+            --quiet
+
+      # **The check a smoke test cannot do.** `#111`'s Done-means says so in as many words: with
+      # `DATABASE_URL` absent or misspelled the server falls back to the in-memory store, and that
+      # store founds colonies and serves syncs perfectly well — so every other assertion available
+      # here passes with the database not connected at all. Two things can tell them apart, and this
+      # is the cheap one: the fallback prints a line saying what it is doing, and finding that line in
+      # a *deployed* revision's log is a failure rather than a curiosity.
+      #
+      # `|| true` on the read and an explicit test after it, so that an empty log is not mistaken for
+      # a clean one by `grep`'s exit code.
+      - name: Refuse a revision that is serving colonies from memory
+        run: |
+          sleep 20
+          logs=$(gcloud logging read \
+            "resource.type=cloud_run_revision AND resource.labels.service_name=$SERVICE AND textPayload:\"colonies will live in memory\"" \
+            --project="$PROJECT" --freshness=5m --limit=5 --format='value(textPayload)' || true)
+          if [ -n "$logs" ]; then
+            echo "::error::This revision is serving colonies from memory — DATABASE_URL did not reach it."
+            echo "$logs"
+            exit 1
+          fi
+          echo "No in-memory fallback in the last five minutes of logs."
+
+      # **What a rollback needs, printed where a person looking at a bad deploy will find it.** The
+      # command is one line and it is in the summary rather than in a document, because the moment it
+      # is wanted is the moment nobody wants to go and look for it.
+      - name: Say what is serving and how to undo it
+        if: always()
+        run: |
+          gcloud run services describe "$SERVICE" --project="$PROJECT" --region="$REGION" \
+            --format='table(status.latestReadyRevisionName, status.url)' >> "$GITHUB_STEP_SUMMARY" || true
+          {
+            echo
+            echo '### Rolling back'
+            echo '```'
+            echo "gcloud run services update-traffic $SERVICE --project=$PROJECT --region=$REGION --to-revisions=<REVISION>=100"
+            echo '```'
+            echo 'Revisions, newest first:'
+            echo '```'
+            gcloud run revisions list --service="$SERVICE" --project="$PROJECT" --region="$REGION" --limit=5 \
+              --format='table(metadata.name, status.conditions[0].status, metadata.creationTimestamp)' || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
