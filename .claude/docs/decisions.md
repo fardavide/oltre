@@ -6105,7 +6105,8 @@ insistence on copying the string from behind the *Connection pooling* toggle rat
 | Service | `oltre-server`, `europe-west1`, `https://oltre-server-6bi5dbyb5a-ew.a.run.app` |
 | Runtime identity | `oltre-server@`, startup CPU boost on, `--max-instances=3` |
 | Revisions | `00001-qcx` (first deploy), `00002-jcz` (the forced redeploy) |
-| Domain mapping | `api.oltre.space` created, `DomainRoutable` true, certificate waiting on one DNS record |
+| Domain mapping | `api.oltre.space`, certificate provisioned, `/health` answers `204` |
+| Keep-warm ping | `oltre-keep-warm`, `*/10 * * * *`, on `api.oltre.space` |
 
 ### A deployed server has no seam, so the redeploy check had to write a row and delete it
 
@@ -6185,6 +6186,48 @@ a thing the next slice would plan against.
 at all: ten minutes sits well inside Cloud Run's idle window, so the instance never gets the chance to
 go cold, and what is being avoided is five seconds in an app whose whole premise is a five-minute
 check-in. Had it come back at 400 ms the honest answer would have been to drop the job.
+
+### The budget alert came off the ticket, and the method is the only part worth keeping
+
+**Davide's call, 2026-08-26: *"ignore this whole limit thingy, I'll handle it myself."*** It was a
+line in #111's Done-means and it is not one now; #111 closed without it, it is not tracked in
+`identity-provisioning.md`, and no session should raise it again.
+
+One thing from looking at it generalises, and it is about verification rather than about budgets.
+Step 42 called itself *"the one step here nobody verified afterwards"* and explained that reading a
+budget back needed a third API and application-default credentials, so it *"rests on having seen it,
+not on a check"*. **The reason was wrong**: a plain `gcloud auth print-access-token` against the REST
+endpoint does it, and the whole thing takes four minutes.
+
+**So a step whose own text says nobody verified it is a step to go and verify — and the reason it
+gives for being unverifiable is itself a claim worth checking.** That sentence had been sitting in
+the document for a day describing exactly what was not known.
+
+The second half, which cost a wrong turn: **an empty list is not a permissions answer, and a filtered
+list never returns `403`.** Telling *"there are none"* from *"you cannot see them"* is a separate call
+— `billingAccounts/…:testIamPermissions` for `billing.budgets.list` — and asserting the first without
+making the second is how a reading gets stated more strongly than it was earned. Both commands are in
+step 42.
+
+### `api.oltre.space` took fifty minutes, and two readings during it are misleading
+
+The record went in and the certificate went true about fifty minutes later. Nothing had to be done in
+between, which is the point — but two things read as failures while waiting and are not.
+
+- **`lastTransitionTime` does not advance on a retry.** The condition has not *transitioned*, so a
+  timestamp an hour old is compatible with Google having retried four times. It is not a progress
+  indicator and reading it as one suggests a stall that is not there.
+- **Ask Google's resolver, not yours.** `dig @8.8.8.8` is what matters, because that is roughly what
+  is doing the looking. And the condition's own message distinguishes the two states plainly — *"You
+  must configure your DNS records"* means it has seen nothing, *"The challenge data was not visible…
+  The system will retry"* means it has. The second is propagation and the first is a missing record.
+
+**Nothing was blocked throughout**, which was arranged rather than lucky: the ping was created against
+the `run.app` URL precisely so it would not fail every ten minutes until the certificate landed, and
+#111's Done-means asks for *"a public URL"* rather than for this one. Repointing afterwards is a
+one-line update — **and reading the job's `httpTarget.uri` back is not the check.** That says what was
+typed. Both a forced run and the next scheduled one appear in the execution log at `204` against the
+new URL, and that is what says the ping arrived.
 
 ### `gcloud beta` is not installed, and it will not prompt for it in a session
 

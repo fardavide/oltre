@@ -595,9 +595,10 @@ Updated: 2026-08-26 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` 
   version is a body field on all five wire types and always was, so nothing was added. No version
   bump. **And it is deployed**: the first run of that workflow created the service, the domain mapping
   and the keep-warm ping followed, the cold start measured **4.9 s against 0.004 s warm**, and the
-  colony was checked across a redeploy *and* a rollback rather than assumed. What is left is two
-  things only Davide can do — one Namecheap record, and lowering the budget alert once to watch it
-  fire. See the pending entries below and [`decisions.md`](decisions.md).
+  colony was checked across a redeploy *and* a rollback rather than assumed. **#111 is closed.** The
+  Namecheap record is in and the managed certificate issues on Google's clock; the budget alert turned
+  out never to have existed and Davide dropped the requirement rather than create one. See the pending
+  entries below and [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -664,24 +665,24 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   `identity-provisioning.md` step 44a now says so where the string is copied rather than only at the
   top of the page.
 
-- **DAVIDE: one DNS record, and `api.oltre.space` is waiting on it** — #111, 2026-08-26. The Cloud Run
-  domain mapping is created and `DomainRoutable` is true; `CertificateProvisioned` cannot even begin
-  until the record exists, and Google says so in the mapping's own condition message. Namecheap is
-  Davide's account and nothing in a session can reach it.
-  **Domain List → oltre.space → Manage → Advanced DNS**, add host `api`, type `CNAME`, value
-  `ghs.googlehosted.com.` — and **leave the apex records from step 7 alone**, they are what serves the
-  site. The certificate goes true minutes to hours later and `curl` answers a TLS error until it does,
-  which is the expected state rather than a failure. The `run.app` URL keeps working throughout, which
-  is why the keep-warm ping points at it and not at the name.
+- **`api.oltre.space` is live** — #111, 2026-08-26. Davide added the `CNAME` to `ghs.googlehosted.com.`
+  that afternoon, `CertificateProvisioned` went true about fifty minutes later, and
+  `https://api.oltre.space/health` answers `204`. The keep-warm ping was repointed from the `run.app`
+  URL to the name and confirmed by a forced run *and* the next scheduled one, both `204` in the
+  execution log. **Nothing here is outstanding.**
+  Two things `identity-provisioning.md` steps 43 and 44d now record because both cost a wrong guess:
+  which resolver to ask while a certificate is pending and which condition message means Google has
+  seen the record, and that a scheduler job's `httpTarget.uri` says only what was typed — the
+  execution log is what says the ping arrived.
 
-- **DAVIDE: the budget alert has never been seen to fire, and #111 asks for it to be** — 2026-08-26.
-  The alert exists (€2/month, email at 50% and 100%, set 2026-08-25), and step 42 already records that
-  it is *"the one step here nobody verified afterwards"* — reading it back needs a third API and a
-  second auth mode, so it rests on having seen the page rather than on a check. #111's Done-means says
-  **tested by lowering its threshold once**: drop it to €0.01, wait for the mail — Google evaluates
-  budgets a few times a day, so give it a day — and put it back to €2.
-  **It is the only guard the zero-euro target has**, and an untested guard is one nobody has watched
-  work. `--max-instances=3` on the service is the other half and bounds how fast a loop could spend.
+- **The budget alert is Davide's own and is off the tracker — his call, 2026-08-26**: *"ignore this
+  whole limit thingy, I'll handle it myself."* It was a line in #111's Done-means; it is not one now,
+  #111 closed without it, and **no session should raise it again.**
+  One thing from looking is worth keeping and is about *method*, not about budgets: step 42 used to
+  say reading a budget back needed application-default credentials and a quota project, so it
+  *"rests on having seen it, not on a check"*. That was wrong — a plain access token does it in four
+  minutes. **A step whose own text says nobody verified it is a step to go and verify, and the reason
+  it gives for being unverifiable may itself be wrong.** The commands are in step 42.
 
 - **The three checks #111 could not pass by assuming were all performed, and one of them cost more
   than it looks** — 2026-08-26. Numbers and method in [`decisions.md`](decisions.md).
