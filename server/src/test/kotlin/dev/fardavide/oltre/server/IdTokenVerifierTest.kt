@@ -144,6 +144,24 @@ class IdTokenVerifierTest {
         assertIs<TokenVerdict.Refused>(verify(tampered))
     }
 
+    // **A signature that is not a signature**, which is a different input from the two around it: not
+    // somebody else's and not a rewritten payload, but bytes of the wrong length entirely. An RSA
+    // signature is exactly as long as the modulus, so the JCA refuses this before any arithmetic
+    // happens — and what must not follow is the failure leaving the verifier, because a request that
+    // dies mid-verification is a bare 500 with no `ApiError` in it, which `#112`'s client reads as
+    // `Unreachable` and retries forever rather than as a server having said something.
+    //
+    // Nimbus turns that particular refusal into `false` rather than an exception, so this reaches the
+    // same arm as the impostor below. **The `JOSEException` arm one line above it stays uncovered and
+    // that is honest**: `Signature.initVerify` does not fail for a well-formed RSA public key, so
+    // there is no token that provokes it and no test worth writing that pretends there is.
+    @Test
+    fun `a token whose signature is not a signature is refused rather than raising`() = runTest {
+        val mangled = providerKey.sign(idTokenClaims()).withSignatureTruncated()
+
+        assertIs<TokenVerdict.Refused>(verify(mangled))
+    }
+
     @Test
     fun `a token signed by a key the provider does not publish is refused`() = runTest {
         // The other half of the same property, and the one a `kid` lookup alone would miss: the key

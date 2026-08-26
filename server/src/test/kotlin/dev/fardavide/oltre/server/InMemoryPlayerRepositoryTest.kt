@@ -50,6 +50,30 @@ class InMemoryPlayerRepositoryTest {
     }
 
     @Test
+    fun `finding an identity that signed in gives the same player resolve did`() = runTest {
+        val player = players.resolve(mine)
+
+        assertEquals(player, players.find(mine))
+    }
+
+    // **`find` is `resolve` with the creating taken away**, which is the whole reason it is a second
+    // method — `#111` added it for Apple's notifications, where the caller is Apple and *"nobody"* is
+    // a real answer. A `find` that fell through to `resolve` would mint a player for a subject that
+    // has never held a colony, on the way to deleting it.
+    @Test
+    fun `finding an identity nobody has seen creates nobody`() = runTest {
+        assertNull(players.find(mine))
+        assertFalse(players.exists(PlayerId("player-1")))
+    }
+
+    @Test
+    fun `finding is scoped to the provider as well as the subject`() = runTest {
+        players.resolve(mine)
+
+        assertNull(players.find(ProviderIdentity(ProviderName("apple"), "subject-a")))
+    }
+
+    @Test
     fun `a player who has signed in exists and one who never has does not`() = runTest {
         val player = players.resolve(mine)
 

@@ -1,14 +1,20 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.Protocol
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.server.plugins.origin
 import io.ktor.server.request.receiveText
+import io.ktor.server.response.header
 import io.ktor.server.response.respond
 import io.ktor.server.routing.delete
+import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
@@ -32,6 +38,11 @@ internal fun Application.oltre(
     // bearer token and `X-Oltre-Player` is ignored outright; without one, the header names a player
     // exactly as it did at `#108`.
     identity: Identity?,
+    // **What stops `/v1/auth/*` costing money**, and it is a parameter for the reason the clock is
+    // one: a test that had to send twenty-one requests to prove the twenty-second is refused would be
+    // a test of the transport rather than of the policy. Every rule it holds is judged in
+    // `RateLimitTest`; what is here is which routes it guards. See `RateLimit.kt`.
+    limiter: RateLimiter = RateLimiter(clock),
 ) {
     // `Protocol.json` and not a Ktor default. It is the one codec both ends use, and the properties
     // that make it that one — `encodeDefaults`, and deliberately no `ignoreUnknownKeys` — are the
@@ -47,20 +58,56 @@ internal fun Application.oltre(
         ?: HeaderAuthenticator(players)
 
     routing {
+        // **What the Cloud Scheduler ping asks for, and it is deliberately the emptiest route here.**
+        // `#106` §6 puts a job on this every ten minutes so a player never meets the cold start; Cloud
+        // Run bills per request, so 144 a day is free.
+        //
+        // **It touches nothing, and that is the decision rather than laziness.** A health check that
+        // asked the database whether it was there would be the better endpoint on almost any other
+        // host — and here it would keep **Neon** awake around the clock. Neon's free plan bills
+        // *compute hours* and scales to zero after a few minutes idle, so a ping that woke it every
+        // ten minutes would run it 720 hours a month against an allowance of a small fraction of that.
+        // The €0 in `#106` §6 depends on this route doing nothing.
+        //
+        // Outside `/v1`, because it is not part of the wire contract: there is no body, nothing to
+        // negotiate, and a version prefix would say otherwise. `204` for the same reason — there is
+        // nothing true to put in a body that the status line does not already say.
+        get("/health") { call.respond(HttpStatusCode.NoContent) }
+
         route("/v1") {
+            // **Every route under `/auth` is rate limited and no other route is**, which is step 45's
+            // shape rather than a blanket policy. These are the only ones reachable without a session
+            // and the only ones that do a signature check before knowing who is asking; everything
+            // else costs a bearer-token read first, so a caller who cannot sign in cannot reach it.
+            //
+            // **`limited` wraps the handler rather than intercepting the route**, so that the
+            // guarding is visible in the four lines below rather than in a plugin somebody has to go
+            // and find. Ktor's own rate-limit plugin would have been the other way round, and would
+            // have put the answer — a bare `429` with no `ApiError` in it — out of this file's reach.
+
             // **The provider is the path and not a field**, because the two are verified against
             // different issuers, different audiences and different key sets. One route branching on
             // its own body would be one route that has to be trusted to branch.
             post("/auth/apple") {
-                call.send(signIn(identity, players, IdentityProvider.APPLE, call.receiveText()))
+                call.limited(limiter) { signIn(identity, players, IdentityProvider.APPLE, call.receiveText()) }
             }
 
             post("/auth/google") {
-                call.send(signIn(identity, players, IdentityProvider.GOOGLE, call.receiveText()))
+                call.limited(limiter) { signIn(identity, players, IdentityProvider.GOOGLE, call.receiveText()) }
             }
 
             post("/auth/refresh") {
-                call.send(refreshSession(identity, players, call.receiveText()))
+                call.limited(limiter) { refreshSession(identity, players, call.receiveText()) }
+            }
+
+            // **Registered with Apple at step 22, months before there was anything here to answer
+            // it.** `api.oltre.space` is permanent, so entering it early cost nothing and saved a
+            // second trip through a portal flow that drops values silently — and it starts 404ing the
+            // day `#113` ships. See `appleNotification`, which verifies Apple's signature before it
+            // acts on anything, because this is a POST target anybody can reach and one of the four
+            // things it can say is *delete this account*.
+            post("/auth/apple/notifications") {
+                call.limited(limiter) { appleNotification(identity, players, call.receiveText()) }
             }
 
             // App Review 5.1.1(v). `DELETE` on the account rather than a `POST` to something named
@@ -95,6 +142,26 @@ private fun ApplicationCall.credentials(): Credentials = Credentials(
     playerHeader = request.headers[Protocol.PLAYER_HEADER],
 )
 
+// **One request's worth of quota, spent before the handler runs.** The `Retry-After` header goes out
+// beside the body deliberately: the number is in the `ApiError` for this app's own client, which
+// `#113` will read, and in the header for everything else on the wire that already knows what one is.
+// **Every line here is plumbing, and it is short because the decisions are not.** Which caller a
+// request counts as is `clientKey`; whether they are over quota is `RateLimiter.admit`; what a refusal
+// says is `RateVerdict.Refused.answer`. All three are judged by plain unit tests, which this file's
+// contents can never be.
+//
+// `remoteAddress` and not `remoteHost`, which resolves a name — a reverse lookup per request, on the
+// one path that is reachable without a session and must therefore stay cheap.
+private suspend fun ApplicationCall.limited(limiter: RateLimiter, handle: suspend () -> Answer) {
+    val caller = clientKey(request.headers[HttpHeaders.XForwardedFor], request.origin.remoteAddress)
+    val verdict = limiter.admit(caller)
+    if (verdict is RateVerdict.Refused) {
+        response.header(HttpHeaders.RetryAfter, verdict.retryAfterSeconds.toString())
+        return send(verdict.answer())
+    }
+    send(handle())
+}
+
 // The arms exist because the payloads are different types, and `respond` picks its serializer from
 // the **static** type of what it is handed. `Answer.Failed.error` is declared `ApiError`, so the
 // sealed hierarchy's discriminator is written; a call that passed `ApiError.NoColony` directly would
@@ -105,8 +172,11 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Colony -> respond(answer.status, answer.response)
         is Answer.Session -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
-        // a serializer for.
-        Answer.Deleted -> respond(answer.status)
+        // a serializer for. Two members share the arm and keep their own names, because what the
+        // route files are read through is the name rather than the number — see `Answer.Noted`.
+        Answer.Deleted,
+        Answer.Noted,
+        -> respond(answer.status)
         is Answer.Failed -> respond(answer.status, answer.error)
     }
 }

@@ -17,7 +17,15 @@ import kotlinx.coroutines.CancellationException
 // Everything a server needs to be able to say who somebody is. Null everywhere below means **this
 // deployment has no session key**, which is a state `./gradlew :server:run` is deliberately allowed
 // to be in and a deployed server is not — see `identityConfig` and `Main.kt`.
-internal class Identity(val verifier: IdTokenVerifier, val sessions: Sessions)
+internal class Identity(
+    val verifier: IdTokenVerifier,
+    val sessions: Sessions,
+    // **Apple talking to this server rather than a player doing it**, added at `#111`. It is on
+    // `Identity` because it is configured by the same variables and is null in the same state: a
+    // server with no session key has no Apple audience either, so it cannot check a notification's
+    // `aud` and must say so rather than guess.
+    val notifications: AppleNotificationVerifier,
+)
 
 // **A sign-in, and the client never sends a provider token anywhere but here** — `#106` §4.
 //
@@ -131,6 +139,49 @@ internal suspend fun deleteAccount(
             // it that its account does not exist is telling it the thing it asked for.
             players.forget(caller.player)
             Answer.Deleted
+        }
+    }
+}
+
+// **Apple saying something happened to somebody's Apple Account** — the endpoint step 22 registered
+// and nothing answered until `#111`. The caller here is Apple rather than a player, which changes two
+// things and only two: there is nobody to show a sentence to, and a non-`2xx` makes Apple send it
+// again for days.
+//
+// **Nothing acts before the signature is checked**, which is the whole reason this is not four lines.
+// The URL is public, the body is JSON, and one of the four things it can say is *delete this
+// account* — so a route that read the payload and did as it was told would be an account-deletion API
+// for anybody who could spell the subject.
+//
+// **And `account-delete` is the only one that deletes**, which is the call worth reading twice.
+// `consent-revoked` is the player turning Sign in with Apple off in Settings; it is an unlink, and
+// signing in again re-consents and hands back *the same subject*. A colony deleted there would be a
+// year of play destroyed by a toggle Apple itself lets anybody undo.
+internal suspend fun appleNotification(
+    identity: Identity?,
+    players: PlayerRepository,
+    body: String,
+): Answer = answering {
+    if (identity == null) return@answering unconfigured()
+
+    when (val verdict = identity.notifications.verify(body)) {
+        // One sentence, and the reason it carries no detail is `signIn`'s: telling a caller which
+        // check failed tells whoever is probing the endpoint which check to work on. The diagnostic
+        // is in the verdict for a log.
+        is NotificationVerdict.Refused -> Answer.Failed(HttpStatusCode.Unauthorized, ApiError.Unauthenticated)
+
+        is NotificationVerdict.Trusted -> {
+            if (verdict.event == AppleEvent.ACCOUNT_DELETE) {
+                // **Find and not resolve.** A notification about somebody who never signed in here
+                // has to answer *"nobody"*; `resolve` would answer it by minting a row for a subject
+                // that has never held a colony and is being deleted.
+                players.find(ProviderIdentity(IdentityProvider.APPLE.providerName, verdict.subject))
+                    ?.let { players.forget(it) }
+            }
+            // **`204` whether anything was there or not**, exactly as `DELETE /v1/account` is: Apple
+            // retries a failure, so telling it that an account it is reporting the deletion of does
+            // not exist would have it come back for days about a fact both ends already agree on.
+            Answer.Noted
         }
     }
 }

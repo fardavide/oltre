@@ -1313,40 +1313,268 @@ worse than a missing one, because the instance starts and then fails at the firs
 
 # Part 7 — What genuinely waits, and on what
 
+> **Steps 43, 44 and 45 are `#111`.** 44 and 45 are done, including Neon — what is left needs the
+> service to exist, and the service is created by the first run of the deploy workflow, which needs
+> `#129` merged. So the order is: **merge, deploy, then 43 and 44d**, and 45a (the budget alert) is
+> the one thing on this page that is nobody's but Davide's.
+
 ## 43. Cloud Run domain mapping for `api.oltre.space`
-**Waits on:** a deployed Cloud Run service (nothing in `server/` produces a container image yet).
-When it exists, create the mapping in `europe-west1`; Google hands you the DNS records to add at
-Namecheap. Search Console ownership of `oltre.space` is already done (step 8a), which is the part
-that could have blocked you.
 
-## 44. Secret Manager entries for the DB and the Web client secret, and the Cloud Run deploy
-**Waits on:** a Neon connection string and a container image. Three things the deploy command must
-get right:
+**Waits on:** the first successful deploy — so on 44a. Search Console ownership of `oltre.space` is
+already done (step 8a), which is the part that could have blocked you, and the `gcloud` account is the
+same one that verified it.
 
-- **`--service-account=oltre-server@oltre-506614.iam.gserviceaccount.com`.** Omit it and Cloud Run
-  runs as the Compute Engine default service account, which on a project with **no organisation** —
-  which step 24 specified — carries `roles/editor`, i.e. read access to every secret including the
-  p8 and the Neon connection string. The org policy that would prevent that grant
-  (`iam.automaticIamGrantsForDefaultServiceAccounts`) needs an organisation to be enforced by. Step
-  42 builds least privilege; this flag is what uses it, and nothing else in the pipeline would catch
-  its absence.
+```
+gcloud beta run domain-mappings create --service=oltre-server --domain=api.oltre.space --project=oltre-506614 --region=europe-west1
+```
+
+It prints the DNS records to add. For a subdomain that is normally a single `CNAME` to
+`ghs.googlehosted.com`; take what it actually prints rather than that sentence. At Namecheap:
+**Domain List → oltre.space → Manage → Advanced DNS**, host `api`, and leave the apex records from
+step 7 alone — they are what serves the site.
+
+Then, and this is the check rather than the click:
+
+```
+gcloud beta run domain-mappings describe --domain=api.oltre.space --project=oltre-506614 --region=europe-west1 --format='value(status.conditions[].type, status.conditions[].status)'
+```
+
+`CertificateProvisioned` goes true minutes to hours after the record propagates, and **`curl` answers
+a TLS error until it does**. That is the expected state, not a failure — the `run.app` URL keeps
+working throughout, which is why nothing in the client hard-codes either one yet.
+
+**Apple requires TLS 1.2 or higher at this hostname** (step 22). Google's managed certificate is 1.2+
+and there is nothing to configure; it is recorded here because it is a constraint on this step rather
+than on that click.
+
+## 44. Neon, the last two secrets, and the deploy
+
+Everything except 44a **is done** — `#111` built it and this section is the record. Read 44a, do it,
+and the rest happens on its own.
+
+### 44a. Neon — **done 2026-08-26**
+
+`oltre-database-url` exists: `user-managed` replication pinned to `europe-west1`, one version, and
+`roles/secretmanager.secretAccessor` granted to `oltre-server@` and to nothing else — `get-iam-policy`
+confirms a single member, and `oltre-deployer` is deliberately not on it. **Verified by round trip**,
+the same check step 42 used for the p8: reading version 1 back and hashing it gives `3fed7552…`,
+matching the file it was created from. It points at the **pooled** endpoint, database `neondb`.
+
+The string itself is at `~/Documents/Keys/Oltre/identity/neon-database-url`, `0600`, beside the other
+credentials — assembled from the `PGUSER`/`PGPASSWORD` Davide saved in `env` and piped to `gcloud`
+from the file, so it never passed through a terminal, a shell history or a session.
+
+**It is the *second* password on that role.** The first was pasted into an agent session on
+2026-08-26 and reset in Neon the same hour; see the box below, which is the part of this step worth
+keeping now that the rest of it is history. What follows is what to do if it ever has to be done
+again.
+
+Nothing in a session can create this: it needs an account, and the connection string is key material
+that must not enter one.
+
+1. <https://console.neon.tech> → sign up → **create a project in an EU region** (`aws-eu-central-1`,
+   Frankfurt, is the closest to `europe-west1`). Free plan.
+2. Copy the **pooled** connection string — the one whose host carries `-pooler`, which the console
+   offers behind a *Connection pooling* toggle. Cloud Run starts and stops instances all day and each
+   one opens a pool; the pooled endpoint keeps that off Neon's connection limit and skips a Postgres
+   backend start on every connection, which matters here because the pool deliberately drains to
+   nothing between syncs (see `PostgresDatabase.kt`).
+3. Put it in Secret Manager, pinned to the same location as the other two — **replication locations
+   cannot be changed after creation** (step 42):
+
+```
+gcloud secrets create oltre-database-url --project=oltre-506614 --replication-policy=user-managed --locations=europe-west1 --data-file=-
+```
+
+**Paste the string, press Return, then Ctrl-D.** `--data-file=-` reads standard input, so the value
+never reaches your shell history — which is the whole reason it is not written as an `echo`. If your
+paste added a trailing newline, that is fine: it is stripped where it is read.
+
+**Paste it exactly as the console prints it.** Neon gives a *libpq* URI —
+`postgresql://user:password@host/database?sslmode=require` — and the server converts it (see
+`DatabaseUrl.kt`). **Do not turn it into a JDBC URL by hand**: that is what `#109` assumed it would
+be given, and it is the one form no provider prints. Hand-editing it is also how `sslmode` gets
+dropped.
+
+> **And it does not go into a chat, an issue or a commit — including to Claude.** This rule already
+> exists at the top of this document for the `.p8`; it says *session* and it means it. A connection
+> string pasted into an agent session is a password in a transcript, and the answer is not to worry
+> about it afterwards but to **reset the role's password in Neon and start again** — Neon console →
+> **Branches → Roles → the role → Reset password**, which takes seconds and invalidates the old one.
+> Learned on 2026-08-26, from doing it.
+>
+> **If a rotation happens after the first deploy**, it is one command and a redeploy rather than a
+> new secret:
+>
+> ```
+> gcloud secrets versions add oltre-database-url --project=oltre-506614 --data-file=-
+> ```
+>
+> The service pins `oltre-database-url:latest`, so the new version reaches the next revision and not
+> the running one — which makes the redeploy that picks it up a free chance to do `#111`'s
+> colony-survives-a-redeploy check.
+
+4. Let the server — and only the server — read it:
+
+```
+gcloud secrets add-iam-policy-binding oltre-database-url --project=oltre-506614 --member=serviceAccount:oltre-server@oltre-506614.iam.gserviceaccount.com --role=roles/secretmanager.secretAccessor
+```
+
+```
+gcloud secrets get-iam-policy oltre-database-url --project=oltre-506614
+```
+
+That should list exactly one member. `oltre-deployer` is deliberately not on it: the account that
+deploys the service may not read what the service reads.
+
+### 44b. The two audiences, as repository variables — **done 2026-08-26**
+
+Both are set, read out of `google.env` and `apple.env` rather than typed, and `gh variable list`
+confirms them. `GOOGLE_CLIENT_IDS` is the **Web** and **Desktop** client ids; `APPLE_CLIENT_IDS` is
+the bundle id and the Services ID. Neither Android client id is named, and neither needs to be.
+
+If they ever have to be set again:
+<https://github.com/fardavide/oltre/settings/variables/actions> → **New repository variable**, twice:
+
+| Name | Value |
+|---|---|
+| `APPLE_CLIENT_IDS` | `dev.fardavide.oltre,dev.fardavide.oltre.signin` |
+| `GOOGLE_CLIENT_IDS` | the **Web** client id and the **Desktop** client id from `google.env`, comma-separated |
+
+**Variables and not secrets, because none of these is one** — an OAuth client id travels in every
+redirect a browser makes, and Apple's are already in `iosApp/project.yml`. They are out of the
+workflow file so that adding a sixth client is a settings change rather than a commit.
+
+**Two per provider and never one**, which is the trap `#110` records: the Web client is the audience
+for *both* phones and the Desktop client is a second one. A single-audience server passes every test
+written against a generated keypair and then refuses the desktop build — the only build the behaviour
+and screenshot suites run on. Check the exact strings against `~/Documents/Keys/Oltre/identity/`
+rather than against memory.
+
+### 44c. Everything else — done, and here is what it does
+
+`.github/workflows/deploy-server.yml` builds `installDist`, runs the suite, authenticates by
+**Workload Identity Federation** — no service-account JSON in a GitHub secret — pushes the image to
+Artifact Registry and runs one `gcloud run deploy`. It fires on a push to `main` that touches
+`server/`, `protocol/`, `core/`, the `Dockerfile` or itself, and on manual dispatch. Provisioned
+2026-08-26 and verified by reading each one back:
+
+- Artifact Registry `europe-west1-docker.pkg.dev/oltre-506614/oltre`.
+- Workload identity pool `github`, provider `fardavide-oltre`, **condition
+  `assertion.repository=='fardavide/oltre'`** — a token from any other repository cannot use it.
+- Service account `oltre-deployer@`, with `roles/run.admin`, `artifactregistry.writer` on that one
+  repository, and `iam.serviceAccountUser` on `oltre-server@`. **It holds no `secretAccessor` on
+  anything**, which is the point of it being a second account.
+
+The four things the deploy command has to get right, three of which fail **silently**:
+
+- **`--service-account=oltre-server@…`.** Omit it and Cloud Run runs as the Compute Engine default
+  service account, which on a project with **no organisation** — step 24 — carries `roles/editor`,
+  i.e. read access to every secret including the p8 and the Neon connection string. The org policy
+  that would prevent that grant needs an organisation to be enforced by. Step 42 builds least
+  privilege; this flag is what uses it, and nothing else in the pipeline would catch its absence.
 - **One `--set-secrets` flag, not several.** It is a dict flag — *"all existing secrets will be
-  removed first"* — so passing it twice replaces rather than merges, silently dropping the earlier
-  entries.
-- **Mount the p8 as a file** (`/secrets/apple/signin.p8`), not an env var: PEM newlines, and a
-  mounted secret is re-read on every access whereas an env-var secret is resolved once before the
-  instance starts and never changes for that instance's life.
+  removed first"* — so passing it twice replaces rather than merges and drops the earlier entries.
+- **Mount the p8 as a file** (`/secrets/apple/signin.p8`), not an env var: PEM newlines, and a mounted
+  secret is re-read on every access whereas an env-var secret is resolved once before the instance
+  starts and never changes for that instance's life.
+- **`--set-env-vars` needs `^@^`, and this is the one the walkthrough had not spotted.** That flag is
+  *itself* comma-delimited, and `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are comma-separated lists —
+  so written the obvious way the second audience becomes a variable named after an OAuth client id
+  with an empty value. gcloud's leading `^<delimiter>^` is what that syntax is for, and it is the
+  same failure as a single-audience check arriving through a shell.
 
-## 45. Add a startup self-check, and rate-limit the auth endpoints
-**Waits on:** the auth code existing. Load the p8 and sign a throwaway ES256 JWT *before* the process
-binds the port. Cloud Run keeps the previous revision serving if a new one fails to become ready — so
-this converts "the key is broken" from an outage into a failed deploy. And unlike `PORT`, none of
-these values may have a default: a defaulted signing key is a silent catastrophe.
+**The service is created by the first run of that workflow**, not by hand. There is nothing to
+pre-create: `gcloud run deploy` creates a service that does not exist, and every flag it needs is on
+that one command.
 
-Two neighbours that belong in the same slice: **rate-limit `/v1/auth/*`** (it is an unauthenticated,
-publicly reachable surface that does cryptographic work per request), and **verify Apple's signature
-on the server-to-server notification endpoint from step 22 before acting on anything** — the payload
-is a JWT signed by Apple, and the endpoint is a POST target anyone can reach.
+### 44d. The keep-warm ping — one command, after the first deploy
+
+`#106` §6 puts a Cloud Scheduler job on the service every ten minutes so a player never meets the
+cold start. Cloud Run bills per request, so 144 a day is free, and the free tier allows three jobs.
+The API is enabled already.
+
+```
+gcloud scheduler jobs create http oltre-keep-warm --project=oltre-506614 --location=europe-west1 --schedule="*/10 * * * *" --uri="https://api.oltre.space/health" --http-method=GET --attempt-deadline=30s --description="Keeps the Cloud Run instance warm. Touches no store — see below."
+```
+
+Use the `run.app` URL until step 43's certificate is provisioned, then point it at `api.oltre.space`.
+
+**`/health` returns `204` and reaches nothing, and that is load-bearing rather than lazy.** A health
+check that asked the database whether it was there would be the better endpoint on almost any other
+host — and here it would keep **Neon** awake around the clock. Neon's free plan bills *compute hours*
+and scales the branch to zero after a few minutes idle, so a ping that woke it every ten minutes
+would run it for the whole month against an allowance of a fraction of that. The €0 target depends on
+this route doing nothing, and an integration test asserts it by handing the server repositories that
+raise if they are touched.
+
+**Measure the cold start before creating the job**, or there is nothing left to measure — that is
+`#111`'s Done-means, and the point of it is that the ten-minute interval should be sized by a number:
+
+```
+gcloud run services update oltre-server --project=oltre-506614 --region=europe-west1 --no-cpu-boost
+```
+
+…is *not* what to do. Leave the boost on; it is what takes Ktor to one to two seconds. Instead, wait
+fifteen minutes after the last request so the instance has idled out, then:
+
+```
+curl -o /dev/null -s -w 'cold: %{time_total}s\n' https://api.oltre.space/health
+```
+
+```
+curl -o /dev/null -s -w 'warm: %{time_total}s\n' https://api.oltre.space/health
+```
+
+The difference is the cold start. Put both numbers in `#111`.
+
+## 45. The startup self-check and the rate limit — **done, `#111`**
+
+Both are code and both are in `server/`. Recorded here because this step is what asked for them.
+
+**The self-check** is `appleSigningKey` plus `AppleSigningKey.selfCheck`, called from `Main.kt`
+*before* `embeddedServer(...).start(...)`. It reads `APPLE_SIGNIN_KEY_FILE`, `APPLE_TEAM_ID` and
+`APPLE_KEY_ID`, parses the PKCS#8 PEM and signs a throwaway ES256 token that is never sent anywhere.
+Cloud Run keeps the previous revision serving when a new one never becomes ready, so a key that is
+truncated, mounted from the wrong secret or generated on the wrong curve is a **failed deploy** rather
+than an outage beginning the first time somebody deletes their account. **None of the three has a
+default**, as this step asked: half-set is refused at boot, and absent altogether is the dev loop and
+says so in the log.
+
+The case worth knowing about, because loading alone would miss it: **a P-384 key is a perfectly good
+`ECPrivateKey`** — the PEM decodes and the cast holds — and it cannot sign ES256, because the
+algorithm names the curve as well as the hash. That is why the check signs rather than merely loads.
+
+**The rate limit** is `RateLimiter`, twenty requests a minute per caller with the whole burst
+available at once, on `/v1/auth/*` and on nothing else — those are the only routes reachable without
+a session and the only ones that do a signature check before knowing who is asking. It is keyed on the
+**last** hop of `X-Forwarded-For`, because everything before that is whatever the caller wrote. A
+refusal is `429` with `Retry-After` and `ApiError.TooManyRequests`, which carries the same number.
+
+**And the endpoint from step 22 now exists.** `POST /v1/auth/apple/notifications` was registered with
+Apple months before there was a server and would have started 404ing the day `#113` shipped. It
+verifies Apple's signature against the same key set the ID-token verifier uses before it acts on
+anything — it is a POST target anybody can reach and one of the four things it can say is *delete this
+account*. **Only `account-delete` deletes**: `consent-revoked` is the player turning Sign in with
+Apple off in Settings, which is an unlink, and signing in again hands back the same subject.
+
+## 45a. The budget alert — **yours, and it is the one thing `#111` cannot pass by assuming**
+
+The alert itself exists: **€2/month with email at 50% and 100%, set 2026-08-25** (step 42). What
+`#111` asks for is that it has been **tested by lowering its threshold once**, and step 42 already
+records why that matters here more than usual — *"it is also the one step here nobody verified
+afterwards"*, because reading it back needs a third API and a second auth mode.
+
+<https://console.cloud.google.com/billing> → **Budgets & alerts** → the Oltre budget → **Edit**:
+
+1. Lower the amount to **€0.01** and save.
+2. Wait for the mail. Google evaluates budgets several times a day rather than instantly, so this is
+   *not* a same-minute check — give it a day before concluding anything.
+3. **Set it back to €2** and confirm on the page that it saved.
+
+If no mail arrives, the alert has never worked and nothing else would have told you. That is the
+whole value of doing it: the alert is the only guard the zero-euro target has, and an untested one is
+a guard nobody has seen fire.
 
 ## 46. Publish `https://oltre.space/privacy` and `https://oltre.space/terms`
 **Waits on:** the policy text, which must describe what the shipped build actually does — so it

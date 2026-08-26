@@ -19,12 +19,14 @@ import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
@@ -35,6 +37,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 
 // The routes over Ktor's test host, which is the one boundary this suite crosses: real routing, a
 // real body and the real codec both ends share.
@@ -281,16 +284,104 @@ class OltreServerIntegrationTest {
         assertEquals(HttpStatusCode.Unauthorized, client.delete("/v1/account").status)
     }
 
+    // ── Awake ─────────────────────────────────────────────────────────────────────────────────
+
+    // **The route the Cloud Scheduler ping asks for**, and the two things worth pinning about it are
+    // both about what it does *not* do. It needs no credential, because the job that calls it has
+    // none and a scheduler retrying a 401 every ten minutes is a job that never keeps anything warm.
+    // And it reaches no store: the repositories here would raise if it did, which is the assertion
+    // rather than a precaution — a health check that woke the database every ten minutes would run
+    // Neon's free compute allowance out inside a month, and `#106` §6's €0 depends on this route
+    // costing nothing but a socket.
+    @Test
+    fun `the keep-warm ping needs no credential and touches no store`() = testApplication {
+        application {
+            oltre(
+                colonies = UnreachableColonyRepository(),
+                players = UnreachablePlayerRepository(),
+                clock = MovableClock(TEST_NOW),
+                identity = null,
+            )
+        }
+
+        val response = client.get("/health")
+
+        assertEquals(HttpStatusCode.NoContent, response.status)
+        assertEquals("", response.bodyAsText())
+    }
+
+    // ── Rate limited ──────────────────────────────────────────────────────────────────────────
+    //
+    // What is under test here is the *wiring*, exactly as above: which routes the limiter guards, the
+    // status line, and that the wait leaves the server as both a header and an `ApiError`. Every rule
+    // about when a caller is over quota is `RateLimitTest`'s, judged by a plain unit test with a
+    // clock it moves by hand — a test that sent twenty-one requests to prove the twenty-second is
+    // refused would be a slow test of the wrong thing.
+
+    @Test
+    fun `a caller over quota is a 429 that says how long to wait`() = testApplication {
+        signedInServer(limiter = oneRequestLimiter())
+        post("/v1/auth/google", signIn())
+
+        val response = postRaw("/v1/auth/google", signIn(), player = null)
+
+        assertEquals(HttpStatusCode.TooManyRequests, response.status)
+        assertEquals(ApiError.TooManyRequests(retryAfterSeconds = 60), response.apiError())
+        // **The header as well as the body.** The number is in the `ApiError` for this app's own
+        // client, which `#113` will read, and in `Retry-After` for everything else on the wire that
+        // already knows what one is.
+        assertEquals("60", response.headers[HttpHeaders.RetryAfter])
+    }
+
+    // **The endpoint Apple was given at step 22 and that nothing answered until `#111`.** The path is
+    // the whole of what this proves — a route registered with a provider months ago is a route whose
+    // spelling nobody can check anywhere else, and it would 404 silently the day `#113` shipped.
+    @Test
+    fun `apple's notification endpoint is reachable and refuses what it cannot verify`() = testApplication {
+        signedInServer()
+
+        val response = postRaw("/v1/auth/apple/notifications", """{"payload":"not-a-token"}""", player = null)
+
+        assertEquals(HttpStatusCode.Unauthorized, response.status)
+        assertEquals(ApiError.Unauthenticated, response.apiError())
+    }
+
+    // **The colony routes are deliberately *not* limited**, and the line saying so belongs here: they
+    // cost a bearer-token read before anything else, so a caller who cannot sign in cannot reach
+    // them. A limiter that had been installed at `/v1` instead would refuse a player mid-session and
+    // nothing in the unit suite would notice.
+    @Test
+    fun `the colony routes are not rate limited`() = testApplication {
+        val clock = server(limiter = oneRequestLimiter())
+        post("/v1/colony", sync())
+
+        repeat(3) {
+            assertEquals(HttpStatusCode.OK, post("/v1/sync", sync()).status)
+        }
+        assertEquals(TEST_NOW, clock.now())
+    }
+
     // ── The harness ───────────────────────────────────────────────────────────────────────────
+
+    // One permit a minute, so "over quota" is the second request rather than the twenty-first and the
+    // wait is a number a reader can check in their head.
+    private fun oneRequestLimiter(): RateLimiter =
+        RateLimiter(MovableClock(TEST_NOW), permits = 1, window = 1.minutes, maxKeys = 8)
 
     // No identity, which is the shape `./gradlew :server:run` has and the one that keeps every test
     // above this line reading as it did at `#108`: a request names its player in a header. The
     // bearer half is `signed in` below, where a server *with* a session key is stood up.
-    private fun ApplicationTestBuilder.server(): MovableClock {
+    private fun ApplicationTestBuilder.server(limiter: RateLimiter = RateLimiter(MovableClock(TEST_NOW))): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
         application {
-            oltre(colonies, InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds()), clock, identity = null)
+            oltre(
+                colonies,
+                InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds()),
+                clock,
+                identity = null,
+                limiter = limiter,
+            )
         }
         return clock
     }
@@ -298,7 +389,9 @@ class OltreServerIntegrationTest {
     // A server with a session key, so the bearer half of `Authenticator.kt` is the one in play. The
     // provider is a keypair generated in this process and served by a handwritten fake — nothing in
     // this suite reaches Apple or Google.
-    private fun ApplicationTestBuilder.signedInServer(): MovableClock {
+    private fun ApplicationTestBuilder.signedInServer(
+        limiter: RateLimiter = RateLimiter(MovableClock(TEST_NOW)),
+    ): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
         val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
@@ -314,7 +407,13 @@ class OltreServerIntegrationTest {
                         clock = clock,
                     ),
                     sessions = Sessions(TEST_SIGNING_KEY, clock),
+                    notifications = AppleNotificationVerifier(
+                        spec = testSpec(IdentityProvider.APPLE),
+                        keys = JwksKeys(FakeJwksSource(jwksOf(providerKey)), clock),
+                        clock = clock,
+                    ),
                 ),
+                limiter = limiter,
             )
         }
         return clock

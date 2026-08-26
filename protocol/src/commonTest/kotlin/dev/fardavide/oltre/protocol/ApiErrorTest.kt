@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 
 // The mirror of `VerbId` in `ClientVerbTest`, and it closes the same two holes for the same reason:
 // an error the server can raise and the client cannot name is a failure the player is shown nothing
@@ -14,6 +15,7 @@ private enum class ErrorId {
     UNSUPPORTED_API_VERSION,
     NO_COLONY,
     STALE_COLONY,
+    TOO_MANY_REQUESTS,
     MALFORMED,
     INTERNAL,
 }
@@ -24,6 +26,7 @@ private fun idOf(error: ApiError): ErrorId = when (error) {
     is ApiError.UnsupportedApiVersion -> ErrorId.UNSUPPORTED_API_VERSION
     ApiError.NoColony -> ErrorId.NO_COLONY
     ApiError.StaleColony -> ErrorId.STALE_COLONY
+    is ApiError.TooManyRequests -> ErrorId.TOO_MANY_REQUESTS
     is ApiError.Malformed -> ErrorId.MALFORMED
     is ApiError.Internal -> ErrorId.INTERNAL
 }
@@ -37,6 +40,7 @@ private val SAMPLES: List<ApiError> = listOf(
     ),
     ApiError.NoColony,
     ApiError.StaleColony,
+    ApiError.TooManyRequests(retryAfterSeconds = 12),
     ApiError.Malformed("clientInstant is not an instant"),
     ApiError.Internal("the store did not answer"),
 )
@@ -69,11 +73,29 @@ class ApiErrorTest {
                 "UnsupportedApiVersion",
                 "NoColony",
                 "StaleColony",
+                "TooManyRequests",
                 "Malformed",
                 "Internal",
             ),
             encoded,
         )
+    }
+
+    // **A wait the client cannot act on is worse than no number at all.** `TooManyRequests` exists so
+    // a refused sign-in says *"in a moment"* rather than *"that did not make sense"*, and a negative
+    // delay would have the client ask again immediately — the one behaviour the answer is trying to
+    // stop. Guarded on construction rather than clamped, because a server that computed one has a
+    // bug and hiding it would leave nothing to find.
+    @Test
+    fun `a wait cannot be negative`() {
+        assertFailsWith<IllegalArgumentException> { ApiError.TooManyRequests(retryAfterSeconds = -1) }
+    }
+
+    // Zero is not the same mistake: a bucket that has just refilled is genuinely ready now, and the
+    // client asking straight away is the right thing to do.
+    @Test
+    fun `a wait of no time at all is allowed`() {
+        assertEquals(0, ApiError.TooManyRequests(retryAfterSeconds = 0).retryAfterSeconds)
     }
 
     // What the taxonomy is *for*: "sign in again" and "you cannot afford that" are different

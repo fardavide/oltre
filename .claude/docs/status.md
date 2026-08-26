@@ -1,7 +1,7 @@
 # Status
 
-Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
-#109, #110 and #112, no bump)
+Updated: 2026-08-26 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
+#109, #110, #111 and #112, no bump)
 
 ## Landed
 
@@ -576,6 +576,25 @@ Updated: 2026-08-25 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` 
   was seventeen more tests rather than a filter, plus a real-socket `…IntegrationTest` for the JWKS
   fetch. No version bump — nothing a player can do changes. See
   [`decisions.md`](decisions.md), which also carries the provisioning record.
+- **The pipeline that puts it on a URL, and the two things step 45 asked for** — slice 4 of the online
+  migration (issue #111 under epic #106). A `Dockerfile` over `installDist`, a **deploy workflow**
+  triggered by its own paths and independent of the release workflows, authenticating by **Workload
+  Identity Federation** rather than a service-account key — two Google service accounts, and the one
+  that deploys can read no secret at all. The deploy carries the four flags step 44 warns about, three
+  of which fail silently, and a fourth the walkthrough had not spotted: **`--set-env-vars` needs
+  `^@^`**, because it is comma-delimited and the audience lists are too. It ends by grepping the
+  deployed revision's log for the in-memory fallback line, which is the one thing a smoke test cannot
+  tell apart from a working database. **`Main.kt` loads Apple's `.p8` and signs a throwaway ES256
+  token before it binds the port**, so a key on the wrong curve is a failed deploy rather than an
+  outage months later; `/v1/auth/*` is **rate limited**, twenty a minute per caller, keyed on the last
+  hop of `X-Forwarded-For` and on nothing forgeable. **`POST /v1/auth/apple/notifications` exists at
+  last** — registered with Apple at step 22 and answered by nothing until now — verifying Apple's
+  signature before it acts, and deleting on `account-delete` **and only** on that: `consent-revoked` is
+  an unlink that hands back the same subject on the next sign-in. `ApiError.TooManyRequests` is the one
+  wire change and needs no version bump. **#111's own scope line about `ApiVersion` was wrong**: the
+  version is a body field on all five wire types and always was, so nothing was added. No version
+  bump. **Not finished: Neon**, which needs an account and hands back key material — see the pending
+  entries below and `identity-provisioning.md` step 44a. See [`decisions.md`](decisions.md).
 
 
 ## Roadmap — v1 in vertical slices
@@ -629,6 +648,39 @@ carried here because the pressures that replace hard caps (upkeep, logistics, di
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
 
 ## Pending / not yet set up
+
+- **Neon and the two audiences are done, and what is left needs the service to exist** — #111,
+  2026-08-26. `oltre-database-url` holds the **pooled** connection string, verified by round trip and
+  readable by `oltre-server@` alone; `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are repository
+  variables. **The service is created by the first run of the deploy workflow**, so the domain
+  mapping, the scheduler ping, the measured cold start, the redeploy check and the rollback all wait
+  on #129 being merged rather than on anything anybody has to type.
+  **The Neon role's password was rotated once on the day it was created**, because the first one was
+  pasted into an agent session — the rule that key material never enters one covers a chat, and
+  `identity-provisioning.md` step 44a now says so where the string is copied rather than only at the
+  top of the page.
+
+- **DAVIDE: the budget alert has never been seen to fire, and #111 asks for it to be** — 2026-08-26.
+  The alert exists (€2/month, email at 50% and 100%, set 2026-08-25), and step 42 already records that
+  it is *"the one step here nobody verified afterwards"* — reading it back needs a third API and a
+  second auth mode, so it rests on having seen the page rather than on a check. #111's Done-means says
+  **tested by lowering its threshold once**: drop it to €0.01, wait for the mail — Google evaluates
+  budgets a few times a day, so give it a day — and put it back to €2.
+  **It is the only guard the zero-euro target has**, and an untested guard is one nobody has watched
+  work. `--max-instances=3` on the service is the other half and bounds how fast a loop could spend.
+
+- **The three checks #111 cannot pass by assuming, all of them minutes after the first deploy** —
+  2026-08-26. Each one is written where it will be wanted rather than only here.
+  **The colony survives a redeploy**: found one, force a new revision, sync, and it is still there.
+  Every other assertion in that list passes with the database not connected at all, because the
+  in-memory fallback founds colonies and serves syncs perfectly well — so this is the only check that
+  the fallback fails. The workflow greps the revision's log for the fallback line as well, which is
+  the cheap half of the same question.
+  **The cold start, measured and written into #111**, so the ten-minute Cloud Scheduler ping is sized
+  by a number rather than by §6's estimate of one to two seconds.
+  **A rollback done once on purpose**: the workflow prints the command and the five most recent
+  revisions into its own run summary, because the moment it is wanted is the moment nobody wants to go
+  looking for it.
 
 - **DIARISE: Apple's client secret expires within six months, and a silently expired one takes
   sign-in down for everyone at once** — #110, 2026-08-25. It is a JWT signed with the `.p8`
