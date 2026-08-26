@@ -1,10 +1,12 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchAsk
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.StringId
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
@@ -24,6 +26,9 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.VerbEnvelope
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
@@ -365,6 +370,48 @@ class ShipyardUiStateTest {
 
         assertEquals(WatchSquareUiState.ASKED_SEVERAL, cards.getValue(ShipType.HAULER).alert)
         assertEquals(WatchSquareUiState.UNASKED, cards.getValue(ShipType.SKIFF).alert)
+    }
+
+    // **The one held control in the app that is not a toggle**, which is the whole reason this test
+    // exists rather than a copy of the colony's. Everywhere else *the stop that was asked for* and
+    // *the opposite of the stop it is on* are the same sentence, so a mapper can say either and be
+    // right. This bell has three stops, and on the middle step of the cycle the two disagree: going
+    // from `WHEN_ALL_DONE` to `EACH_HULL` is lit to lit, so a line reading the tap as an inversion
+    // would promise the player the bell goes *off* when the network comes back — on a third of the
+    // cycle, in the one direction they cannot check until it is too late to matter.
+    //
+    // The walk is the whole cycle rather than that one step, because a test that pinned only the
+    // middle would go on passing if the other two were inverted to match it.
+    @Test
+    fun `a held bell names the stop that was asked for rather than the opposite of the one it is on`() {
+        val ordered = wealthy().order(2)
+        val held = HeldActions(
+            listOf(
+                VerbEnvelope(
+                    verb = ClientVerb.CycleHullAlert(ShipType.SKIFF),
+                    clientInstant = t0,
+                    idempotencyKey = IdempotencyKey("cycle-the-bell"),
+                ),
+            ),
+        )
+
+        val cards = listOf(null, HullAlert.WHEN_ALL_DONE, HullAlert.EACH_HULL).map { on ->
+            ordered.copy(hullAlerts = listOfNotNull(on?.let { ShipType.SKIFF to it }).toMap())
+                .toShipyardUiState(now = t0, timeZone = TimeZone.UTC, held = held)
+                .skiff()
+        }
+
+        // The square and the line are two renderings of one fact, so they are pinned together: the
+        // defect this guards against is precisely the two of them disagreeing.
+        assertEquals(
+            listOf(WatchAsk.ONE, WatchAsk.SEVERAL, WatchAsk.NONE),
+            cards.map { assertNotNull(it.alert).asked },
+        )
+        assertEquals(
+            listOf(StringId.HeldWatchOnFoot, StringId.HeldWatchOnFoot, StringId.HeldWatchOffFoot),
+            cards.map { assertNotNull(it.held.line).entry() },
+        )
+        assertTrue(cards.all { assertNotNull(it.alert).held }, "a held square is drawn held")
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────

@@ -73,6 +73,11 @@ private fun GameState.toHullRow(
     val short = resources.shortfallOf(cost)
     val heldBuild = held.build(type) != null
     val heldAlert = held.hullAlert(type) != null
+    // **Which stop this card is claiming**, and on a held card that is the *next* one in the cycle
+    // rather than the opposite of a boolean — see `cycleHullAlert`, which is the only thing that
+    // knows the order and is the same function the tap will run. Hoisted out of `alertFor` so the
+    // square and the line beneath it read one value and cannot disagree.
+    val askedStop = if (heldAlert) cycleHullAlert(this, type).hullAlerts[type] else hullAlerts[type]
     return HullUiState(
         type = type,
         name = hull.name,
@@ -85,7 +90,7 @@ private fun GameState.toHullRow(
         ),
         action = buildOrWait(cost),
         yard = yardLine(type = type, now = now, timeZone = timeZone),
-        alert = alertFor(type, held = heldAlert),
+        alert = alertFor(type, held = heldAlert, showing = askedStop),
         held = HeldUiState(
             action = heldBuild,
             watch = heldAlert,
@@ -95,7 +100,13 @@ private fun GameState.toHullRow(
             // that.
             line = when {
                 heldBuild -> Strings.heldBuildFoot(withAlert = heldAlert)
-                heldAlert -> Strings.heldWatchFoot(on = hullAlerts[type] == null)
+                // **The stop that was asked for, not the opposite of the one it is on.** Every other
+                // square in the app is a toggle, where those two are the same sentence; this control
+                // has three stops, and the middle step goes from one *lit* answer to another — so
+                // *"the bell is off when the network is back"* would be false on a third of the
+                // cycle. `cycleHullAlert` is the only thing that knows the order, and it is the same
+                // function the tap will run.
+                heldAlert -> Strings.heldWatchFoot(on = askedStop != null)
                 else -> null
             },
         ),
@@ -110,7 +121,7 @@ private fun GameState.toHullRow(
 // difference is the point. A footer reports the hull being made, which is one job and has to be the
 // one on the slipway; the square asks about an order, and a hauler queued behind two skiffs is an
 // order the player is waiting on even though its card shows no countdown at all.
-private fun GameState.alertFor(type: ShipType, held: Boolean): WatchSquareUiState? {
+private fun GameState.alertFor(type: ShipType, held: Boolean, showing: HullAlert?): WatchSquareUiState? {
     // **The card loses its square under `BY_CATEGORY`, and it loses more than the other screens do.**
     // Every hull is announced there, because one switch cannot carry this control's three states —
     // off, each hull, whole order — so the middle state goes with the square. It is not lost: `One
@@ -119,11 +130,6 @@ private fun GameState.alertFor(type: ShipType, held: Boolean): WatchSquareUiStat
     // out loud because it makes Delivery load-bearing for something the yard used to own.
     if (!alerts.asksOnRow(AlertCategory.HULLS)) return null
     if (yard.none { it.ship == type }) return null
-    // **A held square draws the stop that was asked for**, which on this control is the *next* one in
-    // the cycle rather than the opposite of a boolean — see `cycleHullAlert`, which is the only thing
-    // that decides the order. Every other square in the app is a toggle and inverts; this one has
-    // three stops, so the request has to be read off the same function the tap will run.
-    val showing = if (held) cycleHullAlert(this, type).hullAlerts[type] else hullAlerts[type]
     return when (showing) {
         null -> WatchSquareUiState(asked = WatchAsk.NONE, held = held)
         HullAlert.WHEN_ALL_DONE -> WatchSquareUiState(asked = WatchAsk.ONE, held = held)
