@@ -5369,6 +5369,78 @@ explain, and unbuilt things say so.
 the release body already uses. Two copies of a changelog is two changelogs, and the second one is
 always the stale one.
 
+## The identity credentials exist before the slice that uses them (2026-08-25, issue #110)
+
+Provisioning done ahead of #110 so the session that writes the auth code is never blocked on a
+portal. No code, nothing shipped. The full walkthrough is
+[`identity-provisioning.md`](identity-provisioning.md); what is here is the choices that cannot be
+re-derived from it.
+
+**`api.oltre.space`, and it is permanent.** `oltre.space` was registered at Namecheap on 2026-08-25.
+The API gets a subdomain rather than the apex so the Apple Return URL —
+`https://api.oltre.space/v1/auth/apple/callback` — survives Cloud Run revisions, a redeploy, and a
+move off Cloud Run entirely. §8 makes the API base URL permanent the moment a build ships, so this
+was worth deciding before anything was registered against it. The apex serves the site from an
+orphan `gh-pages` branch, deliberately not `main`'s `/docs`: merging to `main` publishes, and a typo
+fix in a privacy policy must not be able to cut a TestFlight build.
+
+**`europe-west1`, forced by a Preview feature.** Cloud Run custom domain mapping is **not GA**,
+documented as having latency issues, and among EU regions exists only in `europe-north1`,
+`europe-west1` and `europe-west4`. The alternatives Google names are a global external Application
+Load Balancer — a standing monthly cost, so it breaks §6's €0 target — or Firebase Hosting. So the
+domain decision constrained the region decision, which is the reverse of the order they appear in
+the epic.
+
+**The App ID is enabled as *primary*, not grouped.** An App ID enabled by grouping cannot itself
+group further identifiers, and a Services ID must attach to a primary. One app on the team makes
+this unambiguous, and it is close to one-way.
+
+**Five OAuth clients, and two of them are Android.** An Android client binds exactly one package
+plus one SHA-1, so release (`24:AA:53:…:DB:98`) and debug (`39:1D:08:…:A1:E1`) need one each; with
+only the release client, sign-in works in release and every `installDebug` fails with
+`DEVELOPER_ERROR`, which reads like a code bug for an afternoon. The Web client is the audience for
+both phones — Android and iOS pass it as the server client id — and the Desktop client is a second
+audience, so **the server must accept two**. Neither Android client ID is ever named in code.
+
+**Google stays in *Testing* and is not published.** Counter-intuitive and it saves a review round:
+Google exempts the `openid` + `userinfo.email` + `userinfo.profile` subset from the trusted-user
+list, the unverified warning and the 7-day expiry — *"your users do not need to be in the trusted
+user list, they will not see a warning message, and their authorizations will not expire after 7
+days"*. Oltre requests exactly that subset, so any Google account can sign in with no test user
+added, and a test user would permanently consume a quota slot. Publishing buys only branding, which
+is cosmetic. **Checkable rather than trusted**: if a tester is ever refused, the exemption is not
+applying.
+
+**The project ID was not a choice.** Google derived `oltre-506614` from the project name and it
+**cannot be changed after creation**. The guide had said to type `oltre-prod`; the console's *Edit*
+control is easy to miss and not always offered. One Google account for all personal dev work rather
+than one per project — the previous developer account lapsed from disuse, and per-project accounts
+multiply exactly that.
+
+**No `.gitignore` entries were added, and that is the decision.** An earlier draft added `*.p8`,
+`client_secret*.json` and four more. None of those file types exists anywhere in the tree, the
+credentials live in `~/Documents/Keys/` and arrive from `~/Downloads`, and secret scanning with push
+protection is enabled on the repository. The argument that decided it is the one that runs backwards:
+**an ignored secret is an invisible secret** — a `.p8` in the working tree while ignored leaves `git
+status` silent and sits there to be swept into an artifact, where unignored it is red immediately
+*and* push protection still stops it leaving. The `*.jks` / `*.keystore` lines stay because they
+cover a file that legitimately transits CI.
+
+**`~/Documents` is synced to iCloud, and the repository said otherwise for two weeks.** The signing
+key's README claimed since 2026-08-09 that it was not, reasoning that the `Documents` entry inside
+iCloud Drive is a symlink out to the local folder. **That symlink is what macOS creates when Desktop
+& Documents sync is enabled** — it reads as evidence against and is evidence for. Verified:
+`FXICloudDriveDocuments = 1`, and `brctl status` reports a caught-up container. So the signing key
+had been off-machine all along, and a planned encrypted-disk-image step was deleted as solving a
+problem that did not exist — while adding a passphrase that itself needed somewhere to live. Keys
+moved to `~/Documents/Keys/Oltre/{android-signing,identity}/`, out of `~/Documents/Dev/`, which held
+them among IDE settings.
+
+**What is still open**: there is no Time Machine destination, so iCloud is the only copy not on that
+SSD; and iCloud is not end-to-end encrypted unless Advanced Data Protection is on, which is the real
+answer if the `.p8` should be opaque to Apple rather than merely survive a dead disk.
+
+
 ## A colony belongs to somebody, and the id is not the subject (2026-08-25, issue #110)
 
 Slice 3 of #106, on top of the store #109 landed. Apple and Google ID tokens verified against the
@@ -5376,7 +5448,15 @@ providers' own key sets, a session this server signs itself, route authenticatio
 `PlayerId` mean something, and `DELETE /v1/account`. Nothing a player sees moves and nothing ships,
 so there is no version bump; #107, #108, #109, #112 and #119 are the precedent.
 
-### The provisioning round, which is the only copy of this outside Davide's notes
+### The provisioning round, and what it is a summary *of*
+
+**This said "the only copy outside Davide's notes" until #124 landed, and that is no longer true** —
+the two crossed in review. The walkthrough is
+[`identity-provisioning.md`](identity-provisioning.md), fifty-three steps of it, and the round
+directly above this one is where the choices behind it are argued. What is left here is the short
+form the code was written against: the identifiers a reader of *this* entry needs in front of them,
+and the three rules that would have cost the slice a day each if they had been got wrong. Where the
+two disagree, the walkthrough is the record and this is the summary.
 
 Davide provisioned everything on 2026-08-25, ahead of the slice, and his call was to **fold the
 record into #110 rather than write it in advance**. What follows is **identifiers and rules only**.
