@@ -649,18 +649,16 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
 
 ## Pending / not yet set up
 
-- **DAVIDE: Neon is the one thing blocking the server going live, and nothing in a session can do
-  it** — #111, 2026-08-26. It needs an account, and the connection string is key material that must
-  not enter a session or this repository. Everything else in #111 is built and provisioned; the whole
-  of what is left is a sign-up, a project in an EU region, and one `gcloud secrets create` reading
-  from standard input so the value never reaches a shell history. **Until that secret exists there is
-  no deploy, so there is no service, so there is no domain mapping, no scheduler ping, no measured
-  cold start and no redeploy check.** The commands are written out to paste:
-  [`identity-provisioning.md`](identity-provisioning.md) step 44a.
-  Two repository variables go with it and take a minute — `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS`
-  at <https://github.com/fardavide/oltre/settings/variables/actions>, step 44b. **Two per provider and
-  never one**: the Web client answers for both phones and the Desktop client is a second audience, and
-  a single-audience server passes every test and then refuses the desktop build.
+- **Neon and the two audiences are done, and what is left needs the service to exist** — #111,
+  2026-08-26. `oltre-database-url` holds the **pooled** connection string, verified by round trip and
+  readable by `oltre-server@` alone; `APPLE_CLIENT_IDS` and `GOOGLE_CLIENT_IDS` are repository
+  variables. **The service is created by the first run of the deploy workflow**, so the domain
+  mapping, the scheduler ping, the measured cold start, the redeploy check and the rollback all wait
+  on #129 being merged rather than on anything anybody has to type.
+  **The Neon role's password was rotated once on the day it was created**, because the first one was
+  pasted into an agent session — the rule that key material never enters one covers a chat, and
+  `identity-provisioning.md` step 44a now says so where the string is copied rather than only at the
+  top of the page.
 
 - **DAVIDE: the budget alert has never been seen to fire, and #111 asks for it to be** — 2026-08-26.
   The alert exists (€2/month, email at 50% and 100%, set 2026-08-25), and step 42 already records that

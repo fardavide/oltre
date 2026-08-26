@@ -1313,10 +1313,10 @@ worse than a missing one, because the instance starts and then fails at the firs
 
 # Part 7 — What genuinely waits, and on what
 
-> **Steps 43, 44 and 45 are `#111`, and most of 44 and all of 45 are done.** What is left is written
-> as commands to paste rather than as a description, and the order below is the order they work in:
-> **44a (Neon) unblocks everything else.** Until that secret exists there is no deploy, so there is no
-> service, so there is no domain mapping and no scheduler job and nothing to measure a cold start on.
+> **Steps 43, 44 and 45 are `#111`.** 44 and 45 are done, including Neon — what is left needs the
+> service to exist, and the service is created by the first run of the deploy workflow, which needs
+> `#129` merged. So the order is: **merge, deploy, then 43 and 44d**, and 45a (the budget alert) is
+> the one thing on this page that is nobody's but Davide's.
 
 ## 43. Cloud Run domain mapping for `api.oltre.space`
 
@@ -1352,7 +1352,22 @@ than on that click.
 Everything except 44a **is done** — `#111` built it and this section is the record. Read 44a, do it,
 and the rest happens on its own.
 
-### 44a. Neon — **yours, and the only thing blocking the deploy**
+### 44a. Neon — **done 2026-08-26**
+
+`oltre-database-url` exists: `user-managed` replication pinned to `europe-west1`, one version, and
+`roles/secretmanager.secretAccessor` granted to `oltre-server@` and to nothing else — `get-iam-policy`
+confirms a single member, and `oltre-deployer` is deliberately not on it. **Verified by round trip**,
+the same check step 42 used for the p8: reading version 1 back and hashing it gives `3fed7552…`,
+matching the file it was created from. It points at the **pooled** endpoint, database `neondb`.
+
+The string itself is at `~/Documents/Keys/Oltre/identity/neon-database-url`, `0600`, beside the other
+credentials — assembled from the `PGUSER`/`PGPASSWORD` Davide saved in `env` and piped to `gcloud`
+from the file, so it never passed through a terminal, a shell history or a session.
+
+**It is the *second* password on that role.** The first was pasted into an agent session on
+2026-08-26 and reset in Neon the same hour; see the box below, which is the part of this step worth
+keeping now that the rest of it is history. What follows is what to do if it ever has to be done
+again.
 
 Nothing in a session can create this: it needs an account, and the connection string is key material
 that must not enter one.
@@ -1412,8 +1427,13 @@ gcloud secrets get-iam-policy oltre-database-url --project=oltre-506614
 That should list exactly one member. `oltre-deployer` is deliberately not on it: the account that
 deploys the service may not read what the service reads.
 
-### 44b. The two audiences, as repository variables — **yours, two fields**
+### 44b. The two audiences, as repository variables — **done 2026-08-26**
 
+Both are set, read out of `google.env` and `apple.env` rather than typed, and `gh variable list`
+confirms them. `GOOGLE_CLIENT_IDS` is the **Web** and **Desktop** client ids; `APPLE_CLIENT_IDS` is
+the bundle id and the Services ID. Neither Android client id is named, and neither needs to be.
+
+If they ever have to be set again:
 <https://github.com/fardavide/oltre/settings/variables/actions> → **New repository variable**, twice:
 
 | Name | Value |
