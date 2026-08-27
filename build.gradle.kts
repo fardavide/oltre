@@ -480,7 +480,13 @@ kover {
                 // they are a permanent drag on a total the merge gate compares against `main`.
                 classes("dev.fardavide.oltre.client.MainActivity")
                 classes("dev.fardavide.oltre.client.OltreApplication")
-                classes("dev.fardavide.oltre.client.BootReceiver")
+                // **The `*` is #113's one-character correction and not a widening.** `onReceive`
+                // launches a coroutine, Kotlin compiles that body to `BootReceiver$onReceive$1`, and
+                // a pattern with no trailing `*` matches the receiver and not the six lines inside
+                // it — so the entry has been excluding the empty half of the class it names since it
+                // was written. Every neighbour in this block already carries the `*` for exactly this
+                // reason; this one was the odd one out.
+                classes("dev.fardavide.oltre.client.BootReceiver*")
                 // The Android half of the notification scheduler, which is the same kind of thing
                 // as the three above and was missed when they were listed: `AlarmManager`, a
                 // `BroadcastReceiver` the system instantiates, and the `Context` slot the platform
