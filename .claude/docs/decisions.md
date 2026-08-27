@@ -6459,7 +6459,24 @@ bounce page on `oltre.space` with its own registered Return URL.
 takes no body — it mints. Adding one is a `:protocol` change **and** a server endpoint, and server
 work is out of this ticket's scope by name, so the two halves of the sentence contradict each other.
 
-What this release does instead is **never destroy the local save**: signing in adopts the server's
+**The mitigation this section first claimed was false, and correcting it is the point of this
+paragraph.** It said the release *"never destroys the local save"*, so the slice that lands the
+upload would still have it to send. It does not: `arrive`'s `Synced` branch ends in
+`resumed.commit(store, …)`, and `commit` is `store.save(toSnapshot())` — **one file**. So the first
+sync after a sign-in writes the server's freshly-founded colony over the tester's old one, and the
+sentence that made the missing upload survivable was describing a file the code overwrites.
+
+Found by reading, after the coverage work, while checking the one thing the PR promised hardest. It
+is worth recording because of *how* it was wrong: nothing lied. `store.clear()` really is only called
+on a deletion and on the debug reset, which is what the claim was checked against — and the save is
+destroyed anyway, by an ordinary write nobody thought of as destruction.
+
+**Preserving it needs a second file**, which is a decision rather than a fix: what the upload slice
+reads, when it is written, when it is discarded, and what happens if it is corrupt. That is Davide's,
+and it is on the pull request as a decision rather than taken here. What is here is the truthful
+version of the consequence.
+
+The previous claim, kept so the correction has a subject: signing in adopts the server's
 colony and leaves the file on disk untouched, so the slice that lands the upload still has it to
 send. The consequence is real and is the first thing to check on a device — see the pull request.
 

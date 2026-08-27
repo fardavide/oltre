@@ -681,12 +681,15 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   Both are in this release; neither has been observed working.
 - **The one-time upload of an existing local save is not in this release and cannot be.** `#113` asks
   for it and there is no wire method: `POST /v1/colony` takes no body. Adding one is a `:protocol`
-  change *and* a server endpoint, and server work is out of that ticket's scope by name. What ships
-  instead is that **the local save is never destroyed** — signing in adopts the server's colony and
-  leaves the file alone — so the slice that lands the upload still has it to send. **The consequence
-  is real: a TestFlight colony that predates this release will be replaced on screen by a fresh one
-  the first time its owner signs in.** Deciding whether that is acceptable for one tester, or whether
-  the upload blocks the merge, is Davide's.
+  change *and* a server endpoint, and server work is out of that ticket's scope by name.
+  **And the mitigation first written here was false**: it said the local save is never destroyed, so
+  the upload slice would still have it. There is one save file, and the first sync after a sign-in
+  writes the server's freshly-founded colony over it — `arrive` ends in `commit`, and `commit` is
+  `store.save`. So **a TestFlight colony that predates this release is replaced, on screen and on
+  disk, the first time its owner signs in**, and nothing brings it back.
+  Preserving it needs a second file, which is a decision rather than a fix — what the upload slice
+  reads, when it is written and discarded, what a corrupt one means. **That decision, and whether the
+  upload now blocks the merge, is Davide's**; it is on the pull request.
 - **Sign in with Apple is absent on Android and desktop.** Away from an Apple platform it is a browser
   flow whose Return URL Apple insists is `https`, and the registered one is a server endpoint that
   does not exist. There is no button rather than a button that opens a browser which never comes back.
