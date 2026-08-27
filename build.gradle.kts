@@ -307,6 +307,47 @@ kover {
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
                     classes("dev.fardavide.oltre.client.AppKt*")
                 }
+                // ── The drawing and the mapping, and **only while measuring the integration
+                // pass** ─────────────────────────────────────────────────────────────────────
+                //
+                // The third pass to be narrowed, and the last one that had not been. Davide's call,
+                // 2026-08-27, on a failing report at #113: the row fell **14.9% → 13.46%** on a slice
+                // that added an integration test and covered forty-five more lines than `main` did.
+                //
+                // **The row was measuring the size of the repository.** An integration test crosses
+                // one real boundary — a file, a socket, a platform adapter — and there are eight of
+                // them, so an unnarrowed pass reports *what fraction of the whole codebase eight
+                // boundary tests happen to execute*. `Strings` at 0%, `English` at 0%, `StringId` at
+                // 0%, every screen at 0%: 13,721 missed lines, of which the overwhelming majority are
+                // a drawing or a table. That number falls on every screen that ships and every string
+                // that is written, and no better integration test can recover it — which is the unit
+                // row's defect and the screenshot row's defect, in the one pass that had not yet been
+                // given the same treatment.
+                //
+                // **The rule is the screenshot pass's, with the sign flipped once more.** An
+                // integration test renders nothing: there is no composition, so a composable cannot
+                // execute and neither can the mapper that feeds one. So `*.presentation` and `*.ui`
+                // go, and every `@Composable` wherever it lives — which is what reaches `App` and the
+                // design system, neither of which is in one of those two packages.
+                //
+                // **`core` deliberately stays**, and saying so is the point of this paragraph rather
+                // than an aside. It is pure and has no boundary of its own, so the symmetry would put
+                // it here — and dropping it takes the row **13.46% → 7.78%**, because `core` is
+                // exactly what the server's replay tests execute across a socket and a database.
+                // *Reached across a boundary* is the test, not *contains one*; a rule written from
+                // the symmetry rather than from the report would have hidden the one thing this pass
+                // measures best.
+                //
+                // Scoped to this pass like the four above, which is what keeps it safe: the unit and
+                // unfiltered passes see every mapper and every composable, so a screen no test
+                // reaches at all still shows up in the row whose job that is.
+                //
+                // **It steps the row up**, 13.46% → ~22%, because eleven thousand unreachable lines
+                // leave the denominator at once. That is the new baseline, not a gain.
+                if (testCategory == "integration") {
+                    annotatedBy("androidx.compose.runtime.Composable")
+                    packages("*.presentation", "*.ui")
+                }
                 // ── The catalogue, and **only while measuring a pass that renders** ──────────
                 //
                 // The third of these, added at #86 with Davide's say-so and on the argument the two

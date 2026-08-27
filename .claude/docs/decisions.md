@@ -6546,6 +6546,50 @@ what found it — the two lambdas were the only thing in `App` that no test coul
 argument could justify — which is the second time this release the gate paid for itself as a reviewer
 rather than as a rule.
 
+### The integration row was measuring the size of the repository (2026-08-27, Davide's call)
+
+The Coverage job failed every row on this branch, and the worst of them was `integration` at
+**13.46% against a 14.9% floor** — on a slice that *added* an integration test and covered forty-five
+more lines than `main` did. The row fell because the denominator grew by 1,756 lines.
+
+That is not a coverage shortfall, it is the row measuring the wrong thing. An integration test crosses
+one real boundary and there are eight of them, so an unnarrowed pass reports *what fraction of the
+whole codebase eight boundary tests happen to execute*: `Strings` at 0%, `English` at 0%, `StringId` at
+0%, every screen at 0%, 13,721 missed lines. It falls on every screen that ships and every string that
+is written, and no better integration test recovers it — **which is the unit row's defect and the
+screenshot row's defect exactly, in the one pass that had never been given the same treatment.**
+
+Davide, asked to choose between approving exclusions and fixing the row: *"Fix the integration row's
+definition instead."* And on exclusions generally: *"We should add exclusion only if we really cannot
+cover."*
+
+So the integration pass now drops what an integration test cannot execute — every `@Composable`, and
+`*.presentation` and `*.ui` — which is the screenshot pass's rule with the sign flipped once more. The
+row goes 13.46% → ~22%, and that is the new baseline rather than a gain.
+
+**`core` deliberately stays in**, and that is the part worth reading twice. It is pure and holds no
+boundary, so the symmetry would put it out — and dropping it takes the row **13.46% → 7.78%**, because
+`core` is precisely what the server's replay tests execute across a socket and a database. *Reached
+across a boundary* is the test, not *contains one*. A rule written from the symmetry rather than from
+the report would have hidden the one thing this pass measures best.
+
+### The desktop loopback got seams instead of an exclusion
+
+Davide's rule applied to the largest unreachable block in the repository. `DefaultProviderSignIn.desktop.kt`
+was 58 lines at 0% in every pass and the exclusion was easy to argue: a machine here cannot sign in to
+Google. True — and it does not cover the ninety per cent of the file that is not the sign-in.
+
+Two parameters, both defaulted, both for things a build machine genuinely cannot do: `Desktop.browse`,
+and Google's token endpoint. `DesktopLoopbackIntegrationTest` replaces the first with a real HTTP GET
+at the redirect the flow just printed — which is exactly what a browser does with it — and the second
+with a `com.sun.net.httpserver` it owns, the same trick `OltreApiIntegrationTest` uses next door. Eight
+tests, two real sockets, and what is left uncovered is `openSystemBrowser` and nothing else.
+
+**The seam is what turns a platform excuse into a platform edge**, and it found a defect on the way:
+`HttpURLConnection` waits without limit by default, so a token endpoint that accepted and never
+answered would have hung the sign-in for ever — the browser window covers the leg a person is standing
+in front of, and this leg had no window of its own.
+
 ### The gate says why when it can draw no provider
 
 `signInProviders()` is empty on a desktop build with no Google credential in its environment, and

@@ -918,13 +918,17 @@ fun App(
                 // See `toggleAlert`, and `alerting` for why this one verb transitions before it
                 // advances where every other one does the opposite.
                 fun alert(target: WatchTarget) {
-                    val key = held.watch(target)
                     // **A tap on a held control withdraws it rather than queueing a second verb**,
                     // and that is the design's rule for the amber ghost applied to the amber square:
                     // the request is the thing on screen, so tapping it takes it back. Without this,
                     // two taps would queue two toggles that cancel out and leave a control that looks
                     // outstanding for ever.
-                    if (key != null) return withdraw(key)
+                    //
+                    // Asked through `heldKey` like every other control rather than through `held`
+                    // directly — one function answers *which envelope is this control's* for all
+                    // twelve verbs, so a control cannot match a different envelope from the one the
+                    // mapper drew its ghost from.
+                    heldKey(ClientVerb.ToggleAlert(target))?.let { return withdraw(it) }
                     val next = current.alerting(debugClock, wallClock = wallClock.now(), target = target)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
@@ -940,8 +944,7 @@ fun App(
                 // it writes no event, so it has to commit unconditionally or the alert it just booked
                 // would never reach the platform.
                 fun alertHull(ship: ShipType) {
-                    val key = held.hullAlert(ship)
-                    if (key != null) return withdraw(key)
+                    heldKey(ClientVerb.CycleHullAlert(ship))?.let { return withdraw(it) }
                     val next = current.alertingHull(debugClock, wallClock = wallClock.now(), ship = ship)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
@@ -960,8 +963,7 @@ fun App(
                 // which is the whole of what "the bell remembers" means. `act` would decline —
                 // this writes no event — so it commits unconditionally, exactly as `alert` does.
                 fun alertFlights() {
-                    val key = held.flightAlert
-                    if (key != null) return withdraw(key)
+                    heldKey(ClientVerb.ToggleFlightAlerts)?.let { return withdraw(it) }
                     val next = current.alertingFlights(debugClock, wallClock = wallClock.now())
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
@@ -977,6 +979,13 @@ fun App(
                 // reason — nothing here writes an event, and what has to survive is the schedule that
                 // `notifications.sync` books inside `commit`.
                 fun prefer(verb: ClientVerb, transition: (GameState) -> GameState) {
+                    // **The amber ghost's tap, answered here** — for `send`'s reason and by the same
+                    // function. The three call sites below each asked `held` a question of their own
+                    // shape (`held.alertMode?.key`, `held.alertCategory(category)`), which was a
+                    // second way of asking what `heldKey` already answers for every verb there is:
+                    // three chances to match the wrong envelope, and three arms of an exhaustive
+                    // `when` that nothing could reach.
+                    heldKey(verb)?.let { return withdraw(it) }
                     val next = current.preferring(debugClock, wallClock = wallClock.now(), transition = transition)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
@@ -1377,21 +1386,11 @@ fun App(
                                 compact = maxWidth < OltreLayout.compactWidth,
                                 onOpenChangelog = { sheetFace = SheetFace.CHANGELOG },
                                 onSelectMode = { mode ->
-                                    val key = held.alertMode?.key
-                                    if (key != null) {
-                                        withdraw(key)
-                                    } else {
-                                        prefer(ClientVerb.SetAlertMode(mode)) { setAlertMode(it, mode) }
-                                    }
+                                    prefer(ClientVerb.SetAlertMode(mode)) { setAlertMode(it, mode) }
                                 },
                                 onToggleCategory = { category ->
-                                    val key = held.alertCategory(category)
-                                    if (key != null) {
-                                        withdraw(key)
-                                    } else {
-                                        prefer(ClientVerb.ToggleAlertCategory(category)) {
-                                            toggleAlertCategory(it, category)
-                                        }
+                                    prefer(ClientVerb.ToggleAlertCategory(category)) {
+                                        toggleAlertCategory(it, category)
                                     }
                                 },
                                 // **The four doors of the deletion flow**, and the third and fourth
@@ -1427,13 +1426,8 @@ fun App(
                                     sheetFace = SheetFace.DELETE_WARN
                                 },
                                 onSelectDelivery = { delivery ->
-                                    val key = held.alertDelivery?.key
-                                    if (key != null) {
-                                        withdraw(key)
-                                    } else {
-                                        prefer(ClientVerb.SetAlertDelivery(delivery)) {
-                                            setAlertDelivery(it, delivery)
-                                        }
+                                    prefer(ClientVerb.SetAlertDelivery(delivery)) {
+                                        setAlertDelivery(it, delivery)
                                     }
                                 },
                             )

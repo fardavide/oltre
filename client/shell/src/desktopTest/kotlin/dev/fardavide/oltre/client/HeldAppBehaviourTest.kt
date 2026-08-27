@@ -198,6 +198,21 @@ class HeldAppBehaviourTest {
         }
     }
 
+    // **The hull card's own bell, taken back** — a third control on the one card that can hold two
+    // things, and the one whose lookup is keyed by hull type rather than by row.
+    @Test
+    fun `a hull alert tapped with no signal is held and can be taken back`() {
+        app(saved = withYard(), api = offlineServer()) {
+            open(OltreTab.SHIPYARD)
+            tapTheAlertOn(ShipType.SKIFF)
+            waitUntilItReads("1 action held")
+
+            tapTheAlertOn(ShipType.SKIFF)
+
+            waitUntilItReads("0 actions held")
+        }
+    }
+
     @Test
     fun `a research project started with no signal is held and can be taken back`() {
         app(saved = withLab(), api = offlineServer()) {

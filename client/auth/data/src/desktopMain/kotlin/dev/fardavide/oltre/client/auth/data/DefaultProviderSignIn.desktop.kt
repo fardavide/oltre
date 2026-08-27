@@ -45,7 +45,22 @@ actual fun defaultProviderSignIn(): ProviderSignIn = ProviderSignIn { provider -
 // on `127.0.0.1`, send the system browser at the authorize endpoint, and let the browser bring the
 // code back to a socket only this process can be listening on. Any port is allowed for a loopback
 // redirect, which is why nothing here is registered anywhere.
-private suspend fun loopbackSignIn(clientSecret: String): SignInAttempt {
+//
+// **Two seams, and they are the difference between this file being tested and being hoped at.**
+// Everything here is ordinary code — bind a port, wait, read a query string, post a form — sitting
+// between exactly two things a build machine cannot do: open a browser, and reach Google. Passing
+// those in as parameters leaves eight lines of platform act at the edges and puts the rest under
+// `DesktopLoopbackIntegrationTest`, which drives it across two real sockets. Davide's rule at #113,
+// in as many words: *"we should add exclusion only if we really cannot cover"* — most of this we can.
+internal suspend fun loopbackSignIn(
+    clientSecret: String,
+    // Google's, unless a test points it at a socket of its own. Never a variable in production: the
+    // default is the constant and nothing in the app passes anything else.
+    tokenEndpoint: String = OltreOAuth.GOOGLE_TOKEN,
+    // **The one line no process on a build machine can perform.** A test replaces it with a real
+    // HTTP request to the redirect the flow just printed, which is precisely what a browser does.
+    openBrowser: (String) -> Boolean = ::openSystemBrowser,
+): SignInAttempt {
     val secrets = SignInSecrets(::secureRandomBytes)
     val arrived = CompletableDeferred<String>()
     // Port 0 asks the operating system for a free one. A fixed port would be a second copy of the app
@@ -93,6 +108,7 @@ private suspend fun loopbackSignIn(clientSecret: String): SignInAttempt {
                 redirectUri = redirectUri,
                 clientSecret = clientSecret,
                 nonce = secrets.nonceFor(NonceShape.RAW).value,
+                tokenEndpoint = tokenEndpoint,
             )
         }
     } finally {
@@ -106,6 +122,7 @@ private fun exchange(
     redirectUri: String,
     clientSecret: String,
     nonce: String,
+    tokenEndpoint: String,
 ): SignInAttempt {
     val body = tokenRequestBody(
         clientId = OltreOAuth.GOOGLE_DESKTOP_CLIENT_ID,
@@ -115,9 +132,15 @@ private fun exchange(
         redirectUri = redirectUri,
     )
     val answer = try {
-        (URI(OltreOAuth.GOOGLE_TOKEN).toURL().openConnection() as HttpURLConnection).run {
+        (URI(tokenEndpoint).toURL().openConnection() as HttpURLConnection).run {
             requestMethod = "POST"
             doOutput = true
+            // **Both, or a far end that accepts and never answers hangs the sign-in for ever.** The
+            // browser window above covers the leg a person is standing in front of; this leg has no
+            // window of its own, and `HttpURLConnection` waits without limit by default. A timeout
+            // surfaces as `IOException`, which is already *nobody answered*.
+            connectTimeout = EXCHANGE_TIMEOUT_MILLIS
+            readTimeout = EXCHANGE_TIMEOUT_MILLIS
             setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
             outputStream.use { it.write(body.toByteArray()) }
             // The error stream on a `4xx`, which is where the token endpoint puts its JSON. Read
@@ -137,7 +160,10 @@ private fun exchange(
 
 // `false` rather than a throw when there is no browser to open — a headless machine is a machine
 // this build cannot sign in on, which is a thing the gate can say.
-private fun openBrowser(url: String): Boolean = try {
+//
+// **The one function in this file that no test replaces and none can.** Everything around it was
+// given a seam so it could be driven; this is the platform act the seam exists to stand in for.
+private fun openSystemBrowser(url: String): Boolean = try {
     val desktop = Desktop.getDesktop().takeIf { Desktop.isDesktopSupported() }
     desktop?.takeIf { it.isSupported(Desktop.Action.BROWSE) }?.browse(URI(url)) != null
 } catch (_: IOException) {
@@ -162,3 +188,8 @@ private const val CLOSE_PAGE =
 private const val HTTP_OK = 200
 private const val HTTP_LAST_SUCCESS = 299
 private val BROWSER_WINDOW = 5.minutes
+
+// Long enough for a cold TLS handshake on a bad connection, short enough that the gate answers while
+// somebody is still looking at it. Nothing here is a person waiting on a decision — the consent
+// screen is already behind them.
+private const val EXCHANGE_TIMEOUT_MILLIS: Int = 30_000
