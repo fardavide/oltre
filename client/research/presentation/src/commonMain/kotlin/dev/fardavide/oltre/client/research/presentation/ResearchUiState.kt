@@ -888,7 +888,10 @@ private fun GameState.heldOn(
     held: HeldActions,
 ): HeldUiState {
     val heldWatch = held.watch(target) != null
-    val askingOn = target !in subscribed && watching != target
+    // Read off the row rather than inverted out of it — the tap applied `toggleAlert` to the session
+    // before this ran, so the row already says what was asked. Same rule as the colony's and the
+    // square's; see `asSquare`, which is where it is written down.
+    val askingOn = target in subscribed || watching == target
     return HeldUiState(
         action = start != null,
         watch = heldWatch,

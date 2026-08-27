@@ -18,7 +18,6 @@ import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.asksOnRow
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.HullAlert
-import dev.fardavide.oltre.core.cycleHullAlert
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
@@ -73,11 +72,14 @@ private fun GameState.toHullRow(
     val short = resources.shortfallOf(cost)
     val heldBuild = held.build(type) != null
     val heldAlert = held.hullAlert(type) != null
-    // **Which stop this card is claiming**, and on a held card that is the *next* one in the cycle
-    // rather than the opposite of a boolean — see `cycleHullAlert`, which is the only thing that
-    // knows the order and is the same function the tap will run. Hoisted out of `alertFor` so the
-    // square and the line beneath it read one value and cannot disagree.
-    val askedStop = if (heldAlert) cycleHullAlert(this, type).hullAlerts[type] else hullAlerts[type]
+    // **Which stop this card is claiming, which is simply the one it is on.** `alertingHull` runs
+    // `cycleHullAlert` against the session before anything is mapped, so the card already shows the
+    // stop that was asked for — cycling again here would name the stop *after* the one the player
+    // chose, and on a three-stop control that is a different lit answer rather than an obvious
+    // nonsense. See `asSquare`, where the rule this belongs to is written up.
+    //
+    // Hoisted anyway, so the square and the line beneath it read one value and cannot disagree.
+    val askedStop = hullAlerts[type]
     return HullUiState(
         type = type,
         name = hull.name,
@@ -100,12 +102,10 @@ private fun GameState.toHullRow(
             // that.
             line = when {
                 heldBuild -> Strings.heldBuildFoot(withAlert = heldAlert)
-                // **The stop that was asked for, not the opposite of the one it is on.** Every other
-                // square in the app is a toggle, where those two are the same sentence; this control
-                // has three stops, and the middle step goes from one *lit* answer to another — so
-                // *"the bell is off when the network is back"* would be false on a third of the
-                // cycle. `cycleHullAlert` is the only thing that knows the order, and it is the same
-                // function the tap will run.
+                // **The stop that was asked for, which is the one the card is on** — see `askedStop`
+                // above. This control has three stops rather than two, so the middle step goes from
+                // one *lit* answer to another: a sentence derived by negating anything would be
+                // false on a third of the cycle, whichever way it negated.
                 heldAlert -> Strings.heldWatchFoot(on = askedStop != null)
                 else -> null
             },

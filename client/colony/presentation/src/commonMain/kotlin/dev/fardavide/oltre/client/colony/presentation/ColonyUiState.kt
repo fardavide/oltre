@@ -198,10 +198,12 @@ private fun GameState.toFacilityRow(
     // disagree**: the card's surface, the button, the square and the line under them.
     val heldUpgrade = held.upgrade(building) != null
     val heldWatch = held.watch(WatchTarget.Facility(building)) != null
-    // Which way the square's request went. A held toggle asks for the opposite of what the colony
-    // currently says, and this is the only place that has both facts in scope.
-    val askingWatchOn = WatchTarget.Facility(building) !in subscribed &&
-        watching != WatchTarget.Facility(building)
+    // **Which way the request went, read off the colony rather than out of it.** A tap on this square
+    // applies `toggleAlert` to the session before anything is mapped, so the row already says what
+    // was asked for — see `asSquare`, which used to invert here and does not any more. Reading it
+    // directly is the whole of the rule and it is the same one the square follows.
+    val askingWatchOn = WatchTarget.Facility(building) in subscribed ||
+        watching == WatchTarget.Facility(building)
     return FacilityRowUiState(
         building = building,
         name = building.displayName(),

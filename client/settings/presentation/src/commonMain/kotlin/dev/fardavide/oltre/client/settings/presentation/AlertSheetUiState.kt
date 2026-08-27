@@ -86,7 +86,10 @@ private fun AlertCategory.toRow(on: Boolean, held: Boolean): AlertCategoryRow {
         // has one, because the square cannot say which way the request went and this is the row that
         // can. It displaces the price watch's own exception line, which is the more urgent of the two.
         note = when {
-            held -> Strings.heldTurning(on = !on)
+            // Not `!on`: the tap applied `toggleAlertCategory` to the session before this ran, so
+            // `on` already *is* the request. See `asSquare` for the rule and why the inverted reading
+            // looked right.
+            held -> Strings.heldTurning(on = on)
             this == AlertCategory.PRICE_REACHED -> Strings.alertPriceWatchNote(on)
             else -> null
         },

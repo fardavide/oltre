@@ -846,7 +846,9 @@ private fun GameState.flightAlertSquare(category: AlertCategory, held: HeldActio
 // of the two sentences the design drew — what being told actually means, and that it waits on the run
 // being confirmed — because it is the one place with room for it.
 private fun GameState.announceHeldLine(held: HeldActions): TextRes? =
-    if (held.flightAlert == null) null else Strings.heldAnnounceFoot(on = !announceFlights)
+    // Not `!announceFlights`: `alertFlights` applies `toggleFlightAlerts` to the session before this
+    // runs, so the flag already is the request. See `asSquare` for the rule.
+    if (held.flightAlert == null) null else Strings.heldAnnounceFoot(on = announceFlights)
 
 // "1 hauler · 2 skiffs", or just "2 skiffs" when there is one kind. The pair is a string rather than
 // a join so a language can put its own separator and its own order round it.

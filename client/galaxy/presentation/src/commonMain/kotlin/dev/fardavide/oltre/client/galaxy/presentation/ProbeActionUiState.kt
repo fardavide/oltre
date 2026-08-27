@@ -149,14 +149,17 @@ internal fun GameState.toProbeActionUiState(
                 // A held square draws the request, which on a toggle is the opposite of the answer
                 // the colony currently holds.
                 else -> WatchSquareUiState(
-                    asked = if (announceFlights != (held.flightAlert != null)) WatchAsk.ONE else WatchAsk.NONE,
+                    // Neither the face nor the sentence inverts: the tap applied
+                    // `toggleFlightAlerts` to the session before this ran, so the flag already is the
+                    // request. See `asSquare`, which is where the rule and the mistake are written up.
+                    asked = if (announceFlights) WatchAsk.ONE else WatchAsk.NONE,
                     held = held.flightAlert != null,
                 )
             },
             announceHeld = if (held.flightAlert == null) {
                 null
             } else {
-                Strings.heldTurning(on = !announceFlights)
+                Strings.heldTurning(on = announceFlights)
             },
             // **The two clauses joined**, because on a line there is no room for a block — the design's
             // *"same sentence, one line shorter"*. Joining them is a decision about language, which is

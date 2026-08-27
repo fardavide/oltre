@@ -104,18 +104,28 @@ data class WatchSquareUiState(val asked: WatchAsk, val held: Boolean) {
 // it has reached the server is derived from the outbox. Required rather than defaulted, because the
 // obvious default is also the value that means *the feature is switched off*.
 //
-// **A held square draws the request rather than the state, which is why this inverts.** The colony
-// still says what the server last agreed to; what has not been confirmed is the *opposite* of that,
-// because a held toggle is a toggle. The design says it plainly — *"a held row asks for the opposite
-// of what the server is on, so the request is what the square draws"* — and inverting here is what
-// stops four mappers each having to remember it.
-fun WatchUiState.asSquare(held: Boolean): WatchSquareUiState {
-    val on = this != WatchUiState.Offered
-    return WatchSquareUiState(
-        asked = if (on != held) WatchAsk.ONE else WatchAsk.NONE,
-        held = held,
-    )
-}
+// **A held square draws the request — and the request is already what the row says**, which is why
+// nothing here inverts.
+//
+// The design's sentence is *"a held row asks for the opposite of what the server is on, so the
+// request is what the square draws"*, and the first implementation of it read the second clause off
+// the first: invert the row, get the request. That is true of the **server's** colony and false of
+// the one on screen. Every one of these taps applies its own transition locally before anything is
+// mapped — `alerting`, `alertingHull`, `preferring` — so by the time a row is drawn it *already*
+// says what the player asked for. Inverting produced the state they were leaving.
+//
+// It shipped nowhere: caught at #113 by an end-to-end test that tapped a dark bell and read the
+// sentence back. The lesson is the shape rather than the sign — **a mapper cannot tell an optimistic
+// state from a confirmed one by looking at it**, so a rule phrased as *the opposite of what the
+// server says* has no way to be true here. Phrase it as *what the row says*, which is a fact the
+// mapper actually has.
+//
+// `held` is the caller's to know and still required: it is what draws the amber face. It no longer
+// decides which face.
+fun WatchUiState.asSquare(held: Boolean): WatchSquareUiState = WatchSquareUiState(
+    asked = if (this != WatchUiState.Offered) WatchAsk.ONE else WatchAsk.NONE,
+    held = held,
+)
 
 // The one new affordance the watch slice adds, and deliberately the only one: a 29dp square beside
 // the ghost time that books an alert for the instant the row already prints.

@@ -372,18 +372,16 @@ class ShipyardUiStateTest {
         assertEquals(WatchSquareUiState.UNASKED, cards.getValue(ShipType.SKIFF).alert)
     }
 
-    // **The one held control in the app that is not a toggle**, which is the whole reason this test
-    // exists rather than a copy of the colony's. Everywhere else *the stop that was asked for* and
-    // *the opposite of the stop it is on* are the same sentence, so a mapper can say either and be
-    // right. This bell has three stops, and on the middle step of the cycle the two disagree: going
-    // from `WHEN_ALL_DONE` to `EACH_HULL` is lit to lit, so a line reading the tap as an inversion
-    // would promise the player the bell goes *off* when the network comes back — on a third of the
-    // cycle, in the one direction they cannot check until it is too late to matter.
+    // **A held bell names the stop the card is on, because that stop is already the request.**
+    // `alertingHull` runs `cycleHullAlert` against the session before anything reaches this mapper,
+    // so the colony handed in here has moved — and a mapper that cycled again would name the stop
+    // *after* the one the player chose. On a three-stop control that is another lit answer rather
+    // than an obvious nonsense, which is exactly how it would have shipped.
     //
-    // The walk is the whole cycle rather than that one step, because a test that pinned only the
-    // middle would go on passing if the other two were inverted to match it.
+    // The walk is the whole cycle rather than one step of it, because a test that pinned only the
+    // middle would go on passing if the other two were moved to match it.
     @Test
-    fun `a held bell names the stop that was asked for rather than the opposite of the one it is on`() {
+    fun `a held bell names the stop the card is on`() {
         val ordered = wealthy().order(2)
         val held = HeldActions(
             listOf(
@@ -404,14 +402,39 @@ class ShipyardUiStateTest {
         // The square and the line are two renderings of one fact, so they are pinned together: the
         // defect this guards against is precisely the two of them disagreeing.
         assertEquals(
-            listOf(WatchAsk.ONE, WatchAsk.SEVERAL, WatchAsk.NONE),
+            listOf(WatchAsk.NONE, WatchAsk.ONE, WatchAsk.SEVERAL),
             cards.map { assertNotNull(it.alert).asked },
         )
         assertEquals(
-            listOf(StringId.HeldWatchOnFoot, StringId.HeldWatchOnFoot, StringId.HeldWatchOffFoot),
+            listOf(StringId.HeldWatchOffFoot, StringId.HeldWatchOnFoot, StringId.HeldWatchOnFoot),
             cards.map { assertNotNull(it.held.line).entry() },
         )
         assertTrue(cards.all { assertNotNull(it.alert).held }, "a held square is drawn held")
+    }
+
+    // **A held square is the same face as an unheld one, differing only in colour** — which is the
+    // corrected rule stated as a property rather than as three examples. It is worth its own test
+    // because the thing it replaced was an inversion, and an inversion is invisible in every frame
+    // and every count: the picture is correct either way and only the meaning is wrong.
+    @Test
+    fun `holding a bell changes its colour and not which face it wears`() {
+        val ordered = wealthy().order(2).copy(hullAlerts = mapOf(ShipType.SKIFF to HullAlert.EACH_HULL))
+        val held = HeldActions(
+            listOf(
+                VerbEnvelope(
+                    verb = ClientVerb.CycleHullAlert(ShipType.SKIFF),
+                    clientInstant = t0,
+                    idempotencyKey = IdempotencyKey("cycle-the-bell"),
+                ),
+            ),
+        )
+
+        val settled = ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff()
+        val outstanding = ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC, held = held).skiff()
+
+        assertEquals(assertNotNull(settled.alert).asked, assertNotNull(outstanding.alert).asked)
+        assertEquals(false, assertNotNull(settled.alert).held)
+        assertEquals(true, assertNotNull(outstanding.alert).held)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────

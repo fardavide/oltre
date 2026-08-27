@@ -14,8 +14,10 @@ import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.buildShips
 import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.VerbEnvelope
@@ -269,6 +271,66 @@ class HeldAppBehaviourTest {
         }
     }
 
+    // ── Which way the request went ──────────────────────────────────────────────────────────
+    //
+    // **Four controls say a direction, and a direction is the one thing about a held control that
+    // can be exactly backwards while everything else looks right.** The card is amber, the square is
+    // amber, the count is right, the withdraw works — and the sentence tells the player the opposite
+    // of what they asked for. No screenshot can catch it, because the picture is correct either way.
+    //
+    // Each of these taps a control whose direction is *known from the tap itself* and reads the
+    // sentence back. Driven end to end deliberately: the mapper is handed the colony **after** the
+    // optimistic transition has been applied, so a unit test that composes the state by hand is
+    // asking a different question from the one the player asks.
+
+    @Test
+    fun `asking for a bell says it will be set rather than off`() {
+        app(saved = upgrading(), api = offlineServer()) {
+            // The row is running and nothing is watching it, so this tap asks for the bell ON.
+            tapTheWatchOn(BuildingType.METAL_MINE)
+
+            waitUntilItReads("Watch held — the bell is set when the network is back.")
+        }
+    }
+
+    // The other direction, from a colony that is already watching the row: this tap asks for the
+    // bell to stop, and the sentence has to say so. Both directions are tested because an inversion
+    // is only visible when you know which way the tap went — one of them reads correctly under the
+    // wrong rule, which is how the wrong rule survived.
+    @Test
+    fun `asking for a bell to stop says it will be off rather than set`() {
+        app(saved = watching(), api = offlineServer()) {
+            tapTheWatchOn(BuildingType.METAL_MINE)
+
+            waitUntilItReads("Watch held — the bell is off when the network is back.")
+        }
+    }
+
+    @Test
+    fun `turning a category off says off rather than on`() {
+        app(saved = colony(), api = offlineServer()) {
+            openTheSettings()
+            // Every category is announced on a new colony, so this tap turns one off.
+            toggleCategory(AlertCategory.HULLS)
+
+            waitUntilItReads("Held — off when the network is back.")
+        }
+    }
+
+    // The hull card's three-stop bell, which is the one control where *asked for* and *the opposite
+    // of what it is on* are not the same sentence even in principle: the first tap goes from dark to
+    // `when the whole order is done`, which is lit.
+    @Test
+    fun `a held hull bell says the bell is set on the step that lights it`() {
+        app(saved = withYard(), api = offlineServer()) {
+            open(OltreTab.SHIPYARD)
+
+            tapTheAlertOn(ShipType.SKIFF)
+
+            waitUntilItReads("Watch held — the bell is set when the network is back.")
+        }
+    }
+
     private fun offlineServer(): FakeOltreApi = FakeOltreApi().apply {
         colony = null
         founds = null
@@ -305,6 +367,13 @@ private fun withLab(): GameSnapshot = wealthy().let { rich ->
             buildings = rich.state.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)),
         ),
     )
+}
+
+// **A facility going up that the colony is already watching**, so a tap on its square is
+// unambiguously a request to *stop* being told. Built by running the real verb twice: once to start
+// the upgrade, once to book the alert, so the row is the one the app actually draws.
+private fun watching(): GameSnapshot = upgrading().let { going ->
+    going.copy(state = toggleAlert(going.state, WatchTarget.Facility(BuildingType.METAL_MINE)))
 }
 
 // **A facility already going up**, because the watch square is offered on a row that has a
