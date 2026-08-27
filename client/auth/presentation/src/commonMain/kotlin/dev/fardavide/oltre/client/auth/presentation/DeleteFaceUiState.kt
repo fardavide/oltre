@@ -6,6 +6,7 @@ import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.text.AuthProviderName
 import dev.fardavide.oltre.client.design.text.DeleteFactKind
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GameState
@@ -62,7 +63,7 @@ fun GameState.toDeleteFaceUiState(
 }
 
 // What the account holds, in four rows and in the colony's own numbers.
-private fun GameState.facts(name: dev.fardavide.oltre.client.design.text.TextRes): List<DeleteFactUiState> = listOf(
+private fun GameState.facts(name: TextRes): List<DeleteFactUiState> = listOf(
     DeleteFactUiState(
         label = Strings.deleteFactLabel(DeleteFactKind.COLONY),
         // **Built facilities rather than all six**, because a facility at level 0 is one the colony
@@ -110,7 +111,7 @@ private fun GameState.wholeFleet(): Ships =
 // **Null on a colony with no fleet**, which is a first launch rather than an edge case: the opening
 // stock buys a hull and does not grant one. `Strings.listed` has no grammar for an empty list, and
 // the row says so in a sentence instead — see `Strings.deleteFactFleet`.
-private fun Ships.spoken(): dev.fardavide.oltre.client.design.text.TextRes? = ShipType.entries
+private fun Ships.spoken(): TextRes? = ShipType.entries
     .mapNotNull { type -> counts[type]?.let { Strings.ships(it, type) } }
     .takeIf { it.isNotEmpty() }
     ?.let(Strings::listed)

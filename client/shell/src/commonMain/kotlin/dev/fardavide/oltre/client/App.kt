@@ -28,6 +28,7 @@ import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.net.data.ActOutcome
 import dev.fardavide.oltre.client.net.data.ApiResult
 import dev.fardavide.oltre.client.net.data.ColonySync
+import dev.fardavide.oltre.client.net.data.Credential
 import dev.fardavide.oltre.client.net.data.IdempotencyKeys
 import dev.fardavide.oltre.client.net.data.defaultOltreApi
 import dev.fardavide.oltre.client.net.data.OltreApi
@@ -47,7 +48,6 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
-import dev.fardavide.oltre.protocol.OfflineRule
 import dev.fardavide.oltre.protocol.offlineRule
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
@@ -99,8 +99,6 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
-import dev.fardavide.oltre.core.StartRunResult
-import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.buildShips
@@ -108,8 +106,6 @@ import dev.fardavide.oltre.core.setAlertDelivery
 import dev.fardavide.oltre.core.setAlertMode
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
-import dev.fardavide.oltre.core.startRun
-import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.toggleAlertCategory
@@ -439,6 +435,17 @@ fun App(
                             sessions.forget()
                             signedIn = false
                             gate = GateState.Idle
+                            // **And the colony comes off the screen, which is the half that was
+                            // missing.** The gate only draws when there is no session, so setting
+                            // the two lines above and leaving this one out produced the worst state
+                            // this app can be in: a colony whose every control looks operable and
+                            // whose every tap is dropped, with nothing on screen saying why.
+                            //
+                            // The save is untouched. This is the last colony the server agreed to
+                            // and it stays on disk — signing in again re-founds idempotently and
+                            // opens it, and a device that had nothing to show would be strictly
+                            // worse than one showing a gate.
+                            session = null
                         }
                     }
                 }
@@ -564,13 +571,22 @@ fun App(
 
                 // **Nobody has signed in on this device, so nothing else happens until they do.**
                 // `current()` is not a read of a flag: it renews an access token that has run out and
-                // answers null only when the refresh token has run out too, or was refused, or there
-                // was never one. All three are the gate.
-                if (sessions.current() == null) {
-                    signedIn = false
-                    return@LaunchedEffect
+                // answers `Gone` only when the refresh token has run out too, or was refused, or
+                // there was never one. All three are the gate.
+                //
+                // **`Unreachable` is none of those and falls through deliberately.** A renewal
+                // nobody answered is a train, not a sign-out: the session is on disk, so the launch
+                // carries on and the sync below fails the ordinary offline way — the colony stays
+                // up, the queue is held, and the chrome line says the network is out. Reading it as
+                // *signed out* is what left a player one tunnel away from the gate.
+                when (sessions.current()) {
+                    Credential.Gone -> {
+                        signedIn = false
+                        return@LaunchedEffect
+                    }
+
+                    is Credential.Held, Credential.Unreachable -> signedIn = true
                 }
-                signedIn = true
                 // **The gate stays up while the first colony is fetched, and says so.** Only on a
                 // device with no save: one that has a colony is already showing it, and a waiting
                 // line over a working game would be the app reporting on itself.
@@ -834,19 +850,14 @@ fun App(
                     }
                 }
 
-                // **It answers whether the tap was kept**, and that answer has to be synchronous
-                // because one screen acts on it: the dispatch sheet closes on a run that was kept and
-                // stays up on one that was refused, and it decides in the frame the button was
-                // pressed. Every other caller ignores the answer, which is right — a card that is
-                // held redraws itself from `held` and needs nobody to tell it.
+                // **A tap the phone can answer for itself.** Every `QUEUE_AND_VALIDATE` verb comes
+                // through here: the colony moves now, the outbox takes the verb, and the server
+                // reconciles later. The transition is the optimistic half and it is always run —
+                // which is why this takes one and `ask` below does not.
                 //
-                // **Answered from what is already known rather than from the round trip**, which is
-                // the only way it *can* be synchronous: a queueable verb is always kept — the outbox
-                // takes it whatever the network is doing — and a galaxy-touching one is kept only if
-                // the server is answering. The late case that this cannot see is a server that is
-                // reachable and refuses the run on its own freshness window; that arrives through
-                // `refuse` a moment later and lands on the map card's line, which is the row form the
-                // design drew for exactly the case where there is no sheet to put a block in.
+                // It answers `true` unconditionally, and that is not a stub: the outbox takes a
+                // queueable verb whatever the network is doing, so a tap that came through here was
+                // kept by definition. `ask` is where the answer can be `false`.
                 fun send(verb: ClientVerb, transition: (GameState, Instant) -> GameState): Boolean {
                     // **A tap on a held control withdraws it**, which is the amber ghost's whole
                     // behaviour and is answered here rather than at six call sites: the ui-state that
@@ -861,16 +872,37 @@ fun App(
                     // Whatever landed while the app was closed stops being news the moment the
                     // player changes the colony themselves.
                     finishedWhileAway = null
-                    val queueable = verb.offlineRule == OfflineRule.QUEUE_AND_VALIDATE
-                    if (queueable) {
-                        val next = current.acting(debugClock, wallClock = wallClock.now(), transition = transition)
-                        session = next
-                        if (next.hasNewEventsSince(current)) {
-                            scope.launch { next.commit(store, notifications, debugClock) }
-                        }
+                    val next = current.acting(debugClock, wallClock = wallClock.now(), transition = transition)
+                    session = next
+                    if (next.hasNewEventsSince(current)) {
+                        scope.launch { next.commit(store, notifications, debugClock) }
                     }
                     dispatch(verb)
-                    return queueable || reachable
+                    return true
+                }
+
+                // **A tap only the server can answer**, which is what `LOOK_DONT_ACT` means: a run
+                // and a probe both touch the galaxy, and a galaxy two players share cannot be guessed
+                // at on a phone. So there is no optimistic transition — the colony moves when the
+                // answer arrives — and this is a separate function rather than a null argument to
+                // `send` because a caller that offered one would be writing a lambda that can never
+                // run. It was, for two verbs and thirty lines, until the coverage report said so.
+                //
+                // **It answers whether the tap was kept**, and that answer has to be synchronous
+                // because one screen acts on it: the dispatch sheet closes on a run that was kept and
+                // stays up on one that was refused, and it decides in the frame the button was
+                // pressed. `reachable` is what it can know at that instant. The late case it cannot
+                // see is a server that is there and refuses the run on its own freshness window; that
+                // arrives through `refuse` a moment later and lands on the map card's line, which is
+                // the row form the design drew for exactly the case where there is no sheet to put a
+                // block in.
+                //
+                // Nothing is withdrawn here: neither verb is ever written to the outbox, so neither
+                // can be held, and `heldKey` answers null for both by construction.
+                fun ask(verb: ClientVerb): Boolean {
+                    finishedWhileAway = null
+                    dispatch(verb)
+                    return reachable
                 }
 
 
@@ -965,12 +997,26 @@ fun App(
                 // on the server, and the server has to answer.
                 fun deleteAccount() {
                     scope.launch {
-                        val token = sessions.current()
-                        if (token == null) {
+                        val token = when (val credential = sessions.current()) {
+                            is Credential.Held -> credential.access
+
                             // No credential to delete with. The gate is where that is answered, and
                             // it is where the next launch would have gone anyway.
-                            signedIn = false
-                            return@launch
+                            Credential.Gone -> {
+                                signedIn = false
+                                session = null
+                                return@launch
+                            }
+
+                            // **Nothing was asked and nobody said no**, so the account is exactly
+                            // where it was. This is the offline refusal the sheet already draws —
+                            // signing the player out here would delete a session rather than an
+                            // account, which is the opposite of what the tap asked for.
+                            Credential.Unreachable -> {
+                                deleteRefused = true
+                                reachable = false
+                                return@launch
+                            }
                         }
                         when (api.deleteAccount(token)) {
                             is ApiResult.Answered -> {
@@ -988,10 +1034,18 @@ fun App(
 
                             // The server read the request and said no — a token that has just expired
                             // is the case this is really about, and the gate is the honest answer.
+                            //
+                            // **`session = null` is what makes the sentence above true**, and it was
+                            // the third place in this file that said *the gate* and left the colony
+                            // on screen: the gate draws only when there is no session. Nothing was
+                            // deleted, so the save stays exactly where it is and signing in again
+                            // opens the same colony.
                             is ApiResult.Refused -> {
                                 sessions.forget()
                                 signedIn = false
                                 sheetFace = null
+                                session = null
+                                gate = GateState.Idle
                             }
 
                             ApiResult.Unreachable -> {
@@ -1041,32 +1095,7 @@ fun App(
                     // no test in the repository, which is how the coverage gate found them.
                     val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean =
                         { target, gathering, ships, window ->
-                            send(ClientVerb.StartRun(target, gathering, ships, window)) { state, at ->
-                                when (
-                                    val result = startRun(
-                                        state = state,
-                                        target = target,
-                                        gathering = gathering,
-                                        ships = ships,
-                                        window = window,
-                                        at = at,
-                                    )
-                                ) {
-                                    is StartRunResult.Started -> result.state
-                                    // None of the six is reachable from a finger: both sheets are
-                                    // built so the verb is absent wherever the model would refuse.
-                                    // This `when` says so out loud rather than trusting it — and
-                                    // `NotAGatheringHull` is the newest of them, unreachable because
-                                    // the manifest picker only ever offers hulls that have a hold.
-                                    StartRunResult.Unsurveyed,
-                                    StartRunResult.NotAValidTarget,
-                                    StartRunResult.NoSuchShips,
-                                    StartRunResult.NotAGatheringHull,
-                                    StartRunResult.WindowTooShort,
-                                    StartRunResult.Depleted,
-                                    -> state
-                                }
-                            }
+                            ask(ClientVerb.StartRun(target, gathering, ships, window))
                         }
                     val compact = maxWidth < OltreLayout.compactWidth
                     val watching = current.state.watching?.watchingLabel(compact = compact)
@@ -1218,18 +1247,7 @@ fun App(
                                     remembered = next
                                     scope.launch { preferences.save(next) }
                                 },
-                                onDispatchProbe = { target ->
-                                    send(ClientVerb.StartSurvey(target)) { state, at ->
-                                        when (val result = startSurvey(state, target, at = at)) {
-                                            is StartSurveyResult.Started -> result.state
-                                            StartSurveyResult.AlreadySurveying,
-                                            StartSurveyResult.AlreadySurveyed,
-                                            StartSurveyResult.NoIdleScout,
-                                            StartSurveyResult.InsufficientResources,
-                                            -> state
-                                        }
-                                    }
-                                },
+                                onDispatchProbe = { target -> ask(ClientVerb.StartSurvey(target)) },
                                 // **The fifth verb, reaching a finger for the first time.** `core`
                                 // has carried `startRun` since 0.3.0 and nothing called it: the
                                 // balance existed, the save format carried it, `advance` landed the

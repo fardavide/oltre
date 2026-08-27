@@ -1465,6 +1465,12 @@ object Strings {
 
     fun signInNoAnswerBody(): TextRes = message(StringId.SignInNoAnswerBody)
 
+    // What the gate says when it can draw no provider at all — a fact about the build rather than
+    // about anything the player just did, and the only reason the screen is not mute.
+    fun signInNoProviderLead(): TextRes = message(StringId.SignInNoProviderLead)
+
+    fun signInNoProviderBody(): TextRes = message(StringId.SignInNoProviderBody)
+
     // **One string for a refusal and for a cancellation**, because the app frequently cannot tell
     // them apart and an accusation is worse than a fact. The provider is named because the player
     // pressed it; the other one is named because it is the next thing to try.

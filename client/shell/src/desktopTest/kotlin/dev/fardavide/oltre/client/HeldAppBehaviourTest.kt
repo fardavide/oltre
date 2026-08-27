@@ -1,15 +1,27 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
+import dev.fardavide.oltre.core.AlertCategory
+import dev.fardavide.oltre.core.AlertDelivery
+import dev.fardavide.oltre.core.AlertSettings
+import dev.fardavide.oltre.core.BuildShipsResult
+import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Resources
+import dev.fardavide.oltre.core.ShipType
+import dev.fardavide.oltre.core.Ships
+import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 
 // **What a tap with no signal does**, driven through the whole app rather than asserted at a mapper.
 //
@@ -127,6 +139,121 @@ class HeldAppBehaviourTest {
         }
     }
 
+    // ── The other nine controls ─────────────────────────────────────────────────────────────
+    //
+    // **Ten controls can be held and one of them being right proves nothing about the other nine.**
+    // Each answers a different `ClientVerb`, each is matched back to the queue by a different
+    // question, and the match is what the amber ghost's tap depends on — so a control whose key
+    // lookup named the wrong verb would go amber and then refuse to be taken back, silently. The
+    // pattern below is deliberately identical for each: hold it, read the sentence, press the ghost,
+    // watch it go.
+
+    // The square only exists on a row that has a completion to be told about, so the fixture is a
+    // colony with a mine already going up — an idle row has nothing to offer and correctly draws no
+    // control at all.
+    @Test
+    fun `a bell tapped with no signal is held and can be taken back`() {
+        app(saved = upgrading(), api = offlineServer()) {
+            tapTheWatchOn(BuildingType.METAL_MINE)
+            waitUntilItReads("Watch held")
+
+            tapTheWatchOn(BuildingType.METAL_MINE)
+
+            assertDoesNotRead("Watch held")
+            assertReads("0 actions held")
+        }
+    }
+
+    @Test
+    fun `a hull bought with no signal is held and can be taken back`() {
+        app(saved = wealthy(), api = offlineServer()) {
+            open(OltreTab.SHIPYARD)
+            buyAHull()
+            waitUntilItReads("Build held.")
+
+            buyAHull()
+
+            assertDoesNotRead("Build held.")
+            assertReads("0 actions held")
+        }
+    }
+
+    // **A build and its alert are one sentence**, which is the one card in the app that can say two
+    // things at once — and the reason `HeldUiState` carries both flags rather than each control
+    // carrying its own.
+    //
+    // The fixture is a colony that already has a hull on the slipway and asks per item, because the
+    // square is absent otherwise: under `BY_CATEGORY` every hull is announced by its kind and the
+    // per-order control has nothing left to decide.
+    @Test
+    fun `a hull and its alert held together say so in one line`() {
+        app(saved = withYard(), api = offlineServer()) {
+            open(OltreTab.SHIPYARD)
+            buyAHull()
+            waitUntilItReads("Build held.")
+
+            tapTheAlertOn(ShipType.SKIFF)
+
+            waitUntilItReads("Build held, and the alert held off with it.")
+        }
+    }
+
+    @Test
+    fun `a research project started with no signal is held and can be taken back`() {
+        app(saved = withLab(), api = offlineServer()) {
+            open(OltreTab.RESEARCH)
+            startTheFirstProject()
+            waitUntilItReads("1 action held")
+
+            startTheFirstProject()
+
+            waitUntilItReads("0 actions held")
+        }
+    }
+
+    // **The settings sheet holds three shapes of control** and they are matched back to the queue
+    // three different ways: a category row by its category, the mode and the delivery by a stop the
+    // queue has to be searched *backwards* for — the last one asked wins, because a player who taps
+    // twice meant the second tap.
+    @Test
+    fun `an alert category toggled with no signal is held and can be taken back`() {
+        app(saved = colony(), api = offlineServer()) {
+            openTheSettings()
+            toggleCategory(AlertCategory.HULLS)
+            waitUntilItReads("1 action held")
+
+            toggleCategory(AlertCategory.HULLS)
+
+            waitUntilItReads("0 actions held")
+        }
+    }
+
+    @Test
+    fun `an alert mode chosen with no signal is held and can be taken back`() {
+        app(saved = colony(), api = offlineServer()) {
+            openTheSettings()
+            chooseByCategory()
+            waitUntilItReads("1 action held")
+
+            chooseByCategory()
+
+            waitUntilItReads("0 actions held")
+        }
+    }
+
+    @Test
+    fun `a delivery chosen with no signal is held and can be taken back`() {
+        app(saved = colony(), api = offlineServer()) {
+            openTheSettings()
+            chooseDelivery(AlertDelivery.PER_CATEGORY)
+            waitUntilItReads("1 action held")
+
+            chooseDelivery(AlertDelivery.PER_CATEGORY)
+
+            waitUntilItReads("0 actions held")
+        }
+    }
+
     private fun offlineServer(): FakeOltreApi = FakeOltreApi().apply {
         colony = null
         founds = null
@@ -142,6 +269,58 @@ private fun queuedUpgrade(): VerbEnvelope = VerbEnvelope(
     clientInstant = TEST_NOW,
     idempotencyKey = IdempotencyKey("queued-before-the-launch"),
 )
+
+// **A colony that can afford whatever the test taps**, so a held assertion is never really an
+// assertion about a price. The opening stock covers a mine and nothing else; a hull and a project
+// both need more than a first launch has.
+private fun wealthy(): GameSnapshot = colony().let { opening ->
+    opening.copy(
+        state = opening.state.copy(
+            resources = Resources.of(metal = 5_000_000, crystal = 5_000_000, deuterium = 5_000_000),
+        ),
+    )
+}
+
+// **A Robotics Factory, because the applied branch is gated behind one.** Photovoltaics and
+// Extraction both require level 1, and a fresh colony has none — so a colony that could pay for
+// every project on the screen would still be offered none of them.
+private fun withLab(): GameSnapshot = wealthy().let { rich ->
+    rich.copy(
+        state = rich.state.copy(
+            buildings = rich.state.buildings.withLevel(BuildingType.ROBOTICS_FACTORY, BuildingLevel(1)),
+        ),
+    )
+}
+
+// **A facility already going up**, because the watch square is offered on a row that has a
+// completion to be told about and on no other. Started through the real verb rather than composed,
+// so the row the square hangs on is the one the app actually draws.
+private fun upgrading(): GameSnapshot = wealthy().let { rich ->
+    rich.copy(
+        state = assertIs<StartUpgradeResult.Started>(
+            startUpgrade(
+                rich.state.copy(alerts = AlertSettings.CARRIED_FORWARD),
+                BuildingType.METAL_MINE,
+                at = TEST_NOW,
+            ),
+        ).state,
+    )
+}
+
+// **A hull on the slipway and a colony that asks per item.** Both halves are needed for the hull
+// card to carry a square at all: no order means nothing to announce, and `BY_CATEGORY` answers the
+// question one level up and takes the control off the card.
+private fun withYard(): GameSnapshot = wealthy().let { rich ->
+    rich.copy(
+        state = assertIs<BuildShipsResult.Started>(
+            buildShips(
+                rich.state.copy(alerts = AlertSettings.CARRIED_FORWARD),
+                Ships.of(ShipType.SKIFF, 1),
+                at = TEST_NOW,
+            ),
+        ).state,
+    )
+}
 
 private fun colony(): GameSnapshot = GameSnapshot(
     lastUpdatedAt = TEST_NOW,

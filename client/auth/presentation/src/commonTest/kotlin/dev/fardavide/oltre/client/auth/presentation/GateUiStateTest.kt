@@ -38,6 +38,30 @@ class GateUiStateTest {
         assertEquals(listOf(AuthProvider.GOOGLE), providers.map { it.provider })
     }
 
+    // **A screen with no control on it has to say why, and this is the one state that can produce
+    // one.** Absence is the right answer for a provider this build cannot finish — the test above is
+    // that rule — but absence applied to *every* provider leaves a gate with two lines of why, a
+    // foot, and no way forward at all. That is worse than a dead control rather than a smaller
+    // version of it: a dead button at least tells the player where to press, so a mute gate reads as
+    // the app having failed to load.
+    //
+    // Only the desktop build can reach it, and only without the credential in its environment — but
+    // that is the build the dev loop runs, so it is reachable by whoever is most likely to be
+    // deceived by it.
+    @Test
+    fun `should say the build cannot sign anybody in when it draws no provider at all`() {
+        val screen = GateState.Idle.toGateUiState(emptySet())
+        val message = screen.message
+
+        assertEquals(emptyList(), screen.providers)
+        assertEquals(GateTone.FAILED, message?.tone)
+        assertEquals("There is no way to sign in here.", English.resolve(message!!.lead))
+        assertEquals(
+            "This build has no sign-in provider. Use the iPhone or Android build.",
+            English.resolve(message.body),
+        )
+    }
+
     // Not a failure, so not red: a statement in the body colour, and nothing on the screen moves
     // while it is up. A spinner here would claim knowledge the app does not have.
     @Test

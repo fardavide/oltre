@@ -7,6 +7,31 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
+// **What this device has to send, or why it has nothing.** Three members rather than a nullable
+// token, and the third is the whole reason the type exists: *no token* is two different situations
+// and everything above this class has to tell them apart.
+//
+// The one that had to be split out is `Unreachable`. A renewal nobody answered leaves the session on
+// disk, intact and good for another eighty-nine days — so treating it like a signed-out player costs
+// somebody their account because they went through a tunnel. That is not a hypothetical: it is what
+// a single nullable return did until #113, and it took the queue's promise with it.
+sealed interface Credential {
+
+    // A token to put in the header. Either it was still in date or a renewal has just replaced it,
+    // and nothing above here needs to know which.
+    data class Held(val access: SessionToken) : Credential
+
+    // **Nobody has signed in, the refresh token has run out, or a refresh was refused.** One member
+    // for three, because the store is empty in all three and there is one thing to do about it: the
+    // gate. An account deleted on another device is the case this is really about.
+    data object Gone : Credential
+
+    // **A renewal nobody answered**, which is a fact about the network and not about the player.
+    // The session is where it was and the right answer is the offline one — hold the queue, say the
+    // network is out, and ask again.
+    data object Unreachable : Credential
+}
+
 // **How early a token is replaced.** A token checked at the instant it is sent can still expire in
 // flight on a slow connection, and the whole promise of the refresh pair is that the player never
 // learns any of this happened. The cost of being a minute early is one extra request every
@@ -32,17 +57,13 @@ class SessionKeeper(
     private val clock: Clock,
 ) {
 
-    // **What to put in the header, or null for the gate.** Null is not a failure and it is three
-    // different situations that all mean the same thing here — nobody has signed in, the refresh
-    // token has run out, or a refresh was refused — because there is one thing to do about all of
-    // them.
-    //
-    // Note the fourth caller of null, which is *not* one of those: a refresh that nobody answered.
-    // The session survives that one; see `renewed`.
-    suspend fun current(): SessionToken? {
-        val held = store.read() ?: return null
+    // **What to put in the header, or why there is nothing to put there.** See `Credential`: the
+    // two ways of having no token are a signed-out player and a silent network, and they are not the
+    // same instruction.
+    suspend fun current(): Credential {
+        val held = store.read() ?: return Credential.Gone
         val now = clock.now()
-        return if (now < held.accessExpiresAt - MARGIN) held.accessToken else renewed(held, now)
+        return if (now < held.accessExpiresAt - MARGIN) Credential.Held(held.accessToken) else renewed(held, now)
     }
 
     // **The forced renewal, and it asks a different question from `current`.** `current` asks
@@ -50,8 +71,8 @@ class SessionKeeper(
     // server has answered `SessionExpired`, which means that reckoning was wrong — a phone whose
     // clock is off by more than the margin is the ordinary cause. Deciding again on the same
     // arithmetic would hand back the same dead token forever.
-    suspend fun renew(): SessionToken? {
-        val held = store.read() ?: return null
+    suspend fun renew(): Credential {
+        val held = store.read() ?: return Credential.Gone
         return renewed(held, clock.now())
     }
 
@@ -67,20 +88,20 @@ class SessionKeeper(
         store.clear()
     }
 
-    private suspend fun renewed(held: SessionResponse, now: Instant): SessionToken? {
+    private suspend fun renewed(held: SessionResponse, now: Instant): Credential {
         // **The dead credential is not offered**, which saves a round trip and, more to the point,
         // saves a *failure*: asking with a token that expired last month gets a 401 that reads
         // exactly like a refusal worth acting on. The expiry is on the wire so the client can tell
         // these apart without decoding a credential it did not sign.
         if (now >= held.refreshExpiresAt) {
             store.clear()
-            return null
+            return Credential.Gone
         }
 
         return when (val result = api.refresh(held.refreshToken)) {
             is ApiResult.Answered -> {
                 store.write(result.value)
-                result.value.accessToken
+                Credential.Held(result.value.accessToken)
             }
 
             // The token was in date and the server said no anyway — an account deleted on another
@@ -88,14 +109,19 @@ class SessionKeeper(
             // keep.
             is ApiResult.Refused -> {
                 store.clear()
-                null
+                Credential.Gone
             }
 
             // **Not a signed-out player, and this arm is the reason `ApiResult` splits `Refused`
             // from `Unreachable` at all.** Clearing here would send somebody to a sign-in screen
             // they cannot use — on a train, with no signal — and would throw away the credential
             // that will work perfectly well when the signal comes back.
-            ApiResult.Unreachable -> null
+            //
+            // **Keeping the session was never enough on its own**, which is what #113 found: this
+            // arm kept the credential on disk and then answered `null`, and the one caller read
+            // `null` as *signed out* and cleared it two frames later. A distinct member is what
+            // makes the promise this comment has always made actually hold.
+            ApiResult.Unreachable -> Credential.Unreachable
         }
     }
 }

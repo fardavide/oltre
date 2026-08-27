@@ -14,7 +14,9 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
@@ -64,6 +66,7 @@ import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ShipType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 
@@ -102,6 +105,14 @@ private const val SLOW_ANSWER_MILLIS: Long = 10_000
 // app does on its own, and it is deliberately slow: a player cannot see a difference finer than the
 // clock the chrome line prints.
 private const val RETRY_WINDOW_MILLIS: Long = 90_000
+
+// **`DebugTestTags`, mirrored**, because it is internal to `:client:debug:ui` and this file lives
+// across the seam in the shell. A duplication with teeth rather than a silent one: rename a tag and
+// these fail by name on the next run, exactly as `AdaptationRobot`'s research tags do.
+private const val DEBUG_SHEET = "debug-sheet"
+private const val DEBUG_SKIP = "debug-skip"
+private const val DEBUG_RESET = "debug-reset"
+private const val DEBUG_CLOSE = "debug-close"
 
 @OptIn(ExperimentalTestApi::class)
 internal class AppRobot(
@@ -364,6 +375,39 @@ internal class AppRobot(
         assertEquals(showing, found, "the settings sheet is ${if (found) "up" else "not up"}")
     }
 
+    // ── The debug panel ──────────────────────────────────────────────────────────────────────
+    //
+    // It opens by a gesture and by nothing else, so the shake is a flow the test emits on and the
+    // robot waits for the composition to catch up — a `tryEmit` returns before anything has been
+    // collected.
+
+    fun shake(shakes: MutableSharedFlow<Unit>) = apply {
+        shakes.tryEmit(Unit)
+        test.waitForIdle()
+    }
+
+    fun assertDebugSheetShowing(showing: Boolean) = apply {
+        val found = test.onAllNodesWithTag(DEBUG_SHEET).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(showing, found, "the debug panel is ${if (found) "up" else "not up"}")
+    }
+
+    fun closeTheDebugSheet() = apply {
+        test.onNodeWithTag(DEBUG_CLOSE).performClick()
+        test.waitForIdle()
+    }
+
+    // **Held, not tapped**, which is the panel's own rule: both verbs change the colony and the panel
+    // opens by a gesture a pocket can perform. The confirm comes from the platform's long-press
+    // timing rather than from the fill animation, so this is a real gesture rather than a wound clock.
+    fun holdTheSkip() = apply { hold(DEBUG_SKIP) }
+
+    fun holdTheReset() = apply { hold(DEBUG_RESET) }
+
+    private fun hold(tag: String) {
+        test.onNodeWithTag(tag).performTouchInput { longClick() }
+        test.waitForIdle()
+    }
+
     fun chooseMode(mode: AlertMode) = apply {
         test.onNodeWithTag(SettingsTestTags.mode(mode)).performClick()
         test.waitForIdle()
@@ -442,6 +486,33 @@ internal class AppRobot(
 
     fun sendTheRun() = apply {
         test.onNodeWithTag(DispatchTestTags.SEND).performClick()
+        test.waitForIdle()
+    }
+
+    // **Photovoltaics, by tag**, because the tests that use it are about the *held* state of one row
+    // rather than about which project a colony happens to be able to afford — and "the only one
+    // offered" stopped identifying a row at 0.9.
+    //
+    // The tag is spelled out rather than imported because `ResearchTestTags` is internal to
+    // `:client:research:ui` and this test lives across the seam in the shell. That is a duplication
+    // with teeth rather than a silent one: rename the tag and this fails by name on the next run.
+    fun startTheFirstProject() = apply {
+        test.onNodeWithTag("research-action-photovoltaics").performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The ladder beside it, on the branch that has its own slot since 0.12.2 — and a different verb
+    // wearing the same row.
+    fun startTheThermalLadder() = apply {
+        test.onNodeWithTag("research-action-thermal").performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The square on the running project's row. It carries no text, so the tag is the only way to it.
+    fun tapTheWatchOnTheFirstProject() = apply {
+        test.onNodeWithTag("research-watch-photovoltaics", useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
         test.waitForIdle()
     }
 
@@ -603,6 +674,10 @@ internal fun app(
     // save is written through `GameStore`: the file's shape is the outbox's and a fixture that wrote
     // its own JSON would produce a queue `queued()` answers as empty.
     queued: List<VerbEnvelope> = emptyList(),
+    // **The shake, as a flow a test can emit on.** Empty by default for the reason the wiring below
+    // gives; `DebugSheetAppBehaviourTest` is the one file that hands in a real one, because the
+    // debug sheet is the only surface in the app with no other way in.
+    shakes: Flow<Unit> = emptyFlow(),
     block: AppRobot.() -> Unit,
 ) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -639,9 +714,10 @@ internal fun app(
                 preferences = preferences,
                 changelog = changelog,
                 notifications = GameNotifications(booked, English),
-                // Never shaken: the debug sheet is a modal over everything, and a test about what a
-                // launch says must not have one open on top of it.
-                shakeDetector = ShakeDetector { emptyFlow<Unit>() as Flow<Unit> },
+                // **Never shaken by default**, because the debug sheet is a modal over everything and
+                // a test about what a launch says must not have one open on top of it. The one file
+                // that *is* about the sheet hands in a flow it can emit on.
+                shakeDetector = ShakeDetector { shakes },
                 // See `TEST_NOW`. The one seam that stops these tests depending on the second they
                 // happen to run in.
                 wallClock = FixedClock(TEST_NOW),

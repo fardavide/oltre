@@ -460,6 +460,8 @@ private val everyEntry: List<TextRes> = buildList {
     add(Strings.signInWaitingBody())
     add(Strings.signInNoAnswerLead())
     add(Strings.signInNoAnswerBody())
+    add(Strings.signInNoProviderLead())
+    add(Strings.signInNoProviderBody())
     AuthProviderName.entries.forEach { add(Strings.signInRefusedLead(it)) }
     AuthProviderName.entries.forEach { add(Strings.signInRefusedBody(it)) }
     add(Strings.signInThrottledLead())

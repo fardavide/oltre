@@ -604,6 +604,12 @@ enum class StringId {
     SignInThrottledLead,
     SignInThrottledBody,
     SignInAskAgainNow,
+    // **The one thing the gate has to say when it has nothing to offer.** Every other message here
+    // reports on something the player did; this one reports on the build itself, and it exists
+    // because a screen drawing no provider at all would otherwise be two lines of *why* with no way
+    // forward and no explanation of the absence.
+    SignInNoProviderLead,
+    SignInNoProviderBody,
     // The two providers by name, and the one place in the catalogue where every language says the
     // same thing on purpose: these are trademarks, and a table that could translate one is a table
     // that will. They are entries rather than `TextRes.Raw` because they are *arguments* to two

@@ -6486,3 +6486,71 @@ condition *"once the shell holds a fake transport, the behaviour suite drives ev
 module"*. This is that slice. The two `compileTestKotlinIosSimulatorArm64` lines went with them: the
 shell's link task reaches both modules now, and what is left on that job is the *test* source sets,
 which no link task compiles and which are where the backtick-comma trap lives.
+
+### `Credential` — *no token* was two situations wearing one answer
+
+Written down at length because the defect it fixes was invisible to the whole suite, shipped inside
+the slice that introduced it, and would have cost players their accounts.
+
+`SessionKeeper.current()` returned `SessionToken?`, and its own comment said null meant three things
+that were *"one thing to do about"*: nobody signed in, the refresh ran out, it was refused. There is a
+fourth, and the comment even named it — a refresh **nobody answered** — with the note that *"the
+session survives that one"*. It does survive, on disk. What did not survive is the reason: the one
+caller read null as *signed out*, so `ColonySync.drain` answered `Failed(Unauthenticated)` and `App`
+called `sessions.forget()` and cleared the credential the keeper had just gone out of its way to keep.
+
+**The path is ordinary, not exotic.** An access token lasts an hour and a refresh ninety days, so a
+player who opens the game on a train more than an hour after last playing takes it: the renewal cannot
+reach anybody, and the app signs them out, throws away the ninety-day token, drops the tap into a
+queue it then stops believing in, and shows a sign-in screen at the one moment they have no network to
+sign in with.
+
+So `Credential` is a three-member sealed interface — `Held`, `Gone`, `Unreachable` — and `Unreachable`
+maps to `SyncOutcome.NotNow`, which is exactly the offline answer: hold the queue, say the network is
+out, ask again. **The lesson is the shape rather than the bug**: a comment explaining that a return
+value means four different things is a type asking to be written, and the one it was standing in for
+had two of them meaning the opposite of each other.
+
+### A colony on screen that cannot act is worse than a gate, and the gate only draws with no session
+
+Second half of the same day's finding, same class. `Unauthenticated` on a *real* refusal did the right
+three things — forget, `signedIn = false`, `gate = Idle` — and left `session` alone. The gate is drawn
+only when `session == null`, so a device with a save whose credential the server no longer honours
+stayed on its colony, with every control looking operable and every tap silently dropped. That is the
+global dead-control rule's worst case: not a crash, but a screen that teaches the player the game is
+broken in a way they cannot describe.
+
+`session = null` is the whole fix, and what makes it safe is what it does *not* touch: the save stays
+on disk, so signing in again re-founds idempotently and opens the same colony. A device with nothing
+to show would have been strictly worse than one showing a gate.
+
+**It was in three places, not one**, and the third is the reason this paragraph exists: `deleteAccount`'s
+`ApiResult.Refused` arm carried the comment *"the gate is the honest answer"* and did the same three
+things and the same omission. A comment naming a screen is not a control-flow statement — that is the
+generalisable half, and it is what a grep for `gate = GateState.Idle` finds in one pass.
+
+**Neither defect was findable from inside the suite** — every existing test either had a live server or
+no save — which is why the four tests that now pin them are behaviour tests driven end to end rather
+than assertions at the seam.
+
+### Two verbs were passing a transition that could never run
+
+`send` applies an optimistic transition and then queues; `LOOK_DONT_ACT` verbs are never applied
+locally, so for `StartRun` and `StartSurvey` the lambda every call site passed was dead — thirty-odd
+lines of exhaustive `when` over `StartRunResult` and `StartSurveyResult` that no finger could reach.
+It read as careful code and was unreachable by construction.
+
+They are `ask(verb)` now: no transition, and the return value is `reachable` rather than
+`queueable || reachable`, which is what the dispatch sheet was really asking. The coverage report is
+what found it — the two lambdas were the only thing in `App` that no test could reach *and* no
+argument could justify — which is the second time this release the gate paid for itself as a reviewer
+rather than as a rule.
+
+### The gate says why when it can draw no provider
+
+`signInProviders()` is empty on a desktop build with no Google credential in its environment, and
+drawing no button is right for a provider that cannot finish. Drawing no button *at all* left two
+lines of *why*, a foot, and no way forward — which reads as a screen that failed to load, not as a
+deliberate gap. So the mapper has a sixth message, in the design's voice but not from its string table:
+*"There is no way to sign in here."* The design drew five states because it drew a phone; this one only
+exists on the dev loop, which is exactly who would assume the app was broken.

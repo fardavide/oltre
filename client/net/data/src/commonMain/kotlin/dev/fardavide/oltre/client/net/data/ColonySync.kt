@@ -149,7 +149,15 @@ class ColonySync(
         // **Resolved once, outside the loop, and refreshed inside it.** A token good enough to start
         // with stays good for three attempts three seconds apart; the case that is not covered by
         // that arithmetic is the server disagreeing, which is what `SessionExpired` below is.
-        var access = sessions.current() ?: return SyncOutcome.Failed(ApiError.Unauthenticated)
+        // **Two ways of having no token and they are not one answer.** `Gone` is the gate — nobody
+        // has signed in, the refresh ran out, or it was refused. `Unreachable` is a renewal nobody
+        // answered, which is a network fact: the session is on disk and good, so this is exactly the
+        // case `NotNow` is for and the queue is held rather than the player being signed out.
+        var access = when (val credential = sessions.current()) {
+            is Credential.Held -> credential.access
+            Credential.Gone -> return SyncOutcome.Failed(ApiError.Unauthenticated)
+            Credential.Unreachable -> return SyncOutcome.NotNow
+        }
 
         // **A renewal does not spend an attempt**, and that is the difference between a tap landing
         // and a tap being queued for later. `RetryPolicy.ONCE` has exactly one attempt, so folding
@@ -179,13 +187,17 @@ class ColonySync(
                     // access token running out is a thing the app fixes by itself, without a screen
                     // and without anybody noticing.
                     //
-                    // A renewal that fails ends at the gate rather than looping: `renew` already
-                    // knows the difference between a refusal and a silence, and returns null for
-                    // both — the outbox is intact either way, so a train and a deleted account cost
-                    // the same nothing.
+                    // A renewal that fails does not loop, and where it ends depends on which failure
+                    // it was — `renew` knows the difference between a refusal and a silence and
+                    // says which. A refusal is the gate; a silence is a train, and a train must not
+                    // cost anybody their account. The outbox is intact either way.
                     result.error == ApiError.SessionExpired && !renewed -> {
                         renewed = true
-                        access = sessions.renew() ?: return SyncOutcome.Failed(ApiError.Unauthenticated)
+                        access = when (val credential = sessions.renew()) {
+                            is Credential.Held -> credential.access
+                            Credential.Gone -> return SyncOutcome.Failed(ApiError.Unauthenticated)
+                            Credential.Unreachable -> return SyncOutcome.NotNow
+                        }
                         // Straight back round, without spending an attempt and without waiting:
                         // nothing is congested, the credential was simply stale.
                         continue

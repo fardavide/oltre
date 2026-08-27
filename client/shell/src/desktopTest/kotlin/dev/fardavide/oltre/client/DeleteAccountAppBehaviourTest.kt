@@ -7,6 +7,7 @@ import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
@@ -107,6 +108,27 @@ class DeleteAccountAppBehaviourTest {
             waitUntilItReads("This cannot be held.")
             assertReads("the server has to answer")
             assertDeletionsAsked(0)
+        }
+    }
+
+    // **The server read the request and said no**, which on this route almost always means a token
+    // that has just expired — and the gate is the honest answer to that, not a red line on a sheet
+    // asking again with a credential that will fail again. Nothing was deleted, and the app says so
+    // by being somewhere the player can fix it.
+    @Test
+    fun `a deletion the server refuses goes back to the gate`() {
+        val server = FakeOltreApi()
+        app(saved = colony(), preferences = signedInWithApple(), api = server) {
+            openTheSettings()
+            openTheAccountDeletion()
+            // **After the launch, not before**, or the app never gets past the gate to have a sheet
+            // to press: a credential the server rejects on the opening sync is a different test, two
+            // files up. What is under this one is the *deletion* being refused.
+            server.error = ApiError.Unauthenticated
+            pressTheDeleteButton()
+            pressTheDeleteButton()
+
+            waitUntilItReads("The galaxy is shared")
         }
     }
 

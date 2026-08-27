@@ -694,8 +694,14 @@ real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Dav
   and the second is reachable from the `gh-pages` site that is already there.
 - **The desktop build reads `OLTRE_GOOGLE_DESKTOP_CLIENT_SECRET` from the environment**, so the dev
   loop is `source ~/.oltre/identity.env && ./gradlew :client:shell:run`. Without it the gate draws no
-  provider at all and the game cannot be opened on desktop — which is correct and is worth knowing
-  before it is met.
+  provider at all — and since the review pass it *says so* rather than showing a screen with no way
+  out. Worth knowing before it is met.
+- **Two session defects were found by review after the first green CI run, and both are fixed here.**
+  Neither was reachable from inside the suite, so the check that matters is a device: (1) open the
+  app more than an hour after last playing **with the network off** — the colony must open, a tap
+  must go amber, and the player must *not* be signed out; (2) the same with a session the server has
+  actually revoked — the app must return to the gate rather than sitting on a colony whose every tap
+  is dropped. `decisions.md` has both under *"`Credential` — no token was two situations"*.
 - **`GOOGLE_CLIENT_IDS` needs the iOS client id adding.** The repository variable holds the Web and
   Desktop clients; iOS signs in against the iOS client, so a token minted there carries an audience
   the live service does not yet accept. It is a settings change rather than a commit —

@@ -752,6 +752,9 @@ object Italian : Translations {
         StringId.SignInThrottledLead -> "Troppe richieste."
         StringId.SignInThrottledBody -> "Riprova fra ${args.text(0)}."
         StringId.SignInAskAgainNow -> "Puoi riprovare adesso."
+        StringId.SignInNoProviderLead -> "Qui non c'è modo di accedere."
+        StringId.SignInNoProviderBody ->
+            "Questa build non ha nessun servizio di accesso. Usa la build per iPhone o Android."
         StringId.ProviderApple -> "Apple"
         StringId.ProviderGoogle -> "Google"
 

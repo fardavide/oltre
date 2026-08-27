@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
 import dev.fardavide.oltre.client.net.data.FakeOltreApi
+import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
@@ -12,6 +13,7 @@ import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.SignInNonce
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.hours
 
 // **The screen that gates the whole game, driven end to end.** Everything here is about the one
 // thing no unit test can reach: that pressing a button on a real gate produces a colony, and that
@@ -174,4 +176,137 @@ class GateAppBehaviourTest {
             assertProviderNotOffered(AuthProvider.APPLE)
         }
     }
+
+    // **The credential can die while a save is on disk, and that is the one way back to this screen
+    // after the first time.** A refresh token expires, is refused, or is revoked on another device;
+    // the app opens on the colony it last agreed to — which is right — and then the server says it
+    // has never heard of this session.
+    //
+    // What it must not do is stay there. A colony on screen whose every tap is dropped is the worst
+    // failure this product can have: the controls all look operable, nothing says otherwise, and the
+    // player concludes the game is broken in a way they cannot describe. The gate is a screen that
+    // *says* what is wrong and has the one control that fixes it.
+    @Test
+    fun `a session the server no longer honours returns the player to the gate`() {
+        app(
+            saved = colony(),
+            api = FakeOltreApi().apply {
+                colony = this@GateAppBehaviourTest.colony()
+                error = ApiError.Unauthenticated
+            },
+        ) {
+            waitUntilItReads("The galaxy is shared")
+            assertDoesNotRead("Metal Mine")
+        }
+    }
+
+    // **And the way back is the ordinary one**, which is the other half: the gate a dead credential
+    // lands on is the same gate, with the same two buttons, and pressing one opens the colony the
+    // server has been holding all along. A screen that could only be reached and not left would be a
+    // more elaborate way of stranding somebody.
+    @Test
+    fun `signing in again after an expired session opens the colony`() {
+        val server = FakeOltreApi().apply {
+            colony = this@GateAppBehaviourTest.colony()
+            error = ApiError.Unauthenticated
+        }
+        app(saved = colony(), api = server) {
+            waitUntilItReads("The galaxy is shared")
+
+            server.error = null
+            pressProvider(AuthProvider.APPLE)
+
+            assertReads("Metal Mine")
+        }
+    }
+
+    // **And a platform with none says so**, which is the same rule taken to the end rather than a
+    // separate one. Drawing no button is right for a provider that cannot finish; drawing no button
+    // *at all* leaves a screen the player cannot leave, so the absence needs a sentence or it reads
+    // as a failure to load.
+    //
+    // The desktop build reaches this whenever the Google credential is not in its environment —
+    // which is to say, on a dev loop that forgot to source it. That is the case worth a test: the
+    // person most likely to see a mute gate is the one who would assume the app was broken.
+    @Test
+    fun `a platform with no provider at all says why rather than drawing nothing`() {
+        app(saved = null, signedIn = false, providers = emptySet()) {
+            assertProviderNotOffered(AuthProvider.APPLE)
+            assertProviderNotOffered(AuthProvider.GOOGLE)
+            assertReads("There is no way to sign in here.")
+        }
+    }
+
+    // **Offline is not signed out**, and telling the two apart is the whole reason `ApiResult`
+    // splits `Refused` from `Unreachable`. A player on a train whose hour-long access token ran out
+    // has a ninety-day refresh token that will work perfectly well when the signal comes back — so
+    // a renewal nobody answered must leave it exactly where it is.
+    //
+    // The failure this guards is the expensive one: signing somebody out because they went through a
+    // tunnel. It costs them the session, the queue's promise that the tap happens when the network
+    // returns, and it hands them a sign-in screen at the one moment they cannot use it.
+    @Test
+    fun `no signal and a stale access token holds the tap rather than signing the player out`() {
+        val server = FakeOltreApi().apply {
+            colony = this@GateAppBehaviourTest.colony()
+            session = session.copy(accessExpiresAt = TEST_NOW - 1.hours)
+            offline = true
+        }
+        app(saved = colony(), api = server) {
+            tapTheActionOn(BuildingType.METAL_MINE)
+
+            waitUntilItReads("Upgrade held.")
+            assertOfflineLine(showing = true)
+            assertDoesNotRead("The galaxy is shared")
+        }
+    }
+
+    // **A save cannot rule out a colony deleted somewhere else**, so *the server has never heard of
+    // you* is answered by asking it to found one rather than by a screen. `found` is idempotent, so
+    // the fallback costs a round trip and can never mint a second galaxy — which is the property
+    // that makes it safe to take without asking the player anything.
+    @Test
+    fun `a device whose colony the server has never heard of founds one`() {
+        val server = FakeOltreApi().apply {
+            colony = null
+            founds = this@GateAppBehaviourTest.colony()
+        }
+        app(saved = colony(), api = server) {
+            waitUntilItReads("Metal Mine")
+
+            assertEquals(1, server.foundings().size)
+        }
+    }
+
+    // **The server read the sign-in and said no**, which is a different path from the platform
+    // refusing: the token was produced, it travelled, and the far end rejected it. One sentence for
+    // both, because the player's next move is the same either way.
+    @Test
+    fun `a sign-in the server refuses leaves the gate up`() {
+        val server = FakeOltreApi().apply { error = ApiError.Unauthenticated }
+        app(saved = null, signedIn = false, api = server) {
+            pressProvider(AuthProvider.GOOGLE)
+
+            assertReads("Google did not sign you in.")
+            assertDoesNotRead("Metal Mine")
+        }
+    }
+
+    // And a server nobody reached, which is the other half: the platform vouched, and then the
+    // request never arrived. No signal and a service that is down are one screen.
+    @Test
+    fun `a sign-in that reaches nobody says the server did not answer`() {
+        val server = FakeOltreApi().apply { offline = true }
+        app(saved = null, signedIn = false, api = server) {
+            pressProvider(AuthProvider.GOOGLE)
+
+            assertReads("The server did not answer.")
+        }
+    }
+
+    private fun colony(): GameSnapshot = GameSnapshot(
+        lastUpdatedAt = TEST_NOW,
+        debugUsed = false,
+        state = GameState.initial(GalaxySeed(TEST_NOW.toEpochMilliseconds())),
+    )
 }

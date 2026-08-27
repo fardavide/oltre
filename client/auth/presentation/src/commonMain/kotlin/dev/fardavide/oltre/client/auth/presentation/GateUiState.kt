@@ -49,7 +49,21 @@ fun GateState.toGateUiState(providers: Set<AuthProvider>): GateUiState = GateUiS
     providers = AuthProvider.entries
         .filter { it in providers }
         .map { GateProviderUiState(provider = it, label = Strings.signInWith(it.spoken())) },
-    message = message(),
+    // **A gate with no button says why, and that sentence outranks every other one.** Absence is the
+    // right answer for a provider this build cannot finish — a button opening a browser that never
+    // comes back is the worst control a gate has — but absence applied to all of them leaves two
+    // lines of *why* and no way forward, which reads as the app having failed to load rather than as
+    // a deliberate gap. Nothing else can be true at the same time: with nothing to press, no other
+    // state is reachable.
+    message = if (providers.isEmpty()) {
+        GateMessageUiState(
+            lead = Strings.signInNoProviderLead(),
+            body = Strings.signInNoProviderBody(),
+            tone = GateTone.FAILED,
+        )
+    } else {
+        message()
+    },
 )
 
 private fun GateState.message(): GateMessageUiState? = when (this) {

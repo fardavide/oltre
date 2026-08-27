@@ -110,6 +110,29 @@ class GateScreenshotTest {
         capture(name = "gate_one_provider", state = idle(AuthProvider.GOOGLE))
     }
 
+    // **And the one that can complete neither**, which is the desktop build without the Google
+    // credential in its environment. Absence is the right answer for a provider that cannot finish,
+    // but absence applied to both would leave a screen with no way out and nothing said about it —
+    // so the block that grows above the buttons is standing where the buttons would have been. This
+    // frame is the check that it does not read as a screen that failed to load.
+    //
+    // Not the design's: no canvas drew a build with no provider in it, and the copy is written in
+    // the same voice rather than lifted. See the pull request.
+    @Test
+    fun `a platform that can complete no provider at all`() {
+        capture(
+            name = "gate_no_provider",
+            state = idle().copy(
+                providers = emptyList(),
+                message = GateMessageUiState(
+                    lead = Strings.signInNoProviderLead(),
+                    body = Strings.signInNoProviderBody(),
+                    tone = GateTone.FAILED,
+                ),
+            ),
+        )
+    }
+
     // **The second language on the one screen where two of the strings are not ours**, which is the
     // whole reason this frame exists: `Accedi con Apple` is Apple's Italian and `Accedi con Google`
     // is Google's, and a baseline is what stops either being quietly replaced by a translation of

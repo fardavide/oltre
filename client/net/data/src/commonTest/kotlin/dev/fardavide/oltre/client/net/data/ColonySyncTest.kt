@@ -31,6 +31,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
@@ -383,6 +384,28 @@ class ColonySyncTest {
         // then
         assertEquals(SyncOutcome.Failed(ApiError.Unauthenticated), scenario.sync.sync())
         assertEquals(listOf(UPGRADE), Outbox(scenario.file).queued().map { it.verb })
+    }
+
+    // **No signal and an access token that has run out is offline, not signed out** — the distinction
+    // `Credential` exists for, asserted at the layer that acts on it. The refresh token is on disk
+    // and good for another eighty-nine days; what stopped the renewal was that nobody answered it.
+    //
+    // `NotNow` is exactly right here and `Failed(Unauthenticated)` is exactly wrong, because the
+    // shell treats the second one as *sign in again* — it forgets the session and shows the gate. So
+    // getting this arm wrong does not degrade a screen, it signs a player out for going into a
+    // tunnel and takes the queue's promise with it.
+    @Test
+    fun `a token that ran out with no signal to renew it is offline rather than signed out`() = runTest {
+        // given — a device signed in an hour and a half ago, with nothing answering
+        val scenario = Scenario(api = FakeOltreApi(colony = fakeColony(NOW), offline = true))
+        scenario.clock.now = NOW + 90.minutes
+
+        // when
+        val outcome = scenario.sync.sync()
+
+        // then — and the credential is exactly where it was
+        assertEquals(SyncOutcome.NotNow, outcome)
+        assertEquals(SessionToken("davide.refresh"), scenario.store.read()?.refreshToken)
     }
 
     // The device has never been signed in on, so there is nothing to send and nothing to refresh.

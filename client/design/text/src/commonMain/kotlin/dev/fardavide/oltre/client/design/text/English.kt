@@ -666,6 +666,13 @@ object English : Translations {
         StringId.SignInThrottledLead -> "Asked too often."
         StringId.SignInThrottledBody -> "Ask again in ${args.text(0)}."
         StringId.SignInAskAgainNow -> "You can ask again now."
+        // **Not in the design's string table, because the design did not draw a build with no
+        // provider in it.** Written in the same voice deliberately: a plain fact about what cannot
+        // happen, and the nearest thing that can. It names the two builds rather than the missing
+        // credential, because the sentence is for whoever is looking at the screen and not for
+        // whoever configured it.
+        StringId.SignInNoProviderLead -> "There is no way to sign in here."
+        StringId.SignInNoProviderBody -> "This build has no sign-in provider. Use the iPhone or Android build."
         StringId.ProviderApple -> "Apple"
         StringId.ProviderGoogle -> "Google"
 
