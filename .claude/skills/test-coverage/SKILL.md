@@ -78,11 +78,21 @@ them alone and read the report.
   detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
   here. And a third group, **scoped to one pass rather than to the whole report**: composables
-  **and the Postgres store** in the unit pass, everything that is not a drawing in the screenshot
+  **and every other drawing, and the Postgres store** in the unit pass, everything that is not a
+  drawing **and the undesigned debug panel** in the screenshot
   pass, **the drawing and the mapping into it in the integration pass**, the string catalogue in the
   two that render, `:protocol` and `:server` in the two that
   render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason — and
-  `:client:net:data` in the behaviour pass alone.
+  `:client:net:data` and `:client:auth:data` in the behaviour pass alone.
+  **Every one of those says one sentence: *this kind of test cannot reach that kind of code*** — and
+  four of the entries are #113's, because a slice large enough to make several gaps visible at once is
+  the same rule being finished rather than several failures. The unit pass's is the one worth reading
+  twice: `annotatedBy` lands on the annotation, and a `DrawScope` extension or a `Path` built from
+  vector data is drawing that carries none, so the rule needed `*.ui` and the two design modules that
+  draw to mean what it said.
+  `:client:auth:data`'s is the most reusable: **a behaviour test cannot reach the implementation its
+  own test double replaces**, and `App` takes a `ProviderSignIn` precisely so the suite never opens a
+  browser.
   The integration entry is #113's and it is the last of the four passes to be narrowed: an
   integration test renders nothing, so `*.presentation`, `*.ui` and every `@Composable` are
   unreachable by it, and left in they made the row report *what fraction of the whole codebase eight

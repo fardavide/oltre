@@ -6573,6 +6573,32 @@ boundary, so the symmetry would put it out — and dropping it takes the row **1
 across a boundary* is the test, not *contains one*. A rule written from the symmetry rather than from
 the report would have hidden the one thing this pass measures best.
 
+### Three more passes said *what this kind of test cannot reach* and meant it (2026-08-27)
+
+The integration fix above left three rows red, and all three leaked the same way: the pass's rule was
+one step short of the sentence it was written to say. Davide approved all three, each on a measured
+report rather than an analogy.
+
+- **Unit.** *A unit test cannot render a composable* — but `annotatedBy` lands on the annotation and
+  the drawing is not all annotated. A `DrawScope` extension, a private draw helper, a `Path` built
+  from published vector data: `SystemMapKt` is **111 lines** of orbit geometry at 0% and `TabIconKt`
+  55. So `*.ui`, `:client:design:icon` and `:client:design:component` go too. 91.34% → 95.1%.
+- **Screenshot.** `:client:debug:ui`, and it is the only entry in the whole filter excluded by a
+  *ruling* rather than an argument: `session-roles.md` already says the debug panel deliberately has
+  no baseline, *"because a baseline asserts that a drawing still looks the way it was drawn and nobody
+  drew this."* 154 lines at 0% by policy, which the report was reading as a shortfall. 92.24% → 94.75%.
+- **Behaviour.** `:client:auth:data`, which is `:server`'s behaviour half one module over on the
+  identical sentence: **a behaviour test cannot reach the implementation its own test double
+  replaces.** `App` takes a `ProviderSignIn` and the suite passes a fake — that seam is what makes the
+  gate testable at all, and a test that reached past it would be one that opened a browser and waited
+  for a person. 90.53% → 92.65%.
+
+**The pattern across all four passes is worth naming, because it is what made this release expensive.**
+Each row's exclusion says *this kind of test cannot reach that kind of code*, and each was written when
+one slice made one gap visible. A slice large enough to make three visible at once is not three
+failures — it is the same rule being finished. The bar did not move: every one of them is a measured
+report, Davide's explicit call, and a row that steps up rather than a floor that steps down.
+
 ### The desktop loopback got seams instead of an exclusion
 
 Davide's rule applied to the largest unreachable block in the repository. `DefaultProviderSignIn.desktop.kt`

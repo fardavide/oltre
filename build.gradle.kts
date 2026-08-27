@@ -210,9 +210,44 @@ kover {
                 // integration and unfiltered passes see every line and report the two files at
                 // **99% and 98%**, so a statement no test runs at all still shows up in the row
                 // whose job that is. This removes a number no unit test could ever move.
+                //
+                // ── And the drawing the annotation cannot see ─────────────────────────────────
+                //
+                // The third entry, added at #113 with Davide's say-so and on a failing report. The
+                // rule above is *a unit test cannot render a composable*, and `annotatedBy` lands on
+                // exactly the functions carrying the annotation — which is most of the drawing and
+                // not all of it. What it misses is the drawing that is **not itself a composable**: a
+                // `DrawScope` extension, a private draw helper, a `Path` built from published vector
+                // data, a geometry function a `Canvas` calls. None of it can execute without a
+                // composition, and all of it read 0% in this pass.
+                //
+                // Measured at #113: `SystemMapKt` **111 lines** of orbit geometry at 0%, `TabIconKt`
+                // 55, `LedgerHeadKt` 20, `MotionKt` 17, and the icon files' path builders — 942 missed
+                // lines in the pass, the overwhelming majority of them a drawing. Left in, the unit
+                // row goes on measuring *what fraction of the repository is UI*, which is the very
+                // sentence the first entry was written against; the annotation just did not reach far
+                // enough to make it true.
+                //
+                // **By layer plus the two design modules that draw**, because that is where the
+                // uncatchable half lives: every `*.ui`, `:client:design:icon` (glyphs, all of them
+                // paths) and `:client:design:component` (the controls). `:client:design:core`,
+                // `:format` and `:text` are *not* here — they are tokens, arithmetic and a table, and
+                // unit tests cover them thoroughly.
+                //
+                // **What this costs is real and worth stating**: a ui module also holds the models it
+                // renders, and unit tests do assert on those (`ShipyardUiStateTest` reads a
+                // `HullUiState`). Those are data classes whose members are generated, so what leaves
+                // the denominator is mostly `equals`/`hashCode`/`copy` — but not entirely, and a
+                // `companion` with a real default in it would now be invisible here. The behaviour and
+                // unfiltered passes still see all of it.
+                //
+                // **It steps the row up**, 91.34% → ~95.1% line and 86.22% → ~87.6% branch. That is
+                // the new baseline, not a gain.
                 if (testCategory == "unit") {
                     annotatedBy("androidx.compose.runtime.Composable")
                     classes("dev.fardavide.oltre.server.Postgres*")
+                    packages("*.ui")
+                    packages("*.design.icon", "*.design.component")
                 }
                 // ── Everything that is not a drawing, and **only while measuring the screenshot
                 // pass** ─────────────────────────────────────────────────────────────────────
@@ -301,11 +336,29 @@ kover {
                 //
                 // **It steps the row up**, 51.4% → ~54.1%, because 112 branches leave the
                 // denominator at once. That is the new baseline, not a gain.
+                // **`:client:debug:ui` is the fifth entry, and it is the only one here excluded by a
+                // ruling rather than by an argument** — Davide's, at #113, on a failing report, and
+                // the ruling it agrees with is his own from 2026-08-09 in `session-roles.md`: the
+                // debug panel *"carries no screenshot test at all, deliberately, because a baseline
+                // asserts that a drawing still looks the way it was drawn and nobody drew this."*
+                //
+                // So it is 154 lines and 100 branches at 0% in this pass, permanently and on purpose,
+                // and it is the single largest item in the row. Every other entry above says *this
+                // kind of test cannot reach it*; this one says *there is nothing here to assert*, and
+                // the report was reading the second as a shortfall of the first.
+                //
+                // **The condition is the ruling, so a designed surface must not be added under it.**
+                // The day the panel is drawn rather than assembled, this line comes off and a baseline
+                // goes in — which is what makes it checkable rather than a permanent hiding place.
+                //
+                // Measured: screenshot **92.24% → 94.75%** line and **56.31% → 58.59%** branch, which
+                // is the new baseline rather than a gain.
                 if (testCategory == "screenshot") {
                     packages("*.presentation", "*.domain", "*.data")
                     classes("dev.fardavide.oltre.core.**")
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
                     classes("dev.fardavide.oltre.client.AppKt*")
+                    packages("*.debug.ui")
                 }
                 // ── The drawing and the mapping, and **only while measuring the integration
                 // pass** ─────────────────────────────────────────────────────────────────────
@@ -434,6 +487,33 @@ kover {
                 // for exactly this reason, rather than hidden here. See `decisions.md`.
                 if (testCategory == "screenshot" || testCategory == "behaviour") {
                     classes("dev.fardavide.oltre.server.**")
+                }
+                // ── The sign-in, and **only while measuring the behaviour pass** ─────────────
+                //
+                // The seventh entry, added at #113 with Davide's say-so and on a failing report. It is
+                // `:server`'s behaviour half one module over and on the identical sentence: **a
+                // behaviour test cannot reach the implementation its own test double replaces.**
+                //
+                // `App` takes a `ProviderSignIn` and a `Set<AuthProvider>` as parameters and the suite
+                // passes fakes for both — which is not a convenience, it is the seam that makes the
+                // gate testable at all. A behaviour test that reached this module would be one that
+                // opened a browser and waited for a person, which is exactly what the seam exists to
+                // prevent. So the module reads 0% here and always will: 249 lines of it, and the row
+                // was reporting that as untested code.
+                //
+                // **It is tested, and by two kinds.** `EncodingTest` and `OAuthFlowTest` drive the
+                // PKCE derivation, the nonce shapes, the authorize URL and the redirect parse against
+                // published vectors; `DesktopLoopbackIntegrationTest` drives the loopback flow end to
+                // end across two real sockets. The unit, integration and unfiltered passes see every
+                // line, so nothing becomes invisible — which is the property that separates this from
+                // hiding something.
+                //
+                // **The screenshot half is unnecessary rather than declined**: `*.data` is already out
+                // of that pass by the layer rule three entries up.
+                //
+                // Measured: behaviour **90.53% → 92.65%** line and **68.42% → 69.91%** branch.
+                if (testCategory == "behaviour") {
+                    classes("dev.fardavide.oltre.client.auth.data.**")
                 }
                 // ── `:client:net:data` had an entry here and it came out at #113 ─────────────
                 //
