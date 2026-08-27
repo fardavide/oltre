@@ -212,6 +212,26 @@ class GateAppBehaviourTest {
         }
     }
 
+    // **Every existing TestFlight tester takes this path on their first launch of this release**, and
+    // it is the reason it is worth its own test rather than being an edge of the one below: they have
+    // a colony on disk from a build that had no accounts, and no session file, because until this
+    // release there was nothing to have one of.
+    //
+    // The colony must not open. Nothing they tap could reach a server that has never heard of them,
+    // so a screen full of live-looking controls would be the dead-control rule's worst case handed to
+    // the only person testing the build. The gate is the screen that says what is wrong and holds the
+    // one control that fixes it.
+    //
+    // **The save stays on disk**, which is the whole of what makes this safe: signing in founds a new
+    // colony on the server, and the slice that lands the upload still has the old one to send.
+    @Test
+    fun `a save from before there were accounts opens on the gate rather than on itself`() {
+        app(saved = colony(), signedIn = false) {
+            assertReads("The galaxy is shared")
+            assertDoesNotRead("Metal Mine")
+        }
+    }
+
     // **The credential can die while a save is on disk, and that is the one way back to this screen
     // after the first time.** A refresh token expires, is refused, or is revoked on another device;
     // the app opens on the colony it last agreed to — which is right — and then the server says it

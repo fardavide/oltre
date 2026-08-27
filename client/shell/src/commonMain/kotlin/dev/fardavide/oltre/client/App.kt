@@ -582,6 +582,19 @@ fun App(
                 when (sessions.current()) {
                     Credential.Gone -> {
                         signedIn = false
+                        // **And the colony comes back off the screen, which is the case every
+                        // existing tester takes on their first launch of this release.** They have a
+                        // save from a build that had no accounts and no session file, because until
+                        // now there was nothing to have one of — so the resume above published a
+                        // colony that nothing they tap could reach a server about. The gate draws
+                        // only when there is no session, so leaving this out hands the one person
+                        // testing the build a screen full of live-looking controls and no way to
+                        // sign in.
+                        //
+                        // **The save is untouched**: the file stays where it is, so the slice that
+                        // lands the one-time upload still has it to send. What is discarded is the
+                        // *claim* that it is the colony the game is running.
+                        session = null
                         return@LaunchedEffect
                     }
 
