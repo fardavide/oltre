@@ -41,6 +41,9 @@ kotlin {
             api(projects.client.settings.ui)
             implementation(projects.client.design.format)
             implementation(projects.client.design.text)
+            // What the outbox means to the three controls on this sheet — see the colony's
+            // presentation module, which takes it the same way.
+            implementation(projects.client.net.domain)
             implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {

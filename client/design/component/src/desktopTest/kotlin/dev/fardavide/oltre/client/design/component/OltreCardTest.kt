@@ -46,17 +46,44 @@ class OltreCardTest {
     }
 
     // **The card is lit from above** — the top edge takes one step more than the rest, which is what
-    // reads as an edge catching a light rather than as a gradient running down the card. True of every
-    // state, which is what makes it the rule rather than a property of one of them.
+    // reads as an edge catching a light rather than as a gradient running down the card.
+    //
+    // **True of every state the depth pass drew**, which since 0.21 is three of four: `HELD` is the
+    // exception and is flat, both stops at the fleet strip's single 22%. That is not an oversight and
+    // it is the reason this test names its states rather than walking `entries`. A held card *is* the
+    // fleet strip's surface, the fleet strip has never had a bevel, and a held card with a lit top
+    // edge would be borrowing depth from the family it is deliberately not in.
     @Test
-    fun `the top of the bevel is brighter than its foot in every state`() {
-        OltreCardState.entries.forEach { state ->
+    fun `the top of the bevel is brighter than its foot on every card the depth pass drew`() {
+        listOf(OltreCardState.ACTIONABLE, OltreCardState.WAITING, OltreCardState.RUNNING).forEach { state ->
             assertEquals(
                 true,
                 state.bevelTop().alpha > state.bevelFoot().alpha,
                 "$state should be lit from above",
             )
         }
+    }
+
+    // The exception said out loud, so that a future edit which "fixes" it fails a test rather than
+    // shipping a held card that reads as a card with depth.
+    @Test
+    fun `a held card is flat and wears the fleet strip's own edge`() {
+        assertEquals(OltreColors.warn.copy(alpha = 0.22f), OltreCardState.HELD.bevelTop())
+        assertEquals(OltreCardState.HELD.bevelTop(), OltreCardState.HELD.bevelFoot())
+    }
+
+    // **Amber means accepted and unresolved, and it means it in exactly one place on a card.** Accent
+    // is *in flight* and this is not: a held card has no countdown and no bar, because there is no
+    // instant to count to.
+    //
+    // Compared on the **blue** channel rather than the red one the accent assertion above uses, and
+    // the difference is not arbitrary: amber and white share a full red channel, so `red` would call
+    // an actionable card amber. Blue is where the three hues actually differ.
+    @Test
+    fun `only a held card is drawn in amber`() {
+        assertEquals(OltreColors.warn.blue, OltreCardState.HELD.bevelTop().blue)
+        assertNotEquals(OltreColors.warn.blue, OltreCardState.RUNNING.bevelTop().blue)
+        assertNotEquals(OltreColors.warn.blue, OltreCardState.ACTIONABLE.bevelTop().blue)
     }
 
     // A waiting card is dimmer than an actionable one and wears the same edge: the two are told apart
@@ -76,6 +103,11 @@ class OltreCardTest {
         assertEquals(Color(0xFF14161C), OltreCardState.ACTIONABLE.fill())
         assertEquals(Color(0xFF0C0E14), OltreCardState.WAITING.fill())
         assertEquals(Color(0xFF090F1C), OltreCardState.RUNNING.fill())
+        // **`FleetStrip`'s own literal**, to the byte — warn at 6% over the background, by its own
+        // arithmetic. The two are the same surface rather than two that nearly match, and this is
+        // what keeps them so: a held card and a fleet in transit are the same claim about two
+        // different kinds of thing.
+        assertEquals(Color(0xFF141111), OltreCardState.HELD.fill())
     }
 
     @Test

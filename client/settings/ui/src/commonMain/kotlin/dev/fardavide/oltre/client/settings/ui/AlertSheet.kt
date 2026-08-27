@@ -90,6 +90,9 @@ fun AlertSheetContent(
     onSelectMode: (AlertMode) -> Unit,
     onToggleCategory: (AlertCategory) -> Unit,
     onSelectDelivery: (AlertDelivery) -> Unit,
+    // The one row on this sheet that opens something rather than committing something. It swaps the
+    // sheet's contents in place, exactly as the changelog does — no sheet over a sheet, no back stack.
+    onDeleteAccount: () -> Unit,
     // **The foot of the column, filled by the composition root.** What goes there is the build row —
     // the version you are running, and the door to the changelog — and it is a slot rather than a
     // parameter because this module does not know the changelog exists and should not: the row is
@@ -135,6 +138,7 @@ fun AlertSheetContent(
                     LadderChip(
                         label = step.label,
                         selected = step.selected,
+                        asked = step.asked,
                         tag = SettingsTestTags.mode(step.mode),
                         onClick = { onSelectMode(step.mode) },
                         modifier = Modifier.weight(1f),
@@ -204,6 +208,10 @@ fun AlertSheetContent(
             uiState.timing?.let { Note(text = it, tag = SettingsTestTags.TIMING) }
         }
 
+        // **Under Delivery and above the build row**, which is where a door out of the product
+        // belongs: findable by anyone reading the sheet, loud to nobody scrolling past it.
+        uiState.account?.let { account -> AccountSection(account = account, onDeleteAccount = onDeleteAccount) }
+
         // Last, under everything, which is where a version row belongs on every settings screen
         // anybody has ever read. 0.17 drew this sheet at 573dp of content and it is full height now,
         // so the row lands in space the sheet already had.
@@ -226,6 +234,7 @@ private fun DeliveryChip(
     LadderChip(
         label = step.label,
         selected = step.selected,
+        asked = step.asked,
         tag = SettingsTestTags.delivery(step.delivery),
         onClick = { onSelectDelivery(step.delivery) },
         modifier = modifier,
@@ -245,6 +254,10 @@ private fun DeliveryChip(
 private fun LadderChip(
     label: TextRes,
     selected: Boolean,
+    // **The stop that was asked for, which can be lit at the same time as the stop the server is
+    // on.** Amber outranks accent on the one chip that is both — a stop you are already on and have
+    // asked for again cannot arise from a finger, since tapping the amber chip withdraws.
+    asked: Boolean,
     tag: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -256,8 +269,27 @@ private fun LadderChip(
         faceModifier = Modifier
             .fillMaxWidth()
             .heightIn(min = CHIP_HEIGHT)
-            .background(settlingColor(if (selected) SELECTED_FILL else Color.Transparent), CHIP_SHAPE)
-            .border(1.dp, settlingColor(if (selected) SELECTED_EDGE else HAIRLINE), CHIP_SHAPE)
+            .background(
+                settlingColor(
+                    when {
+                        asked -> ASKED_FILL
+                        selected -> SELECTED_FILL
+                        else -> Color.Transparent
+                    },
+                ),
+                CHIP_SHAPE,
+            )
+            .border(
+                1.dp,
+                settlingColor(
+                    when {
+                        asked -> ASKED_EDGE
+                        selected -> SELECTED_EDGE
+                        else -> HAIRLINE
+                    },
+                ),
+                CHIP_SHAPE,
+            )
             // **3dp and 10sp rather than the rung's 6 and 11, and it is measured rather than
             // chosen** — the same finding `HullCell` records one sheet along. At 393dp a chip in the
             // three-stop ladder has about 115dp of room, and `One per category` is sixteen characters
@@ -269,7 +301,13 @@ private fun LadderChip(
     ) {
         Text(
             text = label.resolve(),
-            color = settlingColor(if (selected) OltreColors.accent else OltreColors.textSecondary),
+            color = settlingColor(
+                when {
+                    asked -> OltreColors.warn
+                    selected -> OltreColors.accent
+                    else -> OltreColors.textSecondary
+                },
+            ),
             fontFamily = oltreMono(),
             fontSize = CHIP_SIZE,
             fontWeight = FontWeight.SemiBold,
@@ -322,25 +360,46 @@ private fun CategoryRow(row: AlertCategoryRow, first: Boolean, onToggle: () -> U
                     row.note?.let { note ->
                         Text(
                             text = note.resolve(),
-                            color = OltreColors.textTertiary,
+                            // **Body rather than faint when it is held**, which is the sheet's own
+                            // rule: muted states a rule that was already true, body states something
+                            // that has just changed and has not landed.
+                            color = if (row.held) OltreColors.text else OltreColors.textTertiary,
                             fontFamily = oltreMono(),
                             fontSize = NOTE_SIZE,
                             lineHeight = NOTE_LINE,
                         )
                     }
                 }
+                // **The square draws the request when it is held**, which on a toggle is the
+                // opposite of what the server says — the note above it carries the direction in
+                // words. Held-off keeps the amber line, drops the fill and takes the glyph to the
+                // locked 42%, which is the same relationship the lit and unlit pair already has.
+                val asked = if (row.held) !row.on else row.on
+                val hue = if (row.held) OltreColors.warn else OltreColors.accent
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .size(SQUARE)
                         .background(
-                            settlingColor(if (row.on) SELECTED_FILL else Color.Transparent),
+                            settlingColor(if (asked) hue.copy(alpha = 0.12f) else Color.Transparent),
                             SQUARE_SHAPE,
                         )
-                        .border(1.dp, settlingColor(if (row.on) SELECTED_EDGE else HAIRLINE), SQUARE_SHAPE),
+                        .border(
+                            1.dp,
+                            settlingColor(if (asked || row.held) hue.copy(alpha = 0.45f) else HAIRLINE),
+                            SQUARE_SHAPE,
+                        ),
                 ) {
-                    WatchBell(color = settlingColor(if (row.on) OltreColors.accent else OltreColors.textTertiary))
+                    WatchBell(
+                        color = settlingColor(
+                            when {
+                                row.held && !asked -> hue.copy(alpha = 0.42f)
+                                asked || row.held -> hue
+                                else -> OltreColors.textTertiary
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -392,3 +451,85 @@ private val NOTE_SIZE = 11.sp
 private val NOTE_LINE = 16.sp
 
 private val PANEL_EDGE = Color.White.copy(alpha = 0.09f)
+
+// One card with a hairline between two rows, which is the panel of seven said twice: this is one
+// account seen two ways rather than two decisions.
+@Composable
+@NonRestartableComposable
+private fun AccountSection(account: AccountUiState, onDeleteAccount: () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(NOTE_GAP)) {
+        SectionLabel(text = account.label)
+        Column(
+            modifier = Modifier
+                .border(1.dp, PANEL_EDGE, oltreCardShape)
+                .background(oltreCardSurface, oltreCardShape)
+                .padding(horizontal = 12.dp),
+        ) {
+            AccountRow(title = account.provider, note = account.name, arrow = false, onClick = null)
+            Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(HAIRLINE))
+            AccountRow(
+                title = account.deleteLabel,
+                note = account.deleteNote,
+                arrow = true,
+                onClick = onDeleteAccount,
+            )
+        }
+    }
+}
+
+// **Body weight and muted on both rows, and no red anywhere.** Red on a settings row is a warning
+// nobody asked for yet; accent would mean *go tap this*. Red begins on the face this row opens.
+@Composable
+@NonRestartableComposable
+private fun AccountRow(title: TextRes, note: TextRes, arrow: Boolean, onClick: (() -> Unit)?) {
+    val body: @Composable () -> Unit = {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth().heightIn(min = ACCOUNT_ROW_HEIGHT).padding(vertical = 6.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(text = title.resolve(), color = OltreColors.text, fontFamily = oltreMono(), fontSize = 12.sp)
+                Text(
+                    text = note.resolve(),
+                    color = OltreColors.textTertiary,
+                    fontFamily = oltreMono(),
+                    fontSize = NOTE_SIZE,
+                    lineHeight = NOTE_LINE,
+                )
+            }
+            // The only arrow in the sheet, and it is the honest signal that something is *behind*
+            // this row rather than under it. Every other control here commits where it stands.
+            if (arrow) {
+                Text(
+                    text = ARROW.resolve(),
+                    color = OltreColors.textTertiary,
+                    fontFamily = oltreMono(),
+                    fontSize = 12.sp,
+                )
+            }
+        }
+    }
+    if (onClick == null) {
+        body()
+    } else {
+        PressableFace(
+            onClick = onClick,
+            shape = ROW_SHAPE,
+            modifier = Modifier.fillMaxWidth().testTag(SettingsTestTags.DELETE_ACCOUNT),
+            faceModifier = Modifier.fillMaxWidth(),
+        ) { body() }
+    }
+}
+
+private val ACCOUNT_ROW_HEIGHT = 44.dp
+
+// A right arrow, and a `TextRes.Raw` because it is a glyph rather than a word: there is no language
+// in which it is different, which is what `Raw` means.
+private val ARROW = TextRes("\u2192")
+
+// The stop the server is on stays accent; the stop that was asked for takes amber, at the same three
+// alphas. The relationship between the two amber faces is the relationship between the blue and grey
+// pair, which is what makes the third face readable with nothing explained.
+private val ASKED_EDGE = OltreColors.warn.copy(alpha = 0.45f)
+private val ASKED_FILL = OltreColors.warn.copy(alpha = 0.12f)

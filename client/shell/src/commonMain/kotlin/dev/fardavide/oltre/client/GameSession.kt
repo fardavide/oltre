@@ -41,23 +41,23 @@ internal data class GameSession(
         GameSnapshot(lastUpdatedAt = lastUpdatedAt, debugUsed = debugUsed, state = state)
 }
 
-// Opening the app is one operation whether or not there is a save: resuming is "advance the
-// saved colony from the instant it was saved to now", and starting fresh is the same thing over
-// zero elapsed time. A snapshot from the future — the device clock moved backwards, or the save
-// travelled from another machine — is clamped rather than rejected, because core's advance
-// refuses to run backwards and losing a colony over a clock skew would be absurd.
+// Bringing a colony up to now: advance it from the instant it was written down to this one. A
+// snapshot from the future — the device clock moved backwards, or the save travelled from another
+// machine — is clamped rather than rejected, because core's advance refuses to run backwards and
+// losing a colony over a clock skew would be absurd.
 //
 // Since 0.2.5 a save can be stamped in the future *on purpose*: skipping ahead writes the colony
 // down at the instant it was skipped to. The clamp still handles it correctly, but on its own it
 // would freeze the colony there until the wall clock caught up — so the caller derives a
 // `DebugClock` from the same saved instant and passes `now` already offset. See `DebugClock.resuming`.
-internal fun resume(saved: GameSnapshot?, now: Instant): GameSession {
-    // A new colony needs a galaxy, and a galaxy needs a seed that core cannot mint for itself —
-    // it reads no clock and no random source. The composition root is where the clock already
-    // is, so the instant the colony was founded becomes the seed of the map it was founded in.
-    // Derived rather than drawn, deliberately: `resume` stays a pure function of its arguments,
-    // which is what keeps it testable and what stops a retry handing back a different galaxy.
-    if (saved == null) return GameSession(GameState.initial(GalaxySeed(now.toEpochMilliseconds())), now)
+//
+// **It no longer mints a galaxy, and the snapshot is no longer nullable.** Until 0.21 a null save
+// meant *a new colony*, and this function drew a `GalaxySeed` from the clock to found one — which is
+// exactly what a shared galaxy cannot allow: two devices signing into the same account would each
+// have invented a map, and neither would be the one the server holds. Founding is
+// `POST /v1/colony`'s now, keyed on the player and the instant the *server* saw, and a client with
+// no snapshot has no colony rather than a private one. See `Genesis.kt` on the far side.
+internal fun resume(saved: GameSnapshot, now: Instant): GameSession {
     val to = maxOf(now, saved.lastUpdatedAt)
     return GameSession(
         state = advance(saved.state, from = saved.lastUpdatedAt, to = to),
@@ -202,19 +202,29 @@ internal fun GameSession.skipped(clock: DebugClock, wallClock: Instant): DebugOu
     )
 }
 
-// A reset is a first launch: `resume` with nothing saved is the same path the app takes when it
-// opens for the first time, so there is no second way of founding a colony to keep in step.
+// **A reset is a colony founded locally, and since 0.21 it is the only one there is.** The debug
+// menu's reset used to be a first launch — `resume` with nothing saved — and a first launch does not
+// found anything any more: the server does, keyed on the player. So the seed is drawn here, which is
+// the last place in the app that mints one and is a debug surface rather than a player-facing path.
+//
+// **What it does not do is tell the server**, which is the honest limit of it and is why this is the
+// debug menu's alone: the next sync hands back the colony the server holds and this local one is
+// gone. That is the right behaviour for a reset button whose job is *"put this device back to a fresh
+// colony so I can look at the first launch"*, and it is the wrong behaviour for anything a player
+// would reach — which is why nothing does.
 //
 // The offset is dropped with it. A new colony is not the old one's future, and starting it hours
 // ahead of the wall clock would be inheriting a debt it never ran up.
 //
 // **And the mark is dropped with it too** — Davide's call, 2026-08-09, reversing what 0.2.5 shipped.
 // The flag answers "has this colony's clock been moved by hand", and the colony that comes back has
-// no history at all: nothing has been skipped in it, and it is indistinguishable from one founded on
-// a first launch. Carrying the mark across would have made it a fact about the *device* rather than
-// about the save, which is not what it is for. So skipping is the only thing that sets it.
+// no history at all: nothing has been skipped in it. Carrying the mark across would have made it a
+// fact about the *device* rather than about the save, which is not what it is for.
 internal fun resetColony(wallClock: Instant): DebugOutcome = DebugOutcome(
-    session = resume(saved = null, now = wallClock),
+    session = GameSession(
+        state = GameState.initial(GalaxySeed(wallClock.toEpochMilliseconds())),
+        lastUpdatedAt = wallClock,
+    ),
     clock = DebugClock(),
 )
 

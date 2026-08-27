@@ -50,7 +50,7 @@ class SessionKeeperTest {
 
     @Test
     fun `a device nobody has signed in on has no session to send`() = runTest {
-        assertNull(KeeperScenario(stored = null).keeper.current())
+        assertEquals(Credential.Gone, KeeperScenario(stored = null).keeper.current())
     }
 
     @Test
@@ -63,7 +63,7 @@ class SessionKeeperTest {
         val current = scenario.keeper.current()
 
         // then — and nothing was asked of the server
-        assertEquals(SessionToken("access.1"), current)
+        assertEquals(Credential.Held(SessionToken("access.1")), current)
         assertEquals(emptyList(), scenario.api.signIns())
     }
 
@@ -80,7 +80,7 @@ class SessionKeeperTest {
         val current = scenario.keeper.current()
 
         // then
-        assertEquals(SessionToken("access.2"), current)
+        assertEquals(Credential.Held(SessionToken("access.2")), current)
     }
 
     @Test
@@ -109,7 +109,7 @@ class SessionKeeperTest {
         val current = scenario.keeper.current()
 
         // then
-        assertNull(current)
+        assertEquals(Credential.Gone, current)
         assertEquals(emptyList(), scenario.api.signIns())
     }
 
@@ -139,7 +139,7 @@ class SessionKeeperTest {
         val current = scenario.keeper.current()
 
         // then
-        assertNull(current)
+        assertEquals(Credential.Gone, current)
         assertNull(scenario.store.read())
     }
 
@@ -147,6 +147,12 @@ class SessionKeeperTest {
     // reason `ApiResult` splits `Refused` from `Unreachable`. Dropping the session here would send
     // somebody to a sign-in screen they cannot use, on a train, and lose the credential that would
     // have worked when the signal came back.
+    //
+    // **It is answered as its own member and not as an absence**, which is #113's correction and the
+    // reason this test now asserts twice. Keeping the session on disk was never enough on its own:
+    // the caller read *no token* as *signed out* and cleared it two frames later, so the promise this
+    // test's first assertion makes was undone by the code that consumed it. `Credential.Unreachable`
+    // is what carries the reason far enough to be acted on.
     @Test
     fun `a refresh that never reached anybody keeps the session for later`() = runTest {
         // given
@@ -158,7 +164,7 @@ class SessionKeeperTest {
         val current = scenario.keeper.current()
 
         // then
-        assertNull(current)
+        assertEquals(Credential.Unreachable, current)
         assertEquals(SessionToken("refresh.1"), scenario.store.read()?.refreshToken)
     }
 
@@ -173,7 +179,7 @@ class SessionKeeperTest {
         scenario.keeper.adopt(session(access = "fresh.access", refresh = "fresh.refresh"))
 
         // then
-        assertEquals(SessionToken("fresh.access"), scenario.keeper.current())
+        assertEquals(Credential.Held(SessionToken("fresh.access")), scenario.keeper.current())
         assertEquals(SessionToken("fresh.refresh"), scenario.store.read()?.refreshToken)
     }
 
@@ -187,7 +193,7 @@ class SessionKeeperTest {
 
         // then
         assertNull(scenario.store.read())
-        assertNull(scenario.keeper.current())
+        assertEquals(Credential.Gone, scenario.keeper.current())
     }
 
     // **The forced renewal, and it is a different question from `current`.** `current` asks *"is
@@ -205,6 +211,24 @@ class SessionKeeperTest {
         val renewed = scenario.keeper.renew()
 
         // then
-        assertEquals(SessionToken("access.2"), renewed)
+        assertEquals(Credential.Held(SessionToken("access.2")), renewed)
+    }
+
+    // **A forced renewal nobody answered is a train too**, and it needs saying separately because
+    // this is the arm reached *after* the server has spoken once: the app has signal enough to have
+    // been told `SessionExpired` and then loses it. The session is intact and the answer is the
+    // offline one, exactly as it is for `current`.
+    @Test
+    fun `a forced renewal that never reached anybody keeps the session for later`() = runTest {
+        // given
+        val scenario = KeeperScenario()
+        scenario.api.offline = true
+
+        // when
+        val renewed = scenario.keeper.renew()
+
+        // then
+        assertEquals(Credential.Unreachable, renewed)
+        assertEquals(SessionToken("refresh.1"), scenario.store.read()?.refreshToken)
     }
 }

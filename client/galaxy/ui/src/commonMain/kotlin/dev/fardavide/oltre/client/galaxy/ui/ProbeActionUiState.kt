@@ -32,6 +32,20 @@ sealed interface ProbeActionUiState {
         // that is not on a row.** A probe is announced by its kind there, so the bell has nothing
         // left to decide — and absence is how this app says that, on a footer as on a row.
         val announce: WatchSquareUiState?,
+        // **The one held control in the app with nowhere of its own to say which way it went**, and
+        // Design raised it rather than solving it: this footer is one 58dp line and that line is the
+        // round trip. The fix taken here is Design's own suggestion — while the bell is held, the
+        // line carries the held string instead, *because a round trip you cannot fly is not the
+        // useful fact*. Null with signal, and then the flight is back.
+        val announceHeld: TextRes?,
+        // **A probe cannot be held either**, so the verb refuses at the tap and the same line says
+        // so, in red. It outranks the bell's line when both are present: the refusal is about the
+        // thing the player has just pressed.
+        //
+        // One string rather than a lead and a body, unlike the sheet's block: on a line there is no
+        // room for two, and joining two clauses is a decision about language that a `ui` module does
+        // not make. See `Strings.sentences`.
+        val refusal: TextRes?,
     ) : ProbeActionUiState
 
     // The committed idiom, unchanged: the chip reddens for the one resource you are short of and

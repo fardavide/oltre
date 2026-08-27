@@ -6368,3 +6368,276 @@ bundle Roboto and use mono for Apple, and no platform font appears anywhere. Dav
 **mono for both** — one font in the entire product, and a knowing deviation from a written Google
 guideline on an OAuth app that is deliberately in *Testing* and never published. The day it is
 published is the day that trade is re-taken.
+
+## Nothing is local now — the gate, the held state and the shell cutover (2026-08-27, issue #113)
+
+Slice 6 of #106, second half. #133 landed the layer underneath; this is everything the design draws
+and the cutover that makes it reachable. **The colony is the server's from this release**: `App`
+holds an `OltreApi`, every tap becomes a `ClientVerb`, and the save on disk stopped being the truth
+and became *the last truth this device was told*. Minor bump — a player can do something they could
+not do before, on the strictest reading of that test: they can sign in.
+
+### `resume` no longer founds a colony, and that is the cutover in one function
+
+Until now a null save meant *a new colony*, and `resume` drew a `GalaxySeed` from the clock to mint
+one. A shared galaxy cannot allow that: two devices signing into one account would each have
+invented a map and neither would be the one the server holds. Founding is `POST /v1/colony`'s, keyed
+on the player and the instant the *server* saw.
+
+What is left that is local is the debug menu's reset, which is where the seed is drawn now — and it
+deliberately tells the server nothing, because its job is *put this device back to a fresh colony so
+I can look at a first launch* and the next sync replaces it. `BootReceiver` gained the other half of
+the same sentence: a phone that rebooted before its owner ever signed in has no alarms to re-book.
+
+### The gate is shown until there is a session **and** a colony
+
+Two facts, and the screen answers to both. A device with a save opens on it whatever the network is
+doing — that is the whole of what a save is for now — and a device without one stays on the gate,
+where *"your colony runs there, so there is no offline start"* is the only honest thing to say.
+
+**`sync` on a launch that has a colony and `found` on one that does not**, which is not a shortcut:
+`found` sends no envelopes, so a launch that always founded would leave a queue written before the
+app was closed sitting on disk until the player next tapped something. A `NoColony` answer falls
+through to founding, because a colony deleted on another device is a case a save cannot rule out.
+
+### `HeldActions` is a `domain` module, and `net` became a shared surface
+
+*Which control is held* is a fold over queued verbs that eight mappers ask. It is a `domain` module
+for `:client:dispatch:domain`'s reason — arithmetic a test can execute — and because `domain` is the
+only layer both sides may reach: `data` may depend on it, and so may `presentation`, which may never
+depend on `data`. `net` joined `sharedSurfaces` on the property that list actually asks for: nothing
+points out of it.
+
+**A held square draws the request rather than the state**, inverted once in `asSquare` rather than
+in four mappers. The hull card is the exception that proves it: its control has three stops, so the
+request is read off `cycleHullAlert` — the same function the tap will run — instead of a boolean.
+
+### A tap on a held control withdraws, and it is answered in one place
+
+The amber ghost is still a target. Answering it inside `send` rather than at six call sites is what
+makes the ui-state that drew the ghost and the branch that acts on it read the same `held`; a second
+callback per row would have been ten new lambdas threaded through five screens for one line.
+
+### `onDispatchRun` answers whether the tap was kept
+
+The dispatch sheet closes on a run that happened and stays up on one that was refused — the design's
+own shape, because the refusal is about the *target* rather than about the run the player assembled.
+The sheet has to decide in the frame the button was pressed, and the answer cannot come from the
+round trip. So the callback returns a `Boolean` and the composition root answers it from what it
+already knows: a queueable verb is always kept, a galaxy-touching one only if the server is
+answering. The case that leaves is a server that is reachable and refuses on its own freshness
+window; that lands on the map card's line, which is the row form the design drew for exactly the
+case where there is no sheet to put a block in.
+
+### Which providers each platform draws, and the gap that is not closed
+
+**iOS draws both.** Apple is `AuthenticationServices` natively; Google is `ASWebAuthenticationSession`
+with PKCE against the iOS client, rather than the GoogleSignIn SDK — a CocoaPods or SPM dependency
+inside a *generated* Xcode project, which nothing in this repository could compile-check, against a
+system sheet whose whole contribution is the same OAuth round trip. The redirect is the reversed
+client id the provisioning walkthrough's step 48 already specifies.
+
+**Android draws Google only**, through Credential Manager: no browser, no redirect to register, no
+custom scheme in the manifest, and no leg of the flow that can leave the app and fail to come back.
+
+**Desktop draws Google only, and only when the machine has the credential.** Google calls it an
+*installed application* and its token endpoint wants the client secret; that secret is documented as
+not confidential and is still not going in the repository, so the desktop build reads it from the
+environment the dev loop already sources. Absent, there is no button — not a button that fails.
+
+**Apple is absent on Android and desktop, and that is a gap rather than a decision.** Away from an
+Apple platform it is a browser flow whose Return URL Apple insists is `https`, and the one registered
+is `https://api.oltre.space/v1/auth/apple/callback` — a *server* endpoint, which #113 puts out of
+scope by name. A button that opened a browser which never came back would be the worst control this
+app has ever shipped, so there is no button. Closing it needs either that server endpoint or a static
+bounce page on `oltre.space` with its own registered Return URL.
+
+### The one-time upload is not in this release, and it cannot be
+
+#113 asks for *the one-time upload of an existing local save, which the server adopts after running
+`GameSave`'s ladder*. There is no wire method for it: `OltreApi` has six calls and `POST /v1/colony`
+takes no body — it mints. Adding one is a `:protocol` change **and** a server endpoint, and server
+work is out of this ticket's scope by name, so the two halves of the sentence contradict each other.
+
+**The mitigation this section first claimed was false, and correcting it is the point of this
+paragraph.** It said the release *"never destroys the local save"*, so the slice that lands the
+upload would still have it to send. It does not: `arrive`'s `Synced` branch ends in
+`resumed.commit(store, …)`, and `commit` is `store.save(toSnapshot())` — **one file**. So the first
+sync after a sign-in writes the server's freshly-founded colony over the tester's old one, and the
+sentence that made the missing upload survivable was describing a file the code overwrites.
+
+Found by reading, after the coverage work, while checking the one thing the PR promised hardest. It
+is worth recording because of *how* it was wrong: nothing lied. `store.clear()` really is only called
+on a deletion and on the debug reset, which is what the claim was checked against — and the save is
+destroyed anyway, by an ordinary write nobody thought of as destruction.
+
+**Preserving it needs a second file**, which is a decision rather than a fix: what the upload slice
+reads, when it is written, when it is discarded, and what happens if it is corrupt. That is Davide's,
+and it is on the pull request as a decision rather than taken here. What is here is the truthful
+version of the consequence.
+
+The previous claim, kept so the correction has a subject: signing in adopts the server's
+colony and leaves the file on disk untouched, so the slice that lands the upload still has it to
+send. The consequence is real and is the first thing to check on a device — see the pull request.
+
+### `FakeOltreApi` learned to run the game, behind a flag
+
+#112 argued against it in as many words: a second dispatch from `ClientVerb` into `core`'s twelve
+functions is a second place a thirteenth verb can go missing. The objection is answered rather than
+waived — the dispatch is a `when` with **no `else`**, so a missing verb fails to compile — and it had
+to be, because a fake that ignored what it was sent would hand the unchanged colony back and visibly
+undo every tap the behaviour suite makes. Off by default, so every test written against the shallower
+fake still means what it meant.
+
+### `DESTINATION_HEIGHT` moved with the chrome, in the same commit
+
+612 → 590. The offline line costs 22dp of a destination, and 0.12.0 is the release that shipped a map
+whose only control was off the bottom of the screen because a bar was added and this constant was not.
+It is the *offline* height deliberately: the shorter destination is the one that can lose a control,
+so the suite measures the case that can fail.
+
+### The two Kover exclusions and the two CI lines came off, as recorded
+
+`:protocol`'s behaviour half and `:client:net:data`'s whole entry both shipped at #107 and #112 on the
+condition *"once the shell holds a fake transport, the behaviour suite drives every verb through this
+module"*. This is that slice. The two `compileTestKotlinIosSimulatorArm64` lines went with them: the
+shell's link task reaches both modules now, and what is left on that job is the *test* source sets,
+which no link task compiles and which are where the backtick-comma trap lives.
+
+### `Credential` — *no token* was two situations wearing one answer
+
+Written down at length because the defect it fixes was invisible to the whole suite, shipped inside
+the slice that introduced it, and would have cost players their accounts.
+
+`SessionKeeper.current()` returned `SessionToken?`, and its own comment said null meant three things
+that were *"one thing to do about"*: nobody signed in, the refresh ran out, it was refused. There is a
+fourth, and the comment even named it — a refresh **nobody answered** — with the note that *"the
+session survives that one"*. It does survive, on disk. What did not survive is the reason: the one
+caller read null as *signed out*, so `ColonySync.drain` answered `Failed(Unauthenticated)` and `App`
+called `sessions.forget()` and cleared the credential the keeper had just gone out of its way to keep.
+
+**The path is ordinary, not exotic.** An access token lasts an hour and a refresh ninety days, so a
+player who opens the game on a train more than an hour after last playing takes it: the renewal cannot
+reach anybody, and the app signs them out, throws away the ninety-day token, drops the tap into a
+queue it then stops believing in, and shows a sign-in screen at the one moment they have no network to
+sign in with.
+
+So `Credential` is a three-member sealed interface — `Held`, `Gone`, `Unreachable` — and `Unreachable`
+maps to `SyncOutcome.NotNow`, which is exactly the offline answer: hold the queue, say the network is
+out, ask again. **The lesson is the shape rather than the bug**: a comment explaining that a return
+value means four different things is a type asking to be written, and the one it was standing in for
+had two of them meaning the opposite of each other.
+
+### A colony on screen that cannot act is worse than a gate, and the gate only draws with no session
+
+Second half of the same day's finding, same class. `Unauthenticated` on a *real* refusal did the right
+three things — forget, `signedIn = false`, `gate = Idle` — and left `session` alone. The gate is drawn
+only when `session == null`, so a device with a save whose credential the server no longer honours
+stayed on its colony, with every control looking operable and every tap silently dropped. That is the
+global dead-control rule's worst case: not a crash, but a screen that teaches the player the game is
+broken in a way they cannot describe.
+
+`session = null` is the whole fix, and what makes it safe is what it does *not* touch: the save stays
+on disk, so signing in again re-founds idempotently and opens the same colony. A device with nothing
+to show would have been strictly worse than one showing a gate.
+
+**It was in three places, not one**, and the third is the reason this paragraph exists: `deleteAccount`'s
+`ApiResult.Refused` arm carried the comment *"the gate is the honest answer"* and did the same three
+things and the same omission. A comment naming a screen is not a control-flow statement — that is the
+generalisable half, and it is what a grep for `gate = GateState.Idle` finds in one pass.
+
+**Neither defect was findable from inside the suite** — every existing test either had a live server or
+no save — which is why the four tests that now pin them are behaviour tests driven end to end rather
+than assertions at the seam.
+
+### Two verbs were passing a transition that could never run
+
+`send` applies an optimistic transition and then queues; `LOOK_DONT_ACT` verbs are never applied
+locally, so for `StartRun` and `StartSurvey` the lambda every call site passed was dead — thirty-odd
+lines of exhaustive `when` over `StartRunResult` and `StartSurveyResult` that no finger could reach.
+It read as careful code and was unreachable by construction.
+
+They are `ask(verb)` now: no transition, and the return value is `reachable` rather than
+`queueable || reachable`, which is what the dispatch sheet was really asking. The coverage report is
+what found it — the two lambdas were the only thing in `App` that no test could reach *and* no
+argument could justify — which is the second time this release the gate paid for itself as a reviewer
+rather than as a rule.
+
+### The integration row was measuring the size of the repository (2026-08-27, Davide's call)
+
+The Coverage job failed every row on this branch, and the worst of them was `integration` at
+**13.46% against a 14.9% floor** — on a slice that *added* an integration test and covered forty-five
+more lines than `main` did. The row fell because the denominator grew by 1,756 lines.
+
+That is not a coverage shortfall, it is the row measuring the wrong thing. An integration test crosses
+one real boundary and there are eight of them, so an unnarrowed pass reports *what fraction of the
+whole codebase eight boundary tests happen to execute*: `Strings` at 0%, `English` at 0%, `StringId` at
+0%, every screen at 0%, 13,721 missed lines. It falls on every screen that ships and every string that
+is written, and no better integration test recovers it — **which is the unit row's defect and the
+screenshot row's defect exactly, in the one pass that had never been given the same treatment.**
+
+Davide, asked to choose between approving exclusions and fixing the row: *"Fix the integration row's
+definition instead."* And on exclusions generally: *"We should add exclusion only if we really cannot
+cover."*
+
+So the integration pass now drops what an integration test cannot execute — every `@Composable`, and
+`*.presentation` and `*.ui` — which is the screenshot pass's rule with the sign flipped once more. The
+row goes 13.46% → ~22%, and that is the new baseline rather than a gain.
+
+**`core` deliberately stays in**, and that is the part worth reading twice. It is pure and holds no
+boundary, so the symmetry would put it out — and dropping it takes the row **13.46% → 7.78%**, because
+`core` is precisely what the server's replay tests execute across a socket and a database. *Reached
+across a boundary* is the test, not *contains one*. A rule written from the symmetry rather than from
+the report would have hidden the one thing this pass measures best.
+
+### Three more passes said *what this kind of test cannot reach* and meant it (2026-08-27)
+
+The integration fix above left three rows red, and all three leaked the same way: the pass's rule was
+one step short of the sentence it was written to say. Davide approved all three, each on a measured
+report rather than an analogy.
+
+- **Unit.** *A unit test cannot render a composable* — but `annotatedBy` lands on the annotation and
+  the drawing is not all annotated. A `DrawScope` extension, a private draw helper, a `Path` built
+  from published vector data: `SystemMapKt` is **111 lines** of orbit geometry at 0% and `TabIconKt`
+  55. So `*.ui`, `:client:design:icon` and `:client:design:component` go too. 91.34% → 95.1%.
+- **Screenshot.** `:client:debug:ui`, and it is the only entry in the whole filter excluded by a
+  *ruling* rather than an argument: `session-roles.md` already says the debug panel deliberately has
+  no baseline, *"because a baseline asserts that a drawing still looks the way it was drawn and nobody
+  drew this."* 154 lines at 0% by policy, which the report was reading as a shortfall. 92.24% → 94.75%.
+- **Behaviour.** `:client:auth:data`, which is `:server`'s behaviour half one module over on the
+  identical sentence: **a behaviour test cannot reach the implementation its own test double
+  replaces.** `App` takes a `ProviderSignIn` and the suite passes a fake — that seam is what makes the
+  gate testable at all, and a test that reached past it would be one that opened a browser and waited
+  for a person. 90.53% → 92.65%.
+
+**The pattern across all four passes is worth naming, because it is what made this release expensive.**
+Each row's exclusion says *this kind of test cannot reach that kind of code*, and each was written when
+one slice made one gap visible. A slice large enough to make three visible at once is not three
+failures — it is the same rule being finished. The bar did not move: every one of them is a measured
+report, Davide's explicit call, and a row that steps up rather than a floor that steps down.
+
+### The desktop loopback got seams instead of an exclusion
+
+Davide's rule applied to the largest unreachable block in the repository. `DefaultProviderSignIn.desktop.kt`
+was 58 lines at 0% in every pass and the exclusion was easy to argue: a machine here cannot sign in to
+Google. True — and it does not cover the ninety per cent of the file that is not the sign-in.
+
+Two parameters, both defaulted, both for things a build machine genuinely cannot do: `Desktop.browse`,
+and Google's token endpoint. `DesktopLoopbackIntegrationTest` replaces the first with a real HTTP GET
+at the redirect the flow just printed — which is exactly what a browser does with it — and the second
+with a `com.sun.net.httpserver` it owns, the same trick `OltreApiIntegrationTest` uses next door. Eight
+tests, two real sockets, and what is left uncovered is `openSystemBrowser` and nothing else.
+
+**The seam is what turns a platform excuse into a platform edge**, and it found a defect on the way:
+`HttpURLConnection` waits without limit by default, so a token endpoint that accepted and never
+answered would have hung the sign-in for ever — the browser window covers the leg a person is standing
+in front of, and this leg had no window of its own.
+
+### The gate says why when it can draw no provider
+
+`signInProviders()` is empty on a desktop build with no Google credential in its environment, and
+drawing no button is right for a provider that cannot finish. Drawing no button *at all* left two
+lines of *why*, a foot, and no way forward — which reads as a screen that failed to load, not as a
+deliberate gap. So the mapper has a sixth message, in the design's voice but not from its string table:
+*"There is no way to sign in here."* The design drew five states because it drew a phone; this one only
+exists on the dev loop, which is exactly who would assume the app was broken.

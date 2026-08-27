@@ -44,31 +44,88 @@ sealed interface WatchUiState {
     data object Subscribed : WatchUiState
 }
 
-// **What the square itself is showing**, which is not the same question as what the row is in. A row
-// has three states because two of them carry different *lines*; the square has three because the
-// Shipyard's control has a second way of being on.
+// **Which answer the control is on.** A row points at a single job, so there is one question to ask
+// about it; a hull card stands over an order, so there are two — tell me when the order is done, or
+// tell me about every hull in it. See `HullAlert`.
 //
 // Three constants rather than a boolean and a glyph, because "unlit and showing two bells" is not a
 // state anything can be in and a pair of parameters would let it compile.
-enum class WatchSquareUiState {
+enum class WatchAsk {
 
     // There is an instant to book here and the player has not booked it.
-    UNASKED,
+    NONE,
 
     // Booked, and one bell says so. Every row outside the Shipyard ends here.
-    ASKED,
+    ONE,
 
-    // **Booked the second way, and only a queue has one.** A facility row points at a single job, so
-    // there is one question to ask about it; a hull card stands over an order, so there are two —
-    // tell me when the order is done, or tell me about every hull in it. See `HullAlert`.
-    ASKED_SEVERAL,
+    // Booked the second way, and only a queue has one.
+    SEVERAL,
+}
+
+// **What the square itself is showing**, which is not the same question as what the row is in — and
+// since 0.20 it is two facts rather than one: which answer the control is on, and whether the server
+// has agreed to it yet.
+//
+// **The second fact could not be a fourth constant**, which is why this stopped being an enum. Held
+// is orthogonal to the ask — the Shipyard's stack glyph is as reachable held as it is confirmed —
+// so a flat list would have needed six members and would have let five of them be written by hand
+// wrongly. The three names the app used before this are companion constants, so every call site that
+// meant *not held* still says exactly what it said.
+data class WatchSquareUiState(val asked: WatchAsk, val held: Boolean) {
+
+    companion object {
+
+        val UNASKED = WatchSquareUiState(asked = WatchAsk.NONE, held = false)
+
+        val ASKED = WatchSquareUiState(asked = WatchAsk.ONE, held = false)
+
+        val ASKED_SEVERAL = WatchSquareUiState(asked = WatchAsk.SEVERAL, held = false)
+
+        // Every face there is, for the bench and for the screenshot plate. A list rather than the
+        // `entries` this replaced, and it is the one thing that stops being free when a state
+        // becomes a product of two: nothing derives it, so a seventh face has to be added here by
+        // hand or it is drawn by no test at all.
+        val FACES: List<WatchSquareUiState> = listOf(
+            UNASKED,
+            ASKED,
+            ASKED_SEVERAL,
+            UNASKED.copy(held = true),
+            ASKED.copy(held = true),
+            ASKED_SEVERAL.copy(held = true),
+        )
+    }
 }
 
 // The square's state read off the row's. Two of the row's three members mean booked and one does
 // not, and the square is the only part of a row that cares which — the line, which is the reason
 // `Booked` and `Subscribed` are separate at all, is drawn elsewhere.
-fun WatchUiState.asSquare(): WatchSquareUiState =
-    if (this == WatchUiState.Offered) WatchSquareUiState.UNASKED else WatchSquareUiState.ASKED
+//
+// `held` is the caller's to know: a `WatchUiState` is derived from the colony, and whether a tap on
+// it has reached the server is derived from the outbox. Required rather than defaulted, because the
+// obvious default is also the value that means *the feature is switched off*.
+//
+// **A held square draws the request — and the request is already what the row says**, which is why
+// nothing here inverts.
+//
+// The design's sentence is *"a held row asks for the opposite of what the server is on, so the
+// request is what the square draws"*, and the first implementation of it read the second clause off
+// the first: invert the row, get the request. That is true of the **server's** colony and false of
+// the one on screen. Every one of these taps applies its own transition locally before anything is
+// mapped — `alerting`, `alertingHull`, `preferring` — so by the time a row is drawn it *already*
+// says what the player asked for. Inverting produced the state they were leaving.
+//
+// It shipped nowhere: caught at #113 by an end-to-end test that tapped a dark bell and read the
+// sentence back. The lesson is the shape rather than the sign — **a mapper cannot tell an optimistic
+// state from a confirmed one by looking at it**, so a rule phrased as *the opposite of what the
+// server says* has no way to be true here. Phrase it as *what the row says*, which is a fact the
+// mapper actually has.
+//
+// `held` is the caller's to know and still required: it is what draws the amber face. It no longer
+// decides which face.
+fun WatchUiState.asSquare(held: Boolean): WatchSquareUiState = WatchSquareUiState(
+    asked = if (this != WatchUiState.Offered) WatchAsk.ONE else WatchAsk.NONE,
+    held = held,
+)
 
 // The one new affordance the watch slice adds, and deliberately the only one: a 29dp square beside
 // the ghost time that books an alert for the instant the row already prints.
@@ -102,9 +159,19 @@ fun WatchUiState.asSquare(): WatchSquareUiState =
 // A third fill would be a colour this system does not spend, and it would make the second tap look
 // like a different kind of thing rather than the same question answered differently. What changes is
 // the mark — one bell or two — which is the only part of the control that is about *how many alerts*.
+// **The third and fourth faces are the lit pair one hue over**, which is the whole of why they need
+// no legend: amber already means *a thing of yours is out there and has not landed*, said about an
+// intent instead of a hull, and the relationship between the two amber faces is the relationship the
+// player can already read between lit and unlit. A held ON keeps the fill; a held OFF drops it and
+// takes the glyph to the locked opacity.
+//
+// **The square says "not confirmed" and never which way**, because 29dp cannot carry both facts. The
+// row that owns it says the direction in words — see `Strings.heldTurning`. That asymmetry is the
+// cost of the treatment and it is written down rather than discovered.
 @Composable
 fun WatchSquare(state: WatchSquareUiState, onClick: () -> Unit, stacked: Boolean, modifier: Modifier = Modifier) {
-    val asked = state != WatchSquareUiState.UNASKED
+    val asked = state.asked != WatchAsk.NONE
+    val hue = if (state.held) OltreColors.warn else OltreColors.accent
     PressableFace(
         onClick = onClick,
         shape = RoundedCornerShape(RADIUS),
@@ -114,17 +181,19 @@ fun WatchSquare(state: WatchSquareUiState, onClick: () -> Unit, stacked: Boolean
             .background(
                 // The same 12% accent fill an actionable card carries, and nothing at all when
                 // the square is merely offered: an unwatched row has no state to announce.
-                color = settlingColor(
-                    if (asked) OltreColors.accent.copy(alpha = 0.12f) else Color.Transparent,
-                ),
+                // A held OFF is the only face with no fill *and* a coloured border, which is exactly
+                // the picture it should be: the request is drawn, the state it asks for is not.
+                color = settlingColor(if (asked) hue.copy(alpha = 0.12f) else Color.Transparent),
                 shape = RoundedCornerShape(RADIUS),
             )
             .border(
                 width = 1.dp,
                 // 45% accent watched — the same border an active card wears — against the 16%
-                // white the ghost button beside it already uses.
+                // white the ghost button beside it already uses. A held square always has a border
+                // at that alpha, whichever way the request went: the request is the thing being
+                // drawn, and it is present either way.
                 color = settlingColor(
-                    if (asked) OltreColors.accent.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.16f),
+                    if (asked || state.held) hue.copy(alpha = 0.45f) else Color.White.copy(alpha = 0.16f),
                 ),
                 shape = RoundedCornerShape(RADIUS),
             ),
@@ -132,10 +201,20 @@ fun WatchSquare(state: WatchSquareUiState, onClick: () -> Unit, stacked: Boolean
         // The bell lights with the square rather than after it. Booking an alert is the one action
         // in the app whose whole result is that a control changed colour — there is no row to move
         // and no number to update — so it is the one that most wants to be seen happening.
-        val color = settlingColor(if (asked) OltreColors.accent else OltreColors.textTertiary)
-        when (state) {
-            WatchSquareUiState.UNASKED, WatchSquareUiState.ASKED -> WatchBell(color = color)
-            WatchSquareUiState.ASKED_SEVERAL -> WatchBellStack(color = color)
+        //
+        // **42% is the locked opacity and this is the one place it means something else**, which the
+        // design took deliberately: on a held OFF the ink is dimmed because the state being asked
+        // for is *off*, not because the control is unavailable. Nothing here is ever unavailable —
+        // the square answers taps in every face it has.
+        val ink = when {
+            state.held && state.asked == WatchAsk.NONE -> hue.copy(alpha = 0.42f)
+            asked || state.held -> hue
+            else -> OltreColors.textTertiary
+        }
+        val color = settlingColor(ink)
+        when (state.asked) {
+            WatchAsk.NONE, WatchAsk.ONE -> WatchBell(color = color)
+            WatchAsk.SEVERAL -> WatchBellStack(color = color)
         }
     }
 }

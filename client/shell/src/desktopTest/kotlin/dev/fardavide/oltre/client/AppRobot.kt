@@ -14,12 +14,15 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlin.test.assertEquals
 import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
@@ -31,7 +34,19 @@ import dev.fardavide.oltre.client.design.core.OltreMotion
 import dev.fardavide.oltre.client.dispatch.ui.DispatchTestTags
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.LocalNotification
+import dev.fardavide.oltre.client.auth.data.ProviderSignIn
+import dev.fardavide.oltre.client.auth.data.SignInAttempt
+import dev.fardavide.oltre.client.auth.ui.DeleteTestTags
+import dev.fardavide.oltre.client.auth.ui.GateTestTags
+import dev.fardavide.oltre.client.net.data.FakeOltreApi
+import dev.fardavide.oltre.client.net.data.IdempotencyKeys
+import dev.fardavide.oltre.client.net.data.Outbox
 import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
+import dev.fardavide.oltre.protocol.AuthProvider
+import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.SignInNonce
+import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
@@ -46,9 +61,12 @@ import dev.fardavide.oltre.core.AlertDelivery
 import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ShipType
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 
@@ -78,14 +96,104 @@ private const val CLOSE_SHEET = "Close sheet"
 // still on its way out.
 private const val SHEET_HIDE_MILLIS: Long = 1_000
 
+// **Comfortably past `RetryPolicy.DEFAULT`**, which is three attempts one second and then three
+// seconds apart — four seconds of waiting before a sync with no signal gives up. Ten leaves room for
+// a slow machine without letting a genuinely stuck screen hang the suite.
+private const val SLOW_ANSWER_MILLIS: Long = 10_000
+
+// **A minute of ticks plus room for the sync that follows one.** The retry is the slowest thing the
+// app does on its own, and it is deliberately slow: a player cannot see a difference finer than the
+// clock the chrome line prints.
+private const val RETRY_WINDOW_MILLIS: Long = 90_000
+
+// **`DebugTestTags`, mirrored**, because it is internal to `:client:debug:ui` and this file lives
+// across the seam in the shell. A duplication with teeth rather than a silent one: rename a tag and
+// these fail by name on the next run, exactly as `AdaptationRobot`'s research tags do.
+private const val DEBUG_SHEET = "debug-sheet"
+private const val DEBUG_SKIP = "debug-skip"
+private const val DEBUG_RESET = "debug-reset"
+private const val DEBUG_CLOSE = "debug-close"
+
 @OptIn(ExperimentalTestApi::class)
-internal class AppRobot(private val test: ComposeUiTest, private val booked: RecordingNotifications) {
+internal class AppRobot(
+    private val test: ComposeUiTest,
+    private val booked: RecordingNotifications,
+    // **The server, so a test can assert what actually left the phone.** A screen that looks right
+    // and sent nothing is exactly the failure the offline era makes possible, and the only thing
+    // that can tell them apart is what the far end was asked.
+    val server: FakeOltreApi,
+) {
 
     // The launch runs on the auto-advancing clock, because it is a chain of real suspending work —
     // reading the save, advancing the colony, booking alerts — with no fixed length. A test that
     // wants to watch a transition stops the clock once that is done and winds it by hand from
     // there, exactly as every screenshot test does.
     fun pauseTheClock() = apply { test.mainClock.autoAdvance = false }
+
+    // ── The gate ─────────────────────────────────────────────────────────────────────────────
+    //
+    // Reached by tag rather than by its words for the reason the watch square is: the two provider
+    // buttons carry strings the platforms own, so an assertion written against them would fail the
+    // day Apple rewords its own button — which is a thing Apple does and this app does not control.
+
+    fun pressProvider(provider: AuthProvider) = apply {
+        test.onNodeWithTag(GateTestTags.provider(provider)).performClick()
+        test.waitForIdle()
+    }
+
+    fun assertProviderOffered(provider: AuthProvider) = apply {
+        test.onNodeWithTag(GateTestTags.provider(provider)).assertIsDisplayed()
+    }
+
+    fun assertProviderNotOffered(provider: AuthProvider) = apply {
+        test.onNodeWithTag(GateTestTags.provider(provider)).assertDoesNotExist()
+    }
+
+    // ── The door out of the account ──────────────────────────────────────────────────────────
+    //
+    // Three taps that only mean anything together, and the one flow in the app that cannot be undone
+    // — which is why it is two faces deep and why every step of it is driven here rather than
+    // asserted at a mapper.
+
+    fun openTheAccountDeletion() = apply {
+        test.onNodeWithTag(SettingsTestTags.DELETE_ACCOUNT).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    // The same button on both faces, because the sheet knows which one it is wearing: on the warning
+    // face it crosses to the last step, on the last step it does the thing.
+    fun pressTheDeleteButton() = apply {
+        test.onNodeWithTag(DeleteTestTags.ACTION).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    fun keepTheAccount() = apply {
+        test.onNodeWithTag(DeleteTestTags.KEEP).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    fun assertDeletionsAsked(count: Int) = apply {
+        assertEquals(count, server.deletions().size, "deletions: ${server.deletions()}")
+    }
+
+    // ── The offline era ──────────────────────────────────────────────────────────────────────
+
+    // **The chrome line is an absence on a colony with signal**, so asserting that it is *not* there
+    // is as load-bearing as asserting that it is — and both need a handle rather than a string.
+    fun assertOfflineLine(showing: Boolean) = apply {
+        val node = test.onNodeWithTag(ShellTestTags.OFFLINE)
+        if (showing) node.assertIsDisplayed() else node.assertDoesNotExist()
+    }
+
+    // What actually left the phone. A screen that looks right and sent nothing is exactly the
+    // failure the offline era makes possible, and the only thing that can tell them apart is what
+    // the far end was asked.
+    fun assertVerbsSent(count: Int) = apply {
+        assertEquals(count, server.syncs().sumOf { it.envelopes.size }, "envelopes: ${server.syncs()}")
+    }
 
     fun open(tab: OltreTab) = apply {
         test.onNodeWithTag(ShellTestTags.tab(tab)).performClick()
@@ -121,6 +229,28 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         test.onNodeWithText(text, substring = true).assertIsDisplayed()
     }
 
+    // **For the one thing in the app that takes real seconds to answer**: a sync with no signal is
+    // three attempts four seconds apart — `RetryPolicy.DEFAULT`, which is deliberately not a tight
+    // loop — so a screen waiting on one is genuinely still waiting when the launch goes idle.
+    //
+    // Every other assertion in this robot is immediate and should stay so: waiting for a screen that
+    // is already right is how a suite becomes slow, and waiting for one that will never be right is
+    // how it becomes flaky. This is used where the app really is expected to change its mind.
+    fun waitUntilItReads(text: String) = apply {
+        test.waitUntil(timeoutMillis = SLOW_ANSWER_MILLIS) {
+            test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    // **For the one thing that takes a whole minute**: the tick loop retries a queue it could not
+    // send once every sixty ticks, which is the only moment in the app that notices the network
+    // coming back. Nothing else in this robot waits that long, and nothing else should.
+    fun waitUntilItDoesNotRead(text: String) = apply {
+        test.waitUntil(timeoutMillis = RETRY_WINDOW_MILLIS) {
+            test.onAllNodesWithText(text, substring = true).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
     // How many rows read something, which is the only unambiguous way to ask about a level badge
     // from outside the feature that owns the row tags: five of Research's six rows are genuinely at
     // level 0, so "does a row read LV 0" cannot distinguish the sixth holding its old level from
@@ -151,6 +281,14 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
 
     // The one control in the app with no words on it, so the one the shell reaches by tag. See
     // `ColonyTestTags`, which is public for this.
+    // **The row's action, whichever of the four it is showing** — reached by tag rather than by the
+    // word on it, because since 0.21 a held row says `Held` and a robot that tapped by text could
+    // reach one state or the other and never the control. See `ColonyTestTags.action`.
+    fun tapTheActionOn(building: BuildingType) = apply {
+        test.onNodeWithTag(ColonyTestTags.action(building)).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
     fun tapTheWatchOn(building: BuildingType) = apply {
         test.onNodeWithTag(ColonyTestTags.watch(building)).performClick()
         test.waitForIdle()
@@ -237,6 +375,39 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         assertEquals(showing, found, "the settings sheet is ${if (found) "up" else "not up"}")
     }
 
+    // ── The debug panel ──────────────────────────────────────────────────────────────────────
+    //
+    // It opens by a gesture and by nothing else, so the shake is a flow the test emits on and the
+    // robot waits for the composition to catch up — a `tryEmit` returns before anything has been
+    // collected.
+
+    fun shake(shakes: MutableSharedFlow<Unit>) = apply {
+        shakes.tryEmit(Unit)
+        test.waitForIdle()
+    }
+
+    fun assertDebugSheetShowing(showing: Boolean) = apply {
+        val found = test.onAllNodesWithTag(DEBUG_SHEET).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(showing, found, "the debug panel is ${if (found) "up" else "not up"}")
+    }
+
+    fun closeTheDebugSheet() = apply {
+        test.onNodeWithTag(DEBUG_CLOSE).performClick()
+        test.waitForIdle()
+    }
+
+    // **Held, not tapped**, which is the panel's own rule: both verbs change the colony and the panel
+    // opens by a gesture a pocket can perform. The confirm comes from the platform's long-press
+    // timing rather than from the fill animation, so this is a real gesture rather than a wound clock.
+    fun holdTheSkip() = apply { hold(DEBUG_SKIP) }
+
+    fun holdTheReset() = apply { hold(DEBUG_RESET) }
+
+    private fun hold(tag: String) {
+        test.onNodeWithTag(tag).performTouchInput { longClick() }
+        test.waitForIdle()
+    }
+
     fun chooseMode(mode: AlertMode) = apply {
         test.onNodeWithTag(SettingsTestTags.mode(mode)).performClick()
         test.waitForIdle()
@@ -291,6 +462,14 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
         test.waitForIdle()
     }
 
+    // **The map card's verb**, which is the second of the two that cannot be held. Reached by tag
+    // because the word on it changes with the window — `Dispatch probe` at 393 and `Dispatch` at 320
+    // — and a robot that could only find one of them would pass on a phone and fail on an iPad.
+    fun dispatchTheProbe() = apply {
+        test.onNodeWithTag(GalaxyTestTags.DISPATCH).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
     // No words on it, like the other two squares in the app — so it is reached by tag as well.
     fun tapTheBellOnTheSheet() = apply {
         test.onNodeWithTag(DispatchTestTags.ANNOUNCE).performClick()
@@ -307,6 +486,33 @@ internal class AppRobot(private val test: ComposeUiTest, private val booked: Rec
 
     fun sendTheRun() = apply {
         test.onNodeWithTag(DispatchTestTags.SEND).performClick()
+        test.waitForIdle()
+    }
+
+    // **Photovoltaics, by tag**, because the tests that use it are about the *held* state of one row
+    // rather than about which project a colony happens to be able to afford — and "the only one
+    // offered" stopped identifying a row at 0.9.
+    //
+    // The tag is spelled out rather than imported because `ResearchTestTags` is internal to
+    // `:client:research:ui` and this test lives across the seam in the shell. That is a duplication
+    // with teeth rather than a silent one: rename the tag and this fails by name on the next run.
+    fun startTheFirstProject() = apply {
+        test.onNodeWithTag("research-action-photovoltaics").performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The ladder beside it, on the branch that has its own slot since 0.12.2 — and a different verb
+    // wearing the same row.
+    fun startTheThermalLadder() = apply {
+        test.onNodeWithTag("research-action-thermal").performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The square on the running project's row. It carries no text, so the tag is the only way to it.
+    fun tapTheWatchOnTheFirstProject() = apply {
+        test.onNodeWithTag("research-watch-photovoltaics", useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
         test.waitForIdle()
     }
 
@@ -392,6 +598,14 @@ internal fun changelogAlreadyRead(): PreferencesStore {
             Preferences(
                 galaxyLanding = null,
                 lastSeenVersion = EnglishChangelog.releases.first().version.printed,
+                // Null: what a signed-in device remembers is filled by the sign-in, and every harness
+                // in this file is handed a session outright rather than pressing a provider button.
+                provider = null,
+                // **A device that has been online before**, which is what makes the chrome line
+                // answerable at all: *"no network since"* needs an instant, and one that has genuinely
+                // never reached the server draws no line. An hour before the fixture's clock, so the
+                // line names a time rather than the same second everything else in the test does.
+                lastReachedAt = (TEST_NOW - 1.hours).toEpochMilliseconds().toString(),
             ),
         )
     }
@@ -424,6 +638,46 @@ internal fun app(
     // `load` answers with null, and the app then started a brand new colony while every assertion
     // passed.
     legacy: String? = null,
+    // **The server, faked, and the seam that keeps this whole suite off a socket.** Defaulted to one
+    // holding the same colony `saved` does, which is what a signed-in device with signal actually
+    // looks like: the save is the last thing the server agreed to, so the two agreeing is the
+    // ordinary case rather than a convenience. A test about the queue makes them differ.
+    api: FakeOltreApi = FakeOltreApi().apply {
+        colony = saved
+        // **What `saved = null` means now, and it is a different thing from what it meant.** A first
+        // launch used to mint a colony on the device; since 0.21 founding is `POST /v1/colony`'s, so
+        // the honest fake of a first launch is a server that has one to hand back. The seed is the
+        // instant the fixture's clock is stopped at — the same value `resume` used to draw — so every
+        // galaxy assertion written before the cutover still names the same map.
+        founds = saved ?: GameSnapshot(
+            lastUpdatedAt = TEST_NOW,
+            debugUsed = false,
+            state = GameState.initial(GalaxySeed(TEST_NOW.toEpochMilliseconds())),
+        )
+        // **This server runs the game**, which is what makes a tap driven here come back having
+        // happened — the real one replays every verb through `core` and hands back what the colony
+        // became. Without it the answer would undo the tap that produced it, and the suite would be
+        // asserting against a server that cannot be the one the app ships against.
+        replays = true
+    },
+    // **Whether this device has a session**, and the default is *yes* for the same reason the
+    // changelog default is *already read*: every test that is not about the gate would otherwise
+    // open on it and tap controls that are not there. `GateAppBehaviourTest` is where the other case
+    // is driven.
+    signedIn: Boolean = true,
+    // What the platform's half of the gate answers. Never reached unless a provider button is
+    // pressed, which only happens when `signedIn` is false.
+    signIn: ProviderSignIn = ProviderSignIn { SignInAttempt.Signed(FAKE_ID_TOKEN, FAKE_NONCE) },
+    providers: Set<AuthProvider> = setOf(AuthProvider.APPLE, AuthProvider.GOOGLE),
+    // **What is already queued when the app opens**, for the tests about a colony that has been
+    // tapped with no signal. Written through `Outbox` rather than encoded by hand, for the reason the
+    // save is written through `GameStore`: the file's shape is the outbox's and a fixture that wrote
+    // its own JSON would produce a queue `queued()` answers as empty.
+    queued: List<VerbEnvelope> = emptyList(),
+    // **The shake, as a flow a test can emit on.** Empty by default for the reason the wiring below
+    // gives; `DebugSheetAppBehaviourTest` is the one file that hands in a real one, because the
+    // debug sheet is the only surface in the app with no other way in.
+    shakes: Flow<Unit> = emptyFlow(),
     block: AppRobot.() -> Unit,
 ) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -436,6 +690,15 @@ internal fun app(
     }
     if (legacy != null) {
         runBlocking { file.write(legacy) }
+    }
+    // Two more files beside the save, in memory for the reason the preferences store is: `App`'s own
+    // defaults reach the machine's application directory, so without these every test would read and
+    // write the developer's own session and queue.
+    val sessionFile = InMemorySaveFile()
+    val outboxFile = InMemorySaveFile()
+    runBlocking {
+        if (signedIn) SaveFileSessionStore(sessionFile).write(api.session)
+        queued.forEach { Outbox(SaveFileOutbox(outboxFile)).queue(it) }
     }
     val booked = RecordingNotifications()
     runDesktopComposeUiTest(width = 393, height = 852) {
@@ -451,15 +714,45 @@ internal fun app(
                 preferences = preferences,
                 changelog = changelog,
                 notifications = GameNotifications(booked, English),
-                // Never shaken: the debug sheet is a modal over everything, and a test about what a
-                // launch says must not have one open on top of it.
-                shakeDetector = ShakeDetector { emptyFlow<Unit>() as Flow<Unit> },
+                // **Never shaken by default**, because the debug sheet is a modal over everything and
+                // a test about what a launch says must not have one open on top of it. The one file
+                // that *is* about the sheet hands in a flow it can emit on.
+                shakeDetector = ShakeDetector { shakes },
                 // See `TEST_NOW`. The one seam that stops these tests depending on the second they
                 // happen to run in.
                 wallClock = FixedClock(TEST_NOW),
+                api = api,
+                sessionStore = SaveFileSessionStore(sessionFile),
+                outboxFile = SaveFileOutbox(outboxFile),
+                signIn = signIn,
+                providers = providers,
+                // **A key the test can predict**, which is the whole reason `IdempotencyKeys` is an
+                // interface: the property the mechanism exists for is that a retry carries the first
+                // attempt's key, and nothing can assert that against a value it cannot name.
+                keys = TestKeys(),
             )
         }
         waitForIdle()
-        AppRobot(this, booked).block()
+        AppRobot(this, booked, api).block()
     }
 }
+
+// **Keys a test can name.** `randomIdempotencyKeys` draws 128 bits, which is right in the app and
+// useless in an assertion: the property the whole mechanism exists for is that a retry carries the
+// key its first attempt carried, and nothing can check that against a value it cannot predict.
+//
+// Counted rather than constant, because two taps must not share a key — a fake that handed out one
+// would make every second verb look like a replay of the first and the outbox would drop it.
+private class TestKeys : IdempotencyKeys {
+
+    private var minted = 0
+
+    override fun mint(): IdempotencyKey = IdempotencyKey("key-${minted++}")
+}
+
+// What the platform's half of the gate hands back when a test presses a provider. The values are
+// opaque to everything on this side of the wire — `FakeOltreApi` records them and answers a session —
+// so what they say does not matter and that they *arrive* does.
+private val FAKE_ID_TOKEN = IdToken("fake.id.token")
+
+private val FAKE_NONCE = SignInNonce("fake-nonce")

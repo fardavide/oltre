@@ -14,6 +14,8 @@ import dev.fardavide.oltre.client.dispatch.presentation.homingIn
 import dev.fardavide.oltre.client.dispatch.ui.DispatchUiState
 import dev.fardavide.oltre.client.fleets.ui.FleetsPage
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
@@ -42,10 +44,16 @@ fun FleetsScreen(
     // The fifth verb, reaching a second finger. It takes all three subjects at once because they are
     // three facets of one commitment rather than three decisions — see `startRun`, and see
     // `GalaxyScreen`, which hands it over the same way.
-    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit,
+    // Answers whether the tap was kept — `GalaxyScreen`'s parameter, said the same way because it
+    // raises the same sheet.
+    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean,
     // The sheet's bell, handed over the same way `GalaxyScreen` hands it over — one standing answer,
     // written by whichever verb is tapped next.
     onToggleAnnounce: () -> Unit,
+    // The same pair the Galaxy tab takes, because it raises the same sheet: what is outstanding, and
+    // what the last tap on a verb that cannot be held produced.
+    held: HeldActions = HeldActions.NONE,
+    refusal: RefusalUiState? = null,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -53,7 +61,14 @@ fun FleetsScreen(
     // Keyed on the seed alone: this tab has no "somewhere else" to go, so nothing but a new galaxy
     // closes the sheet from underneath.
     var open by remember(state.galaxy.seed) { mutableStateOf<DispatchSelection?>(null) }
-    val uiState = state.toFleetsUiState(now = now, since = since, timeZone = timeZone, dispatch = open)
+    val uiState = state.toFleetsUiState(
+        now = now,
+        since = since,
+        timeZone = timeZone,
+        dispatch = open,
+        held = held,
+        refusal = refusal,
+    )
     FleetsPage(
         uiState = uiState,
         // **Nothing is read off the run that was tapped, and that is the ruling rather than an
@@ -77,10 +92,12 @@ fun FleetsScreen(
             // the player was actually shown — see `GalaxyScreen`, where the same three lines guard
             // the same mistake.
             (uiState.dispatch as? DispatchUiState.Offer)?.let { offer ->
-                onDispatchRun(offer.at, offer.gathering, offer.manifest, offer.window)
-                // The state after the tap is its own receipt — a card appears in In flight above and
-                // the run count on the row goes up — so the sheet has nothing left to say.
-                open = null
+                val kept = onDispatchRun(offer.at, offer.gathering, offer.manifest, offer.window)
+                // **Closes on a tap that was kept and stays up on one that was not** — see
+                // `GalaxyScreen`, which raises the same sheet and makes the same call for the same
+                // reason. With signal the state after the tap is its own receipt: a card appears in
+                // In flight above and the run count on the row goes up.
+                if (kept) open = null
             }
         },
         onToggleAnnounce = onToggleAnnounce,

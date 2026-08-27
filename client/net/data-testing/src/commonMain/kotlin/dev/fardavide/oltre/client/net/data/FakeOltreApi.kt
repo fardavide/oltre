@@ -1,6 +1,26 @@
 package dev.fardavide.oltre.client.net.data
 
+import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.StartAdaptationResult
+import dev.fardavide.oltre.core.StartResearchResult
+import dev.fardavide.oltre.core.StartRunResult
+import dev.fardavide.oltre.core.StartSurveyResult
+import dev.fardavide.oltre.core.StartUpgradeResult
+import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.core.buildShips
+import dev.fardavide.oltre.core.cycleHullAlert
+import dev.fardavide.oltre.core.setAlertDelivery
+import dev.fardavide.oltre.core.setAlertMode
+import dev.fardavide.oltre.core.startAdaptation
+import dev.fardavide.oltre.core.startResearch
+import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.core.startSurvey
+import dev.fardavide.oltre.core.startUpgrade
+import dev.fardavide.oltre.core.toggleAlert
+import dev.fardavide.oltre.core.toggleAlertCategory
+import dev.fardavide.oltre.core.toggleFlightAlerts
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AuthProvider
@@ -39,12 +59,20 @@ private val FAKE_SESSION: SessionResponse = SessionResponse(
 // and the suite cannot reach production and must not try. Without this ready, `#113` turns every
 // behaviour test in the repository red at once.
 //
-// **What it deliberately does not do is run the game.** A real sync replays each verb through
-// `core` and hands back what the colony became; this one hands back whatever colony it was given.
-// That is not a corner cut — a second dispatch from `ClientVerb` into `core`'s twelve functions is
-// a second place a thirteenth verb can go missing, which is precisely the failure `ClientVerbTest`
-// and `offlineRule` exist to make impossible. A test that wants the colony to change says what it
+// **What it does not do by default is run the game.** A real sync replays each verb through `core`
+// and hands back what the colony became; this one hands back whatever colony it was given. That is
+// not a corner cut — a second dispatch from `ClientVerb` into `core`'s twelve functions is a second
+// place a thirteenth verb can go missing, which is precisely the failure `ClientVerbTest` and
+// `offlineRule` exist to make impossible. A test that wants the colony to change says what it
 // changed to.
+//
+// **`replays` is the opt-in that #113 needed, and the objection above is answered rather than
+// waived.** Once `App` sends every tap through `ColonySync`, a fake that ignored what it was sent
+// would hand the *unchanged* colony back and visibly undo the tap — so the behaviour suite would be
+// asserting against a server that cannot be the one it ships against. The second dispatch is
+// `applyVerb` below, and what makes it safe is that it is a `when` with **no `else`**: a thirteenth
+// verb cannot go missing there, it fails to compile. Off by default, so every test written against
+// the shallower fake still means what it meant.
 //
 // What it **does** model is the two server behaviours the client is built around, because a fake
 // that got either wrong would let a broken client pass: **a key already applied is reported applied
@@ -79,6 +107,15 @@ class FakeOltreApi(
     // never stored what it was given, and *"the app keeps asking"* is exactly the bug the gate is
     // most likely to have.
     var session: SessionResponse = FAKE_SESSION,
+
+    // **Whether this server runs the game**, which is what makes a tap that reaches it come back
+    // having happened. See the note above the class for why it is off by default and why the
+    // dispatch it turns on is safe.
+    //
+    // What it does *not* model is the clamp and the freshness window — the instant is the
+    // envelope's, unadjusted. Those are `Replay.kt`'s and they are about a colony two devices are
+    // writing to; a fake that guessed at them would be a second opinion on a rule with one home.
+    var replays: Boolean = false,
 ) : OltreApi {
 
     // Verbs this server refuses rather than applies, and why. Keyed by the verb and not by the key,
@@ -203,6 +240,17 @@ class FakeOltreApi(
                 else -> {
                     applied += envelope.idempotencyKey
                     appliedNow += envelope.idempotencyKey
+                    // **Advance first, then apply at that instant** — `GameSession.acting`'s order
+                    // and `Replay.kt`'s, load-bearing for the same reason: applying a verb to a
+                    // colony that has not accrued the time yet spends resources it does not have.
+                    if (replays) {
+                        val held = colony
+                        if (held != null) {
+                            val at = maxOf(envelope.clientInstant, held.lastUpdatedAt)
+                            val caught = advance(held.state, from = held.lastUpdatedAt, to = at)
+                            colony = held.copy(state = applyVerb(envelope.verb, caught, at), lastUpdatedAt = at)
+                        }
+                    }
                 }
             }
         }
@@ -217,10 +265,56 @@ class FakeOltreApi(
         return ApiResult.Answered(
             SyncResponse(
                 apiVersion = ApiVersion.CURRENT,
-                snapshot = held,
+                // **Re-read rather than the `held` above**, because a replay moves it: what goes back
+                // is the colony *after* the verbs, which is the whole of what an authoritative answer
+                // means. With `replays` off the two are the same object.
+                snapshot = colony ?: held,
                 applied = appliedNow,
                 rejected = rejectedNow,
             ),
         )
     }
 }
+
+// **`:server`'s `applyVerb` said again on this side of the wire**, and the duplication is forced
+// rather than chosen: module rule 8 forbids `:client` from depending on `:server`, and a fake of a
+// server that could not run a verb would hand back a colony where nothing the player did had
+// happened.
+//
+// **A `when` with no `else`, which is the whole of what makes the second copy safe.** A thirteenth
+// verb cannot reach here without somebody writing an arm for it — it fails to compile, exactly as it
+// does on the server and in `offlineRule`.
+//
+// **A refusal is not modelled and does not need to be**: what `core` refuses it refuses by handing
+// the state back, and every result type below has a `Started` member carrying the new one. A test
+// that wants a verb refused says so through `refusals`, which is the server's `RejectionReason`
+// travelling as data and is the thing a client actually has to draw.
+private fun applyVerb(verb: ClientVerb, state: GameState, at: Instant): GameState = when (verb) {
+    is ClientVerb.StartUpgrade -> (startUpgrade(state, verb.building, at) as? StartUpgradeResult.Started)?.state
+    is ClientVerb.StartResearch -> (startResearch(state, verb.technology, at) as? StartResearchResult.Started)?.state
+    is ClientVerb.StartAdaptation ->
+        (startAdaptation(state, verb.technology, at) as? StartAdaptationResult.Started)?.state
+
+    is ClientVerb.BuildShips -> (buildShips(state, verb.ships, at) as? BuildShipsResult.Started)?.state
+    is ClientVerb.StartRun -> (
+        startRun(
+            state = state,
+            target = verb.target,
+            gathering = verb.gathering,
+            ships = verb.ships,
+            window = verb.window,
+            at = at,
+        ) as? StartRunResult.Started
+        )?.state
+
+    is ClientVerb.StartSurvey -> (startSurvey(state, verb.target, at) as? StartSurveyResult.Started)?.state
+
+    // The six below cannot refuse at all — they return a bare `GameState`, so there is nothing to
+    // inspect and nothing to fall back to.
+    is ClientVerb.ToggleAlert -> toggleAlert(state, verb.target)
+    is ClientVerb.CycleHullAlert -> cycleHullAlert(state, verb.ship)
+    ClientVerb.ToggleFlightAlerts -> toggleFlightAlerts(state)
+    is ClientVerb.SetAlertMode -> setAlertMode(state, verb.mode)
+    is ClientVerb.ToggleAlertCategory -> toggleAlertCategory(state, verb.category)
+    is ClientVerb.SetAlertDelivery -> setAlertDelivery(state, verb.delivery)
+} ?: state

@@ -1,10 +1,12 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
+import dev.fardavide.oltre.client.design.component.WatchAsk
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.text.StringId
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.shipyard.ui.BuildActionUiState
 import dev.fardavide.oltre.client.shipyard.ui.HullUiState
 import dev.fardavide.oltre.client.shipyard.ui.ShipyardUiState
@@ -24,6 +26,9 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartRunResult
 import dev.fardavide.oltre.core.YardJob
 import dev.fardavide.oltre.core.startRun
+import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.VerbEnvelope
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
@@ -365,6 +370,71 @@ class ShipyardUiStateTest {
 
         assertEquals(WatchSquareUiState.ASKED_SEVERAL, cards.getValue(ShipType.HAULER).alert)
         assertEquals(WatchSquareUiState.UNASKED, cards.getValue(ShipType.SKIFF).alert)
+    }
+
+    // **A held bell names the stop the card is on, because that stop is already the request.**
+    // `alertingHull` runs `cycleHullAlert` against the session before anything reaches this mapper,
+    // so the colony handed in here has moved — and a mapper that cycled again would name the stop
+    // *after* the one the player chose. On a three-stop control that is another lit answer rather
+    // than an obvious nonsense, which is exactly how it would have shipped.
+    //
+    // The walk is the whole cycle rather than one step of it, because a test that pinned only the
+    // middle would go on passing if the other two were moved to match it.
+    @Test
+    fun `a held bell names the stop the card is on`() {
+        val ordered = wealthy().order(2)
+        val held = HeldActions(
+            listOf(
+                VerbEnvelope(
+                    verb = ClientVerb.CycleHullAlert(ShipType.SKIFF),
+                    clientInstant = t0,
+                    idempotencyKey = IdempotencyKey("cycle-the-bell"),
+                ),
+            ),
+        )
+
+        val cards = listOf(null, HullAlert.WHEN_ALL_DONE, HullAlert.EACH_HULL).map { on ->
+            ordered.copy(hullAlerts = listOfNotNull(on?.let { ShipType.SKIFF to it }).toMap())
+                .toShipyardUiState(now = t0, timeZone = TimeZone.UTC, held = held)
+                .skiff()
+        }
+
+        // The square and the line are two renderings of one fact, so they are pinned together: the
+        // defect this guards against is precisely the two of them disagreeing.
+        assertEquals(
+            listOf(WatchAsk.NONE, WatchAsk.ONE, WatchAsk.SEVERAL),
+            cards.map { assertNotNull(it.alert).asked },
+        )
+        assertEquals(
+            listOf(StringId.HeldWatchOffFoot, StringId.HeldWatchOnFoot, StringId.HeldWatchOnFoot),
+            cards.map { assertNotNull(it.held.line).entry() },
+        )
+        assertTrue(cards.all { assertNotNull(it.alert).held }, "a held square is drawn held")
+    }
+
+    // **A held square is the same face as an unheld one, differing only in colour** — which is the
+    // corrected rule stated as a property rather than as three examples. It is worth its own test
+    // because the thing it replaced was an inversion, and an inversion is invisible in every frame
+    // and every count: the picture is correct either way and only the meaning is wrong.
+    @Test
+    fun `holding a bell changes its colour and not which face it wears`() {
+        val ordered = wealthy().order(2).copy(hullAlerts = mapOf(ShipType.SKIFF to HullAlert.EACH_HULL))
+        val held = HeldActions(
+            listOf(
+                VerbEnvelope(
+                    verb = ClientVerb.CycleHullAlert(ShipType.SKIFF),
+                    clientInstant = t0,
+                    idempotencyKey = IdempotencyKey("cycle-the-bell"),
+                ),
+            ),
+        )
+
+        val settled = ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC).skiff()
+        val outstanding = ordered.toShipyardUiState(now = t0, timeZone = TimeZone.UTC, held = held).skiff()
+
+        assertEquals(assertNotNull(settled.alert).asked, assertNotNull(outstanding.alert).asked)
+        assertEquals(false, assertNotNull(settled.alert).held)
+        assertEquals(true, assertNotNull(outstanding.alert).held)
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────

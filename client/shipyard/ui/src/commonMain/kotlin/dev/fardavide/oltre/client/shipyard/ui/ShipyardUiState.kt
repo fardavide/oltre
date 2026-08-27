@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.shipyard.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.ShipType
@@ -44,6 +45,11 @@ data class HullUiState(
     // building cannot be started again, and a yard that is busy can always be given more. So the
     // verb stays live and this is a reading underneath it.
     val yard: YardUiState?,
+    // **What this card has asked for and the server has not answered**, and the one card in the app
+    // that can be waiting on two things at once: a build and the alert that goes with it. The design
+    // draws that pair as *one* sentence — *"Build held, and the alert held off with it. Both land
+    // together."* — which is only possible because this record can see both.
+    val held: HeldUiState,
 )
 
 // A hull being made, in the idiom the Colony's `Upgrading` row already spends — a countdown, a bar

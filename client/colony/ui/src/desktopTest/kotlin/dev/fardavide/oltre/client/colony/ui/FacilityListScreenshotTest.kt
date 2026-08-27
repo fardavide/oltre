@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
@@ -54,6 +55,7 @@ class FacilityListScreenshotTest {
                                     verdict = null,
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.ROBOTICS_FACTORY,
@@ -76,6 +78,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.DEUTERIUM_SYNTHESIZER,
@@ -97,6 +100,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.NANITE_FACTORY,
@@ -122,6 +126,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                             ),
                             onUpgrade = {},
@@ -179,6 +184,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = true,
+                                    held = HeldUiState.NONE,
                                 ),
                             ),
                             onUpgrade = {},
@@ -231,6 +237,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 // A draw on a row that is affordable: taking it deepens the
                                 // throttle, and the screen says so without arguing about it.
@@ -254,6 +261,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 FacilityRowUiState(
                                     building = BuildingType.CRYSTAL_MINE,
@@ -274,6 +282,7 @@ class FacilityListScreenshotTest {
                                     verdict = null,
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                                 // Not built, so it draws nothing and carries no mark — there is
                                 // nothing to attribute and nothing to fight the dim.
@@ -298,6 +307,7 @@ class FacilityListScreenshotTest {
                                     ),
                                     detail = EMPTY_DETAIL,
                                     finishedWhileAway = false,
+                                    held = HeldUiState.NONE,
                                 ),
                             ),
                             onUpgrade = {},

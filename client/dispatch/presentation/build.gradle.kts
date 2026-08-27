@@ -40,6 +40,9 @@ kotlin {
             // `DispatchUiState`, and the square inside it is `:client:dispatch:ui`'s to expose.
             implementation(projects.client.design.component)
             implementation(projects.client.design.format)
+            // What the outbox means to the sheet's one holdable control — see the colony's
+            // presentation module, which takes it the same way and for the same reason.
+            implementation(projects.client.net.domain)
             implementation(projects.client.design.text)
         }
         commonTest.dependencies {

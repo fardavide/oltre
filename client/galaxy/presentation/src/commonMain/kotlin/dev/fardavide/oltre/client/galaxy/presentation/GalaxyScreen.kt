@@ -16,6 +16,8 @@ import dev.fardavide.oltre.client.galaxy.ui.GalaxyPage
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
 import dev.fardavide.oltre.core.GalaxyBalance
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
@@ -57,11 +59,20 @@ fun GalaxyScreen(
     // The fifth verb reaching a finger for the first time. It takes all three subjects at once
     // because they are three facets of one commitment rather than three decisions — see `startRun`,
     // which takes them the same way and for the same reason.
-    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit,
+    // **It answers whether the tap was kept**, which since 0.21 is a question a dispatch can have a
+    // *no* to: a run aims at a shared galaxy, so it cannot be queued and refuses at the tap. The
+    // screen needs that answer synchronously to know whether to close the sheet, and the composition
+    // root is the only thing that can give it — see `App`, and see the note at the call site.
+    onDispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean,
     // The bell beside both verbs this tab shows — the map card's probe and the sheet's Dispatch. It
     // takes no subject, unlike the two above it: what it moves is the standing answer the next
     // flight will be sent with, and the verb is what writes that onto a job. See `toggleFlightAlerts`.
     onToggleAnnounce: () -> Unit,
+    // What the phone has accepted and the server has not, and what the last tap on a verb that
+    // cannot be held produced. Both are facts about the network rather than about the map, which is
+    // why they arrive from the composition root — see the same pair on the colony's mapper.
+    held: HeldActions = HeldActions.NONE,
+    refusal: RefusalUiState? = null,
     // Hoisted since the Sky pass — see the same parameter on `ColonyScreen`.
     scrollState: ScrollState = rememberScrollState(),
     modifier: Modifier = Modifier,
@@ -92,7 +103,14 @@ fun GalaxyScreen(
     // else.
     var open by remember(state.galaxy.seed, at) { mutableStateOf<DispatchSelection?>(null) }
     val nav = GalaxyNavigation(view = view, at = at, query = query, seenAt = seenAt)
-    val uiState = state.toGalaxyUiState(nav = nav, now = now, timeZone = timeZone, dispatch = open)
+    val uiState = state.toGalaxyUiState(
+        nav = nav,
+        now = now,
+        timeZone = timeZone,
+        dispatch = open,
+        held = held,
+        refusal = refusal,
+    )
     GalaxyPage(
         uiState = uiState,
         onSelectMode = { mode ->
@@ -158,15 +176,25 @@ fun GalaxyScreen(
             // clamped the hull count to the idle pool, and dispatching the raw selection would send
             // a run the sheet never described.
             (uiState.dispatch as? DispatchUiState.Offer)?.let { offer ->
-                onDispatchRun(
+                val kept = onDispatchRun(
                     offer.at,
                     offer.gathering,
                     offer.manifest,
                     offer.window,
                 )
-                // The state after the tap is its own receipt — the row's reach line, the map card
-                // and the Colony strip all change — so the sheet has nothing left to say.
-                open = null
+                // **The sheet closes on a dispatch that was kept and stays up on one that was not**,
+                // which is the whole of the refusal's shape: the block appears above the button, the
+                // button holds its place, and the manifest and the clock stay on screen — because the
+                // refusal is about the *target* rather than about the run the player just assembled,
+                // and reopening the sheet later should not cost them the assembly.
+                //
+                // **The answer comes back from the callback rather than from a flag about the
+                // network**, which is what keeps this screen knowing nothing about connections: it
+                // asks *was this kept*, and the composition root is the only thing that can say.
+                //
+                // With signal the state after the tap is its own receipt — the row's reach line, the
+                // map card and the Colony strip all change — so the sheet has nothing left to say.
+                if (kept) open = null
             }
         },
         onToggleAnnounce = onToggleAnnounce,

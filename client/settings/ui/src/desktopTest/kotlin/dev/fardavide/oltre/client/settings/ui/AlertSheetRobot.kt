@@ -45,6 +45,10 @@ internal fun alertSheet(
                         onSelectMode = onSelectMode,
                         onToggleCategory = onToggleCategory,
                         onSelectDelivery = onSelectDelivery,
+                        // Never reached: these tests hand in no `account`, so the row that would call
+                        // this is not drawn at all. The deletion flow is driven where it lives, in
+                        // `:client:shell`, because only the composition root knows there is one.
+                        onDeleteAccount = {},
                         // Empty on purpose: what fills this slot is the changelog's build row, and
                         // these tests are about the two ladders. The row is driven where it lives —
                         // `BuildRowBehaviourTest` — and through the app, where the door it opens is

@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.fardavide.oltre.client.design.component.CostChip
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldAction
+import dev.fardavide.oltre.client.design.component.HeldNote
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.LevelDial
 import dev.fardavide.oltre.client.design.component.OltreCardState
 import dev.fardavide.oltre.client.design.component.RowVerdict
@@ -66,6 +69,7 @@ internal fun TechnologyList(
                 action = row.action,
                 watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
+                held = row.held,
                 cardTag = ResearchTestTags.card(row.technology),
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
@@ -104,6 +108,7 @@ internal fun AdaptationList(
                 action = row.action,
                 watch = row.watch,
                 finishedWhileAway = row.finishedWhileAway,
+                held = row.held,
                 cardTag = ResearchTestTags.card(row.technology),
                 rowTag = ResearchTestTags.row(row.technology),
                 actionTag = ResearchTestTags.action(row.technology),
@@ -137,6 +142,9 @@ private fun ProjectRow(
     // True on at most one row in the whole app, and only just after a launch: this is the project
     // that landed while it was closed. See `CompletionSweep`.
     finishedWhileAway: Boolean,
+    // What this row has outstanding. A project and an adaptation take it the same way for the same
+    // reason every other parameter here is shared: from three rows away the two have to be one row.
+    held: HeldUiState,
     cardTag: String,
     rowTag: String,
     actionTag: String,
@@ -157,7 +165,9 @@ private fun ProjectRow(
             // row is tappable too: the sheet is where a row the player cannot buy yet says what it
             // would be worth when they can.
             .pressable(shape = oltreCardShape) { onOpenDetail() }
-            .oltreCard(action.cardState())
+            // A held *start* takes the surface; a held square does not — the colony's rule, and it
+            // is the same rule because it is the same card.
+            .oltreCard(if (held.action) OltreCardState.HELD else action.cardState())
             // Over the fill and over the content, so it reads as light falling on the card.
             .completionSweep(sweep)
             .testTag(cardTag)
@@ -224,7 +234,7 @@ private fun ProjectRow(
                             fontSize = 10.5.sp,
                             modifier = Modifier.padding(top = 4.dp),
                         )
-                        verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                        VerdictOrHeld(verdict = verdict, held = held, compact = compact)
                     }
                     // In flight the effect line is replaced, exactly as a facility row drops its
                     // costs while it builds: what you want mid-project is when, not what — and
@@ -249,7 +259,7 @@ private fun ProjectRow(
                         // what the player compares across three rows, and `RowVerdict` truncates
                         // rather than wraps, so the row can carry both beside a square where the
                         // effect line it replaced could not.
-                        verdict?.let { RowVerdict(verdict = it, compact = compact) }
+                        VerdictOrHeld(verdict = verdict, held = held, compact = compact)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.padding(top = 4.dp),
@@ -277,7 +287,12 @@ private fun ProjectRow(
                     }
                 }
             }
-            when (action) {
+            // **The amber ghost wins over every other action state**, exactly as it does on the
+            // colony's rows: a queued start replaces whatever the row would otherwise offer with
+            // `Held`, which is still a target — pressing it withdraws the request.
+            if (held.action) {
+                HeldAction(onClick = onStart, modifier = Modifier.testTag(actionTag))
+            } else when (action) {
                 ResearchActionUiState.Start -> Text(
                     text = Strings.researchVerb().resolve(),
                     color = Color.White,
@@ -295,7 +310,7 @@ private fun ProjectRow(
                 // The ghost time, and — only when the wait is about the price rather than about the
                 // slot — the square that books an alert for it. See `watchOn`.
                 is ResearchActionUiState.AvailableIn -> WatchableAction(
-                    watch = watch?.asSquare(),
+                    watch = watch?.asSquare(held = held.watch),
                     stacked = compact,
                     onToggleWatch = onToggleWatch,
                     watchModifier = Modifier.testTag(watchTag),
@@ -334,7 +349,7 @@ private fun ProjectRow(
                     // colony's running row, which draws the same three in the same order.
                     watch?.let {
                         WatchSquare(
-                            state = it.asSquare(),
+                            state = it.asSquare(held = held.watch),
                             onClick = onToggleWatch,
                             stacked = false,
                             modifier = Modifier.testTag(watchTag),
@@ -360,4 +375,17 @@ private fun ResearchActionUiState.cardState(): OltreCardState = when (this) {
     is ResearchActionUiState.Locked,
     -> OltreCardState.WAITING
     is ResearchActionUiState.Running -> OltreCardState.RUNNING
+}
+
+// **Held displaces the verdict rather than adding a line** — the colony's rule, and the same rule
+// because it is the same slot: a held card has no countdown and no bar, so the line the verdict was
+// on is free, and what a player has asked for and not got is the more urgent of the two.
+@Composable
+private fun VerdictOrHeld(verdict: VerdictUiState?, held: HeldUiState, compact: Boolean) {
+    val line = held.line
+    if (line == null) {
+        verdict?.let { RowVerdict(verdict = it, compact = compact) }
+    } else {
+        HeldNote(text = line)
+    }
 }

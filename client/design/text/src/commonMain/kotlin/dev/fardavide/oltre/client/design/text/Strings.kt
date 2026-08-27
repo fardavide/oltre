@@ -1327,6 +1327,14 @@ object Strings {
 
     fun alertModeByCategory(): TextRes = message(StringId.AlertModeByCategory)
 
+    // The same two entries reached by their value rather than by name, for the one caller that has an
+    // `AlertMode` in hand and needs the chip's own words back: the held note says *which stop* was
+    // asked for, and it must be the string on the chip rather than a second name for it.
+    fun alertModeName(mode: AlertMode): TextRes = when (mode) {
+        AlertMode.PER_ITEM -> alertModePerItem()
+        AlertMode.BY_CATEGORY -> alertModeByCategory()
+    }
+
     // The one line the ladder carries, and it has two clauses on purpose: what the mode means, then
     // what it does to the screen the player came from. The second clause is what stops a colony full
     // of rows that suddenly have no square reading as a bug.
@@ -1413,7 +1421,259 @@ object Strings {
     // because it is three of them and the point is that it is a name.
     fun buildRowSpoken(version: TextRes, headline: TextRes): TextRes =
         message(StringId.BuildRowSpoken, Arg.Text(version), Arg.Text(headline))
+
+    // ── The gate ────────────────────────────────────────────────────────────────────────────
+
+    // Two lines of why, because there are exactly two facts and both are load-bearing: the galaxy is
+    // shared, and the colony runs on the server. The second is what makes an account a mechanism
+    // rather than a policy — and it is the sentence the offline failure needs to have already said.
+    fun signInWhyLead(): TextRes = message(StringId.SignInWhyLead)
+
+    fun signInWhyFoot(): TextRes = message(StringId.SignInWhyFoot)
+
+    // The one reassurance the screen is entitled to make, and the reason it is not a consent notice:
+    // nothing has happened yet, and the foot says so rather than asking for agreement.
+    fun signInFoot(): TextRes = message(StringId.SignInFoot)
+
+    // **The two strings the game does not own.** Apple mandates the wording and translates it
+    // itself; Google's is near enough the same. They are catalogue entries so that each language
+    // gets the platform's own — see `StringId`.
+    fun signInWith(provider: AuthProviderName): TextRes = message(
+        when (provider) {
+            AuthProviderName.APPLE -> StringId.SignInWithApple
+            AuthProviderName.GOOGLE -> StringId.SignInWithGoogle
+        },
+    )
+
+    fun providerName(provider: AuthProviderName): TextRes = message(
+        when (provider) {
+            AuthProviderName.APPLE -> StringId.ProviderApple
+            AuthProviderName.GOOGLE -> StringId.ProviderGoogle
+        },
+    )
+
+    // One muted sentence and nothing moves. A spinner would be the first looping animation in the
+    // product and would claim knowledge the app does not have: it cannot tell a slow answer from no
+    // answer.
+    fun signInWaitingLead(): TextRes = message(StringId.SignInWaitingLead)
+
+    fun signInWaitingBody(): TextRes = message(StringId.SignInWaitingBody)
+
+    // No signal and a service that is down are one screen, because they are one instruction: wait.
+    // The second sentence is the only place in the product that states the rule out loud.
+    fun signInNoAnswerLead(): TextRes = message(StringId.SignInNoAnswerLead)
+
+    fun signInNoAnswerBody(): TextRes = message(StringId.SignInNoAnswerBody)
+
+    // What the gate says when it can draw no provider at all — a fact about the build rather than
+    // about anything the player just did, and the only reason the screen is not mute.
+    fun signInNoProviderLead(): TextRes = message(StringId.SignInNoProviderLead)
+
+    fun signInNoProviderBody(): TextRes = message(StringId.SignInNoProviderBody)
+
+    // **One string for a refusal and for a cancellation**, because the app frequently cannot tell
+    // them apart and an accusation is worse than a fact. The provider is named because the player
+    // pressed it; the other one is named because it is the next thing to try.
+    fun signInRefusedLead(provider: AuthProviderName): TextRes =
+        message(StringId.SignInRefusedLead, Arg.Text(providerName(provider)))
+
+    fun signInRefusedBody(alternative: AuthProviderName): TextRes =
+        message(StringId.SignInRefusedBody, Arg.Text(providerName(alternative)))
+
+    fun signInThrottledLead(): TextRes = message(StringId.SignInThrottledLead)
+
+    // **The number does not tick.** No timers, ever, predates this screen, so the wait is recomputed
+    // when it is asked for rather than counted down — which also makes each impatient tap visibly
+    // spend part of it. Past the window the line changes rather than the button silently working.
+    fun signInThrottledBody(seconds: Int): TextRes =
+        message(StringId.SignInThrottledBody, Arg.Text(shortWait(seconds)))
+
+    fun signInAskAgainNow(): TextRes = message(StringId.SignInAskAgainNow)
+
+    // Two units at most, which is the committed format one order of magnitude down. Under a minute
+    // there is one unit to print and printing `0m 41s` would be the app padding a wait to look
+    // longer than it is.
+    fun shortWait(seconds: Int): TextRes = if (seconds < SECONDS_PER_MINUTE) {
+        message(StringId.DurationSeconds, Arg.Number(seconds.toLong()))
+    } else {
+        message(
+            StringId.DurationMinutesSeconds,
+            Arg.Number((seconds / SECONDS_PER_MINUTE).toLong()),
+            Arg.Number((seconds % SECONDS_PER_MINUTE).toLong()),
+        )
+    }
+
+    // ── Accepted, and not a fact yet ─────────────────────────────────────────────────────────
+
+    // The amber ghost. Still a target — pressing it withdraws the request — which is why it is a
+    // word rather than a state the button wears silently.
+    fun heldButton(): TextRes = message(StringId.HeldButton)
+
+    fun heldUpgradeFoot(): TextRes = message(StringId.HeldUpgradeFoot)
+
+    // One entry for a project and an adaptation alike: both are *started*, both take the one slot,
+    // and a card that said something different depending on which branch it was on would be
+    // inventing a distinction the queue does not make.
+    fun heldStartFoot(): TextRes = message(StringId.HeldStartFoot)
+
+    // **Two entries because a hull card can hold two requests at once**, and the design draws the
+    // pair as one sentence rather than as two lines: the build and the alert land together, which
+    // is the fact a player needs and neither line says on its own.
+    fun heldBuildFoot(withAlert: Boolean): TextRes =
+        message(if (withAlert) StringId.HeldBuildAndAlertFoot else StringId.HeldBuildFoot)
+
+    // The square says *not confirmed* and this says which way, because 29dp cannot.
+    fun heldWatchFoot(on: Boolean): TextRes =
+        message(if (on) StringId.HeldWatchOnFoot else StringId.HeldWatchOffFoot)
+
+    // The dispatch sheet's bell, which has a richer thing to say than a direction: what being told
+    // actually means, and that it waits on the run being confirmed.
+    fun heldAnnounceFoot(on: Boolean): TextRes =
+        if (on) message(StringId.HeldAnnounceFoot) else heldTurning(on = false)
+
+    fun heldTurning(on: Boolean): TextRes =
+        message(if (on) StringId.HeldTurningOn else StringId.HeldTurningOff)
+
+    // **A ladder is the one held control that names a destination**, because it is the one that has
+    // somewhere to go: the server's stop keeps accent and the asked-for stop takes amber, so the
+    // note has to say which stop the amber chip is.
+    fun heldLadderNote(stop: TextRes): TextRes = message(StringId.HeldLadderNote, Arg.Text(stop))
+
+    // The one new piece of chrome in the offline era. It carries the network fact and the count and
+    // **never the state of a control** — a banner that said three things were held could not say
+    // which three, and the player is looking at the switch rather than at the top of the screen.
+    fun offlineSince(hour: Int, minute: Int, held: Int, compact: Boolean): TextRes = message(
+        if (compact) StringId.OfflineSinceCompact else StringId.OfflineSince,
+        Arg.Number(hour.toLong()),
+        Arg.Number(minute.toLong()),
+        Arg.Count(held),
+    )
+
+    // ── Refused outright ─────────────────────────────────────────────────────────────────────
+
+    // **A run and a probe aim at a shared galaxy, so neither can be held.** Everything else offline
+    // is a bet against your own colony, which the server can settle; these are aimed at a world
+    // somebody else may now hold, and a queue would be aiming at a snapshot.
+    fun refusedRunLead(): TextRes = message(StringId.RefusedRunLead)
+
+    fun refusedRunBody(target: TextRes, compact: Boolean): TextRes = message(
+        if (compact) StringId.RefusedRunBodyCompact else StringId.RefusedRunBody,
+        Arg.Text(target),
+    )
+
+    fun refusedProbeLead(): TextRes = message(StringId.RefusedProbeLead)
+
+    fun refusedProbeBody(compact: Boolean): TextRes =
+        message(if (compact) StringId.RefusedProbeBodyCompact else StringId.RefusedProbeBody)
+
+    // Deleting an account needs the network too, so it refuses in the same grammar as a dispatch.
+    // Nothing in the brief said so; the design drew it and it is right.
+    fun refusedDeleteLead(): TextRes = message(StringId.RefusedDeleteLead)
+
+    fun refusedDeleteBody(): TextRes = message(StringId.RefusedDeleteBody)
+
+    // ── The account, and the door out of it ──────────────────────────────────────────────────
+
+    fun accountLabel(): TextRes = message(StringId.AccountLabel)
+
+    fun accountSignedInWith(provider: AuthProviderName): TextRes =
+        message(StringId.AccountSignedInWith, Arg.Text(providerName(provider)))
+
+    fun accountSince(name: TextRes, day: Int, month: Int): TextRes = message(
+        StringId.AccountSince,
+        Arg.Text(name),
+        Arg.Number(day.toLong()),
+        Arg.Number(month.toLong()),
+    )
+
+    // **Body-weight and muted, with the consequence as its verdict line** — red on a settings row is
+    // a warning nobody asked for yet, and accent would mean *go tap this*.
+    fun deleteAccountRow(): TextRes = message(StringId.DeleteAccountRow)
+
+    fun deleteAccountRowNote(): TextRes = message(StringId.DeleteAccountRowNote)
+
+    fun deleteFaceTitle(): TextRes = message(StringId.DeleteFaceTitle)
+
+    fun deleteFaceIntro(): TextRes = message(StringId.DeleteFaceIntro)
+
+    // **The fact the numbers cannot teach**, and the one Apple's requirement does not ask for. Both
+    // providers are named whichever one signed you in, because the sentence is about what an account
+    // is rather than about which one this is.
+    fun deleteFaceSecond(): TextRes = message(StringId.DeleteFaceSecond)
+
+    fun deleteFaceAction(): TextRes = message(StringId.DeleteFaceAction)
+
+    // The four rows are for reading, in the colony's own numbers, and reading them is what makes the
+    // second sentence land.
+    fun deleteFactLabel(fact: DeleteFactKind): TextRes = message(
+        when (fact) {
+            DeleteFactKind.COLONY -> StringId.DeleteFactColonyLabel
+            DeleteFactKind.FLEET -> StringId.DeleteFactFleetLabel
+            DeleteFactKind.MAP -> StringId.DeleteFactMapLabel
+            DeleteFactKind.RESEARCH -> StringId.DeleteFactResearchLabel
+        },
+    )
+
+    fun deleteFactColony(name: TextRes, facilities: Int, level: Int): TextRes = message(
+        StringId.DeleteFactColony,
+        Arg.Text(name),
+        Arg.Count(facilities),
+        Arg.Number(level.toLong()),
+    )
+
+    // **Null hulls is the first launch rather than an edge case**, so it gets a sentence of its own:
+    // a colony opens with no hull at all — the first one is the first purchase — and a list of
+    // nothing has no grammar to join.
+    fun deleteFactFleet(hulls: TextRes?, runs: Int): TextRes = if (hulls == null) {
+        message(StringId.DeleteFactFleetEmpty)
+    } else {
+        message(StringId.DeleteFactFleet, Arg.Text(hulls), Arg.Count(runs))
+    }
+
+    fun deleteFactMap(surveyed: Int, pinned: Int): TextRes =
+        message(StringId.DeleteFactMap, Arg.Count(surveyed), Arg.Count(pinned))
+
+    fun deleteFactResearch(projects: Int, adaptations: Int): TextRes =
+        message(StringId.DeleteFactResearch, Arg.Count(projects), Arg.Count(adaptations))
+
+    // **The colony rather than the account**, because the colony is the thing being lost — and it is
+    // the one proper noun on the face.
+    fun deleteConfirmTitle(name: TextRes): TextRes =
+        message(StringId.DeleteConfirmTitle, Arg.Text(name))
+
+    fun deleteConfirmIntro(): TextRes = message(StringId.DeleteConfirmIntro)
+
+    fun deleteConfirmSecond(provider: AuthProviderName): TextRes =
+        message(StringId.DeleteConfirmSecond, Arg.Text(providerName(provider)))
+
+    // First in the row and the wider read, because dismissal is a no.
+    fun deleteKeep(): TextRes = message(StringId.DeleteKeep)
+
+    fun deleteConfirmAction(): TextRes = message(StringId.DeleteConfirmAction)
 }
+
+// **Which of the two the catalogue is being asked about**, and it is this module's own enum rather
+// than `:protocol`'s `AuthProvider` for the reason `:client:design:text` depends on nothing: a table
+// of words has no business on the wire contract's compile classpath, and the day a third issuer
+// exists the two lists move for different reasons. `:client:auth:presentation` is where they meet.
+enum class AuthProviderName {
+
+    APPLE,
+    GOOGLE,
+}
+
+// The four rows of the deletion face. An enum rather than four functions because the face draws them
+// as a list and a list wants a key, and because a fifth kind of thing an account holds must not be
+// addable without the label being written.
+enum class DeleteFactKind {
+
+    COLONY,
+    FLEET,
+    MAP,
+    RESEARCH,
+}
+
+private const val SECONDS_PER_MINUTE: Int = 60
 
 // `internal`, so the only route to a `Message` is a named entry above. Everything the catalogue can
 // say is therefore a function somebody wrote a signature for.

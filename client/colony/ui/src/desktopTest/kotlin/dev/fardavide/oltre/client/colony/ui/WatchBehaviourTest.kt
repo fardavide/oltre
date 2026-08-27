@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.colony.ui
 
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.VerdictUiState
 import dev.fardavide.oltre.client.design.component.WatchUiState
 import dev.fardavide.oltre.core.BuildingLevel
@@ -111,6 +112,7 @@ class WatchBehaviourTest {
     private fun waiting(
         building: BuildingType,
         watch: WatchUiState? = WatchUiState.Offered,
+        held: HeldUiState = HeldUiState.NONE,
     ) = FacilityRowUiState(
         building = building,
         name = TextRes(if (building == BuildingType.ROBOTICS_FACTORY) "Robotics Factory" else "Metal Mine"),
@@ -125,5 +127,6 @@ class WatchBehaviourTest {
         verdict = VerdictUiState(label = TextRes("+281/h metal · back in 6h 40m"), compactLabel = TextRes("+281/h metal")),
         detail = FacilityDetailUiState(lines = emptyList(), ladder = emptyList(), pointer = null),
         finishedWhileAway = false,
+        held = held,
     )
 }

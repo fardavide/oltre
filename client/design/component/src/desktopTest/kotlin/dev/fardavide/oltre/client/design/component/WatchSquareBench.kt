@@ -34,7 +34,10 @@ internal fun WatchSquareBench() {
             // Stacked, so the square is its own 29dp rather than a 29x44 claim with air above and
             // below it — the bench is about the mark, and the taller form's extra height is a touch
             // target that draws nothing.
-            WatchSquareUiState.entries.forEach { state ->
+            // `FACES` rather than the `entries` this used to walk: since 0.21 the state is a product
+            // of two facts rather than an enum, so nothing derives the list and a seventh face has to
+            // be added there by hand — see `WatchSquareUiState.FACES`, which says so.
+            WatchSquareUiState.FACES.forEach { state ->
                 WatchSquare(state = state, onClick = {}, stacked = true)
             }
         }

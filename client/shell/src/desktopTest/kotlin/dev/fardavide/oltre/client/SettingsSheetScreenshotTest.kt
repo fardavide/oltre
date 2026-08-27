@@ -117,6 +117,14 @@ class SettingsSheetScreenshotTest {
                             onSelectMode = {},
                             onToggleCategory = {},
                             onSelectDelivery = {},
+                            // **No account on these frames and none of the three callbacks reachable
+                            // from them.** The two faces the account opens are their own baselines —
+                            // see `DeleteFaceScreenshotTest` — and folding them in here would make
+                            // four settings frames carry a section the sheet is not about.
+                            delete = null,
+                            onOpenDelete = {},
+                            onKeepAccount = {},
+                            onDeleteAccount = {},
                         )
                     }
                 }

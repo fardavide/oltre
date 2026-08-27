@@ -78,10 +78,28 @@ them alone and read the report.
   detector — a `SensorManager` or an `AlarmManager` behind a component the system instantiates,
   with no seam a test can take without Robolectric or an instrumented run, neither of which exists
   here. And a third group, **scoped to one pass rather than to the whole report**: composables
-  **and the Postgres store** in the unit pass, everything that is not a drawing in the screenshot
-  pass, the string catalogue in the two that render, `:protocol` and `:server` in the two that
+  **and every other drawing, and the Postgres store** in the unit pass, everything that is not a
+  drawing **and the undesigned debug panel** in the screenshot
+  pass, **the drawing and the mapping into it in the integration pass**, the string catalogue in the
+  two that render, `:protocol` and `:server` in the two that
   render — a wire contract and a Ktor route are both unreachable by a frame for `core`'s reason — and
-  `:client:net:data` in the behaviour pass alone.
+  `:client:net:data` and `:client:auth:data` in the behaviour pass alone.
+  **Every one of those says one sentence: *this kind of test cannot reach that kind of code*** — and
+  four of the entries are #113's, because a slice large enough to make several gaps visible at once is
+  the same rule being finished rather than several failures. The unit pass's is the one worth reading
+  twice: `annotatedBy` lands on the annotation, and a `DrawScope` extension or a `Path` built from
+  vector data is drawing that carries none, so the rule needed `*.ui` and the two design modules that
+  draw to mean what it said.
+  `:client:auth:data`'s is the most reusable: **a behaviour test cannot reach the implementation its
+  own test double replaces**, and `App` takes a `ProviderSignIn` precisely so the suite never opens a
+  browser.
+  The integration entry is #113's and it is the last of the four passes to be narrowed: an
+  integration test renders nothing, so `*.presentation`, `*.ui` and every `@Composable` are
+  unreachable by it, and left in they made the row report *what fraction of the whole codebase eight
+  boundary tests happen to execute* — a number that falls on every screen that ships. **`core` stays
+  in it deliberately**: it holds no boundary but it is what the server's replay tests execute across
+  one, and dropping it takes the row from 13.5% to 7.8%. *Reached across a boundary* is the test,
+  not *contains one*.
   `:protocol`'s behaviour half comes out at **#113**, when the shell gains a consumer — not #112,
   which lands `:client:net:data` and its fake but leaves the shell cutover to the slice after it, so
   the module still has no consumer a behaviour test can reach through. `:client:net:data`'s comes out
@@ -110,6 +128,14 @@ them alone and read the report.
 2. **Davide's explicit permission**, asked for and given. An exclusion is permanent and silent: it
    does not lower the gate, it removes the gate's ability to *see*, and no future run can notice
    what is no longer being counted. That is not a call the build makes for itself.
+
+**And a third thing to try before either of them, added at #113 in Davide's own words:** *"We should
+add exclusion only if we really cannot cover."* The largest unreachable block in the repository was
+`DefaultProviderSignIn.desktop.kt`, 58 lines at 0%, and the exclusion was easy to argue — a machine
+here cannot sign in to Google. It was also wrong: what a machine here cannot do is open a browser and
+reach Google, and those are two lines. Two defaulted parameters put the other fifty-six under an
+integration test across two real sockets. **Ask what the platform act actually is before naming the
+file that contains it**; the answer is usually smaller than the file.
 
 The tilt parallax broke both. Three `classes(…)` lines went in during the same commit as the code
 they hid, reasoning by analogy from the shake detector three lines above them, before any report

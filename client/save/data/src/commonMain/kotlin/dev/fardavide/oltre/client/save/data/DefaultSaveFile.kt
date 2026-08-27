@@ -9,7 +9,22 @@ expect fun defaultSaveFile(): SaveFile
 // mean a corrupt one of either kind takes only its own down. Called once, at the composition root.
 expect fun defaultPreferencesFile(): SaveFile
 
+// **The queue of taps the server has not answered, beside the save and the preferences.** A third
+// file for the second file's reason, one asymmetry sharper: a corrupt save costs a colony the server
+// still holds, and a corrupt outbox costs taps the player actually made — see `Outbox.queued`, which
+// has no honest way to recover half a queue. Neither may be able to take the other down.
+expect fun defaultOutboxFile(): SaveFile
+
+// **The session, and it is deliberately not the save.** `SessionStore`'s own KDoc is the argument:
+// a corrupt save costs a colony, a corrupt session costs a sign-in — which is a screen the player can
+// answer. Called once, at the composition root.
+expect fun defaultSessionFile(): SaveFile
+
 internal const val SAVE_FILE_NAME = "colony.json"
+
+internal const val OUTBOX_FILE_NAME = "outbox.json"
+
+internal const val SESSION_FILE_NAME = "session.json"
 
 internal const val PREFERENCES_FILE_NAME = "preferences.json"
 

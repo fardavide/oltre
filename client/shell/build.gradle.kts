@@ -52,6 +52,14 @@ kotlin {
             // decides whether this launch has anything new to say, `presentation` turns the document
             // into pages, and `ui` is the face the one sheet wears. `:client:settings:ui` reaches
             // none of them — the build row that leads to the changelog is filled into a slot here.
+            // The gate, the deletion face, the three platform sign-ins, and the queue read as a set
+            // of controls. The composition root is the only module that may see all four, which is
+            // the whole of its job.
+            implementation(projects.client.auth.data)
+            implementation(projects.client.auth.presentation)
+            implementation(projects.client.auth.ui)
+            implementation(projects.client.net.data)
+            implementation(projects.client.net.domain)
             implementation(projects.client.changelog.domain)
             implementation(projects.client.changelog.presentation)
             implementation(projects.client.changelog.ui)
@@ -124,6 +132,11 @@ kotlin {
         val desktopTest by getting {
             dependencies {
                 implementation(projects.client.design.screenshotTesting)
+                // **The fake server, and rule 5's whole shape**: a testing module reached from a test
+                // source set and from nowhere else. It is what keeps the behaviour suite off a socket
+                // pointed at production — `#106` §8 — and it is the reason `App` takes an `OltreApi`
+                // at all rather than building one for itself.
+                implementation(projects.client.net.dataTesting)
 
                 implementation(compose.desktop.uiTestJUnit4)
                 implementation(compose.desktop.currentOs)

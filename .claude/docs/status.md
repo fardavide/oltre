@@ -1,7 +1,6 @@
 # Status
 
-Updated: 2026-08-26 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` — issues #107, #108,
-#109, #110, #111 and #112, no bump)
+Updated: 2026-08-27 (0.21.0 — issue #113, the gate and the shell cutover)
 
 ## Landed
 
@@ -600,6 +599,21 @@ Updated: 2026-08-26 (0.20.1, plus `:protocol`, `:server` and `:client:net:data` 
   out never to have existed and Davide dropped the requirement rather than create one. See the pending
   entries below and [`decisions.md`](decisions.md).
 
+- **0.21.0 — the gate, the held state and the shell cutover** (#113, 2026-08-27). Slice 6 of #106's
+  second half, and the release that makes the game an online one. `App` holds an `OltreApi`, an
+  `Outbox` and a `SessionKeeper`; every tap becomes a `ClientVerb`; **`resume` no longer founds a
+  colony**, because a shared galaxy cannot let two devices invent two maps for one account. Three new
+  modules — `:client:auth:{data,presentation,ui}` — plus `:client:net:domain`, which is what *held*
+  means to a screen and is a `domain` layer so that eight presentation modules can legally read it.
+  The design is Claude Design's *Nothing Is Local Now*: the gate in five states, the amber held
+  language on all ten controls, the red refusal on the two verbs that cannot wait, the offline chrome
+  line, and the deletion flow's three faces. Strings in both languages, ten new baselines, and
+  `DESTINATION_HEIGHT` moved 612 → 590 in the same commit as the bar that took the 22dp. The two
+  Kover exclusions and the two `compileTestKotlinIosSimulatorArm64` lines came off exactly as #107
+  and #112 recorded they would. **Three things are outstanding and every one of them is above** —
+  nobody has signed in on a device, the one-time upload is not implementable inside this ticket's
+  scope, and Apple is absent on two platforms.
+
 
 ## Roadmap — v1 in vertical slices
 
@@ -650,6 +664,52 @@ numbers in it.
 Colonisation (#10) is called a **core pillar** on Notion but is not in the eight-item v1 list;
 carried here because the pressures that replace hard caps (upkeep, logistics, distance decay,
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
+
+## Pending, from 0.21.0
+
+- **Nobody has signed in on a device, and that is the one thing that must happen before this
+  merges.** Three integrations ship here and two of them no machine in this repository can run:
+  Apple through `AuthenticationServices` and Google through `ASWebAuthenticationSession` on iOS,
+  Google through Credential Manager on Android. Everything above the platform is covered by tests —
+  the URL building, the PKCE derivation, the nonce shapes, the error mapping, and the whole flow end
+  to end against `FakeOltreApi` — and none of that can tell you whether the sheet appears.
+  **0.4.2's *land the starting values and let a device decide* does not transfer**, because a broken
+  sign-in is not a degraded app: it is an app that cannot be opened. See the pull request for the
+  three checks, and note the two that fail silently — a missing
+  `com.apple.developer.applesignin` entitlement is `ASAuthorizationError 1000` at runtime, and a
+  missing `CFBundleURLSchemes` is a browser that completes the Google flow and never comes back.
+  Both are in this release; neither has been observed working.
+- **The one-time upload of an existing local save is not in this release and cannot be.** `#113` asks
+  for it and there is no wire method: `POST /v1/colony` takes no body. Adding one is a `:protocol`
+  change *and* a server endpoint, and server work is out of that ticket's scope by name.
+  **And the mitigation first written here was false**: it said the local save is never destroyed, so
+  the upload slice would still have it. There is one save file, and the first sync after a sign-in
+  writes the server's freshly-founded colony over it — `arrive` ends in `commit`, and `commit` is
+  `store.save`. So **a TestFlight colony that predates this release is replaced, on screen and on
+  disk, the first time its owner signs in**, and nothing brings it back.
+  Preserving it needs a second file, which is a decision rather than a fix — what the upload slice
+  reads, when it is written and discarded, what a corrupt one means. **That decision, and whether the
+  upload now blocks the merge, is Davide's**; it is on the pull request.
+- **Sign in with Apple is absent on Android and desktop.** Away from an Apple platform it is a browser
+  flow whose Return URL Apple insists is `https`, and the registered one is a server endpoint that
+  does not exist. There is no button rather than a button that opens a browser which never comes back.
+  Closing it needs that endpoint or a static bounce page on `oltre.space` with its own Return URL —
+  and the second is reachable from the `gh-pages` site that is already there.
+- **The desktop build reads `OLTRE_GOOGLE_DESKTOP_CLIENT_SECRET` from the environment**, so the dev
+  loop is `source ~/.oltre/identity.env && ./gradlew :client:shell:run`. Without it the gate draws no
+  provider at all — and since the review pass it *says so* rather than showing a screen with no way
+  out. Worth knowing before it is met.
+- **Two session defects were found by review after the first green CI run, and both are fixed here.**
+  Neither was reachable from inside the suite, so the check that matters is a device: (1) open the
+  app more than an hour after last playing **with the network off** — the colony must open, a tap
+  must go amber, and the player must *not* be signed out; (2) the same with a session the server has
+  actually revoked — the app must return to the gate rather than sitting on a colony whose every tap
+  is dropped. `decisions.md` has both under *"`Credential` — no token was two situations"*.
+- **`GOOGLE_CLIENT_IDS` needs the iOS client id adding.** The repository variable holds the Web and
+  Desktop clients; iOS signs in against the iOS client, so a token minted there carries an audience
+  the live service does not yet accept. It is a settings change rather than a commit —
+  <https://github.com/fardavide/oltre/settings/variables/actions> — and `identity-provisioning.md`
+  step 44b already says a sixth client is exactly that.
 
 ## Pending / not yet set up
 

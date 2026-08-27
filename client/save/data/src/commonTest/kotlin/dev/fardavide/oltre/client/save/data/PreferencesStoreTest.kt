@@ -19,7 +19,7 @@ class PreferencesStoreTest {
     fun `what is saved is what loads back`() = runTest {
         // given
         val store = PreferencesStore(FakeSaveFile())
-        val preferences = Preferences(galaxyLanding = MAP, lastSeenVersion = "0.19.0")
+        val preferences = Preferences(galaxyLanding = MAP, lastSeenVersion = "0.19.0", provider = null, lastReachedAt = null)
 
         // when
         store.save(preferences)
@@ -35,7 +35,7 @@ class PreferencesStoreTest {
         // rather than this one directly.
         val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS"}"""))
 
-        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null, provider = null, lastReachedAt = null), store.load())
     }
 
     @Test
@@ -44,7 +44,7 @@ class PreferencesStoreTest {
         // absent.
         val store = PreferencesStore(FakeSaveFile("""{"lastSeenVersion":"0.19.0"}"""))
 
-        assertEquals(Preferences(galaxyLanding = null, lastSeenVersion = "0.19.0"), store.load())
+        assertEquals(Preferences(galaxyLanding = null, lastSeenVersion = "0.19.0", provider = null, lastReachedAt = null), store.load())
     }
 
     @Test
@@ -71,7 +71,7 @@ class PreferencesStoreTest {
         val store = PreferencesStore(FakeSaveFile("""{"galaxyLanding":"$WORLDS","lastTabOpened":"COLONY"}"""))
 
         // when / then
-        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null, provider = null, lastReachedAt = null), store.load())
     }
 
     @Test
@@ -81,11 +81,11 @@ class PreferencesStoreTest {
         val store = PreferencesStore(file)
 
         // when
-        store.save(Preferences(galaxyLanding = MAP, lastSeenVersion = null))
-        store.save(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null))
+        store.save(Preferences(galaxyLanding = MAP, lastSeenVersion = null, provider = null, lastReachedAt = null))
+        store.save(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null, provider = null, lastReachedAt = null))
 
         // then
-        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null), store.load())
+        assertEquals(Preferences(galaxyLanding = WORLDS, lastSeenVersion = null, provider = null, lastReachedAt = null), store.load())
         assertEquals(2, file.writeCount)
     }
 

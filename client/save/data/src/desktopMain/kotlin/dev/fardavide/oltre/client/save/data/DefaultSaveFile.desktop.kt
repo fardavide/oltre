@@ -9,6 +9,10 @@ actual fun defaultSaveFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(
 
 actual fun defaultPreferencesFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(), PREFERENCES_FILE_NAME))
 
+actual fun defaultOutboxFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(), OUTBOX_FILE_NAME))
+
+actual fun defaultSessionFile(): SaveFile = FileSaveFile(File(desktopDataDirectory(), SESSION_FILE_NAME))
+
 private fun desktopDataDirectory(): File {
     val operatingSystem = System.getProperty("os.name").orEmpty().lowercase(Locale.ROOT)
     val home = File(System.getProperty("user.home").orEmpty())

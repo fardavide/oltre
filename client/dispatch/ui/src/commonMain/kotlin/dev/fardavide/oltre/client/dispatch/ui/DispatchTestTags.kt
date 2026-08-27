@@ -31,6 +31,11 @@ object DispatchTestTags {
     // `SHEET_ACTION` are already there to say which one is on screen.
     const val ANNOUNCE = "dispatch-announce"
 
+    // The block above the button when a tap could not be kept. Its own tag rather than a search for
+    // the sentence, because a behaviour test asserting *that the app refused* must not also be
+    // asserting which words it refused in — those are pinned in the catalogue's own tests.
+    const val REFUSAL = "dispatch-refusal"
+
     const val SHIPS_MORE = "dispatch-ships-more"
     const val SHIPS_FEWER = "dispatch-ships-fewer"
 

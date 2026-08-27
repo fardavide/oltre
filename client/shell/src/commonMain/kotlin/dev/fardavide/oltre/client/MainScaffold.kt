@@ -79,6 +79,10 @@ fun MainScaffold(
     // the difference. `Starfield` keeps the default, where "no lean" is a real thing a screenshot
     // wants to ask for; here it would only ever be a way of not noticing.
     tilt: () -> Tilt,
+    // **The one piece of chrome that is usually absent**, which is why it is nullable rather than a
+    // flag: a colony with signal has no line at all and the 22dp goes back to the destination. See
+    // `OfflineLine`, and see `GalaxyRobot.DESTINATION_HEIGHT`, which is the arithmetic this moves.
+    offline: OfflineLineUiState?,
     // **The gear, forwarded rather than answered here** — and that is `debugOpen`'s precedent rather
     // than a new arrangement. Both modals in this app are raised by `App`: it already holds whether
     // the debug sheet is up, and a settings sheet held *here* instead would put the app's two
@@ -105,6 +109,10 @@ fun MainScaffold(
         // the frame's job, never a screen's, which is the whole reason this Column has exactly one.
         PlayerStrip(uiState = player, onOpenSettings = onOpenSettings)
         ResourceRail(uiState = resources)
+        // **Under the rail and above the destination**, which is where the design put it: it is a fact
+        // about the connection the whole frame is on, so it belongs with the chrome rather than on any
+        // one screen — and every destination loses the same 22dp rather than one of them losing more.
+        offline?.let { OfflineLine(uiState = it) }
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
             Destination(
                 selected = selected,

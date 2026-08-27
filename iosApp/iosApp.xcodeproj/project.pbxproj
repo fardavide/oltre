@@ -14,6 +14,7 @@
 
 /* Begin PBXFileReference section */
 		2314491A35DC08A59D540B0F /* OltreApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OltreApp.swift; sourceTree = "<group>"; };
+		601B7B99DA8C5BC6424F3928 /* Oltre.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Oltre.entitlements; sourceTree = "<group>"; };
 		9AD47CECFBBA31832EDED00A /* Oltre.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = Oltre.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		C117AD187833E2513BD2F553 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		CE8509E5A49E4A5CAAEB3ADB /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -27,6 +28,7 @@
 				F543015C899423D4B01CEB2E /* Assets.xcassets */,
 				CE8509E5A49E4A5CAAEB3ADB /* ContentView.swift */,
 				C117AD187833E2513BD2F553 /* Info.plist */,
+				601B7B99DA8C5BC6424F3928 /* Oltre.entitlements */,
 				2314491A35DC08A59D540B0F /* OltreApp.swift */,
 			);
 			path = iosApp;
@@ -210,6 +212,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Oltre.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
@@ -221,7 +224,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.20.1;
+				MARKETING_VERSION = 0.21.0;
 				OTHER_LDFLAGS = "$(inherited) -framework OltreClient";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fardavide.oltre;
 				PRODUCT_NAME = Oltre;
@@ -298,6 +301,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Oltre.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 3;
@@ -309,7 +313,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 0.20.1;
+				MARKETING_VERSION = 0.21.0;
 				OTHER_LDFLAGS = "$(inherited) -framework OltreClient";
 				PRODUCT_BUNDLE_IDENTIFIER = dev.fardavide.oltre;
 				PRODUCT_NAME = Oltre;

@@ -14,6 +14,8 @@ import dev.fardavide.oltre.client.fleets.ui.RunPhase
 import dev.fardavide.oltre.core.FleetBalance
 import dev.fardavide.oltre.core.FleetRun
 import dev.fardavide.oltre.core.GalaxyCoordinate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.Research
@@ -39,6 +41,10 @@ fun GameState.toFleetsUiState(
     // What the player has touched on the sheet a row raised, or null when no sheet is up. The
     // mapping is `:client:dispatch:presentation`'s; this only knows which world is open.
     dispatch: DispatchSelection? = null,
+    // The pair the sheet needs and this list does not: nothing on the Fleets tab itself can be held —
+    // a run in flight is a fact and a worked row is a record — so these travel straight through.
+    held: HeldActions = HeldActions.NONE,
+    refusal: RefusalUiState? = null,
 ): FleetsUiState {
     val owned = ownedShips().total
     val away = owned - ships.total
@@ -57,7 +63,9 @@ fun GameState.toFleetsUiState(
         // **No probe offer, and null is the honest answer rather than a shortcut.** A world a fleet
         // has already been sent to was surveyed in order to be dispatched to, and `surveyed` is
         // never removed — so the refusal that offer feeds cannot be reached from this list at all.
-        dispatch = dispatch?.let { toDispatchUiState(selection = it, probe = null, now = now) },
+        dispatch = dispatch?.let {
+            toDispatchUiState(selection = it, probe = null, now = now, held = held, refusal = refusal)
+        },
     )
 }
 

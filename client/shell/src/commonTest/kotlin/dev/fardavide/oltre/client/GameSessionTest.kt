@@ -32,28 +32,34 @@ import kotlin.time.Instant
 
 class GameSessionTest {
 
+    // **`resume` no longer founds anything, and this is what replaced the two tests that said it
+    // did.** A first launch used to mean *a null save*, and this function drew a `GalaxySeed` from
+    // the clock to mint a colony — which a shared galaxy cannot allow: two devices signing into one
+    // account would each have invented a map, and neither would be the one the server holds.
+    //
+    // What is left that is local is the debug menu's reset, which is where the seed is drawn now.
     @Test
-    fun `a first launch starts a fresh colony as of now`() {
+    fun `a reset colony is founded as of the instant it was reset`() {
         // given
         val now = EPOCH + 5.hours
 
         // when
-        val session = resume(saved = null, now = now)
+        val outcome = resetColony(wallClock = now)
 
-        // then — the galaxy is seeded from the instant the colony was founded, so the whole state
-        // is a function of `now` and nothing else.
-        assertEquals(GameState.initial(GalaxySeed(now.toEpochMilliseconds())), session.state)
-        assertEquals(now, session.lastUpdatedAt)
+        // then — the galaxy is seeded from the instant it was founded, so the whole state is a
+        // function of `now` and nothing else.
+        assertEquals(GameState.initial(GalaxySeed(now.toEpochMilliseconds())), outcome.session.state)
+        assertEquals(now, outcome.session.lastUpdatedAt)
     }
 
     @Test
     fun `two colonies founded at different instants get different galaxies`() {
         // A default seed would have handed every player the same map, which is exactly why
         // `GameState.initial` takes one rather than defaulting it.
-        val mine = resume(saved = null, now = EPOCH + 5.hours).state.galaxy
-        val theirs = resume(saved = null, now = EPOCH + 9.hours).state.galaxy
+        val mine = resetColony(wallClock = EPOCH + 5.hours).session.state.galaxy
+        val theirs = resetColony(wallClock = EPOCH + 9.hours).session.state.galaxy
 
-        assertTrue(mine.seed != theirs.seed, "two launches must not share a galaxy seed")
+        assertTrue(mine.seed != theirs.seed, "two resets must not share a galaxy seed")
     }
 
     @Test

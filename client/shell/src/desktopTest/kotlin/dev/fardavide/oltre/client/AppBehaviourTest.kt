@@ -5,6 +5,7 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
+import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.GameSave
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
@@ -230,7 +231,11 @@ class AppBehaviourTest {
             .replace(chartedKey, "")
         assertTrue("charted" !in legacy, "the fixture has to be a save from before the key existed")
 
-        app(saved = null, legacy = legacy) {
+        // **With no server in reach**, which is what makes this still a test about the *save*: since
+        // 0.21 a colony that answers is the server's, so a reachable one would hand back its own and
+        // the migration would be invisible. Offline the app opens on the colony this device last
+        // held, which is precisely what a migration produces and what a player on a train sees.
+        app(saved = null, legacy = legacy, api = FakeOltreApi().apply { offline = true }) {
             open(OltreTab.GALAXY)
             // Home is 171 and the colony reached 200, so the light runs 141…230 — ninety systems,
             // and none of it handed back. A colony that woke up charted around home alone would

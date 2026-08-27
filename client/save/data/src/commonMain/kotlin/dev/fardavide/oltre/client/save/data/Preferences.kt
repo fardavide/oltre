@@ -28,6 +28,25 @@ data class Preferences(
     // a version this build cannot parse reads as nothing remembered, which is also what a first
     // launch gets. Null is a player who has never been shown a changelog.
     val lastSeenVersion: String?,
+    // **Which provider signed this device in**, as the *name* of one rather than the enum — the two
+    // fields above make the argument and it holds a third time: `AuthProvider` is `:protocol`'s and
+    // this module carries a value through with no opinion about what it names.
+    //
+    // It is here rather than beside the session because it is not part of the credential: the server
+    // does not send it, nothing on the wire needs it, and what it is *for* is two sentences on the
+    // deletion face that name the provider. A file this build cannot resolve reads as nothing
+    // remembered, and then those sentences name both providers instead of one — which is what the
+    // string table already does everywhere else.
+    val provider: String?,
+    // **When the server last answered**, as epoch milliseconds in a string for the three fields
+    // above's reason: this module carries a value through and has no opinion about what it names.
+    //
+    // It is remembered rather than held in memory because the line it feeds outlives a launch: a
+    // player who opened the app on a train and closed it is still offline the next morning, and
+    // *"no network since 11:31"* is only answerable by something that was written down. A file this
+    // build cannot parse reads as *never*, which draws no line at all — the same answer a device that
+    // has genuinely never been online gets, and the honest one.
+    val lastReachedAt: String?,
 ) {
 
     companion object {
@@ -35,6 +54,11 @@ data class Preferences(
         // A first launch, and every failure `PreferencesStore.load` swallows. Named rather than
         // defaulted into the constructor, so a caller building preferences has to say what it
         // wants in every field and the compiler catches the one it forgot.
-        val NONE: Preferences = Preferences(galaxyLanding = null, lastSeenVersion = null)
+        val NONE: Preferences = Preferences(
+            galaxyLanding = null,
+            lastSeenVersion = null,
+            provider = null,
+            lastReachedAt = null,
+        )
     }
 }

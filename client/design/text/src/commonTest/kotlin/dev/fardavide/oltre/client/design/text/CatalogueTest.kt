@@ -451,4 +451,76 @@ private val everyEntry: List<TextRes> = buildList {
     (1..12).forEach { month -> add(Strings.releaseDate(day = 23, month = month, year = 2026)) }
     add(Strings.buildLabel())
     add(Strings.buildRowSpoken(TextRes("0.19.0"), TextRes("x")))
+    add(Strings.signInWhyLead())
+    add(Strings.signInWhyFoot())
+    add(Strings.signInFoot())
+    AuthProviderName.entries.forEach { add(Strings.signInWith(it)) }
+    AuthProviderName.entries.forEach { add(Strings.providerName(it)) }
+    add(Strings.signInWaitingLead())
+    add(Strings.signInWaitingBody())
+    add(Strings.signInNoAnswerLead())
+    add(Strings.signInNoAnswerBody())
+    add(Strings.signInNoProviderLead())
+    add(Strings.signInNoProviderBody())
+    AuthProviderName.entries.forEach { add(Strings.signInRefusedLead(it)) }
+    AuthProviderName.entries.forEach { add(Strings.signInRefusedBody(it)) }
+    add(Strings.signInThrottledLead())
+    // Both sides of the minute, because `shortWait` picks between two entries on it and a sample from
+    // one side would leave the other's branch reachable by nobody.
+    add(Strings.signInThrottledBody(41))
+    add(Strings.signInThrottledBody(252))
+    add(Strings.signInAskAgainNow())
+    add(Strings.heldButton())
+    add(Strings.heldUpgradeFoot())
+    add(Strings.heldStartFoot())
+    add(Strings.heldBuildFoot(withAlert = false))
+    add(Strings.heldBuildFoot(withAlert = true))
+    add(Strings.heldWatchFoot(on = true))
+    add(Strings.heldWatchFoot(on = false))
+    add(Strings.heldAnnounceFoot(on = true))
+    add(Strings.heldAnnounceFoot(on = false))
+    add(Strings.heldTurning(on = true))
+    add(Strings.heldTurning(on = false))
+    add(Strings.heldLadderNote(TextRes("x")))
+    // Both forms of the count, like the alert clauses above: one action held is the ordinary case and
+    // the plural is what the design drew.
+    add(Strings.offlineSince(hour = 11, minute = 31, held = 1, compact = false))
+    add(Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = false))
+    add(Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = true))
+    add(Strings.refusedRunLead())
+    add(Strings.refusedRunBody(TextRes("x"), compact = false))
+    add(Strings.refusedRunBody(TextRes("x"), compact = true))
+    add(Strings.refusedProbeLead())
+    add(Strings.refusedProbeBody(compact = false))
+    add(Strings.refusedProbeBody(compact = true))
+    add(Strings.refusedDeleteLead())
+    add(Strings.refusedDeleteBody())
+    add(Strings.accountLabel())
+    AuthProviderName.entries.forEach { add(Strings.accountSignedInWith(it)) }
+    // Every month again, and for `releaseDate`'s reason: this is the second entry in the catalogue
+    // that indexes the month table, and an off-by-one would resolve eleven of the twelve.
+    (1..12).forEach { month -> add(Strings.accountSince(TextRes("x"), day = 12, month = month)) }
+    add(Strings.deleteAccountRow())
+    add(Strings.deleteAccountRowNote())
+    add(Strings.deleteFaceTitle())
+    add(Strings.deleteFaceIntro())
+    add(Strings.deleteFaceSecond())
+    add(Strings.deleteFaceAction())
+    DeleteFactKind.entries.forEach { add(Strings.deleteFactLabel(it)) }
+    add(Strings.deleteFactColony(TextRes("x"), facilities = 1, level = 7))
+    add(Strings.deleteFactColony(TextRes("x"), facilities = 13, level = 7))
+    add(Strings.deleteFactFleet(TextRes("x"), runs = 1))
+    add(Strings.deleteFactFleet(TextRes("x"), runs = 3))
+    // A colony with no fleet, which is what a first launch is: the opening stock buys a hull and does
+    // not grant one, so this arm is reachable on the very first frame.
+    add(Strings.deleteFactFleet(hulls = null, runs = 0))
+    add(Strings.deleteFactMap(surveyed = 1, pinned = 1))
+    add(Strings.deleteFactMap(surveyed = 84, pinned = 6))
+    add(Strings.deleteFactResearch(projects = 1, adaptations = 1))
+    add(Strings.deleteFactResearch(projects = 9, adaptations = 4))
+    add(Strings.deleteConfirmTitle(TextRes("x")))
+    add(Strings.deleteConfirmIntro())
+    AuthProviderName.entries.forEach { add(Strings.deleteConfirmSecond(it)) }
+    add(Strings.deleteKeep())
+    add(Strings.deleteConfirmAction())
 }

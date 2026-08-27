@@ -187,6 +187,9 @@ class MainScaffoldBehaviourTest {
                         galaxy = { _, _ -> Text(GALAXY_MARKER) },
                         shipyard = { Text(SHIPYARD_MARKER) },
                         fleets = { Text(FLEETS_MARKER) },
+                        // Null: a colony with signal, which is what every test here that is not about
+                        // the chrome line wants. The line has its own tests.
+                        offline = null,
                         // Handed in rather than ignored, because one test here is about the gear:
                         // that pressing it asks for something. *What* it opens is `App`'s — both
                         // modals in this app are raised there — and `AlertSheetAppBehaviourTest` is

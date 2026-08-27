@@ -29,4 +29,11 @@ object ColonyTestTags {
     // Keyed by facility for the same reason the square is: a card is tapped by the row it belongs
     // to, never by where in the list it happens to sit.
     fun card(building: BuildingType): String = "colony-card-${building.name.lowercase()}"
+
+    // **The row's action, whichever of the four it is showing.** It arrived at 0.21 and the reason is
+    // the amber ghost: the button used to be findable by the word on it, and a held row says `Held`
+    // instead — so a robot that tapped by text could reach one state or the other and never the
+    // control. Research and the Shipyard have carried an `action` tag for exactly this reason since
+    // their ghosts landed; the colony's row is the last one to need it.
+    fun action(building: BuildingType): String = "colony-action-${building.name.lowercase()}"
 }

@@ -8,6 +8,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import dev.fardavide.oltre.client.auth.data.AndroidSignInHost
 
 // The Android entry point, beside the desktop `main()` and the iOS `MainViewController()`. It is
 // named by `androidApp/src/main/AndroidManifest.xml`, which is the whole of the module that
@@ -29,8 +30,24 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
 
+        // **Credential Manager raises a system sheet, so it needs an Activity and not the
+        // application context** — the one place in this app where that is true, which is why this
+        // host differs from the notification and shake ones by a word. Set before `setContent`,
+        // because the gate is the first thing composed and a provider button that found no Activity
+        // would be a control that opens nothing.
+        AndroidSignInHost.activity = this
+
         askAboutNotificationsOnce()
         setContent { App() }
+    }
+
+    // **An Activity held past its own death is a leaked window**, and the process outlives this one
+    // every time the app is backgrounded. Cleared rather than left, and guarded on identity because
+    // a configuration change creates the next Activity before destroying this one — without the
+    // check, a rotation would clear the host the new Activity had just filled.
+    override fun onDestroy() {
+        if (AndroidSignInHost.activity === this) AndroidSignInHost.activity = null
+        super.onDestroy()
     }
 
     // The same moment iOS asks: the first frame, when the colony is loaded. Deliberately not

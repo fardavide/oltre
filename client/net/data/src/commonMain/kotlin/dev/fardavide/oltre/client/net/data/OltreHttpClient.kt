@@ -17,6 +17,13 @@ import kotlin.time.Duration.Companion.seconds
 // drift in three directions.
 expect fun oltreHttpClient(): HttpClient
 
+// **The transport and the API in one call, so the composition root never names an `HttpClient`.**
+// The shell is allowed to see every layer; what it is not allowed to become is a second place that
+// knows what a socket is. Without this it would have to import Ktor to build the default, and the
+// sentence at the top of this module's build file — *the only module in `client/` that opens a
+// socket* — would stop being true the moment anybody read the import list.
+fun defaultOltreApi(baseUrl: String): OltreApi = KtorOltreApi(oltreHttpClient(), baseUrl)
+
 // **How long a colony is worth waiting for before the answer is "later".** Both are invented here
 // and both are meant to move once there is a deployment to measure — `#111` is the slice that can.
 //

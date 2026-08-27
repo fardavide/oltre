@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.colony.ui
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.component.RowSheetUiState
 import dev.fardavide.oltre.client.design.component.SheetAction
 import dev.fardavide.oltre.client.design.component.SheetFooter
@@ -109,6 +110,11 @@ data class FacilityRowUiState(
     // row rather than on the action: the same colony rendered a minute later has the same levels and
     // nothing to announce.
     val finishedWhileAway: Boolean,
+    // **What this row has asked for and the server has not answered.** A fact about the *queue*
+    // rather than about the colony, which is why it arrives beside the colony's own fields rather
+    // than inside `action`: the same colony with signal and without it is two different cards, and
+    // nothing in a `GameState` can tell them apart.
+    val held: HeldUiState,
 )
 
 // The three things a row cannot say in one clause: the arithmetic behind a verdict that reads

@@ -14,6 +14,10 @@ actual fun defaultSaveFile(): SaveFile = FileSaveFile(File(androidDataDirectory(
 
 actual fun defaultPreferencesFile(): SaveFile = FileSaveFile(File(androidDataDirectory(), PREFERENCES_FILE_NAME))
 
+actual fun defaultOutboxFile(): SaveFile = FileSaveFile(File(androidDataDirectory(), OUTBOX_FILE_NAME))
+
+actual fun defaultSessionFile(): SaveFile = FileSaveFile(File(androidDataDirectory(), SESSION_FILE_NAME))
+
 // Read at every call rather than resolved once into a property, so the requirement stays a
 // requirement: a caller that asks for a file before the application has set the directory is told
 // so, instead of being handed whatever the class initialiser happened to see.

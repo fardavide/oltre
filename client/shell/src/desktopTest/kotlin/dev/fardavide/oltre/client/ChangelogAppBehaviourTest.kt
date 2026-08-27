@@ -155,7 +155,16 @@ class ChangelogAppBehaviourTest {
     private fun seeded(lastSeenVersion: String?, galaxyLanding: String? = null): PreferencesStore {
         val store = PreferencesStore(InMemorySaveFile())
         runBlocking {
-            store.save(Preferences(galaxyLanding = galaxyLanding, lastSeenVersion = lastSeenVersion))
+            store.save(
+                Preferences(
+                    galaxyLanding = galaxyLanding,
+                    lastSeenVersion = lastSeenVersion,
+                    provider = null,
+                    // Null: nothing in this file is about the network, and a device that has never
+                    // reached the server draws no chrome line — which is the frame these tests want.
+                    lastReachedAt = null,
+                ),
+            )
         }
         return store
     }

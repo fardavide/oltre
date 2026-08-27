@@ -47,7 +47,15 @@ const val SLIDE_OVER_WIDTH = 320
 // shipped a map whose only control was off the bottom of the screen while every galaxy frame stayed
 // green, because the number the frames were captured at described a device that did not exist. A
 // slice that adds or removes chrome moves this in the same commit or it repeats that.
-const val DESTINATION_HEIGHT = 612
+// **590 since 0.21, and the 22dp came off the top for the second time.** The offline chrome line sits
+// between the rail and the destination whenever the server has not answered, which is the same shape
+// the player strip was at 0.16 — a piece of chrome above the content, costing every screen the same
+// height. Moved in the commit that adds it, which is the whole of what the paragraph above asks for.
+//
+// **It is the *offline* height and it is the one the frames use**, which is a deliberate choice rather
+// than an oversight: the shorter destination is the one that can lose a control off the bottom, so the
+// suite measures the case that can fail. A colony with signal has 612dp and 22 more to spare.
+const val DESTINATION_HEIGHT = 590
 
 // The harness and the Robot, copying `ResearchRobot` — the worked example the taxonomy points at.
 // A behaviour test drives the screen through this and never queries a node in its own body.

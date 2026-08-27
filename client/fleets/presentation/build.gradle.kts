@@ -52,6 +52,11 @@ kotlin {
             // the ui half arrives through `:client:fleets:ui`.
             implementation(projects.client.dispatch.presentation)
             implementation(projects.client.design.format)
+            // What the outbox means to the sheet this tab raises — see the colony's presentation
+            // module, which takes it the same way.
+            // `RefusalUiState`, which the sheet this tab raises takes and this file forwards.
+            implementation(projects.client.design.component)
+            implementation(projects.client.net.domain)
 
             // A run counts down to a wall-clock instant and the ledger stamps what has landed, which
             // is the same pair of needs that put this on Colony, Research and Galaxy.

@@ -138,7 +138,13 @@ class FleetsFromStateBehaviourTest {
         val state = colonyWithARun()
         val sent = mutableListOf<GalaxyCoordinate>()
 
-        fleetsScreen(state = state, onDispatchRun = { at, _, _, _ -> sent += at }) {
+        fleetsScreen(
+            state = state,
+            onDispatchRun = { at, _, _, _ ->
+                sent += at
+                true
+            },
+        ) {
             tapTheWorld(worked)
             bringBack(ResourceKind.METAL)
             sendOneMore()
@@ -191,7 +197,11 @@ class FleetsFromStateBehaviourTest {
 
         fleetsScreen(
             state = state,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(worked)
             bringBack(ResourceKind.CRYSTAL)
@@ -219,7 +229,11 @@ class FleetsFromStateBehaviourTest {
 
         fleetsScreen(
             state = state,
-            onDispatchRun = { at, gathering, ships, window -> sent += Quadruple(at, gathering, ships, window) },
+            onDispatchRun = { at, gathering, ships, window ->
+                sent += Quadruple(at, gathering, ships, window)
+                // Kept, which is what a colony with signal answers — see `GalaxyScreen`.
+                true
+            },
         ) {
             tapTheWorld(worked)
             bringBack(ResourceKind.METAL)

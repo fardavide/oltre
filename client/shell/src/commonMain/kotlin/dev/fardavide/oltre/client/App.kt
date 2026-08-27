@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.Surface
@@ -12,6 +13,45 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
+import dev.fardavide.oltre.client.auth.data.ProviderSignIn
+import dev.fardavide.oltre.client.auth.data.SignInAttempt
+import dev.fardavide.oltre.client.auth.data.defaultProviderSignIn
+import dev.fardavide.oltre.client.auth.data.signInProviders
+import dev.fardavide.oltre.client.auth.presentation.DeleteFace
+import dev.fardavide.oltre.client.auth.presentation.GateState
+import dev.fardavide.oltre.client.auth.presentation.toDeleteFaceUiState
+import dev.fardavide.oltre.client.auth.presentation.toGateUiState
+import dev.fardavide.oltre.client.auth.ui.Gate
+import dev.fardavide.oltre.client.design.component.RefusalUiState
+import dev.fardavide.oltre.client.design.text.AuthProviderName
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.net.data.ActOutcome
+import dev.fardavide.oltre.client.net.data.ApiResult
+import dev.fardavide.oltre.client.net.data.ColonySync
+import dev.fardavide.oltre.client.net.data.Credential
+import dev.fardavide.oltre.client.net.data.IdempotencyKeys
+import dev.fardavide.oltre.client.net.data.defaultOltreApi
+import dev.fardavide.oltre.client.net.data.OltreApi
+import dev.fardavide.oltre.client.net.data.Outbox
+import dev.fardavide.oltre.client.net.data.OutboxFile
+import dev.fardavide.oltre.client.net.data.RetryPolicy
+import dev.fardavide.oltre.client.net.data.SessionKeeper
+import dev.fardavide.oltre.client.net.data.SessionStore
+import dev.fardavide.oltre.client.net.data.SyncOutcome
+import dev.fardavide.oltre.client.net.data.WithdrawResult
+import dev.fardavide.oltre.client.net.data.randomIdempotencyKeys
+import dev.fardavide.oltre.client.net.domain.HeldActions
+import dev.fardavide.oltre.client.save.data.defaultOutboxFile
+import dev.fardavide.oltre.client.save.data.defaultSessionFile
+import dev.fardavide.oltre.client.settings.ui.AccountUiState
+import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.protocol.AuthProvider
+import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.offlineRule
+import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.datetime.toLocalDateTime
 import dev.fardavide.oltre.client.changelog.domain.ReleaseVersion
 import dev.fardavide.oltre.client.changelog.domain.shouldOpenChangelog
 import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
@@ -59,8 +99,6 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartAdaptationResult
 import dev.fardavide.oltre.core.StartResearchResult
-import dev.fardavide.oltre.core.StartRunResult
-import dev.fardavide.oltre.core.StartSurveyResult
 import dev.fardavide.oltre.core.StartUpgradeResult
 import dev.fardavide.oltre.core.WatchTarget
 import dev.fardavide.oltre.core.buildShips
@@ -68,8 +106,6 @@ import dev.fardavide.oltre.core.setAlertDelivery
 import dev.fardavide.oltre.core.setAlertMode
 import dev.fardavide.oltre.core.startAdaptation
 import dev.fardavide.oltre.core.startResearch
-import dev.fardavide.oltre.core.startRun
-import dev.fardavide.oltre.core.startSurvey
 import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.toggleAlertCategory
@@ -84,6 +120,14 @@ import kotlinx.datetime.TimeZone
 // How long the rail goes on having somewhere to roll from. The roll itself takes 900ms; this is
 // comfortably past it and well short of anything a player would still be reading.
 private val ARRIVAL_WINDOW: Duration = 2.seconds
+
+// The resolution the chrome line prints at, and therefore the resolution the instant behind it is
+// worth storing at. See `arrive`.
+private const val MILLIS_PER_MINUTE: Long = 60_000
+
+// How many one-second ticks between attempts to drain a queue that could not be sent. See the tick
+// loop, which is the only thing in the app that notices the network coming back.
+private const val TICKS_PER_RETRY: Int = 60
 
 // The shell is the impure boundary: it reads the clock, reads and writes the save file, books
 // the local notifications, ticks the UI, and holds the current session. Game state itself only
@@ -149,6 +193,28 @@ fun App(
     // `Clock.System` in production, a fixed instant in a test. Note this is the *wall* clock, still
     // read through `DebugClock` below, so a skip behaves exactly as it did.
     wallClock: Clock = Clock.System,
+    // ── The colony is not here any more ──────────────────────────────────────────────────────
+    //
+    // **Five seams rather than one, and every one of them is what keeps the suite off the network.**
+    // `App` is what the behaviour tests launch end to end, so a transport it built for itself would
+    // put every one of them on a socket pointed at production — which is `#106` §8's whole point, and
+    // the reason `FakeOltreApi` exists a slice before anything used it.
+    api: OltreApi = remember { defaultOltreApi(OLTRE_BASE_URL) },
+    // Two more files beside the save and the preferences, and separate from both for the reasons
+    // their own ports state: a corrupt session costs a sign-in, a corrupt outbox costs taps.
+    sessionStore: SessionStore = remember { SaveFileSessionStore(defaultSessionFile()) },
+    outboxFile: OutboxFile = remember { SaveFileOutbox(defaultOutboxFile()) },
+    // **The platform's half of the gate**, and the only thing in the app that opens a window somebody
+    // else drew. A test hands in a lambda; a platform hands in whatever it has.
+    signIn: ProviderSignIn = remember { defaultProviderSignIn() },
+    // **Which buttons this build can complete**, which is a platform fact and not a preference — see
+    // `signInProviders`. A provider that cannot finish is not drawn, because a button that opens a
+    // browser which never comes back is the worst control a gate has available.
+    providers: Set<AuthProvider> = remember { signInProviders() },
+    // What makes a retry safe. A parameter for `IdempotencyKeys`' own reason: the property the whole
+    // mechanism exists for is that a second attempt carries the first attempt's key, and no test can
+    // assert that against a value it cannot predict.
+    keys: IdempotencyKeys = remember { randomIdempotencyKeys(Random.Default) },
     modifier: Modifier = Modifier,
 ) {
     // Handed to the theme rather than provided around it: `OltreTheme` is what every frame, preview
@@ -156,9 +222,70 @@ fun App(
     OltreTheme(translations = translations) {
         Surface(modifier.fillMaxSize()) {
             val scope = rememberCoroutineScope()
+
+            // ── What is between this app and the colony ──────────────────────────────────────
+            //
+            // Built here and nowhere else. Three objects, and the layering is the whole design:
+            // `Outbox` is the queue on disk, `SessionKeeper` is the credential and the only thing
+            // that answers `SessionExpired`, and `ColonySync` is the one member above the transport
+            // that decides anything. Every screen below asks `ColonySync` a question; none of them
+            // holds a token, and none of them can.
+            val outbox = remember(outboxFile) { Outbox(outboxFile) }
+            val sessions = remember(api, sessionStore, wallClock) {
+                SessionKeeper(api = api, store = sessionStore, clock = wallClock)
+            }
+            val colony = remember(api, outbox, keys, wallClock, sessions) {
+                ColonySync(
+                    api = api,
+                    outbox = outbox,
+                    keys = keys,
+                    // **The wall clock and not the debug one.** `clientInstant` is a claim about when
+                    // the player tapped, and the server clamps it into a window it can see; a colony
+                    // skipped four hours forward would be claiming to have acted in the future, which
+                    // the clamp would simply throw away. The debug menu moves *game* time.
+                    clock = wallClock,
+                    retry = RetryPolicy.DEFAULT,
+                    sessions = sessions,
+                )
+            }
+
             // Null until the save has been read. Rendering a fresh colony first and swapping it
             // for the real one a frame later would flash wrong numbers at the player.
             var session by remember { mutableStateOf<GameSession?>(null) }
+            // **Where the gate is, and it is the whole of what that screen decides.** `Idle` until a
+            // provider is pressed; every other member is something that has just happened.
+            var gate by remember { mutableStateOf<GateState>(GateState.Idle) }
+            // **What the phone has accepted and the server has not**, read off the outbox after every
+            // answer rather than tracked alongside it: the file is the state, exactly as it is inside
+            // `Outbox`, and a second copy here is a second thing that can disagree with the disk.
+            var held by remember { mutableStateOf(HeldActions.NONE) }
+            // **The last instant the server answered, and whether it did last time.** Two fields
+            // rather than one nullable, because they answer two different questions and only the pair
+            // can say *"no network since 11:31"* — see `offlineLine`, which refuses to draw with one.
+            var lastReachedAt by remember { mutableStateOf<Instant?>(null) }
+            var reachable by remember { mutableStateOf(true) }
+            // **What the last tap on a verb that cannot be held aimed at.** A fact about a tap rather
+            // than about the world: it is cleared by the next tap, and a sheet reopened later has
+            // nothing to say. Two of them, because the two verbs are refused on two different screens
+            // and a single field would put a run's sentence on a probe's card.
+            //
+            // **The target rather than the sentence**, because the sentence has a clause that a Slide
+            // Over pane drops — and how wide the window is is not known until `BoxWithConstraints`
+            // below. Holding the fact and writing the words where the width is known is the same move
+            // this file already makes for the watched row's label.
+            var refusedRun by remember { mutableStateOf<GalaxyCoordinate?>(null) }
+            var refusedProbe by remember { mutableStateOf(false) }
+            // Whether the account deletion has been refused, which is the third refusal and the one
+            // with a face of its own.
+            var deleteRefused by remember { mutableStateOf(false) }
+            // **When the server said to ask again, as an instant rather than as a countdown.** No
+            // timers, ever, is older than this screen, so the wait is *recomputed when it is asked
+            // for*: every impatient tap re-states the line with the seconds actually left, which also
+            // makes each one visibly spend part of the wait. Nothing on the screen moves on its own.
+            var throttledUntil by remember { mutableStateOf<Instant?>(null) }
+            // Which provider signed this device in, for the two sentences that name it. Null until a
+            // session exists, which is also when the Account section is absent.
+            var provider by remember { mutableStateOf<AuthProvider?>(null) }
             // How far ahead of the wall clock this colony is running. Replaced rather than mutated,
             // so a skip is one state change that the tick loop and the commit both read.
             var debugClock by remember { mutableStateOf(DebugClock()) }
@@ -237,6 +364,92 @@ fun App(
             // is a third state and a load-bearing one — see the changelog gate below.
             var hadSave by remember { mutableStateOf<Boolean?>(null) }
             var preferencesLoaded by remember { mutableStateOf(false) }
+            // **Whether there is a session, and `null` until the file has been read** — a third state
+            // for `hadSave`'s reason. Drawing the gate before the store has answered would flash a
+            // sign-in screen at a player who is signed in, which is the one thing that would make the
+            // gate feel like a failure rather than a threshold.
+            var signedIn by remember { mutableStateOf<Boolean?>(null) }
+
+            // **What every answer from the server does**, in one place because every answer does the
+            // same four things and a second copy is a second chance to forget one of them.
+            //
+            // The order is load-bearing: reachability first, so the chrome line is right even when
+            // nothing else changed; then the queue, because a sync that landed has drained it; then
+            // the colony, which is the authoritative one and replaces whatever this device thought.
+            suspend fun arrive(outcome: SyncOutcome, clock: DebugClock, wall: Instant) {
+                when (outcome) {
+                    is SyncOutcome.Synced -> {
+                        reachable = true
+                        val at = clock.now(wall)
+                        lastReachedAt = at
+                        // **Written down, because the line it feeds outlives a launch.** A player who
+                        // opened the app on a train and closed it is still offline the next morning,
+                        // and *"no network since 11:31"* is only answerable by something that was
+                        // remembered. Held in memory alone it would read *never* on every cold start
+                        // and the line would be missing exactly when it is most needed.
+                        //
+                        // **Stored to the minute, which is what makes the write rare rather than
+                        // per-tap.** The line prints `HH:MM`, so anything finer is a disk write that
+                        // cannot change a pixel — and every tap syncs, so without the truncation this
+                        // would rewrite a preferences file on every button in the game.
+                        val minute = (at.toEpochMilliseconds() / MILLIS_PER_MINUTE * MILLIS_PER_MINUTE).toString()
+                        if (remembered.lastReachedAt != minute) {
+                            val next = remembered.copy(lastReachedAt = minute)
+                            remembered = next
+                            preferences.save(next)
+                        }
+                        held = HeldActions(outbox.queued())
+                        // **`resume` and not a bare assignment**: the snapshot is stamped at the
+                        // instant the *server* wrote it, and the phone has to advance it to now the
+                        // same way it advances a save. Anything else opens a colony that has not
+                        // caught up to its own clock.
+                        val resumed = resume(outcome.colony, now = clock.now(wall))
+                        session = resumed
+                        resumed.commit(store, notifications, clock)
+                    }
+
+                    // **Nothing to say and nothing to undo** — see `SyncOutcome.NotNow`, which is one
+                    // member for *nobody answered* and *another device won the race* because they are
+                    // one instruction. The queue is intact and the colony on screen is the last one
+                    // the server agreed to.
+                    SyncOutcome.NotNow -> {
+                        reachable = false
+                        held = HeldActions(outbox.queued())
+                        // **A first launch with no signal has no colony to open**, and the gate is
+                        // the only screen that can say so — *"your colony runs there, so there is no
+                        // offline start."* A device with a save never reaches this: it is already
+                        // showing the colony the server last agreed to.
+                        if (session == null) gate = GateState.NoAnswer
+                    }
+
+                    // **The server answered, and the answer is not about any one verb.** Only one of
+                    // them reaches a screen: `Unauthenticated` means the credential is gone and the
+                    // gate is the honest place to be. Everything else is a colony that is still the
+                    // last one agreed to, so the app goes on showing it — an app that emptied itself
+                    // because a version check failed would be worse than one that is a few minutes
+                    // out of date.
+                    is SyncOutcome.Failed -> {
+                        reachable = true
+                        lastReachedAt = clock.now(wall)
+                        if (outcome.error == ApiError.Unauthenticated) {
+                            sessions.forget()
+                            signedIn = false
+                            gate = GateState.Idle
+                            // **And the colony comes off the screen, which is the half that was
+                            // missing.** The gate only draws when there is no session, so setting
+                            // the two lines above and leaving this one out produced the worst state
+                            // this app can be in: a colony whose every control looks operable and
+                            // whose every tap is dropped, with nothing on screen saying why.
+                            //
+                            // The save is untouched. This is the last colony the server agreed to
+                            // and it stays on disk — signing in again re-founds idempotently and
+                            // opens it, and a device that had nothing to show would be strictly
+                            // worse than one showing a gate.
+                            session = null
+                        }
+                    }
+                }
+            }
 
             // The release this build is, which is the head of the changelog: there is no generated
             // `BuildConfig` in this build and one string does not earn source generation.
@@ -264,12 +477,6 @@ fun App(
                 markChangelogSeen()
             }
 
-            LaunchedEffect(preferences) {
-                val loaded = preferences.load()
-                remembered = loaded
-                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
-                preferencesLoaded = true
-            }
 
             // **"It must open on game updated"** (Davide, 2026-08-23). The rule is
             // `shouldOpenChangelog` and every branch of it is a test; what is here is the two things
@@ -313,31 +520,105 @@ fun App(
                 // delivery target that is the smaller half — iOS terminates backgrounded apps freely,
                 // and a notification tapped after one is a cold launch — but it is a real gap, and
                 // closing it needs a foreground signal the shell does not have today.
+                // **First, and in the same effect as everything else** — it had one of its own until
+                // 0.21 and could not keep it: the sync below now *writes* a preference, so a load
+                // racing it would read the file back and put the older value on screen. Two effects
+                // that both touch one record is one effect.
+                val loaded = preferences.load()
+                remembered = loaded
+                galaxyLanding = loaded.galaxyLanding.toGalaxyLanding()
+                provider = loaded.provider.toAuthProvider()
+                // **Read back rather than started from nothing**, which is the whole point of writing
+                // it down: a cold launch with no signal has to be able to say *since when*.
+                lastReachedAt = loaded.lastReachedAt?.toLongOrNull()?.let(Instant::fromEpochMilliseconds)
+                preferencesLoaded = true
+
                 notifications.clearDelivered()
                 val saved = store.load()
                 hadSave = saved != null
+                // Read before anything is drawn, so the first frame a player sees already knows what
+                // it is waiting on. A card that appeared white and turned amber a frame later would
+                // be the app changing its mind in front of them.
+                held = HeldActions(outbox.queued())
                 val wall = wallClock.now()
                 // The offset comes out of the save's own instant, which is the whole reason the
                 // debug clock needs no file of its own: a colony written down in the future was
                 // skipped there, and resuming at ×1 would freeze it until the wall clock caught up.
                 val clock = DebugClock.resuming(saved?.lastUpdatedAt, wallClock = wall)
                 debugClock = clock
-                val resumed = resume(saved, now = clock.now(wall))
-                // Before the session is published, so the first frame the player sees is already
-                // the one that knows what to announce. Setting it afterwards would compose the rail
-                // once with nothing to roll from and only then hand it a starting figure — which is
-                // a roll that begins in the wrong place.
-                arrivalOf(saved = saved?.state, resumed = resumed.state)?.let { arrival ->
-                    lastSeen = arrival.lastSeen
-                    finishedWhileAway = arrival.finished
+
+                // **The colony the server last agreed to opens the game while the server is asked
+                // again.** That is the whole of what a save is for now: it is not the truth any more,
+                // it is the last truth this device was told, and opening on it is why a player on a
+                // train sees their colony rather than a spinner.
+                if (saved != null) {
+                    val resumed = resume(saved, now = clock.now(wall))
+                    // Before the session is published, so the first frame the player sees is already
+                    // the one that knows what to announce. Setting it afterwards would compose the
+                    // rail once with nothing to roll from and only then hand it a starting figure —
+                    // which is a roll that begins in the wrong place.
+                    arrivalOf(saved = saved.state, resumed = resumed.state)?.let { arrival ->
+                        lastSeen = arrival.lastSeen
+                        finishedWhileAway = arrival.finished
+                    }
+                    session = resumed
+                    // Commit immediately, save included: a player who opens the game once and
+                    // closes it must still come back to hours of production. The same opening also
+                    // books the alerts for whatever was already in flight — a colony restored from
+                    // disk has a schedule that no longer exists on the device.
+                    resumed.commit(store, notifications, clock)
                 }
-                session = resumed
-                // Commit immediately, save included: a player who opens the game once and
-                // closes it must still come back to hours of production, and on a first launch
-                // there is no saved instant to accrue from until one is written. The same
-                // opening also books the alerts for whatever was already in flight — a colony
-                // restored from disk has a schedule that no longer exists on the device.
-                resumed.commit(store, notifications, clock)
+
+                // **Nobody has signed in on this device, so nothing else happens until they do.**
+                // `current()` is not a read of a flag: it renews an access token that has run out and
+                // answers `Gone` only when the refresh token has run out too, or was refused, or
+                // there was never one. All three are the gate.
+                //
+                // **`Unreachable` is none of those and falls through deliberately.** A renewal
+                // nobody answered is a train, not a sign-out: the session is on disk, so the launch
+                // carries on and the sync below fails the ordinary offline way — the colony stays
+                // up, the queue is held, and the chrome line says the network is out. Reading it as
+                // *signed out* is what left a player one tunnel away from the gate.
+                when (sessions.current()) {
+                    Credential.Gone -> {
+                        signedIn = false
+                        // **And the colony comes back off the screen, which is the case every
+                        // existing tester takes on their first launch of this release.** They have a
+                        // save from a build that had no accounts and no session file, because until
+                        // now there was nothing to have one of — so the resume above published a
+                        // colony that nothing they tap could reach a server about. The gate draws
+                        // only when there is no session, so leaving this out hands the one person
+                        // testing the build a screen full of live-looking controls and no way to
+                        // sign in.
+                        //
+                        // **The save is untouched**: the file stays where it is, so the slice that
+                        // lands the one-time upload still has it to send. What is discarded is the
+                        // *claim* that it is the colony the game is running.
+                        session = null
+                        return@LaunchedEffect
+                    }
+
+                    is Credential.Held, Credential.Unreachable -> signedIn = true
+                }
+                // **The gate stays up while the first colony is fetched, and says so.** Only on a
+                // device with no save: one that has a colony is already showing it, and a waiting
+                // line over a working game would be the app reporting on itself.
+                if (saved == null) gate = GateState.Waiting
+                // **`sync` when this device holds a colony and `found` when it does not**, and the
+                // difference is not a shortcut: `found` sends no envelopes, so a launch that always
+                // founded would leave a queue written before the app was closed sitting on disk until
+                // the player next tapped something. `sync` is the call that drains it.
+                //
+                // **`NoColony` falls through to founding**, which is the case a save cannot rule out:
+                // the colony this device holds may have been deleted on another one, and the honest
+                // answer to *the server has never heard of you* is to ask it to found one. `found` is
+                // idempotent, so the fallback costs a round trip and can never mint a second galaxy.
+                val opened = if (saved == null) colony.found() else colony.sync()
+                if (opened is SyncOutcome.Failed && opened.error == ApiError.NoColony) {
+                    arrive(colony.found(), clock, wall)
+                } else {
+                    arrive(opened, clock, wall)
+                }
             }
 
             // The roll's window. Without it the rail would roll a second time from a figure nobody
@@ -350,23 +631,257 @@ fun App(
                 }
             }
 
+            // **The gate, and it stays up until there is both a session and a colony.** Those are two
+            // facts and the screen answers to both: a player who has signed in and has no colony yet
+            // is still waiting for the server, and the design's `waiting` state is exactly that
+            // sentence. A device with a save skips it entirely — the colony it already holds is the
+            // last one the server agreed to, and opening on that is the whole reason a save survives.
+            fun signInWith(chosen: AuthProvider) {
+                // **Recomputed, never counted down.** A tap inside the window re-states the line with
+                // the seconds that are actually left and goes no further; the request is not made,
+                // which is what makes the number honest rather than decorative.
+                throttledUntil?.let { until ->
+                    val left = (until - wallClock.now()).inWholeSeconds.toInt()
+                    if (left > 0) {
+                        gate = GateState.Throttled(left)
+                        return
+                    }
+                    throttledUntil = null
+                }
+                gate = GateState.Waiting
+                scope.launch {
+                    when (val attempt = signIn.signIn(chosen)) {
+                        // One sentence for a refusal and for a cancellation, because the platforms
+                        // frequently cannot tell them apart and an accusation is worse than a fact.
+                        SignInAttempt.Refused -> gate = GateState.Refused(chosen)
+                        SignInAttempt.Unreachable -> gate = GateState.NoAnswer
+                        is SignInAttempt.Signed -> {
+                            // **Two calls rather than one taking a provider, because the provider is
+                            // the path** — the two tokens are verified against different issuers,
+                            // audiences and key sets. See `OltreApi`.
+                            val answer = when (chosen) {
+                                AuthProvider.APPLE -> api.signInWithApple(attempt.idToken, attempt.nonce)
+                                AuthProvider.GOOGLE -> api.signInWithGoogle(attempt.idToken, attempt.nonce)
+                            }
+                            when (answer) {
+                                is ApiResult.Answered -> {
+                                    // Written before anything reads it, so a process killed on the
+                                    // next line still has the session rather than sending the player
+                                    // back here.
+                                    sessions.adopt(answer.value)
+                                    provider = chosen
+                                    val next = remembered.copy(provider = chosen.name)
+                                    remembered = next
+                                    preferences.save(next)
+                                    signedIn = true
+                                    val wall = wallClock.now()
+                                    arrive(colony.found(), debugClock, wall)
+                                }
+
+                                is ApiResult.Refused -> gate = when (val error = answer.error) {
+                                    // The server sends a number and the screen prints it, in the
+                                    // app's own duration format.
+                                    is ApiError.TooManyRequests -> {
+                                        throttledUntil = wallClock.now() + error.retryAfterSeconds.seconds
+                                        GateState.Throttled(error.retryAfterSeconds)
+                                    }
+                                    // Everything else the server can say about a sign-in is a
+                                    // sign-in that did not happen, and the player's next move is the
+                                    // same either way: try again, or use the other one.
+                                    else -> GateState.Refused(chosen)
+                                }
+
+                                ApiResult.Unreachable -> gate = GateState.NoAnswer
+                            }
+                        }
+                    }
+                }
+            }
+
             val current = session
-            if (current != null) {
+            if (current == null) {
+                // Nothing at all until both files have answered. A gate that flashed at a player who
+                // is signed in would make the threshold feel like a failure.
+                if (signedIn != null) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        // The starfield is the frame's, not a screen's — see `MainScaffold`. The gate
+                        // draws none of its own, so there is one sky in the app rather than two that
+                        // have to be kept in step.
+                        Starfield(scrollOffset = { 0f }, tilt = { lean.value })
+                        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                            Gate(
+                                uiState = gate.toGateUiState(providers),
+                                compact = maxWidth < OltreLayout.compactWidth,
+                                onSignIn = { signInWith(it) },
+                            )
+                        }
+                    }
+                }
+            } else {
                 LaunchedEffect(Unit) {
+                    var ticks = 0
                     while (true) {
                         delay(1.seconds)
                         val previous = session ?: continue
                         val next = previous.ticked(debugClock, wallClock = wallClock.now())
                         session = next
                         if (next.hasNewEventsSince(previous)) next.commit(store, notifications, debugClock)
+
+                        // **Something has to try again, or the amber is a lie.** A held card says
+                        // *"it starts when the network is back"*, and until 0.21 nothing in the app
+                        // would have noticed the network coming back: the queue drained on a launch
+                        // and on a tap and at no other moment, so a player who regained signal
+                        // mid-session sat with three amber cards until they touched one.
+                        //
+                        // **Only while something is outstanding and the last attempt failed**, which
+                        // is what keeps this from being a poll: a colony with signal never reaches
+                        // this line, and one with nothing queued has nothing to send. A minute
+                        // because that is the resolution the chrome line prints at — a player cannot
+                        // see a difference finer than the clock they are being shown.
+                        ticks++
+                        if (ticks % TICKS_PER_RETRY == 0 && !reachable && held.count > 0) {
+                            arrive(colony.sync(), debugClock, wallClock.now())
+                        }
                     }
                 }
 
-                // Both actions follow the same path, and it is the only safe one: bring the
-                // simulation up to the instant the player acted, ask core to apply the action at
-                // that instant, then commit if the event log grew. Acting on a stale state would
-                // spend resources the colony has not accrued yet.
-                fun act(transition: (GameState, Instant) -> GameState) {
+                // **Which control a refused verb belongs to.** A `when` with no `else`, so a
+                // thirteenth verb cannot be added without somebody deciding what it does when it
+                // cannot be kept — which is `offlineRule`'s own discipline one layer up.
+                fun refuse(verb: ClientVerb) {
+                    when (verb) {
+                        is ClientVerb.StartRun -> refusedRun = verb.target
+                        is ClientVerb.StartSurvey -> refusedProbe = true
+
+                        // The other ten are queued rather than refused, so nothing here can reach
+                        // them — `Outbox.queue` reads the same rule and writes them to the file. The
+                        // arm says so out loud rather than trusting it.
+                        is ClientVerb.StartUpgrade,
+                        is ClientVerb.StartResearch,
+                        is ClientVerb.StartAdaptation,
+                        is ClientVerb.BuildShips,
+                        is ClientVerb.ToggleAlert,
+                        is ClientVerb.CycleHullAlert,
+                        ClientVerb.ToggleFlightAlerts,
+                        is ClientVerb.SetAlertMode,
+                        is ClientVerb.ToggleAlertCategory,
+                        is ClientVerb.SetAlertDelivery,
+                        -> Unit
+                    }
+                }
+
+                // **Every tap goes through here now, and it does two things rather than one.**
+                //
+                // *Locally, and first.* Bring the simulation up to the instant the player acted, ask
+                // `core` to apply the action at that instant, and show it. That is the path this
+                // function has always taken and none of it moves: acting on a stale state would spend
+                // resources the colony has not accrued yet.
+                //
+                // *And onwards.* The same action as a `ClientVerb`, through the outbox and the wire.
+                // The server runs the same deterministic `core` over the same claimed instant, so the
+                // colony that comes back is the one already on screen — which is what makes showing
+                // the tap immediately honest rather than optimistic.
+                //
+                // **The two galaxy-touching verbs are not shown until the server agrees**, and that
+                // is the whole of what look-don't-act means on a screen: a run and a probe aim at a
+                // world somebody else may now hold, so drawing one as sent would be the promise this
+                // game refuses to make. `offlineRule` decides, in `:protocol`, and is never
+                // re-derived here — the same discipline `Outbox.queue` keeps.
+                // **Which outstanding request this verb's control is already carrying, if any.** A
+                // `when` with no `else` for `refuse`'s reason: a thirteenth verb has to answer where
+                // its control's held state lives, or the amber ghost it grows will have no way back.
+                //
+                // The two that cannot be queued answer null by construction — nothing writes them to
+                // the file — and `HeldActions` drops them on the way in anyway.
+                fun heldKey(verb: ClientVerb): IdempotencyKey? = when (verb) {
+                    is ClientVerb.StartUpgrade -> held.upgrade(verb.building)
+                    is ClientVerb.StartResearch -> held.research(verb.technology)
+                    is ClientVerb.StartAdaptation -> held.adaptation(verb.technology)
+                    // The first hull type in the manifest, which is the only one a card can be: every
+                    // finger in the app buys one hull at a time.
+                    is ClientVerb.BuildShips -> verb.ships.counts.keys.firstNotNullOfOrNull { held.build(it) }
+                    is ClientVerb.ToggleAlert -> held.watch(verb.target)
+                    is ClientVerb.CycleHullAlert -> held.hullAlert(verb.ship)
+                    ClientVerb.ToggleFlightAlerts -> held.flightAlert
+                    is ClientVerb.SetAlertMode -> held.alertMode?.key
+                    is ClientVerb.ToggleAlertCategory -> held.alertCategory(verb.category)
+                    is ClientVerb.SetAlertDelivery -> held.alertDelivery?.key
+                    is ClientVerb.StartRun, is ClientVerb.StartSurvey -> null
+                }
+
+                fun dispatch(verb: ClientVerb) {
+                    // **The previous refusal goes with the tap that follows it**, whichever control
+                    // it was on: a sentence about a tap the player has moved past is furniture.
+                    refusedRun = null
+                    refusedProbe = false
+                    deleteRefused = false
+                    scope.launch {
+                        val wall = wallClock.now()
+                        when (val outcome = colony.act(verb)) {
+                            is ActOutcome.Synced ->
+                                arrive(SyncOutcome.Synced(outcome.colony, outcome.rejected), debugClock, wall)
+
+                            // On disk before this returned. The card the tap came from is amber from
+                            // the next frame, because `held` is what every mapper reads.
+                            ActOutcome.Queued -> {
+                                reachable = false
+                                held = HeldActions(outbox.queued())
+                            }
+
+                            // **Refused, and the sentence is the whole of what the player gets** —
+                            // which is the point rather than a consolation: the control answered, it
+                            // named the fact that stops it, and it will answer again the same way.
+                            // A control that silently did nothing is the failure this whole rule
+                            // exists to prevent.
+                            ActOutcome.NotQueueable -> {
+                                reachable = false
+                                refuse(verb)
+                            }
+
+                            is ActOutcome.Failed ->
+                                arrive(SyncOutcome.Failed(outcome.error), debugClock, wall)
+                        }
+                    }
+                }
+
+                // **The amber ghost's tap.** Nothing has been sent, so taking it back costs nobody an
+                // apology and needs no server to agree — it is a deletion from a file.
+                //
+                // `ALREADY_SENT` is not an error and is deliberately silent: the queue drained between
+                // the tap that held the verb and this one, so the thing the player asked for is on its
+                // way to happening, which is what they wanted. Re-reading the outbox is what makes the
+                // card change shape either way, and the sync that follows is what fetches the colony
+                // the flush produced.
+                fun withdraw(key: IdempotencyKey?) {
+                    if (key == null) return
+                    scope.launch {
+                        val result = outbox.withdraw(key)
+                        held = HeldActions(outbox.queued())
+                        if (result == WithdrawResult.ALREADY_SENT) {
+                            arrive(colony.sync(), debugClock, wallClock.now())
+                        }
+                    }
+                }
+
+                // **A tap the phone can answer for itself.** Every `QUEUE_AND_VALIDATE` verb comes
+                // through here: the colony moves now, the outbox takes the verb, and the server
+                // reconciles later. The transition is the optimistic half and it is always run —
+                // which is why this takes one and `ask` below does not.
+                //
+                // It answers `true` unconditionally, and that is not a stub: the outbox takes a
+                // queueable verb whatever the network is doing, so a tap that came through here was
+                // kept by definition. `ask` is where the answer can be `false`.
+                fun send(verb: ClientVerb, transition: (GameState, Instant) -> GameState): Boolean {
+                    // **A tap on a held control withdraws it**, which is the amber ghost's whole
+                    // behaviour and is answered here rather than at six call sites: the ui-state that
+                    // drew the ghost was derived from the same `held`, so the two cannot disagree
+                    // about which control is outstanding. A second callback per row would be ten new
+                    // lambdas threaded through five screens for one line of logic.
+                    heldKey(verb)?.let {
+                        withdraw(it)
+                        // Withdrawn rather than sent, and the sheet has nothing to stay open for.
+                        return true
+                    }
                     // Whatever landed while the app was closed stops being news the moment the
                     // player changes the colony themselves.
                     finishedWhileAway = null
@@ -375,7 +890,34 @@ fun App(
                     if (next.hasNewEventsSince(current)) {
                         scope.launch { next.commit(store, notifications, debugClock) }
                     }
+                    dispatch(verb)
+                    return true
                 }
+
+                // **A tap only the server can answer**, which is what `LOOK_DONT_ACT` means: a run
+                // and a probe both touch the galaxy, and a galaxy two players share cannot be guessed
+                // at on a phone. So there is no optimistic transition — the colony moves when the
+                // answer arrives — and this is a separate function rather than a null argument to
+                // `send` because a caller that offered one would be writing a lambda that can never
+                // run. It was, for two verbs and thirty lines, until the coverage report said so.
+                //
+                // **It answers whether the tap was kept**, and that answer has to be synchronous
+                // because one screen acts on it: the dispatch sheet closes on a run that was kept and
+                // stays up on one that was refused, and it decides in the frame the button was
+                // pressed. `reachable` is what it can know at that instant. The late case it cannot
+                // see is a server that is there and refuses the run on its own freshness window; that
+                // arrives through `refuse` a moment later and lands on the map card's line, which is
+                // the row form the design drew for exactly the case where there is no sheet to put a
+                // block in.
+                //
+                // Nothing is withdrawn here: neither verb is ever written to the outbox, so neither
+                // can be held, and `heldKey` answers null for both by construction.
+                fun ask(verb: ClientVerb): Boolean {
+                    finishedWhileAway = null
+                    dispatch(verb)
+                    return reachable
+                }
+
 
                 // The square, and it is `act`'s shape with one difference that matters: **it commits
                 // unconditionally.** Asking for an alert writes no event — nothing happened, a row
@@ -389,9 +931,24 @@ fun App(
                 // See `toggleAlert`, and `alerting` for why this one verb transitions before it
                 // advances where every other one does the opposite.
                 fun alert(target: WatchTarget) {
+                    // **A tap on a held control withdraws it rather than queueing a second verb**,
+                    // and that is the design's rule for the amber ghost applied to the amber square:
+                    // the request is the thing on screen, so tapping it takes it back. Without this,
+                    // two taps would queue two toggles that cancel out and leave a control that looks
+                    // outstanding for ever.
+                    //
+                    // Asked through `heldKey` like every other control rather than through `held`
+                    // directly — one function answers *which envelope is this control's* for all
+                    // twelve verbs, so a control cannot match a different envelope from the one the
+                    // mapper drew its ghost from.
+                    heldKey(ClientVerb.ToggleAlert(target))?.let { return withdraw(it) }
                     val next = current.alerting(debugClock, wallClock = wallClock.now(), target = target)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
+                    // **`dispatch` and not `send`**, because the four controls that write no event
+                    // have already applied their own transition above — `send` would re-apply an
+                    // identity one to the session this composition captured and throw the tap away.
+                    dispatch(ClientVerb.ToggleAlert(target))
                 }
 
                 // The Shipyard's square, and the same shape for the same reasons — a hull card is
@@ -400,9 +957,14 @@ fun App(
                 // it writes no event, so it has to commit unconditionally or the alert it just booked
                 // would never reach the platform.
                 fun alertHull(ship: ShipType) {
+                    heldKey(ClientVerb.CycleHullAlert(ship))?.let { return withdraw(it) }
                     val next = current.alertingHull(debugClock, wallClock = wallClock.now(), ship = ship)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
+                    // **`dispatch` and not `send`**, because the four controls that write no event
+                    // have already applied their own transition above — `send` would re-apply an
+                    // identity one to the session this composition captured and throw the tap away.
+                    dispatch(ClientVerb.CycleHullAlert(ship))
                 }
 
                 // The dispatch sheet's bell, and the map card's — one verb, because there is one
@@ -414,9 +976,14 @@ fun App(
                 // which is the whole of what "the bell remembers" means. `act` would decline —
                 // this writes no event — so it commits unconditionally, exactly as `alert` does.
                 fun alertFlights() {
+                    heldKey(ClientVerb.ToggleFlightAlerts)?.let { return withdraw(it) }
                     val next = current.alertingFlights(debugClock, wallClock = wallClock.now())
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
+                    // **`dispatch` and not `send`**, because the four controls that write no event
+                    // have already applied their own transition above — `send` would re-apply an
+                    // identity one to the session this composition captured and throw the tap away.
+                    dispatch(ClientVerb.ToggleFlightAlerts)
                 }
 
                 // The settings sheet's three controls, and they share one verb because they are one
@@ -424,10 +991,91 @@ fun App(
                 // stock. Same shape as the three above and committing unconditionally for the same
                 // reason — nothing here writes an event, and what has to survive is the schedule that
                 // `notifications.sync` books inside `commit`.
-                fun prefer(transition: (GameState) -> GameState) {
+                fun prefer(verb: ClientVerb, transition: (GameState) -> GameState) {
+                    // **The amber ghost's tap, answered here** — for `send`'s reason and by the same
+                    // function. The three call sites below each asked `held` a question of their own
+                    // shape (`held.alertMode?.key`, `held.alertCategory(category)`), which was a
+                    // second way of asking what `heldKey` already answers for every verb there is:
+                    // three chances to match the wrong envelope, and three arms of an exhaustive
+                    // `when` that nothing could reach.
+                    heldKey(verb)?.let { return withdraw(it) }
                     val next = current.preferring(debugClock, wallClock = wallClock.now(), transition = transition)
                     session = next
                     scope.launch { next.commit(store, notifications, debugClock) }
+                    dispatch(verb)
+                }
+
+                // **App Review guideline 5.1.1(v), and the one call in the app whose success is an
+                // absence.** The server answers `204` and it answers `204` the second time too, so
+                // there is nothing to decode and nothing to reconcile — what is left is to forget
+                // everything this device held and go back to the gate.
+                //
+                // **The local files go too, and in that order.** The session first, because a device
+                // that still had one would sync a colony that no longer exists and be answered
+                // `Unauthenticated`; then the save and the queue, because the account they belonged to
+                // is gone and a colony with no account is a colony nothing can ever agree to again.
+                //
+                // **Offline it refuses**, in the same grammar a dispatch does: the account is removed
+                // on the server, and the server has to answer.
+                fun deleteAccount() {
+                    scope.launch {
+                        val token = when (val credential = sessions.current()) {
+                            is Credential.Held -> credential.access
+
+                            // No credential to delete with. The gate is where that is answered, and
+                            // it is where the next launch would have gone anyway.
+                            Credential.Gone -> {
+                                signedIn = false
+                                session = null
+                                return@launch
+                            }
+
+                            // **Nothing was asked and nobody said no**, so the account is exactly
+                            // where it was. This is the offline refusal the sheet already draws —
+                            // signing the player out here would delete a session rather than an
+                            // account, which is the opposite of what the tap asked for.
+                            Credential.Unreachable -> {
+                                deleteRefused = true
+                                reachable = false
+                                return@launch
+                            }
+                        }
+                        when (api.deleteAccount(token)) {
+                            is ApiResult.Answered -> {
+                                sessions.forget()
+                                store.clear()
+                                outboxFile.clear()
+                                preferences.save(remembered.copy(provider = null))
+                                session = null
+                                held = HeldActions.NONE
+                                provider = null
+                                sheetFace = null
+                                gate = GateState.Idle
+                                signedIn = false
+                            }
+
+                            // The server read the request and said no — a token that has just expired
+                            // is the case this is really about, and the gate is the honest answer.
+                            //
+                            // **`session = null` is what makes the sentence above true**, and it was
+                            // the third place in this file that said *the gate* and left the colony
+                            // on screen: the gate draws only when there is no session. Nothing was
+                            // deleted, so the save stays exactly where it is and signing in again
+                            // opens the same colony.
+                            is ApiResult.Refused -> {
+                                sessions.forget()
+                                signedIn = false
+                                sheetFace = null
+                                session = null
+                                gate = GateState.Idle
+                            }
+
+                            ApiResult.Unreachable -> {
+                                reachable = false
+                                deleteRefused = true
+                            }
+                        }
+                    }
                 }
 
                 // The debug menu's one time verb. It is `act`'s shape with two differences, and
@@ -467,39 +1115,43 @@ fun App(
                     // way — so this is declared once rather than pasted into both. The first cut of
                     // 0.13 did paste it, and the twenty lines the Fleets copy added were reachable by
                     // no test in the repository, which is how the coverage gate found them.
-                    val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Unit =
+                    val dispatchRun: (GalaxyCoordinate, ResourceKind, Ships, Duration) -> Boolean =
                         { target, gathering, ships, window ->
-                            act { state, at ->
-                                when (
-                                    val result = startRun(
-                                        state = state,
-                                        target = target,
-                                        gathering = gathering,
-                                        ships = ships,
-                                        window = window,
-                                        at = at,
-                                    )
-                                ) {
-                                    is StartRunResult.Started -> result.state
-                                    // None of the six is reachable from a finger: both sheets are
-                                    // built so the verb is absent wherever the model would refuse.
-                                    // This `when` says so out loud rather than trusting it — and
-                                    // `NotAGatheringHull` is the newest of them, unreachable because
-                                    // the manifest picker only ever offers hulls that have a hold.
-                                    StartRunResult.Unsurveyed,
-                                    StartRunResult.NotAValidTarget,
-                                    StartRunResult.NoSuchShips,
-                                    StartRunResult.NotAGatheringHull,
-                                    StartRunResult.WindowTooShort,
-                                    StartRunResult.Depleted,
-                                    -> state
-                                }
-                            }
+                            ask(ClientVerb.StartRun(target, gathering, ships, window))
                         }
-                    val watching = current.state.watching
-                        ?.watchingLabel(compact = maxWidth < OltreLayout.compactWidth)
+                    val compact = maxWidth < OltreLayout.compactWidth
+                    val watching = current.state.watching?.watchingLabel(compact = compact)
+                    // **The sentence is written where the width is known**, which is what the two
+                    // refusal facts above are held as facts for: a run's clause is dropped in a Slide
+                    // Over pane rather than ellipsised, and only this scope can say whether it is one.
+                    val runRefusal = refusedRun?.let { target ->
+                        RefusalUiState(
+                            lead = Strings.refusedRunLead(),
+                            body = Strings.refusedRunBody(
+                                target = Strings.coordinate(target.galaxy, target.system, target.slot),
+                                compact = compact,
+                            ),
+                        )
+                    }
+                    val probeRefusal = if (!refusedProbe) {
+                        null
+                    } else {
+                        RefusalUiState(
+                            lead = Strings.refusedProbeLead(),
+                            body = Strings.refusedProbeBody(compact = compact),
+                        )
+                    }
 
                     MainScaffold(
+                        // The one new piece of chrome, and null on a colony with signal — see
+                        // `offlineLine`, which refuses to draw with half its facts.
+                        offline = offlineLine(
+                            reachable = reachable,
+                            since = lastReachedAt,
+                            held = held.count,
+                            timeZone = TimeZone.currentSystemDefault(),
+                            compact = compact,
+                        ),
                         // **Read off the save now rather than declared here.** The level and the
                         // gauge are a fold over `current.state.eventLog`, so a colony carried
                         // forward from 0.16 opens on the level it had already earned and nothing
@@ -523,9 +1175,10 @@ fun App(
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedFacility,
                                     watching = watching,
+                                    held = held,
                                 ),
                                 onUpgrade = { building ->
-                                    act { state, at ->
+                                    send(ClientVerb.StartUpgrade(building)) { state, at ->
                                         when (val result = startUpgrade(state, building, at = at)) {
                                             is StartUpgradeResult.Started -> result.state
                                             StartUpgradeResult.AlreadyUpgrading,
@@ -553,9 +1206,10 @@ fun App(
                                     timeZone = TimeZone.currentSystemDefault(),
                                     finishedWhileAway = finishedProject,
                                     watching = watching,
+                                    held = held,
                                 ),
                                 onStartResearch = { technology ->
-                                    act { state, at ->
+                                    send(ClientVerb.StartResearch(technology)) { state, at ->
                                         when (val result = startResearch(state, technology, at = at)) {
                                             is StartResearchResult.Started -> result.state
                                             StartResearchResult.SlotBusy,
@@ -569,7 +1223,7 @@ fun App(
                                 // differ in what they buy, not in how they are bought — and a busy
                                 // slot refuses both, whichever kind of project is holding it.
                                 onStartAdaptation = { technology ->
-                                    act { state, at ->
+                                    send(ClientVerb.StartAdaptation(technology)) { state, at ->
                                         when (val result = startAdaptation(state, technology, at = at)) {
                                             is StartAdaptationResult.Started -> result.state
                                             StartAdaptationResult.SlotBusy,
@@ -615,18 +1269,7 @@ fun App(
                                     remembered = next
                                     scope.launch { preferences.save(next) }
                                 },
-                                onDispatchProbe = { target ->
-                                    act { state, at ->
-                                        when (val result = startSurvey(state, target, at = at)) {
-                                            is StartSurveyResult.Started -> result.state
-                                            StartSurveyResult.AlreadySurveying,
-                                            StartSurveyResult.AlreadySurveyed,
-                                            StartSurveyResult.NoIdleScout,
-                                            StartSurveyResult.InsufficientResources,
-                                            -> state
-                                        }
-                                    }
-                                },
+                                onDispatchProbe = { target -> ask(ClientVerb.StartSurvey(target)) },
                                 // **The fifth verb, reaching a finger for the first time.** `core`
                                 // has carried `startRun` since 0.3.0 and nothing called it: the
                                 // balance existed, the save format carried it, `advance` landed the
@@ -640,6 +1283,10 @@ fun App(
                                 // loud rather than trusting it.
                                 onDispatchRun = dispatchRun,
                                 onToggleAnnounce = { alertFlights() },
+                                held = held,
+                                // The map card's own refusal and the sheet's run refusal, which are
+                                // two different sentences on two different controls of one tab.
+                                refusal = probeRefusal ?: runRefusal,
                             )
                         },
                         // **The sixth verb, and the first shop in the game.** `FleetBalance.shipCost`
@@ -658,9 +1305,10 @@ fun App(
                                 uiState = current.state.toShipyardUiState(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
+                                    held = held,
                                 ),
                                 onBuild = { type ->
-                                    act { state, at ->
+                                    send(ClientVerb.BuildShips(Ships.of(type, 1))) { state, at ->
                                         when (val result = buildShips(state, Ships.of(type, 1), at = at)) {
                                             is BuildShipsResult.Started -> result.state
                                             // Exhaustive and every branch returns the state
@@ -701,6 +1349,11 @@ fun App(
                                 // handling in a place neither of them owns.
                                 onDispatchRun = dispatchRun,
                                 onToggleAnnounce = { alertFlights() },
+                                held = held,
+                                // No probe on this tab — a world a fleet has been sent to was
+                                // surveyed in order to be dispatched to — so the only refusal the
+                                // sheet it raises can carry is a run's.
+                                refusal = runRefusal,
                             )
                         },
                         // **Tapping the gear again closes what it opened**, which is one of the four
@@ -731,6 +1384,12 @@ fun App(
                                 alerts = current.state.toAlertSheetUiState(
                                     now = current.lastUpdatedAt,
                                     timeZone = TimeZone.currentSystemDefault(),
+                                    held = held,
+                                    // Null draws no Account section, which is the honest answer on a
+                                    // build that has no account to administer.
+                                    account = provider?.let {
+                                        accountSection(it, current.state, TimeZone.currentSystemDefault())
+                                    },
                                 ),
                                 changelog = changelog.toChangelogUiState(),
                                 build = changelog.toBuildRowUiState(),
@@ -739,12 +1398,50 @@ fun App(
                                 // peek against.
                                 compact = maxWidth < OltreLayout.compactWidth,
                                 onOpenChangelog = { sheetFace = SheetFace.CHANGELOG },
-                                onSelectMode = { mode -> prefer { state -> setAlertMode(state, mode) } },
+                                onSelectMode = { mode ->
+                                    prefer(ClientVerb.SetAlertMode(mode)) { setAlertMode(it, mode) }
+                                },
                                 onToggleCategory = { category ->
-                                    prefer { state -> toggleAlertCategory(state, category) }
+                                    prefer(ClientVerb.ToggleAlertCategory(category)) {
+                                        toggleAlertCategory(it, category)
+                                    }
+                                },
+                                // **The four doors of the deletion flow**, and the third and fourth
+                                // faces the one sheet can wear. `delete` is built only when there is
+                                // an account, which is also the only way either face is reachable.
+                                delete = provider?.let {
+                                    current.state.toDeleteFaceUiState(
+                                        face = if (sheetFace == SheetFace.DELETE_CONFIRM) {
+                                            DeleteFace.CONFIRM
+                                        } else {
+                                            DeleteFace.WARN
+                                        },
+                                        provider = it,
+                                        offline = deleteRefused,
+                                    )
+                                },
+                                onOpenDelete = { sheetFace = SheetFace.DELETE_WARN },
+                                // **The warn face's button crosses to the last step; the last step's
+                                // does the thing.** One callback for both, because the sheet knows
+                                // which face it is wearing and a second one would be a second place
+                                // to get the order wrong.
+                                onDeleteAccount = {
+                                    if (sheetFace == SheetFace.DELETE_WARN) {
+                                        sheetFace = SheetFace.DELETE_CONFIRM
+                                    } else {
+                                        deleteAccount()
+                                    }
+                                },
+                                // *Keep it* is first in the row and dismissal is a no, so this goes
+                                // back to the reading face rather than out of the sheet.
+                                onKeepAccount = {
+                                    deleteRefused = false
+                                    sheetFace = SheetFace.DELETE_WARN
                                 },
                                 onSelectDelivery = { delivery ->
-                                    prefer { state -> setAlertDelivery(state, delivery) }
+                                    prefer(ClientVerb.SetAlertDelivery(delivery)) {
+                                        setAlertDelivery(it, delivery)
+                                    }
                                 },
                             )
                         }
@@ -785,3 +1482,35 @@ fun App(
 // a player one tap rather than a wrong screen.
 private fun String?.toGalaxyLanding(): GalaxyLanding =
     GalaxyLanding.entries.firstOrNull { it.name == this } ?: GalaxyLanding.MAP
+
+// **The Account section, and the two rows it holds.** Built here because it is the one part of the
+// settings sheet that is not about the colony: who is signed in is the composition root's to know,
+// and `:client:settings:presentation` may not learn it — a `GameState` has never carried an account
+// and putting one in it would be the wire reaching into the simulation.
+private fun accountSection(provider: AuthProvider, state: GameState, timeZone: TimeZone): AccountUiState {
+    val name = Strings.playerDefaultName()
+    // **The first thing this colony ever did**, which is the closest thing to a founding date the
+    // save carries: `GameState.initial` writes no event, so a colony that has done nothing has no
+    // date and the row says the name alone. Honest rather than invented — the alternative is stamping
+    // *now*, which would move every time the sheet was opened.
+    val since = state.eventLog.firstOrNull()?.at?.toLocalDateTime(timeZone)
+    return AccountUiState(
+        label = Strings.accountLabel(),
+        provider = Strings.accountSignedInWith(provider.spoken()),
+        name = if (since == null) name else Strings.accountSince(name, day = since.dayOfMonth, month = since.monthNumber),
+        deleteLabel = Strings.deleteAccountRow(),
+        deleteNote = Strings.deleteAccountRowNote(),
+    )
+}
+
+private fun AuthProvider.spoken(): AuthProviderName = when (this) {
+    AuthProvider.APPLE -> AuthProviderName.APPLE
+    AuthProvider.GOOGLE -> AuthProviderName.GOOGLE
+}
+
+// **The composition root is where the two vocabularies meet**, exactly as it is for the galaxy's
+// landing one function up: `:client:save:data` carries a name through and has no opinion about what
+// it names, so resolving it is this file's. A name this build cannot resolve is nobody signed in —
+// which is the same answer a first launch gets, and is what makes a downgrade harmless.
+private fun String?.toAuthProvider(): AuthProvider? =
+    AuthProvider.entries.firstOrNull { it.name == this }

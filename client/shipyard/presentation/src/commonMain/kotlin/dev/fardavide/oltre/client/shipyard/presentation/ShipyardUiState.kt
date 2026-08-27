@@ -1,7 +1,10 @@
 package dev.fardavide.oltre.client.shipyard.presentation
 
 import dev.fardavide.oltre.client.design.component.CostChipUiState
+import dev.fardavide.oltre.client.design.component.HeldUiState
+import dev.fardavide.oltre.client.design.component.WatchAsk
 import dev.fardavide.oltre.client.design.component.WatchSquareUiState
+import dev.fardavide.oltre.client.net.domain.HeldActions
 import dev.fardavide.oltre.client.design.format.groupedByThousands
 import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
@@ -34,14 +37,20 @@ import kotlin.time.Instant
 // `now` is what the yard needs and nothing else on this screen does: every price here is a pure
 // function of the state, and a countdown is not. It is the same parameter the Colony screen takes,
 // for the same reason and read the same way.
-fun GameState.toShipyardUiState(now: Instant, timeZone: TimeZone): ShipyardUiState {
+fun GameState.toShipyardUiState(
+    now: Instant,
+    timeZone: TimeZone,
+    // What the phone has accepted and the server has not. Defaulted to an empty queue — a colony with
+    // signal — and the shell hands in the real one, exactly as the other three screens take it.
+    held: HeldActions = HeldActions.NONE,
+): ShipyardUiState {
     val owned = ownedShips()
     return ShipyardUiState(
         // **The fleet that exists, not the fleet that is paid for.** A hull on the slipway cannot be
         // sent, so counting it here would put a number on the heading that the Fleets tab disagrees
         // with. What it *does* count against is the price, one line down.
         fleet = Strings.hullsInFleet(owned.total),
-        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone) },
+        hulls = FOR_SALE.map { toHullRow(it, owned = owned, now = now, timeZone = timeZone, held = held) },
     )
 }
 
@@ -50,6 +59,7 @@ private fun GameState.toHullRow(
     owned: Ships,
     now: Instant,
     timeZone: TimeZone,
+    held: HeldActions,
 ): HullUiState {
     val type = hull.type
     // **The chips are the verb's own answer, asked for rather than reconstructed.** This line used to
@@ -60,6 +70,16 @@ private fun GameState.toHullRow(
     // file at all.
     val cost = priceOf(Ships.of(type, 1))
     val short = resources.shortfallOf(cost)
+    val heldBuild = held.build(type) != null
+    val heldAlert = held.hullAlert(type) != null
+    // **Which stop this card is claiming, which is simply the one it is on.** `alertingHull` runs
+    // `cycleHullAlert` against the session before anything is mapped, so the card already shows the
+    // stop that was asked for — cycling again here would name the stop *after* the one the player
+    // chose, and on a three-stop control that is a different lit answer rather than an obvious
+    // nonsense. See `asSquare`, where the rule this belongs to is written up.
+    //
+    // Hoisted anyway, so the square and the line beneath it read one value and cannot disagree.
+    val askedStop = hullAlerts[type]
     return HullUiState(
         type = type,
         name = hull.name,
@@ -72,7 +92,24 @@ private fun GameState.toHullRow(
         ),
         action = buildOrWait(cost),
         yard = yardLine(type = type, now = now, timeZone = timeZone),
-        alert = alertFor(type),
+        alert = alertFor(type, held = heldAlert, showing = askedStop),
+        held = HeldUiState(
+            action = heldBuild,
+            watch = heldAlert,
+            // **The one card that can say two things in one sentence**, which is the whole reason
+            // `HeldUiState` carries both flags rather than each control carrying its own: a build
+            // and its alert land together, and two lines saying so separately would lose exactly
+            // that.
+            line = when {
+                heldBuild -> Strings.heldBuildFoot(withAlert = heldAlert)
+                // **The stop that was asked for, which is the one the card is on** — see `askedStop`
+                // above. This control has three stops rather than two, so the middle step goes from
+                // one *lit* answer to another: a sentence derived by negating anything would be
+                // false on a third of the cycle, whichever way it negated.
+                heldAlert -> Strings.heldWatchFoot(on = askedStop != null)
+                else -> null
+            },
+        ),
     )
 }
 
@@ -84,7 +121,7 @@ private fun GameState.toHullRow(
 // difference is the point. A footer reports the hull being made, which is one job and has to be the
 // one on the slipway; the square asks about an order, and a hauler queued behind two skiffs is an
 // order the player is waiting on even though its card shows no countdown at all.
-private fun GameState.alertFor(type: ShipType): WatchSquareUiState? {
+private fun GameState.alertFor(type: ShipType, held: Boolean, showing: HullAlert?): WatchSquareUiState? {
     // **The card loses its square under `BY_CATEGORY`, and it loses more than the other screens do.**
     // Every hull is announced there, because one switch cannot carry this control's three states —
     // off, each hull, whole order — so the middle state goes with the square. It is not lost: `One
@@ -93,10 +130,10 @@ private fun GameState.alertFor(type: ShipType): WatchSquareUiState? {
     // out loud because it makes Delivery load-bearing for something the yard used to own.
     if (!alerts.asksOnRow(AlertCategory.HULLS)) return null
     if (yard.none { it.ship == type }) return null
-    return when (hullAlerts[type]) {
-        null -> WatchSquareUiState.UNASKED
-        HullAlert.WHEN_ALL_DONE -> WatchSquareUiState.ASKED
-        HullAlert.EACH_HULL -> WatchSquareUiState.ASKED_SEVERAL
+    return when (showing) {
+        null -> WatchSquareUiState(asked = WatchAsk.NONE, held = held)
+        HullAlert.WHEN_ALL_DONE -> WatchSquareUiState(asked = WatchAsk.ONE, held = held)
+        HullAlert.EACH_HULL -> WatchSquareUiState(asked = WatchAsk.SEVERAL, held = held)
     }
 }
 

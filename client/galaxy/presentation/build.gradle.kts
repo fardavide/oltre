@@ -60,6 +60,9 @@ kotlin {
             // against a reading here, so the two screens writing them differently would be the app
             // contradicting itself about a number the player is comparing.
             implementation(projects.client.design.format)
+            // What the outbox means to the map card's bell and to a probe that cannot be held — see
+            // the colony's presentation module, which takes it the same way.
+            implementation(projects.client.net.domain)
 
             // Arrives with 0.2.0 and the probe: the system card's footer counts a flight down and
             // prints the wall-clock instant it lands at, which is the same pair of needs that put

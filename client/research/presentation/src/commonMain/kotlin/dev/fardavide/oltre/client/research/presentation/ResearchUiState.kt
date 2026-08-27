@@ -20,6 +20,7 @@ import dev.fardavide.oltre.client.design.format.toChipLabel
 import dev.fardavide.oltre.client.design.format.toCountdown
 import dev.fardavide.oltre.client.design.format.toPaybackLabel
 import dev.fardavide.oltre.client.design.format.watchedAtLabel
+import dev.fardavide.oltre.client.design.component.HeldUiState
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.research.ui.AdaptationRowUiState
@@ -32,6 +33,8 @@ import dev.fardavide.oltre.client.research.ui.TechnologyRowUiState
 import dev.fardavide.oltre.client.research.ui.toVerdictUiState
 import dev.fardavide.oltre.core.AdaptationBalance
 import dev.fardavide.oltre.core.AdaptationLevels
+import dev.fardavide.oltre.client.net.domain.HeldActions
+import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.alertCategory
@@ -75,6 +78,10 @@ fun GameState.toResearchUiState(
     timeZone: TimeZone,
     finishedWhileAway: FinishedWhileAway? = null,
     watching: TextRes? = null,
+    // What the phone has accepted and the server has not. Defaulted to an empty queue — a colony
+    // with signal — and the shell hands in the real one. See the colony's mapper, which takes it the
+    // same way for the same reason.
+    held: HeldActions = HeldActions.NONE,
 ): ResearchUiState {
     // Derived once for all three rows rather than per row: `adaptationShortlist` regenerates every
     // surveyed world from the seed, and asking it three times would do that work three times over
@@ -94,6 +101,7 @@ fun GameState.toResearchUiState(
                 now = now,
                 timeZone = timeZone,
                 finishedWhileAway = it == finishedProject,
+                held = held,
             )
         },
         adaptation = AdaptationTechnology.entries.map {
@@ -103,6 +111,7 @@ fun GameState.toResearchUiState(
                 now = now,
                 timeZone = timeZone,
                 finishedWhileAway = it == finishedLadder,
+                held = held,
             )
         },
         watching = watching,
@@ -116,6 +125,7 @@ private fun GameState.toTechnologyRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    held: HeldActions,
 ): TechnologyRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -179,6 +189,7 @@ private fun GameState.toTechnologyRow(
             timeZone = timeZone,
         ),
         finishedWhileAway = finishedWhileAway,
+        held = heldOn(target = WatchTarget.Project(technology), start = held.research(technology), held = held),
     )
 }
 
@@ -193,6 +204,7 @@ private fun GameState.toAdaptationRow(
     now: Instant,
     timeZone: TimeZone,
     finishedWhileAway: Boolean,
+    held: HeldActions,
 ): AdaptationRowUiState {
     val level = research.levelOf(technology)
     val toLevel = TechLevel(level.value + 1)
@@ -266,6 +278,7 @@ private fun GameState.toAdaptationRow(
             timeZone = timeZone,
         ),
         finishedWhileAway = finishedWhileAway,
+        held = heldOn(target = WatchTarget.Ladder(technology), start = held.adaptation(technology), held = held),
     )
 }
 
@@ -862,3 +875,30 @@ private fun Int.toPercent(): TextRes = Strings.plusPercent(this)
 
 private fun Long.toCostChip(kind: ResourceKind, short: Set<ResourceKind>): CostChipUiState? =
     takeIf { it > 0 }?.let { CostChipUiState(kind = kind, amount = it.groupedByThousands(), short = kind in short) }
+
+// **One function for both branches**, because a project and an adaptation are held identically: both
+// are *started*, both take the one slot, and a card that said something different depending on which
+// branch it was on would be inventing a distinction the queue does not make.
+//
+// The direction on the square is the opposite of what the empire currently says, which is what a held
+// toggle means — see `asSquare`, which inverts for the same reason.
+private fun GameState.heldOn(
+    target: WatchTarget,
+    start: IdempotencyKey?,
+    held: HeldActions,
+): HeldUiState {
+    val heldWatch = held.watch(target) != null
+    // Read off the row rather than inverted out of it — the tap applied `toggleAlert` to the session
+    // before this ran, so the row already says what was asked. Same rule as the colony's and the
+    // square's; see `asSquare`, which is where it is written down.
+    val askingOn = target in subscribed || watching == target
+    return HeldUiState(
+        action = start != null,
+        watch = heldWatch,
+        line = when {
+            start != null -> Strings.heldStartFoot()
+            heldWatch -> Strings.heldWatchFoot(on = askingOn)
+            else -> null
+        },
+    )
+}

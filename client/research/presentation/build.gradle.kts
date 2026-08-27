@@ -38,6 +38,9 @@ kotlin {
             implementation(projects.client.design.component)
             implementation(projects.client.design.text)
             implementation(projects.client.design.format)
+            // What the outbox means to a row — see the colony's presentation module, which takes it
+            // the same way and for the same reason.
+            implementation(projects.client.net.domain)
 
             implementation(libs.kotlinx.datetime)
         }

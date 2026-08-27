@@ -38,11 +38,30 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        # The scheme the Google flow comes back on — the iOS client id reversed, which is what
+        # `ASWebAuthenticationSession` is given as its callback. The key is CFBundleURLSchemes
+        # (plural), an array inside a dictionary inside CFBundleURLTypes; there is no
+        # CFBundleURLScheme. Miss it and the browser completes the flow and never returns to the
+        # app — a hang with no error, which is a dead control. Step 48 of
+        # `.claude/docs/identity-provisioning.md`.
+        CFBundleURLTypes:
+          - CFBundleURLSchemes:
+              - com.googleusercontent.apps.640101315805-rb18lnl9jevi2jact1mbartc82in9u85
+    # **The entitlement the compiler cannot catch.** Without it the archive ships with no
+    # `com.apple.developer.applesignin` whatever the App ID says: the app builds, launches and looks
+    # fine, and Sign in with Apple fails at runtime with ASAuthorizationError 1000. Step 47 of the
+    # provisioning walkthrough, which also records the trap in the path — XcodeGen resolves
+    # `entitlements.path` relative to the directory holding this spec, so `iosApp/Oltre.entitlements`
+    # writes `iosApp/iosApp/Oltre.entitlements`, the same nesting `info.path` already has.
+    entitlements:
+      path: iosApp/Oltre.entitlements
+      properties:
+        com.apple.developer.applesignin: [Default]
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.fardavide.oltre
         PRODUCT_NAME: Oltre
-        MARKETING_VERSION: 0.20.1
+        MARKETING_VERSION: 0.21.0
         # Placeholder only. The shipped build number comes from $CI_BUILD_NUMBER, written in
         # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .claude/skills/versioning.
         CURRENT_PROJECT_VERSION: 3

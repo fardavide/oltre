@@ -37,6 +37,9 @@ kotlin {
             api(projects.client.shipyard.ui)
             implementation(projects.client.design.component)
             implementation(projects.client.design.format)
+            // What the outbox means to a row — see the colony's presentation module, which takes it
+            // the same way and for the same reason.
+            implementation(projects.client.net.domain)
             // Every word this file writes comes from here. Declared even though `:client:design:format`
             // re-exports it: the catalogue is what this module *uses*, not something it inherits.
             implementation(projects.client.design.text)

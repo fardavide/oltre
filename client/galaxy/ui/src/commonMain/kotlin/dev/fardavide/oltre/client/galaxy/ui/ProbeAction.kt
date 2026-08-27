@@ -47,6 +47,12 @@ internal fun ProbeAction(
             is ProbeActionUiState.Dispatch -> Offer(
                 offer = uiState.offer,
                 compact = compact,
+                // **One line, three things that could be on it, and a fixed order.** The refusal is
+                // about the tap that just happened, the held string is about a control that is
+                // waiting, and the round trip is the fact that is always true — so they displace each
+                // other in exactly that order and the card never grows a second line.
+                note = uiState.refusal?.let { NoteLine(text = it, refused = true) }
+                    ?: uiState.announceHeld?.let { NoteLine(text = it, refused = false) },
                 action = {
                     // **Draws 30dp and claims 44dp**, which is two boxes rather than one: the
                     // minimum height and the click go on the *outer* Box, and the accent fill goes
@@ -200,7 +206,12 @@ internal fun ProbeAction(
 // Cost then time, left to right: the cost never moves and the time is the whole purchase, so the
 // eye learns where the changing number is and stops reading the other one.
 @Composable
-private fun Offer(offer: ProbeOfferUiState, compact: Boolean, action: @Composable () -> Unit) {
+private fun Offer(
+    offer: ProbeOfferUiState,
+    compact: Boolean,
+    note: NoteLine? = null,
+    action: @Composable () -> Unit,
+) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -230,12 +241,24 @@ private fun Offer(offer: ProbeOfferUiState, compact: Boolean, action: @Composabl
                 fontSize = 10.5.sp,
             )
             Text(
-                text = (if (compact) offer.compactFlight else offer.flight).resolve(),
-                color = OltreColors.textSecondary,
+                text = note?.text?.resolve()
+                    ?: (if (compact) offer.compactFlight else offer.flight).resolve(),
+                color = when {
+                    note == null -> OltreColors.textSecondary
+                    note.refused -> OltreColors.danger
+                    // Body rather than muted, which is the settings sheet's rule for a held line:
+                    // muted states a rule that was already true and body states something that has
+                    // just changed.
+                    else -> OltreColors.text
+                },
                 fontFamily = oltreMono(),
                 fontSize = 10.5.sp,
-                maxLines = 1,
-                softWrap = false,
+                // **It wraps where the round trip did not.** A held line and a refusal are both
+                // longer than `flight 39m` and neither has a clause that can be dropped, so the
+                // footer takes a second line rather than losing half a sentence.
+                maxLines = if (note == null) 1 else 2,
+                softWrap = note != null,
+                modifier = Modifier.testTag(GalaxyTestTags.PROBE_NOTE),
             )
         }
         action()
@@ -269,3 +292,8 @@ private fun ProbeFindKind.hue(): Color = when (this) {
 
 // The iOS minimum, claimed by the button rather than drawn by it.
 private val TOUCH_MINIMUM = 44.dp
+
+// **Which of the three things is on the footer's one line, and whether it is a refusal.** A pair
+// rather than two nullable parameters, because *"a red line with no text"* is not a state anything
+// can be in and two parameters would let it compile.
+private data class NoteLine(val text: TextRes, val refused: Boolean)

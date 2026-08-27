@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
+import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.core.AlertSettings
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.GalaxySeed
@@ -79,6 +80,25 @@ class FlightAlertAppBehaviourTest {
             sendTheRun()
 
             assertAlertsBooked(2)
+        }
+    }
+
+    // **The one bell there is one of**, held and taken back. Every other held control is keyed by the
+    // thing it points at — a facility, a hull, a category — and this one points at nothing: there is a
+    // single answer for the whole fleet. So its lookup is the only one in `HeldActions` that takes no
+    // argument, which makes it the only one a wrong key would match silently rather than not at all.
+    @Test
+    fun `the bell tapped with no signal is held and can be taken back`() {
+        app(saved = snapshot(withHulls()), api = FakeOltreApi().apply { colony = null; founds = null; offline = true }) {
+            open(OltreTab.GALAXY)
+            openTheWorldsList()
+            openTheWorld(runnable)
+
+            tapTheBellOnTheSheet()
+            waitUntilItReads("1 action held")
+
+            tapTheBellOnTheSheet()
+            waitUntilItReads("0 actions held")
         }
     }
 
