@@ -11,6 +11,7 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
+import kotlin.time.Duration.Companion.hours
 
 // **App Review guideline 5.1.1(v), driven end to end.** *"If your app supports account creation, you
 // must also offer account deletion within the app"* — a hard App Store gate, not a TestFlight one,
@@ -129,6 +130,31 @@ class DeleteAccountAppBehaviourTest {
             pressTheDeleteButton()
 
             waitUntilItReads("The galaxy is shared")
+        }
+    }
+
+    // **Offline with a token that has run out is still offline**, and this is the arm that says so on
+    // the one route where getting it wrong would be worst: a deletion answered by signing the player
+    // out would delete a *session* rather than an account, which is the opposite of what the tap
+    // asked for — and it would look, from the outside, exactly like the deletion having worked.
+    //
+    // The credential is stale and nothing is answering, so the renewal cannot happen. The account is
+    // exactly where it was; the sheet says so.
+    @Test
+    fun `deleting with a stale token and no network refuses rather than signing out`() {
+        val server = FakeOltreApi().apply {
+            session = session.copy(accessExpiresAt = TEST_NOW - 1.hours)
+            offline = true
+        }
+        app(saved = colony(), preferences = signedInWithApple(), api = server) {
+            openTheSettings()
+            openTheAccountDeletion()
+            pressTheDeleteButton()
+            pressTheDeleteButton()
+
+            waitUntilItReads("This cannot be held.")
+            assertDeletionsAsked(0)
+            assertDoesNotRead("The galaxy is shared")
         }
     }
 

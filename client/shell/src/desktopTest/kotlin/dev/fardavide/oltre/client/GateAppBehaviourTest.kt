@@ -135,6 +135,41 @@ class GateAppBehaviourTest {
         }
     }
 
+    // **And once the wait has passed the button works again**, which is the other half and the one a
+    // player actually experiences. `retryAfterSeconds = 0` is the window already over — the server's
+    // own way of saying *ask again now* — so the second tap has to reach it rather than be answered
+    // by a number that has expired. A gate that latched on the first refusal would be a control that
+    // stops working and never says why.
+    @Test
+    fun `a wait that has already passed does not hold the second tap back`() {
+        val server = FakeOltreApi().apply { error = ApiError.TooManyRequests(retryAfterSeconds = 0) }
+        app(saved = null, signedIn = false, api = server) {
+            pressProvider(AuthProvider.APPLE)
+            assertReads("You can ask again now.")
+
+            pressProvider(AuthProvider.APPLE)
+
+            assertEquals(2, server.signIns().size)
+        }
+    }
+
+    // **A credential the server rejects mid-session ends where one rejected at launch does.** The
+    // path is different — this one arrives through a *tap* rather than through the opening sync, so
+    // it is `ActOutcome.Failed` rather than `SyncOutcome.Failed` — and the honest answer is the same
+    // screen. What it must not be is a tap that queues, looks held, and is never sent.
+    @Test
+    fun `a tap the server rejects the credential for returns to the gate`() {
+        val server = FakeOltreApi().apply { colony = this@GateAppBehaviourTest.colony() }
+        app(saved = colony(), api = server) {
+            waitUntilItReads("Metal Mine")
+
+            server.error = ApiError.Unauthenticated
+            tapTheActionOn(BuildingType.METAL_MINE)
+
+            waitUntilItReads("The galaxy is shared")
+        }
+    }
+
     // **A first launch with no signal cannot enter the game**, and the honest form of that is the
     // gate saying so rather than an empty colony nobody can trust.
     @Test
