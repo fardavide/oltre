@@ -275,6 +275,51 @@ class GateAppBehaviourTest {
         }
     }
 
+    // **A refusal must not outlive the sign-in that answered it.** `gate` is remembered for the life
+    // of the composition and the screen is not drawn while there is a colony, so a message left over
+    // from a failed attempt is invisible until something sends the player back here — and then it is
+    // a sentence about a tap they made an hour ago. *"Apple did not sign you in"* under a screen they
+    // reached because their session expired is the app reporting on its own past rather than theirs.
+    //
+    // **This passed the first time it was run**, which is worth saying: the property holds because
+    // the `Unauthenticated` arm of `arrive` resets the gate on its way out, and that is the only
+    // ordinary route back. The test is here because nothing else drives *refused, then in through the
+    // other door* — so the reset was load-bearing and unasserted, which is how it would have been
+    // deleted by a later tidy-up.
+    @Test
+    fun `a refusal answered by the other provider is not still on the gate later`() {
+        // A server with a colony to hand back but nothing on this device yet, which is what a first
+        // sign-in actually meets: `found` mints, and until it is called there is nothing to sync.
+        val server = FakeOltreApi().apply { founds = this@GateAppBehaviourTest.colony(); replays = true }
+        app(
+            saved = null,
+            signedIn = false,
+            api = server,
+            signIn = ProviderSignIn { provider ->
+                // Apple says no; Google vouches. The player takes the second door, which is exactly
+                // what the refusal's own body tells them to do.
+                if (provider == AuthProvider.APPLE) {
+                    SignInAttempt.Refused
+                } else {
+                    SignInAttempt.Signed(IdToken("fake.id.token"), SignInNonce("fake-nonce"))
+                }
+            },
+        ) {
+            pressProvider(AuthProvider.APPLE)
+            assertReads("Apple did not sign you in.")
+
+            pressProvider(AuthProvider.GOOGLE)
+            waitUntilItReads("Metal Mine")
+
+            // and now the session dies, which is the only ordinary way back to this screen
+            server.error = ApiError.Unauthenticated
+            tapTheActionOn(BuildingType.METAL_MINE)
+
+            waitUntilItReads("The galaxy is shared")
+            assertDoesNotRead("Apple did not sign you in.")
+        }
+    }
+
     // **And a platform with none says so**, which is the same rule taken to the end rather than a
     // separate one. Drawing no button is right for a provider that cannot finish; drawing no button
     // *at all* leaves a screen the player cannot leave, so the absence needs a sentence or it reads
