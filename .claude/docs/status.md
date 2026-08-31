@@ -1,6 +1,6 @@
 # Status
 
-Updated: 2026-08-27 (0.21.0 — issue #113, the gate and the shell cutover)
+Updated: 2026-08-30 (0.22.0 — player identity: a name you chose and a mark you drew)
 
 ## Landed
 
@@ -614,6 +614,28 @@ Updated: 2026-08-27 (0.21.0 — issue #113, the gate and the shell cutover)
   nobody has signed in on a device, the one-time upload is not implementable inside this ticket's
   scope, and Apple is absent on two platforms.
 
+- **0.22.0 — a name you chose, and a mark you drew** (2026-08-30). The first thing in this game that
+  is the *player's* rather than the colony's. `:protocol` gains `CommanderName` (bounded at 24) and a
+  sealed `PlayerMark` — `Preset` or `Composed(body, path, terminus)` — carried by a `PlayerProfile`
+  whose two halves are both nullable, because null is *"has not chosen"* and is what every account
+  that predates this slice reads. **Two new routes rather than a field on `SyncResponse`**: a field
+  added to a shipped response is one the 0.21.0 TestFlight build cannot decode, so `ApiVersion.CURRENT`
+  does not move and `OLDEST_SERVED` strands nobody. `players.mark` is `jsonb`, not four columns.
+  The design is Claude Design's *A Name You Chose*: **six drawn marks plus a composer** — four bodies,
+  four paths, three termini in three regions of one 24-unit box, forty legal marks from eleven
+  drawings — which is Davide's *both* on 2026-08-30 and the reason the wire is a sealed pair rather
+  than an enum, since four of the six presets are silhouettes the grammar cannot make. A **fifth and
+  sixth face** on `OltreBottomSheet`, the app's **first text field to meet a soft keyboard** (44dp,
+  no floating label and no error state, because a name that cannot collide with anybody cannot be
+  rejected), and the strip's **whole left cluster becomes one target marked by `→`** with
+  `DESTINATION_HEIGHT` untouched — Davide's 4c over a 34dp chip face and a bare ripple. A mark commits
+  on tap; a name gets a `Save name` button that is **absent rather than disabled** until the draft
+  differs. With no signal the sheet opens, goes quiet and says why: a rename **refuses and does not
+  queue**, because the outbox is for verbs a server can validate by replay. Strings in both languages,
+  22 new baselines. See [`profile-sheet.md`](profile-sheet.md) and [`decisions.md`](decisions.md), and
+  the eight pending entries below — four of them are Davide's or Design's to settle, and four are
+  places the frame and the implementation do not agree yet.
+
 
 ## Roadmap — v1 in vertical slices
 
@@ -664,6 +686,63 @@ numbers in it.
 Colonisation (#10) is called a **core pillar** on Notion but is not in the eight-item v1 list;
 carried here because the pressures that replace hard caps (upkeep, logistics, distance decay,
 real failure) have nothing to act on without it. Whether it is v1 or v1.1 is Davide's call.
+
+## Pending, from 0.22.0
+
+- **An unexpected refusal on `POST /v1/profile` still has no designed frame**, and what ships is a
+  deliberate reuse rather than an answer. The return's own note says *"what the server may still
+  refuse is not designed"*: length is bounded by the field and there is no blocklist by decision, so
+  the only refusal reachable from a finger is `Unauthenticated`, which goes to the gate. Everything
+  else now leaves the face in the state it already has for *that did not land* — the amber card, the
+  controls at 42%, the save button away — because the alternative was a redraw in which every control
+  came back live and the tap that had just been refused looked exactly like one that had landed.
+  **The cost is stated rather than hidden: the chrome line will say *no network since* about a server
+  that did answer**, which is the cheaper of the two lies and is cleared by the next sync. If a
+  refusal ever becomes reachable, it wants a frame of its own and that is Design's.
+- **The IME lift cannot be baselined, so the check is a phone.** The desktop dev loop has no software
+  keyboard: there is nothing for `imePadding` to react to, so a recorder draws the resting sheet
+  whatever the frame asked for. **Frames 6a and 6b are the specification and no baseline stands behind
+  them** — what has to be looked at on a device is that the field rides the keys with the save button
+  in the 44dp between, that the header and the mark grid are what gets pushed rather than clipped, and
+  that both hold **in both languages**, because the Italian strings are the longer ones. The sheet is
+  sized by subtraction with the keyboard up and the rail's height is font-metric driven, so **no
+  constant for it belongs in the suite** — any figure written down is a dp or two out on the device.
+- **The caret's specified 1.5 × 19dp did not land, and only its hue is the frame's.** `BasicTextField`
+  exposes `cursorBrush` and nothing else: there is no width, no height and no blink rate in the API, so
+  what ships is the platform's caret in the accent colour. A device should confirm it reads acceptably
+  against a 13.5sp SemiBold line in a 44dp field — and if it does not, the fix is a decoration-box
+  caret drawn by hand, which is a bigger change than it sounds because it means owning the blink.
+- **The held face measures 26dp over the frame's 409dp**, and the overshoot is type rather than
+  geometry. The frame gave the card its fill, its border, its radius and its padding and **no type
+  sizes at all**; the English held body lays out to three lines at the size the implementation chose,
+  where the frame's own drawing budgeted about one and a half. Either the body is a size smaller than
+  what shipped or the card is 435dp — that is Design's to say, and nothing about it is wrong on screen
+  today.
+- **The frame contradicts itself on the held field, and the implementation had to choose.** §Two drops
+  the grid *and the field* to 42%, while the field's own state table gives held its own amber face —
+  and an amber face at 42% opacity composites to very nearly nothing, so the two instructions cannot
+  both be followed. **What shipped gives the 42% to the grid and the amber face to the field**, on the
+  reading that the grid is what goes quiet and the field is what explains itself. It is Davide's or
+  Design's to confirm, and it is a one-line change either way.
+- **The compose face's tuple line wraps at 320dp in English too.** The frame predicted the wrap for
+  Italian and treated English as safe; *"Your mark · Limb · Rising · Dot"* is already too long at the
+  narrowest window the game runs in. It wraps rather than truncating, so nothing is lost and no name
+  is hidden — but the line was drawn as one line and it is two, and whether that is acceptable or wants
+  a shorter separator is Design's.
+- **A composed mark has no noun.** The grid line spells the tuple, which works because the sheet is
+  right there to be read. Nothing can say a composed mark *in words* anywhere else — a notification, a
+  ledger line, a future opponent list — and inventing forty names at the keyboard is exactly what this
+  project does not do. **If one ever has to be said out loud, that is a new decision**, and it is
+  Davide's.
+- **No first-run naming step is drawn.** A first sign-in lands on the colony already wearing
+  `Threshold` and `Dead Reckoning`, and the only way to a name is the strip. That is deliberate for
+  this release — a naming step in front of a first colony is a screen between a player and the game —
+  but if one is wanted it is a new frame and a new argument rather than a tweak.
+- **What the server may still refuse is not designed.** Length is bounded by the field, which stops
+  accepting at 24 rather than refusing, and there is **no blocklist by decision** — the name is never
+  shown to another player, so there is nobody to protect from it yet. Any *other* refusal the server
+  might grow has no frame at all, and the face has no error state to put one in. The day the name
+  becomes visible to a second player is the day this becomes urgent.
 
 ## Pending, from 0.21.0
 

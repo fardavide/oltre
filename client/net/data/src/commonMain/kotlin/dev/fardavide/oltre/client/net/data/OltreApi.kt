@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.SignInNonce
@@ -27,9 +28,10 @@ sealed interface ApiResult<out T> {
     data object Unreachable : ApiResult<Nothing>
 }
 
-// **The whole of what the client can ask.** Two questions about a colony and three about who is
-// holding it — `#112` shipped only the first pair, because until `#113` there was no way to become
-// anybody.
+// **The whole of what the client can ask.** Two questions about a colony, three about who is
+// holding it, and two about what that player calls themselves — `#112` shipped only the first pair,
+// because until `#113` there was no way to become anybody, and the last pair belongs to an account
+// that outlives every colony hung off it.
 //
 // It is an interface rather than the Ktor class itself so that the suite has something to hand the
 // shell that is not a socket — `#106` §8: the whole behaviour and screenshot suite runs on the
@@ -68,4 +70,27 @@ interface OltreApi {
     // authoritative colony comes back, and what became of each verb comes back with it. An empty
     // list is the normal case rather than a degenerate one — it is what opening the app sends.
     suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse>
+
+    // **What this player chose to be called and to wear**, which hangs off the account and not off
+    // the colony — a route of its own rather than a field on `SyncResponse`, and `Profile.kt` argues
+    // why: this wire refuses unknown keys, so a field added to a shipped response is a response the
+    // build already on somebody's phone cannot decode, while a route added costs an older client
+    // nothing because it never calls it.
+    //
+    // **The profile and not the envelope that carried it**, which is where this pair parts company
+    // with `sync`: a caller reads `applied` and `rejected` off a `SyncResponse` and does something
+    // about each, whereas a `ProfileResponse` adds only the version — a fact about which build
+    // answered, settled by the time it is decoded and nothing a caller acts on.
+    suspend fun profile(access: SessionToken): ApiResult<PlayerProfile>
+
+    // **Replaces the profile whole rather than patching the half that moved**, which is
+    // `SetProfileRequest`'s call and not this transport's: under a merge `null` would have to mean
+    // *leave it alone* and *clear it* at once, and clearing is the only way out of a name a player
+    // regrets.
+    //
+    // **Not a verb, so nothing holds it.** A rename mutates no `GameState` and has no instant to be
+    // replayed against, so there is nothing for the outbox to store and nothing for the server to
+    // validate; with no signal this refuses exactly as `deleteAccount` does. What comes back is what
+    // the account now holds rather than an echo of what went up.
+    suspend fun setProfile(access: SessionToken, profile: PlayerProfile): ApiResult<PlayerProfile>
 }

@@ -13,6 +13,18 @@ object PlayerTestTags {
     // The gear carries no text, so it is the one control here that cannot be found any other way.
     const val SETTINGS = "player-settings"
 
+    // **The left cluster, and it needs a handle for the opposite reason the gear does.** The gear has
+    // no words; this one has all of them, and a robot reaching it by the name it draws would be
+    // pressing whichever node the merge happened to leave that text on. A tag names the target
+    // itself, so the tap a test makes is the tap a finger makes.
+    const val PROFILE = "player-profile"
+
+    // **The mark, tagged so a test can read the pixels rather than the tree.** A drawing has no
+    // semantics — there is no text on it and no role — so the only way to ask *which* mark the strip
+    // was handed is to look at the ink, and looking needs a node to capture. See
+    // `PlayerRobot.inkOnTheMark`.
+    const val MARK = "player-mark"
+
     // **The edge under the strip, and it carries a tag because nothing else can find it.** It has no
     // text, no role and no bounds of its own worth asserting on — what a test asks it is whether it
     // is there at all, now that it is the same colour and nearly the same shape as the hairline it

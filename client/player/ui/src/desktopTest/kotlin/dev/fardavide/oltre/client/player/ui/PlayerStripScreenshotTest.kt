@@ -15,12 +15,17 @@ import dev.fardavide.oltre.client.design.text.Italian
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.design.text.Translations
+import dev.fardavide.oltre.protocol.MarkBody
+import dev.fardavide.oltre.protocol.MarkPath
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.MarkTerminus
+import dev.fardavide.oltre.protocol.PlayerMark
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
 // **Every frame goes through the strip's own state, never through a tap.** A `performClick` before a
 // capture bakes the press indication into the baseline and pins it there forever — and since 0.18
-// there is nothing on the strip a tap changes anyway: the gear reports, and the frame answers
+// there is nothing on the strip a tap changes anyway: both controls report, and the frame answers
 // somewhere else.
 @OptIn(ExperimentalTestApi::class)
 class PlayerStripScreenshotTest {
@@ -47,6 +52,7 @@ class PlayerStripScreenshotTest {
             name = "player_strip_levelled",
             uiState = PlayerStripUiState(
                 name = Strings.playerDefaultName(),
+                mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
                 level = Strings.levelBadge(7),
                 experiencePercent = 62,
             ),
@@ -55,6 +61,8 @@ class PlayerStripScreenshotTest {
 
     // The longest name the design drew, at the width where it would have been cut. With the 72dp
     // inline track this ellipsised; the frame is what says the edge gauge bought the whole name back.
+    // It is also the one frame in which the cluster reaches its cap, so it is where the arrow's
+    // 14.5dp is actually spent — everywhere else the cluster hugs and the name measures itself.
     @Test
     fun `player strip carrying the longest name drawn, in a Slide Over window`() {
         capture(
@@ -65,10 +73,45 @@ class PlayerStripScreenshotTest {
                 // entry because it is not the app's name — it is the width case, and a name is
                 // untranslatable by construction anyway.
                 name = TextRes("Contingency Of Ash"),
+                mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
                 level = Strings.levelBadge(7),
                 experiencePercent = 62,
             ),
         )
+    }
+
+    // **A mark out of the grammar rather than out of the set**, and the only frame in this module
+    // that photographs one. Every other baseline here wears `THRESHOLD`, which is the one preset the
+    // composer can also make — so without this the strip's whole drawing could be pinned by pictures
+    // that never left the default. An orbit, a transfer and a ring: three parts none of which
+    // `THRESHOLD` uses, so a strip that ignored its state would be visibly the wrong picture rather
+    // than a subtly different one.
+    @Test
+    fun `player strip wearing a mark the player composed`() {
+        capture(
+            name = "player_strip_composed_mark",
+            uiState = newColonyPlayerStrip.copy(
+                mark = PlayerMark.Composed(
+                    body = MarkBody.ORBIT,
+                    path = MarkPath.TRANSFER,
+                    terminus = MarkTerminus.RING,
+                ),
+            ),
+        )
+    }
+
+    // **The narrowest window in the other language, and what it pins is that there is nothing to
+    // translate.** The strip draws exactly two strings and the Italian catalogue gives both of them
+    // the same words — `Dead Reckoning` is a callsign that table keeps in English deliberately, and
+    // `LV 0` is `LV 0` — so this file is byte-identical to `player_strip_slide_over.png` today. That
+    // is the frame rather than a reason to skip it: it is captured at the same state and the same
+    // width as its English twin, so the *only* difference between the two is the locale, and the day
+    // they stop matching is the day something localisable arrived on the bar without anybody deciding
+    // it should. `Contingency Of Ash` could not make this assertion — a name is a `TextRes.Raw`, and
+    // a raw string says nothing about a language.
+    @Test
+    fun `player strip in Italian in a Slide Over window`() {
+        capture(name = "player_strip_italian_slide_over", width = SLIDE_OVER_WIDTH, translations = Italian)
     }
 
     private fun capture(
@@ -88,7 +131,7 @@ class PlayerStripScreenshotTest {
                         // one-pixel disagreement between two machines would fail on dimensions
                         // before it ever compared a pixel. The rail's own baselines learned this.
                         Box(modifier = Modifier.fillMaxSize()) {
-                            PlayerStrip(uiState = uiState, onOpenSettings = {})
+                            PlayerStrip(uiState = uiState, onOpenSettings = {}, onOpenProfile = {})
                         }
                     }
                 }

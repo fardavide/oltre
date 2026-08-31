@@ -91,6 +91,11 @@ fun MainScaffold(
     // The frame keeps the *destination*, which is navigation and is genuinely this file's. A sheet
     // is not a destination — it is a thing raised over one, and it covers the tab bar this file owns.
     onOpenSettings: () -> Unit,
+    // **The strip's other control, forwarded for the gear's reason and required for the same one
+    // `tilt` is.** The obvious default is `{}`, and `{}` is exactly a cluster that looks pressable
+    // and answers nothing — a composition root that forgot to pass one would compile, ship, and
+    // leave the only door to the identity face dead, with no test able to tell the difference.
+    onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var selected by remember { mutableStateOf(OltreTab.COLONY) }
@@ -107,7 +112,7 @@ fun MainScaffold(
         // Inside the safe-area padding and above the rail. Outside it, the notch would eat the mark
         // on every notched phone and nothing in the desktop suite could see that happen — insets are
         // the frame's job, never a screen's, which is the whole reason this Column has exactly one.
-        PlayerStrip(uiState = player, onOpenSettings = onOpenSettings)
+        PlayerStrip(uiState = player, onOpenSettings = onOpenSettings, onOpenProfile = onOpenProfile)
         ResourceRail(uiState = resources)
         // **Under the rail and above the destination**, which is where the design put it: it is a fact
         // about the connection the whole frame is on, so it belongs with the chrome rather than on any

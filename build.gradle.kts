@@ -134,6 +134,12 @@ dependencies {
     kover(projects.client.net.data)
     kover(projects.client.net.domain)
     kover(projects.client.notifications.data)
+    // **Missing since the module was created**, which is why it is worth a line of its own: every
+    // other feature lists both of its layers, `:client:player:presentation` was included in the build
+    // and its tests ran, and none of its lines were ever measured. Adding it moves the numbers — a
+    // module whose mapper is unit-tested lifts the unit row and lowers the screenshot one, because
+    // both are now counted against lines the camera never executes.
+    kover(projects.client.player.presentation)
     kover(projects.client.player.ui)
     kover(projects.client.research.presentation)
     kover(projects.client.research.ui)

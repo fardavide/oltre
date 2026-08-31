@@ -8,11 +8,19 @@ import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.MarkBody
+import dev.fardavide.oltre.protocol.MarkPath
+import dev.fardavide.oltre.protocol.MarkTerminus
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
@@ -361,6 +369,58 @@ class OltreServerIntegrationTest {
         assertEquals(TEST_NOW, clock.now())
     }
 
+    // ── The profile ───────────────────────────────────────────────────────────────────────────
+
+    // **The wiring and not the rules** — which route spells which path, which method, and that the
+    // codec on the way out is `Protocol.json`. What the endpoints decide is `ProfileEndpointsTest`'s,
+    // where it is reachable without a socket.
+    @Test
+    fun `a name set over HTTP is the name the next read answers`() = testApplication {
+        server()
+        val chosen = PlayerProfile(
+            name = CommanderName("Ada di Notte"),
+            mark = PlayerMark.Composed(MarkBody.WAKE, MarkPath.TWIN, MarkTerminus.RING),
+        )
+
+        val written = postRaw("/v1/profile", Protocol.json.encodeToString(SetProfileRequest(ApiVersion.CURRENT, chosen)))
+
+        assertEquals(HttpStatusCode.OK, written.status, written.bodyAsText())
+        assertEquals(chosen, written.profile().profile)
+        assertEquals(chosen, getProfile().profile().profile)
+    }
+
+    @Test
+    fun `a player who has chosen nothing reads two absences over HTTP`() = testApplication {
+        server()
+
+        val read = getProfile()
+
+        assertEquals(HttpStatusCode.OK, read.status)
+        assertEquals(PlayerProfile(name = null, mark = null), read.profile().profile)
+    }
+
+    @Test
+    fun `the profile routes need a credential`() = testApplication {
+        server()
+
+        assertEquals(HttpStatusCode.Unauthorized, getProfile(player = null).status)
+        assertEquals(ApiError.Unauthenticated, getProfile(player = null).apiError())
+    }
+
+    // The profile is per *account*, which over the wire means per credential — and the check is worth
+    // a route test rather than only a unit one, because getting the header plumbing wrong is exactly
+    // how one player would read another's name.
+    @Test
+    fun `one player's name is not visible to another over HTTP`() = testApplication {
+        server()
+        val chosen = PlayerProfile(name = CommanderName("Ada"), mark = null)
+        postRaw("/v1/profile", Protocol.json.encodeToString(SetProfileRequest(ApiVersion.CURRENT, chosen)))
+
+        val theirs = getProfile(player = "somebody-else")
+
+        assertEquals(PlayerProfile(name = null, mark = null), theirs.profile().profile)
+    }
+
     // ── The harness ───────────────────────────────────────────────────────────────────────────
 
     // One permit a minute, so "over quota" is the second request rather than the twenty-first and the
@@ -454,6 +514,16 @@ class OltreServerIntegrationTest {
     private fun HttpRequestBuilder.bearer(token: SessionToken) {
         header(Protocol.AUTHORIZATION_HEADER, Protocol.BEARER_PREFIX + token.value)
     }
+
+    // The one `GET` in this suite that carries a credential, which is why it is its own helper rather
+    // than a call to `client.get` in four places.
+    private suspend fun ApplicationTestBuilder.getProfile(player: String? = "davide"): HttpResponse =
+        client.get("/v1/profile") {
+            player?.let { header(Protocol.PLAYER_HEADER, it) }
+        }
+
+    private suspend fun HttpResponse.profile(): ProfileResponse =
+        Protocol.json.decodeFromString(bodyAsText())
 
     private suspend fun HttpResponse.syncResponse(): SyncResponse =
         Protocol.json.decodeFromString(bodyAsText())

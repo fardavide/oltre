@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.player.ui
 
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.PlayerMark
 
 // What a colony that has done nothing reads as — the state every baseline in this module except
 // `player_strip_levelled` was recorded at.
@@ -12,6 +14,11 @@ import dev.fardavide.oltre.client.design.text.Strings
 // value the drawings are drawn against.
 internal val newColonyPlayerStrip = PlayerStripUiState(
     name = Strings.playerDefaultName(),
+    // **`THRESHOLD` because nothing was chosen, and not because this is a fixture.** An account that
+    // has never opened the editor wears exactly this and is drawn exactly like an account that picked
+    // it on purpose — so the frames recorded here are the frames a fresh install sees, which is the
+    // whole reason the substitution lives in the mapper rather than in a default parameter.
+    mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
     level = Strings.levelBadge(0),
     experiencePercent = 0,
 )

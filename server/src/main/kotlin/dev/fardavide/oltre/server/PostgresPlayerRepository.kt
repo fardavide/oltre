@@ -1,5 +1,9 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.Protocol
 import javax.sql.DataSource
 import kotlin.time.Clock
 
@@ -71,7 +75,59 @@ internal class PostgresPlayerRepository(
     override suspend fun forget(player: PlayerId): Boolean = dataSource.transaction { connection ->
         connection.update(DELETE_PLAYER) { setString(1, player.value) } == 1
     }
+
+    // **No row is no player, and both columns null is a player who has chosen nothing.** The two are
+    // different answers and the caller acts differently on each — `Unauthenticated` against a strip
+    // that goes on saying `Dead Reckoning` — so the null-ness of the *row* and the null-ness of the
+    // *columns* are read separately rather than collapsed into one nullable name.
+    override suspend fun profileOf(player: PlayerId): PlayerProfile? = dataSource.transaction { connection ->
+        connection.query(
+            SELECT_PROFILE,
+            bind = { setString(1, player.value) },
+            read = { rows -> if (rows.next()) profileFrom(rows.getString(1), rows.getString(2)) else null },
+        )
+    }
+
+    override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean =
+        dataSource.transaction { connection ->
+            connection.update(UPDATE_PROFILE) {
+                // `setString` with null writes SQL NULL, which is what clearing is. Not `setNull`,
+                // which would need the type code spelled out for nothing.
+                setString(1, profile.name?.value)
+                // `setObject` with the `jsonb` cast in the statement rather than `setString`: the
+                // driver will not widen `text` to `jsonb` on its own, and the cast is in the SQL so
+                // that a null still types.
+                setString(2, profile.mark?.let { Protocol.json.encodeToString(PlayerMark.serializer(), it) })
+                setString(3, player.value)
+            } == 1
+        }
 }
+
+// **Neither column can throw on the way out, and that is one rule rather than two.** A value written
+// by a *newer* deploy is a state the service can genuinely be in — a rollback is one command and
+// `#111` exercised one — and a read path that raised on it would turn a routine downgrade into
+// `ApiError.Internal` for every request that account makes, including the sync. Degrading is the
+// only answer that leaves the player with a game.
+//
+// It also catches the row an operator edited by hand, which is the other way columns like these go
+// wrong and the reason the `catch` is on `Exception` rather than on the serializer's own type.
+//
+// **What the player sees when it degrades**, which is the half worth writing down: exactly what an
+// account that has chosen nothing sees. A mark that will not read draws `THRESHOLD` and a name that
+// will not read reads `Dead Reckoning` — the strip's own substitution for null, not a placeholder
+// invented here — and the next save from the editor writes a pair this build can hold. Nothing on
+// screen says *error*, because from the player's side nothing has gone wrong that they can act on.
+//
+// **The name half was missing and the argument above applied to it unchanged.** `CommanderName`'s
+// guards are what a *request* is checked against — `readRequest` turns them into `ApiError.Malformed`
+// — but `display_name` is a `text` column holding whatever any deploy ever wrote, and a bound that
+// moves is exactly the rollback this comment was written for.
+private fun profileFrom(name: String?, mark: String?): PlayerProfile = PlayerProfile(
+    name = name?.let { held -> runCatching { CommanderName(held) }.getOrNull() },
+    mark = mark?.let { document ->
+        runCatching { Protocol.json.decodeFromString(PlayerMark.serializer(), document) }.getOrNull()
+    },
+)
 
 // The id is minted here and thrown away when the row already exists, which costs a UUID and buys the
 // single-statement upsert above.
@@ -91,3 +147,12 @@ private const val SELECT_EXISTS = "SELECT 1 FROM players WHERE id = ?"
 // delete rather than soft-delete — App Review 5.1.1(v) is explicit, and a flagged row is a row that
 // still holds a provider subject.
 private const val DELETE_PLAYER = "DELETE FROM players WHERE id = ?"
+
+private const val SELECT_PROFILE = "SELECT display_name, mark FROM players WHERE id = ?"
+
+// Replaces both columns every time — see `PlayerRepository.setProfile` for why a merge would make
+// `null` mean two things. `= 1` is "there was a row", which is the same shape `forget` reads.
+//
+// The `::jsonb` cast is the driver's requirement rather than decoration: a parameter bound as a
+// string is `text`, and Postgres will not widen `text` to `jsonb` implicitly.
+private const val UPDATE_PROFILE = "UPDATE players SET display_name = ?, mark = ?::jsonb WHERE id = ?"

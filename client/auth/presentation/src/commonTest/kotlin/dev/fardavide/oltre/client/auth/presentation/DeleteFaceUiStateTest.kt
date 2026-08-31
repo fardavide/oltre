@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.client.auth.presentation
 
 import dev.fardavide.oltre.client.design.text.English
+import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.core.AdaptationTechnology
 import dev.fardavide.oltre.core.BuildingLevel
 import dev.fardavide.oltre.core.BuildingType
@@ -168,6 +170,32 @@ class DeleteFaceUiStateTest {
         assertNull(colony().face(DeleteFace.CONFIRM).refusal)
     }
 
+    // **The commander is the account's and not the catalogue's**, on both faces of the one flow in
+    // this app that cannot be undone. This mapper read `Strings.playerDefaultName()` outright, so a
+    // player who had named themselves was asked to confirm deleting somebody else — and the settings
+    // sheet's own Account row two taps earlier said the right name, which is what makes the two
+    // together a contradiction rather than a lapse.
+    @Test
+    fun `should name the commander the account chose rather than the default`() {
+        val named = TextRes("Ada Lovelace")
+
+        assertTrue("Ada Lovelace ·" in English.resolve(colony().face(DeleteFace.WARN, name = named).facts[0].value))
+        assertEquals(
+            "Delete Ada Lovelace?",
+            English.resolve(colony().face(DeleteFace.CONFIRM, name = named).title),
+        )
+    }
+
+    // The other half of the same claim: an account that has chosen nothing still reads as the name
+    // the strip draws for it, because the substitution happens once, where the profile is.
+    @Test
+    fun `should say whatever name it is handed for an account that has chosen none`() {
+        assertEquals(
+            "Delete Dead Reckoning?",
+            English.resolve(colony().face(DeleteFace.CONFIRM).title),
+        )
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────────────────────────
 
     // Which row an assertion is about, so a test names the fact rather than an index into a list —
@@ -178,7 +206,10 @@ class DeleteFaceUiStateTest {
         face: DeleteFace,
         provider: AuthProvider = AuthProvider.APPLE,
         offline: Boolean = false,
-    ) = toDeleteFaceUiState(face = face, provider = provider, offline = offline)
+        // What the shell hands in for an account that has chosen nothing — the strip's own
+        // substitution, said here so the rest of this file goes on reading as it did.
+        name: TextRes = Strings.playerDefaultName(),
+    ) = toDeleteFaceUiState(face = face, provider = provider, offline = offline, name = name)
 
     private fun GameState.fact(row: DeleteFactRow) = face(DeleteFace.WARN).facts[row.ordinal].value
 

@@ -2,8 +2,11 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.SessionResponse
+import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
 import io.ktor.http.HttpStatusCode
@@ -55,6 +58,10 @@ internal sealed interface Answer {
         override val status: HttpStatusCode = HttpStatusCode.NoContent
     }
 
+    // Who the player says they are, from a read or from the write that changed it. Its own member
+    // for `Session`'s reason and no other: `respond` picks its serializer from the static type.
+    data class Profile(override val status: HttpStatusCode, val response: ProfileResponse) : Answer
+
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
 
@@ -83,6 +90,83 @@ internal suspend fun syncColony(
     body: String,
 ): Answer = served(repository, authenticator, clock, credentials, body) { owner, _ ->
     repository.colonyOf(owner)?.let { FoundColony(HttpStatusCode.OK, it) }
+}
+
+// **What the player chose to be called and to wear.** A route of its own rather than a field on
+// `SyncResponse`, and pointedly not a `ClientVerb` — `profile-sheet.md` §3 argues both, and the
+// short form is that a rename mutates no `GameState` and that this wire refuses unknown keys, so a
+// field added to a shipped response is a response the build on somebody's phone cannot read.
+//
+// **No body, so no version to negotiate.** A `GET` states its contract by which route it called, and
+// the answer says which contract answered — which is the same asymmetry `ApiVersion` already
+// documents for adding a verb.
+internal suspend fun readProfile(
+    authenticator: Authenticator,
+    players: PlayerRepository,
+    credentials: Credentials,
+): Answer = answering {
+    val player = when (val caller = authenticator.identify(credentials)) {
+        is Caller.Refused -> return@answering Answer.Failed(HttpStatusCode.Unauthorized, caller.error)
+        is Caller.Known -> caller.player
+    }
+    profileAnswer(HttpStatusCode.OK, players.profileOf(player))
+}
+
+// **Replaces the profile whole**, which is `SetProfileRequest`'s call rather than this function's.
+// Not idempotency-keyed and not in the outbox: a rename is naturally idempotent, so a second
+// identical write is the same row, and there is nothing here for `replay` to validate against.
+internal suspend fun writeProfile(
+    authenticator: Authenticator,
+    players: PlayerRepository,
+    credentials: Credentials,
+    body: String,
+): Answer = answering {
+    val player = when (val caller = authenticator.identify(credentials)) {
+        is Caller.Refused -> return@answering Answer.Failed(HttpStatusCode.Unauthorized, caller.error)
+        is Caller.Known -> caller.player
+    }
+
+    // The same reader the sync pair and the sign-in routes use, so a body that does not parse and a
+    // version this build cannot serve are the same two answers everywhere. A name past
+    // `CommanderName.MAX_LENGTH` arrives here as `ApiError.Malformed`, via the `init` guard and the
+    // `IllegalArgumentException` arm — which is what stops a modified client writing a name the strip
+    // cannot draw.
+    val request = when (val read = readRequest(SetProfileRequest.serializer(), body) { it.apiVersion }) {
+        is Read.No -> return@answering read.answer
+        is Read.Yes -> read.value
+    }
+
+    // **Written, then read back rather than echoed.** The echo would be free and would also be the
+    // client's own claim handed back to it; reading says what the row now holds, which is the only
+    // thing the strip should draw.
+    if (!players.setProfile(player, request.profile)) {
+        return@answering Answer.Failed(HttpStatusCode.Unauthorized, ApiError.Unauthenticated)
+    }
+    profileAnswer(HttpStatusCode.OK, players.profileOf(player))
+}
+
+// **A player the authenticator admitted and the store no longer has** — a deletion landing between
+// the two, which `Authenticator` cannot close because it asks `exists` a moment earlier. Not
+// `NoColony`: there is no colony *and* no account, and the client's answer to both is the gate.
+private fun profileAnswer(status: HttpStatusCode, profile: PlayerProfile?): Answer = profile
+    ?.let { Answer.Profile(status, ProfileResponse(apiVersion = ApiVersion.CURRENT, profile = it)) }
+    ?: Answer.Failed(HttpStatusCode.Unauthorized, ApiError.Unauthenticated)
+
+// **`served()`'s one `catch`, for the routes that have no colony to retry.** Everything it wraps
+// touches a store a network away and, on sign-in, a provider further away than that; Ktor's own
+// answer to a thrown exception is a bare 500 with no `ApiError` in it, which `#112`'s client reads
+// as `Unreachable` and retries forever rather than as a server having said something.
+//
+// It was private to `AuthEndpoints.kt` until the profile pair became its third caller. Here rather
+// than there because this is the file that owns `Answer` and `readRequest`, and because a `catch`
+// copied into a second file is a `catch` that can be corrected in one of them.
+internal suspend fun answering(block: suspend () -> Answer): Answer = try {
+    block()
+} catch (e: CancellationException) {
+    // Not a failure and not ours — the caller went away. See `served`.
+    throw e
+} catch (e: Exception) {
+    Answer.Failed(HttpStatusCode.InternalServerError, ApiError.Internal(e.message ?: e::class.simpleName.orEmpty()))
 }
 
 // The colony an endpoint found and what the status line says about having found it. Null is

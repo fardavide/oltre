@@ -3,6 +3,7 @@ package dev.fardavide.oltre.client.player.ui
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.text.TextRes
 
 // **This module's numbers, and the one piece of arithmetic that reads them.** A separate file from
 // the drawings, and the reason is a measurement rather than taste.
@@ -36,6 +37,14 @@ internal val STRIP_HEIGHT = 38.dp
 // still larger than the 29dp square that already ships stacked on a colony row.
 internal val GEAR_TARGET = 38.dp
 
+// **The cluster's press, and 10 rather than the gear's 9.** *A Name You Chose* §Four gives the
+// figure; what makes it a different number from `GEAR_RADIUS` two lines down is that the two are
+// different shapes — the gear is a 38dp square and the cluster is a 38dp band several times as wide,
+// and a radius that reads as a rounded square on one reads as a hairline chamfer on the other. It is
+// a clip and nothing else: the chosen affordance draws no face, so this shapes the ripple and the
+// press scale and there is no fill for it to round.
+internal val CLUSTER_RADIUS = 10.dp
+
 internal val EDGE = 11.dp
 
 // Asymmetric against `EDGE`, and not a mistake: the gear's target is 10dp wider than its face on
@@ -47,6 +56,23 @@ internal val GEAR_RADIUS = 9.dp
 // Deliberately not the rail's 15sp SemiBold: at the same size and weight as the three figures below
 // it, the name reads as a fourth statistic rather than as whose statistics they are.
 internal val NAME_SIZE = 13.5.sp
+
+// **12.5sp, between the name's 13.5 and the badge's 10**, which is the frame's figure and is also the
+// only size at which the glyph is neither a second name nor a second badge. Tertiary for the same
+// reason the settings sheet's arrow is: it is a signal about the row rather than a value on it, and
+// accent here would read as *tap me* on a bar that already has one thing worth tapping.
+internal val ARROW_SIZE = 12.5.sp
+
+// A right arrow, and a `TextRes.Raw` because it is a glyph rather than a word: there is no language
+// in which it is different, which is what `Raw` means. The same reasoning and the same character as
+// `AlertSheet`'s own — deliberately not `Strings.sheetArrow()`, which is the research sheet's prose
+// connector and carries a space on each side, because a gap this row states in dp cannot also be
+// stated in whitespace.
+//
+// **In this file rather than beside the drawing**, on the measured rule the header states: a
+// top-level property in `PlayerStrip.kt` is a line the unit pass counts and cannot execute. It is not
+// a number, which is the one thing about it that does not fit here.
+internal val ARROW = TextRes("→")
 
 internal val BADGE_SIZE = 10.sp
 internal val BADGE_RADIUS = 4.dp

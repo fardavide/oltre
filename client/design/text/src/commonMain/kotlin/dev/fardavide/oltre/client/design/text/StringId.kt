@@ -685,4 +685,66 @@ enum class StringId {
     DeleteConfirmSecond,
     DeleteKeep,
     DeleteConfirmAction,
+
+    // ── A name you chose, and a mark you picked ──────────────────────────────────────────────
+    //
+    // **The first surface whose words are mostly the names of drawings.** Six presets and eleven
+    // parts, one id each and no shared entry taking a noun — the same call the six facilities and the
+    // five hulls above are, and for the same reason: a name is a word, and words are what a catalogue
+    // holds.
+    //
+    // The two `None`s are what turn that from a habit into a rule. English says one word for a path
+    // that is absent and for a terminus that is absent; Italian says `Nessuna` for the first and
+    // `Nessuno` for the second, because each agrees with the noun it stands in for. A shared entry
+    // would have made that unsayable. `Terminator` is the same lesson from the other end — it is a
+    // preset *and* a body part, two drawings, and a language that needs two words for them has to be
+    // able to have them.
+    //
+    // `Dead Reckoning` is deliberately not here and must not be added. It is `PlayerDefaultName`
+    // above, it is the player's own name rather than a phrase about one, and the single entry below
+    // that says it takes it as an argument.
+    ProfileTitle,
+    ProfileMarkLabel,
+    ProfileNameLabel,
+    MarkNameThreshold,
+    MarkNameTerminator,
+    MarkNameAphelion,
+    MarkNameSextant,
+    MarkNameWake,
+    MarkNameSounding,
+    ProfileSaveName,
+    ProfileEmptyName,
+    // "18/24", and both figures are printed rather than counted: a length changes no word around it,
+    // so this is two `Arg.Number` and never an `Arg.Count`.
+    ProfileNameCounter,
+    // **The held face says three things and none of them is the banner.** `OfflineSince` above ends
+    // in a tally of what is waiting; nothing is waiting here, because a rename is the one edit of
+    // this era that refuses instead of queueing — so the requirement, the explanation and the field's
+    // one-line refusal are their own entries.
+    ProfileHeldRequirement,
+    // **The same card with the other reason on it.** `ProfileHeldRequirement` names the minute the
+    // network was last seen; this one is for the state where there is nothing to name — the account
+    // itself has not been read, so a whole-row write would be built out of a guess. Its own entry
+    // rather than a reuse, because *"no network since 09:41"* would be a claim about the network that
+    // this state is not making.
+    ProfileUnreadRequirement,
+    ProfileHeldBody,
+    ProfileHeldFieldNote,
+    MarkComposeRow,
+    MarkComposedName,
+    MarkSlotBody,
+    MarkSlotPath,
+    MarkSlotTerminus,
+    MarkBodyLimb,
+    MarkBodyTerminator,
+    MarkBodyOrbit,
+    MarkBodyWake,
+    MarkPathRising,
+    MarkPathTransfer,
+    MarkPathTwin,
+    MarkPathNone,
+    MarkTerminusDot,
+    MarkTerminusRing,
+    MarkTerminusNone,
+    MarkComposeFoot,
 }

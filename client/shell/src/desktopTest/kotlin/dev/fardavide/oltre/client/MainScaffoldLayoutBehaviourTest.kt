@@ -149,9 +149,11 @@ class MainScaffoldLayoutBehaviourTest {
                         // Null: the line is chrome the rail's width does not depend on, so a colony
                         // with signal is the frame this file wants.
                         offline = null,
-                        // This file measures the rail's width against the window's; the gear is
-                        // never tapped, so what it opens is not part of the layout under test.
+                        // This file measures the rail's width against the window's; neither control
+                        // on the strip is tapped, so what either opens is not part of the layout
+                        // under test.
                         onOpenSettings = {},
+                        onOpenProfile = {},
                     )
                 }
             }

@@ -227,6 +227,36 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.22.0 — 2026-08-30
+
+- **You are Dead Reckoning until you say otherwise.** Tap your name or your mark on the strip above the
+  resources and the settings sheet opens on your own face: a name you type, and a mark you pick. Both
+  belong to the account rather than to the phone, so a name chosen on one device is the name the next
+  one opens with.
+- **Six marks, drawn and not photographed.** Threshold and five others, each a different shape rather
+  than five versions of one idea — one diagonal, one disc, one horizontal, one corner, one nest of
+  arcs, one plumb line. There is no picture to upload and no colour to choose: every mark is the same
+  hue, because every other colour in this game already means something.
+- **Or build one nobody else has.** A second face is a composer — four bodies, four paths and three
+  ends, laid in three regions of one box so no two parts can ever collide. That is forty marks from
+  eleven drawings, and the mark above the grid redraws as you tap, at the size the strip will draw it.
+- **The name is free text, and there is nothing it can get wrong.** Up to twenty-four characters; the
+  counter appears at eighteen and the field simply stops accepting at twenty-four. Two
+  commanders may share a name, so there is nothing for it to refuse. Empty is not a mistake either —
+  the field shows Dead Reckoning in your own text's size and weight, so an emptied name is already
+  showing you what saving it does.
+- **A mark commits when you tap it; a name gets a button.** Nothing about a keystroke means *done*, so
+  **Save name** appears the moment your draft differs from what is saved and is gone again once it does
+  not.
+- **The strip says it is a door.** Your mark, your name and your level are one target now, marked by
+  the arrow the game already uses in *→ LV 13*. The strip is exactly as tall as it was and the gear
+  beside it is where it was.
+- **With no signal the sheet still opens, and it does not pretend.** The marks and the field go quiet,
+  the save button is absent, and a line in amber says what is missing — a name is the account's, and
+  the account is not reachable. Nothing is red and nothing is queued behind your back: a rename waits
+  for you rather than for the network.
+- In Italian throughout — the six marks by name, and a composed one by the three parts it is made of.
+
 ### 0.21.0 — 2026-08-27
 
 - **Your colony lives on a server now, and the game opens with a way in.** Sign in with Apple or with

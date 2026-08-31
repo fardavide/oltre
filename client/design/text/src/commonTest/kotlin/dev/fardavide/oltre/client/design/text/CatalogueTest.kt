@@ -523,4 +523,24 @@ private val everyEntry: List<TextRes> = buildList {
     AuthProviderName.entries.forEach { add(Strings.deleteConfirmSecond(it)) }
     add(Strings.deleteKeep())
     add(Strings.deleteConfirmAction())
+    add(Strings.profileTitle())
+    add(Strings.profileMarkLabel())
+    add(Strings.profileNameLabel())
+    MarkPresetName.entries.forEach { add(Strings.markName(it)) }
+    add(Strings.profileSaveName())
+    add(Strings.profileEmptyName())
+    add(Strings.profileNameCounter(length = 18, max = 24))
+    add(Strings.profileHeldRequirement(hour = 11, minute = 31))
+    add(Strings.profileUnreadRequirement())
+    add(Strings.profileHeldBody())
+    add(Strings.profileHeldFieldNote())
+    add(Strings.markComposeRow())
+    add(Strings.markComposedName())
+    add(Strings.markSlotBody())
+    add(Strings.markSlotPath())
+    add(Strings.markSlotTerminus())
+    MarkBodyName.entries.forEach { add(Strings.markBodyName(it)) }
+    MarkPathName.entries.forEach { add(Strings.markPathName(it)) }
+    MarkTerminusName.entries.forEach { add(Strings.markTerminusName(it)) }
+    add(Strings.markComposeFoot())
 }

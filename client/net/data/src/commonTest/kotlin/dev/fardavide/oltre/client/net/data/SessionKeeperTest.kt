@@ -231,4 +231,107 @@ class SessionKeeperTest {
         assertEquals(Credential.Unreachable, renewed)
         assertEquals(SessionToken("refresh.1"), scenario.store.read()?.refreshToken)
     }
+
+    // ── The same renewal on a call that is not a sync ────────────────────────────────────────
+    //
+    // Until `renewing` there was exactly one caller of `renew()` — `ColonySync.drain` — so the two
+    // account routes and the deletion met `ApiError.SessionExpired` and read it as *nothing
+    // answered*. The class comment above promises that error is a sentence nobody ever reads; these
+    // are the tests that make the promise hold off the sync path.
+
+    @Test
+    fun `a call the server answers is made once and on the credential it was given`() = runTest {
+        val scenario = KeeperScenario()
+        val route = ScriptedCall(listOf(ApiResult.Answered("landed")))
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Answered("landed"), answer)
+        assertEquals(listOf(SessionToken("access.1")), route.asked)
+    }
+
+    // **The window this whole function exists for**: a phone whose clock is behind the server's has
+    // a token `current()` calls in date and the server calls expired.
+    @Test
+    fun `a call the server says is expired is made again on a renewed credential`() = runTest {
+        val scenario = KeeperScenario()
+        val route = ScriptedCall(
+            listOf(ApiResult.Refused(ApiError.SessionExpired), ApiResult.Answered("landed")),
+        )
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Answered("landed"), answer)
+        assertEquals(listOf(SessionToken("access.1"), SessionToken("access.2")), route.asked)
+    }
+
+    // Anything else the server says is the caller's to draw and is handed straight back — a second
+    // attempt at a refusal is a refusal four seconds later.
+    @Test
+    fun `a refusal that is not an expiry is handed back without a renewal`() = runTest {
+        val scenario = KeeperScenario()
+        val route = ScriptedCall(listOf(ApiResult.Refused(ApiError.NoColony)))
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Refused(ApiError.NoColony), answer)
+        assertEquals(listOf(SessionToken("access.1")), route.asked)
+    }
+
+    // **A renewal nobody answered is a train**, so the call reads as offline rather than as a
+    // sign-out. Losing an account because of a tunnel is the failure `Credential.Unreachable` was
+    // split out to prevent and it must not come back in through this door.
+    @Test
+    fun `a renewal nobody answers reads as unreachable rather than as a refusal`() = runTest {
+        val scenario = KeeperScenario()
+        scenario.api.offline = true
+        val route = ScriptedCall(listOf(ApiResult.Refused(ApiError.SessionExpired)))
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Unreachable, answer)
+        assertEquals(SessionToken("refresh.1"), scenario.store.read()?.refreshToken)
+    }
+
+    @Test
+    fun `a renewal the server refuses reads as a credential that has gone`() = runTest {
+        val scenario = KeeperScenario()
+        scenario.api.error = ApiError.Unauthenticated
+        val route = ScriptedCall(listOf(ApiResult.Refused(ApiError.SessionExpired)))
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), answer)
+    }
+
+    // Renewed and still expired. Whatever that is, a third request does not fix it — and it must not
+    // reach the caller as `SessionExpired`, which means *ask again in a moment*.
+    @Test
+    fun `a second expiry on a freshly minted credential is a dead credential rather than an expiry`() = runTest {
+        val scenario = KeeperScenario()
+        val route = ScriptedCall(
+            listOf(
+                ApiResult.Refused(ApiError.SessionExpired),
+                ApiResult.Refused(ApiError.SessionExpired),
+            ),
+        )
+
+        val answer = scenario.keeper.renewing(SessionToken("access.1")) { route.answer(it) }
+
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), answer)
+        assertEquals(2, route.asked.size)
+    }
+}
+
+// A route scripted by answer, recording which credential each attempt was made with. Handwritten
+// per the repository's no-mocking-framework rule, and there is nothing to configure beyond the list:
+// what every test above turns on is *how many times* it was called and *with what*.
+private class ScriptedCall(private val answers: List<ApiResult<String>>) {
+
+    val asked: MutableList<SessionToken> = mutableListOf()
+
+    fun answer(access: SessionToken): ApiResult<String> {
+        asked += access
+        return answers[minOf(asked.size - 1, answers.lastIndex)]
+    }
 }

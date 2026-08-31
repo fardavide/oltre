@@ -16,9 +16,12 @@ import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
 import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.client.player.presentation.toIdentityFaceUiState
+import dev.fardavide.oltre.client.player.presentation.toMarkComposeFaceUiState
 import dev.fardavide.oltre.client.settings.presentation.toAlertSheetUiState
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.protocol.PlayerProfile
 import io.github.takahirom.roborazzi.captureRoboImage
 import kotlinx.datetime.TimeZone
 import org.junit.Test
@@ -125,6 +128,22 @@ class SettingsSheetScreenshotTest {
                             onOpenDelete = {},
                             onKeepAccount = {},
                             onDeleteAccount = {},
+                            // **The identity pair, built by the app's own mapper and never drawn
+                            // here.** These four frames are about the settings and changelog faces;
+                            // the identity faces have twenty-two baselines of their own in
+                            // `:client:player:ui`, and a fifth arm photographed from this file would
+                            // be the same drawing recorded twice. Through the mapper rather than by
+                            // hand for `testPlayerStripUiState`'s reason: a fixture assembled here
+                            // would keep compiling on the day the mapping broke.
+                            identity = UNCHOSEN.toIdentityFaceUiState(draft = "", requirement = null),
+                            onChooseMark = {},
+                            onComposeMark = {},
+                            onNameChange = {},
+                            onSaveName = {},
+                            markCompose = UNCHOSEN.toMarkComposeFaceUiState(requirement = null),
+                            onChooseBody = {},
+                            onChoosePath = {},
+                            onChooseTerminus = {},
                         )
                     }
                 }
@@ -139,6 +158,10 @@ class SettingsSheetScreenshotTest {
     }
 
     private companion object {
+
+        // An account that has chosen neither a name nor a mark: the two faces it builds are never
+        // photographed from this file, so what it has to be is constructible rather than interesting.
+        val UNCHOSEN = PlayerProfile(name = null, mark = null)
 
         const val PHONE_WIDTH = 393
         const val SLIDE_OVER_WIDTH = 320

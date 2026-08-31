@@ -35,6 +35,33 @@ CREATE TABLE IF NOT EXISTS players (
     UNIQUE (provider, subject)
 );
 
+-- **The profile, and it is an `ALTER` rather than two more lines in the `CREATE` above.** This file
+-- is applied at startup against a database that already has `players`, and `CREATE TABLE IF NOT
+-- EXISTS` on an existing table is a no-op — so columns added to that statement would exist on a
+-- fresh database and on no deployed one, which is the quietest kind of broken. `IF NOT EXISTS` on
+-- the `ALTER` keeps the whole file idempotent, which is the property that lets there be no migration
+-- framework at all.
+--
+-- **Both nullable and neither defaulted.** Null is *"has not chosen"*, which is what every account
+-- founded before this slice reads, and what the strip answers with `Strings.playerDefaultName()`.
+-- A default here would put a name in the database that no player typed.
+--
+-- `display_name` and not `name`: `name` is a reserved-ish word in enough dialects and enough ORMs to
+-- be worth not finding out about, and the column holds what is *drawn* rather than an identifier —
+-- the identifier is `id`, and nothing about this column is unique. Two commanders may share one, by
+-- Davide's call on 2026-08-30; see `profile-sheet.md` §1.
+--
+-- **`mark` is `jsonb` and not three columns**, which is the one shape decision here worth arguing.
+-- A mark is a preset *or* a composition of three parts — `PlayerMark` in `:protocol` — so columns
+-- would be four of them, three null for every preset, with a cross-column invariant ("a terminus is
+-- the end of a path") that no constraint here could state as well as the type already does. As a
+-- document it is one column, decoded by the same codec both ends use, and the invariant is enforced
+-- where it was written. It is `colonies.snapshot_json`'s argument at one field instead of a save.
+--
+-- Nothing in this file reads inside it, exactly as nothing reads inside `snapshot_json`.
+ALTER TABLE players ADD COLUMN IF NOT EXISTS display_name text;
+ALTER TABLE players ADD COLUMN IF NOT EXISTS mark         jsonb;
+
 -- One row per player, and the row **is** the colony.
 --
 -- `snapshot_json` is `GameSave.encode(snapshot)` verbatim, as `jsonb` rather than `text`: the value

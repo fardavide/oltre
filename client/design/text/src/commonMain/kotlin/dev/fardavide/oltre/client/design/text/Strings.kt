@@ -1650,6 +1650,108 @@ object Strings {
     fun deleteKeep(): TextRes = message(StringId.DeleteKeep)
 
     fun deleteConfirmAction(): TextRes = message(StringId.DeleteConfirmAction)
+
+    // ── A name you chose, and a mark you picked ──────────────────────────────────────────────
+
+    fun profileTitle(): TextRes = message(StringId.ProfileTitle)
+
+    fun profileMarkLabel(): TextRes = message(StringId.ProfileMarkLabel)
+
+    fun profileNameLabel(): TextRes = message(StringId.ProfileNameLabel)
+
+    // One entry per silhouette behind one exhaustive `when`, which is `epithetNoun`'s shape exactly:
+    // a preset is a drawing somebody made, and a seventh one cannot reach a screen without the word
+    // for it existing in every language first.
+    fun markName(preset: MarkPresetName): TextRes = message(
+        when (preset) {
+            MarkPresetName.THRESHOLD -> StringId.MarkNameThreshold
+            MarkPresetName.TERMINATOR -> StringId.MarkNameTerminator
+            MarkPresetName.APHELION -> StringId.MarkNameAphelion
+            MarkPresetName.SEXTANT -> StringId.MarkNameSextant
+            MarkPresetName.WAKE -> StringId.MarkNameWake
+            MarkPresetName.SOUNDING -> StringId.MarkNameSounding
+        },
+    )
+
+    fun profileSaveName(): TextRes = message(StringId.ProfileSaveName)
+
+    // **The default name is composed in rather than spelled out**, because there is exactly one
+    // `Dead Reckoning` in the catalogue and a second copy is a second thing to keep in step. An
+    // argument for `worldEpithet`'s reason too: English puts it in the middle of the sentence and
+    // Italian puts it at the end, and only the tables know that.
+    fun profileEmptyName(): TextRes =
+        message(StringId.ProfileEmptyName, Arg.Text(playerDefaultName()))
+
+    // "18/24". The bound is `CommanderName.MAX_LENGTH`'s to hold, and this module deliberately cannot
+    // see the wire contract — so the counter prints the number it is handed rather than knowing one,
+    // which is also what keeps the field and the counter from disagreeing.
+    fun profileNameCounter(length: Int, max: Int): TextRes =
+        message(StringId.ProfileNameCounter, Arg.Number(length.toLong()), Arg.Number(max.toLong()))
+
+    // **Not `offlineSince`, though English reads nearly the same.** That one is the banner and ends in
+    // a count of what is waiting; a rename never queues, so there is nothing to count. The two are
+    // also not the same sentence in Italian — see the note in `Italian`.
+    fun profileHeldRequirement(hour: Int, minute: Int): TextRes =
+        clock(StringId.ProfileHeldRequirement, hour, minute)
+
+    // **The same amber card for the other thing that stops a rename**: the account has not been read,
+    // so there is no profile to build a whole-row write out of. No clock, because this state is not a
+    // claim about the network — see `profileRequirement`, which chooses between the two.
+    fun profileUnreadRequirement(): TextRes = message(StringId.ProfileUnreadRequirement)
+
+    fun profileHeldBody(): TextRes = message(StringId.ProfileHeldBody)
+
+    // The body's first sentence again, under the field, and its own entry rather than a substring of
+    // the card's: the card explains and the field only refuses, so a language that wants a shorter
+    // refusal in a 44dp row can have one without shortening the explanation.
+    fun profileHeldFieldNote(): TextRes = message(StringId.ProfileHeldFieldNote)
+
+    fun markComposeRow(): TextRes = message(StringId.MarkComposeRow)
+
+    // What a composed mark is called — on the card, and again at the head of the grid line that spells
+    // its parts through `clauses`. One entry, because that is one noun for one thing rather than two
+    // surfaces coinciding: a composed mark has no name of its own, so this *is* the name.
+    fun markComposedName(): TextRes = message(StringId.MarkComposedName)
+
+    // The three slots, as three entries rather than one over a slot enum. Each row's chips come from a
+    // different family, so nothing ever draws the three by looping — a key they would not be looked up
+    // by is a key nobody needs.
+    fun markSlotBody(): TextRes = message(StringId.MarkSlotBody)
+
+    fun markSlotPath(): TextRes = message(StringId.MarkSlotPath)
+
+    fun markSlotTerminus(): TextRes = message(StringId.MarkSlotTerminus)
+
+    fun markBodyName(body: MarkBodyName): TextRes = message(
+        when (body) {
+            MarkBodyName.LIMB -> StringId.MarkBodyLimb
+            MarkBodyName.TERMINATOR -> StringId.MarkBodyTerminator
+            MarkBodyName.ORBIT -> StringId.MarkBodyOrbit
+            MarkBodyName.WAKE -> StringId.MarkBodyWake
+        },
+    )
+
+    // **`NONE` is a part and not an absence**, in both this family and the terminus one below: the
+    // composer draws it as a chip the player taps, so it is named like the three beside it. The two
+    // `None`s are different words in Italian, which is the whole reason they are different ids.
+    fun markPathName(path: MarkPathName): TextRes = message(
+        when (path) {
+            MarkPathName.RISING -> StringId.MarkPathRising
+            MarkPathName.TRANSFER -> StringId.MarkPathTransfer
+            MarkPathName.TWIN -> StringId.MarkPathTwin
+            MarkPathName.NONE -> StringId.MarkPathNone
+        },
+    )
+
+    fun markTerminusName(terminus: MarkTerminusName): TextRes = message(
+        when (terminus) {
+            MarkTerminusName.DOT -> StringId.MarkTerminusDot
+            MarkTerminusName.RING -> StringId.MarkTerminusRing
+            MarkTerminusName.NONE -> StringId.MarkTerminusNone
+        },
+    )
+
+    fun markComposeFoot(): TextRes = message(StringId.MarkComposeFoot)
 }
 
 // **Which of the two the catalogue is being asked about**, and it is this module's own enum rather
@@ -1671,6 +1773,51 @@ enum class DeleteFactKind {
     FLEET,
     MAP,
     RESEARCH,
+}
+
+// **The four families of drawing the identity editor has to name**, and they are this module's own
+// enums rather than `:protocol`'s `MarkPreset`, `MarkBody`, `MarkPath` and `MarkTerminus` for exactly
+// the reason `AuthProviderName` is not `AuthProvider`: a table of words has no business on the wire
+// contract's compile classpath, and `:client:design:text` declares one production dependency on
+// purpose.
+//
+// The gate's "the day a third issuer exists the two lists move for different reasons" is not a
+// hypothetical here — it is already the *expected* shape of a mark set. A preset retired from the
+// picker is a word this catalogue keeps saying, because accounts that chose it still wear it and the
+// wire still serves it; a preset the design renames is a word that moves with no wire change at all.
+// Two lists that move on different days are two lists. `:client:profile:presentation` is where they
+// meet, as `:client:auth:presentation` is for the other pair.
+enum class MarkPresetName {
+
+    THRESHOLD,
+    TERMINATOR,
+    APHELION,
+    SEXTANT,
+    WAKE,
+    SOUNDING,
+}
+
+enum class MarkBodyName {
+
+    LIMB,
+    TERMINATOR,
+    ORBIT,
+    WAKE,
+}
+
+enum class MarkPathName {
+
+    RISING,
+    TRANSFER,
+    TWIN,
+    NONE,
+}
+
+enum class MarkTerminusName {
+
+    DOT,
+    RING,
+    NONE,
 }
 
 private const val SECONDS_PER_MINUTE: Int = 60

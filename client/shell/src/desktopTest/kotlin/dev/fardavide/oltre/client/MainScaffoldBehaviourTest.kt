@@ -60,6 +60,34 @@ class MainScaffoldBehaviourTest {
         assertEquals(1, asked)
     }
 
+    // **And the cluster beside it asks for the other face**, which is the same claim about the
+    // second control the strip grew: the frame forwards a press and decides nothing. Worth its own
+    // test rather than folded into the gear's — the two sit 7dp apart on a 38dp bar, so a cluster
+    // that had claimed the gear's target would pass every layout assertion in this file and open
+    // the wrong face.
+    @Test
+    fun `the player cluster asks for the profile`() {
+        var asked = 0
+
+        scaffold(onOpenProfile = { asked++ }) {
+            onNodeWithTag(PlayerTestTags.PROFILE, useUnmergedTree = true).performClick()
+        }
+
+        assertEquals(1, asked)
+    }
+
+    // The other half of that pair: pressing one control must not fire the other's callback.
+    @Test
+    fun `the gear does not ask for the profile`() {
+        var asked = 0
+
+        scaffold(onOpenProfile = { asked++ }) {
+            onNodeWithTag(PlayerTestTags.SETTINGS, useUnmergedTree = true).performClick()
+        }
+
+        assertEquals(0, asked)
+    }
+
     // Each destination shows its own screen and only its own. A tab that quietly fell through to
     // a neighbour would read as a bug in the neighbour.
     @Test
@@ -171,6 +199,7 @@ class MainScaffoldBehaviourTest {
     private fun scaffold(
         pauseTheClock: Boolean = false,
         onOpenSettings: () -> Unit = {},
+        onOpenProfile: () -> Unit = {},
         assertions: ComposeUiTest.() -> Unit,
     ) {
         runDesktopComposeUiTest(width = 393, height = 852) {
@@ -195,6 +224,9 @@ class MainScaffoldBehaviourTest {
                         // modals in this app are raised there — and `AlertSheetAppBehaviourTest` is
                         // where the sheet actually goes up and comes down.
                         onOpenSettings = onOpenSettings,
+                        // The other control on the strip, handed in for the same reason and asserted
+                        // the same way. `IdentityAppBehaviourTest` is where the face it opens arrives.
+                        onOpenProfile = onOpenProfile,
                     )
                 }
             }

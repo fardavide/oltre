@@ -749,6 +749,53 @@ object English : Translations {
             "Nothing here comes back, and a new ${args.text(0)} sign-in starts an empty colony."
         StringId.DeleteKeep -> "Keep it"
         StringId.DeleteConfirmAction -> "Delete"
+
+        // ── A name you chose, and a mark you picked ──────────────────────────────────────────
+        StringId.ProfileTitle -> "Name and mark"
+        StringId.ProfileMarkLabel -> "MARK"
+        StringId.ProfileNameLabel -> "NAME"
+        StringId.MarkNameThreshold -> "Threshold"
+        StringId.MarkNameTerminator -> "Terminator"
+        StringId.MarkNameAphelion -> "Aphelion"
+        StringId.MarkNameSextant -> "Sextant"
+        StringId.MarkNameWake -> "Wake"
+        StringId.MarkNameSounding -> "Sounding"
+        StringId.ProfileSaveName -> "Save name"
+        // The argument is `PlayerDefaultName`, and it sits mid-sentence here. That placement is the
+        // reason it is an argument at all — Italian ends on it.
+        StringId.ProfileEmptyName -> "An empty name is ${args.text(0)} again."
+        StringId.ProfileNameCounter -> "${args.number(0)}/${args.number(1)}"
+        // The banner's words without the banner's tally, because nothing is queued behind a rename.
+        StringId.ProfileHeldRequirement -> "No network since ${args.clock()}"
+        // The other reason the same card goes up, and it names no time because there is none to name:
+        // the account's own answer has not arrived, so there is nothing here to change safely.
+        StringId.ProfileUnreadRequirement -> "Your account has not answered"
+        StringId.ProfileHeldBody ->
+            "A rename cannot be held. Your name and your mark are on the account, not on the " +
+                "phone. Rename when the network is back."
+        StringId.ProfileHeldFieldNote -> "A rename cannot be held."
+        StringId.MarkComposeRow -> "Compose a mark"
+        StringId.MarkComposedName -> "Your mark"
+        StringId.MarkSlotBody -> "BODY"
+        StringId.MarkSlotPath -> "PATH"
+        StringId.MarkSlotTerminus -> "TERMINUS"
+        StringId.MarkBodyLimb -> "Limb"
+        // The same word as `MarkNameTerminator` and a different decision: that one names a preset
+        // silhouette and this one names the body a composed mark can be built on.
+        StringId.MarkBodyTerminator -> "Terminator"
+        StringId.MarkBodyOrbit -> "Orbit"
+        StringId.MarkBodyWake -> "Wake"
+        StringId.MarkPathRising -> "Rising"
+        StringId.MarkPathTransfer -> "Transfer"
+        StringId.MarkPathTwin -> "Twin"
+        // English has one word for both absences. Italian has two — see the note there.
+        StringId.MarkPathNone -> "None"
+        StringId.MarkTerminusDot -> "Dot"
+        StringId.MarkTerminusRing -> "Ring"
+        StringId.MarkTerminusNone -> "None"
+        StringId.MarkComposeFoot ->
+            "Each part is set as you tap it. A terminus is the end of a path, so a mark with no " +
+                "path has none."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

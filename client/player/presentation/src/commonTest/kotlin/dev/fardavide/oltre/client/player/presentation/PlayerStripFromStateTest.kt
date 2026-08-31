@@ -17,6 +17,7 @@ import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.TechLevel
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.experienceOf
+import dev.fardavide.oltre.protocol.PlayerProfile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -27,7 +28,7 @@ class PlayerStripFromStateTest {
 
     @Test
     fun `should open a new colony at level zero on an empty gauge`() {
-        val uiState = genesis().toPlayerStripUiState()
+        val uiState = genesis().toPlayerStripUiState(unchosen())
 
         assertEquals(Strings.levelBadge(0), uiState.level)
         assertEquals(0, uiState.experiencePercent)
@@ -42,7 +43,7 @@ class PlayerStripFromStateTest {
         val played = genesis().withHistory(builds(count = 20))
         val expected = ExperienceBalance.levelFor(played.experience)
 
-        assertEquals(Strings.levelBadge(expected.value), played.toPlayerStripUiState().level)
+        assertEquals(Strings.levelBadge(expected.value), played.toPlayerStripUiState(unchosen()).level)
         assertTrue(expected.value > 0, "twenty facility levels were worth no level at all")
     }
 
@@ -54,7 +55,7 @@ class PlayerStripFromStateTest {
         // then draws from it.
         val carriedForward = genesis().withHistory(aWeekOfPlay())
 
-        val uiState = carriedForward.toPlayerStripUiState()
+        val uiState = carriedForward.toPlayerStripUiState(unchosen())
 
         assertTrue(
             uiState.level != Strings.levelBadge(0),
@@ -69,9 +70,9 @@ class PlayerStripFromStateTest {
         val halfway = ExperienceBalance.spanOf(PlayerLevel(0)).points / 2
         val state = genesis().withHistory(worthAbout(halfway))
 
-        val percent = state.toPlayerStripUiState().experiencePercent
+        val percent = state.toPlayerStripUiState(unchosen()).experiencePercent
 
-        assertEquals(Strings.levelBadge(0), state.toPlayerStripUiState().level)
+        assertEquals(Strings.levelBadge(0), state.toPlayerStripUiState(unchosen()).level)
         assertTrue(percent in 40..60, "the gauge read $percent% halfway through the first level")
     }
 
@@ -81,27 +82,34 @@ class PlayerStripFromStateTest {
         // where it is built. That is the strip being defensive; this is the mapper making sure it
         // never has to be.
         for (levels in 0..40) {
-            val percent = genesis().withHistory(builds(count = levels)).toPlayerStripUiState().experiencePercent
+            val played = genesis().withHistory(builds(count = levels))
+            val percent = played.toPlayerStripUiState(unchosen()).experiencePercent
             assertTrue(percent in 0..99, "$levels builds put the gauge at $percent%")
         }
     }
 
-    @Test
-    fun `should take the name from the catalogue rather than from a literal`() {
-        // The assertion is `Strings.playerDefaultName()` and not the string it resolves to, on the
-        // rule `TextRes` exists for: a test asserts on meaning, so this keeps passing when the
-        // wording changes and fails when the *message* does.
-        assertEquals(Strings.playerDefaultName(), genesis().toPlayerStripUiState().name)
-    }
-
+    // **What a name and a mark chosen by the player do to this state is `IdentityFromProfileTest`'s**,
+    // beside the two faces that choose them. What stays here is the half nobody chose: that the seed
+    // names nothing, and that the default has words.
     @Test
     fun `should give the name words in both languages`() {
         // Italian keeps the English callsign deliberately — see `Italian.kt` — and this is what
         // makes that a decision rather than a gap somebody forgot to fill.
-        val name = genesis().toPlayerStripUiState().name
+        val name = genesis().toPlayerStripUiState(unchosen()).name
 
         assertEquals("Dead Reckoning", English.resolve(name))
         assertEquals("Dead Reckoning", Italian.resolve(name))
+    }
+
+    @Test
+    fun `should not mark the player after the galaxy they were dealt either`() {
+        // The name's own rule extended to the mark and for the same reason: a glyph derived from a
+        // seed nobody chose asserts an identity the save cannot back. Two colonies in different
+        // galaxies wear the same mark until somebody picks one.
+        val here = GameState.initial(GalaxySeed(1)).toPlayerStripUiState(unchosen())
+        val elsewhere = GameState.initial(GalaxySeed(999_983)).toPlayerStripUiState(unchosen())
+
+        assertEquals(here.mark, elsewhere.mark)
     }
 
     @Test
@@ -109,13 +117,18 @@ class PlayerStripFromStateTest {
         // `player-strip-sheet.md` §3 retired the seeded name: an identity the save cannot back is a
         // fact about a random number wearing a person's clothes. Two colonies in different galaxies
         // are called the same thing until somebody chooses otherwise.
-        val here = GameState.initial(GalaxySeed(1)).toPlayerStripUiState()
-        val elsewhere = GameState.initial(GalaxySeed(999_983)).toPlayerStripUiState()
+        val here = GameState.initial(GalaxySeed(1)).toPlayerStripUiState(unchosen())
+        val elsewhere = GameState.initial(GalaxySeed(999_983)).toPlayerStripUiState(unchosen())
 
         assertEquals(here.name, elsewhere.name)
     }
 
     private fun genesis(): GameState = GameState.initial(GalaxySeed(20_260_807))
+
+    // **An account that has chosen neither**, which is what every colony in this file has: the level
+    // and the gauge are the same numbers whoever is playing, and a profile handed in here would be a
+    // second subject in a test about the first.
+    private fun unchosen(): PlayerProfile = PlayerProfile(name = null, mark = null)
 
     // A colony that has finished these things, in the shape `core` guarantees: the log and the
     // carried total in step. `core`'s own `logging` is the production path and is internal to it, so

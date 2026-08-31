@@ -1,6 +1,12 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.MarkBody
+import dev.fardavide.oltre.protocol.MarkPath
+import dev.fardavide.oltre.protocol.MarkTerminus
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -22,6 +28,10 @@ class InMemoryPlayerRepositoryTest {
     private val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
     private val mine = ProviderIdentity(ProviderName("google"), "subject-a")
     private val theirs = ProviderIdentity(ProviderName("google"), "subject-b")
+    private val chosen = PlayerProfile(
+        name = CommanderName("Ada di Notte"),
+        mark = PlayerMark.Composed(MarkBody.WAKE, MarkPath.TWIN, MarkTerminus.RING),
+    )
 
     @Test
     fun `an identity nobody has seen becomes a player`() = runTest {
@@ -127,6 +137,67 @@ class InMemoryPlayerRepositoryTest {
         val real = InMemoryPlayerRepository(colonies, ids = PlayerIds.RANDOM)
 
         assertNotEquals(real.resolve(mine), real.resolve(theirs))
+    }
+
+    // **A player exists and has chosen nothing**, which is two nulls rather than no answer. Every
+    // account founded before the profile slice reads this, and the strip goes on drawing
+    // `Strings.playerDefaultName()` for it — so the value has to be distinguishable from "no such
+    // player", which is what the endpoint answers `Unauthenticated` to.
+    @Test
+    fun `a player who has never opened the editor has a profile with nothing in it`() = runTest {
+        val player = players.resolve(mine)
+
+        assertEquals(PlayerProfile(name = null, mark = null), players.profileOf(player))
+    }
+
+    @Test
+    fun `nobody has no profile at all`() = runTest {
+        assertNull(players.profileOf(PlayerId("never-signed-in")))
+        assertFalse(players.setProfile(PlayerId("never-signed-in"), chosen))
+    }
+
+    @Test
+    fun `what was set is what comes back`() = runTest {
+        val player = players.resolve(mine)
+
+        assertTrue(players.setProfile(player, chosen))
+
+        assertEquals(chosen, players.profileOf(player))
+    }
+
+    // The write replaces rather than merges, which is what lets a player out of a name they regret.
+    @Test
+    fun `clearing a name puts the profile back where it started`() = runTest {
+        val player = players.resolve(mine)
+        players.setProfile(player, chosen)
+
+        players.setProfile(player, PlayerProfile(name = null, mark = null))
+
+        assertEquals(PlayerProfile(name = null, mark = null), players.profileOf(player))
+    }
+
+    @Test
+    fun `one player's name is not another's`() = runTest {
+        val player = players.resolve(mine)
+        val other = players.resolve(theirs)
+        players.setProfile(player, chosen)
+
+        assertEquals(PlayerProfile(name = null, mark = null), players.profileOf(other))
+    }
+
+    // **The profile goes with the account and does not come back with the next sign-in.** It is the
+    // cascade again — a foreign key over in Postgres because the columns are on `players` itself,
+    // written out by hand here — and getting it wrong would hand a deleted account's name to whoever
+    // signs in with that subject next.
+    @Test
+    fun `forgetting a player takes the name and the mark with it`() = runTest {
+        val before = players.resolve(mine)
+        players.setProfile(before, chosen)
+        players.forget(before)
+
+        val after = players.resolve(mine)
+
+        assertEquals(PlayerProfile(name = null, mark = null), players.profileOf(after))
     }
 
     @Test

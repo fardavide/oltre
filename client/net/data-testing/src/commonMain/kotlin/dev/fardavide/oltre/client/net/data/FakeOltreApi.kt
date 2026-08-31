@@ -27,6 +27,7 @@ import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.RejectionReason
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
@@ -34,6 +35,7 @@ import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.protocol.VerbRejection
+import kotlinx.coroutines.CompletableDeferred
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
@@ -52,6 +54,12 @@ private val FAKE_SESSION: SessionResponse = SessionResponse(
     refreshToken = SessionToken("fake.refresh.token"),
     refreshExpiresAt = FAKE_SIGNED_IN_AT + 90.days,
 )
+
+// **What an account holds before anybody has chosen**, and what it holds again once it is deleted.
+// A factory rather than a default on `PlayerProfile` itself: nothing on this wire has one — that is
+// what `RequiredFieldsTest` pins — and null here means *has not chosen* rather than *this build does
+// not say*, which is a distinction a default would quietly erase.
+private val UNCHOSEN: PlayerProfile = PlayerProfile(name = null, mark = null)
 
 // **A server that is not there.** Handwritten, per the repository's no-mocking-framework rule, and
 // it is the one this slice exists to deliver as much as `OltreApi` is: `#106` §8 — the whole
@@ -84,6 +92,12 @@ class FakeOltreApi(
     // what a first launch of the online build meets before founding.
     var colony: GameSnapshot? = null,
 
+    // **The name and the mark this server holds**, which is an account's and not a colony's — so it
+    // survives `foundColony` and outlives every snapshot put in `colony`. Both halves null is a
+    // player who has never opened the editor, which is what every account founded before this slice
+    // reads; what the strip draws for that is the strip's call and not this server's.
+    var profile: PlayerProfile = UNCHOSEN,
+
     // What `foundColony` adopts when this server holds nothing yet. A real one mints the galaxy
     // itself; this one is told what to pretend it minted, because a seed is a decision and a fake
     // has no business making one.
@@ -96,6 +110,15 @@ class FakeOltreApi(
     // The server answers, and says no. Takes precedence over the colony, exactly as `admit` does on
     // the far end: a request that never got past the door was never about a colony.
     var error: ApiError? = null,
+
+    // **The two profile routes saying no while everything else answers.** `error` above is the whole
+    // server refusing and `transientErrors` is the *next call* refusing whichever route that turns
+    // out to be — neither can express the one state this slice turns on: a launch or a sign-in that
+    // otherwise succeeds, with the account read not landing. That is what leaves `App`'s `profile`
+    // null, and a client that treated it as an empty profile would send `{name: null}` and have the
+    // server write SQL NULL over a name it never read. A fake that could not produce the state would
+    // leave the whole of it untestable.
+    var profileError: ApiError? = null,
 
     // **The response is lost after the work was done** — the flaky train connection, and the whole
     // reason an idempotency key is not optional. One call applies its envelopes and then reads as
@@ -140,6 +163,43 @@ class FakeOltreApi(
 
     private val deletions = mutableListOf<SessionToken>()
 
+    private val profileWrites = mutableListOf<PlayerProfile>()
+
+    // **What has left the phone, as opposed to what the account was made to hold.** Two lists rather
+    // than one because they answer two different questions, and the difference only exists while a
+    // request is held: a write this server has *taken* is one the client is no longer sitting on, and
+    // a client blocked behind a lock somebody else is holding leaves nothing here at all.
+    private val profilesTaken = mutableListOf<PlayerProfile>()
+
+    // **A profile call the far end has taken and not yet answered**, which is the one thing this
+    // fake could not express and the one thing two of this slice's defects live inside. Everything
+    // else here answers in the same breath it is asked, so a suspending call never actually
+    // suspends — and a test written against it can never have two requests in flight at once, nor
+    // catch the frame that composes while one is outstanding.
+    //
+    // Held rather than delayed, because a delay is a length and this is an *order*: what a test
+    // needs to say is "while this one is out", not "for 40ms".
+    private var heldReads: CompletableDeferred<Unit>? = null
+
+    private var heldWrites: CompletableDeferred<Unit>? = null
+
+    // **The colony route, held the same way**, and it is the one that says what the rest of the app
+    // is doing while a request is out: the tick loop is the only thing in this game that asks on its
+    // own, and a fake that always answered in the same breath could never be asked whether the clock
+    // went on running underneath it.
+    private var heldSyncs: CompletableDeferred<Unit>? = null
+
+    // **And the one call in the app that cannot be repeated**, held for the reason the other two are:
+    // a deletion is launched on a scope that outlives the session it was made under, and what its
+    // answer is then allowed to touch is only askable while it is out.
+    private var heldDeletions: CompletableDeferred<Unit>? = null
+
+    // **How many syncs are sitting here unanswered right now**, which is a different question from
+    // how many have been sent and is the one a test about *while a request is out* has to ask. The
+    // count rather than a flag, because a launch retries and the answer has to stay true for as long
+    // as any of them is still waiting.
+    private var syncsHeldNow: Int = 0
+
     // One request, as the two things it actually carries.
     data class Sent(val access: SessionToken, val envelopes: List<VerbEnvelope>)
 
@@ -163,6 +223,55 @@ class FakeOltreApi(
     // deleting twice is not an error and a test about the second attempt has to be able to see it.
     fun deletions(): List<SessionToken> = deletions.toList()
 
+    // **What this server was actually made to hold**, in the order it was told. A list rather than a
+    // flag for `deletions()`'s reason — a rename that had to be made twice is exactly what a test
+    // about a refusal and the retry after it is looking at — and a write that never got past the
+    // door leaves nothing here, which is how *"offline saved nothing"* is asserted rather than
+    // assumed.
+    fun profileWrites(): List<PlayerProfile> = profileWrites.toList()
+
+    // See `profilesTaken` above: what reached the far end, whether or not it was ever answered.
+    fun profilesTaken(): List<PlayerProfile> = profilesTaken.toList()
+
+    // **Take the call, and then answer it** — one pair per route. Kept as methods rather than as a
+    // public `CompletableDeferred` so that the coroutine type stays inside this module: `OltreApi`'s
+    // own vocabulary is `ApiResult`, and a caller scripting a fake should not have to speak a second
+    // one to say *while that request is still out*.
+    fun holdProfileReads() {
+        heldReads = CompletableDeferred()
+    }
+
+    fun answerProfileReads() {
+        heldReads?.complete(Unit)
+    }
+
+    fun holdProfileWrites() {
+        heldWrites = CompletableDeferred()
+    }
+
+    fun answerProfileWrites() {
+        heldWrites?.complete(Unit)
+    }
+
+    fun holdSyncs() {
+        heldSyncs = CompletableDeferred()
+    }
+
+    fun answerSyncs() {
+        heldSyncs?.complete(Unit)
+    }
+
+    // See `syncsHeldNow`: a request this server has taken and not answered.
+    fun syncsHeld(): Int = syncsHeldNow
+
+    fun holdDeletions() {
+        heldDeletions = CompletableDeferred()
+    }
+
+    fun answerDeletions() {
+        heldDeletions?.complete(Unit)
+    }
+
     override suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
         signIn(AuthProvider.APPLE, idToken, nonce)
 
@@ -175,12 +284,22 @@ class FakeOltreApi(
     override suspend fun refresh(refreshToken: SessionToken): ApiResult<SessionResponse> =
         refuseOrElse { ApiResult.Answered(session) }
 
-    override suspend fun deleteAccount(access: SessionToken): ApiResult<Unit> = refuseOrElse {
+    override suspend fun deleteAccount(access: SessionToken): ApiResult<Unit> {
+        heldDeletions?.await()
+        return deleted(access)
+    }
+
+    private fun deleted(access: SessionToken): ApiResult<Unit> = refuseOrElse {
         deletions += access
         // Everything this server holds about them goes, which is what makes signing in again a new
         // colony rather than the old one — `players.id` is a surrogate key, and that is the whole
         // reason the second sign-in cannot land back on the first row.
         colony = null
+        // **The name and the mark go with it**, and this line is the one most easily forgotten: the
+        // profile hangs off the account rather than the colony, so a fake that cleared only the
+        // colony would let a client pass that showed the deleted player's name to whoever signed in
+        // next.
+        profile = UNCHOSEN
         ApiResult.Answered(Unit)
     }
 
@@ -194,8 +313,51 @@ class FakeOltreApi(
     }
 
     override suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> {
+        // Recorded before the hold, so `syncs()` means *what left the phone* and a test can say
+        // "while that one is out" about a request that is genuinely out.
         syncs += Sent(access, envelopes)
+        heldSyncs?.let { held ->
+            syncsHeldNow++
+            // `finally`, because a caller giving up is exactly what this count has to be able to
+            // report: a request nobody is waiting for any more is not one this server is holding.
+            try {
+                held.await()
+            } finally {
+                syncsHeldNow--
+            }
+        }
         return answer(envelopes) {}
+    }
+
+    // **`NoColony` is not one of the answers here**, unlike everything below `answer`: a profile
+    // belongs to the account, so a player who has not founded still has one and it reads as both
+    // halves null. A fake that refused this before founding would make the strip's own default —
+    // what it draws when the answer is null — unreachable in a test.
+    override suspend fun profile(access: SessionToken): ApiResult<PlayerProfile> {
+        // Before the refusals rather than after them, because what is being modelled is a request
+        // that has left the phone: a server holding one has already taken it.
+        heldReads?.await()
+        return refuseOrElse { profileError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(profile) }
+    }
+
+    // **Replaces whole and answers with what is now held**, which is the far end's shape rather than
+    // an echo of what was sent: the real one writes the row and reads it back. Identical here
+    // because nothing in this fake edits a profile on the way in — and that is worth stating, since
+    // a fake that echoed would hide a client drawing its own draft.
+    override suspend fun setProfile(access: SessionToken, profile: PlayerProfile): ApiResult<PlayerProfile> {
+        // Before the hold, because what is being modelled is a request that has left the phone: a
+        // server holding one has already taken it.
+        profilesTaken += profile
+        heldWrites?.await()
+        return refuseOrElse {
+            // **Refused before it is recorded**, which is what makes `profileWrites()` mean *what the
+            // account was made to hold* rather than *what was posted at it*. A refused write left
+            // nothing behind on the far end and must leave nothing here.
+            profileError?.let { return@refuseOrElse ApiResult.Refused(it) }
+            profileWrites += profile
+            this.profile = profile
+            ApiResult.Answered(this.profile)
+        }
     }
 
     private fun signIn(

@@ -69,6 +69,33 @@ internal fun DataSource.givenPlayer(player: PlayerId) {
     }
 }
 
+// **A mark document straight into the column, bypassing the codec.** The only way to reach the state
+// a rollback puts the service in — a document written by a deploy that knew more parts than this
+// build does — without a second `MarkPreset` member that exists solely to be unknown.
+internal fun DataSource.writeMark(player: PlayerId, mark: String) {
+    connection.use { connection ->
+        connection.prepareStatement("UPDATE players SET mark = ?::jsonb WHERE id = ?").use { statement ->
+            statement.setString(1, mark)
+            statement.setString(2, player.value)
+            statement.executeUpdate()
+        }
+    }
+}
+
+// **A name straight into the column, bypassing the contract.** `CommanderName`'s guards are what a
+// *request* is checked against; the column is a `text` and holds whatever any deploy ever wrote —
+// which is the state a rollback puts the service in, exactly as `writeMark` reaches for above. The
+// only way there without a second `CommanderName` that exists solely to be illegal.
+internal fun DataSource.writeName(player: PlayerId, name: String) {
+    connection.use { connection ->
+        connection.prepareStatement("UPDATE players SET display_name = ? WHERE id = ?").use { statement ->
+            statement.setString(1, name)
+            statement.setString(2, player.value)
+            statement.executeUpdate()
+        }
+    }
+}
+
 private fun DataSource.execute(sql: String) {
     connection.use { connection -> connection.createStatement().use { it.execute(sql) } }
 }

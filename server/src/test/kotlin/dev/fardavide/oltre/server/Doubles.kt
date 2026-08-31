@@ -2,6 +2,7 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -67,6 +68,10 @@ internal class UnreachablePlayerRepository : PlayerRepository {
     override suspend fun exists(player: PlayerId): Boolean = error("no route to host")
 
     override suspend fun forget(player: PlayerId): Boolean = error("no route to host")
+
+    override suspend fun profileOf(player: PlayerId): PlayerProfile? = error("no route to host")
+
+    override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean = error("no route to host")
 }
 
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
@@ -98,6 +103,36 @@ internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
     override suspend fun exists(player: PlayerId): Boolean = throw NullPointerException()
 
     override suspend fun forget(player: PlayerId): Boolean = throw NullPointerException()
+
+    override suspend fun profileOf(player: PlayerId): PlayerProfile? = throw NullPointerException()
+
+    override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean = throw NullPointerException()
+}
+
+// **The account that is deleted between being admitted and being written to.** `Authenticator` asks
+// `exists` at the top of every request, so by the time an endpoint runs the player is known to be
+// there — and the window between those two moments is real: a second device can call
+// `DELETE /v1/account` inside it.
+//
+// It cannot be built out of `InMemoryPlayerRepository` alone, because that store answers `exists`
+// and `profileOf` consistently by construction. What this double does is answer the first question
+// truthfully and the second as if the row had gone in between — which is the only way to reach the
+// endpoint's `Unauthenticated` arm without a race a test cannot schedule.
+internal class VanishingPlayerRepository(colonies: InMemoryColonyRepository) : PlayerRepository {
+
+    private val store = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+
+    override suspend fun resolve(identity: ProviderIdentity): PlayerId = store.resolve(identity)
+
+    override suspend fun find(identity: ProviderIdentity): PlayerId? = store.find(identity)
+
+    override suspend fun exists(player: PlayerId): Boolean = store.exists(player)
+
+    override suspend fun forget(player: PlayerId): Boolean = store.forget(player)
+
+    override suspend fun profileOf(player: PlayerId): PlayerProfile? = null
+
+    override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean = false
 }
 
 // **The player's other device, syncing at the same moment.** The first `contentions` writes lose,

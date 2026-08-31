@@ -15,6 +15,12 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.22.0", "2026-08-30", "Un nome e un segno tuoi",
+            "Tocca il tuo nome sulla barra: si apre il foglio con nome e segno da scegliere.",
+            "Sei segni disegnati, o costruisci il tuo dai pezzi: quaranta in tutto.",
+            "Sono legati al tuo account, così un nuovo telefono apre col nome che hai scelto.",
+        ),
+        release(
             "0.21.0", "2026-08-27", "La tua colonia ora vive altrove",
             "Accedi con Apple o Google, e la colonia ti segue su ogni dispositivo.",
             "Un tocco senza rete resta in attesa e lo dice. Toccalo di nuovo per annullarlo.",

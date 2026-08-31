@@ -4,12 +4,18 @@ import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
@@ -57,6 +63,16 @@ private fun session(): SessionResponse = SessionResponse(
     refreshToken = SessionToken("a.refresh.token"),
     refreshExpiresAt = NOW + 90.days,
 )
+
+// A name and a mark that were both chosen, because the interesting decoding is on the halves that
+// are *not* null — a `PlayerProfile(null, null)` would parse whatever the guards did.
+private fun chosen(): PlayerProfile = PlayerProfile(
+    name = CommanderName("Ada"),
+    mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
+)
+
+private fun profileResponse(): ProfileResponse =
+    ProfileResponse(apiVersion = ApiVersion.CURRENT, profile = chosen())
 
 private fun colonyResponse(): SyncResponse = SyncResponse(
     apiVersion = ApiVersion.CURRENT,
@@ -501,6 +517,192 @@ class KtorOltreApiTest {
 
         // then
         assertEquals(ApiResult.Unreachable, result)
+    }
+
+    // **The one `GET` in the API**, and the assertion about the body is the load-bearing half. Every
+    // other call has something to say, so they all share a helper that sets a content type and a
+    // body unconditionally; a read that went through it would send a JSON document nobody wrote on a
+    // method that has no room for one.
+    @Test
+    fun `reading a profile gets the profile route with nothing to say`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(profileResponse()), HttpStatusCode.OK, JSON) }
+            .profile(PLAYER)
+
+        // then
+        val request = records.single()
+        assertEquals(HttpMethod.Get, request.method)
+        assertEquals("/v1/profile", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+    }
+
+    // **The whole profile goes up and not the half that moved**, which is `SetProfileRequest`'s call
+    // rather than this transport's: with a merge, `null` would have to mean *leave it alone* and
+    // *clear it* at once, and clearing is the only way out of a name a player regrets.
+    @Test
+    fun `writing a profile posts the whole of it to the profile route`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(profileResponse()), HttpStatusCode.OK, JSON) }
+            .setProfile(PLAYER, chosen())
+
+        // then — the version is this build's and not the caller's, exactly as every other route
+        // states it
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/profile", request.url.encodedPath)
+        assertEquals(
+            SetProfileRequest(ApiVersion.CURRENT, chosen()),
+            Protocol.json.decodeFromString<SetProfileRequest>(request.bodyText()),
+        )
+    }
+
+    // A profile belongs to an account rather than to a colony, so the only thing that says whose it
+    // is is the session — and the read is the route most likely to get this wrong, because it is the
+    // one that does not go through the shared body helper.
+    @Test
+    fun `reading a profile says who is asking`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(profileResponse()), HttpStatusCode.OK, JSON) }
+            .profile(PLAYER)
+
+        // then
+        assertEquals(
+            Protocol.BEARER_PREFIX + "an.access.token",
+            records.single().headers[Protocol.AUTHORIZATION_HEADER],
+        )
+    }
+
+    @Test
+    fun `writing a profile says who is asking`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+
+        // when
+        api(records) { respond(Protocol.json.encodeToString(profileResponse()), HttpStatusCode.OK, JSON) }
+            .setProfile(PLAYER, chosen())
+
+        // then
+        assertEquals(
+            Protocol.BEARER_PREFIX + "an.access.token",
+            records.single().headers[Protocol.AUTHORIZATION_HEADER],
+        )
+    }
+
+    // **The envelope is dropped and the profile is handed up**, which is where this pair differs
+    // from `sync`: a caller reads `applied` and `rejected` off a `SyncResponse` and acts on them,
+    // while a `ProfileResponse` carries the version and nothing else a client can do anything with.
+    @Test
+    fun `a profile that comes back is handed up as what the player chose`() = runTest {
+        // given / when
+        val result = api { respond(Protocol.json.encodeToString(profileResponse()), HttpStatusCode.OK, JSON) }
+            .profile(PLAYER)
+
+        // then
+        assertEquals(ApiResult.Answered(chosen()), result)
+    }
+
+    // **What a write answers is a read and not an echo** — the server writes the row and then reads
+    // it back, so the answer is what it now holds rather than the client's own claim handed to it.
+    // A transport that dropped it would leave the strip drawing the draft.
+    @Test
+    fun `a profile the server stored comes back as what it now holds`() = runTest {
+        // given — the server answers with a name that is not the one sent
+        val held = PlayerProfile(name = CommanderName("Ada Lovelace"), mark = PlayerMark.Preset(MarkPreset.WAKE))
+
+        // when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString(ProfileResponse(ApiVersion.CURRENT, held)),
+                HttpStatusCode.OK,
+                JSON,
+            )
+        }.setProfile(PLAYER, chosen())
+
+        // then
+        assertEquals(ApiResult.Answered(held), result)
+    }
+
+    @Test
+    fun `a profile write the server will not accept is refused rather than assumed saved`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated),
+                HttpStatusCode.Unauthorized,
+                JSON,
+            )
+        }.setProfile(PLAYER, chosen())
+
+        // then
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), result)
+    }
+
+    @Test
+    fun `a profile refusal this build cannot parse is malformed`() = runTest {
+        // given / when
+        val result = api { respond("not an error either", HttpStatusCode.BadRequest, JSON) }
+            .setProfile(PLAYER, chosen())
+
+        // then
+        assertIs<ApiResult.Refused>(result)
+        assertIs<ApiError.Malformed>(result.error)
+    }
+
+    // Cloud Run scales to zero here too: the first read after an idle spell can be answered by the
+    // load balancer rather than by the app. A strip that drew `Dead Reckoning` because a gateway
+    // spoke would be showing a player somebody else's name.
+    @Test
+    fun `a gateway answering for a profile route that is not up yet reads as unreachable`() = runTest {
+        // given / when
+        val result = api {
+            respond(
+                "<html><head><title>502 Bad Gateway</title></head></html>",
+                HttpStatusCode.BadGateway,
+                headersOf(HttpHeaders.ContentType, "text/html"),
+            )
+        }.profile(PLAYER)
+
+        // then
+        assertEquals(ApiResult.Unreachable, result)
+    }
+
+    // **A rename made with no signal is not queued and does not pretend**, which is the design's own
+    // call: the outbox stores verbs the server can validate by replaying them, and a profile write
+    // has nothing to replay against. So this arm is the whole of what offline means here.
+    @Test
+    fun `a profile write that never reached anybody reads as unreachable`() = runTest {
+        // given / when
+        val result = api { throw IOException("no route to host") }.setProfile(PLAYER, chosen())
+
+        // then
+        assertEquals(ApiResult.Unreachable, result)
+    }
+
+    // **`CommanderName`'s own guard runs on decode**, and this is the arm `decode`'s second catch
+    // was written for: a modified client can write a name no field could produce, and a strip has
+    // nowhere to put twenty-five characters. Malformed rather than a crash in a coroutine nobody is
+    // watching.
+    @Test
+    fun `a name longer than the field can produce is malformed rather than drawn`() = runTest {
+        // given — a well-formed body carrying a name that cannot exist
+        val overlong = Protocol.json.encodeToString(profileResponse())
+            .replace("\"Ada\"", "\"" + "a".repeat(CommanderName.MAX_LENGTH + 1) + "\"")
+
+        // when
+        val result = api { respond(overlong, HttpStatusCode.OK, JSON) }.profile(PLAYER)
+
+        // then
+        assertIs<ApiResult.Refused>(result)
+        assertIs<ApiError.Malformed>(result.error)
     }
 }
 
