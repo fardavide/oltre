@@ -25,6 +25,7 @@ import dev.fardavide.oltre.client.auth.ui.Gate
 import dev.fardavide.oltre.client.design.component.RefusalUiState
 import dev.fardavide.oltre.client.design.text.AuthProviderName
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 import dev.fardavide.oltre.client.net.data.ActOutcome
 import dev.fardavide.oltre.client.net.data.ApiResult
 import dev.fardavide.oltre.client.net.data.ColonySync
@@ -37,6 +38,7 @@ import dev.fardavide.oltre.client.net.data.OutboxFile
 import dev.fardavide.oltre.client.net.data.RetryPolicy
 import dev.fardavide.oltre.client.net.data.SessionKeeper
 import dev.fardavide.oltre.client.net.data.SessionStore
+import dev.fardavide.oltre.client.net.data.renewing
 import dev.fardavide.oltre.client.net.data.SyncOutcome
 import dev.fardavide.oltre.client.net.data.WithdrawResult
 import dev.fardavide.oltre.client.net.data.randomIdempotencyKeys
@@ -47,7 +49,11 @@ import dev.fardavide.oltre.client.settings.ui.AccountUiState
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.SessionToken
 import dev.fardavide.oltre.protocol.offlineRule
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
@@ -76,7 +82,13 @@ import dev.fardavide.oltre.client.galaxy.presentation.GalaxyLanding
 import dev.fardavide.oltre.client.galaxy.presentation.GalaxyScreen
 import dev.fardavide.oltre.client.notifications.data.GameNotifications
 import dev.fardavide.oltre.client.notifications.data.defaultNotificationScheduler
+import dev.fardavide.oltre.client.player.presentation.spokenName
+import dev.fardavide.oltre.client.player.presentation.toIdentityFaceUiState
+import dev.fardavide.oltre.client.player.presentation.toMarkComposeFaceUiState
 import dev.fardavide.oltre.client.player.presentation.toPlayerStripUiState
+import dev.fardavide.oltre.client.player.presentation.withBody
+import dev.fardavide.oltre.client.player.presentation.withPath
+import dev.fardavide.oltre.client.player.presentation.withTerminus
 import dev.fardavide.oltre.client.research.presentation.toResearchUiState
 import dev.fardavide.oltre.client.research.ui.ResearchScreen
 import dev.fardavide.oltre.client.save.data.GameStore
@@ -115,6 +127,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.TimeZone
 
 // How long the rail goes on having somewhere to roll from. The roll itself takes 900ms; this is
@@ -286,6 +300,57 @@ fun App(
             // Which provider signed this device in, for the two sentences that name it. Null until a
             // session exists, which is also when the Account section is absent.
             var provider by remember { mutableStateOf<AuthProvider?>(null) }
+            // **Who is playing, as opposed to what their colony is.** This is the account rather than
+            // the colony: it survives a colony being deleted and it is not in the save.
+            //
+            // **Null is *not read*, and it is a different thing from a profile whose two fields are
+            // null.** That second state is an account that has chosen nothing, and the strip draws it
+            // as `Threshold` and `Dead Reckoning` — so on screen the two are the same picture and
+            // there is no spinner and no third face. What tells them apart is that **only one of them
+            // may be written over**: `POST /v1/profile` replaces the row whole rather than merging, so
+            // a `copy()` off an assumed-empty profile sends `{name: null}` and the server writes SQL
+            // NULL over a name the account holds on every other device, silently and with no undo.
+            //
+            // This started as `PlayerProfile(null, null)` and that is exactly what happened — after a
+            // gate sign-in, after a launch that began `Credential.Unreachable`, and after a read the
+            // server simply refused. The nullable is what makes the compiler refuse the write instead
+            // of a comment asking somebody to remember: there is no `profile.copy(…)` to reach for,
+            // and the one function that resolves it is `wearMark` below. The face is held while this
+            // is null, so nothing can reach that resolution with nothing to resolve.
+            var profile by remember { mutableStateOf<PlayerProfile?>(null) }
+            // **The draft is the shell's, and it has to be.** The identity face is swapped out
+            // whole when the composer opens, so a draft the face remembered would be lost by going to
+            // pick a mark and coming back.
+            //
+            // **Null is *the player has not typed*, and the mapper draws the committed name for it.**
+            // A field seeded with what the server answered would be a fourth writer of this string —
+            // the launch, the sign-in and the retry all learn a name — and every one of them would
+            // land on top of typing already in progress. With null meaning *follow what is committed*
+            // there is nothing to seed, and the events that end an edit put it back: the sheet
+            // closing, and a **name** landing on the server. A mark landing must not, which is the
+            // frame's own split and what `writeProfile`'s `renaming` says out loud.
+            var nameDraft by remember { mutableStateOf<String?>(null) }
+            // **One profile write at a time, because the row goes up whole.** The mark commits as it
+            // is touched and the name has a button — the frame's own split — which makes them the one
+            // pair of controls in this app that can be pressed inside each other's round trip. Two
+            // independent `launch`es each posting the whole row means the later answer wins with the
+            // *earlier* row's other field in it, so a name saved during a mark's flight put the
+            // pre-tap mark back. Fair by construction: `Mutex` hands the lock out in the order it was
+            // asked for, so the writes land in the order the taps happened.
+            //
+            // **And it belongs to a *session*, which is why it is a replaceable object rather than a
+            // `remember`ed `Mutex`.** A write is launched on the scope above, which outlives
+            // `endSession` and the branch leaving composition, so its answer can arrive at a process
+            // that has since signed a different player in. One lock for the life of the process made
+            // that worse in two ways at once: the orphan held it across the session change, so the
+            // new player's first tap waited on a dead session's lock for as long as the far end took
+            // and then met `?: return@withLock` and was dropped without a word.
+            //
+            // Replacing it is what says *this belongs to nobody now* in one assignment: the identity
+            // of the object is the identity of the session, so an answer can ask whether it is still
+            // the one that was launched, and the next session's writes queue behind nothing. The
+            // deletion asks the same question for the same reason — see `AccountWork`.
+            var accountWork by remember { mutableStateOf(AccountWork()) }
             // How far ahead of the wall clock this colony is running. Replaced rather than mutated,
             // so a skip is one state change that the tick loop and the commit both read.
             var debugClock by remember { mutableStateOf(DebugClock()) }
@@ -370,6 +435,42 @@ fun App(
             // gate feel like a failure rather than a threshold.
             var signedIn by remember { mutableStateOf<Boolean?>(null) }
 
+            // **A session ending, in one place — and it is one place because it was five.**
+            //
+            // Five arms end a session: a colony refused for a dead credential, a profile write
+            // refused for one, a profile write with no credential left to make, and both of
+            // `deleteAccount`'s. Every one of them wrote the same handful of assignments out by
+            // hand, and when the account's *name and mark* were added they were added to exactly one
+            // — so a session that ended through any of the other four left the previous player's
+            // identity sitting in memory, where the strip drew it over whoever signed in next.
+            //
+            // **`profile` and `nameDraft` are the pair that makes that a data-loss bug rather than a
+            // wrong drawing.** `POST /v1/profile` replaces the row whole, so a mark tapped before the
+            // new account's read lands posts the *old* account's name over it, on every device, with
+            // no undo. Null is *not read*, which is the one state nothing can be written from.
+            //
+            // **`gate = GateState.Idle` for all five**, including the two that used to leave it
+            // wherever it was: what the gate reports is what has just happened to a *sign-in
+            // attempt*, and a session that ended somewhere else has nothing to report about one.
+            //
+            // What is deliberately not here is anything about the *files*. Forgetting who is playing
+            // is not the same act as deleting what they had, and only `deleteAccount` does the
+            // second — see there, where the save and the queue go in a stated order.
+            //
+            // **The sixth thing it puts down is not state but a claim on the future**: a profile
+            // write or a deletion already in flight belongs to the session that made it, and a fresh
+            // `AccountWork` is what makes every arm of its answer a no-op. See `writeProfile`.
+            suspend fun endSession() {
+                sessions.forget()
+                signedIn = false
+                session = null
+                sheetFace = null
+                gate = GateState.Idle
+                profile = null
+                nameDraft = null
+                accountWork = AccountWork()
+            }
+
             // **What every answer from the server does**, in one place because every answer does the
             // same four things and a second copy is a second chance to forget one of them.
             //
@@ -431,23 +532,45 @@ fun App(
                     is SyncOutcome.Failed -> {
                         reachable = true
                         lastReachedAt = clock.now(wall)
-                        if (outcome.error == ApiError.Unauthenticated) {
-                            sessions.forget()
-                            signedIn = false
-                            gate = GateState.Idle
-                            // **And the colony comes off the screen, which is the half that was
-                            // missing.** The gate only draws when there is no session, so setting
-                            // the two lines above and leaving this one out produced the worst state
-                            // this app can be in: a colony whose every control looks operable and
-                            // whose every tap is dropped, with nothing on screen saying why.
-                            //
-                            // The save is untouched. This is the last colony the server agreed to
-                            // and it stays on disk — signing in again re-founds idempotently and
-                            // opens it, and a device that had nothing to show would be strictly
-                            // worse than one showing a gate.
-                            session = null
-                        }
+                        // **The colony comes off the screen with the session**, which is the half
+                        // that was once missing here: the gate only draws when there is no session,
+                        // so signing out and leaving the colony up produced the worst state this app
+                        // can be in — every control looking operable, every tap dropped, nothing on
+                        // screen saying why. `endSession` is what says all of it at once now.
+                        //
+                        // The save is untouched. This is the last colony the server agreed to and it
+                        // stays on disk — signing in again re-founds idempotently and opens it.
+                        if (outcome.error == ApiError.Unauthenticated) endSession()
                     }
+                }
+            }
+
+            // **Who is playing, asked wherever a session begins** — which is three places and was one.
+            //
+            // A route of its own rather than a field on `SyncResponse`: `Profile.kt` argues why, and
+            // the short form is that this wire refuses unknown keys, so a field added to a shipped
+            // response is a response the build already on somebody's phone cannot decode.
+            //
+            // **Its failure is not free, which is what the first cut of this had wrong.** *"The one
+            // request in this launch whose failure costs nothing"* was true only of the strip, which
+            // draws `Threshold` and `Dead Reckoning` either way; it was false of the editor behind it,
+            // because a write is built out of the whole profile. So a read that does not land leaves
+            // `profile` null, the face amber, and the tick loop asking again.
+            //
+            // **`renewing` and not a bare `api.profile`**, which is the second thing the first cut
+            // had wrong and the harder one to see: `SessionKeeper.current()` decides on this
+            // device's clock arithmetic, so a phone running behind the server hands over a token it
+            // believes is in date and is answered `SessionExpired`. Read straight, that arm below
+            // discards the answer and the account stays unread until the tick loop's minute is up —
+            // about a server that replied immediately. See `SessionKeeper.renewing`.
+            suspend fun readProfile(access: SessionToken) {
+                when (val answer = sessions.renewing(access) { api.profile(it) }) {
+                    is ApiResult.Answered -> profile = answer.value
+                    // Nothing said and nothing signed out. A refusal here is almost always a token the
+                    // sync is about to be refused for too, and *that* is where the gate is answered —
+                    // twice would be two answers to one fact. What this arm leaves behind is the null
+                    // above, which is the honest state and the one nothing can be written from.
+                    is ApiResult.Refused, ApiResult.Unreachable -> Unit
                 }
             }
 
@@ -475,6 +598,11 @@ fun App(
             fun closeSheet() {
                 sheetFace = null
                 markChangelogSeen()
+                // **A name half typed is not a name**, so the field goes back to what the account
+                // actually holds — which, with null meaning *nothing typed*, is what the mapper draws
+                // anyway. Without this, closing the sheet and reopening it would show a draft the
+                // player abandoned, over a save button offering to commit it.
+                nameDraft = null
             }
 
 
@@ -579,7 +707,8 @@ fun App(
                 // carries on and the sync below fails the ordinary offline way — the colony stays
                 // up, the queue is held, and the chrome line says the network is out. Reading it as
                 // *signed out* is what left a player one tunnel away from the gate.
-                when (sessions.current()) {
+                val credential = sessions.current()
+                when (credential) {
                     Credential.Gone -> {
                         signedIn = false
                         // **And the colony comes back off the screen, which is the case every
@@ -603,7 +732,17 @@ fun App(
                 // **The gate stays up while the first colony is fetched, and says so.** Only on a
                 // device with no save: one that has a colony is already showing it, and a waiting
                 // line over a working game would be the app reporting on itself.
+                //
+                // **Before the account is read, and the order is the whole of it.** `signedIn` is
+                // set two lines up and there is no suspension point between there and here, so no
+                // frame can compose in between. Putting the profile's round trip in that gap — which
+                // is what the first cut did — draws the *live* sign-in gate, buttons and all, to a
+                // player who is already signed in, for as long as the server takes to answer.
                 if (saved == null) gate = GateState.Waiting
+                // **Beside the colony rather than inside it**, and the credential this launch already
+                // resolved rather than a second `current()`: `Unreachable` falls through above, and
+                // asking again here would spend a second failed renewal to learn what is in hand.
+                if (credential is Credential.Held) readProfile(credential.access)
                 // **`sync` when this device holds a colony and `found` when it does not**, and the
                 // difference is not a shortcut: `found` sends no envelopes, so a launch that always
                 // founded would leave a queue written before the app was closed sitting on disk until
@@ -674,6 +813,14 @@ fun App(
                                     remembered = next
                                     preferences.save(next)
                                     signedIn = true
+                                    // **A sign-in is a session beginning, so it reads the account** —
+                                    // and this line is the whole of what the gate was missing. The
+                                    // launch effect ran once, before this screen existed, so a player
+                                    // who arrived here wore `Dead Reckoning` over an account called
+                                    // something else and the first mark they tapped wrote a null name
+                                    // over it. Before the colony, so the first frame that has a strip
+                                    // already has the right name on it.
+                                    readProfile(answer.value.accessToken)
                                     val wall = wallClock.now()
                                     arrive(colony.found(), debugClock, wall)
                                 }
@@ -720,6 +867,11 @@ fun App(
             } else {
                 LaunchedEffect(Unit) {
                     var ticks = 0
+                    // **Whether the minute's errand is still out**, and it is the whole of what keeps
+                    // the retry below from becoming a flood. One at a time and no queue: a minute
+                    // that arrives while the last request is still unanswered is a minute with
+                    // nothing to add, because the question it would ask is the one already in flight.
+                    var asking = false
                     while (true) {
                         delay(1.seconds)
                         val previous = session ?: continue
@@ -733,14 +885,64 @@ fun App(
                         // and on a tap and at no other moment, so a player who regained signal
                         // mid-session sat with three amber cards until they touched one.
                         //
-                        // **Only while something is outstanding and the last attempt failed**, which
-                        // is what keeps this from being a poll: a colony with signal never reaches
-                        // this line, and one with nothing queued has nothing to send. A minute
-                        // because that is the resolution the chrome line prints at — a player cannot
-                        // see a difference finer than the clock they are being shown.
+                        // **Only while the last attempt failed, and no longer only while something
+                        // is queued.** The count was in this condition until the profile arrived,
+                        // and it was the reason the identity face had no way out: a rename queues
+                        // *nothing* — `profile-sheet.md` §3 — so a write that met a dead network
+                        // left `reachable` false with `held.count` at zero and this line could never
+                        // fire for it. Meanwhile the card it raised drew every control on both
+                        // identity faces as a press-less `Box`, so there was no finger-reachable
+                        // path back either. A state with no exit is the one thing this product
+                        // treats as worse than a crash, and the count is what created it.
+                        //
+                        // **It is still not a poll.** `reachable` is true whenever the server last
+                        // answered, so a colony with signal never reaches this line at all; what is
+                        // widened is *which* kind of failure gets asked about again, not how often.
+                        // The cadence is unchanged and is argued the same way it always was: one
+                        // request a minute, because a minute is the resolution the chrome line
+                        // prints at and a player cannot see a difference finer than the clock they
+                        // are being shown. A device genuinely offline spends one empty sync a minute
+                        // — which is exactly what it already spent with one thing in the queue.
                         ticks++
-                        if (ticks % TICKS_PER_RETRY == 0 && !reachable && held.count > 0) {
-                            arrive(colony.sync(), debugClock, wallClock.now())
+                        if (ticks % TICKS_PER_RETRY != 0) continue
+                        if (asking || (reachable && profile != null)) continue
+                        // **Launched beside the clock rather than in front of it**, which is the one
+                        // thing this loop must never spend: the coroutine that asks is the coroutine
+                        // that advances the session, so a request it *awaits* is a colony that stops
+                        // accruing, stops finishing what is in flight and stops booking what
+                        // finishes. `RetryPolicy.DEFAULT` is three attempts four seconds apart and
+                        // each is bounded only by the twenty-second request timeout, so awaiting one
+                        // costs four seconds against a server that refuses fast and a minute against
+                        // a network that takes the call and never speaks. A player watching a
+                        // countdown would see it stop.
+                        //
+                        // **Reachable before it is launched**, so the child is only ever built for a
+                        // minute that has something to ask — and `asking` is what keeps it to one at
+                        // a time. A child of this effect, so it dies with the destination exactly as
+                        // the loop does.
+                        asking = true
+                        launch {
+                            try {
+                                if (!reachable) arrive(colony.sync(), debugClock, wallClock.now())
+                                // **And the account, which is the other thing a launch can fail to
+                                // get.** The read has no queue behind it, so nothing above notices it
+                                // missing — and until this, a launch whose profile never arrived
+                                // stayed that way for the life of the process: the strip drew the
+                                // default over a named account and the editor stayed amber with
+                                // nothing ever trying again. Same minute as the queue's retry and the
+                                // same argument: it is the resolution the chrome line prints at.
+                                if (profile == null) {
+                                    when (val credential = sessions.current()) {
+                                        is Credential.Held -> readProfile(credential.access)
+                                        // No credential and no network are both answered elsewhere —
+                                        // the sync above is what turns a dead one into a gate. Asking
+                                        // twice would be two answers to one fact.
+                                        Credential.Gone, Credential.Unreachable -> Unit
+                                    }
+                                }
+                            } finally {
+                                asking = false
+                            }
                         }
                     }
                 }
@@ -1017,16 +1219,31 @@ fun App(
                 //
                 // **Offline it refuses**, in the same grammar a dispatch does: the account is removed
                 // on the server, and the server has to answer.
+                //
+                // **And it belongs to the session that pressed it**, which is `writeProfile`'s
+                // mechanism applied where getting it wrong is worst. A deletion that lands and loses
+                // its response leaves a token naming a player who is gone, and the next sync is
+                // refused for exactly that — so *the session ending under an outstanding deletion is
+                // this route's ordinary failure*, not a corner. Answered blind, the success arm signs
+                // out whoever is current now and clears **their** save and queue off the disk.
                 fun deleteAccount() {
+                    val mine = accountWork
                     scope.launch {
-                        val token = when (val credential = sessions.current()) {
+                        val credential = sessions.current()
+                        // A renewal is a round trip, so the session can have ended inside it — and
+                        // the `Gone` arm below would then sign out whoever is current now.
+                        if (accountWork !== mine) return@launch
+                        val token = when (credential) {
                             is Credential.Held -> credential.access
 
                             // No credential to delete with. The gate is where that is answered, and
-                            // it is where the next launch would have gone anyway.
+                            // it is where the next launch would have gone anyway. The sheet comes
+                            // down with it, which `endSession` says for every path and which matters
+                            // most here: what is raised is the deletion face, and leaving it set
+                            // would put a *delete my account* screen over the first colony the
+                            // player signed back into.
                             Credential.Gone -> {
-                                signedIn = false
-                                session = null
+                                endSession()
                                 return@launch
                             }
 
@@ -1040,34 +1257,81 @@ fun App(
                                 return@launch
                             }
                         }
-                        when (api.deleteAccount(token)) {
+                        // **`renewing`, and it costs nothing to apply here** — this gap is older than
+                        // the profile pair and predates this slice: a phone whose clock runs behind
+                        // the server's could be answered `SessionExpired` on the one call in the app
+                        // that cannot be repeated by accident, and that arm below would have drawn
+                        // *no network* over an account that was never deleted. Same rule, same one
+                        // line. See `SessionKeeper.renewing`.
+                        val answer = sessions.renewing(token) { api.deleteAccount(it) }
+                        // **The answer, weighed against the session that asked for it** — see above.
+                        // The account is deleted either way and nothing here can undo that; what this
+                        // decides is whether anybody on this device is entitled to act on it.
+                        if (accountWork !== mine) return@launch
+                        when (answer) {
                             is ApiResult.Answered -> {
-                                sessions.forget()
+                                // **Who was playing goes with the account they were**, which is what
+                                // `endSession` carries — and the fake server had been careful about
+                                // the very same thing before the app was: `FakeOltreApi
+                                // .deleteAccount` resets its own profile because *"the profile hangs
+                                // off the account rather than the colony"*.
+                                //
+                                // **First, and the order is stated rather than incidental.** The
+                                // session goes before the files, because a device that still had one
+                                // would sync a colony that no longer exists and be answered
+                                // `Unauthenticated`.
+                                endSession()
                                 store.clear()
                                 outboxFile.clear()
-                                preferences.save(remembered.copy(provider = null))
-                                session = null
+                                // **Written down *and* kept**, which is what every other writer of
+                                // this record does and this one did not: `remembered` is the whole
+                                // preferences row and the next `copy(…)` off it is built from
+                                // whatever is in memory. Saving without keeping left a provider in
+                                // memory that the file no longer held, so the next save of any other
+                                // field would have written the deleted account's provider back.
+                                val forgotten = remembered.copy(provider = null)
+                                remembered = forgotten
+                                preferences.save(forgotten)
+                                // The two this path has beyond an ordinary sign-out, because it
+                                // deletes rather than forgets: a queue aimed at a colony that is
+                                // gone, and the provider named on a sheet there is no longer an
+                                // account behind.
                                 held = HeldActions.NONE
                                 provider = null
-                                sheetFace = null
-                                gate = GateState.Idle
-                                signedIn = false
                             }
 
-                            // The server read the request and said no — a token that has just expired
-                            // is the case this is really about, and the gate is the honest answer.
+                            // **The server read the request and said no, and there are two of those.**
                             //
-                            // **`session = null` is what makes the sentence above true**, and it was
-                            // the third place in this file that said *the gate* and left the colony
-                            // on screen: the gate draws only when there is no session. Nothing was
-                            // deleted, so the save stays exactly where it is and signing in again
-                            // opens the same colony.
-                            is ApiResult.Refused -> {
-                                sessions.forget()
-                                signedIn = false
-                                sheetFace = null
-                                session = null
-                                gate = GateState.Idle
+                            // `Unauthenticated` is a credential that has gone — an account already
+                            // deleted on another device is the case it is really about — and the gate
+                            // is the honest answer, so the colony comes off the screen with it. The
+                            // save stays exactly where it is; nothing was deleted here, and signing
+                            // in again opens the same colony.
+                            //
+                            // **Everything else is a server that failed, and the whole taxonomy used
+                            // to land in the first arm.** The comment justifying that named a token
+                            // that had just expired — which cannot reach here any more: the call
+                            // above is wrapped in `renewing`, so a `SessionExpired` is renewed and
+                            // retried, and only a credential with nothing left comes back as
+                            // `Unauthenticated`. What is left is `Internal` and its neighbours: a
+                            // database that blinked, with the account still there and the tap that
+                            // asked about it three faces back. Signing the player out for that is
+                            // wrong twice — it deletes a session instead of an account, and it hides
+                            // the one fact they need, which is that nothing happened.
+                            //
+                            // So it is the face this sheet already has for a delete that did not
+                            // land. The card says the account is removed on the server and to try
+                            // again when the network is back; the second half is a shade off for a
+                            // server that answered, and it is the same *"cheaper lie"* `writeProfile`
+                            // states out loud — the design says plainly that what the server may
+                            // still refuse is not designed, so a red frame here would be invented at
+                            // the keyboard. `reachable` is deliberately not touched: the server did
+                            // answer, and putting the offline line over the whole app for one refused
+                            // route would be a second lie with a much wider blast radius.
+                            is ApiResult.Refused -> if (answer.error == ApiError.Unauthenticated) {
+                                endSession()
+                            } else {
+                                deleteRefused = true
                             }
 
                             ApiResult.Unreachable -> {
@@ -1075,6 +1339,226 @@ fun App(
                                 deleteRefused = true
                             }
                         }
+                    }
+                }
+
+                // **A name and a mark, written where they live.** `deleteAccount`'s shape exactly —
+                // resolve a credential, ask, answer the three arms — and for the same reason: both
+                // are about the *account*, which is a thing the outbox has no way to speak about.
+                //
+                // **Not a `ClientVerb`, not queued, and it cannot be held.** A verb is a mutating
+                // function in `core` that the server validates by replaying it against the colony at
+                // a claimed instant; a rename mutates no `GameState` and has no instant to be replayed
+                // against, so queueing one would mean inventing a second, weaker outbox for two
+                // fields. `profile-sheet.md` §3 settles it, and what a player gets instead is the
+                // amber card the face already draws.
+                //
+                // **What comes back is what is drawn**, rather than what was sent: the server writes
+                // the row and reads it back, so a device that guessed would be drawing its own claim.
+                //
+                // **`renaming` is the draft this write was assembled from, and `null` is *not a
+                // rename*.** It exists for one line at the bottom: the draft may only be ended by a
+                // *name* landing, and only by the one that landed. This function is the shared path
+                // for five controls and four of them are marks, so resetting it on every answer threw
+                // away what a player had typed the moment they picked a picture — which contradicts
+                // the frame's own split, *the mark commits on tap and the name has a button*, and the
+                // note over `nameDraft` that already said so.
+                //
+                // **A string rather than a flag**, because *which* rename landed is the question a
+                // flag could not answer: the field is live for the whole round trip, so a boolean
+                // cleared whatever had been typed since. A rename whose draft was null has nothing to
+                // clear either way, which is why the two meanings can share one `null`.
+                //
+                // **`edit` rather than a finished row, and one write at a time**, which is the whole
+                // of the answer to two taps racing. The two controls that reach here are the one pair
+                // in this app that can be pressed inside each other's round trip — a mark commits as
+                // it is touched and a name has a button — and each posts the *whole* row. Built from
+                // a snapshot taken at tap time and fired as an independent `launch`, the name write
+                // carried the pre-tap mark and the server wrote it back over the one that had just
+                // landed. The mutex serialises them and the lambda is applied *inside* it, so the
+                // second payload is assembled from what the first left behind rather than from what
+                // the composition happened to be holding when a finger went down.
+                //
+                // **Not a compare-and-set, and that is a decision rather than an omission.**
+                // `colonies` has a version column because two devices can both advance one colony and
+                // a lost verb is a lost tap; `players` has none because a profile is two fields a
+                // player types on the phone in front of them, and *last writer wins on the whole row*
+                // is exactly what "what they most recently chose" means. A version here would buy
+                // defence against one player renaming themselves on two phones inside one round trip,
+                // and would cost a refusal the design explicitly does not have — *"what the server may
+                // still refuse is not designed"* (`profile-sheet.md` §6) — plus the re-read and the
+                // retry behind it. The race that was real was on this device, in one process, and it
+                // is the one being fixed.
+                //
+                // **Which session it belongs to is captured at the tap and asked again after every
+                // suspension**, which is the other half of `AccountWork` and is not defensive
+                // decoration. The scope this runs on outlives `endSession`, so between the tap and
+                // the answer the process may have signed a *different* player in — and every arm
+                // below writes to state that session owns. Read straight, the refusal arm signed the
+                // new player out of an account they had just signed into, and the success arm drew
+                // the previous account's row over theirs, from which the next tap would have posted
+                // it whole. An answer that belongs to a finished session belongs to nobody.
+                fun writeProfile(renaming: String?, edit: (PlayerProfile) -> PlayerProfile) {
+                    val mine = accountWork
+                    scope.launch {
+                        mine.lock.withLock {
+                            if (accountWork !== mine) return@withLock
+                            // **The floor, and it is inside the lock for the reason the lock exists**:
+                            // the row a payload is built from is the one the last write left behind.
+                            //
+                            // Unreachable rather than a branch that decides anything — while the
+                            // profile is unread `profileRequirement` is non-null, so both faces are
+                            // held and every cell and chip is drawn as a `Box` with no press on it.
+                            // Written this way round because a face that silently swallowed the tap
+                            // would be the dead control this product refuses, and one that crashed
+                            // would be worse.
+                            val read = profile ?: return@withLock
+                            val next = edit(read)
+                            val credential = sessions.current()
+                            // A renewal is a round trip, so the session can have ended inside it —
+                            // and the `Gone` arm below would then sign out whoever is current now.
+                            if (accountWork !== mine) return@withLock
+                            val token = when (credential) {
+                                is Credential.Held -> credential.access
+
+                                // No credential to write with, which is the gate — and where the next
+                                // launch would have gone anyway. The sheet comes down with it, and
+                                // the account this device was drawing goes too: the face is raised
+                                // from state rather than from a stack, so anything left set here is
+                                // waiting to reappear over whatever colony the player next signs
+                                // into. `endSession` says all of it in one place.
+                                Credential.Gone -> {
+                                    endSession()
+                                    return@withLock
+                                }
+
+                                // **Nothing was asked and nobody said no**, so the name is exactly
+                                // where it was. Signing the player out here would answer a renewal
+                                // nobody heard by deleting a session, which is `deleteAccount`'s own
+                                // trap in a place where it would be even harder to notice.
+                                // `reachable` is what puts the amber card over the two controls, so
+                                // the face says so on the next frame rather than swallowing the tap.
+                                Credential.Unreachable -> {
+                                    reachable = false
+                                    return@withLock
+                                }
+                            }
+                            // **`reachable` moves and `lastReachedAt` does not**, which is deliberate
+                            // and is the one place this function departs from `arrive`. The flag is
+                            // what puts the amber card over these two controls, so it has to answer
+                            // to this request; the *instant* is written to the preferences file as
+                            // well as to memory, and a second writer that only moved the memory copy
+                            // would disagree with the disk on the next launch. `arrive` owns it, and
+                            // what it names — the last time this device and the server agreed about
+                            // the colony — is still true after a rename.
+                            //
+                            // **`renewing` and not a bare `api.setProfile`**: `current()` above
+                            // decides on this device's clock arithmetic, and the case it cannot cover
+                            // is the server disagreeing. Answered straight, a `SessionExpired` fell
+                            // into the `else` arm below and put the amber card up — *"no network
+                            // since 09:41"* about a server that had just replied — and the retry
+                            // re-sent the token that had been refused.
+                            val answer = sessions.renewing(token) { api.setProfile(it, next) }
+                            // **The answer, weighed against the session that asked for it.** The
+                            // request has left either way and nothing can recall it; what this
+                            // decides is whether anybody on this device is still entitled to act on
+                            // what came back.
+                            if (accountWork !== mine) return@withLock
+                            when (answer) {
+                                is ApiResult.Answered -> {
+                                    reachable = true
+                                    profile = answer.value
+                                    // **The edit ends, and only a name can end it — and only the name
+                                    // that was actually sent.** The field goes back to following what
+                                    // is committed, which is also what makes the save button go away:
+                                    // it is present only while the draft differs from what is
+                                    // committed, and after a name write those are one string. A mark
+                                    // landing leaves the draft exactly where the player left it.
+                                    //
+                                    // **And so does a keystroke made during the round trip.** The
+                                    // field stays live for the whole of it, so clearing unconditionally
+                                    // threw away everything typed between the tap and the answer —
+                                    // silently, and in front of somebody who was still typing. What
+                                    // ends is the edit that landed, which is the draft this write was
+                                    // assembled from and no other.
+                                    if (renaming != null && nameDraft == renaming) nameDraft = null
+                                }
+
+                                // **The server read it and said no.** One refusal has a screen:
+                                // `Unauthenticated` is a credential that has gone, and the gate is
+                                // the honest place to be. `renewing` answers in that word too, for a
+                                // token the server called expired twice over.
+                                //
+                                // **Every other refusal has no frame, and that is not the same as
+                                // having no consequence** — which is what this arm used to be. It set
+                                // `reachable` back to true, which is the flag that takes the amber
+                                // card away, so the face was redrawn with all eighteen controls live
+                                // and the tap that had just been refused looked exactly like a tap
+                                // that had landed.
+                                //
+                                // So the write is left in **the state this face already has for
+                                // *that did not land***: amber, quiet, and explained. That is a
+                                // deliberate choice between two imperfect answers rather than a new
+                                // one invented at the keyboard — the design says in as many words
+                                // that *"what the server may still refuse is not designed"*, so
+                                // drawing a red refusal here would be inventing a frame, and the cost
+                                // of this one is stated plainly: the chrome line will say *no network
+                                // since* about a server that did in fact answer. It is the cheaper
+                                // lie, and it is now a *temporary* one — the tick loop's minute asks
+                                // again and takes the card away when the answer comes back, which is
+                                // what makes this a wait rather than a dead end. `status.md` carries
+                                // the ask for a frame.
+                                is ApiResult.Refused -> if (answer.error == ApiError.Unauthenticated) {
+                                    reachable = true
+                                    endSession()
+                                } else {
+                                    reachable = false
+                                }
+
+                                ApiResult.Unreachable -> reachable = false
+                            }
+                        }
+                    }
+                }
+
+                // **The only door to a mark write.** Five controls used to say `profile.copy(mark =
+                // …)` for themselves, which is five chances to build a whole-row write out of a
+                // profile nobody read — and `POST /v1/profile` replaces rather than merges, so each
+                // of those was the account's name deleted everywhere. There is no `copy` to reach for
+                // now: what leaves here is a *description* of the edit, applied inside `writeProfile`
+                // against whatever the last answer left behind.
+                //
+                // A whole mark rather than a slot, because that is what the wire carries: the swap
+                // that can assemble an illegal one — a terminus over a path that has gone — is the
+                // mapper's to refuse rather than this file's to remember.
+                fun wearMark(mark: (PlayerProfile) -> PlayerMark) {
+                    writeProfile(renaming = null) { it.copy(mark = mark(it)) }
+                }
+
+                // The one control on either face that does not commit as it is touched — a mark is a
+                // tap, and a name has no keystroke that means *done*.
+                //
+                // **Trimmed here and refused on the wire**, which is the division `CommanderName`
+                // states: a value that arrives untrimmed came from something that did not agree about
+                // the shape. An emptied field is `null` rather than a refusal — the only way out of a
+                // name somebody regrets, and the placeholder says so while they are looking at it.
+                //
+                // **The draft is read at the tap and the rest of the row is not**, which is the split
+                // the race made visible: what the player typed is a fact about *this* tap and can only
+                // be captured here, and everything else in the row belongs to whatever landed last. A
+                // null draft is a field showing what is already committed, so it resolves against the
+                // fresh row inside the write and the button that would send it is not drawn anyway.
+                //
+                // **The untrimmed draft goes down as well as the trimmed name**, and the two are not
+                // the same string: what is *sent* is trimmed, and what the field is *showing* is what
+                // has to be recognised when the answer comes back. Comparing against the trimmed form
+                // would count a trailing space typed during the round trip as nothing typed.
+                fun saveName() {
+                    val sent = nameDraft
+                    val typed = sent?.trim()
+                    writeProfile(renaming = sent) { read ->
+                        val name = typed ?: read.name?.value.orEmpty()
+                        read.copy(name = if (name.isEmpty()) null else CommanderName(name))
                     }
                 }
 
@@ -1152,11 +1636,13 @@ fun App(
                             timeZone = TimeZone.currentSystemDefault(),
                             compact = compact,
                         ),
-                        // **Read off the save now rather than declared here.** The level and the
-                        // gauge are a fold over `current.state.eventLog`, so a colony carried
-                        // forward from 0.16 opens on the level it had already earned and nothing
-                        // was migrated to give it one. See `core`'s `Experience.kt`.
-                        player = current.state.toPlayerStripUiState(),
+                        // **Read off the save and off the account, which is the strip's whole
+                        // subject.** The level and the gauge are `current.state.experience`, so a
+                        // colony carried forward from 0.16 opens on the level it had already earned;
+                        // the name and the mark are the profile, which is not in the save at all and
+                        // outlives the colony it is drawn above. See `core`'s `Experience.kt` and
+                        // `PlayerProfile`.
+                        player = current.state.toPlayerStripUiState(profile),
                         resources = current.state.toResourceRailUiState(lastSeen = lastSeen),
                         tilt = { lean.value },
                         colony = { scroll ->
@@ -1363,8 +1849,32 @@ fun App(
                         // **The gear always opens the settings face**, whatever the sheet was last
                         // wearing. A gear that reopened the changelog because that is where you left
                         // it would be a control whose meaning depends on history.
+                        //
+                        // **And with a second opener on the same bar, both keep exactly that shape:
+                        // open my face when nothing is up, and close whatever is up otherwise.** The
+                        // alternative — each control swapping the sheet to its own face — was
+                        // rejected because of where these two controls *are*. They are on the strip,
+                        // and the strip is behind the scrim: a `ModalBottomSheet` covers the window,
+                        // so a tap that lands here while a sheet is up is a tap outside the sheet.
+                        // The scrim already answers that gesture by dismissing, and these two arms
+                        // are the same answer said by the two controls it happens to cover. A gear
+                        // that swapped the identity face for the settings face would make a tap
+                        // outside a sheet mean *dismiss* everywhere in the app except two 38dp
+                        // squares.
+                        //
+                        // Both go through `closeSheet` rather than clearing the face, which is not
+                        // tidiness: it is also what marks the changelog read, and a player who
+                        // dismissed from here without it would be shown the same release again on
+                        // every launch, for ever.
                         onOpenSettings = {
                             if (sheetFace == null) sheetFace = SheetFace.SETTINGS else closeSheet()
+                        },
+                        // **The left cluster, and the only way to the identity face.** It opens on
+                        // the grid rather than on the field, which is the frame's order: header,
+                        // mark, name, so the keyboard has somewhere to push the one control that
+                        // needs it.
+                        onOpenProfile = {
+                            if (sheetFace == null) sheetFace = SheetFace.IDENTITY else closeSheet()
                         },
                     )
 
@@ -1372,6 +1882,19 @@ fun App(
                     // Every control on the settings face commits on tap and none of them writes an
                     // event, so all three go through `prefer` rather than `act` — see there.
                     sheetFace?.let { face ->
+                        // **One card for both identity faces**, computed once here rather than twice
+                        // below: they are one editor with its contents swapped, so a requirement that
+                        // could differ between them would be the sheet saying two things about one
+                        // fact. It is also what puts the grid, the ladders and the field at 42% and
+                        // takes the save button away — there is nothing to queue, so an editor that
+                        // cannot commit says what it is waiting for rather than accepting a tap it
+                        // could not honour.
+                        val requirement = profileRequirement(
+                            profile = profile,
+                            reachable = reachable,
+                            since = lastReachedAt,
+                            timeZone = TimeZone.currentSystemDefault(),
+                        )
                         // One callback for every way out — the handle, the scrim, the system back —
                         // so the sheet cannot be dismissed by a route this does not hear about.
                         //
@@ -1388,7 +1911,17 @@ fun App(
                                     // Null draws no Account section, which is the honest answer on a
                                     // build that has no account to administer.
                                     account = provider?.let {
-                                        accountSection(it, current.state, TimeZone.currentSystemDefault())
+                                        accountSection(
+                                            provider = it,
+                                            // **The name the strip is wearing, not the default.**
+                                            // The row reads "Dead Reckoning · since 14/8", and a
+                                            // player who has just renamed themselves would otherwise
+                                            // find the old name on the sheet the rename sits two
+                                            // faces from. One account, one name.
+                                            name = profile.spokenName(),
+                                            state = current.state,
+                                            timeZone = TimeZone.currentSystemDefault(),
+                                        )
                                     },
                                 ),
                                 changelog = changelog.toChangelogUiState(),
@@ -1418,6 +1951,12 @@ fun App(
                                         },
                                         provider = it,
                                         offline = deleteRefused,
+                                        // **The name the strip is wearing**, for `accountSection`'s
+                                        // reason and on the one flow where getting it wrong is worst:
+                                        // both faces of an irreversible deletion were addressed to
+                                        // `Dead Reckoning` whatever the player had called themselves.
+                                        // One account, one name, one place it is decided.
+                                        name = profile.spokenName(),
                                     )
                                 },
                                 onOpenDelete = { sheetFace = SheetFace.DELETE_WARN },
@@ -1443,6 +1982,29 @@ fun App(
                                         setAlertDelivery(it, delivery)
                                     }
                                 },
+                                // **The two identity faces, built from the account rather than from
+                                // the colony** — which is why they take no `GameState` and why the
+                                // strip's own state is the only one in the app that reads both.
+                                identity = profile.toIdentityFaceUiState(
+                                    draft = nameDraft,
+                                    requirement = requirement,
+                                ),
+                                // **Every tap commits, like every other control in this app.** There
+                                // is no confirm on a picture — a mark is a tap, and the one thing on
+                                // these two faces that is not is the name, which has no keystroke
+                                // meaning *done*.
+                                onChooseMark = { preset -> wearMark { PlayerMark.Preset(preset) } },
+                                onComposeMark = { sheetFace = SheetFace.MARK_COMPOSE },
+                                onNameChange = { typed -> nameDraft = typed },
+                                onSaveName = { saveName() },
+                                // **The same card the identity face wears**, because the composer's
+                                // eleven chips commit exactly as its six cells do. It had none, so
+                                // offline every part stayed lit and every tap did nothing at all.
+                                markCompose = profile.toMarkComposeFaceUiState(requirement = requirement),
+                                // Three slots and three whole marks — see `wearMark`.
+                                onChooseBody = { body -> wearMark { it.withBody(body) } },
+                                onChoosePath = { path -> wearMark { it.withPath(path) } },
+                                onChooseTerminus = { terminus -> wearMark { it.withTerminus(terminus) } },
                             )
                         }
                     }
@@ -1475,6 +2037,30 @@ fun App(
     }
 }
 
+// **One signed-in account's outstanding work, as an object whose identity answers *whose is this?***
+//
+// It carries a lock, and the lock is only half of what it is for. The other half is that
+// `endSession` replaces it: a request launched under the session that has just ended holds a
+// reference to the old one, so comparing the two is how an answer that came back to a process which
+// has since signed somebody else in is recognised — and dropped, rather than signing the new player
+// out, drawing the previous account's row over theirs, or clearing their colony off the disk.
+//
+// A class rather than two fields beside each other — a `Mutex` and a counter — because the two would
+// have to be replaced together and forgetting one is silent. Referential identity is the whole
+// mechanism, so it has no `equals` and must not grow one.
+private class AccountWork {
+
+    // **One profile write at a time, and fair.** `Mutex` hands the lock out in the order it was asked
+    // for, so two taps inside each other's round trip land in the order the fingers went down — which
+    // is what makes a payload assembled inside the lock, from the row the last answer left behind,
+    // correct rather than lucky.
+    //
+    // Only the profile pair takes it. A deletion is not ordered against a rename — it ends the
+    // account both of them are about — so making it wait would buy nothing and would park the one
+    // control in the app that cannot be repeated behind a request that may take the whole timeout.
+    val lock: Mutex = Mutex()
+}
+
 // **The composition root is where the two vocabularies meet**, and that is not an accident of layout:
 // `:client:save:data` may not see a `presentation` module, so the file stores the name of the landing
 // and this is the one place that knows what the name means. An unreadable or unknown value is the
@@ -1487,8 +2073,16 @@ private fun String?.toGalaxyLanding(): GalaxyLanding =
 // settings sheet that is not about the colony: who is signed in is the composition root's to know,
 // and `:client:settings:presentation` may not learn it — a `GameState` has never carried an account
 // and putting one in it would be the wire reaching into the simulation.
-private fun accountSection(provider: AuthProvider, state: GameState, timeZone: TimeZone): AccountUiState {
-    val name = Strings.playerDefaultName()
+private fun accountSection(
+    provider: AuthProvider,
+    // **Handed in rather than read, and it is the strip's own.** This row and the strip are two
+    // drawings of one account, so the name arrives from the one mapper that decides what an account
+    // with no chosen name is called — a second `Strings.playerDefaultName()` here would be a second
+    // place that decision is made, and the day a player renamed themselves only one of them moved.
+    name: TextRes,
+    state: GameState,
+    timeZone: TimeZone,
+): AccountUiState {
     // **The first thing this colony ever did**, which is the closest thing to a founding date the
     // save carries: `GameState.initial` writes no event, so a colony that has done nothing has no
     // date and the row says the name alone. Honest rather than invented — the alternative is stamping

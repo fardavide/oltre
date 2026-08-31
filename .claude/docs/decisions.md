@@ -6641,3 +6641,112 @@ lines of *why*, a foot, and no way forward — which reads as a screen that fail
 deliberate gap. So the mapper has a sixth message, in the design's voice but not from its string table:
 *"There is no way to sign in here."* The design drew five states because it drew a phone; this one only
 exists on the dev loop, which is exactly who would assume the app was broken.
+
+## A name you chose, and a mark drawn rather than uploaded (2026-08-30, 0.22.0)
+
+Davide, 2026-08-30: *"I want to allow users to set their name and picture."* The design is Claude
+Design's *A Name You Chose* and the prose record of every call is
+[`profile-sheet.md`](profile-sheet.md) §6 — read that for the numbers; this is the argument. Minor
+bump on the strictest reading of the test: a player can do something they could not do before, which
+is be somebody in particular.
+
+### The picture is a drawn mark, and the photograph was the option to beat
+
+*"Picture"* is the word Davide used and a photograph is what a reader assumes it meant, so the
+rejection is the part worth recording.
+
+A photograph the player picks is **a bucket, a signed-upload endpoint, a picker on three platforms, a
+downscale, a cache and a moderation answer** — and the moderation answer stops being optional the
+moment multiplayer arrives, which is the destination this whole account layer points at. Against all
+of that stands the design system's oldest rule, which already says what this app's faces are made of:
+every icon here is a `Canvas` path *because a bitmap rasterises differently on the recording machine
+and the verifying one*. A photograph is the one thing a screenshot baseline cannot hold still, so the
+cheap version of the feature is the version that breaks the check that guards every screen.
+
+**The sign-in provider's own picture was rejected for a blunter reason: Apple returns none.** Google
+returns a URL; Apple returns a subject and, on the first sign-in only, a name. A face that exists for
+half the players and can be changed by neither is worse than no face at all — and it would have made
+which provider you signed in with a visible property of your account.
+
+What a drawn set buys instead is that the choice is finite, translatable, baselined, and the same on
+every screen it is drawn on.
+
+### The profile is not a `ClientVerb` and not a field on `SyncResponse`
+
+Two new routes — `GET /v1/profile` and `POST /v1/profile` — and nothing added to a shipped response.
+
+**Not a verb**, because `ClientVerb` is a closed registry with a sentence over it that reads as law:
+one member per mutating function in `core`, and that correspondence is the whole specification. A
+profile has no such function and must not acquire one. It mutates no `GameState` — the colony is the
+same colony before and after a rename. It cannot be replayed, because every verb is validated by
+advancing the authoritative colony to a claimed instant and re-applying it, and a name has no instant
+it depends on and no `core` result that can refuse it. And it is not per-colony: `players.id` outlives
+a colony, so a name attached to the snapshot would be resurrected by the one-time upload slice while
+the account it belonged to was gone.
+
+**Not a field on `SyncResponse`**, and this is the rejection with a sharp edge on it, because it will
+be proposed again to save a round trip on a cold start that measures 4.9 s. `Protocol.json` sets
+`encodeDefaults` and deliberately does **not** set `ignoreUnknownKeys`, and `RequiredFieldsTest` pins
+that nothing on this wire has a default. So a field added to a shipped response is not a compatible
+addition — it is a response the 0.21.0 build already on TestFlight cannot decode at all, which would
+have forced `OLDEST_SERVED` up and stranded every install that had not updated. **A route costs none
+of that**, because an older client simply never calls it; that is the same reasoning `ApiVersion`
+already records for adding a verb, and it is why `ApiVersion.CURRENT` does not move in this slice.
+
+The write is admitted through the same `Authenticator` and answers the same `ApiError` taxonomy, and
+it is deliberately **not** in the outbox: a rename is naturally idempotent, a second identical write is
+the same row, and there is nothing to replay it against. Which is also why a rename with no signal
+refuses in the amber held language rather than queueing — queueing it would mean inventing a second,
+weaker outbox for one field.
+
+### The composer was taken on top of the six presets, and it reshaped the wire
+
+Claude Design proposed a **mark grammar** the brief had not asked for: four bodies, four paths and
+three termini in three fixed regions of the 24-unit box, which is forty legal marks from eleven
+drawings — 4 × (3 × 3 + 1), because a terminus is the end of a path and a mark with no path has none.
+Davide, 2026-08-30, on being offered it against the six: **both.**
+
+**Composer-only was rejected on a fact rather than a preference: four of the six presets are shapes
+the grammar cannot make.** A centred disc, a full-width ellipse, a 12.4-unit arc and a full-height
+plumb line are all outside it, and only `THRESHOLD` is both — which is why the compose face opens on
+it. Dropping the presets would have deleted four of the design's six answers to *what does a mark look
+like* and handed a first-time player eleven parts and no default.
+
+**Presets-only was rejected on what the feature is for.** Six drawings are enough to be recognisable
+and not enough to be *yours*; the whole reason a face exists here is that a player picks something
+nobody handed them.
+
+The cost of taking both is stated plainly because it is the reason the question was asked at all:
+**a fixed set pays one baseline per mark and a grammar pays one per part** — eleven of them, plus the
+pairwise geometry assertions that keep two parts out of each other's ink. And the wire stops being an
+enum: `PlayerMark` is a sealed `Preset`-or-`Composed` pair, because the column is a tuple *plus* a
+preset id and not a tuple alone.
+
+### `players.mark` is `jsonb` and not four columns
+
+The obvious schema is `mark_preset`, `mark_body`, `mark_path`, `mark_terminus`. Rejected: **three of
+the four are null for every preset**, and the invariant that binds them — a preset has no parts, a
+composed mark has all three — is one the type already states once and SQL would have to restate as a
+`CHECK` nobody reads. Four nullable columns and a constraint is a sealed class spelled out in a
+language that cannot check it.
+
+Nothing had shipped, so this is a reshape rather than a migration.
+
+### The strip's affordance is the arrow, and it is the only one of three that costs no height
+
+Davide took **4c** on 2026-08-30 from three drawn options. The whole left cluster — mark, name and
+badge — is one target taking the bar's full 38dp for touch, ending 7dp before the gear, marked by `→`
+at 12.5sp tertiary.
+
+**A 34dp chip face was rejected because it moves a number that has broken this app before.** A chip
+reads as a control at a glance, which is exactly its appeal, and 34dp of chip inside a 38dp bar leaves
+nothing; the strip grows, and `DESTINATION_HEIGHT` grows with it. 0.12.0 is the release that shipped a
+map whose only control was off the bottom of the screen because a bar was added and that constant was
+not, and the fix is cheap only when somebody remembers.
+
+**A bare ripple was rejected because it says nothing until it has already been pressed.** In a product
+with no hover and no disabled state, an affordance that only exists during the tap is not an
+affordance — it is a reward for guessing.
+
+The arrow is purely additive: it is drawn in space the bar already has, it is a character the product
+already uses in *"→ LV 13"*, and **the strip stays 38dp**. That is the whole reason it won.

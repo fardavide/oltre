@@ -34,12 +34,18 @@ enum class DeleteFace {
 //
 // `offline` is the shell's to know and is a parameter rather than a fold: whether the server can be
 // reached is a fact about the network, and nothing in a `GameState` has ever known one.
+//
+// **`name` is the account's and is handed in for exactly `accountSection`'s reason**, which this file
+// was the last place in the app still getting wrong: it read `Strings.playerDefaultName()` outright,
+// so both faces of the one flow that cannot be undone addressed a commander the player is not. The
+// substitution belongs to `PlayerProfile.spokenName()` and to nowhere else — a second copy is a second
+// place that decision is made, and only one of them moves on the day somebody renames themselves.
 fun GameState.toDeleteFaceUiState(
     face: DeleteFace,
     provider: AuthProvider,
     offline: Boolean,
+    name: TextRes,
 ): DeleteFaceUiState {
-    val name = Strings.playerDefaultName()
     val spoken = provider.spoken()
     return DeleteFaceUiState(
         title = if (face == DeleteFace.CONFIRM) Strings.deleteConfirmTitle(name) else Strings.deleteFaceTitle(),

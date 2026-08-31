@@ -24,6 +24,7 @@ import dev.fardavide.oltre.protocol.VerbEnvelope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.time.Duration.Companion.days
 
 // **What a tap with no signal does**, driven through the whole app rather than asserted at a mapper.
 //
@@ -125,6 +126,40 @@ class HeldAppBehaviourTest {
 
             waitUntilItDoesNotRead("Upgrade held.")
             assertOfflineLine(showing = false)
+        }
+    }
+
+    // **What the retry must not cost, which is the colony's own clock.** The loop that retries is the
+    // same loop that advances the session once a second, so a retry it *waits* for is a colony that
+    // stops accruing, stops finishing what is in flight and stops booking what finishes — for four
+    // seconds against a server that answers nothing, and for as long as the request timeout against
+    // a network that takes the call and never speaks. The widened gate makes it the ordinary offline
+    // case rather than one that needs something queued.
+    //
+    // The far end takes the retry and does not answer it, which is a stall with no end — so the
+    // assertion is not about how long the loop was blocked but about whether it was blocked at all.
+    // Nothing on screen says the retry has gone out, so the request itself is the handle.
+    @Test
+    fun `the colony goes on ticking while an offline retry is out`() {
+        val clock = MovableClock(TEST_NOW)
+        val server = offlineServer()
+        app(saved = upgrading(), api = server, wallClock = clock) {
+            // **Waited for rather than assumed**, because the launch's own sync is three attempts
+            // four seconds apart: carrying on before the last of them has failed leaves `reachable`
+            // still true, and the retry under test would never be armed at all.
+            waitUntilTheOfflineLineShows()
+            // The loop's minute is armed and the mine is still going up at the level it was saved at.
+            assertTheMetalCellReads("+90/h")
+
+            server.holdSyncs()
+            waitUntilASyncIsHeld()
+
+            // A day passes with the request still out. The mine finishes, and the rate it finishes
+            // at is the only thing on screen that could only have come from the loop still running.
+            clock.at = TEST_NOW + 1.days
+            waitUntilItDoesNotRead("+90/h")
+
+            server.answerSyncs()
         }
     }
 

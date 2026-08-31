@@ -9,12 +9,18 @@ import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
+import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.PlayerMark
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
@@ -187,6 +193,48 @@ class OltreApiIntegrationTest {
         assertEquals(ApiResult.Refused(ApiError.Unauthenticated), api().deleteAccount(PLAYER))
     }
 
+    // **The only `GET` in the API, over a real engine**, and the empty body is the half worth the
+    // socket: every other call shares a helper that sets a content type and a body, and a read that
+    // went through it would put a JSON document on a method that has no room for one. A `MockEngine`
+    // records whatever the builder produced; this asserts what a server actually received.
+    @Test
+    fun `a profile read over a real socket carries the session and no body`() = runTest {
+        // given
+        answer = Protocol.json.encodeToString(profile())
+
+        // when
+        val result = api().profile(PLAYER)
+
+        // then — what went out
+        assertEquals(HttpMethod.Get.value, lastMethod)
+        assertEquals("/v1/profile", lastPath)
+        assertEquals(Protocol.BEARER_PREFIX + "davide", lastAuthorization)
+        assertEquals("", lastBody)
+
+        // and — what came back is the profile rather than the envelope that carried it
+        assertEquals(ApiResult.Answered(profile().profile), result)
+    }
+
+    @Test
+    fun `a profile write over a real socket posts the whole profile and comes back with it`() = runTest {
+        // given
+        answer = Protocol.json.encodeToString(profile())
+
+        // when
+        val result = api().setProfile(PLAYER, profile().profile)
+
+        // then — what went out
+        assertEquals(HttpMethod.Post.value, lastMethod)
+        assertEquals("/v1/profile", lastPath)
+        assertEquals(
+            SetProfileRequest(ApiVersion.CURRENT, profile().profile),
+            Protocol.json.decodeFromString<SetProfileRequest>(lastBody),
+        )
+
+        // and — what came back
+        assertEquals(ApiResult.Answered(profile().profile), result)
+    }
+
     // **The one that matters most, and the one a `MockEngine` cannot answer.** A refused connection
     // has to arrive as `Unreachable` — anything else and a tap made with no signal never reaches the
     // outbox at all.
@@ -239,6 +287,15 @@ class OltreApiIntegrationTest {
         accessExpiresAt = NOW + 1.hours,
         refreshToken = SessionToken("a.refresh.token"),
         refreshExpiresAt = NOW + 90.days,
+    )
+
+    // Both halves chosen, because a profile with two nulls would parse whatever the guards did.
+    private fun profile(): ProfileResponse = ProfileResponse(
+        apiVersion = ApiVersion.CURRENT,
+        profile = PlayerProfile(
+            name = CommanderName("Ada"),
+            mark = PlayerMark.Preset(MarkPreset.THRESHOLD),
+        ),
     )
 
     private fun colony(): SyncResponse = SyncResponse(

@@ -43,6 +43,21 @@ import androidx.compose.ui.graphics.Color
 // no Compose in it, and reaching this object would mean giving a domain module a Compose dependency
 // to fetch one number it is the only reader of. The dependency direction decides it, not the
 // argument. See `Starfield.kt`, which carries the honest accounting, and `decisions.md` at 0.4.3.
+//
+// **0.22.0 adds a third place, and it is an exemption rather than a spend.** The identity face brought
+// the app its first text field that meets a soft keyboard, and a text field brings a caret — which
+// blinks, for ever, on a loop, which is the one shape every paragraph above rules out. It is exempt,
+// and the reason is that **nothing here draws it**: it is the platform's own text-editing furniture on
+// the platform's own clock, and Compose exposes `cursorBrush` and no timing at all, so the only thing
+// this project chooses about it is the colour. The same exemption covers the platform's **selection
+// handles** and the magnifier a long press raises — same origin, same clock, and the same absence of a
+// knob to turn.
+//
+// The rule survives whole because of what the exemption is *about*. What may not move is the game: a
+// spinner or a pulse over a colony would be a lie about a simulation that is not running. A caret says
+// nothing about the colony — it is about a finger that is in a field right now, and it stops existing
+// the moment the field loses focus. **Suppressing it would be the defect**, because a text field with
+// no caret is a field a player cannot tell is theirs to type in. See `profile-sheet.md` §6.
 object OltreMotion {
 
     // The stock roll on the rail, the dial and bar fills, and the energy meter's fill. One number

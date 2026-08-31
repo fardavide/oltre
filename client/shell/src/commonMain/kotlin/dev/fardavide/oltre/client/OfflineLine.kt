@@ -19,6 +19,7 @@ import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.text.Strings
 import dev.fardavide.oltre.client.design.text.TextRes
+import dev.fardavide.oltre.protocol.PlayerProfile
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Instant
@@ -58,6 +59,40 @@ internal fun offlineLine(
     return OfflineLineUiState(
         text = Strings.offlineSince(hour = at.hour, minute = at.minute, held = held, compact = compact),
     )
+}
+
+// **The same two facts, asked by the identity face**, and it lives beside the banner rather than in
+// the composition root because it *is* the same question: what does the app say about there being no
+// network, from the only two things it knows about that. The answers differ in one word and for one
+// reason — the banner counts what is waiting, and a rename never queues, so there is nothing to count
+// (see `profile-sheet.md` §3).
+//
+// **Null is what makes the controls live**, which is the whole of why this returns a `TextRes?` rather
+// than a sentence and a flag: both identity faces read their held state off the presence of this card,
+// so a face with nothing to say is a face whose eighteen controls can commit.
+//
+// **Two reasons a rename cannot happen, and the second one is not about the network.** `profile` is
+// null while this device has not read the account — see `App` — and a whole-row write assembled
+// without it is `POST /v1/profile` replacing a name nobody read with a null. So an unread profile
+// raises the same amber card the offline state does, and the lead is the only part that differs: the
+// offline one can name the minute the server was last seen, and this one has no minute to name.
+//
+// The order matters. A device that is both offline and unread is offline first, because *"no network
+// since 09:41"* is the more actionable of the two true sentences — and the `since == null` arm answers
+// the way the banner's does, since a device with a colony has reached the server at least once.
+internal fun profileRequirement(
+    profile: PlayerProfile?,
+    reachable: Boolean,
+    since: Instant?,
+    timeZone: TimeZone,
+): TextRes? {
+    val offline = if (reachable || since == null) {
+        null
+    } else {
+        val at = since.toLocalDateTime(timeZone)
+        Strings.profileHeldRequirement(hour = at.hour, minute = at.minute)
+    }
+    return if (profile == null) offline ?: Strings.profileUnreadRequirement() else offline
 }
 
 // 22dp between the rail and the destination, in the rail's own surface so nothing shows through it.

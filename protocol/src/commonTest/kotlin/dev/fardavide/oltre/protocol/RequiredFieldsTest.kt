@@ -141,6 +141,43 @@ class RequiredFieldsTest {
         )
     }
 
+    // **A nullable field is still a required one**, which is the whole reason the profile pair is in
+    // here beside the rest. `null` on this wire means *the player has not chosen*, and a key that
+    // could be absent would add a second way to say it that means *this build does not say* — the
+    // exact ambiguity `encodeDefaults` exists to remove.
+    @Test
+    fun `a profile missing either half is refused even when the half it states is null`() {
+        assertEveryFieldRequired(
+            PlayerProfile.serializer(),
+            PlayerProfile(name = CommanderName("Ada"), mark = PlayerMark.Preset(MarkPreset.SEXTANT)),
+        )
+        assertEveryFieldRequired(PlayerProfile.serializer(), PlayerProfile(name = null, mark = null))
+    }
+
+    // A composition is three slots and all three are stated, always. A mark that arrived missing its
+    // path would be a mark the drawing has to guess at, and the guess would be a different glyph.
+    @Test
+    fun `a mark missing any of its parts is refused`() {
+        assertEveryFieldRequired(PlayerMark.serializer(), PlayerMark.Preset(MarkPreset.WAKE))
+        assertEveryFieldRequired(
+            PlayerMark.serializer(),
+            PlayerMark.Composed(MarkBody.ORBIT, MarkPath.TRANSFER, MarkTerminus.RING),
+        )
+    }
+
+    @Test
+    fun `a profile request or response missing its version is refused`() {
+        val profile = PlayerProfile(name = CommanderName("Ada"), mark = PlayerMark.Preset(MarkPreset.THRESHOLD))
+        assertEveryFieldRequired(
+            SetProfileRequest.serializer(),
+            SetProfileRequest(apiVersion = ApiVersion.CURRENT, profile = profile),
+        )
+        assertEveryFieldRequired(
+            ProfileResponse.serializer(),
+            ProfileResponse(apiVersion = ApiVersion.CURRENT, profile = profile),
+        )
+    }
+
     // The three errors that carry a payload. The four that do not are `data object`s.
     @Test
     fun `an error missing its payload is refused`() {

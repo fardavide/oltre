@@ -124,6 +124,19 @@ internal fun Application.oltre(
             post("/sync") {
                 call.send(syncColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
             }
+
+            // **The two the profile needs, and neither of them touches a colony.** A name and a mark
+            // are facts about an account, so they are `players`' business and are read and written
+            // without the compare-and-set, the replay or the idempotency table that every colony
+            // route spends. Not rate limited, on the same rule as the rest: both cost a bearer-token
+            // read before they do anything, so a caller who cannot sign in cannot reach them.
+            get("/profile") {
+                call.send(readProfile(authenticator, players, call.credentials()))
+            }
+
+            post("/profile") {
+                call.send(writeProfile(authenticator, players, call.credentials(), call.receiveText()))
+            }
         }
     }
 }
@@ -171,6 +184,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
     when (answer) {
         is Answer.Colony -> respond(answer.status, answer.response)
         is Answer.Session -> respond(answer.status, answer.response)
+        is Answer.Profile -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.client.net.data
 
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
 import kotlin.time.Clock
@@ -123,5 +124,49 @@ class SessionKeeper(
             // makes the promise this comment has always made actually hold.
             ApiResult.Unreachable -> Credential.Unreachable
         }
+    }
+}
+
+// **The promise above, kept on the routes that have no queue behind them.** `current()` decides
+// entirely on this device's clock arithmetic; `renew()` exists for the case where the *server*
+// disagrees, and a caller that never calls it hands the same dead token back forever. Until this,
+// exactly one caller did — `ColonySync.drain` — so the account routes met `ApiError.SessionExpired`
+// and read it as *nothing answered*: the amber card went up, the chrome line said **no network
+// since 09:41** about a server that had just replied, and the retry re-sent the token that had been
+// refused.
+//
+// **Once, and then it is not an expiry any more.** A second `SessionExpired` on a credential this
+// server has just minted is not a clock disagreement, and it must not surface as `SessionExpired`
+// either — that member means *ask again in a moment* and the moment has been had. One meaning
+// reaches the shell: sign in again.
+//
+// **`drain` keeps its own copy of this and that is deliberate**, not an oversight to tidy away
+// later: its renewal has to go back round *without spending a retry attempt* and has to carry the
+// new token into the attempts that follow, neither of which a wrapper around a single call can
+// express. What is shared is the rule, which is stated in both places and tested in both.
+suspend fun <T> SessionKeeper.renewing(
+    access: SessionToken,
+    call: suspend (SessionToken) -> ApiResult<T>,
+): ApiResult<T> {
+    val first = call(access)
+    if (first !is ApiResult.Refused || first.error != ApiError.SessionExpired) return first
+
+    val renewed = when (val credential = renew()) {
+        is Credential.Held -> credential.access
+
+        // Nothing left to try and nothing to keep — the gate, said in the one word every caller
+        // here already knows how to draw.
+        Credential.Gone -> return ApiResult.Refused(ApiError.Unauthenticated)
+
+        // **A renewal nobody answered is a train.** The session is on disk and good, so this is the
+        // offline answer rather than a sign-out, exactly as `drain` reads it as `NotNow`.
+        Credential.Unreachable -> return ApiResult.Unreachable
+    }
+
+    val second = call(renewed)
+    return if (second is ApiResult.Refused && second.error == ApiError.SessionExpired) {
+        ApiResult.Refused(ApiError.Unauthenticated)
+    } else {
+        second
     }
 }

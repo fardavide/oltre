@@ -1,6 +1,7 @@
 package dev.fardavide.oltre.client.player.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -20,6 +21,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import dev.fardavide.oltre.client.design.component.PressableFace
+import dev.fardavide.oltre.client.design.component.pressable
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.OltreLayout
 import dev.fardavide.oltre.client.design.core.oltreMono
@@ -40,13 +42,17 @@ import dev.fardavide.oltre.client.design.core.resolve
 // target and the number would be whatever the largest touch claim happened to be. Stated here, the
 // target fits the strip instead of the strip fitting the target.
 //
-// **It decides nothing and holds nothing.** The gear reports its tap and the frame answers it — see
-// `SettingsNotice` in `:client:shell`, which is where the answer is drawn because it sits above the
-// tab bar and only the frame knows where that is.
+// **It decides nothing and holds nothing.** Both controls report their tap and the frame answers
+// them — see `SettingsNotice` in `:client:shell`, which is where the answer is drawn because it sits
+// above the tab bar and only the frame knows where that is.
 @Composable
 fun PlayerStrip(
     uiState: PlayerStripUiState,
     onOpenSettings: () -> Unit,
+    // **The left cluster's tap, and it is a second parameter rather than a second field on the
+    // state.** A state is a reading; what a tap means is the frame's to decide, exactly as the gear's
+    // has been since 0.18.
+    onOpenProfile: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Full-bleed like the rail, and opaque like the rail: the starfield runs under every destination,
@@ -55,6 +61,9 @@ fun PlayerStrip(
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
+                // The cluster hugs its contents, so without this the gear would follow the name
+                // wherever it ended rather than staying on the edge it is 2dp from.
+                horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .height(STRIP_HEIGHT)
                     .widthIn(max = OltreLayout.maxContentWidth)
@@ -67,24 +76,74 @@ fun PlayerStrip(
                     // the tappable area runs out to it.
                     .padding(start = EDGE, end = GEAR_EDGE),
             ) {
-                PlayerMark(color = OltreColors.accent)
-                Text(
-                    text = uiState.name.resolve(),
-                    color = OltreColors.text,
-                    fontFamily = oltreMono(),
-                    fontSize = NAME_SIZE,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    // Deliberately not the rail's 15sp SemiBold: at the same size and weight as the
-                    // three figures below it the name reads as a fourth statistic rather than as whose
-                    // statistics they are.
-                    overflow = TextOverflow.Ellipsis,
-                    // **Everything left over, at every width the app supports**, which is what moving
-                    // the gauge to the edge bought. Nothing on this row competes with the name for
-                    // slack any more, so there is no compact rule here and nothing to shorten.
-                    modifier = Modifier.weight(1f).padding(start = GAP),
-                )
-                LevelBadge(level = uiState.level.resolve())
+                // **Mark, name, badge and arrow are one control**, because they are one fact: who is
+                // playing. Three targets 7dp apart on a 38dp bar would be three ways to miss.
+                //
+                // **It hugs its contents rather than filling the row**, which is what makes the name
+                // measure the same with the arrow as without it: `fill = false` gives the cluster —
+                // and the name inside it — up to the share the weight allows and no more, so the
+                // arrow's 14.5dp comes off the name only once the name has grown into its cap. A
+                // filling cluster would take those dp from every name at every width.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .weight(1f, fill = false)
+                        // Outside the press, so the 7dp before the gear is a gap rather than the
+                        // near edge of a second target.
+                        .padding(end = GAP)
+                        // **The bar's full height, and 38 is the whole of what is available.** The
+                        // gear's own comment settles the argument for both of them: a child placed
+                        // outside its parent's bounds does not reliably receive touch, so the axis
+                        // to claim is the one the strip can afford.
+                        .fillMaxHeight()
+                        // **No `background` follows it, and that is the design rather than an
+                        // omission**: the 34dp chip face was one of the two treatments Davide turned
+                        // down. So the shape here has no fill to round — it clips the ripple and the
+                        // press scale, and those are the whole of what a tap on this looks like.
+                        .pressable(shape = RoundedCornerShape(CLUSTER_RADIUS), onClick = onOpenProfile)
+                        .testTag(PlayerTestTags.PROFILE),
+                ) {
+                    IdentityMark(
+                        mark = uiState.mark,
+                        color = OltreColors.accent,
+                        size = MARK_SIZE,
+                        // A drawing has no text and no role, so this is the only handle a test has on
+                        // *which* mark was drawn. See `PlayerTestTags.MARK`.
+                        modifier = Modifier.testTag(PlayerTestTags.MARK),
+                    )
+                    Text(
+                        text = uiState.name.resolve(),
+                        color = OltreColors.text,
+                        fontFamily = oltreMono(),
+                        fontSize = NAME_SIZE,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        // Deliberately not the rail's 15sp SemiBold: at the same size and weight as the
+                        // three figures below it the name reads as a fourth statistic rather than as whose
+                        // statistics they are.
+                        overflow = TextOverflow.Ellipsis,
+                        // **Everything left over, at every width the app supports**, which is what moving
+                        // the gauge to the edge bought. Nothing on this row competes with the name for
+                        // slack any more, so there is no compact rule here and nothing to shorten.
+                        // `fill = false` so a short name measures itself rather than the row: the badge
+                        // and the arrow belong beside the name, not against the gear.
+                        modifier = Modifier.weight(1f, fill = false).padding(start = GAP),
+                    )
+                    LevelBadge(level = uiState.level.resolve())
+                    Text(
+                        text = ARROW.resolve(),
+                        // **The app's own typography rather than a new glyph.** The same character
+                        // already means *this opens* on the settings sheet's account rows and *this
+                        // becomes* in `→ LV 13`, and a chevron drawn for this one row would be a
+                        // seventeenth drawing in a module that already argues about having sixteen.
+                        color = OltreColors.textTertiary,
+                        fontFamily = oltreMono(),
+                        fontSize = ARROW_SIZE,
+                        maxLines = 1,
+                        softWrap = false,
+                        modifier = Modifier.padding(start = GAP),
+                    )
+                }
                 PressableFace(
                     onClick = onOpenSettings,
                     shape = RoundedCornerShape(GEAR_RADIUS),

@@ -833,6 +833,64 @@ object Italian : Translations {
             "Niente di questo torna, e un nuovo accesso ${args.text(0)} comincia una colonia vuota."
         StringId.DeleteKeep -> "Tienila"
         StringId.DeleteConfirmAction -> "Elimina"
+
+        // ── A name you chose, and a mark you picked ──────────────────────────────────────────
+        StringId.ProfileTitle -> "Nome e segno"
+        StringId.ProfileMarkLabel -> "SEGNO"
+        StringId.ProfileNameLabel -> "NOME"
+        // The six presets, and none of them is a transliteration: *Soglia* is the threshold a
+        // doorway has, *Scandaglio* is the lead line a ship drops to read a depth. A mark is a
+        // silhouette with a nautical noun attached, and Italian has its own nautical nouns.
+        StringId.MarkNameThreshold -> "Soglia"
+        StringId.MarkNameTerminator -> "Terminatore"
+        StringId.MarkNameAphelion -> "Afelio"
+        StringId.MarkNameSextant -> "Sestante"
+        StringId.MarkNameWake -> "Scia"
+        StringId.MarkNameSounding -> "Scandaglio"
+        // *Salva il nome* rather than *Salva nome*: Italian wants the article, and the button says
+        // which of the two things on the sheet it commits — the mark commits on tap and has none.
+        StringId.ProfileSaveName -> "Salva il nome"
+        // The argument lands at the end here and mid-sentence in English, which is the whole reason
+        // `Dead Reckoning` is passed in rather than written into either table.
+        StringId.ProfileEmptyName -> "Un nome vuoto torna a ${args.text(0)}."
+        StringId.ProfileNameCounter -> "${args.number(0)}/${args.number(1)}"
+        // **Not `OfflineSince`'s *Rete assente dalle*, and the difference is the design's rather than
+        // a slip.** The banner reports a condition the app is in; this line is the reason a control
+        // in front of the player is not working, and *nessuna rete* is the blunter of the two. Both
+        // came from the frame verbatim; overrulable if Davide wants the one phrase everywhere.
+        StringId.ProfileHeldRequirement -> "Nessuna rete dalle ${args.clock()}"
+        // L'altra ragione per cui la stessa scheda compare: non c'è un'ora da dire, perché quello che
+        // manca è la risposta dell'account e non la rete.
+        StringId.ProfileUnreadRequirement -> "Il tuo account non ha risposto"
+        StringId.ProfileHeldBody ->
+            "Una rinomina non può essere messa in attesa. Il nome e il segno sono sul tuo account, " +
+                "non sul telefono. Rinomina quando la rete è tornata."
+        StringId.ProfileHeldFieldNote -> "Una rinomina non può essere messa in attesa."
+        StringId.MarkComposeRow -> "Componi un segno"
+        StringId.MarkComposedName -> "Il tuo segno"
+        StringId.MarkSlotBody -> "CORPO"
+        StringId.MarkSlotPath -> "ROTTA"
+        StringId.MarkSlotTerminus -> "TERMINE"
+        StringId.MarkBodyLimb -> "Lembo"
+        StringId.MarkBodyTerminator -> "Terminatore"
+        StringId.MarkBodyOrbit -> "Orbita"
+        StringId.MarkBodyWake -> "Scia"
+        // *In salita* is two words where English has one, and it is the right two: *Crescente* would
+        // be the moon rather than a climb.
+        StringId.MarkPathRising -> "In salita"
+        StringId.MarkPathTransfer -> "Trasferimento"
+        // Feminine, agreeing with *rotta* — the path is a doubled one rather than a twin of anything.
+        StringId.MarkPathTwin -> "Doppia"
+        // **The entry this whole section is shaped by.** English says `None` twice; Italian cannot,
+        // because the word agrees with what is absent — a *rotta* is feminine and a *termine* is
+        // masculine. One shared entry would have made one of these two lines wrong on the screen.
+        StringId.MarkPathNone -> "Nessuna"
+        StringId.MarkTerminusDot -> "Punto"
+        StringId.MarkTerminusRing -> "Anello"
+        StringId.MarkTerminusNone -> "Nessuno"
+        StringId.MarkComposeFoot ->
+            "Ogni parte è impostata appena la tocchi. Un termine è la fine di una rotta, quindi " +
+                "un segno senza rotta non ne ha."
     }
 
     // ── Reading the arguments back out ───────────────────────────────────────────────────────

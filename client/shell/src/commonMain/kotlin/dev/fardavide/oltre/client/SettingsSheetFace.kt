@@ -16,17 +16,30 @@ import dev.fardavide.oltre.client.changelog.ui.ChangelogSheetContent
 import dev.fardavide.oltre.client.changelog.ui.ChangelogUiState
 import dev.fardavide.oltre.client.auth.ui.DeleteFaceContent
 import dev.fardavide.oltre.client.auth.ui.DeleteFaceUiState
+import dev.fardavide.oltre.client.player.ui.IdentityFaceContent
+import dev.fardavide.oltre.client.player.ui.IdentityFaceUiState
+import dev.fardavide.oltre.client.player.ui.MarkComposeFaceContent
+import dev.fardavide.oltre.client.player.ui.MarkComposeFaceUiState
 import dev.fardavide.oltre.client.settings.ui.AlertSheetContent
 import dev.fardavide.oltre.client.settings.ui.AlertSheetUiState
 import dev.fardavide.oltre.core.AlertCategory
 import dev.fardavide.oltre.core.AlertDelivery
 import dev.fardavide.oltre.core.AlertMode
+import dev.fardavide.oltre.protocol.MarkBody
+import dev.fardavide.oltre.protocol.MarkPath
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.MarkTerminus
 
-// **One sheet with two faces, and that is the whole of Claude Design's §4.** The gear raises it on
-// the settings face; a new build raises it on the changelog face; the build row at the foot of the
-// settings column crosses from one to the other. Nothing stacks, nothing resizes, and there is no
-// back — the ways out are the handle, the scrim and the system gesture, exactly as they are for every
-// other sheet in the app.
+// **One sheet with six faces, and that is still the whole of Claude Design's §4.** The gear raises it
+// on the settings face; a new build raises it on the changelog face; the strip's left cluster raises
+// it on the identity face; the build row, the account row and the compose row each cross from one
+// face to another. Nothing stacks, nothing resizes, and there is no back — the ways out are the
+// handle, the scrim and the system gesture, exactly as they are for every other sheet in the app.
+//
+// **Two faces was the design's number and six is the same arrangement**, which is worth saying because
+// the growth looks like drift: every face added since has arrived the way the changelog did — as
+// contents swapped inside the one sheet — rather than as a second surface. The three doors §4 refuses
+// are refused six times over.
 //
 // **The three doors it refuses**, each for a stated reason: a sheet over a sheet (two scrims, two
 // handles, and a drag that is ambiguous about which sheet it belongs to); dismiss-and-re-raise (half
@@ -68,6 +81,25 @@ fun SettingsSheetFace(
     onOpenDelete: () -> Unit,
     onKeepAccount: () -> Unit,
     onDeleteAccount: () -> Unit,
+    // ── Who is playing, and the mark they wear ───────────────────────────────────────────────
+    //
+    // **Not nullable, unlike `delete`, and the difference is the whole reason that one is.** There is
+    // no account section to be absent here: a strip is drawn whenever there is a session, an account
+    // that has chosen nothing wears `Threshold` and is called `Dead Reckoning`, and both faces are
+    // therefore always drawable. A nullable state would be a `?.let` swallowing the one case that
+    // cannot happen, and swallowing it silently.
+    identity: IdentityFaceUiState,
+    onChooseMark: (MarkPreset) -> Unit,
+    onComposeMark: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onSaveName: () -> Unit,
+    // The composer, which is the first face in this app opened by another face rather than by a
+    // control on the frame. It is still the same sheet swapping its contents, so there is still no
+    // sheet over a sheet and still no back stack — the way out is the handle or the scrim.
+    markCompose: MarkComposeFaceUiState,
+    onChooseBody: (MarkBody) -> Unit,
+    onChoosePath: (MarkPath) -> Unit,
+    onChooseTerminus: (MarkTerminus) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     AnimatedContent(
@@ -112,6 +144,28 @@ fun SettingsSheetFace(
                     onAct = onDeleteAccount,
                 )
             }
+            // **The fifth and sixth faces, and the first pair the *frame* does not open.** The gear
+            // raises the settings face and a new build raises the changelog; these two are raised by
+            // the strip's left cluster and then by each other, which is the one thing about them that
+            // is new. Everything else is the arrangement this file already had: one sheet, contents
+            // swapped in place, no stack and no back.
+            SheetFace.IDENTITY -> IdentityFaceContent(
+                uiState = identity,
+                compact = compact,
+                onChooseMark = onChooseMark,
+                onComposeMark = onComposeMark,
+                onNameChange = onNameChange,
+                onSaveName = onSaveName,
+            )
+            // **No `compact`, and that is `MarkComposeFaceContent`'s call rather than an omission
+            // here**: nothing on that face is measured differently at 320dp, so a parameter would be
+            // a knob nothing turns.
+            SheetFace.MARK_COMPOSE -> MarkComposeFaceContent(
+                uiState = markCompose,
+                onChooseBody = onChooseBody,
+                onChoosePath = onChoosePath,
+                onChooseTerminus = onChooseTerminus,
+            )
         }
     }
 }
@@ -129,6 +183,13 @@ enum class SheetFace {
 
     // The last step, and the only filled red button in the product.
     DELETE_CONFIRM,
+
+    // A name you chose and a mark you picked, opened by the strip's left cluster.
+    IDENTITY,
+
+    // Forty marks out of eleven drawings, opened by the row under the grid — and the only face in
+    // this app another face opens.
+    MARK_COMPOSE,
 }
 
 private const val SWAP_MILLIS = 210

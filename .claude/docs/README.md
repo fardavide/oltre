@@ -17,6 +17,7 @@
 | [player-strip-sheet.md](player-strip-sheet.md) | The 0.16 design — the identity strip above the rail: its height, its mark, its gauge and why nothing about it went into the save |
 | [experience-sheet.md](experience-sheet.md) | The 0.17 design — the level as a fold over the event log: why nothing is stored, what a completion pays, why the ladder is a straight line, and what the level does not yet do |
 | [ask-once-sheet.md](ask-once-sheet.md) | The 0.18 design — the first settings screen: where the alert question is asked, how many notifications the answer arrives in, why `One in total` is not what was drawn, and why iPhone cannot quite do it |
+| [profile-sheet.md](profile-sheet.md) | **Server half built, design half open.** A name and a mark the player chooses: why the picture is drawn rather than uploaded, why it is not a `ClientVerb` and not a field on `SyncResponse`, and what Claude Design is being asked |
 
 Work that a remote agent session cannot do — UI of any kind, screenshot baselines, or a repo only
 the desktop machine has — is written up as a ready-to-paste prompt. See

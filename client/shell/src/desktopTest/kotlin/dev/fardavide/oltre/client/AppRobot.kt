@@ -20,6 +20,8 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
@@ -45,8 +47,14 @@ import dev.fardavide.oltre.client.notifications.data.NotificationScheduler
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.MarkBody
+import dev.fardavide.oltre.protocol.MarkPath
+import dev.fardavide.oltre.protocol.MarkPreset
+import dev.fardavide.oltre.protocol.MarkTerminus
+import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.VerbEnvelope
+import dev.fardavide.oltre.client.player.ui.IdentityTestTags
 import dev.fardavide.oltre.client.player.ui.PlayerTestTags
 import dev.fardavide.oltre.client.galaxy.ui.GalaxyTestTags
 import dev.fardavide.oltre.client.galaxy.ui.LedgerMode
@@ -179,6 +187,15 @@ internal class AppRobot(
         assertEquals(count, server.deletions().size, "deletions: ${server.deletions()}")
     }
 
+    // The far end takes the deletion and does not answer it, so a test can say *while that one is
+    // still out* about the one call in the app that cannot be repeated.
+    fun holdTheDeletions() = apply { server.holdDeletions() }
+
+    fun letTheDeletionsLand() = apply {
+        server.answerDeletions()
+        test.waitForIdle()
+    }
+
     // ── The offline era ──────────────────────────────────────────────────────────────────────
 
     // **The chrome line is an absence on a colony with signal**, so asserting that it is *not* there
@@ -188,11 +205,29 @@ internal class AppRobot(
         if (showing) node.assertIsDisplayed() else node.assertDoesNotExist()
     }
 
+    // **The launch giving up, which takes the whole of `RetryPolicy.DEFAULT`.** A test that carries
+    // on before this is looking at an app that has not been told the network is out yet — and the
+    // difference is invisible, because the screen the launch opens is the same one either way. The
+    // chrome line is the first thing that says the app knows.
+    fun waitUntilTheOfflineLineShows() = apply {
+        test.waitUntil(timeoutMillis = SLOW_ANSWER_MILLIS) {
+            test.onAllNodesWithTag(ShellTestTags.OFFLINE).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
     // What actually left the phone. A screen that looks right and sent nothing is exactly the
     // failure the offline era makes possible, and the only thing that can tell them apart is what
     // the far end was asked.
     fun assertVerbsSent(count: Int) = apply {
         assertEquals(count, server.syncs().sumOf { it.envelopes.size }, "envelopes: ${server.syncs()}")
+    }
+
+    // **The tick loop's minute, waited for by the request it produces.** Nothing on screen says the
+    // retry has gone out, and the whole point of the tests that use this is what happens *while* it
+    // is out — so the handle is a request the far end has taken and not answered, and the wait is the
+    // retry window because that is how long the loop takes to reach it.
+    fun waitUntilASyncIsHeld() = apply {
+        test.waitUntil(timeoutMillis = RETRY_WINDOW_MILLIS) { server.syncsHeld() > 0 }
     }
 
     fun open(tab: OltreTab) = apply {
@@ -373,6 +408,151 @@ internal class AppRobot(
     fun assertSettingsShowing(showing: Boolean = true) = apply {
         val found = test.onAllNodesWithTag(SettingsTestTags.SHEET).fetchSemanticsNodes().isNotEmpty()
         assertEquals(showing, found, "the settings sheet is ${if (found) "up" else "not up"}")
+    }
+
+    // ── A name you chose, and a mark you picked ─────────────────────────────────────────────
+    //
+    // Here rather than in `:client:player:ui` for the settings chips' reason, and more so: the two
+    // faces are driven there against a scene that owns its own draft, where what these methods reach
+    // is the composition root — the sheet it raises, the profile it holds, and the request that
+    // leaves the phone. Nothing below this can see both a tap and what the far end was asked.
+
+    fun openTheProfile() = apply {
+        test.onNodeWithTag(PlayerTestTags.PROFILE, useUnmergedTree = true).performClick()
+        test.waitForIdle()
+    }
+
+    fun assertIdentityShowing(showing: Boolean = true) = apply {
+        assertFaceShowing(IdentityTestTags.FACE, showing, "the identity face")
+    }
+
+    fun assertComposerShowing(showing: Boolean = true) = apply {
+        assertFaceShowing(IdentityTestTags.COMPOSE_FACE, showing, "the composer")
+    }
+
+    // **A cell is a drawing with no text in it**, so it is reached by tag like every other wordless
+    // control in this app — and unlike them it is one of six that look alike, which is why the tag
+    // carries which preset it is.
+    fun chooseTheMark(preset: MarkPreset) = apply {
+        test.onNodeWithTag(IdentityTestTags.cell(preset), useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The row under the grid, which is the one control on that face that opens something rather than
+    // committing something.
+    fun openTheComposer() = apply {
+        test.onNodeWithTag(IdentityTestTags.COMPOSE_ROW, useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+        test.mainClock.advanceTimeBy(SWAP_MILLIS)
+    }
+
+    fun chooseTheBody(body: MarkBody) = apply {
+        test.onNodeWithTag(IdentityTestTags.body(body), useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    fun chooseThePath(path: MarkPath) = apply {
+        test.onNodeWithTag(IdentityTestTags.path(path), useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // The third ladder, which is the one that comes and goes: a terminus is the end of a path, so the
+    // row is not drawn at all while the mark has none.
+    fun chooseTheTerminus(terminus: MarkTerminus) = apply {
+        test.onNodeWithTag(IdentityTestTags.terminus(terminus), useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
+        test.waitForIdle()
+    }
+
+    // **Appended rather than set**, which is what a keyboard does and what the field's own bound is
+    // written against: setting the value would be the test writing the state it then asserts on.
+    fun typeAName(text: String) = apply {
+        test.onNodeWithTag(IdentityTestTags.NAME, useUnmergedTree = true).performScrollTo().performTextInput(text)
+        test.waitForIdle()
+    }
+
+    // **The cross at the end of the field**, which is drawn only while the field has focus and holds
+    // something — so a robot has to have typed or focused first, exactly as a finger does.
+    fun clearTheName() = apply {
+        test.onNodeWithTag(IdentityTestTags.NAME, useUnmergedTree = true).requestFocus()
+        test.waitForIdle()
+        test.onNodeWithTag(IdentityTestTags.CLEAR, useUnmergedTree = true).performClick()
+        test.waitForIdle()
+    }
+
+    fun saveTheName() = apply {
+        test.onNodeWithTag(IdentityTestTags.SAVE, useUnmergedTree = true).performScrollTo().performClick()
+        test.waitForIdle()
+    }
+
+    // **Absent rather than disabled when there is nothing to save**, so the only assertion that can
+    // tell the two apart is one about existence.
+    fun assertSaveOffered(offered: Boolean) = apply {
+        val found = test.onAllNodesWithTag(IdentityTestTags.SAVE).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(offered, found, "the save button is ${if (found) "there" else "absent"}")
+    }
+
+    // **The amber card, which is the whole of what held means on this face**: the grid and the field
+    // go to 42% and the save button goes away, and the card above them says why.
+    //
+    // Waited for rather than asserted, because a sync with no signal is three attempts four seconds
+    // apart — the app does not know it is offline until the last of them has failed.
+    fun waitUntilTheProfileIsHeld() = apply {
+        test.waitUntil(timeoutMillis = SLOW_ANSWER_MILLIS) {
+            test.onAllNodesWithTag(IdentityTestTags.REQUIREMENT).fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    fun assertProfileHeld(held: Boolean) = apply {
+        val found = test.onAllNodesWithTag(IdentityTestTags.REQUIREMENT).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(held, found, "the requirement card is ${if (found) "up" else "not up"}")
+    }
+
+    // **The card going away again**, which is the only observable difference between a face that is
+    // waiting for the network and a face that is stuck. It takes the tick loop's whole minute, so it
+    // waits the retry window like the queue's own healing does — nothing else in this robot may.
+    fun waitUntilTheProfileIsLive() = apply {
+        test.waitUntil(timeoutMillis = RETRY_WINDOW_MILLIS) {
+            test.onAllNodesWithTag(IdentityTestTags.REQUIREMENT).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    // ── Two requests in flight at once ───────────────────────────────────────────────────────
+    //
+    // The far end takes the call and does not answer it, so a test can say *while that one is still
+    // out*. Everything else this fake does answers in the same breath it is asked, which is exactly
+    // why an ordering defect between two taps was invisible to the whole suite.
+
+    fun holdTheProfileWrites() = apply { server.holdProfileWrites() }
+
+    fun letTheProfileWritesLand() = apply {
+        server.answerProfileWrites()
+        test.waitForIdle()
+    }
+
+    fun letTheProfileReadLand() = apply {
+        server.answerProfileReads()
+        test.waitForIdle()
+    }
+
+    // **What the account was actually made to hold**, which is the only thing that can tell a face
+    // that looks right from one that sent nothing. The list rather than the last of it, because a tap
+    // that wrote twice is as wrong as one that wrote nothing.
+    fun assertProfilesWritten(vararg written: PlayerProfile) = apply {
+        assertEquals(written.toList(), server.profileWrites(), "profile writes: ${server.profileWrites()}")
+    }
+
+    // **What left the phone**, which is a different question from what the account was made to hold
+    // the moment a request is being held: a tap the shell is still sitting on — behind a lock, say —
+    // reaches neither list, and only this one can tell that from a tap that was sent and refused.
+    fun assertProfilesTaken(vararg taken: PlayerProfile) = apply {
+        assertEquals(taken.toList(), server.profilesTaken(), "profiles taken: ${server.profilesTaken()}")
+    }
+
+    private fun assertFaceShowing(tag: String, showing: Boolean, what: String) {
+        val found = test.onAllNodesWithTag(tag).fetchSemanticsNodes().isNotEmpty()
+        assertEquals(showing, found, "$what is ${if (found) "up" else "not up"}")
     }
 
     // ── The debug panel ──────────────────────────────────────────────────────────────────────
@@ -588,6 +768,19 @@ private class FixedClock(private val at: Instant) : Clock {
     override fun now(): Instant = at
 }
 
+// **A wall clock a test can move**, for the one question a fixed one cannot be asked: whether the
+// colony went on running. Every other test in this suite wants time to stand still — see `TEST_NOW`,
+// where the fixed clock is what stopped the galaxy seed moving between runs — and this is the
+// exception rather than a second default: it is handed in only where the assertion *is* that the
+// tick loop advanced the colony while something else was outstanding.
+//
+// Moved by assignment rather than by a step per read, so nothing in the app can make time pass by
+// asking what it is. The property this whole seam exists for holds either way: no test reads
+// `Clock.System.now()`.
+internal class MovableClock(var at: Instant) : Clock {
+    override fun now(): Instant = at
+}
+
 // A preferences file that has already seen this build's changelog, which is what every test that is
 // not about the changelog wants. The version is read the way the app reads it — the head of the
 // catalogue — so a release bump needs nothing changed here.
@@ -678,6 +871,12 @@ internal fun app(
     // gives; `DebugSheetAppBehaviourTest` is the one file that hands in a real one, because the
     // debug sheet is the only surface in the app with no other way in.
     shakes: Flow<Unit> = emptyFlow(),
+    // **Fixed unless a test is about time passing**, which is `TEST_NOW`'s whole argument: a launch
+    // with no save mints its galaxy from the instant it happened, so a clock that moved on its own
+    // gave `app(saved = null)` a different map on every run and moved the coverage gate with it. A
+    // `MovableClock` handed in here is a test saying *and then an hour went by*, at a moment it
+    // chooses rather than at one the machine chooses.
+    wallClock: Clock = FixedClock(TEST_NOW),
     block: AppRobot.() -> Unit,
 ) {
     // Written *through* `GameStore` rather than encoded by hand. The store owns the save's schema
@@ -720,7 +919,7 @@ internal fun app(
                 shakeDetector = ShakeDetector { shakes },
                 // See `TEST_NOW`. The one seam that stops these tests depending on the second they
                 // happen to run in.
-                wallClock = FixedClock(TEST_NOW),
+                wallClock = wallClock,
                 api = api,
                 sessionStore = SaveFileSessionStore(sessionFile),
                 outboxFile = SaveFileOutbox(outboxFile),

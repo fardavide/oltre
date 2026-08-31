@@ -156,8 +156,10 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         // the one every frame that is not about the network wants.
                         offline = null,
                         // Never tapped: this harness is about the adaptation ladder reaching Research
-                        // from a Galaxy row. `AlertSheetAppBehaviourTest` is where the gear is driven.
+                        // from a Galaxy row. `AlertSheetAppBehaviourTest` is where the gear is driven
+                        // and `IdentityAppBehaviourTest` is where the cluster beside it is.
                         onOpenSettings = {},
+                        onOpenProfile = {},
                     )
                 }
             }

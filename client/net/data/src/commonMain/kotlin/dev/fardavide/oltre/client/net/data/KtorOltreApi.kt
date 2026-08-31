@@ -3,10 +3,13 @@ package dev.fardavide.oltre.client.net.data
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.PlayerProfile
+import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
 import dev.fardavide.oltre.protocol.SyncRequest
@@ -15,6 +18,7 @@ import dev.fardavide.oltre.protocol.VerbEnvelope
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
+import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -67,6 +71,27 @@ class KtorOltreApi(
     override suspend fun sync(access: SessionToken, envelopes: List<VerbEnvelope>): ApiResult<SyncResponse> =
         sync("/v1/sync", access, envelopes)
 
+    // **The one `GET` in this class, and it deliberately does not go through `post` below.** That
+    // helper sets a content type and a body unconditionally, which is right for every call that has
+    // something to say and wrong for the one that has nothing: a read asks for a fact the server
+    // already holds, so all it carries is who is asking. `deleteAccount` reaches past the helper for
+    // the same reason.
+    //
+    // **No version is stated either**, and that is not an omission — a request with no body has no
+    // contract to negotiate, and the answer says which one answered. `readProfile` on the far end
+    // makes the same argument.
+    override suspend fun profile(access: SessionToken): ApiResult<PlayerProfile> =
+        send(ProfileResponse.serializer()) {
+            client.get(baseUrl + "/v1/profile") { bearer(access) }
+        }.withoutTheEnvelope()
+
+    override suspend fun setProfile(access: SessionToken, profile: PlayerProfile): ApiResult<PlayerProfile> =
+        send(ProfileResponse.serializer()) {
+            post("/v1/profile", SetProfileRequest(ApiVersion.CURRENT, profile), SetProfileRequest.serializer()) {
+                bearer(access)
+            }
+        }.withoutTheEnvelope()
+
     private suspend fun signIn(
         path: String,
         idToken: IdToken,
@@ -81,6 +106,21 @@ class KtorOltreApi(
         envelopes: List<VerbEnvelope>,
     ): ApiResult<SyncResponse> = send(SyncResponse.serializer()) {
         post(path, SyncRequest(ApiVersion.CURRENT, envelopes), SyncRequest.serializer()) { bearer(access) }
+    }
+
+    // **Where the envelope stops.** Both profile routes answer a `ProfileResponse`, and the only
+    // thing in it besides the profile is the version — a statement of which build answered, and one
+    // nothing above this ever branches on: a version this end cannot serve is the *server's* refusal
+    // to make, and it arrives as `ApiError.UnsupportedApiVersion` inside a `Refused` rather than as
+    // a field to compare. `sync` hands its whole response up because `applied` and `rejected` are
+    // the opposite of that. The two failures are rebuilt rather than passed through, and only because
+    // the compiler insists: a smart cast to `Refused` still remembers it came from a
+    // `ProfileResponse`, so the widest type the arms share is `ApiResult<Any>`. Nothing about either
+    // failure changes here — a refusal is still the server's sentence and silence is still silence.
+    private fun ApiResult<ProfileResponse>.withoutTheEnvelope(): ApiResult<PlayerProfile> = when (this) {
+        is ApiResult.Answered -> ApiResult.Answered(value.profile)
+        is ApiResult.Refused -> ApiResult.Refused(error)
+        ApiResult.Unreachable -> ApiResult.Unreachable
     }
 
     private suspend fun <T> post(

@@ -124,8 +124,11 @@ class MainScaffoldScreenshotTest {
                             fleets = { Text("fleets-under-test") },
                             offline = offline,
                             // The gear is drawn and never tapped: what it opens is `App`'s, and a
-                            // sheet is a popup that `onRoot()` could not photograph anyway.
+                            // sheet is a popup that `onRoot()` could not photograph anyway. The
+                            // cluster beside it is the same case — what these frames hold about it
+                            // is the arrow, which is drawn whether or not anything answers.
                             onOpenSettings = {},
+                            onOpenProfile = {},
                         )
                     }
                 }

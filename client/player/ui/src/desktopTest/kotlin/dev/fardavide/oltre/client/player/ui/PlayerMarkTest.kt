@@ -44,7 +44,7 @@ class PlayerMarkTest {
     fun `the core dot is filled rather than stroked`() {
         // The one filled element the icon rules permit, and the difference is not decorative: a
         // stroked ring at 1.7 units reads as a second, smaller world at 20dp.
-        val centre = sampleAt(x = DOT_CX, y = DOT_CY)
+        val centre = sampleAt(x = TERMINUS_CX, y = TERMINUS_CY)
 
         assertTrue(centre, "the dot's middle is empty, so it is a ring rather than a dot")
     }
@@ -61,8 +61,8 @@ class PlayerMarkTest {
         while (t <= RAY_LENGTH) {
             val angle = -QUARTER_TURN / 2f
             val inked = sampleAt(
-                x = WORLD_CX + t * cos(angle.toRadians()),
-                y = WORLD_CY + t * sin(angle.toRadians()),
+                x = BODY_CX + t * cos(angle.toRadians()),
+                y = BODY_CY + t * sin(angle.toRadians()),
             )
             if (inked && start == null) start = t
             if (!inked && start != null) {
@@ -103,7 +103,8 @@ class PlayerMarkTest {
         // Room around the box on every side, so overflow is measurable rather than clipped.
         const val PAD = 6f
 
-        const val QUARTER_TURN = 90f
+        // `QUARTER_TURN` is the drawing's own now — see `MarkGeometry` — so the ray reads production
+        // arithmetic rather than a second copy of the same right angle.
         const val PI_OVER_180 = 0.017453292f
 
         const val RAY_LENGTH = 12f

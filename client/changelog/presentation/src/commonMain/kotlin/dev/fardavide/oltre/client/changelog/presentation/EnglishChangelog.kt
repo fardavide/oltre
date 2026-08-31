@@ -16,6 +16,12 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.22.0", "2026-08-30", "A name and a mark that are yours",
+            "Tap your name on the strip: the sheet opens on a name and a mark you choose.",
+            "Six drawn marks, or build your own from parts: forty in all.",
+            "Both live on your account, so a new phone opens with the name you chose.",
+        ),
+        release(
             "0.21.0", "2026-08-27", "Your colony lives somewhere else now",
             "Sign in with Apple or Google, and the colony follows you to any device.",
             "A tap with no signal is held and says so. Tapping it again takes it back.",

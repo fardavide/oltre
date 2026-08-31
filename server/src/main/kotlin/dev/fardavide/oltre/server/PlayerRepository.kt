@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.UUID
 
 // **The `players` table, which `#109` wrote and nothing read.** Three questions, and each one is a
@@ -36,6 +37,25 @@ internal interface PlayerRepository {
     // twice is not an error, and a client that lost the response to the first attempt will send a
     // second.
     suspend fun forget(player: PlayerId): Boolean
+
+    // **What the player chose to be called and to wear.** Two more questions about a *player* rather
+    // than about a colony, which is why they are here and not on `ColonyRepository` — see
+    // `profile-sheet.md` §3, and note that a profile is deliberately not a `ClientVerb`: there is
+    // nothing in `core` to replay it against.
+    //
+    // Null is **no such player**, not "has not chosen" — an unfilled profile is a `PlayerProfile`
+    // whose two halves are both null, and the distinction matters because the caller answers one
+    // with `Unauthenticated` and the other with a strip that still says `Dead Reckoning`. In practice
+    // only a deletion racing this request produces the null, since `Authenticator` has already asked
+    // `exists`; it is modelled anyway because a repository that answered an invented profile for a
+    // player who is gone would be one nothing could tell had gone wrong.
+    suspend fun profileOf(player: PlayerId): PlayerProfile?
+
+    // **Replaces rather than merges**, which is `SetProfileRequest`'s own call one layer out: with a
+    // merge, `null` would have to mean *leave it alone* and *clear it* at once, and clearing is the
+    // only way out of a name a player regrets. False is "there was nobody there", exactly as
+    // `forget`'s is.
+    suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean
 }
 
 // **Where a `players.id` comes from**, as a seam rather than a call to `UUID.randomUUID` in the

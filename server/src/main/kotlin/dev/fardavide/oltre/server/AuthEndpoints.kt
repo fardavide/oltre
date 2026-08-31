@@ -6,7 +6,6 @@ import dev.fardavide.oltre.protocol.RefreshRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SignInRequest
 import io.ktor.http.HttpStatusCode
-import kotlinx.coroutines.CancellationException
 
 // **What the four identity routes decide, with nothing that knows what a socket is.** It is
 // `Endpoints.kt`'s file for the other half of the API, written the same way and for the same reason:
@@ -209,15 +208,7 @@ private fun unconfigured(): Answer = Answer.Failed(
     ApiError.Internal("sign-in is not configured on this server: SESSION_SIGNING_KEY is not set"),
 )
 
-// `served()`'s one `catch`, for the routes that have no colony to retry. Everything below touches a
-// store a network away and, on sign-in, a provider further away than that.
-private suspend fun answering(block: suspend () -> Answer): Answer = try {
-    block()
-} catch (e: CancellationException) {
-    // **Not a failure and not ours.** A cancelled request is the caller having gone away, and
-    // swallowing it here would both answer a socket nobody is holding and break the coroutine that
-    // is trying to unwind.
-    throw e
-} catch (e: Exception) {
-    Answer.Failed(HttpStatusCode.InternalServerError, ApiError.Internal(e.message ?: e::class.simpleName.orEmpty()))
-}
+// `answering` — `served()`'s one `catch`, for the routes that have no colony to retry — lives in
+// `Endpoints.kt` beside `Answer` and `readRequest`. It was private here until the profile pair
+// became its third caller, and a `catch` copied into a second file is a `catch` that can be
+// corrected in one of them.

@@ -4,11 +4,14 @@ import dev.fardavide.oltre.client.net.data.FakeOltreApi
 import dev.fardavide.oltre.client.save.data.Preferences
 import dev.fardavide.oltre.client.save.data.PreferencesStore
 import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
+import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.AuthProvider
+import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.PlayerProfile
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.time.Duration.Companion.hours
@@ -133,6 +136,31 @@ class DeleteAccountAppBehaviourTest {
         }
     }
 
+    // **A database that blinked is not a player signing out.** The arm above catches the whole
+    // `ApiError` taxonomy on the argument that *"a token that has just expired is the case this is
+    // really about"* — and that case does not reach it any more: the call is wrapped in
+    // `sessions.renewing`, which renews and retries a `SessionExpired` and answers `Unauthenticated`
+    // only when there is genuinely nothing left. What is left to arrive here is a server that failed,
+    // and signing the player out of an account that is still there is the wrong answer twice over:
+    // nothing was deleted, and the tap that asked is now three faces away.
+    //
+    // The sheet already has a face for a delete that did not land, and it is the one this uses.
+    @Test
+    fun `a deletion the server could not carry out leaves the player where they are`() {
+        val server = FakeOltreApi()
+        app(saved = colony(), preferences = signedInWithApple(), api = server) {
+            openTheSettings()
+            openTheAccountDeletion()
+            server.error = ApiError.Internal("the players table blinked")
+            pressTheDeleteButton()
+            pressTheDeleteButton()
+
+            waitUntilItReads("This cannot be held.")
+            assertDeletionsAsked(0)
+            assertDoesNotRead("The galaxy is shared")
+        }
+    }
+
     // **Offline with a token that has run out is still offline**, and this is the arm that says so on
     // the one route where getting it wrong would be worst: a deletion answered by signing the player
     // out would delete a *session* rather than an account, which is the opposite of what the tap
@@ -155,6 +183,95 @@ class DeleteAccountAppBehaviourTest {
             waitUntilItReads("This cannot be held.")
             assertDeletionsAsked(0)
             assertDoesNotRead("The galaxy is shared")
+        }
+    }
+
+    // **One account and one name**, which `accountSection` was already fixed for and these two faces
+    // were not: both of them named the commander out of the catalogue's default rather than off the
+    // account, so the one flow in this app that cannot be undone was addressed to somebody the player
+    // is not.
+    @Test
+    fun `both faces of the deletion name the commander the strip names`() {
+        app(saved = colony(), preferences = signedInWithApple(), api = serverHolding("Ada Lovelace")) {
+            waitUntilItReads("Ada Lovelace")
+            openTheSettings()
+            openTheAccountDeletion()
+
+            assertReads("Ada Lovelace ·")
+            pressTheDeleteButton()
+
+            assertReads("Delete Ada Lovelace?")
+        }
+    }
+
+    // **The account is gone and so is everything the shell held about it.** The success arm cleared
+    // eight things and not the profile, so the next account signed into on the same process wore the
+    // deleted one's identity — and the first tap would have written that name onto a fresh `players`
+    // row. The second read is refused deliberately: what the strip draws then is whatever the shell
+    // still remembered, which has to be nothing.
+    @Test
+    fun `the deleted account's name does not follow the next sign-in`() {
+        val server = serverHolding("Ada Lovelace")
+        app(saved = colony(), preferences = signedInWithApple(), api = server) {
+            waitUntilItReads("Ada Lovelace")
+            openTheSettings()
+            openTheAccountDeletion()
+            pressTheDeleteButton()
+            pressTheDeleteButton()
+            waitUntilItReads("The galaxy is shared")
+
+            server.profileError = ApiError.Internal("the profile route fell over")
+            pressProvider(AuthProvider.APPLE)
+
+            waitUntilItReads("Metal Mine")
+            assertThePlayerStripReads("Dead Reckoning")
+        }
+    }
+
+    // **The one call in this app whose late answer could delete somebody else's colony.** It is
+    // launched on the composition root's scope, which outlives the session that made it — so a
+    // deletion still out when the session ends comes back to a process that may have signed a
+    // different player in, and its success arm signs *them* out and clears the save and the queue
+    // off the disk. Nothing in the answer says which account it was about.
+    //
+    // The sequence is not exotic: a deletion that lands and loses its response leaves a token naming
+    // a player who is gone, which is exactly what the next sync is refused for — so ending the
+    // session under an outstanding deletion is the *ordinary* way this route fails.
+    @Test
+    fun `a deletion that answers after its session ended does not clear the next player's colony`() {
+        val server = serverHolding("Ada Lovelace")
+        app(saved = colony(), preferences = signedInWithApple(), api = server) {
+            openTheSettings()
+            openTheAccountDeletion()
+            holdTheDeletions()
+            pressTheDeleteButton()
+            pressTheDeleteButton()
+            dismissTheSettings()
+
+            server.error = ApiError.Unauthenticated
+            tapTheActionOn(BuildingType.METAL_MINE)
+            waitUntilItReads("The galaxy is shared")
+
+            server.error = null
+            pressProvider(AuthProvider.APPLE)
+            waitUntilItReads("Metal Mine")
+
+            letTheDeletionsLand()
+
+            assertReads("Metal Mine")
+            assertDoesNotRead("The galaxy is shared")
+        }
+    }
+
+    // A server that already holds a named account, which is what a commander who named themselves on
+    // another device looks like on this one.
+    private fun serverHolding(name: String): FakeOltreApi {
+        val snapshot = colony()
+        return FakeOltreApi().apply {
+            colony = snapshot
+            founds = snapshot
+            replays = true
+            profile = PlayerProfile(name = CommanderName(name), mark = null)
         }
     }
 
