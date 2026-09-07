@@ -17,6 +17,14 @@ private enum class ErrorId {
     STALE_COLONY,
     TOO_MANY_REQUESTS,
     MALFORMED,
+    ALLIANCE_NAME_TAKEN,
+    ALLIANCE_TAG_TAKEN,
+    ALLIANCE_FULL,
+    NO_SUCH_ALLIANCE,
+    NOT_IN_AN_ALLIANCE,
+    ALREADY_IN_AN_ALLIANCE,
+    ALLIANCE_ROLE_TOO_LOW,
+    STALE_ALLIANCE,
     INTERNAL,
 }
 
@@ -28,6 +36,14 @@ private fun idOf(error: ApiError): ErrorId = when (error) {
     ApiError.StaleColony -> ErrorId.STALE_COLONY
     is ApiError.TooManyRequests -> ErrorId.TOO_MANY_REQUESTS
     is ApiError.Malformed -> ErrorId.MALFORMED
+    ApiError.AllianceNameTaken -> ErrorId.ALLIANCE_NAME_TAKEN
+    ApiError.AllianceTagTaken -> ErrorId.ALLIANCE_TAG_TAKEN
+    ApiError.AllianceFull -> ErrorId.ALLIANCE_FULL
+    ApiError.NoSuchAlliance -> ErrorId.NO_SUCH_ALLIANCE
+    ApiError.NotInAnAlliance -> ErrorId.NOT_IN_AN_ALLIANCE
+    ApiError.AlreadyInAnAlliance -> ErrorId.ALREADY_IN_AN_ALLIANCE
+    ApiError.AllianceRoleTooLow -> ErrorId.ALLIANCE_ROLE_TOO_LOW
+    ApiError.StaleAlliance -> ErrorId.STALE_ALLIANCE
     is ApiError.Internal -> ErrorId.INTERNAL
 }
 
@@ -42,6 +58,14 @@ private val SAMPLES: List<ApiError> = listOf(
     ApiError.StaleColony,
     ApiError.TooManyRequests(retryAfterSeconds = 12),
     ApiError.Malformed("clientInstant is not an instant"),
+    ApiError.AllianceNameTaken,
+    ApiError.AllianceTagTaken,
+    ApiError.AllianceFull,
+    ApiError.NoSuchAlliance,
+    ApiError.NotInAnAlliance,
+    ApiError.AlreadyInAnAlliance,
+    ApiError.AllianceRoleTooLow,
+    ApiError.StaleAlliance,
     ApiError.Internal("the store did not answer"),
 )
 
@@ -75,6 +99,14 @@ class ApiErrorTest {
                 "StaleColony",
                 "TooManyRequests",
                 "Malformed",
+                "AllianceNameTaken",
+                "AllianceTagTaken",
+                "AllianceFull",
+                "NoSuchAlliance",
+                "NotInAnAlliance",
+                "AlreadyInAnAlliance",
+                "AllianceRoleTooLow",
+                "StaleAlliance",
                 "Internal",
             ),
             encoded,

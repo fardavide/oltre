@@ -60,4 +60,11 @@ object Protocol {
     // case-insensitively at the server, which RFC 7235 requires and a client's HTTP stack is
     // entitled to rely on.
     const val BEARER_PREFIX: String = "Bearer "
+
+    // `GET /v1/alliance/search`'s two query parameters, named here for `PLAYER_HEADER`'s own reason:
+    // **a wire string spelled out at both ends is a wire string that can differ at both ends**, and
+    // the failure is silent — a misspelled `q` reads as a search that found nothing rather than as a
+    // bug.
+    const val SEARCH_QUERY_PARAM: String = "q"
+    const val SEARCH_CURSOR_PARAM: String = "cursor"
 }

@@ -1,5 +1,6 @@
 package dev.fardavide.oltre.protocol
 
+import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
@@ -178,7 +179,7 @@ class RequiredFieldsTest {
         )
     }
 
-    // The three errors that carry a payload. The four that do not are `data object`s.
+    // The four errors that carry a payload. The four that do not are `data object`s.
     @Test
     fun `an error missing its payload is refused`() {
         listOf(
@@ -186,8 +187,164 @@ class RequiredFieldsTest {
                 oldestServed = ApiVersion.OLDEST_SERVED,
                 current = ApiVersion.CURRENT,
             ),
+            ApiError.TooManyRequests(retryAfterSeconds = 12),
             ApiError.Malformed("clientInstant is not an instant"),
             ApiError.Internal("the store did not answer"),
         ).forEach { assertEveryFieldRequired(ApiError.serializer(), it) }
+    }
+
+    // ── The alliance ──────────────────────────────────────────────────────────────────────────
+
+    private val SAMPLE_ALLIANCE = Alliance(
+        id = AllianceId("ferro-alto"),
+        name = AllianceName("Ferro Alto"),
+        tag = AllianceTag("FRA"),
+        level = AllianceLevel(4),
+        seats = AllianceSeats(taken = 9, cap = 16),
+    )
+
+    @Test
+    fun `an alliance missing any of its five fields is refused`() {
+        assertEveryFieldRequired(Alliance.serializer(), SAMPLE_ALLIANCE)
+    }
+
+    // `Unaffiliated` has nothing to drop but its discriminator, so only the two carrying standings
+    // are checked here — the same shape as `ApiError`'s payload-less `data object`s above.
+    @Test
+    fun `a petitioning or enlisted standing missing its alliance is refused`() {
+        assertEveryFieldRequired(AllianceStanding.serializer(), AllianceStanding.Petitioning(SAMPLE_ALLIANCE))
+        assertEveryFieldRequired(
+            AllianceStanding.serializer(),
+            AllianceStanding.Enlisted(SAMPLE_ALLIANCE, AllianceRole.MEMBER),
+        )
+    }
+
+    @Test
+    fun `an alliance response missing its version or standing is refused`() {
+        assertEveryFieldRequired(
+            AllianceResponse.serializer(),
+            AllianceResponse(apiVersion = ApiVersion.CURRENT, standing = AllianceStanding.Unaffiliated),
+        )
+    }
+
+    @Test
+    fun `a create request missing its name or its tag is refused`() {
+        assertEveryFieldRequired(
+            CreateAllianceRequest.serializer(),
+            CreateAllianceRequest(
+                apiVersion = ApiVersion.CURRENT,
+                name = AllianceName("Ferro Alto"),
+                tag = AllianceTag("FRA"),
+            ),
+        )
+    }
+
+    @Test
+    fun `a rename request missing its name or its tag is refused`() {
+        assertEveryFieldRequired(
+            RenameAllianceRequest.serializer(),
+            RenameAllianceRequest(
+                apiVersion = ApiVersion.CURRENT,
+                name = AllianceName("Ferro Alto"),
+                tag = AllianceTag("FRA"),
+            ),
+        )
+    }
+
+    @Test
+    fun `a join request missing the alliance it names is refused`() {
+        assertEveryFieldRequired(
+            JoinAllianceRequest.serializer(),
+            JoinAllianceRequest(apiVersion = ApiVersion.CURRENT, alliance = AllianceId("ferro-alto")),
+        )
+    }
+
+    @Test
+    fun `an answer to a join request missing either half is refused`() {
+        assertEveryFieldRequired(
+            AnswerJoinRequest.serializer(),
+            AnswerJoinRequest(
+                apiVersion = ApiVersion.CURRENT,
+                request = JoinRequestId("petition-1"),
+                decision = JoinDecision.ADMITTED,
+            ),
+        )
+    }
+
+    @Test
+    fun `a kick request missing the member it names is refused`() {
+        assertEveryFieldRequired(
+            KickMemberRequest.serializer(),
+            KickMemberRequest(apiVersion = ApiVersion.CURRENT, member = AllianceMemberId("member-1")),
+        )
+    }
+
+    @Test
+    fun `a set-role request missing either half is refused`() {
+        assertEveryFieldRequired(
+            SetMemberRoleRequest.serializer(),
+            SetMemberRoleRequest(
+                apiVersion = ApiVersion.CURRENT,
+                member = AllianceMemberId("member-1"),
+                role = AllianceRole.ADMIN,
+            ),
+        )
+    }
+
+    // ── The search ────────────────────────────────────────────────────────────────────────────
+
+    // **A nullable field is still a required one**, `nextCursor`'s reason for being here beside the
+    // profile pair above: `null` means "that was the last page" and a key that could be absent would
+    // add a second way to say it.
+    @Test
+    fun `a search response missing any field is refused whether or not the next cursor is null`() {
+        val sample = AllianceSearchResponse(
+            apiVersion = ApiVersion.CURRENT,
+            query = "vanguard",
+            results = emptyList(),
+            nextCursor = AllianceSearchCursor("page-2"),
+        )
+        assertEveryFieldRequired(AllianceSearchResponse.serializer(), sample)
+        assertEveryFieldRequired(AllianceSearchResponse.serializer(), sample.copy(nextCursor = null))
+    }
+
+    // ── The roster ────────────────────────────────────────────────────────────────────────────
+
+    private val SAMPLE_MEMBER = AllianceMember(
+        id = AllianceMemberId("member-1"),
+        profile = PlayerProfile(name = CommanderName("Ada"), mark = PlayerMark.Preset(MarkPreset.SEXTANT)),
+        role = AllianceRole.ADMIN,
+        experience = Experience(1_200),
+        lastSyncedAt = NOW,
+    )
+
+    private val SAMPLE_JOIN_REQUEST = JoinRequest(
+        id = JoinRequestId("petition-1"),
+        profile = PlayerProfile(name = null, mark = null),
+        experience = Experience(340),
+        askedAt = NOW,
+    )
+
+    @Test
+    fun `a member missing any of its five fields is refused`() {
+        assertEveryFieldRequired(AllianceMember.serializer(), SAMPLE_MEMBER)
+    }
+
+    @Test
+    fun `a join request missing any of its four fields is refused`() {
+        assertEveryFieldRequired(JoinRequest.serializer(), SAMPLE_JOIN_REQUEST)
+    }
+
+    // **`pending` is the roster's own nullable-and-required field**: `null` means "not yours to see"
+    // and `[]` means "yours to see, and empty" — both required keys, and both checked here.
+    @Test
+    fun `a roster response missing any field is refused whether or not pending is null`() {
+        val sample = AllianceRosterResponse(
+            apiVersion = ApiVersion.CURRENT,
+            members = listOf(SAMPLE_MEMBER),
+            pending = listOf(SAMPLE_JOIN_REQUEST),
+        )
+        assertEveryFieldRequired(AllianceRosterResponse.serializer(), sample)
+        assertEveryFieldRequired(AllianceRosterResponse.serializer(), sample.copy(pending = null))
     }
 }
