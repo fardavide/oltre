@@ -88,6 +88,58 @@ sealed interface ApiError {
     @SerialName("Malformed")
     data class Malformed(val detail: String) : ApiError
 
+    // **The eight below are emitted only by `/v1/alliance*` routes**, none of which any shipped
+    // build calls yet — so adding them costs no `ApiVersion` bump, on this type's own
+    // `TooManyRequests` precedent: a version moves when the other end *cannot ignore* the change,
+    // and an older build never receives one of these. **After the alliance's routes first ship, a
+    // ninth member emitted by an alliance route is the same wire break** — an installed client's
+    // sealed hierarchy has no arm for it, `KtorOltreApi.kt`'s `unreadable` path turns the decode
+    // failure into `ApiError.Malformed`, and the player is told "that did not make sense" about a
+    // request that made perfect sense. Prefixed `Alliance*` rather than left generic for the same
+    // reason: a generic `NotPermitted` invites exactly the reuse-on-a-shipped-route mistake that is
+    // the other way this stops being free (`alliance-sheet.md` §1.3, `#137`).
+
+    // That name is already somebody's — the uniqueness the search slice's column decides.
+    @Serializable
+    @SerialName("AllianceNameTaken")
+    data object AllianceNameTaken : ApiError
+
+    // That tag is already somebody's.
+    @Serializable
+    @SerialName("AllianceTagTaken")
+    data object AllianceTagTaken : ApiError
+
+    // Every seat the level bought is taken.
+    @Serializable
+    @SerialName("AllianceFull")
+    data object AllianceFull : ApiError
+
+    // The id names nothing — disbanded between the search and the tap.
+    @Serializable
+    @SerialName("NoSuchAlliance")
+    data object NoSuchAlliance : ApiError
+
+    // The caller is in no alliance and the route needs one.
+    @Serializable
+    @SerialName("NotInAnAlliance")
+    data object NotInAnAlliance : ApiError
+
+    // Founding or petitioning while already enlisted.
+    @Serializable
+    @SerialName("AlreadyInAnAlliance")
+    data object AlreadyInAnAlliance : ApiError
+
+    // The act needs a founder or an admin and the caller is neither.
+    @Serializable
+    @SerialName("AllianceRoleTooLow")
+    data object AllianceRoleTooLow : ApiError
+
+    // The compare-and-set on the alliance row lost. Nothing was judged; read again — `StaleColony`'s
+    // twin, for the alliance-exists slice's own row rather than a colony's.
+    @Serializable
+    @SerialName("StaleAlliance")
+    data object StaleAlliance : ApiError
+
     // Everything the server could not name. `detail` is a diagnostic, exactly as above.
     @Serializable
     @SerialName("Internal")
