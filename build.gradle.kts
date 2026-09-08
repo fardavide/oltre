@@ -463,6 +463,48 @@ kover {
                 if (testCategory == "screenshot") {
                     classes("dev.fardavide.oltre.protocol.**")
                 }
+                // ── The alliance, and **only while measuring a pass with nothing yet to reach
+                // it** ─────────────────────────────────────────────────────────────────────────
+                //
+                // Added at `#137`, with Davide's say-so and on a failing report. `Alliance.kt`,
+                // `AllianceSearch.kt` and `AllianceRoster.kt` name eleven routes and their payloads
+                // with no route handler, no repository and no client behind any of them yet — the
+                // first slice of the alliance epic is deliberately pure data, and §7 of that ticket
+                // lists everything left for later. Every later slice below is exactly what each
+                // half of this exclusion is waiting for.
+                //
+                // **The integration half comes out at `#138`**, when the alliance-exists slice adds
+                // the tables and the repository an integration test can round-trip against.
+                // `:protocol` carries no integration tests of its own — what this pass measures for
+                // the module has always been whatever `:server`'s repository tests happen to touch
+                // by using its types — and nothing does yet for these.
+                //
+                // **The behaviour half comes out at `#143`**, on the identical condition that
+                // retired `:protocol`'s own behaviour exclusion at `#113`: a behaviour test drives
+                // Compose, and Compose reaches this module only through a consumer the shell holds.
+                // The alliance's screens and shell wiring are `#143`'s job; until then no robot can
+                // reach an `Alliance*` type any more than one could reach `:protocol` before the
+                // shell held a fake transport.
+                //
+                // Six names carry no "Alliance" substring and would not match the glob below:
+                // `JoinRequestId`, `JoinDecision`, `AnswerJoinRequest`, `KickMemberRequest`,
+                // `SetMemberRoleRequest` and `JoinRequest` itself, listed out rather than widening
+                // the pattern to something that could catch an unrelated class by accident.
+                //
+                // Measured on the PR that added this: integration line 29.6% → 29.5%, branch
+                // 20.7% → 20.4%; behaviour line 93.2% → 92.3%, branch 70.6% → 69.7% — four gated
+                // rows on a slice that shipped no route, no repository, no screen and drew nothing.
+                if (testCategory == "integration" || testCategory == "behaviour") {
+                    classes(
+                        "dev.fardavide.oltre.protocol.*Alliance*",
+                        "dev.fardavide.oltre.protocol.JoinRequestId",
+                        "dev.fardavide.oltre.protocol.JoinDecision",
+                        "dev.fardavide.oltre.protocol.AnswerJoinRequest",
+                        "dev.fardavide.oltre.protocol.KickMemberRequest",
+                        "dev.fardavide.oltre.protocol.SetMemberRoleRequest",
+                        "dev.fardavide.oltre.protocol.JoinRequest",
+                    )
+                }
                 // ── The server, and **only while measuring a pass that renders** ─────────────
                 //
                 // The sixth entry, added at #108 with Davide's say-so and on a report. `:server` is
