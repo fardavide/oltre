@@ -179,7 +179,7 @@ fun App(
     translations: Translations = remember { translationsFor(Locale.current.toLanguageTag()) },
     // **The one thing in the app whose language is chosen the same way and not by the same table.**
     // The changelog is a document per language rather than a catalogue of ids —
-    // `.claude/docs/changelog-sheet.md` §4 — so it is picked from the same locale by a second
+    // `.ai/docs/changelog-sheet.md` §4 — so it is picked from the same locale by a second
     // function, beside `translationsFor` rather than inside it. A parameter for the reason
     // `translations` is one: a test hands in whichever language the frame is about.
     changelog: ChangelogText = remember { changelogFor(Locale.current.toLanguageTag()) },

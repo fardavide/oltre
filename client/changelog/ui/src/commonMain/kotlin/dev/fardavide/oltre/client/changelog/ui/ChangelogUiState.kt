@@ -30,6 +30,6 @@ data class ChangelogPageUiState(
     val date: TextRes,
     val headline: TextRes,
     // One to three, and never four. The cap is what keeps the tallest page inside the viewport at
-    // 320dp, which is what keeps a page from scrolling — see `.claude/docs/changelog-sheet.md` §3.
+    // 320dp, which is what keeps a page from scrolling — see `.ai/docs/changelog-sheet.md` §3.
     val notes: List<TextRes>,
 )

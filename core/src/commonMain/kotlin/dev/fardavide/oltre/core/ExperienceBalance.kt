@@ -89,7 +89,7 @@ object ExperienceBalance {
     // is the right shape for a game whose *income* is the score, and in this one the income is not.
     //
     // Fitted, then rounded to something legible. The marks it lands on are in
-    // `.claude/docs/balance-log.md` round 32 and pinned by `ExperienceTest`.
+    // `.ai/docs/balance-log.md` round 32 and pinned by `ExperienceTest`.
     const val LEVEL_BASE: Long = 1_100
     const val LEVEL_STEP: Long = 360
 

@@ -7,7 +7,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // tested as arithmetic rather than asserted in a comment nobody can run.
 //
 // It earns the module the same way tilt's did. Motion numbers a session invents have to be flagged
-// as invented (`.claude/rules/session-roles.md`), and a claim like *"55 hulls down to 3 in about two
+// as invented (`.ai/rules/session-roles.md`), and a claim like *"55 hulls down to 3 in about two
 // seconds"* is either a test or a guess. Here it is a test.
 //
 // **`ui` depends on this, which rule 4 allows and rule 2 is the mirror of**: a ui module may take

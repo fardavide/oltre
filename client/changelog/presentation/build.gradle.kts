@@ -4,7 +4,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // into the page a sheet draws. It is the first surface in the app whose content is not derived from
 // game state: nothing here reads a colony, and `core` is not on the classpath at all.
 //
-// The copy is two documents rather than two hundred and sixty catalogue ids. `.claude/docs/
+// The copy is two documents rather than two hundred and sixty catalogue ids. `.ai/docs/
 // changelog-sheet.md` §4 is the argument; the short of it is that the enum's exhaustive `when` can
 // only catch a missing id, while `ChangelogTranslationTest` catches a release Italian never got, a
 // date that drifted, and a page that lost a line in translation.

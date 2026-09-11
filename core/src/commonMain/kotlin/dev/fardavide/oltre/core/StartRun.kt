@@ -39,7 +39,7 @@ sealed interface StartRunResult {
     // it is the one who emptied the world seconds ago with the run before this one.
     //
     // A *partial* world never reaches here: it clamps, and the sheet says so before the tap. That
-    // asymmetry is the design — see `.claude/docs/deposit-sheet.md` §4.
+    // asymmetry is the design — see `.ai/docs/deposit-sheet.md` §4.
     data object Depleted : StartRunResult
 }
 

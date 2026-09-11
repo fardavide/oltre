@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 
 // **What stands in for the compiler.** The global catalogue makes a second language a compile-time
 // obligation through an exhaustive `when` over `StringId`; a document cannot do that, so this does —
-// and it catches strictly more, which is the argument `.claude/docs/changelog-sheet.md` §4 makes for
+// and it catches strictly more, which is the argument `.ai/docs/changelog-sheet.md` §4 makes for
 // the shape. A `when` can only tell you an id is missing. This tells you a release Italian never got,
 // a date that drifted between two files, and a page that lost a line in translation.
 class ChangelogTranslationTest {

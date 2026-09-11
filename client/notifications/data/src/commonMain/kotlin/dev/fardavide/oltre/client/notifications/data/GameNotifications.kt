@@ -212,7 +212,7 @@ private fun onePerCategory(kept: List<FutureEvent>, state: GameState, now: Insta
 // and the notification updates to show Metal Mine + 1 ship."*
 //
 // So this is emphatically **not** one alert held back until the last thing lands. §6 of
-// `.claude/docs/ask-once-sheet.md`, which is the design this file implements, measured that on the
+// `.ai/docs/ask-once-sheet.md`, which is the design this file implements, measured that on the
 // reference colony and it came to five hours and thirty-eight minutes of
 // silence — a mine finishing at 12:04 announced when a drive lands at 17:42, in a game played in
 // five-minute check-ins. What ships instead fires at *every* instant and replaces what is already
@@ -366,7 +366,7 @@ private fun List<FutureEvent>.toSummaryNotification(id: String, at: Instant): Pe
 // until `Translations` resolves it, hours later and in whichever language the device is set to, and a
 // rule that measured English would silently compact a different set of categories in Italian. Two is
 // what reproduces both of the design's own drawn examples, and the sheet itself
-// (`.claude/docs/ask-once-sheet.md` §4) says 28 is *"a measurement to take on a device."*
+// (`.ai/docs/ask-once-sheet.md` §4) says 28 is *"a measurement to take on a device."*
 private const val TITLE_CATEGORIES: Int = 2
 
 // The kinds involved, listed once each. See `toGroupNotification` for why it is distinct.

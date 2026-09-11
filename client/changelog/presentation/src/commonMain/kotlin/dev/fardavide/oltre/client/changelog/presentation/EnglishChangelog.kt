@@ -3,7 +3,7 @@ package dev.fardavide.oltre.client.changelog.presentation
 // **Every release Oltre has shipped, newest first.** Condensed from the README's changelog, which is
 // the record; this is the reading. Every entry is one headline of at most 40 characters and one to
 // three notes of at most 90, and the budget is the design's rather than the layout's — see
-// `.claude/docs/changelog-sheet.md` §3 and `ChangelogBudgetTest`.
+// `.ai/docs/changelog-sheet.md` §3 and `ChangelogBudgetTest`.
 //
 // **Adding a release means adding it here and in `ItalianChangelog`**, or the build fails: the
 // version has to match `libs.versions.oltre`, the date has to match the README's own heading, and

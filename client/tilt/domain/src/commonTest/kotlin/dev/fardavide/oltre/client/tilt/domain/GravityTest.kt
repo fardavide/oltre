@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 // No comma appears in a test name in this module and that is not a style choice. Kotlin/Native
 // rejects one outright — *"Name contains illegal characters"* — while the JVM compiles it happily,
 // so a `commonTest` in a module with an iOS target passes locally and takes out four CI jobs. It
-// cost 0.2.7 a repair commit; see `.claude/rules/session-roles.md`.
+// cost 0.2.7 a repair commit; see `.ai/rules/session-roles.md`.
 class GravityTest {
 
     @Test

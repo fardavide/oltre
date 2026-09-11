@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-// The whole of "opens on game updated" — see `.claude/docs/changelog-sheet.md` §2 for the table
+// The whole of "opens on game updated" — see `.ai/docs/changelog-sheet.md` §2 for the table
 // these four cases are read off.
 class ChangelogGateTest {
 

@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 // one level up on the kind of job — and a colony that answers *the kind* stops carrying a square on
 // any row, because the row has nothing left to ask.
 //
-// The design is *Ask Once*, accepted 2026-08-23, written up in `.claude/docs/ask-once-sheet.md`.
+// The design is *Ask Once*, accepted 2026-08-23, written up in `.ai/docs/ask-once-sheet.md`.
 // That is what "the sheet" and "the design" mean wherever this slice's code says them — here, in
 // `AnnouncedEvents`, in `GameNotifications` and across `:client:settings`.
 @Serializable

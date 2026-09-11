@@ -2,7 +2,7 @@ package dev.fardavide.oltre.client.auth.data
 
 // **The public half of what was provisioned on 2026-08-25**, in the repository because it is public
 // by construction: an OAuth client id travels in every redirect a browser makes, and Apple's two are
-// already in `iosApp/project.yml`. `.claude/docs/identity-provisioning.md`'s inventory records
+// already in `iosApp/project.yml`. `.ai/docs/identity-provisioning.md`'s inventory records
 // `google.env` as *"None secret"* and the server's own audiences are repository **variables** rather
 // than secrets for exactly this reason.
 //

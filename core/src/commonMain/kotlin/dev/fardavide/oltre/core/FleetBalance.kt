@@ -7,7 +7,7 @@ import kotlin.time.Duration.Companion.minutes
 
 // PLACEHOLDER balance, the standing `SurveyBalance` has and not the standing `GalaxyBalance` has:
 // build-authored against a measured economy rather than lifted from a sheet Davide approved. **The
-// shape is the part worth defending**, and `.claude/docs/fleet-sheet.md` argues it.
+// shape is the part worth defending**, and `.ai/docs/fleet-sheet.md` argues it.
 //
 // **Nothing costs anything per run.** The hull is the cost and it is bought once — no fuel, no
 // dispatch fee. Davide's call, 2026-08-10 ("No fuel this slice"), and it inherits `SurveyBalance`'s

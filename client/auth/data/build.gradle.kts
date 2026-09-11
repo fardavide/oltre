@@ -10,7 +10,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // match — is in `commonMain` and is covered by plain `…Test`s, because none of it needs a browser.
 // What is left per platform is the ceremony of *showing* a sheet, which is a few dozen lines each and
 // is the part no machine in this repository can run. That split is deliberate and it is what
-// `.claude/rules/session-roles.md` asks for; it is also the only way an integration nobody here can
+// `.ai/rules/session-roles.md` asks for; it is also the only way an integration nobody here can
 // execute is reviewable rather than merely trusted.
 //
 // A `data` module, so rules 2–4 forbid it from seeing a `presentation` or a `ui`. That is the point:

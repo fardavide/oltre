@@ -153,7 +153,7 @@ include(":client:world:ui")
 // The Android packaging of `:client:shell`, and the only thing in the build that depends on it
 // — AGP 9 will not let a Kotlin Multiplatform module apply `com.android.application`, so the
 // shell cannot be the Android app the way it already is the desktop one. Rule 7 names it by
-// hand as a result; the argument is in `.claude/docs/decisions.md`.
+// hand as a result; the argument is in `.ai/docs/decisions.md`.
 include(":androidApp")
 include(":server")
 

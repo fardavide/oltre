@@ -241,7 +241,7 @@ jobs:
       # the entire local suite and takes CI down. A link task compiles `commonMain` and no test.
       #
       # The check that replaces the two lines is a grep before pushing, which is what
-      # `.claude/rules/session-roles.md` already asks for and costs a second:
+      # `.ai/rules/session-roles.md` already asks for and costs a second:
       #
       #   grep -rn 'fun `[^`]*,[^`]*`(' */src/commonTest/ */*/*/src/commonTest/
       #

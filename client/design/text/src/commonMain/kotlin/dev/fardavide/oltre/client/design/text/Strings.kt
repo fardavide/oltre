@@ -1267,7 +1267,7 @@ object Strings {
     // "Coming soon" under *Never written*, Davide took the literal reading over `Settings land here.`
     // on 2026-08-22, and the note said the design system was what would get amended. The gear opens
     // something now, so the exception is closed rather than carried and the never-written list is
-    // whole again. See `.claude/docs/player-strip-sheet.md` §2.
+    // whole again. See `.ai/docs/player-strip-sheet.md` §2.
 
     // ── Alerts arriving together ────────────────────────────────────────────────────────────
     //

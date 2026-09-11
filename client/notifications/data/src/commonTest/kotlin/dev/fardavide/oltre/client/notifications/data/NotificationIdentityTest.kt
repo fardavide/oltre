@@ -53,7 +53,7 @@ import kotlin.time.Instant
 // pick** — plus the one reduction that happens after this module hands the set over.
 //
 // No comma appears in a test name: this is a `commonTest` in a module with an iOS target, and
-// Kotlin/Native rejects one where the JVM accepts it. See `.claude/rules/session-roles.md`.
+// Kotlin/Native rejects one where the JVM accepts it. See `.ai/rules/session-roles.md`.
 class NotificationIdentityTest {
 
     @Test

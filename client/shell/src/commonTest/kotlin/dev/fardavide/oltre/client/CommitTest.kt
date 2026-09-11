@@ -119,7 +119,7 @@ class CommitTest {
 
 // Local doubles rather than shared ones: each is the whole of a one-method interface, and the
 // modules that own them are KMP and cannot host Gradle test fixtures. When a second consumer
-// needs either, it graduates to a sibling `:testing` module — see `.claude/docs/decisions.md`.
+// needs either, it graduates to a sibling `:testing` module — see `.ai/docs/decisions.md`.
 private class RecordingSaveFile : SaveFile {
     var content: String? = null
         private set

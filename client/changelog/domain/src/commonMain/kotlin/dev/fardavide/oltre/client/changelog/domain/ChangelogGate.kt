@@ -2,7 +2,7 @@ package dev.fardavide.oltre.client.changelog.domain
 
 // **Whether this launch has anything new to say.** The whole of "it must open on game updated"
 // (Davide, 2026-08-23), and the only rule this feature has — everything else in it is copy or a
-// drawing. `.claude/docs/changelog-sheet.md` §2 is the table below in prose.
+// drawing. `.ai/docs/changelog-sheet.md` §2 is the table below in prose.
 //
 // A function rather than a class because it holds nothing: the two versions and the colony are the
 // entire input, which is what makes every branch of it a line in a test rather than a scenario.

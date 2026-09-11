@@ -88,7 +88,7 @@ jobs:
           if [ ${#missing[@]} -ne 0 ]; then
             echo "::error::Missing repository secrets: ${missing[*]}."
             echo "::error::An unsigned APK, or one signed with a throwaway key, will not install"
-            echo "::error::over the previous release — see .claude/docs/decisions.md."
+            echo "::error::over the previous release — see .ai/docs/decisions.md."
             exit 1
           fi
 

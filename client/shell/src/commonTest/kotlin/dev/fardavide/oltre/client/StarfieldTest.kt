@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 //
 // No comma appears in a test name here: this is a `commonTest` in a module with an iOS target, and
 // Kotlin/Native rejects one outright while the JVM compiles it happily. It cost 0.2.7 a repair
-// commit. See `.claude/rules/session-roles.md`.
+// commit. See `.ai/rules/session-roles.md`.
 class StarfieldTest {
 
     @Test
