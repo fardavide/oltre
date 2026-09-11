@@ -8,7 +8,7 @@
 // `compose.desktop.application` block in its own build file — cannot also be the Android one.
 // That is a packaging accident rather than an architectural difference: `iosApp/` is the same
 // wrapper around the same composition root, and escapes rule 7 only by being an Xcode project
-// rather than a Gradle module. See `.claude/docs/decisions.md` for the carve-out argument.
+// rather than a Gradle module. See `.ai/docs/decisions.md` for the carve-out argument.
 plugins {
     alias(libs.plugins.androidApplication)
 }

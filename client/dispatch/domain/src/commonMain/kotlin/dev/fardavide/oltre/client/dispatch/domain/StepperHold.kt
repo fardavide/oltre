@@ -14,7 +14,7 @@ import kotlin.time.Duration.Companion.milliseconds
 // `wait, step, wait, step` and holds no arithmetic of its own.
 //
 // **All four numbers are invented and expected to move on the first device session**, under the
-// motion-tuning precedent in `.claude/rules/session-roles.md`: nobody knows how long a thumb should
+// motion-tuning precedent in `.ai/rules/session-roles.md`: nobody knows how long a thumb should
 // rest before a control starts running, or how fast is fast without being unreadable, until they are
 // holding a phone. They are arithmetic rather than measurement, and marked as such here rather than
 // presented as settled. `StepperHoldTest` pins the *shape* — a rest, a ramp that only accelerates, a

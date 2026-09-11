@@ -46,7 +46,7 @@ import dev.fardavide.oltre.core.AlertMode
 // sheet and the dispatch sheet are both `ModalBottomSheet`s and both shipped; a settings panel is the
 // same shape, and a sheet is the only shape that needs no navigation stack — which this app does not
 // have and would have to invent a back control for. The design weighs a full destination and a sixth
-// tab in §1 and takes neither. *Ask Once*, accepted 2026-08-23; `.claude/docs/ask-once-sheet.md` is
+// tab in §1 and takes neither. *Ask Once*, accepted 2026-08-23; `.ai/docs/ask-once-sheet.md` is
 // what every "the design" in this module refers to.
 //
 // **There is no Save, no Done and no X.** Every control here commits on tap, like every other control

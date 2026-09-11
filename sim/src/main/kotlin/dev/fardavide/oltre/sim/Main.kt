@@ -62,7 +62,7 @@ import kotlin.time.Instant
 // reproduce is not a measurement.
 private const val SIM_GALAXY_SEED: Long = 20_260_807
 
-// Headless balancing harness. Never ships. Prints the curve table that `.claude/docs/balance-log.md`
+// Headless balancing harness. Never ships. Prints the curve table that `.ai/docs/balance-log.md`
 // carries, then fast-forwards a week of a greedy strategy that, once per simulated hour, starts
 // every mine-or-plant upgrade it can afford — cheapest first, since builds now run in parallel
 // and each start eats into the same stock.
@@ -3272,7 +3272,7 @@ private fun meanRichness(worlds: List<World>, of: (WorldTraits) -> Int): String 
     return yieldLabel(mean.toInt())
 }
 
-// ── The depletion sweep, which `.claude/docs/deposit-sheet.md` §9 makes a merge condition ────────
+// ── The depletion sweep, which `.ai/docs/deposit-sheet.md` §9 makes a merge condition ────────
 //
 // Davide took the harshest cell of the grid and asked for a brake — *"please don't allow me to screw
 // up"*. This is that brake, and it has already caught one thing: his first cap of 1,000 is below a

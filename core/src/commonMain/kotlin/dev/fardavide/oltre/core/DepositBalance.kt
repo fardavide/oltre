@@ -4,7 +4,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
-// How deep a world is, and how slowly it comes back. `.claude/docs/deposit-sheet.md` is the design;
+// How deep a world is, and how slowly it comes back. `.ai/docs/deposit-sheet.md` is the design;
 // this is its arithmetic.
 //
 // **Its own object rather than a section of `FleetBalance`, and that is not tidiness.** The hull

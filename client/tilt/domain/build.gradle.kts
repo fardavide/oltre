@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 // No Compose plugin, no Compose dependency, and — unlike every other `domain` in the build — no
 // `:core` either. That absence is the point rather than an omission: how a device is being held has
 // nothing to do with a colony, so this module knows about angles and about nothing else. It is also
-// the half a cloud session can build and test: see `.claude/tools/gradle-without-agp.sh`.
+// the half a cloud session can build and test: see `.ai/tools/gradle-without-agp.sh`.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)

@@ -43,7 +43,7 @@ allprojects {
     // `presentation`, and a `domain`) under every feature directory, so `:client:save:data` and
     // `:client:notifications:data` both became `dev.fardavide.oltre:data:<version>`. Gradle
     // reads two identical coordinates as one component, conflict-resolves them, and one of the
-    // two silently leaves the compile classpath — see `.claude/docs/decisions.md`.
+    // two silently leaves the compile classpath — see `.ai/docs/decisions.md`.
     group = "dev.fardavide.oltre" + path.substringBeforeLast(':').replace(':', '.')
     version = oltreVersion
 
@@ -590,7 +590,7 @@ kover {
                 //
                 // The **whole** sim package, not just its `MainKt`. `:sim` is a balancing harness
                 // that never ships; its output is read by a human and pasted into
-                // `.claude/docs/balance-log.md`, and every line of it is either a `println` or the
+                // `.ai/docs/balance-log.md`, and every line of it is either a `println` or the
                 // arithmetic feeding one. Naming the file's class was too narrow: 0.1.1 added three
                 // top-level private types to `Main.kt` (a blocker enum, a ledger, an options
                 // holder), Kotlin compiled them to sibling class files rather than into `MainKt`,

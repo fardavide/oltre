@@ -43,7 +43,7 @@ targets:
         # (plural), an array inside a dictionary inside CFBundleURLTypes; there is no
         # CFBundleURLScheme. Miss it and the browser completes the flow and never returns to the
         # app — a hang with no error, which is a dead control. Step 48 of
-        # `.claude/docs/identity-provisioning.md`.
+        # `.ai/docs/identity-provisioning.md`.
         CFBundleURLTypes:
           - CFBundleURLSchemes:
               - com.googleusercontent.apps.640101315805-rb18lnl9jevi2jact1mbartc82in9u85
@@ -63,7 +63,7 @@ targets:
         PRODUCT_NAME: Oltre
         MARKETING_VERSION: 0.22.0
         # Placeholder only. The shipped build number comes from $CI_BUILD_NUMBER, written in
-        # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .claude/skills/versioning.
+        # iosApp/ci_scripts/ci_pre_xcodebuild.sh — see .ai/skills/versioning.
         CURRENT_PROJECT_VERSION: 3
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         DEVELOPMENT_TEAM: A7Q83J6LR4

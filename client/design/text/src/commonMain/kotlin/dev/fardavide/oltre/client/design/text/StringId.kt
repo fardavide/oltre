@@ -566,7 +566,7 @@ enum class StringId {
     //
     // Five entries, and deliberately only five: the sixty-five releases themselves are two
     // documents in `:client:changelog:presentation` rather than two hundred and sixty ids here.
-    // `.claude/docs/changelog-sheet.md` §4 is the argument — the short of it is that an exhaustive
+    // `.ai/docs/changelog-sheet.md` §4 is the argument — the short of it is that an exhaustive
     // `when` can only catch a *missing* id, while the paired documents let a test catch a release
     // Italian never got, a date that drifted and a page that lost a line in translation.
     //

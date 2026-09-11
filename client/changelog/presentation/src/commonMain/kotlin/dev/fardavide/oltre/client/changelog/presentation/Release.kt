@@ -8,7 +8,7 @@ import kotlinx.datetime.LocalDate
 // somebody who has never seen a diff.
 //
 // The strings are `String` rather than `TextRes`, and that is the one place this feature departs from
-// "a ui model carries no bare strings". The reason is in `.claude/docs/changelog-sheet.md` §4: the
+// "a ui model carries no bare strings". The reason is in `.ai/docs/changelog-sheet.md` §4: the
 // changelog is a **document**, chosen per language before a page is built, so by the time a `Release`
 // exists the language has already been answered. What reaches the ui state is a `TextRes.Raw`
 // carrying exactly that.

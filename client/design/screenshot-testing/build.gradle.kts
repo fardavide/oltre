@@ -1,4 +1,4 @@
-// The sibling `:<module>:testing` shape from `.claude/docs/decisions.md`: KMP source sets cannot
+// The sibling `:<module>:testing` shape from `.ai/docs/decisions.md`: KMP source sets cannot
 // host Gradle test fixtures, so a helper that several modules' tests need lives in the *main*
 // source set of a module of its own. That is precisely why `oltreRoborazziOptions` was copied three
 // times before this existed.

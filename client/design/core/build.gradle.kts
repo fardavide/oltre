@@ -58,7 +58,7 @@ compose.resources {
     // Pinned, because the default is derived from the Gradle group — which means a generated
     // package, and every import of it, silently moves when the group does. It moved at 0.0.10,
     // when the group started carrying the project path to keep module coordinates unique
-    // (see `.claude/docs/decisions.md`). Naming it here makes the two independent.
+    // (see `.ai/docs/decisions.md`). Naming it here makes the two independent.
     //
     // Deliberately *not* re-pinned when `:client:design` split into layer modules at 0.0.14 and
     // this file became `:client:design:core`. The whole value of the pin is that the generated
