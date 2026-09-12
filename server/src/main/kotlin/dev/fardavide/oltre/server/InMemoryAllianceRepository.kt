@@ -29,6 +29,9 @@ internal class InMemoryAllianceRepository(
         if (alliances.values.any { AllianceRules.normalise(it.alliance.name) == AllianceRules.normalise(name) }) {
             return@withLock Founded.Refused(ApiError.AllianceNameTaken)
         }
+        if (alliances.values.any { it.alliance.tag == tag }) {
+            return@withLock Founded.Refused(ApiError.AllianceTagTaken)
+        }
             val id = ids.mint()
             val stored = StoredAlliance(
                 Alliance(id, name, tag, AllianceLevel(0), AllianceSeats(1, AllianceRules.SEAT_CAP)),

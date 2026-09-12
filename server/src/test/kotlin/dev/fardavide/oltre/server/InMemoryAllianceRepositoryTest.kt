@@ -55,7 +55,17 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(Affiliation.Unaffiliated, repository.allianceOf(PlayerId("rival"), TEST_NOW))
     }
 
+    @Test
+    fun `founding refuses a tag held by another alliance`() = runTest {
+        repository.found(founder, NAME, TAG, TEST_NOW)
+
+        val refused = assertIs<Founded.Refused>(repository.found(PlayerId("rival"), AllianceName("Rival"), TAG, TEST_NOW))
+
+        assertEquals(ApiError.AllianceTagTaken, refused.error)
+    }
+
     private companion object {
+
 
         val NAME = AllianceName("Vanguard")
         val TAG = AllianceTag("VNG")
