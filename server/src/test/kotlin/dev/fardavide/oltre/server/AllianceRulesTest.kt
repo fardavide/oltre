@@ -21,4 +21,11 @@ class AllianceRulesTest {
         assertFalse(AllianceRules.canRemove(AllianceRole.ADMIN, AllianceRole.ADMIN))
         assertFalse(AllianceRules.canRemove(AllianceRole.ADMIN, AllianceRole.FOUNDER))
     }
+
+    @Test
+    fun `the founder may remove admins and members but may not remove a founder`() {
+        assertTrue(AllianceRules.canRemove(AllianceRole.FOUNDER, AllianceRole.ADMIN))
+        assertTrue(AllianceRules.canRemove(AllianceRole.FOUNDER, AllianceRole.MEMBER))
+        assertFalse(AllianceRules.canRemove(AllianceRole.FOUNDER, AllianceRole.FOUNDER))
+    }
 }
