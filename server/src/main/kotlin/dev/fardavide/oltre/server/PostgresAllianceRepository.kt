@@ -22,6 +22,11 @@ internal class PostgresAllianceRepository(
 
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         dataSource.transaction { connection ->
+            when (val verdict = AllianceRules.founding(connection.selectAffiliation(player), name, tag, emptyList())) {
+                is FoundingVerdict.Refused -> return@transaction Founded.Refused(verdict.error)
+                is FoundingVerdict.Retry -> return@transaction Founded.AlreadyFounded(verdict.alliance)
+                FoundingVerdict.Proceed -> Unit
+            }
             val id = ids.mint()
             connection.update(INSERT_ALLIANCE) {
                 setString(1, id.value)

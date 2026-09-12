@@ -38,6 +38,19 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(1, database.rowsIn("alliance_members"))
     }
 
+    @Test
+    fun `retrying founding reads the same alliance instead of violating uniqueness`() = runTest {
+        val name = AllianceName("Vanguard")
+        val tag = AllianceTag("VNG")
+        val first = assertIs<Founded.Made>(repository.found(founder, name, tag, TEST_NOW))
+
+        val again = assertIs<Founded.AlreadyFounded>(repository.found(founder, name, tag, TEST_NOW))
+
+        assertEquals(first.alliance, again.alliance)
+        assertEquals(1, database.rowsIn("alliances"))
+        assertEquals(1, database.rowsIn("alliance_members"))
+    }
+
     private companion object {
 
         @get:ClassRule
