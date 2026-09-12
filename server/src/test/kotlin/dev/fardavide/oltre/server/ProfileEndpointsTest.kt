@@ -24,7 +24,7 @@ import kotlin.test.assertIs
 class ProfileEndpointsTest {
 
     private val colonies = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+    private val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies), ids = sequentialPlayerIds())
     private val authenticator = HeaderAuthenticator(players)
     private val chosen = PlayerProfile(
         name = CommanderName("Ada di Notte"),

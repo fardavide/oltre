@@ -20,7 +20,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlin.time.Clock
 
-// **The engine, answering — and nothing in this file decides anything.** Six routes: the two `#108`
+// **The engine, answering — and nothing in this file decides anything.** The two `#108`
 // landed, and the four `#110` added so that a colony belongs to somebody. What each one does is
 // `Endpoints.kt` and `AuthEndpoints.kt`, which know nothing about HTTP and are therefore reachable by
 // plain unit tests; what is here is the transport.
@@ -128,6 +128,34 @@ internal fun Application.oltre(
 
             get("/alliance") {
                 call.send(readAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/join") {
+                call.send(petitionAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            delete("/alliance/membership") {
+                call.send(detachAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/name") {
+                call.send(renameAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            delete("/alliance") {
+                call.send(disbandAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/join/answer") {
+                call.send(answerAlliancePetition(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            post("/alliance/members/remove") {
+                call.send(removeAllianceMember(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            post("/alliance/members/role") {
+                call.send(setAllianceMemberRole(alliances, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
             post("/sync") {

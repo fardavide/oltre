@@ -189,7 +189,7 @@ private data class FoundColony(val status: HttpStatusCode, val colony: StoredCol
 // turns one wedged colony into a wedged instance. Losing three times in a row is `ApiError
 // .StaleColony`, and the client's answer to that is to sync again in a moment, which is the same
 // work with the queue in front of it drained.
-private const val WRITE_ATTEMPTS = 3
+internal const val WRITE_ATTEMPTS = 3
 
 // **One shape for both endpoints**, because they differ in exactly one step. Admit the request, get
 // the colony, replay what was queued against it, persist, answer.

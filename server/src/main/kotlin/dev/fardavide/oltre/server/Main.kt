@@ -110,7 +110,8 @@ private fun postgres(url: String): Triple<ColonyRepository, PlayerRepository, Al
 private fun inMemory(): Triple<ColonyRepository, PlayerRepository, AllianceRepository> {
     println("$DATABASE_URL is not set: colonies will live in memory and die with this process.")
     val colonies = InMemoryColonyRepository()
-    return Triple(colonies, InMemoryPlayerRepository(colonies), InMemoryAllianceRepository(colonies))
+    val alliances = InMemoryAllianceRepository(colonies)
+    return Triple(colonies, InMemoryPlayerRepository(colonies, alliances), alliances)
 }
 
 private const val DATABASE_URL = "DATABASE_URL"

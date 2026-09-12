@@ -473,7 +473,7 @@ kover {
                 // lists everything left for later. Every later slice below is exactly what each
                 // half of this exclusion is waiting for.
                 //
-                // **The integration half comes out at `#138`**, when the alliance-exists slice adds
+                // **The integration half came out at `#138`**, when the alliance-exists slice added
                 // the tables and the repository an integration test can round-trip against.
                 // `:protocol` carries no integration tests of its own — what this pass measures for
                 // the module has always been whatever `:server`'s repository tests happen to touch
@@ -494,7 +494,7 @@ kover {
                 // Measured on the PR that added this: integration line 29.6% → 29.5%, branch
                 // 20.7% → 20.4%; behaviour line 93.2% → 92.3%, branch 70.6% → 69.7% — four gated
                 // rows on a slice that shipped no route, no repository, no screen and drew nothing.
-                if (testCategory == "integration" || testCategory == "behaviour") {
+                if (testCategory == "behaviour") {
                     classes(
                         "dev.fardavide.oltre.protocol.*Alliance*",
                         "dev.fardavide.oltre.protocol.JoinRequestId",

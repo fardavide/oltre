@@ -30,7 +30,7 @@ class AuthEndpointsTest {
 
     private val clock = MovableClock(TEST_NOW)
     private val colonies = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+    private val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies), ids = sequentialPlayerIds())
     private val source = FakeJwksSource(jwksOf(providerKey))
     private val sessions = Sessions(TEST_SIGNING_KEY, clock)
     private val identity = Identity(

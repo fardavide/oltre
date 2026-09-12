@@ -32,7 +32,7 @@ import kotlin.time.Duration.Companion.days
 class EndpointsTest {
 
     private val repository = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(repository, ids = sequentialPlayerIds())
+    private val players = InMemoryPlayerRepository(repository, InMemoryAllianceRepository(repository), ids = sequentialPlayerIds())
     private val authenticator = HeaderAuthenticator(players)
     private val clock = MovableClock(TEST_NOW)
 

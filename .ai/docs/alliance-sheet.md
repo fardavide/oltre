@@ -32,6 +32,7 @@ argument, a proposal or a flag, in the shape [`galaxy-sheet.md`](galaxy-sheet.md
 | A founder replaced by succession becomes an **admin**, with no automatic restoration | yes | Davide, 2026-09-12, issue #138 |
 | An admin may **remove members only**, never another admin or the founder | yes | Davide, 2026-09-12, issue #138 |
 | The lifecycle uses a **temporary cap of 20 members**, including founder and admins | yes | Davide, 2026-09-12, issue #138; curve deferred to balance |
+| A pending join request must be **withdrawn before founding or petitioning a different alliance**; retrying the same petition preserves it | yes | Davide, 2026-09-12, issue #138 |
 
 ---
 
