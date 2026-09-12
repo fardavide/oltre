@@ -28,6 +28,11 @@ argument, a proposal or a flag, in the shape [`galaxy-sheet.md`](galaxy-sheet.md
 | The level runs on the **total only** — no per-member average beside it | yes | Davide, 2026-09-05 |
 | Where the alliance lives in the UI | **Claude Design's**, from the round trip | Davide, 2026-09-05 |
 | The price, the gate, the ladder, the caps | open — the balance round | §5, §9 |
+| Inactivity for succession is **30 days without a colony sync** | yes | Davide, 2026-09-12, issue #138 |
+| A founder replaced by succession becomes an **admin**, with no automatic restoration | yes | Davide, 2026-09-12, issue #138 |
+| An admin may **remove members only**, never another admin or the founder | yes | Davide, 2026-09-12, issue #138 |
+| The lifecycle uses a **temporary cap of 20 members**, including founder and admins | yes | Davide, 2026-09-12, issue #138; curve deferred to balance |
+| A pending join request must be **withdrawn before founding or petitioning a different alliance**; retrying the same petition preserves it | yes | Davide, 2026-09-12, issue #138 |
 
 ---
 
@@ -455,8 +460,9 @@ Notes belonging to the whole epic rather than one slice:
 ## 9. Open, and every one is Davide's
 
 1. **The price and the gate on founding** (§5.1).
-2. **What "active" means** for succession — a number of days without a sync (§5.3). Wants to be long.
-3. **Which powers an admin gets** (§5.3). The proposal keeps rename and disband with the founder.
+2. **What "active" means** for succession — settled 2026-09-12: a colony sync within 30 days (§0).
+3. **Which powers an admin gets** (§5.3) — settled 2026-09-12: answer requests and remove members only;
+   rename, disband and setting roles stay with the founder. A replaced founder becomes an admin (§0).
 4. **The anti-alt levers** (§2) — member cap, per-member contribution ceiling, sub-linear XP curve, or
    an accepted residual.
 5. **The ladder's step and the member cap's curve** — the balance round, and it has no simulator (§8).

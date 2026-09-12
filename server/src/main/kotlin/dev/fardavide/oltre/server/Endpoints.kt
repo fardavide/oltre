@@ -2,6 +2,7 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.AllianceResponse
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
@@ -61,6 +62,8 @@ internal sealed interface Answer {
     // Who the player says they are, from a read or from the write that changed it. Its own member
     // for `Session`'s reason and no other: `respond` picks its serializer from the static type.
     data class Profile(override val status: HttpStatusCode, val response: ProfileResponse) : Answer
+
+    data class Alliance(override val status: HttpStatusCode, val response: AllianceResponse) : Answer
 
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
@@ -186,7 +189,7 @@ private data class FoundColony(val status: HttpStatusCode, val colony: StoredCol
 // turns one wedged colony into a wedged instance. Losing three times in a row is `ApiError
 // .StaleColony`, and the client's answer to that is to sync again in a moment, which is the same
 // work with the queue in front of it drained.
-private const val WRITE_ATTEMPTS = 3
+internal const val WRITE_ATTEMPTS = 3
 
 // **One shape for both endpoints**, because they differ in exactly one step. Admit the request, get
 // the colony, replay what was queued against it, persist, answer.

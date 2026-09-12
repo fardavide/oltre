@@ -49,6 +49,8 @@ dependencies {
     // framework would keep in step.
     implementation(libs.hikari)
     implementation(libs.postgresql)
+    // Full Unicode case folding defines alliance uniqueness; lowercase does not fold Straße/STRASSE.
+    implementation(libs.icu4j)
 
     testImplementation(libs.kotlin.test)
     testImplementation(libs.ktor.server.test.host)

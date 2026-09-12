@@ -13,6 +13,7 @@ compose-multiplatform = "1.11.1"
 embedded-postgres = "2.2.2"
 embedded-postgres-binaries = "17.10.0"
 hikari = "6.3.0"
+icu4j = "78.3"
 kotlin = "2.4.10"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
@@ -54,6 +55,7 @@ embedded-postgres-binaries-bom = { module = "io.zonky.test.postgres:embedded-pos
 embedded-postgres-binaries-darwin-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-darwin-arm64v8", version.ref = "embedded-postgres-binaries" }
 embedded-postgres-binaries-linux-arm64v8 = { module = "io.zonky.test.postgres:embedded-postgres-binaries-linux-arm64v8", version.ref = "embedded-postgres-binaries" }
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+icu4j = { module = "com.ibm.icu:icu4j", version.ref = "icu4j" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }

@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.MarkBody
 import dev.fardavide.oltre.protocol.MarkPath
@@ -25,7 +27,8 @@ import kotlin.test.assertTrue
 class InMemoryPlayerRepositoryTest {
 
     private val colonies = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+    private val alliances = InMemoryAllianceRepository(colonies)
+    private val players = InMemoryPlayerRepository(colonies, alliances = alliances, ids = sequentialPlayerIds())
     private val mine = ProviderIdentity(ProviderName("google"), "subject-a")
     private val theirs = ProviderIdentity(ProviderName("google"), "subject-b")
     private val chosen = PlayerProfile(
@@ -116,6 +119,16 @@ class InMemoryPlayerRepositoryTest {
     }
 
     @Test
+    fun `forgetting an account also removes its alliance seat`() = runTest {
+        val player = players.resolve(mine)
+        alliances.found(player, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW)
+
+        assertTrue(players.forget(player))
+
+        assertEquals(Affiliation.Unaffiliated, alliances.allianceOf(player, TEST_NOW))
+    }
+
+    @Test
     fun `one player's deletion leaves another's colony alone`() = runTest {
         val player = players.resolve(mine)
         val other = players.resolve(theirs)
@@ -134,7 +147,7 @@ class InMemoryPlayerRepositoryTest {
         // that says the shipping mint is a surrogate key rather than anything derived. Two calls, two
         // ids — which is what makes "signing in again after a deletion is a new player" true in
         // production and not only in a fixture.
-        val real = InMemoryPlayerRepository(colonies, ids = PlayerIds.RANDOM)
+        val real = InMemoryPlayerRepository(colonies, alliances, ids = PlayerIds.RANDOM)
 
         assertNotEquals(real.resolve(mine), real.resolve(theirs))
     }

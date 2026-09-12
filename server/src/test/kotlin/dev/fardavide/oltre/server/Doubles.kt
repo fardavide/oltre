@@ -1,6 +1,13 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.JoinRequestId
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.concurrent.atomic.AtomicInteger
@@ -74,6 +81,29 @@ internal class UnreachablePlayerRepository : PlayerRepository {
     override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean = error("no route to host")
 }
 
+internal class UnreachableAllianceRepository : AllianceRepository {
+
+    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded = error("no route to host")
+
+    override suspend fun allianceOf(player: PlayerId, now: Instant): Affiliation = error("no route to host")
+
+    override suspend fun alliance(id: AllianceId, now: Instant): AllianceLookup = error("no route to host")
+
+    override suspend fun petition(player: PlayerId, alliance: AllianceId, now: Instant, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun detach(player: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun approve(caller: PlayerId, alliance: AllianceId, request: JoinRequestId, decision: JoinDecision, now: Instant, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun setRole(caller: PlayerId, alliance: AllianceId, member: AllianceMemberId, role: AllianceRole, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun kick(caller: PlayerId, alliance: AllianceId, member: AllianceMemberId, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun rename(caller: PlayerId, alliance: AllianceId, name: AllianceName, tag: AllianceTag, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun disband(caller: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange = error("no route to host")
+}
+
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
 // `catch` on both route files reads `e.message`, and a `NullPointerException`, a
 // `ConcurrentModificationException` or a driver's own internal error routinely carries none — so
@@ -120,7 +150,7 @@ internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
 // endpoint's `Unauthenticated` arm without a race a test cannot schedule.
 internal class VanishingPlayerRepository(colonies: InMemoryColonyRepository) : PlayerRepository {
 
-    private val store = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+    private val store = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies), ids = sequentialPlayerIds())
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = store.resolve(identity)
 

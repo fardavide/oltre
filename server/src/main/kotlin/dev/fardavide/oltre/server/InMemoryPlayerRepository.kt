@@ -17,6 +17,7 @@ import kotlinx.coroutines.sync.withLock
 // questions of the tables.
 internal class InMemoryPlayerRepository(
     private val colonies: InMemoryColonyRepository,
+    private val alliances: InMemoryAllianceRepository,
     private val ids: PlayerIds = PlayerIds.RANDOM,
 ) : PlayerRepository {
 
@@ -45,6 +46,7 @@ internal class InMemoryPlayerRepository(
         // with it and there is nothing over there to write.
         profiles.remove(player)
         colonies.forget(player)
+        alliances.forget(player)
         true
     }
 

@@ -231,7 +231,7 @@ class AppleNotificationEndpointTest {
     private val key = ProviderKey(keyId = "apple-key-1")
     private val clock = MovableClock(TEST_NOW)
     private val colonies = InMemoryColonyRepository()
-    private val players = InMemoryPlayerRepository(colonies, sequentialPlayerIds())
+    private val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies), ids = sequentialPlayerIds())
     private val identity = Identity(
         verifier = IdTokenVerifier(mapOf(IdentityProvider.APPLE to APPLE_SPEC), JwksKeys(FakeJwksSource(jwksOf(key)), clock), clock),
         sessions = Sessions(TEST_SIGNING_KEY, clock),

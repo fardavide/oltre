@@ -7,6 +7,19 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceSeats
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.CreateAllianceRequest
+import dev.fardavide.oltre.protocol.JoinAllianceRequest
+import dev.fardavide.oltre.protocol.RenameAllianceRequest
+import dev.fardavide.oltre.protocol.AnswerJoinRequest
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.SetMemberRoleRequest
+import dev.fardavide.oltre.protocol.KickMemberRequest
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
@@ -30,17 +43,20 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -307,6 +323,7 @@ class OltreServerIntegrationTest {
             oltre(
                 colonies = UnreachableColonyRepository(),
                 players = UnreachablePlayerRepository(),
+                alliances = UnreachableAllianceRepository(),
                 clock = MovableClock(TEST_NOW),
                 identity = null,
             )
@@ -421,6 +438,104 @@ class OltreServerIntegrationTest {
         assertEquals(PlayerProfile(name = null, mark = null), theirs.profile().profile)
     }
 
+    // ── The alliance ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `every alliance route requires a bearer credential before trusting the player header or reading the body`() = testApplication {
+        signedInServer()
+        val routes: List<Pair<HttpMethod, String>> = listOf(
+            HttpMethod.Get to "/v1/alliance",
+            HttpMethod.Post to "/v1/alliance",
+            HttpMethod.Post to "/v1/alliance/join",
+            HttpMethod.Delete to "/v1/alliance/membership",
+            HttpMethod.Post to "/v1/alliance/join/answer",
+            HttpMethod.Post to "/v1/alliance/members/role",
+            HttpMethod.Post to "/v1/alliance/members/remove",
+            HttpMethod.Post to "/v1/alliance/name",
+            HttpMethod.Delete to "/v1/alliance",
+        )
+
+        for ((verb, path) in routes) {
+            val response = client.request(path) {
+                method = verb
+                header(Protocol.PLAYER_HEADER, "forged-player")
+                contentType(ContentType.Application.Json)
+                setBody("{malformed")
+            }
+
+            assertEquals(HttpStatusCode.Unauthorized, response.status, "$verb $path")
+            assertEquals(ApiError.Unauthenticated, response.apiError(), "$verb $path")
+        }
+    }
+
+    @Test
+    fun `founding an alliance answers 201 with the founder role and twenty seats`() = testApplication {
+        server()
+        val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
+
+        val response = postRaw("/v1/alliance", Protocol.json.encodeToString(request))
+
+        assertEquals(HttpStatusCode.Created, response.status, response.bodyAsText())
+        val body = Protocol.json.decodeFromString<AllianceResponse>(response.bodyAsText())
+        val enlisted = assertIs<AllianceStanding.Enlisted>(body.standing)
+        assertEquals(ApiVersion.CURRENT, body.apiVersion)
+        assertEquals(AllianceRole.FOUNDER, enlisted.role)
+        assertEquals(request.name, enlisted.alliance.name)
+        assertEquals(request.tag, enlisted.alliance.tag)
+        assertEquals(AllianceSeats(1, 20), enlisted.alliance.seats)
+    }
+
+    @Test
+    fun `a petition is read and withdrawn over its contract routes`() = testApplication {
+        server()
+        val created = postRaw("/v1/alliance", Protocol.json.encodeToString(CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))))
+        val alliance = assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(created.bodyAsText()).standing).alliance
+
+        val pending = postRaw("/v1/alliance/join", Protocol.json.encodeToString(JoinAllianceRequest(ApiVersion.CURRENT, alliance.id)), player = "applicant")
+
+        assertEquals(HttpStatusCode.OK, pending.status, pending.bodyAsText())
+        assertEquals(AllianceStanding.Petitioning(alliance), Protocol.json.decodeFromString<AllianceResponse>(pending.bodyAsText()).standing)
+        val read = client.get("/v1/alliance") { header(Protocol.PLAYER_HEADER, "applicant") }
+        assertEquals(pending.bodyAsText(), read.bodyAsText())
+        val withdrawn = client.delete("/v1/alliance/membership") { header(Protocol.PLAYER_HEADER, "applicant") }
+        assertEquals(HttpStatusCode.OK, withdrawn.status, withdrawn.bodyAsText())
+        assertEquals(AllianceStanding.Unaffiliated, Protocol.json.decodeFromString<AllianceResponse>(withdrawn.bodyAsText()).standing)
+    }
+
+    @Test
+    fun `the alliance management lifecycle answers authoritative state over HTTP`() = testApplication {
+        val clock = MovableClock(TEST_NOW)
+        val colonies = InMemoryColonyRepository()
+        val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
+        val authenticator = HeaderAuthenticator(players)
+        val applicant = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "applicant"))).player
+        application { oltre(colonies, players, alliances, clock, identity = null) }
+        val created = postRaw("/v1/alliance", Protocol.json.encodeToString(CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))))
+        val alliance = assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(created.bodyAsText()).standing).alliance
+
+        val renamed = postRaw("/v1/alliance/name", Protocol.json.encodeToString(RenameAllianceRequest(ApiVersion.CURRENT, AllianceName("New Vanguard"), AllianceTag("NEW"))))
+
+        assertEquals(HttpStatusCode.OK, renamed.status, renamed.bodyAsText())
+        assertEquals(AllianceName("New Vanguard"), assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(renamed.bodyAsText()).standing).alliance.name)
+        assertEquals(HttpStatusCode.OK, postRaw("/v1/alliance/join", Protocol.json.encodeToString(JoinAllianceRequest(ApiVersion.CURRENT, alliance.id)), player = "applicant").status)
+        val petition = assertIs<Affiliation.Petitioning>(alliances.allianceOf(applicant, TEST_NOW)).petition
+        val approved = postRaw("/v1/alliance/join/answer", Protocol.json.encodeToString(AnswerJoinRequest(ApiVersion.CURRENT, petition.id, JoinDecision.ADMITTED)))
+        assertEquals(HttpStatusCode.OK, approved.status, approved.bodyAsText())
+        assertEquals(2, assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(approved.bodyAsText()).standing).alliance.seats.taken)
+        val member = assertIs<Affiliation.Enlisted>(alliances.allianceOf(applicant, TEST_NOW))
+        val promoted = postRaw("/v1/alliance/members/role", Protocol.json.encodeToString(SetMemberRoleRequest(ApiVersion.CURRENT, member.seat.id, AllianceRole.ADMIN)))
+        assertEquals(HttpStatusCode.OK, promoted.status, promoted.bodyAsText())
+        assertEquals(AllianceRole.ADMIN, assertIs<Affiliation.Enlisted>(alliances.allianceOf(applicant, TEST_NOW)).seat.role)
+        val removed = postRaw("/v1/alliance/members/remove", Protocol.json.encodeToString(KickMemberRequest(ApiVersion.CURRENT, member.seat.id)))
+        assertEquals(HttpStatusCode.OK, removed.status, removed.bodyAsText())
+        assertEquals(1, assertIs<AllianceStanding.Enlisted>(Protocol.json.decodeFromString<AllianceResponse>(removed.bodyAsText()).standing).alliance.seats.taken)
+        assertEquals(Affiliation.Unaffiliated, alliances.allianceOf(applicant, TEST_NOW))
+        val disbanded = client.delete("/v1/alliance") { header(Protocol.PLAYER_HEADER, "davide") }
+        assertEquals(HttpStatusCode.OK, disbanded.status, disbanded.bodyAsText())
+        assertEquals(AllianceStanding.Unaffiliated, Protocol.json.decodeFromString<AllianceResponse>(disbanded.bodyAsText()).standing)
+    }
+
     // ── The harness ───────────────────────────────────────────────────────────────────────────
 
     // One permit a minute, so "over quota" is the second request rather than the twenty-first and the
@@ -434,10 +549,12 @@ class OltreServerIntegrationTest {
     private fun ApplicationTestBuilder.server(limiter: RateLimiter = RateLimiter(MovableClock(TEST_NOW))): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
+        val alliances = InMemoryAllianceRepository(colonies)
         application {
             oltre(
                 colonies,
-                InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds()),
+                InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds()),
+                alliances,
                 clock,
                 identity = null,
                 limiter = limiter,
@@ -454,11 +571,13 @@ class OltreServerIntegrationTest {
     ): MovableClock {
         val clock = MovableClock(TEST_NOW)
         val colonies = InMemoryColonyRepository()
-        val players = InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds())
+        val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
         application {
             oltre(
                 colonies = colonies,
                 players = players,
+                alliances = alliances,
                 clock = clock,
                 identity = Identity(
                     verifier = IdTokenVerifier(

@@ -20,7 +20,7 @@ import io.ktor.server.routing.route
 import io.ktor.server.routing.routing
 import kotlin.time.Clock
 
-// **The engine, answering — and nothing in this file decides anything.** Six routes: the two `#108`
+// **The engine, answering — and nothing in this file decides anything.** The two `#108`
 // landed, and the four `#110` added so that a colony belongs to somebody. What each one does is
 // `Endpoints.kt` and `AuthEndpoints.kt`, which know nothing about HTTP and are therefore reachable by
 // plain unit tests; what is here is the transport.
@@ -31,6 +31,7 @@ import kotlin.time.Clock
 internal fun Application.oltre(
     colonies: ColonyRepository,
     players: PlayerRepository,
+    alliances: AllianceRepository,
     clock: Clock,
     // **Null is a server with no session key**, which is `./gradlew :server:run` and nothing that is
     // deployed — `Main.kt` refuses to start in the one combination where that would be dangerous.
@@ -121,6 +122,42 @@ internal fun Application.oltre(
                 call.send(foundColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
+            post("/alliance") {
+                call.send(foundAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            get("/alliance") {
+                call.send(readAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/join") {
+                call.send(petitionAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            delete("/alliance/membership") {
+                call.send(detachAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/name") {
+                call.send(renameAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            delete("/alliance") {
+                call.send(disbandAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/join/answer") {
+                call.send(answerAlliancePetition(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            post("/alliance/members/remove") {
+                call.send(removeAllianceMember(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            post("/alliance/members/role") {
+                call.send(setAllianceMemberRole(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
             post("/sync") {
                 call.send(syncColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
             }
@@ -185,6 +222,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Colony -> respond(answer.status, answer.response)
         is Answer.Session -> respond(answer.status, answer.response)
         is Answer.Profile -> respond(answer.status, answer.response)
+        is Answer.Alliance -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

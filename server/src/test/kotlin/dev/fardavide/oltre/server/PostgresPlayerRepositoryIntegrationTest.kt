@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.MarkBody
 import dev.fardavide.oltre.protocol.MarkPath
@@ -19,6 +21,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -156,6 +159,39 @@ class PostgresPlayerRepositoryIntegrationTest {
         assertEquals(0, database.rowsIn("applied_verbs"))
         assertNull(colonies.colonyOf(player))
         assertEquals(emptySet(), colonies.appliedAmong(player, setOf(key)))
+    }
+
+    @Test
+    fun `deleting a pending applicant cascades their colony and petition while preserving the alliance and founder`() = runTest {
+        val applicant = players.resolve(mine)
+        val founder = players.resolve(theirs)
+        colonies.found(applicant, freshColony(seed = 1))
+        val founderColony = colonies.found(founder, freshColony(seed = 2)).colony
+        val alliances = PostgresAllianceRepository(database)
+        val made = assertIs<Founded.Made>(alliances.found(founder, AllianceName("Vanguard"), AllianceTag("VNG"), clock.now()))
+        val petitioned = assertIs<AllianceChange.Applied>(alliances.petition(applicant, made.alliance.alliance.id, clock.now(), made.alliance.version))
+        assertIs<Affiliation.Petitioning>(petitioned.affiliation)
+        val founderBefore = assertIs<Affiliation.Enlisted>(alliances.allianceOf(founder, clock.now()))
+        assertEquals(1, database.rowsIn("alliance_requests"))
+
+        assertTrue(players.forget(applicant))
+
+        val reopenedPlayers = PostgresPlayerRepository(database, clock)
+        val reopenedColonies = PostgresColonyRepository(database, clock)
+        val reopenedAlliances = PostgresAllianceRepository(database)
+        assertFalse(reopenedPlayers.exists(applicant))
+        assertTrue(reopenedPlayers.exists(founder))
+        assertNull(reopenedPlayers.find(mine))
+        assertEquals(founder, reopenedPlayers.find(theirs))
+        assertNull(reopenedColonies.colonyOf(applicant))
+        assertEquals(founderColony, reopenedColonies.colonyOf(founder))
+        assertEquals(Affiliation.Unaffiliated, reopenedAlliances.allianceOf(applicant, clock.now()))
+        assertEquals(founderBefore, reopenedAlliances.allianceOf(founder, clock.now()))
+        assertEquals(1, database.rowsIn("players"))
+        assertEquals(1, database.rowsIn("colonies"))
+        assertEquals(0, database.rowsIn("alliance_requests"))
+        assertEquals(1, database.rowsIn("alliance_members"))
+        assertEquals(1, database.rowsIn("alliances"))
     }
 
     @Test
