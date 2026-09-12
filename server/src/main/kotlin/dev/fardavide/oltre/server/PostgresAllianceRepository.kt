@@ -21,6 +21,22 @@ internal class PostgresAllianceRepository(
     private val ids: AllianceIds = AllianceIds.RANDOM,
 ) : AllianceRepository {
 
+    override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = dataSource.transaction { connection ->
+        connection.query(if (cursor == null) SEARCH_ALLIANCES else SEARCH_AFTER_ALLIANCE, bind = {
+            setString(1, query.likePrefix)
+            if (cursor == null) {
+                setInt(2, limit)
+            } else {
+                setLong(2, cursor.experience)
+                setLong(3, cursor.experience)
+                setString(4, cursor.name.value)
+                setString(5, cursor.name.value)
+                setString(6, cursor.id.value)
+                setInt(7, limit)
+            }
+        }, read = { rows -> buildList { while (rows.next()) add(rows.storedAlliance()) } })
+    }
+
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         dataSource.transaction { connection ->
             when (val verdict = AllianceRules.founding(connection.selectAffiliation(player), name, tag, emptyList())) {
@@ -349,6 +365,22 @@ private const val SELECT_AFFILIATION = """
            (SELECT count(*) FROM alliance_members WHERE alliance_id = a.id) AS seat_count
     FROM alliances a JOIN alliance_members m ON m.alliance_id = a.id
     WHERE m.player_id = ?
+"""
+
+private const val SEARCH_ALLIANCES = """
+    SELECT a.*, (SELECT count(*) FROM alliance_members WHERE alliance_id = a.id) AS seat_count
+    FROM alliances a WHERE normalised_name COLLATE "C" LIKE ?
+    ORDER BY experience DESC, normalised_name COLLATE "C" ASC, id COLLATE "C" ASC
+    LIMIT ?
+"""
+
+private const val SEARCH_AFTER_ALLIANCE = """
+    SELECT a.*, (SELECT count(*) FROM alliance_members WHERE alliance_id = a.id) AS seat_count
+    FROM alliances a WHERE normalised_name COLLATE "C" LIKE ?
+      AND (experience < ? OR (experience = ? AND
+           (normalised_name COLLATE "C" > ? OR (normalised_name COLLATE "C" = ? AND id COLLATE "C" > ?))))
+    ORDER BY experience DESC, normalised_name COLLATE "C" ASC, id COLLATE "C" ASC
+    LIMIT ?
 """
 
 private const val SELECT_ALLIANCE = """

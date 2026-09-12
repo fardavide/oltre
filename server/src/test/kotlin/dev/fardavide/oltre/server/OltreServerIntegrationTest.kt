@@ -9,6 +9,7 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceStanding
@@ -43,6 +44,7 @@ import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
+import io.ktor.client.request.parameter
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -439,6 +441,84 @@ class OltreServerIntegrationTest {
     }
 
     // ── The alliance ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the search route forwards the query and cursor across two capped pages`() = testApplication {
+        server()
+        repeat(25) { number ->
+            assertEquals(HttpStatusCode.Created, postRaw("/v1/alliance", Protocol.json.encodeToString(
+                CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F$number")),
+            ), player = "founder-$number").status)
+        }
+        val first = client.get("/v1/alliance/search") {
+            header(Protocol.PLAYER_HEADER, "visitor")
+            parameter("q", "FLEET")
+            parameter("limit", "100000")
+        }
+        assertEquals(HttpStatusCode.OK, first.status)
+        val page = Protocol.json.decodeFromString<AllianceSearchResponse>(first.bodyAsText())
+        val next = kotlin.test.assertNotNull(page.nextCursor)
+
+        val second = client.get("/v1/alliance/search") {
+            header(Protocol.PLAYER_HEADER, "visitor")
+            parameter("q", "FLEET")
+            parameter("cursor", next.value)
+        }
+
+        assertEquals(HttpStatusCode.OK, second.status)
+        val last = Protocol.json.decodeFromString<AllianceSearchResponse>(second.bodyAsText())
+        assertEquals(20, page.results.size)
+        assertEquals(null, last.nextCursor)
+        assertEquals((0..24).map { "Fleet ${it.toString().padStart(2, '0')}" }, (page.results + last.results).map { it.name.value })
+    }
+
+    @Test
+    fun `alliance search has its own quota and retry header without limiting other routes`() = testApplication {
+        val clock = MovableClock(TEST_NOW)
+        val colonies = InMemoryColonyRepository()
+        val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances)
+        application { oltre(colonies, players, alliances, clock, identity = null, limiter = oneRequestLimiter(), searchLimiter = oneRequestLimiter()) }
+        val first = client.get("/v1/alliance/search?q=fleet") { header(Protocol.PLAYER_HEADER, "visitor") }
+        assertEquals(HttpStatusCode.OK, first.status)
+
+        val refused = client.get("/v1/alliance/search?q=fleet") { header(Protocol.PLAYER_HEADER, "visitor") }
+
+        assertEquals(HttpStatusCode.TooManyRequests, refused.status)
+        assertEquals("60", refused.headers[HttpHeaders.RetryAfter])
+        assertEquals(ApiError.TooManyRequests(60), refused.apiError())
+        repeat(3) {
+            assertEquals(HttpStatusCode.OK, client.get("/v1/alliance") { header(Protocol.PLAYER_HEADER, "visitor") }.status)
+            assertEquals(HttpStatusCode.OK, getProfile(player = "visitor").status)
+        }
+        assertEquals(HttpStatusCode.Created, postRaw("/v1/alliance", Protocol.json.encodeToString(CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Fleet"), AllianceTag("FLT"))), player = "visitor").status)
+        assertEquals(HttpStatusCode.Created, post("/v1/colony", sync()).status)
+        assertEquals(HttpStatusCode.ServiceUnavailable, postRaw("/v1/auth/google", signIn(), player = null).status)
+    }
+
+    @Test
+    fun `alliance search requires a credential and answers an empty page with the normalised query`() = testApplication {
+        signedInServer()
+
+        val unauthenticated = client.get("/v1/alliance/search") {
+            header(Protocol.PLAYER_HEADER, "forged-player")
+            parameter("q", "  VANGUARD   FLEET  ")
+        }
+        assertEquals(HttpStatusCode.Unauthorized, unauthenticated.status)
+        assertEquals(ApiError.Unauthenticated, unauthenticated.apiError())
+
+        val session = post("/v1/auth/google", signIn()).session()
+        val response = client.get("/v1/alliance/search") {
+            bearer(session.accessToken)
+            parameter("q", "  VANGUARD   FLEET  ")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertEquals(
+            AllianceSearchResponse(ApiVersion.CURRENT, "vanguard fleet", emptyList(), null),
+            Protocol.json.decodeFromString<AllianceSearchResponse>(response.bodyAsText()),
+        )
+    }
 
     @Test
     fun `every alliance route requires a bearer credential before trusting the player header or reading the body`() = testApplication {

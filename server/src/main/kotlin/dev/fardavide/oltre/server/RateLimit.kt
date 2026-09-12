@@ -9,7 +9,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Instant
 
-// **The guard on the only routes anybody can reach without a session.** Step 45 of
+// The guard on public authentication routes and on repeated alliance searches. Step 45 of
 // `identity-provisioning.md` asks for it in the same breath as the startup self-check, and the reason
 // is arithmetic rather than caution: `/v1/auth/*` is unauthenticated, publicly reachable and does an
 // RS256 verification per request, on a host that bills per request. Everything else behind `/v1`
@@ -55,6 +55,11 @@ private const val MILLIS_PER_SECOND = 1_000
 // seconds, and that must not look like an attack.
 private const val PERMITS = 20
 private val WINDOW: Duration = 1.minutes
+
+// A 300ms type-ahead makes about nine requests per name. Sixty permits allow six attempts plus
+// page turns per minute. This budget is separate so searching cannot spend the sign-in allowance.
+private const val SEARCH_PERMITS = 60
+private val SEARCH_WINDOW: Duration = 1.minutes
 
 // **The map is the attack surface this class adds**, so it has a ceiling. A caller rotating its
 // address mints an entry per request, and an unbounded map on a 512 MiB instance is a way to take the
@@ -132,6 +137,11 @@ internal class RateLimiter(
         // the ceiling is at least one, so the empty case is a state that cannot occur — and a safe
         // call for it would be an arm no test could ever reach.
         arriveBy.remove(arriveBy.minBy { it.value }.key)
+    }
+
+    companion object {
+
+        fun allianceSearch(clock: Clock): RateLimiter = RateLimiter(clock, permits = SEARCH_PERMITS, window = SEARCH_WINDOW)
     }
 }
 

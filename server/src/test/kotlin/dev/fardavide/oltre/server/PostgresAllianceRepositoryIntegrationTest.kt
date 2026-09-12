@@ -42,6 +42,184 @@ class PostgresAllianceRepositoryIntegrationTest {
         database.givenPlayer(founder)
     }
 
+    // ── Search ──
+
+    @Test
+    fun `two server starts apply the name migration without deadlocking`() = runTest {
+        database.connection.use { it.createStatement().use { statement -> statement.execute("DROP INDEX alliances_normalised_name") } }
+        database.connection.use { blocker ->
+            blocker.autoCommit = false
+            blocker.createStatement().use { it.execute("LOCK TABLE alliance_requests IN ACCESS EXCLUSIVE MODE") }
+            withContext(Dispatchers.IO) {
+                val starts = List(2) { async { database.applySchema() } }
+                try {
+                    kotlinx.coroutines.withTimeout(10_000) {
+                        while (checkNotNull(database.scalar("SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock'")).toInt() < 2) {
+                            kotlinx.coroutines.yield()
+                        }
+                    }
+                } finally {
+                    blocker.rollback()
+                }
+                starts.awaitAll()
+            }
+        }
+    }
+
+    @Test
+    fun `a page counts three seats and publishes no commander name or account id`() = runTest {
+        val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Fleet"), AllianceTag("FLT"), TEST_NOW))
+        val people = listOf(founder, PlayerId("private-admin"), PlayerId("private-member"))
+        for (player in people.drop(1)) {
+            database.givenPlayer(player)
+            val current = assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW))
+            val pending = assertIs<Affiliation.Petitioning>(assertIs<AllianceChange.Applied>(repository.petition(player, made.alliance.alliance.id, TEST_NOW, current.alliance.version)).affiliation)
+            repository.approve(founder, made.alliance.alliance.id, pending.petition.id, JoinDecision.ADMITTED, TEST_NOW, pending.alliance.version)
+        }
+        for (player in people) database.writeName(player, "Secret ${player.value}")
+
+        val results = repository.search(CanonicalAllianceName("fleet"), null, 20)
+        val response = dev.fardavide.oltre.protocol.AllianceSearchResponse(dev.fardavide.oltre.protocol.ApiVersion.CURRENT, "fleet", results.map { it.alliance }, null)
+        val json = dev.fardavide.oltre.protocol.Protocol.json.encodeToString(response)
+
+        assertEquals(AllianceSeats(3, 20), response.results.single().seats)
+        for (player in people) {
+            assertEquals(false, json.contains(player.value))
+            assertEquals(false, json.contains("Secret ${player.value}"))
+        }
+        assertEquals(false, json.contains("treasury"))
+        assertEquals(false, json.contains("members"))
+    }
+
+    @Test
+    fun `Postgres and memory order supplementary characters after BMP characters across a cursor`() = runTest {
+        val memory = InMemoryAllianceRepository(InMemoryColonyRepository())
+        val names = listOf("Fleet \uD800\uDC00", "Fleet \uE000", "Fleet A")
+        for ((index, name) in names.withIndex()) {
+            val player = PlayerId("founder-$index")
+            database.givenPlayer(player)
+            repository.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)
+            memory.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)
+        }
+        for (store in listOf(repository, memory)) {
+            val first = store.search(CanonicalAllianceName("fleet"), null, 2)
+            val second = store.search(CanonicalAllianceName("fleet"), AllianceSearchPosition.from(first.last()), 2)
+            assertEquals(listOf("Fleet A", "Fleet \uE000", "Fleet \uD800\uDC00"), (first + second).map { it.alliance.name.value })
+        }
+    }
+
+    @Test
+    fun `a colliding backfill rolls back every name and identifies the rows to resolve`() = runTest {
+        val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Ｖａｎｇｕａｒｄ"), AllianceTag("VNG"), TEST_NOW))
+        database.connection.use { connection ->
+            connection.prepareStatement("UPDATE alliances SET normalised_name = ? WHERE id = ?").use { statement ->
+                statement.setString(1, "ｖａｎｇｕａｒｄ")
+                statement.setString(2, made.alliance.alliance.id.value)
+                statement.executeUpdate()
+            }
+        }
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        database.connection.use { connection ->
+            connection.prepareStatement("INSERT INTO alliances (id, name, normalised_name, tag, normalised_tag, created_at, experience, version) VALUES ('ordinary', 'Vanguard', 'vanguard', 'RIV', 'riv', ?, 0, 1)").use { statement ->
+                statement.setObject(1, TEST_NOW.atUtc())
+                statement.executeUpdate()
+            }
+        }
+        try {
+            val failure = kotlin.test.assertFailsWith<IllegalStateException> { database.applySchema() }
+            assertTrue(failure.message.orEmpty().contains(made.alliance.alliance.id.value))
+            assertTrue(failure.message.orEmpty().contains("ordinary"))
+            assertEquals("ｖａｎｇｕａｒｄ", database.scalar("SELECT normalised_name FROM alliances WHERE tag = 'VNG'"))
+            assertEquals("vanguard", database.scalar("SELECT normalised_name FROM alliances WHERE id = 'ordinary'"))
+        } finally {
+            database.emptyEveryTable()
+        }
+    }
+
+    @Test
+    fun `the prefix index exists with C collation`() {
+        database.connection.use { connection ->
+            connection.prepareStatement("SELECT indexdef FROM pg_indexes WHERE tablename = 'alliances' AND indexname = 'alliances_normalised_name'").use { statement ->
+                statement.executeQuery().use { rows ->
+                    assertTrue(rows.next())
+                    assertTrue(rows.getString("indexdef").contains("COLLATE \"C\""))
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `applying the schema backfills the old normalisation before uniqueness and search read it`() = runTest {
+        val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Ｖａｎｇｕａｒｄ"), AllianceTag("VNG"), TEST_NOW))
+        database.connection.use { connection ->
+            connection.prepareStatement("UPDATE alliances SET normalised_name = ? WHERE id = ?").use { statement ->
+                statement.setString(1, "ｖａｎｇｕａｒｄ")
+                statement.setString(2, made.alliance.alliance.id.value)
+                statement.executeUpdate()
+            }
+        }
+
+        database.applySchema()
+
+        assertEquals(listOf(made.alliance), repository.search(CanonicalAllianceName("vanguard"), null, 20))
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        assertEquals(Founded.Refused(ApiError.AllianceNameTaken), repository.found(rival, AllianceName("Vanguard"), AllianceTag("RIV"), TEST_NOW))
+        database.applySchema()
+        assertEquals(listOf(made.alliance), repository.search(CanonicalAllianceName("vanguard"), null, 20))
+    }
+
+    @Test
+    fun `search matches wildcard characters as literal name prefixes`() = runTest {
+        val names = listOf("Fleet % A", "Fleet _ B", "Fleet \\ C", "Fleet normal")
+        val made = names.mapIndexed { index, name ->
+            val player = PlayerId("founder-$index")
+            database.givenPlayer(player)
+            assertIs<Founded.Made>(repository.found(player, AllianceName(name), AllianceTag("F$index"), TEST_NOW)).alliance
+        }
+
+        for ((index, prefix) in listOf("fleet %", "fleet _", "fleet \\").withIndex()) {
+            assertEquals(listOf(made[index]), repository.search(CanonicalAllianceName(prefix), null, 20))
+        }
+    }
+
+    @Test
+    fun `a keyset walk follows experience then C name order without repeating a row`() = runTest {
+        val made = (25 downTo 1).map { number ->
+            val player = PlayerId("founder-$number")
+            database.givenPlayer(player)
+            val stored = assertIs<Founded.Made>(repository.found(player, AllianceName("Fleet ${number.toString().padStart(2, '0')}"), AllianceTag("F$number"), TEST_NOW)).alliance
+            database.connection.use { connection ->
+                connection.prepareStatement("UPDATE alliances SET experience = ? WHERE id = ?").use { statement ->
+                    statement.setLong(1, (number % 3).toLong())
+                    statement.setString(2, stored.alliance.id.value)
+                    statement.executeUpdate()
+                }
+            }
+            stored.copy(experience = (number % 3).toLong())
+        }.sortedBy { AllianceSearchPosition.from(it) }
+        val query = CanonicalAllianceName("fleet")
+
+        val first = repository.search(query, null, 20)
+        val second = repository.search(query, AllianceSearchPosition.from(first.last()), 20)
+
+        assertEquals(20, first.size)
+        assertEquals(made, first + second)
+    }
+
+    @Test
+    fun `search finds the same compatibility spelling that founding refuses`() = runTest {
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Ｓｔｒａße  Fleet"), AllianceTag("VNG"), TEST_NOW))
+        assertEquals(Founded.Refused(ApiError.AllianceNameTaken), repository.found(rival, AllianceName("STRASSE\tFLEET"), AllianceTag("RIV"), TEST_NOW))
+
+        val results = repository.search(AllianceRules.normalise(AllianceName("strasse f")), null, 20)
+
+        assertEquals(listOf(made.alliance), results)
+    }
+
     @Test
     fun `founding persists an alliance with its founder seat`() = runTest {
         val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW))

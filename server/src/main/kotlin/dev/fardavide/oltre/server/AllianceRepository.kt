@@ -75,6 +75,8 @@ internal sealed interface Affiliation {
 
 internal interface AllianceRepository {
 
+    suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance>
+
     suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded
 
     suspend fun allianceOf(player: PlayerId, now: Instant): Affiliation

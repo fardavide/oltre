@@ -364,6 +364,19 @@ enough for a thing measured in weeks.
 - **Search results carry the alliance, never its members** — name, tag, level, seats used, join
   policy. The roster sits behind membership or behind a request.
 
+### Search implementation decisions (2026-09-12, #139)
+
+Davide approved NFKC compatibility normalisation before Unicode case folding and whitespace
+collapse. Full-width letters and Roman-numeral letter forms share the ordinary spelling for
+uniqueness and search; the display name stays verbatim. Existing stored names are backfilled in one
+locked transaction at schema application. A compatibility collision refuses the migration before
+any update and names the affected alliance IDs, so resolution never silently chooses a winner.
+
+Search returns 20 results ordered by experience descending, then normalised name and ID ascending
+under PostgreSQL `C` collation. Its versioned opaque cursor is bound to the normalised query. Names
+are literal prefixes, including `%`, `_` and backslash; no tag or roster search is added. A separate
+address-keyed allowance of 60 searches per minute leaves the authentication budget available.
+
 > **`profile-sheet.md` §4.3's deferral expires the day this ships.** It reads: *"Whether the name is
 > ever shown to another player. Nothing is, yet. The answer changes nothing in this slice and
 > everything in the one that adds a blocklist."* An alliance name is user-generated content shown to
