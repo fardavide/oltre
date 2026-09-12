@@ -24,6 +24,7 @@ internal class InMemoryAllianceRepository(
 
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         lock.withLock {
+            seats[player]?.let { return@withLock Founded.AlreadyFounded(alliances.getValue(it.alliance)) }
             val id = ids.mint()
             val stored = StoredAlliance(
                 Alliance(id, name, tag, AllianceLevel(0), AllianceSeats(1, AllianceRules.SEAT_CAP)),

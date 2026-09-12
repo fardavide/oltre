@@ -39,6 +39,8 @@ internal data class Seat(
 internal sealed interface Founded {
 
     data class Made(val alliance: StoredAlliance) : Founded
+
+    data class AlreadyFounded(val alliance: StoredAlliance) : Founded
 }
 
 internal sealed interface Affiliation {

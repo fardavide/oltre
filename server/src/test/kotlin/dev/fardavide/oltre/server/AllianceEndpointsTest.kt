@@ -37,4 +37,17 @@ class AllianceEndpointsTest {
         assertEquals(request.name, standing.alliance.name)
         assertEquals(request.tag, standing.alliance.tag)
     }
+
+    @Test
+    fun `retrying a founding request answers 200 with the same alliance`() = runTest {
+        val body = Protocol.json.encodeToString(
+            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
+        )
+        val first = assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), body))
+
+        val again = assertIs<Answer.Alliance>(foundAlliance(alliances, authenticator, clock, Credentials(null, "founder"), body))
+
+        assertEquals(HttpStatusCode.OK, again.status)
+        assertEquals(first.response, again.response)
+    }
 }

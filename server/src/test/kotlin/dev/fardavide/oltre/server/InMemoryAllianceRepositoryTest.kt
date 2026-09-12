@@ -27,6 +27,16 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(TAG, enlisted.alliance.alliance.tag)
     }
 
+    @Test
+    fun `retrying founding returns the alliance already owned by the caller`() = runTest {
+        val first = assertIs<Founded.Made>(repository.found(founder, NAME, TAG, TEST_NOW))
+
+        val again = assertIs<Founded.AlreadyFounded>(repository.found(founder, NAME, TAG, TEST_NOW))
+
+        assertEquals(first.alliance, again.alliance)
+        assertEquals(first.alliance, assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW)).alliance)
+    }
+
     private companion object {
 
         val NAME = AllianceName("Vanguard")

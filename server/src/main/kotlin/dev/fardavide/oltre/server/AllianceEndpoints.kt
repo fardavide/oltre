@@ -28,5 +28,9 @@ internal suspend fun foundAlliance(
             HttpStatusCode.Created,
             AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Enlisted(founded.alliance.alliance, AllianceRole.FOUNDER)),
         )
+        is Founded.AlreadyFounded -> Answer.Alliance(
+            HttpStatusCode.OK,
+            AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Enlisted(founded.alliance.alliance, AllianceRole.FOUNDER)),
+        )
     }
 }
