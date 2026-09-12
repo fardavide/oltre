@@ -185,6 +185,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Colony -> respond(answer.status, answer.response)
         is Answer.Session -> respond(answer.status, answer.response)
         is Answer.Profile -> respond(answer.status, answer.response)
+        is Answer.Alliance -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

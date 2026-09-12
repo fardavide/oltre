@@ -2,6 +2,7 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.AllianceResponse
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
@@ -61,6 +62,8 @@ internal sealed interface Answer {
     // Who the player says they are, from a read or from the write that changed it. Its own member
     // for `Session`'s reason and no other: `respond` picks its serializer from the static type.
     data class Profile(override val status: HttpStatusCode, val response: ProfileResponse) : Answer
+
+    data class Alliance(override val status: HttpStatusCode, val response: AllianceResponse) : Answer
 
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
