@@ -59,7 +59,10 @@ class PostgresColonyRepositoryIntegrationTest {
         database.applySchema()
         database.applySchema()
 
-        assertEquals(listOf("applied_verbs", "colonies", "players"), database.tableNames())
+        assertEquals(
+            listOf("alliance_members", "alliance_requests", "alliances", "applied_verbs", "colonies", "players"),
+            database.tableNames(),
+        )
     }
 
     // ── Founding ──────────────────────────────────────────────────────────────────────────────

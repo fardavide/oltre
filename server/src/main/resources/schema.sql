@@ -1,6 +1,6 @@
--- The whole persistence design, and it is three tables because the save is already a self-contained
--- JSON document that `core` knows how to carry forward. There are no joins, no queries beyond "get
--- by player id", and no migration framework: this file is the schema, it is applied at startup, and
+-- Colonies remain self-contained JSON documents; alliance membership adds three relational tables.
+-- Succession joins members to colonies to read their last sync. There is no migration framework:
+-- this file is the schema, it is applied at startup, and
 -- every statement in it is `IF NOT EXISTS` so applying it to a database that already has it is a
 -- no-op rather than an error. See `#106` §5.4.
 --
@@ -106,3 +106,42 @@ CREATE TABLE IF NOT EXISTS applied_verbs (
 );
 
 CREATE INDEX IF NOT EXISTS applied_verbs_applied_at ON applied_verbs (applied_at);
+
+-- Display spelling is preserved; uniqueness uses the same normalised spelling as search.
+-- Experience is banked independently of the treasury. Version covers every membership write too.
+CREATE TABLE IF NOT EXISTS alliances (
+    id              text        PRIMARY KEY,
+    name            text        NOT NULL,
+    normalised_name text        NOT NULL UNIQUE,
+    tag             text        NOT NULL,
+    normalised_tag  text        NOT NULL UNIQUE,
+    created_at      timestamptz NOT NULL,
+    experience      bigint      NOT NULL,
+    version         bigint      NOT NULL
+);
+
+-- One seat per player; its public surrogate id never reveals the account id to another member.
+-- Both cascades preserve account deletion and make disbanding one parent-row delete.
+CREATE TABLE IF NOT EXISTS alliance_members (
+    player_id   text        PRIMARY KEY REFERENCES players (id) ON DELETE CASCADE,
+    id          text        NOT NULL UNIQUE,
+    alliance_id text        NOT NULL REFERENCES alliances (id) ON DELETE CASCADE,
+    role        text        NOT NULL,
+    joined_at   timestamptz NOT NULL,
+    contributed bigint      NOT NULL
+);
+
+-- A membership read finds all the seats on one alliance without scanning other alliances.
+CREATE INDEX IF NOT EXISTS alliance_members_alliance_id ON alliance_members (alliance_id);
+
+-- AllianceStanding permits one pending petition per player. Its public id names an answer request.
+-- Petitions never expire, and deleting either the account or the alliance removes them.
+CREATE TABLE IF NOT EXISTS alliance_requests (
+    player_id    text        PRIMARY KEY REFERENCES players (id) ON DELETE CASCADE,
+    id           text        NOT NULL UNIQUE,
+    alliance_id  text        NOT NULL REFERENCES alliances (id) ON DELETE CASCADE,
+    requested_at timestamptz NOT NULL
+);
+
+-- Founders and admins read pending petitions for their own alliance.
+CREATE INDEX IF NOT EXISTS alliance_requests_alliance_id ON alliance_requests (alliance_id);

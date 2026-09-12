@@ -32,11 +32,13 @@ internal fun embeddedPostgres(): SingleInstancePostgresRule = EmbeddedPostgresRu
 // One database per test class and a clean one per test. `TRUNCATE` rather than dropping the schema,
 // so what every test after the first runs against is the schema the *previous* test left — which is
 // the state a deployed server is always in.
-internal fun DataSource.emptyEveryTable() = execute("TRUNCATE players, colonies, applied_verbs")
+internal fun DataSource.emptyEveryTable() =
+    execute("TRUNCATE players, colonies, applied_verbs, alliances, alliance_members, alliance_requests")
 
 // Only `the schema applies to an empty database` uses this, and only so that it can say "empty" and
 // mean it.
-internal fun DataSource.dropEveryTable() = execute("DROP TABLE IF EXISTS applied_verbs, colonies, players")
+internal fun DataSource.dropEveryTable() =
+    execute("DROP TABLE IF EXISTS alliance_requests, alliance_members, alliances, applied_verbs, colonies, players")
 
 // What the schema actually left behind, read from the catalogue rather than from the file that was
 // applied — a test that asserted the DDL text would only be reading its own input back.
