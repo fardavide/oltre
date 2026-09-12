@@ -23,8 +23,11 @@ internal class PostgresAllianceRepository(
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         dataSource.transaction { connection ->
             val occupied = connection.query(
-                SELECT_NAMED,
-                bind = { setString(1, AllianceRules.normalise(name).value) },
+                SELECT_OCCUPIED,
+                bind = {
+                    setString(1, AllianceRules.normalise(name).value)
+                    setString(2, tag.value.lowercase())
+                },
                 read = { rows -> buildList { while (rows.next()) add(rows.storedAlliance()) } },
             )
             when (val verdict = AllianceRules.founding(connection.selectAffiliation(player), name, tag, occupied)) {
@@ -108,9 +111,9 @@ private const val INSERT_ALLIANCE = """
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 """
 
-private const val SELECT_NAMED = """
+private const val SELECT_OCCUPIED = """
     SELECT a.*, (SELECT count(*) FROM alliance_members WHERE alliance_id = a.id) AS seat_count
-    FROM alliances a WHERE normalised_name = ?
+    FROM alliances a WHERE normalised_name = ? OR normalised_tag = ?
 """
 
 private const val INSERT_SEAT = """

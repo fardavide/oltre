@@ -65,6 +65,18 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(1, database.rowsIn("alliances"))
     }
 
+    @Test
+    fun `tag collisions are a refusal instead of a database error`() = runTest {
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        repository.found(founder, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW)
+
+        val refused = assertIs<Founded.Refused>(repository.found(rival, AllianceName("Rival"), AllianceTag("VNG"), TEST_NOW))
+
+        assertEquals(ApiError.AllianceTagTaken, refused.error)
+        assertEquals(1, database.rowsIn("alliances"))
+    }
+
     private companion object {
 
         @get:ClassRule
