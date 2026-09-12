@@ -2,6 +2,8 @@ package dev.fardavide.oltre.server
 
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.sql.Connection
@@ -82,7 +84,28 @@ internal fun DataSource.applySchema() {
     val ddl = PostgresColonyRepository::class.java.getResourceAsStream("/schema.sql")
         ?.use { it.reader().readText() }
         ?: error("schema.sql is not on the classpath, so this build has no schema to apply")
-    connection.use { connection -> connection.createStatement().use { it.execute(ddl) } }
+    connection.use { connection ->
+        connection.autoCommit = false
+        try {
+            connection.createStatement().use { it.execute(ddl) }
+            connection.createStatement().use { it.execute("LOCK TABLE alliances IN EXCLUSIVE MODE") }
+            val rows = connection.query("SELECT id, name, normalised_name FROM alliances", bind = {}, read = { results ->
+                buildList { while (results.next()) add(AllianceNameRow(
+                    AllianceId(results.getString("id")), AllianceName(results.getString("name")), CanonicalAllianceName(results.getString("normalised_name")),
+                )) }
+            })
+            for (update in AllianceNameMigration.from(rows).updates) {
+                connection.update("UPDATE alliances SET normalised_name = ? WHERE id = ?") {
+                    setString(1, update.canonical.value)
+                    setString(2, update.id.value)
+                }
+            }
+            connection.commit()
+        } catch (failure: Exception) {
+            connection.rollback()
+            throw failure
+        }
+    }
 }
 
 // **JDBC blocks and a Ktor handler must not**, so every statement this module runs goes through here

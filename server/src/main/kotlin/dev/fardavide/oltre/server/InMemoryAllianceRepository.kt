@@ -26,6 +26,14 @@ internal class InMemoryAllianceRepository(
     private val seats = mutableMapOf<PlayerId, Seat>()
     private val petitions = mutableMapOf<PlayerId, Petition>()
 
+    override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = lock.withLock {
+        alliances.values
+            .filter { AllianceRules.normalise(it.alliance.name).value.startsWith(query.value) }
+            .sortedBy { AllianceSearchPosition.from(it) }
+            .filter { cursor == null || AllianceSearchPosition.from(it) > cursor }
+            .take(limit)
+    }
+
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         lock.withLock {
             val affiliation = affiliationOf(player)

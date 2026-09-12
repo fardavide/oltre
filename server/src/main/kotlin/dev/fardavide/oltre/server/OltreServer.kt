@@ -44,6 +44,7 @@ internal fun Application.oltre(
     // a test of the transport rather than of the policy. Every rule it holds is judged in
     // `RateLimitTest`; what is here is which routes it guards. See `RateLimit.kt`.
     limiter: RateLimiter = RateLimiter(clock),
+    searchLimiter: RateLimiter = RateLimiter.allianceSearch(clock),
 ) {
     // `Protocol.json` and not a Ktor default. It is the one codec both ends use, and the properties
     // that make it that one — `encodeDefaults`, and deliberately no `ignoreUnknownKeys` — are the
@@ -76,9 +77,9 @@ internal fun Application.oltre(
         get("/health") { call.respond(HttpStatusCode.NoContent) }
 
         route("/v1") {
-            // **Every route under `/auth` is rate limited and no other route is**, which is step 45's
-            // shape rather than a blanket policy. These are the only ones reachable without a session
-            // and the only ones that do a signature check before knowing who is asking; everything
+            // Every route under `/auth` shares the sign-in budget; alliance search has a separate
+            // budget because it reads other alliances repeatedly. Auth routes are reachable without a session
+            // and do a signature check before knowing who is asking; everything
             // else costs a bearer-token read first, so a caller who cannot sign in cannot reach it.
             //
             // **`limited` wraps the handler rather than intercepting the route**, so that the
@@ -128,6 +129,12 @@ internal fun Application.oltre(
 
             get("/alliance") {
                 call.send(readAlliance(alliances, authenticator, clock, call.credentials()))
+            }
+
+            get("/alliance/search") {
+                call.limited(searchLimiter) {
+                    searchAlliances(alliances, authenticator, call.credentials(), call.request.queryParameters["q"], call.request.queryParameters["cursor"])
+                }
             }
 
             post("/alliance/join") {
@@ -223,6 +230,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Session -> respond(answer.status, answer.response)
         is Answer.Profile -> respond(answer.status, answer.response)
         is Answer.Alliance -> respond(answer.status, answer.response)
+        is Answer.Alliances -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

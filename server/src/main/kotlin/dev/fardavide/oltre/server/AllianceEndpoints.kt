@@ -1,6 +1,15 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceSearchCursor
+import dev.fardavide.oltre.protocol.AllianceId
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.io.IOException
+import java.util.Base64
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceStanding
 import dev.fardavide.oltre.protocol.ApiVersion
@@ -15,6 +24,44 @@ import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlinx.serialization.DeserializationStrategy
+
+// ── Search ──
+
+internal suspend fun searchAlliances(
+    alliances: AllianceRepository,
+    authenticator: Authenticator,
+    credentials: Credentials,
+    q: String?,
+    cursor: String?,
+): Answer = answering {
+    when (val caller = authenticator.identify(credentials)) {
+        is Caller.Refused -> return@answering Answer.Failed(HttpStatusCode.Unauthorized, caller.error)
+        is Caller.Known -> Unit
+    }
+    if (q == null) return@answering Answer.Failed(HttpStatusCode.BadRequest, ApiError.Malformed("search requires a non-blank query"))
+    val query = CanonicalAllianceName.normalised(q)
+    if (query.value.isBlank()) return@answering Answer.Failed(HttpStatusCode.BadRequest, ApiError.Malformed("search requires a non-blank query"))
+    if ('\u0000' in query.value) return@answering Answer.Failed(HttpStatusCode.BadRequest, ApiError.Malformed("search query contains a NUL character"))
+    val after = if (cursor == null) null else try {
+        AllianceSearchCursor(cursor).decoded(query)
+    } catch (_: IllegalArgumentException) {
+        return@answering Answer.Failed(HttpStatusCode.BadRequest, ApiError.Malformed("invalid search cursor"))
+    } catch (_: IOException) {
+        return@answering Answer.Failed(HttpStatusCode.BadRequest, ApiError.Malformed("invalid search cursor"))
+    }
+    val results = alliances.search(query, after, SEARCH_PAGE_SIZE + 1)
+    val page = results.take(SEARCH_PAGE_SIZE)
+    val next = if (results.size > SEARCH_PAGE_SIZE) {
+        AllianceSearchPosition.from(page.last()).encoded(query)
+    } else null
+    Answer.Alliances(HttpStatusCode.OK, AllianceSearchResponse(ApiVersion.CURRENT, query.value, page.map { it.alliance }, next))
+}
+
+private const val SEARCH_PAGE_SIZE = 20
+private const val SEARCH_CURSOR_ENCODING = 1
+// NFKC can expand each of a display name's 32 characters into 18, and the cursor carries
+// both the resulting name and its prefix. Leave room for their UTF encoding and Base64.
+private const val MAX_SEARCH_CURSOR_LENGTH = 8_192
 
 internal suspend fun readAlliance(
     alliances: AllianceRepository,
@@ -213,3 +260,32 @@ private fun affiliationAnswer(affiliation: Affiliation): Answer.Alliance = Answe
         is Affiliation.Petitioning -> AllianceStanding.Petitioning(affiliation.alliance.alliance)
     }),
 )
+
+private fun AllianceSearchCursor.decoded(query: CanonicalAllianceName): AllianceSearchPosition {
+    require(value.length <= MAX_SEARCH_CURSOR_LENGTH)
+    val bytes = Base64.getUrlDecoder().decode(value)
+    require(Base64.getUrlEncoder().withoutPadding().encodeToString(bytes) == value)
+    return DataInputStream(ByteArrayInputStream(bytes)).use { input ->
+        require(input.readInt() == SEARCH_CURSOR_ENCODING)
+        require(input.readUTF() == query.value)
+        val position = AllianceSearchPosition(input.readLong(), CanonicalAllianceName(input.readUTF()), AllianceId(input.readUTF()))
+        require(position.experience >= 0)
+        require('\u0000' !in position.name.value && '\u0000' !in position.id.value)
+        require(position.name.value.startsWith(query.value))
+        require(CanonicalAllianceName.normalised(position.name.value) == position.name)
+        require(input.available() == 0)
+        position
+    }
+}
+
+private fun AllianceSearchPosition.encoded(query: CanonicalAllianceName): AllianceSearchCursor {
+    val bytes = ByteArrayOutputStream()
+    DataOutputStream(bytes).use { output ->
+        output.writeInt(SEARCH_CURSOR_ENCODING)
+        output.writeUTF(query.value)
+        output.writeLong(experience)
+        output.writeUTF(name.value)
+        output.writeUTF(id.value)
+    }
+    return AllianceSearchCursor(Base64.getUrlEncoder().withoutPadding().encodeToString(bytes.toByteArray()))
+}

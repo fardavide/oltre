@@ -120,6 +120,8 @@ CREATE TABLE IF NOT EXISTS alliances (
     version         bigint      NOT NULL
 );
 
+CREATE INDEX IF NOT EXISTS alliances_normalised_name ON alliances (normalised_name COLLATE "C");
+
 -- One seat per player; its public surrogate id never reveals the account id to another member.
 -- Both cascades preserve account deletion and make disbanding one parent-row delete.
 CREATE TABLE IF NOT EXISTS alliance_members (

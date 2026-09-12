@@ -1,6 +1,5 @@
 package dev.fardavide.oltre.server
 
-import com.ibm.icu.lang.UCharacter
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
@@ -18,9 +17,7 @@ internal object AllianceRules {
 
     private val INACTIVITY = 30.days
 
-    fun normalise(name: AllianceName): CanonicalAllianceName = CanonicalAllianceName(
-        UCharacter.foldCase(name.value.trim().replace(Regex("(?U)\\s+"), " "), true),
-    )
+    fun normalise(name: AllianceName): CanonicalAllianceName = CanonicalAllianceName.normalised(name.value)
 
     fun founding(affiliation: Affiliation, name: AllianceName, tag: AllianceTag, occupied: List<StoredAlliance>): FoundingVerdict =
         when (affiliation) {
@@ -163,9 +160,6 @@ internal object AllianceRules {
         })
     }
 }
-
-@JvmInline
-internal value class CanonicalAllianceName(val value: String)
 
 internal sealed interface FoundingVerdict {
 
