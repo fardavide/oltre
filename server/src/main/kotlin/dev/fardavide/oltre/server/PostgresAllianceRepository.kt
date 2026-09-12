@@ -8,6 +8,9 @@ import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.protocol.ExperienceReading
+import dev.fardavide.oltre.protocol.JoinRequest
 import java.sql.Connection
 import java.sql.ResultSet
 import java.sql.SQLException
@@ -20,6 +23,56 @@ internal class PostgresAllianceRepository(
     private val dataSource: DataSource,
     private val ids: AllianceIds = AllianceIds.RANDOM,
 ) : AllianceRepository {
+
+    override suspend fun rosterOf(player: PlayerId, now: Instant): RosterRead = dataSource.transaction { connection ->
+        val alliance = when (val current = connection.selectAffiliation(player, lockParent = true)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@transaction RosterRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> current.alliance.alliance.id
+        }
+        connection.succeed(alliance, now)
+        val caller = when (val current = connection.selectAffiliation(player)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@transaction RosterRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> current.seat
+        }
+        val members = connection.query(SELECT_ROSTER, bind = {
+            setString(1, alliance.value)
+            setString(2, player.value)
+        }, read = { rows ->
+            buildList {
+                while (rows.next()) add(memberFrom(
+                    id = AllianceMemberId(rows.getString("id")),
+                    profile = profileFrom(rows.getString("display_name"), rows.getString("mark")),
+                    role = AllianceRole.valueOf(rows.getString("role")),
+                    points = rows.getObject("experience", Long::class.javaObjectType),
+                    lastSyncedAt = Instant.parse(rows.getObject("last_updated_at", OffsetDateTime::class.java).toInstant().toString()),
+                ))
+            }
+        })
+        if (members.isEmpty()) return@transaction RosterRead.Refused(ApiError.NoColony)
+        val pending = when (caller.role) {
+            AllianceRole.FOUNDER,
+            AllianceRole.ADMIN,
+            -> connection.query(SELECT_PENDING_ROSTER, bind = { setString(1, alliance.value) }, read = { rows ->
+                buildList {
+                    while (rows.next()) {
+                        val points: Long? = rows.getObject("experience", Long::class.javaObjectType)
+                        add(JoinRequest(
+                            id = JoinRequestId(rows.getString("id")),
+                            profile = profileFrom(rows.getString("display_name"), rows.getString("mark")),
+                            experience = points?.let { ExperienceReading.Known(Experience(it)) } ?: ExperienceReading.Unknown,
+                            askedAt = Instant.parse(rows.getObject("requested_at", OffsetDateTime::class.java).toInstant().toString()),
+                        ))
+                    }
+                }
+            })
+            AllianceRole.MEMBER -> emptyList()
+        }
+        rosterFor(caller.role, members, pending)
+    }
 
     override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = dataSource.transaction { connection ->
         connection.query(if (cursor == null) SEARCH_ALLIANCES else SEARCH_AFTER_ALLIANCE, bind = {
@@ -418,9 +471,29 @@ private const val SELECT_SEATS = """
     SELECT id AS member_id, player_id, role, joined_at, contributed FROM alliance_members WHERE alliance_id = ?
 """
 
+private const val SELECT_ROSTER = """
+    SELECT m.id, m.role, p.display_name, p.mark, c.experience, c.last_updated_at
+    FROM alliance_members m
+    JOIN players p ON p.id = m.player_id
+    LEFT JOIN colonies c ON c.player_id = m.player_id
+    WHERE m.alliance_id = ?
+      AND EXISTS (SELECT 1 FROM colonies caller_colony WHERE caller_colony.player_id = ?)
+    ORDER BY CASE m.role WHEN 'FOUNDER' THEN 0 WHEN 'ADMIN' THEN 1 ELSE 2 END,
+             m.joined_at, m.player_id COLLATE "C"
+"""
+
 private const val SELECT_SYNCS = """
     SELECT m.player_id, c.last_updated_at FROM alliance_members m JOIN colonies c ON c.player_id = m.player_id
     WHERE m.alliance_id = ?
+"""
+
+private const val SELECT_PENDING_ROSTER = """
+    SELECT r.id, p.display_name, p.mark, c.experience, r.requested_at
+    FROM alliance_requests r
+    JOIN players p ON p.id = r.player_id
+    LEFT JOIN colonies c ON c.player_id = r.player_id
+    WHERE r.alliance_id = ?
+    ORDER BY r.requested_at, r.player_id COLLATE "C"
 """
 
 private const val UPDATE_ROLE = "UPDATE alliance_members SET role = ? WHERE id = ?"

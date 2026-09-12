@@ -28,10 +28,12 @@ internal class InMemoryPlayerRepository(
     // take over in Postgres and is load-bearing for the same reason: a deleted account signing in
     // again gets a *fresh* id, so a profile keyed on the subject would hand somebody back the name
     // and face of the colony they deleted.
-    private val profiles = mutableMapOf<PlayerId, PlayerProfile>()
+    private val profiles = alliances.playerProfiles
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = lock.withLock {
-        players.getOrPut(identity) { ids.mint() }
+        val player = players.getOrPut(identity) { ids.mint() }
+        profiles.putIfAbsent(player, PlayerProfile(name = null, mark = null))
+        player
     }
 
     override suspend fun find(identity: ProviderIdentity): PlayerId? = lock.withLock { players[identity] }
@@ -41,12 +43,12 @@ internal class InMemoryPlayerRepository(
     override suspend fun forget(player: PlayerId): Boolean = lock.withLock {
         val identity = players.entries.firstOrNull { it.value == player }?.key ?: return@withLock false
         players.remove(identity)
+        alliances.forget(player)
         // The third thing the cascade takes, written out here for the reason the colony is: the
         // columns live *on* `players` in Postgres, so deleting the row takes the name and the mark
         // with it and there is nothing over there to write.
         profiles.remove(player)
         colonies.forget(player)
-        alliances.forget(player)
         true
     }
 

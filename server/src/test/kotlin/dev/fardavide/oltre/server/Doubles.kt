@@ -83,6 +83,8 @@ internal class UnreachablePlayerRepository : PlayerRepository {
 
 internal class UnreachableAllianceRepository : AllianceRepository {
 
+    override suspend fun rosterOf(player: PlayerId, now: Instant): RosterRead = error("no route to host")
+
     override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = error("no route to host")
 
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded = error("no route to host")

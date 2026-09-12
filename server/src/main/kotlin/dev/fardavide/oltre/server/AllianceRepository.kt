@@ -3,6 +3,8 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceMember
+import dev.fardavide.oltre.protocol.JoinRequest
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceTag
@@ -75,6 +77,8 @@ internal sealed interface Affiliation {
 
 internal interface AllianceRepository {
 
+    suspend fun rosterOf(player: PlayerId, now: Instant): RosterRead
+
     suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance>
 
     suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded
@@ -96,6 +100,13 @@ internal interface AllianceRepository {
     suspend fun rename(caller: PlayerId, alliance: AllianceId, name: AllianceName, tag: AllianceTag, expected: AllianceVersion): AllianceChange
 
     suspend fun disband(caller: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange
+}
+
+internal sealed interface RosterRead {
+
+    data class Refused(val error: ApiError) : RosterRead
+
+    data class Present(val members: List<AllianceMember>, val pending: List<JoinRequest>?) : RosterRead
 }
 
 internal sealed interface AllianceLookup {

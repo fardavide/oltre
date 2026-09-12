@@ -4,6 +4,7 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AllianceResponse
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
@@ -67,6 +68,8 @@ internal sealed interface Answer {
     data class Alliance(override val status: HttpStatusCode, val response: AllianceResponse) : Answer
 
     data class Alliances(override val status: HttpStatusCode, val response: AllianceSearchResponse) : Answer
+
+    data class Roster(override val status: HttpStatusCode, val response: AllianceRosterResponse) : Answer
 
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
