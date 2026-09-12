@@ -31,6 +31,7 @@ argument, a proposal or a flag, in the shape [`galaxy-sheet.md`](galaxy-sheet.md
 | Inactivity for succession is **30 days without a colony sync** | yes | Davide, 2026-09-12, issue #138 |
 | A founder replaced by succession becomes an **admin**, with no automatic restoration | yes | Davide, 2026-09-12, issue #138 |
 | An admin may **remove members only**, never another admin or the founder | yes | Davide, 2026-09-12, issue #138 |
+| The lifecycle uses a **temporary cap of 20 members**, including founder and admins | yes | Davide, 2026-09-12, issue #138; curve deferred to balance |
 
 ---
 

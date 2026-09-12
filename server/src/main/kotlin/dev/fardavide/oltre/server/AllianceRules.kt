@@ -6,6 +6,8 @@ import kotlin.time.Instant
 
 internal object AllianceRules {
 
+    const val SEAT_CAP = 20
+
     private val INACTIVITY = 30.days
 
     fun canRemove(caller: AllianceRole, target: AllianceRole): Boolean = when (caller) {
