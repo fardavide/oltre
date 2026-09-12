@@ -8,7 +8,6 @@ import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceTag
-import dev.fardavide.oltre.protocol.ApiError
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -25,13 +24,13 @@ internal class InMemoryAllianceRepository(
 
     override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded =
         lock.withLock {
-        seats[player]?.let { return@withLock Founded.AlreadyFounded(alliances.getValue(it.alliance)) }
-        if (alliances.values.any { AllianceRules.normalise(it.alliance.name) == AllianceRules.normalise(name) }) {
-            return@withLock Founded.Refused(ApiError.AllianceNameTaken)
-        }
-        if (alliances.values.any { it.alliance.tag == tag }) {
-            return@withLock Founded.Refused(ApiError.AllianceTagTaken)
-        }
+            val affiliation = seats[player]?.let { Affiliation.Enlisted(alliances.getValue(it.alliance), it) }
+                ?: Affiliation.Unaffiliated
+            when (val verdict = AllianceRules.founding(affiliation, name, tag, alliances.values.toList())) {
+                is FoundingVerdict.Refused -> return@withLock Founded.Refused(verdict.error)
+                is FoundingVerdict.Retry -> return@withLock Founded.AlreadyFounded(verdict.alliance)
+                FoundingVerdict.Proceed -> Unit
+            }
             val id = ids.mint()
             val stored = StoredAlliance(
                 Alliance(id, name, tag, AllianceLevel(0), AllianceSeats(1, AllianceRules.SEAT_CAP)),

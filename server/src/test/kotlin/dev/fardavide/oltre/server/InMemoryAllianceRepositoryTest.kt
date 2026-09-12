@@ -64,6 +64,15 @@ class InMemoryAllianceRepositoryTest {
         assertEquals(ApiError.AllianceTagTaken, refused.error)
     }
 
+    @Test
+    fun `an existing founder cannot found a different alliance`() = runTest {
+        repository.found(founder, NAME, TAG, TEST_NOW)
+
+        val refused = assertIs<Founded.Refused>(repository.found(founder, AllianceName("Other"), AllianceTag("OTH"), TEST_NOW))
+
+        assertEquals(ApiError.AlreadyInAnAlliance, refused.error)
+    }
+
     private companion object {
 
 
