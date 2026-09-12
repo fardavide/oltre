@@ -4,6 +4,7 @@ import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -14,6 +15,11 @@ class InMemoryAllianceRepositoryTest {
     private val colonies = InMemoryColonyRepository()
     private val repository = InMemoryAllianceRepository(colonies)
     private val founder = PlayerId("founder")
+
+    @Test
+    fun `a player without a seat reads as unaffiliated`() = runTest {
+        assertEquals(Affiliation.Unaffiliated, repository.allianceOf(founder, TEST_NOW))
+    }
 
     @Test
     fun `founding stores an alliance and its founder seat together`() = runTest {
@@ -35,6 +41,18 @@ class InMemoryAllianceRepositoryTest {
 
         assertEquals(first.alliance, again.alliance)
         assertEquals(first.alliance, assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW)).alliance)
+    }
+
+    @Test
+    fun `founding refuses a name differing only by Unicode case and whitespace`() = runTest {
+        repository.found(founder, AllianceName("Straße  Fleet"), TAG, TEST_NOW)
+
+        val refused = assertIs<Founded.Refused>(
+            repository.found(PlayerId("rival"), AllianceName("STRASSE\tFLEET"), AllianceTag("RIV"), TEST_NOW),
+        )
+
+        assertEquals(ApiError.AllianceNameTaken, refused.error)
+        assertEquals(Affiliation.Unaffiliated, repository.allianceOf(PlayerId("rival"), TEST_NOW))
     }
 
     private companion object {

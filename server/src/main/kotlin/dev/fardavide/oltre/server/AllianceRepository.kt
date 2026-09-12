@@ -6,6 +6,7 @@ import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -38,12 +39,16 @@ internal data class Seat(
 
 internal sealed interface Founded {
 
+    data class Refused(val error: ApiError) : Founded
+
     data class Made(val alliance: StoredAlliance) : Founded
 
     data class AlreadyFounded(val alliance: StoredAlliance) : Founded
 }
 
 internal sealed interface Affiliation {
+
+    data object Unaffiliated : Affiliation
 
     data class Enlisted(val alliance: StoredAlliance, val seat: Seat) : Affiliation
 }

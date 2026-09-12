@@ -22,6 +22,14 @@ class AllianceEndpointsTest {
     private val clock = MovableClock(TEST_NOW)
 
     @Test
+    fun `reading an alliance answers with the callers standing`() = runTest {
+        val answer = assertIs<Answer.Alliance>(readAlliance(alliances, authenticator, clock, Credentials(null, "visitor")))
+
+        assertEquals(HttpStatusCode.OK, answer.status)
+        assertEquals(AllianceStanding.Unaffiliated, answer.response.standing)
+    }
+
+    @Test
     fun `founding answers with the authoritative alliance and founder role`() = runTest {
         val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
 

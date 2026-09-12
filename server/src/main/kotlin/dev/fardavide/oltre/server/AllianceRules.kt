@@ -1,10 +1,17 @@
 package dev.fardavide.oltre.server
 
+import com.ibm.icu.lang.UCharacter
+import dev.fardavide.oltre.protocol.AllianceName
+
 import dev.fardavide.oltre.protocol.AllianceRole
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Instant
 
 internal object AllianceRules {
+
+    fun normalise(name: AllianceName): CanonicalAllianceName = CanonicalAllianceName(
+        UCharacter.foldCase(name.value.trim().replace(Regex("(?U)\\s+"), " "), true),
+    )
 
     const val SEAT_CAP = 20
 
@@ -24,3 +31,6 @@ internal object AllianceRules {
 
     fun isActive(lastSyncedAt: Instant, now: Instant): Boolean = lastSyncedAt >= now - INACTIVITY
 }
+
+@JvmInline
+internal value class CanonicalAllianceName(val value: String)

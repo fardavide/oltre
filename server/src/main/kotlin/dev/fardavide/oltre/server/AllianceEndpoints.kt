@@ -8,6 +8,23 @@ import dev.fardavide.oltre.protocol.CreateAllianceRequest
 import io.ktor.http.HttpStatusCode
 import kotlin.time.Clock
 
+internal suspend fun readAlliance(
+    alliances: AllianceRepository,
+    authenticator: Authenticator,
+    clock: Clock,
+    credentials: Credentials,
+): Answer = answering {
+    val player = when (val caller = authenticator.identify(credentials)) {
+        is Caller.Refused -> return@answering Answer.Failed(HttpStatusCode.Unauthorized, caller.error)
+        is Caller.Known -> caller.player
+    }
+    val standing = when (val affiliation = alliances.allianceOf(player, clock.now())) {
+        Affiliation.Unaffiliated -> AllianceStanding.Unaffiliated
+        is Affiliation.Enlisted -> AllianceStanding.Enlisted(affiliation.alliance.alliance, affiliation.seat.role)
+    }
+    Answer.Alliance(HttpStatusCode.OK, AllianceResponse(ApiVersion.CURRENT, standing))
+}
+
 internal suspend fun foundAlliance(
     alliances: AllianceRepository,
     authenticator: Authenticator,
@@ -24,6 +41,7 @@ internal suspend fun foundAlliance(
         is Read.Yes -> read.value
     }
     when (val founded = alliances.found(player, request.name, request.tag, clock.now())) {
+        is Founded.Refused -> Answer.Failed(HttpStatusCode.Conflict, founded.error)
         is Founded.Made -> Answer.Alliance(
             HttpStatusCode.Created,
             AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Enlisted(founded.alliance.alliance, AllianceRole.FOUNDER)),
