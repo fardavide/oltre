@@ -314,25 +314,32 @@ class RequiredFieldsTest {
         id = AllianceMemberId("member-1"),
         profile = PlayerProfile(name = CommanderName("Ada"), mark = PlayerMark.Preset(MarkPreset.SEXTANT)),
         role = AllianceRole.ADMIN,
-        experience = Experience(1_200),
+        experience = ExperienceReading.Known(Experience(1_200)),
         lastSyncedAt = NOW,
     )
 
     private val SAMPLE_JOIN_REQUEST = JoinRequest(
         id = JoinRequestId("petition-1"),
         profile = PlayerProfile(name = null, mark = null),
-        experience = Experience(340),
+        experience = ExperienceReading.Known(Experience(340)),
         askedAt = NOW,
     )
 
     @Test
     fun `a member missing any of its five fields is refused`() {
         assertEveryFieldRequired(AllianceMember.serializer(), SAMPLE_MEMBER)
+        assertEveryFieldRequired(AllianceMember.serializer(), SAMPLE_MEMBER.copy(experience = ExperienceReading.Unknown))
     }
 
     @Test
     fun `a join request missing any of its four fields is refused`() {
         assertEveryFieldRequired(JoinRequest.serializer(), SAMPLE_JOIN_REQUEST)
+        assertEveryFieldRequired(JoinRequest.serializer(), SAMPLE_JOIN_REQUEST.copy(experience = ExperienceReading.Unknown))
+    }
+
+    @Test
+    fun `a known experience reading missing its earned points is refused`() {
+        assertEveryFieldRequired(ExperienceReading.serializer(), ExperienceReading.Known(Experience(340)))
     }
 
     // **`pending` is the roster's own nullable-and-required field**: `null` means "not yours to see"
