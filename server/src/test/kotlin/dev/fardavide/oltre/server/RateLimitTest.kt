@@ -28,6 +28,17 @@ private fun limiter(clock: MovableClock, maxKeys: Int = 100): RateLimiter =
 class RateLimitTest {
 
     @Test
+    fun `search allows a sixty request burst then waits one emission second`() = runTest {
+        val limiter = RateLimiter.allianceSearch(MovableClock(TEST_NOW))
+
+        val burst = List(60) { limiter.admit("searcher") }
+        val overQuota = limiter.admit("searcher")
+
+        assertEquals(List(60) { RateVerdict.Allowed }, burst)
+        assertEquals(RateVerdict.Refused(1.seconds), overQuota)
+    }
+
+    @Test
     fun `a burst up to the permit count is allowed`() = runTest {
         val limiter = limiter(MovableClock(TEST_NOW))
 

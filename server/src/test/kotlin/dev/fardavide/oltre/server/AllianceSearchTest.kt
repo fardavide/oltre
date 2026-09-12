@@ -12,10 +12,32 @@ import kotlin.test.assertIs
 class AllianceSearchTest {
 
     @Test
-    fun `cursor positions containing NUL are malformed before accessing a store`() = runTest {
+    fun `an oversized structurally valid cursor is malformed before accessing a store`() = runTest {
         val colonies = InMemoryColonyRepository()
         val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies))
-        for ((name, id) in listOf("a\u0000" to "id", "a" to "id\u0000")) {
+        val bytes = java.io.ByteArrayOutputStream()
+        java.io.DataOutputStream(bytes).use { output ->
+            output.writeInt(1)
+            output.writeUTF("a")
+            output.writeLong(0)
+            output.writeUTF("a".repeat(7_000))
+            output.writeUTF("id")
+        }
+        val cursor = java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(bytes.toByteArray())
+
+        val answer = assertIs<Answer.Failed>(searchAlliances(
+            UnreachableAllianceRepository(), HeaderAuthenticator(players), Credentials(null, "visitor"), "a", cursor,
+        ))
+
+        assertEquals(HttpStatusCode.BadRequest, answer.status)
+        assertIs<ApiError.Malformed>(answer.error)
+    }
+
+    @Test
+    fun `cursor positions must be canonical prefixes without NUL before accessing a store`() = runTest {
+        val colonies = InMemoryColonyRepository()
+        val players = InMemoryPlayerRepository(colonies, InMemoryAllianceRepository(colonies))
+        for ((name, id) in listOf("a\u0000" to "id", "a" to "id\u0000", "b" to "id", "aA" to "id")) {
             val bytes = java.io.ByteArrayOutputStream()
             java.io.DataOutputStream(bytes).use { output ->
                 output.writeInt(1)
@@ -101,7 +123,7 @@ class AllianceSearchTest {
         val alliances = InMemoryAllianceRepository(colonies)
         val players = InMemoryPlayerRepository(colonies, alliances)
 
-        for (cursor in listOf("", "not a cursor", "AA", "AAAAAgABYQAAAAAAAAAAAAFhAAFh", "AAAAAQABYgAAAAAAAAAAAAFhAAFh", "AAAAAQABYf__________AAFhAAFh", "AAAAAQABYQAAAAAAAAAAAAFhAAFhAA")) {
+        for (cursor in listOf("", "not a cursor", "AA", "AAAAAgABYQAAAAAAAAAAAAFhAAFh", "AAAAAQABYgAAAAAAAAAAAAFhAAFh", "AAAAAQABYf__________AAFhAAFh", "AAAAAQABYQAAAAAAAAAAAAFhAAFhAA", "AAAAAQABYQAAAAAAAAAAAAFhAAJpZA==")) {
             val failure = assertIs<Answer.Failed>(searchAlliances(alliances, HeaderAuthenticator(players), Credentials(null, "visitor"), "a", cursor))
             assertEquals(HttpStatusCode.BadRequest, failure.status, cursor)
             assertIs<ApiError.Malformed>(failure.error)
