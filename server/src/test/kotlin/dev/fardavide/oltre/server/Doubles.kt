@@ -1,6 +1,8 @@
 package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.GameSnapshot
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.concurrent.atomic.AtomicInteger
@@ -72,6 +74,13 @@ internal class UnreachablePlayerRepository : PlayerRepository {
     override suspend fun profileOf(player: PlayerId): PlayerProfile? = error("no route to host")
 
     override suspend fun setProfile(player: PlayerId, profile: PlayerProfile): Boolean = error("no route to host")
+}
+
+internal class UnreachableAllianceRepository : AllianceRepository {
+
+    override suspend fun found(player: PlayerId, name: AllianceName, tag: AllianceTag, now: Instant): Founded = error("no route to host")
+
+    override suspend fun allianceOf(player: PlayerId, now: Instant): Affiliation = error("no route to host")
 }
 
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The

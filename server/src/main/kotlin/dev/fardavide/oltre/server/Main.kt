@@ -48,7 +48,7 @@ fun main() {
         println("Apple signing key ${apple.keyId} loaded and signs $ES256.")
     }
 
-    val (colonies, players) = url?.let(::postgres) ?: inMemory()
+    val (colonies, players, alliances) = url?.let(::postgres) ?: inMemory()
     val identity = configured?.let {
         val keys = JwksKeys(httpJwksSource(), Clock.System)
         Identity(
@@ -66,7 +66,7 @@ fun main() {
     }
 
     embeddedServer(Netty, port = port) {
-        oltre(colonies = colonies, players = players, clock = Clock.System, identity = identity)
+        oltre(colonies = colonies, players = players, alliances = alliances, clock = Clock.System, identity = identity)
     }.start(wait = true)
 }
 
@@ -75,11 +75,11 @@ fun main() {
 // startup has to be a no-op the second time — which is what every `IF NOT EXISTS` in `schema.sql`
 // buys.
 //
-// **A pair rather than a type of its own**, deliberately: a private top-level class in this file
+// **A triple rather than a type of its own**, deliberately: a private top-level class in this file
 // would compile to its own class file, land in the coverage report at 0% and fail a gate on a PR
 // that had touched no shipping code — which is exactly what `:sim`'s three option holders did at
 // 0.1.1. `MainKt` is excluded by name and a sibling class would not be.
-private fun postgres(url: String): Pair<ColonyRepository, PlayerRepository> = runBlocking {
+private fun postgres(url: String): Triple<ColonyRepository, PlayerRepository, AllianceRepository> = runBlocking {
     val pool = connectionPool(url)
     pool.applySchema()
     val repository = PostgresColonyRepository(pool, Clock.System)
@@ -99,7 +99,7 @@ private fun postgres(url: String): Pair<ColonyRepository, PlayerRepository> = ru
     // DDL applied a line earlier is not a maintenance hiccup, and a server that started anyway would
     // be one whose first sign of trouble is a colony.
     repository.prune(before = Clock.System.now() - APPLIED_RETENTION)
-    repository to PostgresPlayerRepository(pool, Clock.System)
+    Triple(repository, PostgresPlayerRepository(pool, Clock.System), PostgresAllianceRepository(pool))
 }
 
 // **The dev loop, and it says so out loud.** `./gradlew :server:run` with no database serves a
@@ -107,10 +107,10 @@ private fun postgres(url: String): Pair<ColonyRepository, PlayerRepository> = ru
 // slice 1 shipped and what is still wanted locally. What must never happen is a *deployed* server
 // quietly doing this because an environment variable was misspelled, so it is a line in the log
 // rather than a silence — and `#111` is the slice that sets the variable.
-private fun inMemory(): Pair<ColonyRepository, PlayerRepository> {
+private fun inMemory(): Triple<ColonyRepository, PlayerRepository, AllianceRepository> {
     println("$DATABASE_URL is not set: colonies will live in memory and die with this process.")
     val colonies = InMemoryColonyRepository()
-    return colonies to InMemoryPlayerRepository(colonies)
+    return Triple(colonies, InMemoryPlayerRepository(colonies), InMemoryAllianceRepository(colonies))
 }
 
 private const val DATABASE_URL = "DATABASE_URL"

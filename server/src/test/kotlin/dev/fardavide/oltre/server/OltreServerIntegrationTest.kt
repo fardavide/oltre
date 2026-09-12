@@ -7,6 +7,13 @@ import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceSeats
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.CreateAllianceRequest
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.IdempotencyKey
@@ -41,6 +48,7 @@ import io.ktor.server.testing.ApplicationTestBuilder
 import io.ktor.server.testing.testApplication
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
@@ -307,6 +315,7 @@ class OltreServerIntegrationTest {
             oltre(
                 colonies = UnreachableColonyRepository(),
                 players = UnreachablePlayerRepository(),
+                alliances = UnreachableAllianceRepository(),
                 clock = MovableClock(TEST_NOW),
                 identity = null,
             )
@@ -421,6 +430,25 @@ class OltreServerIntegrationTest {
         assertEquals(PlayerProfile(name = null, mark = null), theirs.profile().profile)
     }
 
+    // ── The alliance ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `founding an alliance answers 201 with the founder role and twenty seats`() = testApplication {
+        server()
+        val request = CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG"))
+
+        val response = postRaw("/v1/alliance", Protocol.json.encodeToString(request))
+
+        assertEquals(HttpStatusCode.Created, response.status, response.bodyAsText())
+        val body = Protocol.json.decodeFromString<AllianceResponse>(response.bodyAsText())
+        val enlisted = assertIs<AllianceStanding.Enlisted>(body.standing)
+        assertEquals(ApiVersion.CURRENT, body.apiVersion)
+        assertEquals(AllianceRole.FOUNDER, enlisted.role)
+        assertEquals(request.name, enlisted.alliance.name)
+        assertEquals(request.tag, enlisted.alliance.tag)
+        assertEquals(AllianceSeats(1, 20), enlisted.alliance.seats)
+    }
+
     // ── The harness ───────────────────────────────────────────────────────────────────────────
 
     // One permit a minute, so "over quota" is the second request rather than the twenty-first and the
@@ -438,6 +466,7 @@ class OltreServerIntegrationTest {
             oltre(
                 colonies,
                 InMemoryPlayerRepository(colonies, ids = sequentialPlayerIds()),
+                InMemoryAllianceRepository(colonies),
                 clock,
                 identity = null,
                 limiter = limiter,
@@ -459,6 +488,7 @@ class OltreServerIntegrationTest {
             oltre(
                 colonies = colonies,
                 players = players,
+                alliances = InMemoryAllianceRepository(colonies),
                 clock = clock,
                 identity = Identity(
                     verifier = IdTokenVerifier(

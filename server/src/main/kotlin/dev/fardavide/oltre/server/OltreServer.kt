@@ -31,6 +31,7 @@ import kotlin.time.Clock
 internal fun Application.oltre(
     colonies: ColonyRepository,
     players: PlayerRepository,
+    alliances: AllianceRepository,
     clock: Clock,
     // **Null is a server with no session key**, which is `./gradlew :server:run` and nothing that is
     // deployed — `Main.kt` refuses to start in the one combination where that would be dangerous.
@@ -119,6 +120,14 @@ internal fun Application.oltre(
 
             post("/colony") {
                 call.send(foundColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            post("/alliance") {
+                call.send(foundAlliance(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
+            get("/alliance") {
+                call.send(readAlliance(alliances, authenticator, clock, call.credentials()))
             }
 
             post("/sync") {

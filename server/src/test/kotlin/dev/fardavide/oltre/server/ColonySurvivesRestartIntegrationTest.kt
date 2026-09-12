@@ -111,6 +111,7 @@ class ColonySurvivesRestartIntegrationTest {
                 oltre(
                     colonies = PostgresColonyRepository(pool, clock),
                     players = PostgresPlayerRepository(pool, clock),
+                    alliances = PostgresAllianceRepository(pool),
                     clock = clock,
                     identity = null,
                 )
