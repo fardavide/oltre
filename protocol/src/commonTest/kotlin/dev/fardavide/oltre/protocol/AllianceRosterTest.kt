@@ -13,14 +13,14 @@ private val SAMPLE_MEMBER: AllianceMember = AllianceMember(
     id = AllianceMemberId("member-1"),
     profile = PlayerProfile(name = CommanderName("Ada di Notte"), mark = PlayerMark.Preset(MarkPreset.SEXTANT)),
     role = AllianceRole.ADMIN,
-    experience = Experience(1_200),
+    experience = ExperienceReading.Known(Experience(1_200)),
     lastSyncedAt = NOW,
 )
 
 private val SAMPLE_JOIN_REQUEST: JoinRequest = JoinRequest(
     id = JoinRequestId("petition-1"),
     profile = PlayerProfile(name = null, mark = null),
-    experience = Experience(340),
+    experience = ExperienceReading.Known(Experience(340)),
     askedAt = NOW,
 )
 
@@ -28,6 +28,15 @@ private val SAMPLE_JOIN_REQUEST: JoinRequest = JoinRequest(
 // out of the snapshot is the roster slice's own; this file pins only the shape a member and a pending
 // petition carry on the wire.
 class AllianceRosterTest {
+
+    @Test
+    fun `a member with unavailable experience decodes as a typed unknown reading`() {
+        val text = """{"id":"member-1","profile":{"name":null,"mark":null},"role":"ADMIN","experience":{"type":"Unknown"},"lastSyncedAt":"2026-09-05T09:00:00Z"}"""
+
+        val member = Protocol.json.decodeFromString(AllianceMember.serializer(), text)
+
+        assertEquals(ExperienceReading.Unknown, member.experience)
+    }
 
     @Test
     fun `a member survives the round trip`() {
@@ -53,6 +62,15 @@ class AllianceRosterTest {
         val text = Protocol.json.encodeToString(JoinRequest.serializer(), SAMPLE_JOIN_REQUEST)
 
         assertEquals(SAMPLE_JOIN_REQUEST, Protocol.json.decodeFromString(JoinRequest.serializer(), text))
+    }
+
+    @Test
+    fun `a join request with unknown experience survives the round trip`() {
+        val request = SAMPLE_JOIN_REQUEST.copy(experience = ExperienceReading.Unknown)
+
+        val text = Protocol.json.encodeToString(JoinRequest.serializer(), request)
+
+        assertEquals(request, Protocol.json.decodeFromString(JoinRequest.serializer(), text))
     }
 
     // A plain member's read carries `null` for the pending list rather than an empty one — "this is

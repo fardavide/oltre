@@ -68,6 +68,13 @@ class PostgresColonyRepositoryIntegrationTest {
     // ── Founding ──────────────────────────────────────────────────────────────────────────────
 
     @Test
+    fun `founding stores earned experience beside the snapshot`() = runTest {
+        repository.found(davide, freshColony())
+
+        assertEquals("0", database.scalar("SELECT experience FROM colonies WHERE player_id = 'davide'"))
+    }
+
+    @Test
     fun `founding a colony stores it under the player who founded it`() = runTest {
         val colony = freshColony()
 
@@ -121,6 +128,7 @@ class PostgresColonyRepositoryIntegrationTest {
         repository.write(davide, played, applied = emptySet(), expected = founded.version)
 
         assertEquals(played, repository.colonyOf(davide)?.snapshot)
+        assertEquals(played.state.experience.points.toString(), database.scalar("SELECT experience FROM colonies WHERE player_id = 'davide'"))
     }
 
     @Test
@@ -157,8 +165,22 @@ class PostgresColonyRepositoryIntegrationTest {
         // it must never do is succeed, because succeeding means the winner's work is gone and
         // nothing anywhere knows.
         val read = repository.found(davide, freshColony(seed = 1)).colony
-        val winner = freshColony(at = TEST_NOW + 1.hours, seed = 2)
-        val loser = freshColony(at = TEST_NOW + 9.hours, seed = 3)
+        val winner = replay(
+            establishedColony(seed = 2),
+            listOf(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW)),
+            emptySet(),
+            TEST_NOW + 1.hours,
+        ).snapshot
+        val loser = replay(
+            establishedColony(seed = 3),
+            listOf(
+                envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW),
+                envelope(ClientVerb.StartUpgrade(BuildingType.CRYSTAL_MINE), at = TEST_NOW),
+            ),
+            emptySet(),
+            TEST_NOW + 9.hours,
+        ).snapshot
+        assertTrue(winner.state.experience != loser.state.experience)
 
         val first = repository.write(davide, winner, applied = setOf(IdempotencyKey("won")), expected = read.version)
         val second = repository.write(davide, loser, applied = setOf(IdempotencyKey("lost")), expected = read.version)
@@ -166,6 +188,7 @@ class PostgresColonyRepositoryIntegrationTest {
         assertEquals(WriteResult.WRITTEN, first)
         assertEquals(WriteResult.STALE, second)
         assertEquals(winner, repository.colonyOf(davide)?.snapshot)
+        assertEquals(winner.state.experience.points.toString(), database.scalar("SELECT experience FROM colonies WHERE player_id = 'davide'"))
         // And the loser's key did not land either — the colony and its keys are one transaction, so
         // a verb the player paid for and did not get is not a state this store can reach.
         assertEquals(setOf(IdempotencyKey("won")), repository.appliedAmong(davide, ALL_THREE_KEYS))

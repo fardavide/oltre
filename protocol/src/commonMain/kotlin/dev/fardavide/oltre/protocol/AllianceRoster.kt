@@ -1,8 +1,24 @@
 package dev.fardavide.oltre.protocol
 
 import dev.fardavide.oltre.core.Experience
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.time.Instant
+
+/**
+ * Earned points reported at a colony's last sync, or an explicitly unknown reading.
+ */
+@Serializable
+sealed interface ExperienceReading {
+
+    @Serializable
+    @SerialName("Known")
+    data class Known(val earned: Experience) : ExperienceReading
+
+    @Serializable
+    @SerialName("Unknown")
+    data object Unknown : ExperienceReading
+}
 
 // `GET /v1/alliance/roster` — you can see who is in it, `alliance-sheet.md` §6. **Its own route and
 // not a field on `AllianceResponse`**: a roster on the alliance read could never grow a column after
@@ -33,7 +49,7 @@ data class AllianceMember(
     val id: AllianceMemberId,
     val profile: PlayerProfile,
     val role: AllianceRole,
-    val experience: Experience,
+    val experience: ExperienceReading,
     val lastSyncedAt: Instant,
 )
 
@@ -46,7 +62,7 @@ data class AllianceMember(
 data class JoinRequest(
     val id: JoinRequestId,
     val profile: PlayerProfile,
-    val experience: Experience,
+    val experience: ExperienceReading,
     val askedAt: Instant,
 )
 

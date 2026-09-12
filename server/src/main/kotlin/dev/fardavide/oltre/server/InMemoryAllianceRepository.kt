@@ -3,14 +3,19 @@ package dev.fardavide.oltre.server
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceLevel
+import dev.fardavide.oltre.protocol.AllianceMember
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
+import dev.fardavide.oltre.protocol.ExperienceReading
+import dev.fardavide.oltre.protocol.JoinRequest
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.PlayerProfile
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.UUID
@@ -21,10 +26,58 @@ internal class InMemoryAllianceRepository(
     private val ids: AllianceIds = AllianceIds.RANDOM,
 ) : AllianceRepository {
 
+    val playerProfiles = ConcurrentHashMap<PlayerId, PlayerProfile>()
+
     private val lock = Mutex()
     private val alliances = mutableMapOf<AllianceId, StoredAlliance>()
     private val seats = mutableMapOf<PlayerId, Seat>()
     private val petitions = mutableMapOf<PlayerId, Petition>()
+
+    override suspend fun rosterOf(player: PlayerId, now: Instant): RosterRead = lock.withLock {
+        val current = when (val affiliation = affiliationOf(player)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@withLock RosterRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> affiliation
+        }
+        val alliance = current.alliance.alliance.id
+        if (colonies.colonyOf(player) == null) return@withLock RosterRead.Refused(ApiError.NoColony)
+        succeed(alliance, now)
+        val members = buildList {
+            val ordered = seats.values.filter { it.alliance == alliance }.sortedWith(
+                compareBy<Seat> {
+                    when (it.role) {
+                        AllianceRole.FOUNDER -> 0
+                        AllianceRole.ADMIN -> 1
+                        AllianceRole.MEMBER -> 2
+                    }
+                }.thenBy { it.joinedAt }.thenBy { it.player.value },
+            )
+            for (seat in ordered) {
+                val colony = checkNotNull(colonies.colonyOf(seat.player)) { "an alliance member has no colony" }
+                add(AllianceMember(
+                    seat.id, playerProfiles.getValue(seat.player), seat.role,
+                    ExperienceReading.Known(colony.snapshot.state.experience), colony.snapshot.lastUpdatedAt,
+                ))
+            }
+        }
+        val role = seats.getValue(player).role
+        val pending = when (role) {
+            AllianceRole.FOUNDER,
+            AllianceRole.ADMIN,
+            -> petitions.values.filter { it.alliance == alliance }
+                .sortedWith(compareBy<Petition> { it.requestedAt }.thenBy { it.player.value }).map { petition ->
+                    val experience = colonies.colonyOf(petition.player)?.snapshot?.state?.experience
+                    JoinRequest(
+                        petition.id, playerProfiles.getValue(petition.player),
+                        experience?.let { ExperienceReading.Known(it) } ?: ExperienceReading.Unknown,
+                        petition.requestedAt,
+                    )
+                }
+            AllianceRole.MEMBER -> emptyList()
+        }
+        rosterFor(role, members, pending)
+    }
 
     override suspend fun search(query: CanonicalAllianceName, cursor: AllianceSearchPosition?, limit: Int): List<StoredAlliance> = lock.withLock {
         alliances.values

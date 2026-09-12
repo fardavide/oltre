@@ -2,6 +2,7 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.ResourceKind
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
@@ -9,6 +10,8 @@ import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.AllianceMember
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
@@ -23,6 +26,7 @@ import dev.fardavide.oltre.protocol.SetMemberRoleRequest
 import dev.fardavide.oltre.protocol.KickMemberRequest
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.MarkBody
 import dev.fardavide.oltre.protocol.MarkPath
@@ -441,6 +445,43 @@ class OltreServerIntegrationTest {
     }
 
     // ── The alliance ──────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `the roster route answers the founder profile earned experience and last sync with no pending requests`() = testApplication {
+        val clock = MovableClock(TEST_NOW)
+        val colonies = InMemoryColonyRepository()
+        val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
+        val founder = assertIs<Caller.Known>(HeaderAuthenticator(players).identify(Credentials(null, "davide"))).player
+        application { oltre(colonies, players, alliances, clock, identity = null) }
+        val profile = PlayerProfile(
+            name = CommanderName("Ada di Notte"),
+            mark = PlayerMark.Composed(MarkBody.WAKE, MarkPath.TWIN, MarkTerminus.RING),
+        )
+        assertEquals(HttpStatusCode.OK, postRaw("/v1/profile", Protocol.json.encodeToString(SetProfileRequest(ApiVersion.CURRENT, profile))).status)
+        assertEquals(HttpStatusCode.Created, post("/v1/colony", sync()).status)
+        post("/v1/sync", sync(envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = clock.now(), key = "mine")))
+        clock.advanceBy(1.days)
+        val played = post("/v1/sync", sync()).syncResponse().snapshot
+        assertTrue(played.state.experience > Experience.NONE)
+        assertEquals(HttpStatusCode.Created, postRaw("/v1/alliance", Protocol.json.encodeToString(
+            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Vanguard"), AllianceTag("VNG")),
+        )).status)
+        val seat = assertIs<Affiliation.Enlisted>(alliances.allianceOf(founder, clock.now())).seat
+        clock.advanceBy(1.hours)
+
+        val response = client.get("/v1/alliance/roster") { header(Protocol.PLAYER_HEADER, "davide") }
+
+        assertEquals(HttpStatusCode.OK, response.status, response.bodyAsText())
+        assertEquals(
+            AllianceRosterResponse(
+                ApiVersion.CURRENT,
+                listOf(AllianceMember(seat.id, profile, AllianceRole.FOUNDER, ExperienceReading.Known(played.state.experience), played.lastUpdatedAt)),
+                emptyList(),
+            ),
+            Protocol.json.decodeFromString<AllianceRosterResponse>(response.bodyAsText()),
+        )
+    }
 
     @Test
     fun `the search route forwards the query and cursor across two capped pages`() = testApplication {

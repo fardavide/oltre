@@ -116,10 +116,10 @@ internal class PostgresColonyRepository(
         read = { rows -> if (rows.next()) colonyFrom(rows.getString(1), rows.getLong(2)) else null },
     )
 
-    // The six values a colony write carries, bound once for both statements that write one. That is
+    // The seven values a colony write carries, bound once for both statements that write one. That is
     // why `INSERT_COLONY` names `player_id` **last** rather than first as the table does: the two
-    // statements then share parameters one to six exactly, and the only thing the update adds is the
-    // version it is asserting, at seven. Two hand-kept copies of a positional binding is how a
+    // statements then share parameters one to seven exactly, and the only thing the update adds is the
+    // version it is asserting, at eight. Two hand-kept copies of a positional binding is how a
     // column ends up in the wrong parameter with nothing to say so — which is what the first run of
     // this file did.
     private fun PreparedStatement.bindColony(
@@ -136,7 +136,8 @@ internal class PostgresColonyRepository(
         setString(3, GameSave.encode(snapshot))
         setLong(4, version.value)
         setObject(5, now.atUtc())
-        setString(6, player.value)
+        setLong(6, snapshot.state.experience.points)
+        setString(7, player.value)
     }
 }
 
@@ -150,8 +151,8 @@ internal val APPLIED_RETENTION: Duration = 30.days
 // `player_id` last and not first, which is the table's order — see `bindColony` for why: it is what
 // lets the insert and the compare-and-set share one binding.
 private const val INSERT_COLONY = """
-    INSERT INTO colonies (schema_version, last_updated_at, snapshot_json, version, updated_at, player_id)
-    VALUES (?, ?, ?::jsonb, ?, ?, ?)
+    INSERT INTO colonies (schema_version, last_updated_at, snapshot_json, version, updated_at, experience, player_id)
+    VALUES (?, ?, ?::jsonb, ?, ?, ?, ?)
     ON CONFLICT (player_id) DO NOTHING
 """
 
@@ -161,14 +162,14 @@ private const val SELECT_COLONY = "SELECT snapshot_json, version FROM colonies W
 // rows, and which of the two is the answer.
 private const val UPDATE_COLONY = """
     UPDATE colonies
-    SET schema_version = ?, last_updated_at = ?, snapshot_json = ?::jsonb, version = ?, updated_at = ?
+    SET schema_version = ?, last_updated_at = ?, snapshot_json = ?::jsonb, version = ?, updated_at = ?, experience = ?
     WHERE player_id = ? AND version = ?
 """
 
 // The one parameter `bindColony` does not bind — the version being asserted, which only the update
-// has. Named because a bare `7` beside a call that fills one to six is the thing that breaks when a
+// has. Named because a bare `8` beside a call that fills one to seven is the thing that breaks when a
 // column moves.
-private const val EXPECTED_VERSION_PARAMETER = 7
+private const val EXPECTED_VERSION_PARAMETER = 8
 
 // `ON CONFLICT DO NOTHING` because a key that was already recorded is being recorded again on
 // purpose: `replay` reports a key it found already spent as applied, and the write that follows
