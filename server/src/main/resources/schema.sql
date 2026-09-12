@@ -89,6 +89,10 @@ CREATE TABLE IF NOT EXISTS colonies (
     updated_at      timestamptz NOT NULL
 );
 
+-- Roster reads use earned points without decoding a member's save. Null means the colony
+-- has not been written since this column was added; zero is a known new colony.
+ALTER TABLE colonies ADD COLUMN IF NOT EXISTS experience bigint;
+
 -- Retry protection, and prunable. A verb whose response was lost on a flaky train connection gets
 -- resent, and without a record of what has already been applied that is a double-spend.
 --
