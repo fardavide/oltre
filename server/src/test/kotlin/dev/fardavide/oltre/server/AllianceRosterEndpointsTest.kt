@@ -25,6 +25,46 @@ import kotlin.time.Duration.Companion.hours
 class AllianceRosterEndpointsTest {
 
     @Test
+    fun `an admitted admin can read a pending petition with its actual profile and earned points`() = runTest {
+        val colonies = InMemoryColonyRepository()
+        val alliances = InMemoryAllianceRepository(colonies)
+        val players = InMemoryPlayerRepository(colonies, alliances, ids = sequentialPlayerIds())
+        val authenticator = HeaderAuthenticator(players)
+        val founder = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "founder"))).player
+        val admin = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "admin"))).player
+        val applicant = assertIs<Caller.Known>(authenticator.identify(Credentials(null, "applicant"))).player
+        val profile = PlayerProfile(CommanderName("Ada di Notte"), PlayerMark.Preset(MarkPreset.SEXTANT))
+        assertTrue(players.setProfile(applicant, profile))
+        val fresh = freshColony()
+        val colony = fresh.copy(state = fresh.state.copy(experience = Experience(340)))
+        colonies.found(founder, fresh)
+        colonies.found(admin, fresh)
+        colonies.found(applicant, colony)
+        val made = assertIs<Founded.Made>(alliances.found(founder, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW))
+        val pending = assertIs<Affiliation.Petitioning>(assertIs<AllianceChange.Applied>(alliances.petition(
+            admin, made.alliance.alliance.id, TEST_NOW, made.alliance.version,
+        )).affiliation)
+        assertIs<AllianceChange.Applied>(alliances.approve(
+            founder, made.alliance.alliance.id, pending.petition.id, JoinDecision.ADMITTED, TEST_NOW, pending.alliance.version,
+        ))
+        val member = assertIs<Affiliation.Enlisted>(alliances.allianceOf(admin, TEST_NOW))
+        assertIs<AllianceChange.Applied>(alliances.setRole(
+            founder, made.alliance.alliance.id, member.seat.id, AllianceRole.ADMIN, member.alliance.version,
+        ))
+        val current = assertIs<Affiliation.Enlisted>(alliances.allianceOf(founder, TEST_NOW))
+        val askedAt = TEST_NOW + 1.hours
+        val petition = assertIs<Affiliation.Petitioning>(assertIs<AllianceChange.Applied>(alliances.petition(
+            applicant, made.alliance.alliance.id, askedAt, current.alliance.version,
+        )).affiliation).petition
+
+        val answer = assertIs<Answer.Roster>(readAllianceRoster(alliances, authenticator, MovableClock(askedAt), Credentials(null, "admin")))
+
+        assertEquals(listOf(JoinRequest(
+            petition.id, profile, ExperienceReading.Known(colony.state.experience), askedAt,
+        )), answer.response.pending)
+    }
+
+    @Test
     fun `an out of order roster read before founding a colony receives the no colony error`() = runTest {
         val colonies = InMemoryColonyRepository()
         val alliances = InMemoryAllianceRepository(colonies)
