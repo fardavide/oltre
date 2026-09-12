@@ -362,7 +362,7 @@ enough for a thing measured in weeks.
   column and a prefix match is enough at this scale; a trigram index is for when there is something
   to measure.
 - **Search results carry the alliance, never its members** — name, tag, level, seats used, join
-  policy. The roster sits behind membership or behind a request.
+  policy. The roster sits behind membership; a pending request does not grant access.
 
 ### Search implementation decisions (2026-09-12, #139)
 
@@ -376,6 +376,33 @@ Search returns 20 results ordered by experience descending, then normalised name
 under PostgreSQL `C` collation. Its versioned opaque cursor is bound to the normalised query. Names
 are literal prefixes, including `%`, `_` and backslash; no tag or roster search is added. A separate
 address-keyed allowance of 60 searches per minute leaves the authentication budget available.
+
+### Roster implementation notes (2026-09-13, #140)
+
+The roster is the caller's own alliance, selected from the authenticated account;
+it accepts no alliance or player selector. Its member and petition IDs are opaque
+surrogates, and it carries each chosen `PlayerProfile` without exposing account IDs.
+Only founders and admins see pending petitions; ordinary members receive the
+contract's existing `pending = null`.
+
+Earned experience is stored beside the colony snapshot in the same insert or
+compare-and-set update. A roster reads that column, not the growing save history.
+Rows predating the column remain SQL null until their next write. Davide asked that
+unknown be explicit in the type: the wire currently uses `ExperienceReading.Known`
+or `ExperienceReading.Unknown`, preserving known zero as distinct from unknown.
+The type and field names remain a review topic in `code-review-log.md`.
+
+Davide clarified that a player starts with a colony. Startup automatically founds
+one before opening the game, so `lastSyncedAt` remains a required `Instant`.
+A synthetic roster call made before founding the caller's colony receives the
+existing `NoColony` error with status 404; it does not introduce another gameplay
+state or an invented timestamp.
+
+This slice uses the ticket's proposed default ordering: founder, admins, members;
+within a role, longest-serving first, then private account ID under `C` collation
+as the stable tie-breaker. The tie-breaker is never sent. Pending petitions are
+ordered by request time and the same private ID tie-breaker. This is the ticket's
+defensible default, not a new settled gameplay call about ranking members.
 
 > **`profile-sheet.md` §4.3's deferral expires the day this ships.** It reads: *"Whether the name is
 > ever shown to another player. Nothing is, yet. The answer changes nothing in this slice and

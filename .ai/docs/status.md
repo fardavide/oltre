@@ -1,8 +1,14 @@
 # Status
 
-Updated: 2026-08-30 (0.22.0 — player identity: a name you chose and a mark you drew)
+Updated: 2026-09-13 (0.22.0 — Alliance roster backend; screens remain a separate slice)
 
 ## Landed
+
+- **Alliance roster backend (#140)** — authenticated members read their own roster
+  with surrogate IDs, chosen profiles, roles, earned experience, and last colony sync.
+  Founders and admins also read pending petitions; ordinary members cannot see them.
+  Legacy experience is an explicit unknown reading until the next colony write.
+  No client screen or version bump is part of this slice; see `alliance-sheet.md`.
 
 - **0.0.1 scaffold** — KMP monorepo (`core`, `sim`, `client/design`, `client/shell`, `server`),
   full local build green including iOS framework link.

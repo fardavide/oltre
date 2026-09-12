@@ -5,6 +5,7 @@
 | [brief.md](brief.md) | Distilled project brief; Notion pointer, architecture invariants, how Davide works |
 | [architecture.md](architecture.md) | Module map, dependency rule and how it is enforced |
 | [decisions.md](decisions.md) | Why — ADR-style, newest last |
+| [code-review-log.md](code-review-log.md) | Davide's code and architecture feedback, open review questions, and their outcomes |
 | [status.md](status.md) | Where the project is: slices landed, what's next, pending setup |
 | [balance-log.md](balance-log.md) | Every tuning round: the feedback in Davide's words, what moved, what to watch |
 | [galaxy-sheet.md](galaxy-sheet.md) | The settled design for slices 4 and 5 — trait axes, coordinates, generation, the target distribution |
