@@ -4,6 +4,7 @@ import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceSeats
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import io.zonky.test.db.postgres.junit.SingleInstancePostgresRule
 import kotlinx.coroutines.test.runTest
 import org.junit.ClassRule
@@ -49,6 +50,19 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(first.alliance, again.alliance)
         assertEquals(1, database.rowsIn("alliances"))
         assertEquals(1, database.rowsIn("alliance_members"))
+    }
+
+    @Test
+    fun `normalised name collisions are a refusal instead of a database error`() = runTest {
+        val rival = PlayerId("rival")
+        database.givenPlayer(rival)
+        repository.found(founder, AllianceName("Straße  Fleet"), AllianceTag("VNG"), TEST_NOW)
+
+        val refused = assertIs<Founded.Refused>(repository.found(rival, AllianceName("STRASSE\tFLEET"), AllianceTag("RIV"), TEST_NOW))
+
+        assertEquals(ApiError.AllianceNameTaken, refused.error)
+        assertEquals(Affiliation.Unaffiliated, repository.allianceOf(rival, TEST_NOW))
+        assertEquals(1, database.rowsIn("alliances"))
     }
 
     private companion object {
