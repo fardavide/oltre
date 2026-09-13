@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,7 +12,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import dev.fardavide.oltre.client.design.core.OltreColors
@@ -40,15 +38,12 @@ fun <T> SegmentedSwitch(
     onSelect: (T) -> Unit,
     testTag: (T) -> String,
     modifier: Modifier = Modifier,
-    troughShape: Shape = TROUGH_SHAPE,
-    segmentShape: Shape = SEGMENT_SHAPE,
-    contentPadding: PaddingValues = DEFAULT_CONTENT_PADDING,
     content: @Composable (option: T, selected: Boolean) -> Unit,
 ) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         modifier = modifier
-            .background(TROUGH_FILL, troughShape)
+            .background(TROUGH_FILL, TROUGH_SHAPE)
             .padding(2.dp),
     ) {
         options.forEach { option ->
@@ -56,8 +51,6 @@ fun <T> SegmentedSwitch(
             Segment(
                 onClick = { onSelect(option) },
                 selected = on,
-                shape = segmentShape,
-                contentPadding = contentPadding,
                 modifier = Modifier.testTag(testTag(option)),
             ) {
                 content(option, on)
@@ -66,26 +59,27 @@ fun <T> SegmentedSwitch(
     }
 }
 
-// One segment: the fill and the click, sized by its own content plus `contentPadding` — every
+// One segment: the fill and the click, sized by its own content plus the shared padding — every
 // segment in the app agrees on this, since a text pill has never needed to match another's width.
+// The shape and padding are not parameters: no caller has ever needed a different one, and a
+// customization surface nothing calls is a branch Compose still has to generate and nothing can
+// ever exercise.
 @Composable
 private fun Segment(
     onClick: () -> Unit,
     selected: Boolean,
-    shape: Shape,
-    contentPadding: PaddingValues,
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier
-            .background(settlingColor(if (selected) SEGMENT_FILL else Color.Transparent), shape)
+            .background(settlingColor(if (selected) SEGMENT_FILL else Color.Transparent), SEGMENT_SHAPE)
             // Between the fill and the click, which is the only place a clip works: an indication
             // is clipped by the layer declared before it, so a segment's ripple is a segment.
-            .clip(shape)
+            .clip(SEGMENT_SHAPE)
             .clickable(onClick = onClick)
-            .padding(contentPadding),
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     ) {
         content()
     }
@@ -96,8 +90,6 @@ private fun Segment(
 private val TROUGH_FILL = Color.White.copy(alpha = 0.09f)
 private val SEGMENT_FILL = OltreColors.accent.copy(alpha = 0.22f)
 
-// The galaxy's own radii, kept as the default since it was here first.
+// The galaxy's own radii, kept since it was here first — every caller agrees on them.
 private val TROUGH_SHAPE = RoundedCornerShape(4.dp)
 private val SEGMENT_SHAPE = RoundedCornerShape(3.dp)
-
-private val DEFAULT_CONTENT_PADDING = PaddingValues(horizontal = 9.dp, vertical = 4.dp)

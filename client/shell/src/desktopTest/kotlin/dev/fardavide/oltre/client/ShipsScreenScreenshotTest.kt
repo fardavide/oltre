@@ -3,8 +3,14 @@ package dev.fardavide.oltre.client
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.design.testing.SETTLED_MILLIS
@@ -39,6 +45,38 @@ class ShipsScreenScreenshotTest {
             mainClock.advanceTimeBy(SETTLED_MILLIS)
             onRoot().captureRoboImage(
                 filePath = "src/desktopTest/screenshots/ships_screen.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
+    // **A real chip tap, recomposing the screen it switches — not a second screen composed fresh.**
+    // The test above hands `ShipsScreen` a fixed `mode`; this one hoists it the way `MainScaffold`
+    // actually does, and taps through, because a static capture of two different `mode` values is
+    // two separate compositions and cannot be the thing that recomposing this screen looks like.
+    @Test
+    fun `tapping Fleets recomposes the screen rather than replacing it`() {
+        runDesktopComposeUiTest(width = 393, height = 200) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        var mode by remember { mutableStateOf(ShipsMode.SHIPYARD) }
+                        ShipsScreen(
+                            scrollState = rememberScrollState(),
+                            mode = mode,
+                            onSelectMode = { mode = it },
+                            shipyard = { Text("shipyard-under-test") },
+                            fleets = { Text("fleets-under-test") },
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.FLEETS)).performClick()
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/ships_screen_recomposed.png",
                 roborazziOptions = oltreRoborazziOptions(),
             )
         }

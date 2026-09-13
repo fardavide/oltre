@@ -102,6 +102,47 @@ class MainScaffoldScreenshotTest {
         )
     }
 
+    // **A real trip through the bar, recomposing `Destination`'s own `when (selected)` — not five
+    // frames each composed fresh.** Every capture above hands `MainScaffold` a `selected` it never
+    // changes, so `AnimatedContent`'s content lambda is entered exactly once per test. A player
+    // tapping across the bar recomposes it once per tap, and this walks every destination in one
+    // sitting and settles on Ships before the shutter, so the frame photographed is one an actual
+    // switch produced rather than a first paint.
+    @Test
+    fun `the frame after a walk across every destination`() {
+        runDesktopComposeUiTest(width = PHONE_WIDTH, height = 852) {
+            mainClock.autoAdvance = false
+            setContent {
+                OltreTheme {
+                    Surface {
+                        MainScaffold(
+                            tilt = { Tilt.NONE },
+                            player = testPlayerStripUiState,
+                            resources = testResourceRailUiState,
+                            colony = { Text("colony-under-test") },
+                            research = { Text("research-under-test") },
+                            galaxy = { _, _ -> Text("galaxy-under-test") },
+                            ships = { _, _, _ -> Text("ships-under-test") },
+                            alliance = { Text("alliance-under-test") },
+                            offline = null,
+                            onOpenSettings = {},
+                            onOpenProfile = {},
+                        )
+                    }
+                }
+            }
+            mainClock.advanceTimeBy(SETTLED_MILLIS)
+            OltreTab.entries.forEach { tab ->
+                onNodeWithTag(ShellTestTags.tab(tab)).performClick()
+                mainClock.advanceTimeBy(SETTLED_MILLIS)
+            }
+            onRoot().captureRoboImage(
+                filePath = "src/desktopTest/screenshots/main_scaffold_after_a_walk.png",
+                roborazziOptions = oltreRoborazziOptions(),
+            )
+        }
+    }
+
     private fun captureFrame(
         name: String,
         width: Int = PHONE_WIDTH,

@@ -4,6 +4,9 @@ import dev.fardavide.oltre.client.design.text.English
 import androidx.compose.foundation.ScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.test.ComposeUiTest
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
 import dev.fardavide.oltre.client.design.text.Strings
@@ -46,6 +49,23 @@ class MainScaffoldBehaviourTest {
                     onNodeWithTag(ShellTestTags.tab(other)).assertIsNotSelected()
                 }
             }
+        }
+    }
+
+    // **A real check-in, not five isolated ones.** Every test above opens a fresh scaffold per tab,
+    // which proves each destination is reachable but never asks Compose to recompose `Destination`'s
+    // own `when (selected)` across a real sequence — a fresh composition and a recomposition are not
+    // the same event, and the difference is exactly what a player flipping through the whole bar in
+    // one sitting does. One continuous session, every destination in bar order and back.
+    @Test
+    fun `a player can walk every destination in one sitting and land back on Colony`() {
+        scaffold {
+            OltreTab.entries.forEach { tab ->
+                onNodeWithTag(ShellTestTags.tab(tab)).performClick()
+                onNodeWithTag(ShellTestTags.tab(tab)).assertIsSelected()
+            }
+            onNodeWithTag(ShellTestTags.tab(OltreTab.COLONY)).performClick()
+            onNodeWithText(COLONY_MARKER).assertIsDisplayed()
         }
     }
 
@@ -238,6 +258,57 @@ class MainScaffoldBehaviourTest {
             onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
             onNodeWithText(FLEETS_MARKER).assertIsDisplayed()
             onNodeWithText(SHIPYARD_MARKER).assertDoesNotExist()
+        }
+    }
+
+    // **The line a dropped connection draws, live rather than only at launch.** Every other test
+    // hands `offline` a fixed `null` for the whole session — realistic for "the game opens with a
+    // signal," but a player's connection actually drops and returns while a destination stays open,
+    // which `AppBehaviourTest` only ever exercises at startup. This drives the transition itself, in
+    // one continuous composition, and checks the destination underneath never moves for it.
+    @Test
+    fun `the offline line appears and disappears without losing the destination`() {
+        lateinit var offline: MutableState<OfflineLineUiState?>
+        runDesktopComposeUiTest(width = 393, height = 852) {
+            setContent {
+                offline = remember { mutableStateOf(null) }
+                OltreTheme {
+                    MainScaffold(
+                        tilt = { Tilt.NONE },
+                        player = testPlayerStripUiState,
+                        resources = testResourceRailUiState,
+                        colony = { Text(COLONY_MARKER) },
+                        research = { Text(RESEARCH_MARKER) },
+                        galaxy = { _, _ -> Text(GALAXY_MARKER) },
+                        ships = { scroll, mode, onSelectMode ->
+                            ShipsScreen(
+                                scrollState = scroll,
+                                mode = mode,
+                                onSelectMode = onSelectMode,
+                                shipyard = { Text(SHIPYARD_MARKER) },
+                                fleets = { Text(FLEETS_MARKER) },
+                            )
+                        },
+                        alliance = { Text(ALLIANCE_MARKER) },
+                        offline = offline.value,
+                        onOpenSettings = {},
+                        onOpenProfile = {},
+                    )
+                }
+            }
+            onNodeWithTag(ShellTestTags.tab(OltreTab.RESEARCH)).performClick()
+            onNodeWithText(RESEARCH_MARKER).assertIsDisplayed()
+
+            val line = English.resolve(Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = false))
+            onNodeWithText(line).assertDoesNotExist()
+
+            runOnIdle { offline.value = OfflineLineUiState(text = Strings.offlineSince(hour = 11, minute = 31, held = 3, compact = false)) }
+            onNodeWithText(line).assertIsDisplayed()
+            onNodeWithText(RESEARCH_MARKER).assertIsDisplayed()
+
+            runOnIdle { offline.value = null }
+            onNodeWithText(line).assertDoesNotExist()
+            onNodeWithText(RESEARCH_MARKER).assertIsDisplayed()
         }
     }
 
