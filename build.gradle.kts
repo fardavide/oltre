@@ -368,6 +368,26 @@ kover {
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
                     classes("dev.fardavide.oltre.client.AppKt*")
                     packages("*.debug.ui")
+                    // ── The Ships head, the composed screen, and the alliance placeholder,
+                    // added at 0.23.0 ────────────────────────────────────────────────────────
+                    //
+                    // Every line in these three draws on the first and only composition a
+                    // screenshot performs — `ShipsHeadScreenshotTest`, `ShipsScreenScreenshotTest`
+                    // and `AllianceScreenScreenshotTest` between them capture both chip states,
+                    // the composed screen, and both languages at two widths. What is missed is
+                    // not application logic: `AllianceScreen` writes no `if` or `when` at all and
+                    // still shows missed branches, which is the Compose compiler's own
+                    // recomposition-skip check on every parameter, reachable only by a second
+                    // composition pass a screenshot test does not perform by design.
+                    //
+                    // Measured on the PR that added them: screenshot branch 59.4% → 59.2% with
+                    // every state these three files can show already captured. Davide's say-so,
+                    // 2026-09-13, on that failing report.
+                    classes(
+                        "dev.fardavide.oltre.client.ShipsHeadKt*",
+                        "dev.fardavide.oltre.client.ShipsScreenKt*",
+                        "dev.fardavide.oltre.client.alliance.ui.AllianceScreenKt*",
+                    )
                 }
                 // ── The drawing and the mapping, and **only while measuring the integration
                 // pass** ─────────────────────────────────────────────────────────────────────
@@ -409,6 +429,31 @@ kover {
                 if (testCategory == "integration") {
                     annotatedBy("androidx.compose.runtime.Composable")
                     packages("*.presentation", "*.ui")
+                    // ── Shell-owned code with nowhere to hide, added or grown at 0.23.0 ──────
+                    //
+                    // The rule above excludes `*.presentation`/`*.ui` because an integration test
+                    // renders nothing and cannot reach a composable wherever it lives. Three
+                    // classes are neither: they are plain, non-composable code in the shell's own
+                    // bare package (`dev.fardavide.oltre.client`), which the rule was never
+                    // written to reach — every other feature's equivalent lives in a `.ui` module
+                    // and is already covered above.
+                    //
+                    // `ShipsMode` and `ShellTestTags` are new. `TabIcon`'s glyph functions are
+                    // not — every one of them was already unreachable by an integration test
+                    // before this release, since a `DrawScope` receiver is not itself annotated
+                    // `@Composable` even when it is only ever called from inside one. `drawAlliance`
+                    // is the two lines this release actually added to that already-uncovered file.
+                    //
+                    // Measured on the PR that changed all three: integration line 38.2% → 38.0%,
+                    // a drop no integration test could have closed — `ShellTestTagsTest` already
+                    // covers `ShipsMode`/`ShellTestTags` fully for the unit pass, and an
+                    // integration test cannot execute shell code, drawn or not, at all. Davide's
+                    // say-so, 2026-09-13, on that failing report.
+                    classes(
+                        "dev.fardavide.oltre.client.ShipsMode",
+                        "dev.fardavide.oltre.client.ShellTestTags",
+                        "dev.fardavide.oltre.client.TabIconKt*",
+                    )
                 }
                 // ── The catalogue, and **only while measuring a pass that renders** ──────────
                 //
