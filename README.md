@@ -227,6 +227,13 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.23.1 — 2026-09-13
+
+- **The Ships switch remembers which half you were on.** Leave it on Fleets, check the colony, come
+  back — it is still Fleets, not reset to Shipyard.
+- **Shipyard and Fleets read as words now**, the same style the galaxy's Worlds/Map switch already
+  uses, rather than the two icons the tab briefly carried.
+
 ### 0.23.0 — 2026-09-13
 
 - **A fifth destination, bought by merging two.** Shipyard and Fleets are one subject — a hull is

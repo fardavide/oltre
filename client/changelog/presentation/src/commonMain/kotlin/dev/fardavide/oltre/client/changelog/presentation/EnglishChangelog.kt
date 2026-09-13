@@ -16,6 +16,11 @@ object EnglishChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.23.1", "2026-09-13", "The Ships switch remembers",
+            "Leave it on Fleets, check the colony, come back — still Fleets.",
+            "Shipyard and Fleets read as words now, like the galaxy's own switch.",
+        ),
+        release(
             "0.23.0", "2026-09-13", "Ships, and the alliance's own tab",
             "Shipyard and Fleets are one tab now, Ships, with a switch between the two.",
             "The tab it freed is the alliance's, saying plainly it is not built yet.",
