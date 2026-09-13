@@ -1,7 +1,18 @@
 package dev.fardavide.oltre.client.net.data
 
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.AllianceSearchCursor
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
@@ -41,6 +52,51 @@ sealed interface ApiResult<out T> {
 // than a choice a caller makes, so the implementation states it and a caller cannot get it wrong.
 // What a caller supplies is the only thing it knows.
 interface OltreApi {
+
+    suspend fun alliance(access: SessionToken): ApiResult<AllianceStanding>
+
+    suspend fun allianceRoster(access: SessionToken): ApiResult<AllianceRosterResponse>
+
+    suspend fun answerRequest(
+        access: SessionToken,
+        request: JoinRequestId,
+        decision: JoinDecision,
+    ): ApiResult<AllianceStanding>
+
+    suspend fun createAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding>
+
+    suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding>
+
+    suspend fun leaveAlliance(access: SessionToken): ApiResult<AllianceStanding>
+
+    suspend fun removeMember(
+        access: SessionToken,
+        member: AllianceMemberId,
+    ): ApiResult<AllianceStanding>
+
+    suspend fun renameAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding>
+
+    suspend fun requestToJoin(access: SessionToken, alliance: AllianceId): ApiResult<AllianceStanding>
+
+    suspend fun searchAlliances(
+        access: SessionToken,
+        query: String,
+        cursor: AllianceSearchCursor?,
+    ): ApiResult<AllianceSearchResponse>
+
+    suspend fun setMemberRole(
+        access: SessionToken,
+        member: AllianceMemberId,
+        role: AllianceRole,
+    ): ApiResult<AllianceStanding>
 
     // **Two methods rather than one taking a provider, because the provider is the path.** That is
     // `Auth.kt`'s call and it is not cosmetic: the two tokens are verified against different

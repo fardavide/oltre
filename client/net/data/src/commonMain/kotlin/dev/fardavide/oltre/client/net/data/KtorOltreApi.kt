@@ -1,14 +1,32 @@
 package dev.fardavide.oltre.client.net.data
 
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.AllianceSearchCursor
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.AnswerJoinRequest
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
+import dev.fardavide.oltre.protocol.CreateAllianceRequest
 import dev.fardavide.oltre.protocol.IdToken
+import dev.fardavide.oltre.protocol.JoinAllianceRequest
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.JoinRequestId
+import dev.fardavide.oltre.protocol.KickMemberRequest
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.RenameAllianceRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetMemberRoleRequest
 import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
@@ -20,6 +38,7 @@ import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
 import io.ktor.client.request.header
+import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
@@ -44,6 +63,126 @@ class KtorOltreApi(
     private val client: HttpClient,
     private val baseUrl: String,
 ) : OltreApi {
+
+    override suspend fun alliance(access: SessionToken): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            client.get(baseUrl + "/v1/alliance") { bearer(access) }
+        }.standing()
+
+    override suspend fun allianceRoster(access: SessionToken): ApiResult<AllianceRosterResponse> =
+        send(AllianceRosterResponse.serializer()) {
+            client.get(baseUrl + "/v1/alliance/roster") { bearer(access) }
+        }
+
+    override suspend fun answerRequest(
+        access: SessionToken,
+        request: JoinRequestId,
+        decision: JoinDecision,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance/join/answer",
+                AnswerJoinRequest(ApiVersion.CURRENT, request, decision),
+                AnswerJoinRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
+
+    override suspend fun createAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance",
+                CreateAllianceRequest(ApiVersion.CURRENT, name, tag),
+                CreateAllianceRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
+
+    override suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            client.delete(baseUrl + "/v1/alliance") { bearer(access) }
+        }.standing()
+
+    override suspend fun leaveAlliance(access: SessionToken): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            client.delete(baseUrl + "/v1/alliance/membership") { bearer(access) }
+        }.standing()
+
+    override suspend fun removeMember(
+        access: SessionToken,
+        member: AllianceMemberId,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance/members/remove",
+                KickMemberRequest(ApiVersion.CURRENT, member),
+                KickMemberRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
+
+    override suspend fun renameAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance/name",
+                RenameAllianceRequest(ApiVersion.CURRENT, name, tag),
+                RenameAllianceRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
+
+    override suspend fun requestToJoin(
+        access: SessionToken,
+        alliance: AllianceId,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance/join",
+                JoinAllianceRequest(ApiVersion.CURRENT, alliance),
+                JoinAllianceRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
+
+    override suspend fun searchAlliances(
+        access: SessionToken,
+        query: String,
+        cursor: AllianceSearchCursor?,
+    ): ApiResult<AllianceSearchResponse> = send(AllianceSearchResponse.serializer()) {
+        client.get(baseUrl + "/v1/alliance/search") {
+            bearer(access)
+            parameter("q", query)
+            if (cursor != null) parameter("cursor", cursor.value)
+        }
+    }
+
+    override suspend fun setMemberRole(
+        access: SessionToken,
+        member: AllianceMemberId,
+        role: AllianceRole,
+    ): ApiResult<AllianceStanding> =
+        send(AllianceResponse.serializer()) {
+            post(
+                "/v1/alliance/members/role",
+                SetMemberRoleRequest(ApiVersion.CURRENT, member, role),
+                SetMemberRoleRequest.serializer(),
+            ) {
+                bearer(access)
+            }
+        }.standing()
 
     // **The unauthenticated surface**, and the one that carries no session because it is what makes
     // one. Two methods because the provider is the path — see `OltreApi` and `Auth.kt`.
@@ -246,4 +385,10 @@ class KtorOltreApi(
         } else {
             ApiResult.Refused(ApiError.Malformed("${response.status.value} answered ${text.take(200)}"))
         }
+}
+
+private fun ApiResult<AllianceResponse>.standing(): ApiResult<AllianceStanding> = when (this) {
+    is ApiResult.Answered -> ApiResult.Answered(value.standing)
+    is ApiResult.Refused -> ApiResult.Refused(error)
+    ApiResult.Unreachable -> ApiResult.Unreachable
 }

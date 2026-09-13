@@ -21,12 +21,23 @@ import dev.fardavide.oltre.core.startUpgrade
 import dev.fardavide.oltre.core.toggleAlert
 import dev.fardavide.oltre.core.toggleAlertCategory
 import dev.fardavide.oltre.core.toggleFlightAlerts
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.AllianceSearchCursor
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AuthProvider
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.RejectionReason
 import dev.fardavide.oltre.protocol.SessionResponse
@@ -35,10 +46,10 @@ import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SyncResponse
 import dev.fardavide.oltre.protocol.VerbEnvelope
 import dev.fardavide.oltre.protocol.VerbRejection
-import kotlinx.coroutines.CompletableDeferred
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
+import kotlinx.coroutines.CompletableDeferred
 
 // **A fixed instant rather than a clock read**, for the reason nothing in `core` reads one: a fake
 // whose expiries moved with the wall clock would make a test that asserts *"this refreshes at"* pass
@@ -139,7 +150,36 @@ class FakeOltreApi(
     // envelope's, unadjusted. Those are `Replay.kt`'s and they are about a colony two devices are
     // writing to; a fake that guessed at them would be a second opinion on a rule with one home.
     var replays: Boolean = false,
+
+    var allianceStanding: AllianceStanding = AllianceStanding.Unaffiliated,
+
+    var allianceRoster: AllianceRosterResponse = AllianceRosterResponse(ApiVersion.CURRENT, emptyList(), null),
+
+    var allianceSearch: AllianceSearchResponse = AllianceSearchResponse(ApiVersion.CURRENT, "", emptyList(), null),
+
+    var allianceError: ApiError? = null,
+
+    var allianceRosterError: ApiError? = null,
+
+    var answerRequestError: ApiError? = null,
+
+    var createAllianceError: ApiError? = null,
+
+    var disbandAllianceError: ApiError? = null,
+
+    var leaveAllianceError: ApiError? = null,
+
+    var removeMemberError: ApiError? = null,
+
+    var renameAllianceError: ApiError? = null,
+
+    var requestToJoinError: ApiError? = null,
+
+    var searchAlliancesError: ApiError? = null,
+
+    var setMemberRoleError: ApiError? = null,
 ) : OltreApi {
+
 
     // Verbs this server refuses rather than applies, and why. Keyed by the verb and not by the key,
     // because a caller scripting this knows what it tapped and does not know what was minted for it.
@@ -170,6 +210,10 @@ class FakeOltreApi(
     // request is held: a write this server has *taken* is one the client is no longer sitting on, and
     // a client blocked behind a lock somebody else is holding leaves nothing here at all.
     private val profilesTaken = mutableListOf<PlayerProfile>()
+
+    private val allianceRequests = mutableListOf<AllianceRequest>()
+
+    private val heldAlliance = mutableMapOf<AllianceRoute, CompletableDeferred<Unit>>()
 
     // **A profile call the far end has taken and not yet answered**, which is the one thing this
     // fake could not express and the one thing two of this slice's defects live inside. Everything
@@ -272,6 +316,99 @@ class FakeOltreApi(
         heldDeletions?.complete(Unit)
     }
 
+    fun allianceRequests(): List<AllianceRequest> = allianceRequests.toList()
+
+    fun allianceWrites(): List<AllianceRequest.Mutation> = allianceRequests.filterIsInstance<AllianceRequest.Mutation>()
+
+    fun holdAlliance(route: AllianceRoute) {
+        heldAlliance[route] = CompletableDeferred()
+    }
+
+    fun answerAlliance(route: AllianceRoute) {
+        heldAlliance.remove(route)?.complete(Unit)
+    }
+
+    override suspend fun alliance(access: SessionToken): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.Standing(access))
+        return refuseOrElse { allianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun allianceRoster(access: SessionToken): ApiResult<AllianceRosterResponse> {
+        takeAlliance(AllianceRequest.Roster(access))
+        return refuseOrElse { allianceRosterError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceRoster) }
+    }
+
+    override suspend fun answerRequest(
+        access: SessionToken,
+        request: JoinRequestId,
+        decision: JoinDecision,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.AnswerRequest(access, request, decision))
+        return refuseOrElse { answerRequestError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun createAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.Create(access, name, tag))
+        return refuseOrElse { createAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.Disband(access))
+        return refuseOrElse { disbandAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun leaveAlliance(access: SessionToken): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.Leave(access))
+        return refuseOrElse { leaveAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun removeMember(
+        access: SessionToken,
+        member: AllianceMemberId,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.RemoveMember(access, member))
+        return refuseOrElse { removeMemberError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun renameAlliance(
+        access: SessionToken,
+        name: AllianceName,
+        tag: AllianceTag,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.Rename(access, name, tag))
+        return refuseOrElse { renameAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun requestToJoin(
+        access: SessionToken,
+        alliance: AllianceId,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.RequestToJoin(access, alliance))
+        return refuseOrElse { requestToJoinError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
+    override suspend fun searchAlliances(
+        access: SessionToken,
+        query: String,
+        cursor: AllianceSearchCursor?,
+    ): ApiResult<AllianceSearchResponse> {
+        takeAlliance(AllianceRequest.Search(access, query, cursor))
+        return refuseOrElse { searchAlliancesError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceSearch) }
+    }
+
+    override suspend fun setMemberRole(
+        access: SessionToken,
+        member: AllianceMemberId,
+        role: AllianceRole,
+    ): ApiResult<AllianceStanding> {
+        takeAlliance(AllianceRequest.SetMemberRole(access, member, role))
+        return refuseOrElse { setMemberRoleError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+    }
+
     override suspend fun signInWithApple(idToken: IdToken, nonce: SignInNonce): ApiResult<SessionResponse> =
         signIn(AuthProvider.APPLE, idToken, nonce)
 
@@ -360,6 +497,11 @@ class FakeOltreApi(
         }
     }
 
+    private suspend fun takeAlliance(request: AllianceRequest) {
+        allianceRequests += request
+        heldAlliance[request.route]?.await()
+    }
+
     private fun signIn(
         provider: AuthProvider,
         idToken: IdToken,
@@ -437,6 +579,84 @@ class FakeOltreApi(
         )
     }
 }
+
+enum class AllianceRoute {
+    STANDING,
+    ROSTER,
+    SEARCH,
+    CREATE,
+    RENAME,
+    REQUEST_TO_JOIN,
+    ANSWER_REQUEST,
+    SET_MEMBER_ROLE,
+    REMOVE_MEMBER,
+    LEAVE,
+    DISBAND,
+}
+
+sealed interface AllianceRequest {
+
+    val access: SessionToken
+
+    sealed interface Mutation : AllianceRequest
+
+    data class Standing(override val access: SessionToken) : AllianceRequest
+
+    data class Roster(override val access: SessionToken) : AllianceRequest
+
+    data class Search(
+        override val access: SessionToken,
+        val query: String,
+        val cursor: AllianceSearchCursor?,
+    ) : AllianceRequest
+
+    data class Create(
+        override val access: SessionToken,
+        val name: AllianceName,
+        val tag: AllianceTag,
+    ) : Mutation
+
+    data class Rename(
+        override val access: SessionToken,
+        val name: AllianceName,
+        val tag: AllianceTag,
+    ) : Mutation
+
+    data class RequestToJoin(override val access: SessionToken, val alliance: AllianceId) : Mutation
+
+    data class AnswerRequest(
+        override val access: SessionToken,
+        val request: JoinRequestId,
+        val decision: JoinDecision,
+    ) : Mutation
+
+    data class SetMemberRole(
+        override val access: SessionToken,
+        val member: AllianceMemberId,
+        val role: AllianceRole,
+    ) : Mutation
+
+    data class RemoveMember(override val access: SessionToken, val member: AllianceMemberId) : Mutation
+
+    data class Leave(override val access: SessionToken) : Mutation
+
+    data class Disband(override val access: SessionToken) : Mutation
+}
+
+val AllianceRequest.route: AllianceRoute
+    get() = when (this) {
+        is AllianceRequest.Standing -> AllianceRoute.STANDING
+        is AllianceRequest.Roster -> AllianceRoute.ROSTER
+        is AllianceRequest.Search -> AllianceRoute.SEARCH
+        is AllianceRequest.Create -> AllianceRoute.CREATE
+        is AllianceRequest.Rename -> AllianceRoute.RENAME
+        is AllianceRequest.RequestToJoin -> AllianceRoute.REQUEST_TO_JOIN
+        is AllianceRequest.AnswerRequest -> AllianceRoute.ANSWER_REQUEST
+        is AllianceRequest.SetMemberRole -> AllianceRoute.SET_MEMBER_ROLE
+        is AllianceRequest.RemoveMember -> AllianceRoute.REMOVE_MEMBER
+        is AllianceRequest.Leave -> AllianceRoute.LEAVE
+        is AllianceRequest.Disband -> AllianceRoute.DISBAND
+    }
 
 // **`:server`'s `applyVerb` said again on this side of the wire**, and the duplication is forced
 // rather than chosen: module rule 8 forbids `:client` from depending on `:server`, and a fake of a
