@@ -136,8 +136,11 @@ class AppBehaviourTest {
             // is on the switch itself either way, so the reading that separates the two screens is
             // the galaxy's scale line, which only the map has.
             assertDoesNotRead("250 SYSTEMS")
-            open(OltreTab.SHIPYARD)
-            assertReads("Shipyard")
+            openShipyard()
+            // "Shipyard" was the tab's own label and proved nothing about the screen; Scout is the
+            // card the screen itself always draws first, so this is the assertion the merge into
+            // Ships needs — that opening the chip shows the Shipyard content and not the bar.
+            assertReads("Scout")
             open(OltreTab.COLONY)
             assertReads("Metal Mine")
         }

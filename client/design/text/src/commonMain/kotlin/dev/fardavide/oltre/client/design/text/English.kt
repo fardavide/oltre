@@ -502,6 +502,11 @@ object English : Translations {
         StringId.TabShipyard -> "Shipyard"
         StringId.TabGalaxy -> "Galaxy"
         StringId.TabFleets -> "Fleets"
+        StringId.TabShips -> "Ships"
+        StringId.TabAlliance -> "Alliance"
+        StringId.AllianceComingSoonTitle -> "Coming soon"
+        StringId.AllianceComingSoonBody ->
+            "The alliance is being built. This tab will show it once it's ready."
         StringId.StepperFewer -> "−"
         StringId.StepperMore -> "+"
         StringId.DepositGap -> " "

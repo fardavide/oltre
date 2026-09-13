@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
@@ -129,29 +130,36 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 onToggleAnnounce = {},
                             )
                         },
-                        // The two tabs this harness never opens. Real screens rather than markers,
+                        // The tabs this harness never opens. Real screens rather than markers,
                         // because the journey under test crosses the tab bar and a destination that
                         // could not compose would be a trap the day it did.
-                        shipyard = { scroll ->
-                            ShipyardScreen(
+                        ships = { scroll ->
+                            ShipsScreen(
                                 scrollState = scroll,
-                                uiState = game.state.toShipyardUiState(now = game.now, timeZone = TimeZone.UTC),
-                                onBuild = {},
-                                onToggleAlert = {},
+                                shipyard = { s ->
+                                    ShipyardScreen(
+                                        scrollState = s,
+                                        uiState = game.state.toShipyardUiState(now = game.now, timeZone = TimeZone.UTC),
+                                        onBuild = {},
+                                        onToggleAlert = {},
+                                    )
+                                },
+                                fleets = { s ->
+                                    FleetsScreen(
+                                        scrollState = s,
+                                        state = game.state,
+                                        now = game.now,
+                                        timeZone = TimeZone.UTC,
+                                        // This harness is about the adaptation ladder reaching
+                                        // Research from a Galaxy row; Fleets is here to exist, not
+                                        // to be driven.
+                                        onDispatchRun = { _, _, _, _ -> true },
+                                        onToggleAnnounce = {},
+                                    )
+                                },
                             )
                         },
-                        fleets = { scroll ->
-                            FleetsScreen(
-                                scrollState = scroll,
-                                state = game.state,
-                                now = game.now,
-                                timeZone = TimeZone.UTC,
-                                // This harness is about the adaptation ladder reaching Research from
-                                // a Galaxy row; the Fleets tab is here to exist, not to be driven.
-                                onDispatchRun = { _, _, _, _ -> true },
-                                onToggleAnnounce = {},
-                            )
-                        },
+                        alliance = { scroll -> AllianceScreen(scrollState = scroll) },
                         // Null: this harness is a colony with signal, which is the ordinary case and
                         // the one every frame that is not about the network wants.
                         offline = null,

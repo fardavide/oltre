@@ -204,7 +204,7 @@ class HeldAppBehaviourTest {
     @Test
     fun `a hull bought with no signal is held and can be taken back`() {
         app(saved = wealthy(), api = offlineServer()) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             buyAHull()
             waitUntilItReads("Build held.")
 
@@ -225,7 +225,7 @@ class HeldAppBehaviourTest {
     @Test
     fun `a hull and its alert held together say so in one line`() {
         app(saved = withYard(), api = offlineServer()) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             buyAHull()
             waitUntilItReads("Build held.")
 
@@ -240,7 +240,7 @@ class HeldAppBehaviourTest {
     @Test
     fun `a hull alert tapped with no signal is held and can be taken back`() {
         app(saved = withYard(), api = offlineServer()) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             tapTheAlertOn(ShipType.SKIFF)
             waitUntilItReads("1 action held")
 
@@ -358,7 +358,7 @@ class HeldAppBehaviourTest {
     @Test
     fun `a held hull bell says the bell is set on the step that lights it`() {
         app(saved = withYard(), api = offlineServer()) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
 
             tapTheAlertOn(ShipType.SKIFF)
 

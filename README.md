@@ -227,6 +227,17 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.23.0 — 2026-09-13
+
+- **A fifth destination, bought by merging two.** Shipyard and Fleets are one subject — a hull is
+  built, then it flies — so they become one tab, Ships, with a small switch at the top choosing
+  which half you are looking at. The bar still holds five destinations, and nothing you could reach
+  before is gone.
+- **The alliance has a place now.** The tab that freed up is where it lives, and for now it says so
+  plainly: the alliance is being built, and this tab will show it once it is ready. Nothing on the
+  screen pretends to be more finished than it is.
+- In Italian throughout.
+
 ### 0.22.0 — 2026-08-30
 
 - **You are Dead Reckoning until you say otherwise.** Tap your name or your mark on the strip above the

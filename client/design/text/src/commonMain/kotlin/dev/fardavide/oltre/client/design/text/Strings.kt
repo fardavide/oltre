@@ -1111,11 +1111,23 @@ object Strings {
 
     fun tabResearch(): TextRes = message(StringId.TabResearch)
 
-    fun tabShipyard(): TextRes = message(StringId.TabShipyard)
-
     fun tabGalaxy(): TextRes = message(StringId.TabGalaxy)
 
+    fun tabShips(): TextRes = message(StringId.TabShips)
+
+    fun tabAlliance(): TextRes = message(StringId.TabAlliance)
+
+    // `TabShipyard`/`TabFleets` are no longer tab labels (0.23.0 merges them into `TabShips`), but
+    // the words survive as `ShipsHead`'s two chip labels — the same words, a smaller role.
+    fun tabShipyard(): TextRes = message(StringId.TabShipyard)
+
     fun tabFleets(): TextRes = message(StringId.TabFleets)
+
+    // The alliance's placeholder tab, ahead of its real screen — see `OltreTab.kt`'s own doc
+    // comment on why this is a real screen in its own module rather than a shell-owned stub.
+    fun allianceComingSoonTitle(): TextRes = message(StringId.AllianceComingSoonTitle)
+
+    fun allianceComingSoonBody(): TextRes = message(StringId.AllianceComingSoonBody)
 
     // The stepper's two faces. **A true minus sign, not a hyphen** — the same glyph `signed` spends,
     // and the reason it is an entry rather than a literal in the sheet: which mark a language uses

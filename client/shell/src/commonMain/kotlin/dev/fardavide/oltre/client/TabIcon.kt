@@ -34,9 +34,9 @@ internal fun TabIcon(
             when (tab) {
                 OltreTab.COLONY -> drawColony(tint)
                 OltreTab.RESEARCH -> drawResearch(tint)
-                OltreTab.SHIPYARD -> drawShipyard(tint)
+                OltreTab.SHIPS -> drawShips(tint)
                 OltreTab.GALAXY -> drawGalaxy(tint)
-                OltreTab.FLEETS -> drawFleets(tint)
+                OltreTab.ALLIANCE -> drawAlliance(tint)
             }
         }
     }
@@ -69,8 +69,10 @@ private fun DrawScope.drawResearch(tint: Color) {
     drawCircle(tint, radius = 3.6f, center = CENTRE, style = Stroke(width = 1.7f))
 }
 
-// A hull on its pad, with two legs.
-private fun DrawScope.drawShipyard(tint: Color) {
+// A hull on its pad, with two legs. Carries the merged Ships destination now — the same glyph
+// Shipyard drew alone, since a hull is still the recognisable half of "a hull built, then flown."
+// Internal rather than private: `ShipsHead.kt` reuses it at 17dp for the Shipyard chip.
+internal fun DrawScope.drawShips(tint: Color) {
     val hull = Path().apply {
         moveTo(12f, 2.5f)
         cubicTo(15.2f, 5.9f, 16.8f, 9.3f, 16.8f, 13.7f)
@@ -102,8 +104,9 @@ private fun DrawScope.drawDisc(tint: Color) {
     )
 }
 
-// A wedge of ships in formation.
-private fun DrawScope.drawFleets(tint: Color) {
+// A wedge of ships in formation — kept as the Ships head's Fleets chip glyph at 17dp
+// (`ShipsHead.kt`), even though the tab bar itself no longer draws it.
+internal fun DrawScope.drawFleets(tint: Color) {
     val wedge = Path().apply {
         moveTo(3f, 17.5f)
         lineTo(12f, 4f)
@@ -112,6 +115,15 @@ private fun DrawScope.drawFleets(tint: Color) {
         close()
     }
     drawPath(wedge, tint, style = Stroke(width = 1.6f, join = StrokeJoin.Round))
+}
+
+// Two rings, overlapping. Alliance-sheet.md §7: "held together" without "near each other" — every
+// player is in their own galaxy, so a mark implying distance or a shared position would draw a
+// property this feature does not have. Two rings that intersect are not two places; they're one
+// overlap. The only two-lobed silhouette in the bar.
+private fun DrawScope.drawAlliance(tint: Color) {
+    drawCircle(tint, radius = 5.4f, center = Offset(9.2f, 12f), style = Stroke(width = 1.6f))
+    drawCircle(tint, radius = 5.4f, center = Offset(14.8f, 12f), style = Stroke(width = 1.6f))
 }
 
 // The SVG viewBox every path above is written in.

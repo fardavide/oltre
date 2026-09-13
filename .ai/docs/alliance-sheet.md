@@ -425,22 +425,210 @@ defensible default, not a new settled gameplay call about ranking members.
 
 ## 7. Where it lives — Claude Design's, from the round trip
 
-Davide's call. The prompt carries the four candidates and the constraint, and the frame decides:
+*Where The Alliance Lives*, returned 2026-09-13. Every number below is the frame's; none of it was
+chosen at the keyboard. The canvas carries §Seven (five tables of every value, where each came from)
+and §Eight (every string in both languages) — read them there for the exhaustive list; what follows
+is what the screens slice needs to start.
 
-1. **A sixth tab.** Refused once at 320dp; would need the bar redrawn, not extended.
-2. **A face on `OltreBottomSheet`.** Precedented — `SheetFace` already has six — and probably too
-   small for a roster, a search and a treasury together.
-3. **Off the player strip.** The strip is already tappable and opens the profile editor; an alliance
-   is the other half of *who you are*. Cheapest to draw.
-4. **Displacing a destination.** The most honest if the alliance is meant to be a pillar.
+### The home, and it is a fifth candidate none of the four named
 
-The frame is also owed: the create flow and its price, the search face and its empty state, the
-roster and what it shows of a member, the contribute control, the project list, the **refusal** face
-for a name already taken, and the **held** face for every one of them — the alliance is entirely
-server-side, so every control on it is unreachable with no signal.
+None of the prompt's four options won. **The frame proposed a fifth: merge two destinations into
+one and give the alliance the tab that frees**, and Davide took it live in the session, 2026-09-13 —
+it is marked `live` on the canvas rather than merely returned. **The bar stays five.** Shipyard and
+Fleets are one subject — a hull is built, then it flies — so they become one destination, **Ships**
+(`Navi`), with a 44dp two-chip head (`ShipsHead`) saying which half is showing. The alliance takes
+the tab Fleets vacates.
+
+Why this beats all four things the prompt actually offered: a sixth tab redraws every baseline in
+the bar for the newest destination; a sheet face has no back-stack for four surfaces that need to
+sit beside each other; the player strip already has one destination behind it; and *displacing* a
+destination removes something a player uses today. **Merging costs nothing a player had** — nothing
+is removed, one thing is renamed and shares a head with its other half.
+
+The cost is local rather than shared: **44dp of head plus 13dp of gap = 57dp**, off the top of the
+Shipyard and Fleet screens only, every check-in, for as long as the merge stands. `DESTINATION_HEIGHT`
+does not move, the tab bar's own height and every vertical number in it are unchanged, and no other
+destination pays anything. Tab width stays an equal fifth: **78.6dp at 393, 64.0dp at 320, 112.0dp
+past the 560dp cap** — unchanged from what ships, because nothing narrows. `Alliance`/`Alleanza` is
+the longest label added, at 45.6dp against 64.0dp of tab, with 9.2dp clearance to spare at 320.
+
+**What this is not:** none of the four candidates in the prompt. The frame's own case against each,
+briefly — a sixth tab is the bar redrawn for the newest feature rather than extended; a sheet face
+has no way back once four surfaces (roster, search, treasury, projects) need to sit beside each
+other and a roster alone runs 52dp a row against the sheet's 560dp cap; the player strip's left
+cluster already opens the identity face, so a second destination behind it needs a second target on
+a 38dp row or a route through a face about your own name; and the frame separately named a fifth
+merge candidate it did **not** pick — Fleets into Galaxy — because a map and a list share nothing but
+a coordinate and the merged head would straddle two surfaces that have no head vocabulary in common.
+
+### The destination is two screens, chosen by account state, never a toggle
+
+Not in an alliance: a search field (44dp, the name-field idiom, not the galaxy's 28dp filter — this
+one asks a server) plus a **founding block** stated below it, so the price is known before anything
+is typed. In one: the roster, a treasury, and a project list, with a **requests** section above the
+roster for the founder only — nobody else ever sees it, because nobody else answers a request. Both
+screens are the one shape every destination already has: 16dp screen padding, 8dp between cards,
+13dp between sections, on the 560dp centred column.
+
+Search gets three states this app's other search has never had, and words carry all of them rather
+than a spinner — nothing here animates: nothing typed states what a search is for; waiting reads
+*"Asking the server."* as a sentence; nothing found names the string in full ink and stops, leaving
+the founding block underneath to say what to do next. A result row carries the alliance and never its
+members — name, tag, `LV n`, seats used, one 44dp ghost that reads Request or Withdraw, and no join
+policy shown because every alliance is joined the identical way.
+
+### The rows, the badge question, and the two-way control
+
+A **roster row** is 52dp, hairline-ruled inside one card rather than a card each (twenty cards would
+be 160dp of pure gap): a 20dp mark, the name at 13.5sp SemiBold, the `LV n` badge trailing, and the
+role *underneath the name rather than in a second badge*. **The role is not a badge** — the frame's
+answer to the question the ticket posed: a second badge meaning rank would be the first time two
+badges on a row meant different kinds of thing, so the role rides the rail caption's own type ramp
+instead. `FOUNDER` at full ink, `ADMIN` in secondary, and a plain **member draws nothing at all**,
+which is correct for nineteen rows in twenty. Sort is founder, then admins, then members by level
+descending — invented here, since nothing in the brief said how a roster orders.
+
+The **pending-request row** (100dp) is the first two-way control in the app: `Accept` filled accent,
+`Decline` the 44dp ghost, laid out as two equal grid columns rather than flex children so neither is
+2dp wider than the other. **Decline is not red** — red in this product has only ever been a refusal
+shown *to* the player, and putting it on the founder's own control would make answering look like
+damage. The empty state (`Nobody is waiting.`) is a good state, full strength, naming where a request
+comes from, with no control and no word about time.
+
+### The refusal — the first one a finger can reach
+
+It lands on the **field**, not a block. The line switches to **danger at 45%** — the same alpha the
+focus line already uses — the note names the taken string in danger ink beneath it, and the fill is
+untouched: the value stays editable because the refusal is about the string that *was* there. **It
+clears on the first keystroke**, before any round trip, because the answer was about the old string
+and the app cannot claim anything about the new one. This is the frame's answer to why it differs
+from the shipped `RefusalBlock`: that one is the *network* saying no about a fact nothing can change
+from the keyboard; this is a *server that answered* about a value the player owns and can retype.
+Both fields (name and tag) can be refused in the same answer, each carrying its own line, because one
+commit sends both. The commit button is absent while a refusal stands — the same absence `Save name`
+already uses, never greyed.
+
+**Held outranks refused, and the two can never co-occur.** With no network the server never answered,
+so nothing on the face is red: the amber requirement card sits on top, the fields and controls drop
+to `HELD_DIM`, drawn as plain boxes, and the commit is absent because nothing is queued — the
+identity face's pattern exactly, as the ticket predicted. One new rule for the held vocabulary the
+frame adds: **held dims what acts, never what informs.** A search with no signal has nothing to show,
+so it is told apart from empty in words alone (`"A search asks the server. There is nothing to search
+while there is no network."`); a roster with no signal is stale data worth reading, so it stays at
+full strength under a stamp — `"Last read 09:14"` — rather than dimming a fact that is still true.
+
+### The treasury and the only quantity control in the app
+
+The pool reuses the resource rail's own vocabulary turned vertical — a 7dp orb in the resource hue,
+the rail's 9.5sp tracked caption, its 15sp value — in 44dp hairline-ruled rows, with no rate, because
+a treasury does not produce. **The anti-alt rule sits on the face at full strength, above the first
+tap, every time it is drawn**, never a dismissible card: *"What goes in stays in."* Contribution is a
+**ladder**, not a numeric input the app has never had: four chips — **10 / 25 / 50 / All** — each
+stating the absolute figure it sends *above* the share, floored rather than rounded (a chip that
+sends more than it states is the worst kind of wrong here), and `All` is a word rather than `100%`
+because reaching for everything is not arithmetic. Held drops the chips to 42% and stops them
+pressing; the pool and the rule line never dim, because reading is not acting and the rule is true
+whether or not there is a network.
+
+A **project row** reuses the facility row's sentence — a name, an effect, a cost read against the
+*pool* rather than personal stock — in three states: available, owned (accent border, one tracked
+word), locked (42%, the requirement spelled out). There is no time-until-affordable on a project,
+because a treasury has no rate to compute one from; short of the pool, the cost chip goes red and the
+control is simply absent rather than promising a date the app cannot keep. Three projects and every
+figure are invented placeholders for the catalogue slice (#144): four more seats, a second admin
+seat, an alliance mark.
+
+### Leaving, and the hole the frame ships rather than hides
+
+One face, reached by tapping a roster row rather than a new widget: **a row presses if it is your own
+or if you are the founder**, marked by the same `→` the strip and settings already use; every other
+row is a plain readout, an absence rather than a dead control. The face is the delete flow's grammar
+verbatim — a warn step with the consequences stated and an outlined danger control, then a confirm
+step where the first fact turns red, the danger control becomes the product's only filled red button,
+and a ghost meaning no (`Stay` / `Keep them`) sits first. Two facts are stated before either tap and
+neither is reversible: what was paid into the treasury stays there, and a seat comes back only by a
+fresh request, answered whenever the founder next checks in — nobody is told anything while they are
+away.
+
+**The founder cannot leave, and the frame draws that hole rather than hiding it.** Their own row opens
+the same face with the *requirement card* in the control's place — no button at all, the locked
+card's own grammar — because handing an alliance on is a new act (a target, a target's acceptance, a
+rule for nobody accepting) that this design does not attempt. A founder who wants out today has to
+remove every other member first. This is the first item under *Open* below.
+
+### What it costs, in the numbers the screens slice needs
+
+| | Bar and merge | | Screen and rows | |
+|---|---|---|---|
+| Tab width, 320 / 393 / ≥560dp | 64.0 / 78.6 / 112.0dp, unchanged | Screen padding / card gap / section gap | 16 / 8 / 13dp |
+| Ships head height + gap | 44dp + 13dp = 57dp, that destination only | Roster row | 52dp, hairline-ruled |
+| Ships head tray / chip / glyph | 44dp r9 white 9% / 40dp r7 / 17dp stroke 1.6 | Result row (outer, incl. border) | 68dp |
+| `DESTINATION_HEIGHT` | unchanged | Request row | 100dp |
+| Seventh glyph (`AllianceGlyph`) | two rings, r 5.4, centres 9.2 & 14.8, stroke 1.6, 24-unit box | Two-way gap / layout | 7dp / 2 equal grid columns |
+
+| | Sheet faces | | Refused / held | |
+|---|---|---|---|
+| Sheet faces after this ships | 9 (was 6) | Refused line | 1dp `--status-danger` at 45% |
+| Name field / tag field | 44dp, max 24 from 18 / max 5 from 4 | Refusal clears | on first keystroke |
+| Commit, unaffordable | 44dp ghost + computed time | Held card | amber 6% fill in 22% border, r14 (fleet strip's) |
+| Commit, not ready / refused | absent, never greyed | Held blocks / held values | `HELD_DIM` (42%) / full strength |
+| Treasury pool row / orb | 44dp hairline-ruled / 7dp resource hue | Stale stamp | `"Last read HH:MM"`, new |
+| Contribute chip / gap | 44dp r9 white 16% / 7dp | Face-crossing motion | 210ms (destination-switch duration), else none |
+
+### Invented here, not in the brief — flagged rather than folded in
+
+- **The founding price is Davide's** (200,000 metal · 100,000 crystal · 50,000 deuterium, 2026-09-13)
+  and is drawn as given; everything the price then forces — the affordable stock shown, and the fact
+  that founding is a fortnight of production rather than an afternoon's — is the frame's.
+- **A day unit in the duration format.** 50,000 deuterium at +52/h is 607.7 hours; the ghost reads
+  `"in 25d 8h"` rather than `"in 607h 40m"`. Every other ghost in the app is `hh mm`. This is a
+  design-system decision waiting to be made, not a one-off for this screen.
+- The affordable stock on the create frame (284,100 / 131,400 / 64,900), the treasury pool
+  (486,300 / 232,900 / 71,400) and a member's own paid-in total (42,000 / 12,000 / 3,000).
+- The contribute ladder's four stops (10 / 25 / 50 / All) — a choice, not a measurement.
+- The alliance-level figures on the frame (level 7, 62% to level 8, 20 seats) — the ladder itself is
+  the balance round's (§8, #145).
+- The three projects and their costs, rescaled to the new founding price — the catalogue is #144's.
+- The merged destination's name (`Ships` / `Navi`), its head, and which glyph it keeps.
+- The leave/remove rules: reached from a roster row, only the founder removes, a founder cannot leave
+  while anyone else remains, both acts use the delete face's two steps.
+- The name bounds (3–24 for the name, 2–5 for the tag) — the 24 is the commander name's; 3 and 2–5
+  are the frame's.
+- The roster sort order, the stale-stamp's shape, and every placeholder name, alliance name and tag.
+
+### Open, and every one is Davide's or the balance round's
+
+1. **The founder-cannot-leave hole.** No transfer is drawn. If the answer is a transfer, it is one
+   more state of the member face (`"Hand the alliance to Aphelion Drift"`) — not designed here.
+2. **The day-unit duration format** the founding price forces — belongs in the design system, not
+   this screen alone, the moment any other cost gets this large.
+3. **Whether a contribution needs a confirm step.** It cannot be undone and nothing confirms it today;
+   `All` on a full stock is one tap from irreversible. Davide's call — the delete face is the
+   precedent, but a confirm on a control used every check-in is heavy.
+4. **Silent removal.** No push exists or is being added, so a removed commander learns only by opening
+   the app to a search screen where their alliance used to be — the harshest instance of "no push" in
+   the product. Worth a first-check-in line of its own; not drawn here.
+5. **No request count on the tab.** The bar has one hue for selection and gains no badge; a founder
+   learns about a request only by opening the tab. Consistent with "no push," named rather than
+   assumed.
+6. **What the server may refuse beyond uniqueness** — case-folding, a character-set rule, anything
+   past length three — has no frame, because it has no rule yet.
+7. **Whether search matches a prefix or the whole name.** The frame assumes a prefix match; if the
+   server matches whole names only, the results list is always one row or none.
+8. **The shipyard/fleet re-layout the merge forces.** Both screens lose 57dp and need re-checking,
+   particularly the fleet list, which already carries an amber in-flight strip above its content.
+9. **The ladder's step and the member cap's curve** — unchanged from §9, the balance round.
+
+### Face count — what #143 has to record
+
+17 pictures: 12 as baselines in two languages at two widths (48 screenshots), plus the glyph at 3×
+and six field states recorded once (they carry no localised string but the refusal). Every existing
+tab-bar baseline in the suite is re-recorded, because the bar's fifth label changes even though no tab
+narrows.
 
 **Per `session-roles.md`, the local session emits the prompt, waits, and does not open a pull request
-for the half it could build.**
+for the half it could build.** This ticket's own output is this rewrite; #143 owns the module, the
+strings, the baselines and the PR.
 
 ---
 

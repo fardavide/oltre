@@ -21,4 +21,8 @@ internal object ShellTestTags {
     fun resourceCell(name: String): String = "resource-cell-${name.lowercase()}"
 
     fun resourceRate(name: String): String = "resource-rate-${name.lowercase()}"
+
+    // The Ships destination's two-chip head, identified by mode for the same reason `tab` is
+    // identified by destination rather than by label.
+    fun shipsMode(mode: ShipsMode): String = "ships-mode-${mode.name.lowercase()}"
 }

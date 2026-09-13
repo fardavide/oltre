@@ -67,8 +67,8 @@ fun MainScaffold(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
-    shipyard: @Composable (ScrollState) -> Unit,
-    fleets: @Composable (ScrollState) -> Unit,
+    ships: @Composable (ScrollState) -> Unit,
+    alliance: @Composable (ScrollState) -> Unit,
     // The second thing the field behind the destinations moves on, after the scroll above. A lambda
     // and not a value — `Starfield` argues both reasons, and the second one (Compose would infer a
     // `Tilt` parameter unstable and stop skipping this whole scaffold) is the load-bearing one.
@@ -102,8 +102,8 @@ fun MainScaffold(
     val colonyScroll = rememberScrollState()
     val researchScroll = rememberScrollState()
     val galaxyScroll = rememberScrollState()
-    val shipyardScroll = rememberScrollState()
-    val fleetsScroll = rememberScrollState()
+    val shipsScroll = rememberScrollState()
+    val allianceScroll = rememberScrollState()
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
@@ -124,13 +124,13 @@ fun MainScaffold(
                 colony = colony,
                 research = research,
                 galaxy = galaxy,
-                shipyard = shipyard,
-                fleets = fleets,
+                ships = ships,
+                alliance = alliance,
                 colonyScroll = colonyScroll,
                 researchScroll = researchScroll,
                 galaxyScroll = galaxyScroll,
-                shipyardScroll = shipyardScroll,
-                fleetsScroll = fleetsScroll,
+                shipsScroll = shipsScroll,
+                allianceScroll = allianceScroll,
                 tilt = tilt,
                 onOpenResearch = { selected = OltreTab.RESEARCH },
             )
@@ -145,13 +145,13 @@ private fun Destination(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
-    shipyard: @Composable (ScrollState) -> Unit,
-    fleets: @Composable (ScrollState) -> Unit,
+    ships: @Composable (ScrollState) -> Unit,
+    alliance: @Composable (ScrollState) -> Unit,
     colonyScroll: ScrollState,
     researchScroll: ScrollState,
     galaxyScroll: ScrollState,
-    shipyardScroll: ScrollState,
-    fleetsScroll: ScrollState,
+    shipsScroll: ScrollState,
+    allianceScroll: ScrollState,
     tilt: () -> Tilt,
     onOpenResearch: () -> Unit,
 ) {
@@ -163,8 +163,8 @@ private fun Destination(
         OltreTab.COLONY -> colonyScroll
         OltreTab.RESEARCH -> researchScroll
         OltreTab.GALAXY -> galaxyScroll
-        OltreTab.SHIPYARD -> shipyardScroll
-        OltreTab.FLEETS -> fleetsScroll
+        OltreTab.SHIPS -> shipsScroll
+        OltreTab.ALLIANCE -> allianceScroll
     }
     Box(modifier = Modifier.fillMaxSize()) {
         // Inside the destination box and first in it, so it sits under every screen and under none
@@ -224,8 +224,8 @@ private fun Destination(
                 OltreTab.COLONY -> colony(colonyScroll)
                 OltreTab.RESEARCH -> research(researchScroll)
                 OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
-                OltreTab.SHIPYARD -> shipyard(shipyardScroll)
-                OltreTab.FLEETS -> fleets(fleetsScroll)
+                OltreTab.SHIPS -> ships(shipsScroll)
+                OltreTab.ALLIANCE -> alliance(allianceScroll)
             }
         }
     }

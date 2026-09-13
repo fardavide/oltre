@@ -97,7 +97,7 @@ class LegacySaveAppBehaviourTest {
 
         // when the launch both migrates and settles the overdue probe
         app(saved = null, legacy = legacy, api = FakeOltreApi().apply { offline = true }) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
 
             // then the scout card sees one returned hull rather than a second migration grant
             assertReads("Scout")
