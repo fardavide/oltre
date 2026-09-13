@@ -27,6 +27,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import dev.fardavide.oltre.client.changelog.presentation.ChangelogText
 import dev.fardavide.oltre.client.changelog.presentation.EnglishChangelog
 import dev.fardavide.oltre.client.changelog.ui.ChangelogTestTags
@@ -333,6 +334,19 @@ internal class AppRobot(
     // that commit is unconditional precisely because asking for an alert writes no event.
     fun assertAlertsBooked(count: Int) = apply {
         assertEquals(count, booked.scheduled.size, "booked: ${booked.scheduled.map { it.id }}")
+    }
+
+    fun assertPriceAlertBooked(id: String, title: String) = apply {
+        val alert = booked.scheduled.single()
+        assertEquals(id, alert.id)
+        assertEquals(id, alert.collapseId)
+        assertEquals(title, alert.title)
+        assertEquals("The colony has the resources for level 1.", alert.body)
+        assertTrue(alert.at > TEST_NOW, "the price is still in the future")
+    }
+
+    fun assertNotificationsBooked(vararg notifications: LocalNotification) = apply {
+        assertEquals(notifications.toList(), booked.scheduled)
     }
 
     // The other half of the platform seam, and the one no test below the composition root can see:
@@ -691,6 +705,13 @@ internal class AppRobot(
     // The square on the running project's row. It carries no text, so the tag is the only way to it.
     fun tapTheWatchOnTheFirstProject() = apply {
         test.onNodeWithTag("research-watch-photovoltaics", useUnmergedTree = true)
+            .performScrollTo()
+            .performClick()
+        test.waitForIdle()
+    }
+
+    fun tapTheWatchOnTheThermalLadder() = apply {
+        test.onNodeWithTag("research-watch-thermal", useUnmergedTree = true)
             .performScrollTo()
             .performClick()
         test.waitForIdle()
