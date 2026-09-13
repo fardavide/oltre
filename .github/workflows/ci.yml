@@ -248,4 +248,4 @@ jobs:
       # A compile task rather than `iosSimulatorArm64Test`, deliberately — what this job can uniquely
       # provide is the Native **compiler**, and the assertions already run on the JVM in the
       # `Unit tests` job.
-      - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64 :client:net:data:compileTestKotlinIosSimulatorArm64 :client:auth:data:compileTestKotlinIosSimulatorArm64
+      - run: ./gradlew :protocol:compileTestKotlinIosSimulatorArm64 :client:net:data:compileTestKotlinIosSimulatorArm64 :client:auth:data:compileTestKotlinIosSimulatorArm64 :client:alliance:data:compileTestKotlinIosSimulatorArm64 :client:alliance:domain:compileTestKotlinIosSimulatorArm64

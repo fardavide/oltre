@@ -41,6 +41,9 @@ include(":core")
 // depending on it and on nothing else.
 include(":protocol")
 include(":sim")
+// Alliance rules are pure data; its gateway combines authenticated transport answers.
+include(":client:alliance:data")
+include(":client:alliance:domain")
 // What changed since the build you last opened. `domain` is the only layer that could exist before
 // the design came back: a version is three integers and "is there anything new" is a rule about two
 // of them, while everything else in this feature is either copy or a drawing.

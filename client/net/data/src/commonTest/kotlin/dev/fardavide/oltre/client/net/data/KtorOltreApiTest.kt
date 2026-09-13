@@ -1,20 +1,42 @@
 package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceMember
+import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceResponse
+import dev.fardavide.oltre.protocol.AllianceRole
+import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.AllianceSearchCursor
+import dev.fardavide.oltre.protocol.AllianceSearchResponse
+import dev.fardavide.oltre.protocol.AllianceStanding
+import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.AnswerJoinRequest
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
+import dev.fardavide.oltre.protocol.CreateAllianceRequest
+import dev.fardavide.oltre.protocol.ExperienceReading
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
+import dev.fardavide.oltre.protocol.JoinAllianceRequest
+import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.protocol.JoinRequest
+import dev.fardavide.oltre.protocol.JoinRequestId
+import dev.fardavide.oltre.protocol.KickMemberRequest
 import dev.fardavide.oltre.protocol.MarkPreset
 import dev.fardavide.oltre.protocol.PlayerMark
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
 import dev.fardavide.oltre.protocol.RefreshRequest
+import dev.fardavide.oltre.protocol.RenameAllianceRequest
 import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SessionToken
+import dev.fardavide.oltre.protocol.SetMemberRoleRequest
 import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SignInNonce
 import dev.fardavide.oltre.protocol.SignInRequest
@@ -32,9 +54,6 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.utils.io.readRemaining
-import kotlinx.coroutines.test.runTest
-import kotlinx.io.IOException
-import kotlinx.io.readString
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -43,6 +62,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
+import kotlinx.coroutines.test.runTest
+import kotlinx.io.IOException
+import kotlinx.io.readString
 
 private val NOW: Instant = Instant.parse("2026-08-25T09:00:00Z")
 
@@ -102,6 +124,265 @@ private val JSON = headersOf(HttpHeaders.ContentType, "application/json")
 private suspend fun HttpRequestData.bodyText(): String = body.toByteArray().decodeToString()
 
 class KtorOltreApiTest {
+
+    @Test
+    fun `the roster retains profiles roles experience and waiting petitions`() = runTest {
+        val response = AllianceRosterResponse(
+            ApiVersion.CURRENT,
+            listOf(
+                AllianceMember(
+                    AllianceMemberId("adas-seat"), chosen(), AllianceRole.ADMIN,
+                    ExperienceReading.Known(Experience(240)), NOW,
+                ),
+            ),
+            listOf(
+                JoinRequest(
+                    JoinRequestId("graces-petition"), PlayerProfile(CommanderName("Grace"), null),
+                    ExperienceReading.Unknown, NOW,
+                ),
+            ),
+        )
+        val result = api { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .allianceRoster(PLAYER)
+        assertEquals(ApiResult.Answered(response), result)
+    }
+
+    @Test
+    fun `a first search omits the cursor and preserves a next page marker`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceSearchResponse(
+            ApiVersion.CURRENT, "ferro", listOf(fakeAlliance()), AllianceSearchCursor("next-page"),
+        )
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .searchAlliances(PLAYER, "FERRO", null)
+        assertNull(records.single().url.parameters["cursor"])
+        assertEquals(ApiResult.Answered(response), result)
+    }
+
+    @Test
+    fun `standing reads and mutations decode the authoritative alliance and relationship`() = runTest {
+        val asks: List<suspend (OltreApi) -> ApiResult<AllianceStanding>> =
+            fakeMutations() + listOf({ it.alliance(SessionToken("adas.access")) })
+        for (standing in listOf(
+            AllianceStanding.Petitioning(fakeAlliance()),
+            AllianceStanding.Enlisted(fakeAlliance(), AllianceRole.ADMIN),
+        )) {
+            val response = AllianceResponse(ApiVersion.CURRENT, standing)
+            for (ask in asks) {
+                assertEquals(
+                    ApiResult.Answered(standing),
+                    ask(api { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }),
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `every alliance route reads an unopened connection as unreachable`() = runTest {
+        for (request in fakeRequests()) {
+            val result = invokeAlliance(api { throw IOException("no route to host") }, request)
+            assertEquals(ApiResult.Unreachable, result, request.route.name)
+        }
+    }
+
+    @Test
+    fun `every alliance route preserves the server refusal and its payload`() = runTest {
+        for (request in fakeRequests()) {
+            val result = invokeAlliance(
+                api {
+                    respond(
+                        Protocol.json.encodeToString<ApiError>(ApiError.TooManyRequests(41)),
+                        HttpStatusCode.TooManyRequests,
+                        JSON,
+                    )
+                },
+                request,
+            )
+            assertEquals(ApiResult.Refused(ApiError.TooManyRequests(41)), result, request.route.name)
+        }
+    }
+
+    @Test
+    fun `disbanding deletes the alliance with authentication and no body`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .disbandAlliance(PLAYER)
+        val request = records.single()
+        assertEquals(HttpMethod.Delete, request.method)
+        assertEquals("/v1/alliance", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `leaving deletes membership with no request body and reads standing`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .leaveAlliance(PLAYER)
+        val request = records.single()
+        assertEquals(HttpMethod.Delete, request.method)
+        assertEquals("/v1/alliance/membership", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `removing a member posts the typed seat to the removal route`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .removeMember(PLAYER, AllianceMemberId("adas-seat"))
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance/members/remove", request.url.encodedPath)
+        assertEquals(
+            KickMemberRequest(ApiVersion.CURRENT, AllianceMemberId("adas-seat")),
+            Protocol.json.decodeFromString<KickMemberRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `setting a role posts the member id and requested role`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .setMemberRole(PLAYER, AllianceMemberId("adas-seat"), AllianceRole.ADMIN)
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance/members/role", request.url.encodedPath)
+        assertEquals(
+            SetMemberRoleRequest(ApiVersion.CURRENT, AllianceMemberId("adas-seat"), AllianceRole.ADMIN),
+            Protocol.json.decodeFromString<SetMemberRoleRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `answering a petition sends the request id and explicit decision`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .answerRequest(PLAYER, JoinRequestId("adas-petition"), JoinDecision.DECLINED)
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance/join/answer", request.url.encodedPath)
+        assertEquals(
+            AnswerJoinRequest(ApiVersion.CURRENT, JoinRequestId("adas-petition"), JoinDecision.DECLINED),
+            Protocol.json.decodeFromString<AnswerJoinRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `requesting a seat posts the typed alliance subject in the body`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .requestToJoin(PLAYER, AllianceId("ferro-alto"))
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance/join", request.url.encodedPath)
+        assertEquals(
+            JoinAllianceRequest(ApiVersion.CURRENT, AllianceId("ferro-alto")),
+            Protocol.json.decodeFromString<JoinAllianceRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `renaming posts both replacement fields to the name route`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .renameAlliance(PLAYER, AllianceName("New Vanguard"), AllianceTag("NEW"))
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance/name", request.url.encodedPath)
+        assertEquals(
+            RenameAllianceRequest(ApiVersion.CURRENT, AllianceName("New Vanguard"), AllianceTag("NEW")),
+            Protocol.json.decodeFromString<RenameAllianceRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `founding posts the chosen name and tag and reads authoritative standing`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.Created, JSON) }
+            .createAlliance(PLAYER, AllianceName("Ferro Alto"), AllianceTag("FERRO"))
+        val request = records.single()
+        assertEquals(HttpMethod.Post, request.method)
+        assertEquals("/v1/alliance", request.url.encodedPath)
+        assertEquals(
+            CreateAllianceRequest(ApiVersion.CURRENT, AllianceName("Ferro Alto"), AllianceTag("FERRO")),
+            Protocol.json.decodeFromString<CreateAllianceRequest>(request.bodyText()),
+        )
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response.standing), result)
+    }
+
+    @Test
+    fun `search sends the query and opaque cursor as encoded parameters`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceSearchResponse(ApiVersion.CURRENT, "ferro alto", emptyList(), null)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .searchAlliances(PLAYER, "Ferro & Alto", AllianceSearchCursor("opaque+/=&"))
+        val request = records.single()
+        assertEquals(HttpMethod.Get, request.method)
+        assertEquals("/v1/alliance/search", request.url.encodedPath)
+        assertEquals("Ferro & Alto", request.url.parameters["q"])
+        assertEquals("opaque+/=&", request.url.parameters["cursor"])
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response), result)
+    }
+
+    @Test
+    fun `reading the roster retains the member and petition visibility response`() = runTest {
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceRosterResponse(ApiVersion.CURRENT, emptyList(), null)
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .allianceRoster(PLAYER)
+        val request = records.single()
+        assertEquals(HttpMethod.Get, request.method)
+        assertEquals("/v1/alliance/roster", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(Protocol.BEARER_PREFIX + PLAYER.value, request.headers[Protocol.AUTHORIZATION_HEADER])
+        assertEquals(ApiResult.Answered(response), result)
+    }
+
+    @Test
+    fun `reading alliance standing gets the authenticated alliance route with nothing to say`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+        val response = AllianceResponse(ApiVersion.CURRENT, AllianceStanding.Unaffiliated)
+
+        // when
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .alliance(PLAYER)
+
+        // then
+        val request = records.single()
+        assertEquals(HttpMethod.Get, request.method)
+        assertEquals("/v1/alliance", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(
+            Protocol.BEARER_PREFIX + PLAYER.value,
+            request.headers[Protocol.AUTHORIZATION_HEADER],
+        )
+        assertEquals(ApiResult.Answered(AllianceStanding.Unaffiliated), result)
+    }
 
     @Test
     fun `a sync posts what is queued to the sync route`() = runTest {
