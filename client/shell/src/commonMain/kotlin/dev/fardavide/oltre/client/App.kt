@@ -1790,9 +1790,11 @@ fun App(
                         // (`alliance-sheet.md` §7) — one subject, a hull built then flown, and the
                         // tab it frees is where the alliance now lives. Neither screen below changed;
                         // `ShipsScreen` (`:client:shell`) only decides which of the two is showing.
-                        ships = { scroll ->
+                        ships = { scroll, mode, onSelectMode ->
                             ShipsScreen(
                                 scrollState = scroll,
+                                mode = mode,
+                                onSelectMode = onSelectMode,
                                 shipyard = { s ->
                                     ShipyardScreen(
                                         scrollState = s,

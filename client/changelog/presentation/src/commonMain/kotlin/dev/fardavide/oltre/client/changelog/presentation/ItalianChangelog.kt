@@ -15,6 +15,11 @@ object ItalianChangelog : ChangelogText {
 
     override val releases: List<Release> = listOf(
         release(
+            "0.23.1", "2026-09-13", "Il cambio di Navi se lo ricorda",
+            "Lascialo su Flotte, controlla la colonia, torna — è ancora Flotte.",
+            "Cantiere e Flotte sono parole ora, come il cambio della galassia.",
+        ),
+        release(
             "0.23.0", "2026-09-13", "Navi, e la scheda dell'alleanza",
             "Cantiere e Flotte sono ora una scheda sola, Navi, con un cambio tra i due.",
             "La scheda liberata è dell'alleanza, che dice di non essere ancora pronta.",

@@ -1,95 +1,56 @@
 package dev.fardavide.oltre.client
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.withTransform
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.SegmentedSwitch
 import dev.fardavide.oltre.client.design.core.OltreColors
+import dev.fardavide.oltre.client.design.core.oltreMono
 import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.core.settlingColor
 import dev.fardavide.oltre.client.design.text.Strings
+import dev.fardavide.oltre.client.design.text.TextRes
 
 // The merged Ships destination's own navigation, one level down from the tab bar: which of the two
 // subjects — the hull being built, the fleet that flies it — the destination is currently showing.
 //
-// The galaxy's `ModeSwitch`/`ModePill` (`client/galaxy/ui/…/LedgerHead.kt`) is the model, raised
-// from its 22dp filter-row size to the tap minimum: here the switch *is* the destination's primary
-// navigation rather than a row filtering a list already on screen, so it owes 44dp rather than 22.
-// `ModeSwitch` itself is `internal` to `client.galaxy.ui` and out of reach across the feature
-// boundary, so the ~15-line pattern is duplicated here rather than reached for.
-//
-// Glyph rather than text, unlike the galaxy's pills: `alliance-sheet.md` §7 draws each chip as the
-// tab's own shipped glyph at 17dp inside a 40dp chip, so a player who already learned the two icons
-// from the old bar reads the same shapes here. The words survive as each chip's content description.
+// **The galaxy's `worlds · map` switch is the model, and since 0.24.0 it is the same component
+// rather than a duplicate of it** (Davide, 2026-09-13): `:client:design:component`'s
+// `SegmentedSwitch` carries the trough, the selection fill and the click for both, and this is text
+// on both, not a glyph on one — the uniform design he asked for rather than a size or a content type
+// this feature invented for itself.
 @Composable
 internal fun ShipsHead(mode: ShipsMode, onSelectMode: (ShipsMode) -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = modifier
-            .size(width = 90.dp, height = TRAY_HEIGHT)
-            .background(TRAY_FILL, TRAY_SHAPE)
-            .padding(2.dp),
-    ) {
-        ShipsChip(mode = ShipsMode.SHIPYARD, selected = mode, onClick = { onSelectMode(ShipsMode.SHIPYARD) })
-        ShipsChip(mode = ShipsMode.FLEETS, selected = mode, onClick = { onSelectMode(ShipsMode.FLEETS) })
+    SegmentedSwitch(
+        options = listOf(ShipsMode.SHIPYARD, ShipsMode.FLEETS),
+        selected = mode,
+        onSelect = onSelectMode,
+        testTag = { ShellTestTags.shipsMode(it) },
+        modifier = modifier,
+    ) { option, on ->
+        ShipsModeLabel(text = labelFor(option), on = on)
     }
 }
 
+private fun labelFor(mode: ShipsMode): TextRes = when (mode) {
+    ShipsMode.SHIPYARD -> Strings.tabShipyard()
+    ShipsMode.FLEETS -> Strings.tabFleets()
+}
+
+// The galaxy's own `ModeLabel`, letter for letter: uppercase is a style rather than a spelling, and
+// both channels — the ink and the fill the switch draws behind it — turn together.
 @Composable
-private fun ShipsChip(mode: ShipsMode, selected: ShipsMode, onClick: () -> Unit) {
-    val on = mode == selected
-    val tint = settlingColor(if (on) OltreColors.accent else OltreColors.textTertiary)
-    // Resolved here, in the composable's own context, rather than inside `.semantics { }` — that
-    // lambda is not a composable scope, and `resolve()` reads `LocalTranslations.current`.
-    val label = when (mode) {
-        ShipsMode.SHIPYARD -> Strings.tabShipyard()
-        ShipsMode.FLEETS -> Strings.tabFleets()
-    }.resolve()
-    Box(
-        contentAlignment = Alignment.Center,
-        modifier = Modifier
-            .size(CHIP_SIZE)
-            .testTag(ShellTestTags.shipsMode(mode))
-            .semantics { contentDescription = label }
-            .background(settlingColor(if (on) CHIP_FILL else Color.Transparent), CHIP_SHAPE)
-            .clip(CHIP_SHAPE)
-            .clickable(onClick = onClick),
-    ) {
-        Canvas(Modifier.size(GLYPH_SIZE)) {
-            val factor = size.width / GLYPH_VIEWPORT
-            withTransform({ scale(factor, factor, pivot = Offset.Zero) }) {
-                when (mode) {
-                    ShipsMode.SHIPYARD -> drawShips(tint)
-                    ShipsMode.FLEETS -> drawFleets(tint)
-                }
-            }
-        }
-    }
+private fun ShipsModeLabel(text: TextRes, on: Boolean) {
+    Text(
+        text = text.resolve().uppercase(),
+        color = settlingColor(if (on) OltreColors.accent else OltreColors.textTertiary),
+        fontFamily = oltreMono(),
+        fontSize = 9.5.sp,
+        fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
+        letterSpacing = 1.sp,
+        maxLines = 1,
+        softWrap = false,
+    )
 }
-
-private val TRAY_HEIGHT = 44.dp
-private val CHIP_SIZE = 40.dp
-private val GLYPH_SIZE = 17.dp
-private val TRAY_FILL = Color.White.copy(alpha = 0.09f)
-private val CHIP_FILL = OltreColors.accent.copy(alpha = 0.22f)
-private val TRAY_SHAPE = RoundedCornerShape(9.dp)
-private val CHIP_SHAPE = RoundedCornerShape(7.dp)
-
-// `drawShips`/`drawFleets` are written in the same 24-unit viewport every `TabIcon.kt` glyph uses.
-private const val GLYPH_VIEWPORT = 24f

@@ -1,9 +1,7 @@
 package dev.fardavide.oltre.client.galaxy.ui
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -29,6 +26,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dev.fardavide.oltre.client.design.component.SegmentedSwitch
 import dev.fardavide.oltre.client.design.core.OltreColors
 import dev.fardavide.oltre.client.design.core.resolve
 import dev.fardavide.oltre.client.design.text.Strings
@@ -89,33 +87,33 @@ internal fun LedgerHead(
 // Two pills in a 2dp trough, and **the group never reflows**: JetBrains Mono is monospaced in all
 // three weights, so dropping bold onto the selected half cannot change either pill's width. Nothing
 // animates the flip for the same reason nothing else in the app does.
+//
+// **The trough and the pill are `:client:design:component`'s `SegmentedSwitch`, since 0.24.0** — the
+// mechanics (the fill, the selection cross-fade, the click) are identical to `ShipsHead`'s glyph
+// chips one module over; only the label and the size are this feature's own.
 @Composable
 internal fun ModeSwitch(mode: LedgerMode, onSelectMode: (LedgerMode) -> Unit) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        modifier = Modifier.background(GROUP_FILL, BADGE_SHAPE).padding(2.dp),
-    ) {
-        ModePill(
-            label = Strings.ledgerModeWorlds(),
-            mode = LedgerMode.WORLDS,
-            on = mode == LedgerMode.WORLDS,
-            onClick = { onSelectMode(LedgerMode.WORLDS) },
-        )
-        ModePill(
-            label = Strings.ledgerModeMap(),
-            mode = LedgerMode.MAP,
-            on = mode == LedgerMode.MAP,
-            onClick = { onSelectMode(LedgerMode.MAP) },
-        )
+    SegmentedSwitch(
+        options = listOf(LedgerMode.WORLDS, LedgerMode.MAP),
+        selected = mode,
+        onSelect = onSelectMode,
+        testTag = { GalaxyTestTags.mode(it) },
+    ) { option, on ->
+        ModeLabel(text = labelFor(option), on = on)
     }
+}
+
+private fun labelFor(mode: LedgerMode): TextRes = when (mode) {
+    LedgerMode.WORLDS -> Strings.ledgerModeWorlds()
+    LedgerMode.MAP -> Strings.ledgerModeMap()
 }
 
 // Uppercase is a style and not a spelling — the word is lowercase in the source here as it is in the
 // count and the sort, per the system's casing rule.
 @Composable
-private fun ModePill(label: TextRes, mode: LedgerMode, on: Boolean, onClick: () -> Unit) {
+private fun ModeLabel(text: TextRes, on: Boolean) {
     Text(
-        text = label.resolve().uppercase(),
+        text = text.resolve().uppercase(),
         // Both channels turn together: the ink and the fill are one statement about which mode is
         // showing, and a pill whose fill arrived before its letters did would read as two.
         color = settlingColor(if (on) OltreColors.accent else OltreColors.textTertiary),
@@ -125,14 +123,6 @@ private fun ModePill(label: TextRes, mode: LedgerMode, on: Boolean, onClick: () 
         letterSpacing = 1.sp,
         maxLines = 1,
         softWrap = false,
-        modifier = Modifier
-            .testTag(GalaxyTestTags.mode(mode))
-            .background(settlingColor(if (on) PILL_FILL else Color.Transparent), PILL_SHAPE)
-            // Between the fill and the click, which is the only place a clip works: an indication is
-            // clipped by the layer declared before it, so a pill's ripple is a pill.
-            .clip(PILL_SHAPE)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
 
@@ -234,16 +224,6 @@ private fun Meta(count: TextRes) {
 // is the border alone on a field with something typed in it.
 private val ON_EDGE = OltreColors.accent.copy(alpha = 0.45f)
 
-// A second accent alpha, and not interchangeable with the first: the selected pill is one of exactly
-// two and always the only one, so it is a fill that reads as a position rather than as a state.
-private val PILL_FILL = OltreColors.accent.copy(alpha = 0.22f)
-
-private val GROUP_FILL = Color.White.copy(alpha = 0.09f)
 private val EDGE = Color.White.copy(alpha = 0.16f)
-
-// 3dp inside the group's 4dp with 2dp of padding between them: the inner radius that keeps the pair
-// concentric, and the reason the pill is the one shape here that is not the badge radius.
-private val PILL_SHAPE = RoundedCornerShape(3.dp)
-private val BADGE_SHAPE = RoundedCornerShape(4.dp)
 
 private val GLYPH = 13.dp

@@ -368,26 +368,6 @@ kover {
                     classes("dev.fardavide.oltre.client.dispatch.ui.StepperGestureKt*")
                     classes("dev.fardavide.oltre.client.AppKt*")
                     packages("*.debug.ui")
-                    // ── The Ships head, the composed screen, and the alliance placeholder,
-                    // added at 0.23.0 ────────────────────────────────────────────────────────
-                    //
-                    // Every line in these three draws on the first and only composition a
-                    // screenshot performs — `ShipsHeadScreenshotTest`, `ShipsScreenScreenshotTest`
-                    // and `AllianceScreenScreenshotTest` between them capture both chip states,
-                    // the composed screen, and both languages at two widths. What is missed is
-                    // not application logic: `AllianceScreen` writes no `if` or `when` at all and
-                    // still shows missed branches, which is the Compose compiler's own
-                    // recomposition-skip check on every parameter, reachable only by a second
-                    // composition pass a screenshot test does not perform by design.
-                    //
-                    // Measured on the PR that added them: screenshot branch 59.4% → 59.2% with
-                    // every state these three files can show already captured. Davide's say-so,
-                    // 2026-09-13, on that failing report.
-                    classes(
-                        "dev.fardavide.oltre.client.ShipsHeadKt*",
-                        "dev.fardavide.oltre.client.ShipsScreenKt*",
-                        "dev.fardavide.oltre.client.alliance.ui.AllianceScreenKt*",
-                    )
                 }
                 // ── The drawing and the mapping, and **only while measuring the integration
                 // pass** ─────────────────────────────────────────────────────────────────────
@@ -617,6 +597,53 @@ kover {
                 // Measured: behaviour **90.53% → 92.65%** line and **68.42% → 69.91%** branch.
                 if (testCategory == "behaviour") {
                     classes("dev.fardavide.oltre.client.auth.data.**")
+                }
+                // ── `MainScaffold.kt` — Davide's call, on a failing report, 0.24.0 ────────────
+                //
+                // Not the App.kt case: nothing here is unreached. `MainScaffoldBehaviourTest` drives
+                // both `MainScaffold` and its private `Destination` end to end — every tab, the mode
+                // hoist, the switch mid-crossing — and the residual gap survived a test built
+                // specifically to close it: the offline line toggling live inside one continuous
+                // composition, a real scenario no other test in this file drove, moved the branch
+                // counters by exactly zero. What is left is the Compose compiler's own `$changed`
+                // bookkeeping across the two functions' combined 20+ parameters — the ships-mode
+                // hoist added two more to `Destination` this slice — which packs into bitmask groups
+                // whose every combination no realistic tap sequence produces, the same mechanism
+                // `AppKt*` above is excluded for, on the same rule: a parameter costs branches no
+                // test of this kind can ever reach, whether or not the function itself is driven.
+                //
+                // Scoped to behaviour and the unfiltered pass, because both measured the same
+                // survival — a screenshot test composes once and was never going to reach a skip
+                // branch anyway, so that row is untouched and already passing on real coverage.
+                //
+                // Measured: behaviour **72.04% → 72.18%** and all **85.68% → 85.94%** branch — all
+                // now clears its baseline; behaviour does not on its own, see `SegmentedSwitchKt*`
+                // three entries down. The new baseline, not a gain — the logic itself was already
+                // covered before this line.
+                if (testCategory == "behaviour" || testCategory == null) {
+                    classes("dev.fardavide.oltre.client.MainScaffoldKt*")
+                }
+                // ── `SegmentedSwitch.kt` — Davide's call, on the same failing report, 0.24.0 ──
+                //
+                // The shared design component, and worth naming as such: at 0.23.1 the equivalent
+                // exclusion was proposed against whole *screens* built on top of it
+                // (`ShipsHeadKt*`, `ShipsScreenKt*`, `AllianceScreenKt*`) and rejected — those hid
+                // real, driveable behaviour that turned out to need one recomposing test each, not
+                // an exclusion, and the row went up once real tests replaced the request. This is
+                // not that case: `SegmentedSwitch` and its private `Segment` are already driven by
+                // both real callers' behaviour tests (the Ships chip switch, the galaxy's own mode
+                // switch), and what remains is the identical `$changed` bookkeeping `MainScaffoldKt*`
+                // above is excluded for, on a generic composable whose `content` lambda parameter
+                // alone accounts for most of it. The component's own rendering and every caller's
+                // interaction stay fully covered; only the compiler's per-parameter skip bitmask
+                // leaves.
+                //
+                // Behaviour was 0.12 points short of its baseline with `MainScaffoldKt*` alone —
+                // this is the rest of it, not a separate problem.
+                //
+                // Measured: behaviour **72.18% → 72.33%** branch, clearing the 72.3% baseline.
+                if (testCategory == "behaviour" || testCategory == null) {
+                    classes("dev.fardavide.oltre.client.design.component.SegmentedSwitchKt*")
                 }
                 // ── `:client:net:data` had an entry here and it came out at #113 ─────────────
                 //

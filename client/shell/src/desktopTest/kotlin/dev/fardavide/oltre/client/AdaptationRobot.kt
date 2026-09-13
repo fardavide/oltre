@@ -133,9 +133,11 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                         // The tabs this harness never opens. Real screens rather than markers,
                         // because the journey under test crosses the tab bar and a destination that
                         // could not compose would be a trap the day it did.
-                        ships = { scroll ->
+                        ships = { scroll, mode, onSelectMode ->
                             ShipsScreen(
                                 scrollState = scroll,
+                                mode = mode,
+                                onSelectMode = onSelectMode,
                                 shipyard = { s ->
                                     ShipyardScreen(
                                         scrollState = s,
