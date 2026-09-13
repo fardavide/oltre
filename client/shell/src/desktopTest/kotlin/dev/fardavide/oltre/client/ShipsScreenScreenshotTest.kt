@@ -28,6 +28,8 @@ class ShipsScreenScreenshotTest {
                     Surface {
                         ShipsScreen(
                             scrollState = rememberScrollState(),
+                            mode = ShipsMode.SHIPYARD,
+                            onSelectMode = {},
                             shipyard = { Text("shipyard-under-test") },
                             fleets = { Text("fleets-under-test") },
                         )

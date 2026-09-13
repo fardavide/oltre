@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 // The mockup's tab glyphs, drawn rather than imported. They are bespoke — a ringed world, a lab
-// ring, a rocket, a galaxy, a fleet wedge — so no icon pack carries them, and a Canvas keeps them
-// exact while adding no dependency. Every path below is written in the SVG's own 24-unit space
+// ring, a hull, a galaxy, two overlapping rings — so no icon pack carries them, and a Canvas keeps
+// them exact while adding no dependency. Every path below is written in the SVG's own 24-unit space
 // and scaled to the requested size, so the numbers here read straight against the `<svg>` blocks
 // in docs/ui-mockup.html.
 @Composable
@@ -71,8 +71,7 @@ private fun DrawScope.drawResearch(tint: Color) {
 
 // A hull on its pad, with two legs. Carries the merged Ships destination now — the same glyph
 // Shipyard drew alone, since a hull is still the recognisable half of "a hull built, then flown."
-// Internal rather than private: `ShipsHead.kt` reuses it at 17dp for the Shipyard chip.
-internal fun DrawScope.drawShips(tint: Color) {
+private fun DrawScope.drawShips(tint: Color) {
     val hull = Path().apply {
         moveTo(12f, 2.5f)
         cubicTo(15.2f, 5.9f, 16.8f, 9.3f, 16.8f, 13.7f)
@@ -102,19 +101,6 @@ private fun DrawScope.drawDisc(tint: Color) {
         size = Size(19f, 8f),
         style = Stroke(width = 1.5f),
     )
-}
-
-// A wedge of ships in formation — kept as the Ships head's Fleets chip glyph at 17dp
-// (`ShipsHead.kt`), even though the tab bar itself no longer draws it.
-internal fun DrawScope.drawFleets(tint: Color) {
-    val wedge = Path().apply {
-        moveTo(3f, 17.5f)
-        lineTo(12f, 4f)
-        lineTo(21f, 17.5f)
-        lineTo(12f, 14f)
-        close()
-    }
-    drawPath(wedge, tint, style = Stroke(width = 1.6f, join = StrokeJoin.Round))
 }
 
 // Two rings, overlapping. Alliance-sheet.md §7: "held together" without "near each other" — every

@@ -56,7 +56,7 @@ import dev.fardavide.oltre.client.tilt.domain.Tilt
 // back to Colony from Research should find Colony where it was left, and a single hoisted state
 // would make every tab scroll every other one.
 @Composable
-fun MainScaffold(
+internal fun MainScaffold(
     // Ahead of `resources` because it is drawn ahead of it, and a parameter here for the reason the
     // rail is one: this signature is the honest list of what the frame carries. Two of its three
     // readings are folded off the save since 0.17, and it arrives as a parameter for the reason it
@@ -67,7 +67,11 @@ fun MainScaffold(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
-    ships: @Composable (ScrollState) -> Unit,
+    // Takes the mode and the way to change it, for the reason `galaxy` takes `onOpenResearch`: the
+    // scaffold is what survives a switch away and back, so the chip Ships was showing has to be
+    // hoisted here rather than remembered inside a composable `AnimatedContent` tears down the
+    // moment another destination is selected. See `shipsMode` below.
+    ships: @Composable (ScrollState, ShipsMode, onSelectShipsMode: (ShipsMode) -> Unit) -> Unit,
     alliance: @Composable (ScrollState) -> Unit,
     // The second thing the field behind the destinations moves on, after the scroll above. A lambda
     // and not a value — `Starfield` argues both reasons, and the second one (Compose would infer a
@@ -104,6 +108,10 @@ fun MainScaffold(
     val galaxyScroll = rememberScrollState()
     val shipsScroll = rememberScrollState()
     val allianceScroll = rememberScrollState()
+    // Which of Ships' two chips is showing, hoisted for the same reason `selected` is: a value
+    // `ShipsScreen` itself remembered would reset to Shipyard on every trip through another tab,
+    // because `AnimatedContent` only keeps the destination it is currently drawing composed.
+    var shipsMode by remember { mutableStateOf(ShipsMode.SHIPYARD) }
     Column(
         // Insets are the frame's job, not a screen's: every tab sits inside the same safe area,
         // and the bar has to clear the home indicator whatever is above it.
@@ -133,6 +141,8 @@ fun MainScaffold(
                 allianceScroll = allianceScroll,
                 tilt = tilt,
                 onOpenResearch = { selected = OltreTab.RESEARCH },
+                shipsMode = shipsMode,
+                onSelectShipsMode = { shipsMode = it },
             )
         }
         OltreTabBar(selected = selected, onSelect = { selected = it })
@@ -145,7 +155,7 @@ private fun Destination(
     colony: @Composable (ScrollState) -> Unit,
     research: @Composable (ScrollState) -> Unit,
     galaxy: @Composable (ScrollState, onOpenResearch: () -> Unit) -> Unit,
-    ships: @Composable (ScrollState) -> Unit,
+    ships: @Composable (ScrollState, ShipsMode, onSelectShipsMode: (ShipsMode) -> Unit) -> Unit,
     alliance: @Composable (ScrollState) -> Unit,
     colonyScroll: ScrollState,
     researchScroll: ScrollState,
@@ -154,6 +164,8 @@ private fun Destination(
     allianceScroll: ScrollState,
     tilt: () -> Tilt,
     onOpenResearch: () -> Unit,
+    shipsMode: ShipsMode,
+    onSelectShipsMode: (ShipsMode) -> Unit,
 ) {
     // Every destination scrolls now, so the field behind every one of them moves. The nullable this
     // used to be — "the two tabs with no screen have nothing to scroll" — went with the two tabs
@@ -224,7 +236,7 @@ private fun Destination(
                 OltreTab.COLONY -> colony(colonyScroll)
                 OltreTab.RESEARCH -> research(researchScroll)
                 OltreTab.GALAXY -> galaxy(galaxyScroll, onOpenResearch)
-                OltreTab.SHIPS -> ships(shipsScroll)
+                OltreTab.SHIPS -> ships(shipsScroll, shipsMode, onSelectShipsMode)
                 OltreTab.ALLIANCE -> alliance(allianceScroll)
             }
         }

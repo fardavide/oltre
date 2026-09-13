@@ -10,11 +10,11 @@ import dev.fardavide.oltre.client.design.testing.oltreRoborazziOptions
 import io.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Test
 
-// The merged Ships destination's own navigation, `alliance-sheet.md` §7: two glyph chips at the tap
-// minimum, raised from the galaxy's 22dp filter row. A baseline is the only thing that says the
-// lit chip's fill and ink actually turn together, since nothing here is asserted by a behaviour
-// test's semantics tree — `MainScaffoldBehaviourTest` covers which content shows, not what the
-// switch itself looks like.
+// The merged Ships destination's own navigation: the galaxy's `worlds · map` switch, the same
+// component and the same text-pill style, with this feature's own two words. A baseline is the
+// only thing that says the lit pill's fill and ink actually turn together, since nothing here is
+// asserted by a behaviour test's semantics tree — `MainScaffoldBehaviourTest` covers which content
+// shows, not what the switch itself looks like.
 @OptIn(ExperimentalTestApi::class)
 class ShipsHeadScreenshotTest {
 
@@ -28,8 +28,11 @@ class ShipsHeadScreenshotTest {
         captureHead(mode = ShipsMode.FLEETS, name = "ships_head_fleets")
     }
 
+    // Wide enough for "SHIPYARD" and "FLEETS" side by side with room either side — content-sized
+    // text pills, unlike the fixed-size chips this replaced, need the frame to fit the longer word
+    // rather than the other way round.
     private fun captureHead(mode: ShipsMode, name: String) {
-        runDesktopComposeUiTest(width = 120, height = 60) {
+        runDesktopComposeUiTest(width = 220, height = 60) {
             mainClock.autoAdvance = false
             setContent {
                 OltreTheme {

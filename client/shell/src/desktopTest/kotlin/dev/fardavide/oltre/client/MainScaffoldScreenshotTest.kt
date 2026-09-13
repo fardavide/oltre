@@ -120,7 +120,7 @@ class MainScaffoldScreenshotTest {
                             colony = { Text("colony-under-test") },
                             research = { Text("research-under-test") },
                             galaxy = { _, _ -> Text("galaxy-under-test") },
-                            ships = { Text("ships-under-test") },
+                            ships = { _, _, _ -> Text("ships-under-test") },
                             alliance = { Text("alliance-under-test") },
                             offline = offline,
                             // The gear is drawn and never tapped: what it opens is `App`'s, and a

@@ -124,7 +124,9 @@ class MainScaffoldBehaviourTest {
             OltreTab.COLONY to COLONY_MARKER,
             OltreTab.RESEARCH to RESEARCH_MARKER,
             OltreTab.GALAXY to GALAXY_MARKER,
-            OltreTab.SHIPS to SHIPS_MARKER,
+            // Shipyard, not a Ships-level marker: the default `ships` param composes the real
+            // `ShipsScreen`, which opens on the Shipyard chip.
+            OltreTab.SHIPS to SHIPYARD_MARKER,
             OltreTab.ALLIANCE to ALLIANCE_MARKER,
         )
         OltreTab.entries.forEach { tab ->
@@ -203,15 +205,7 @@ class MainScaffoldBehaviourTest {
     // test that used to be "the Shipyard tab shows its screen rather than Fleets", one level down.
     @Test
     fun `the Ships tab's head switches between Shipyard and Fleets`() {
-        scaffold(
-            ships = { scroll ->
-                ShipsScreen(
-                    scrollState = scroll,
-                    shipyard = { Text(SHIPYARD_MARKER) },
-                    fleets = { Text(FLEETS_MARKER) },
-                )
-            },
-        ) {
+        scaffold {
             onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
             onNodeWithText(SHIPYARD_MARKER).assertIsDisplayed()
             onNodeWithText(FLEETS_MARKER).assertDoesNotExist()
@@ -223,6 +217,27 @@ class MainScaffoldBehaviourTest {
             onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.SHIPYARD)).performClick()
             onNodeWithText(SHIPYARD_MARKER).assertIsDisplayed()
             onNodeWithText(FLEETS_MARKER).assertDoesNotExist()
+        }
+    }
+
+    // **The bug Davide caught**: the chip used to be `remember`ed inside `ShipsScreen`, which
+    // `AnimatedContent` tears down the moment another destination is selected — so leaving Ships on
+    // Fleets and coming back always found Shipyard again. `MainScaffold` hoists the mode now, the
+    // same way it already hoists `selected` and every `ScrollState`, and this is the regression test
+    // for that: through Colony and back, not just a re-click of the same tab.
+    @Test
+    fun `the Ships chip is still Fleets after a trip through Colony`() {
+        scaffold {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
+            onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.FLEETS)).performClick()
+            onNodeWithText(FLEETS_MARKER).assertIsDisplayed()
+
+            onNodeWithTag(ShellTestTags.tab(OltreTab.COLONY)).performClick()
+            onNodeWithText(COLONY_MARKER).assertIsDisplayed()
+
+            onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
+            onNodeWithText(FLEETS_MARKER).assertIsDisplayed()
+            onNodeWithText(SHIPYARD_MARKER).assertDoesNotExist()
         }
     }
 
@@ -244,7 +259,18 @@ class MainScaffoldBehaviourTest {
         pauseTheClock: Boolean = false,
         onOpenSettings: () -> Unit = {},
         onOpenProfile: () -> Unit = {},
-        ships: @Composable (ScrollState) -> Unit = { Text(SHIPS_MARKER) },
+        // The real `ShipsScreen` by default, with markers standing in for its two halves — the
+        // mode-persistence test needs it composed for real, since a flat marker has no chip to
+        // switch and nothing to lose.
+        ships: @Composable (ScrollState, ShipsMode, (ShipsMode) -> Unit) -> Unit = { scroll, mode, onSelectMode ->
+            ShipsScreen(
+                scrollState = scroll,
+                mode = mode,
+                onSelectMode = onSelectMode,
+                shipyard = { Text(SHIPYARD_MARKER) },
+                fleets = { Text(FLEETS_MARKER) },
+            )
+        },
         alliance: @Composable (ScrollState) -> Unit = { Text(ALLIANCE_MARKER) },
         assertions: ComposeUiTest.() -> Unit,
     ) {
@@ -287,8 +313,9 @@ class MainScaffoldBehaviourTest {
         const val COLONY_MARKER = "colony-under-test"
         const val RESEARCH_MARKER = "research-under-test"
         const val GALAXY_MARKER = "galaxy-under-test"
-        const val SHIPS_MARKER = "ships-under-test"
         const val ALLIANCE_MARKER = "alliance-under-test"
+        // Ships has no marker of its own — the default `ships` param composes the real
+        // `ShipsScreen`, so its two halves stand in for it instead.
         const val SHIPYARD_MARKER = "shipyard-under-test"
         const val FLEETS_MARKER = "fleets-under-test"
     }
