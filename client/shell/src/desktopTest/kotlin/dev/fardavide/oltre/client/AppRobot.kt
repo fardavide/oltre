@@ -257,6 +257,23 @@ internal class AppRobot(
         test.waitForIdle()
     }
 
+    // **0.23.0: Shipyard and Fleets are chips inside the Ships tab, not tabs of their own.** These
+    // two replace what used to be `open(OltreTab.SHIPYARD)` / `open(OltreTab.FLEETS)` at every call
+    // site — always clicking the chip explicitly rather than relying on `ShipsScreen`'s remembered
+    // default, so a test's correctness never depends on which mode a fresh Ships destination opens
+    // on.
+    fun openShipyard() = apply {
+        open(OltreTab.SHIPS)
+        test.onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.SHIPYARD)).performClick()
+        test.waitForIdle()
+    }
+
+    fun openFleets() = apply {
+        open(OltreTab.SHIPS)
+        test.onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.FLEETS)).performClick()
+        test.waitForIdle()
+    }
+
     fun assertDoesNotRead(text: String) = apply {
         test.onNodeWithText(text, substring = true).assertDoesNotExist()
     }

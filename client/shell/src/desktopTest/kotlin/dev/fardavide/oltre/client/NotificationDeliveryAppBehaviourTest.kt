@@ -42,7 +42,7 @@ class NotificationDeliveryAppBehaviourTest {
         val lastHullAt = ordered.yard.last().completesAt
 
         app(saved = GameSnapshot(lastUpdatedAt = TEST_NOW, state = ordered)) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             tapTheAlertOn(ShipType.SKIFF)
             openTheSettings()
 

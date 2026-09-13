@@ -115,6 +115,7 @@ dependencies {
     kover(projects.client.shell)
     kover(projects.client.alliance.data)
     kover(projects.client.alliance.domain)
+    kover(projects.client.alliance.ui)
     kover(projects.client.auth.data)
     kover(projects.client.auth.presentation)
     kover(projects.client.auth.ui)
@@ -487,6 +488,13 @@ kover {
                 // The alliance's screens and shell wiring are `#143`'s job; until then no robot can
                 // reach an `Alliance*` type any more than one could reach `:protocol` before the
                 // shell held a fake transport.
+                //
+                // **This exclusion is not retired by the nav-bar slice of `#143`** (0.23.0): the
+                // alliance tab draws a static "coming soon" screen with no dependency on
+                // `:client:alliance:domain`, `:client:alliance:data` or `:protocol` at all, so the
+                // shell reaching a real feature module still does not put an `Alliance*` type
+                // behind anything a robot can drive. The condition above is unchanged and still
+                // waiting on the real screens.
                 //
                 // Six names carry no "Alliance" substring and would not match the glob below:
                 // `JoinRequestId`, `JoinDecision`, `AnswerJoinRequest`, `KickMemberRequest`,

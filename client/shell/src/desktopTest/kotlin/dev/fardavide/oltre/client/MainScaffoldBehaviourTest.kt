@@ -1,8 +1,12 @@
 package dev.fardavide.oltre.client
 
 import dev.fardavide.oltre.client.design.text.English
+import androidx.compose.foundation.ScrollState
 import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.test.ComposeUiTest
+import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
+import dev.fardavide.oltre.client.design.text.Strings
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotSelected
@@ -120,8 +124,8 @@ class MainScaffoldBehaviourTest {
             OltreTab.COLONY to COLONY_MARKER,
             OltreTab.RESEARCH to RESEARCH_MARKER,
             OltreTab.GALAXY to GALAXY_MARKER,
-            OltreTab.SHIPYARD to SHIPYARD_MARKER,
-            OltreTab.FLEETS to FLEETS_MARKER,
+            OltreTab.SHIPS to SHIPS_MARKER,
+            OltreTab.ALLIANCE to ALLIANCE_MARKER,
         )
         OltreTab.entries.forEach { tab ->
             scaffold {
@@ -137,7 +141,7 @@ class MainScaffoldBehaviourTest {
     @Test
     fun `the colony comes back when its tab does`() {
         scaffold {
-            onNodeWithTag(ShellTestTags.tab(OltreTab.FLEETS)).performClick()
+            onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
             onNodeWithTag(ShellTestTags.tab(OltreTab.COLONY)).performClick()
             onNodeWithText(COLONY_MARKER).assertIsDisplayed()
         }
@@ -194,12 +198,54 @@ class MainScaffoldBehaviourTest {
         scaffold(pauseTheClock = true) { ScaffoldRobot(this).assertions() }
     }
 
+    // **The Ships destination's own switch, one level under the tab bar.** Shipyard and Fleets are
+    // no longer tabs of their own (0.23.0) — they are `ShipsHead`'s two chips — so this is the
+    // test that used to be "the Shipyard tab shows its screen rather than Fleets", one level down.
+    @Test
+    fun `the Ships tab's head switches between Shipyard and Fleets`() {
+        scaffold(
+            ships = { scroll ->
+                ShipsScreen(
+                    scrollState = scroll,
+                    shipyard = { Text(SHIPYARD_MARKER) },
+                    fleets = { Text(FLEETS_MARKER) },
+                )
+            },
+        ) {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.SHIPS)).performClick()
+            onNodeWithText(SHIPYARD_MARKER).assertIsDisplayed()
+            onNodeWithText(FLEETS_MARKER).assertDoesNotExist()
+
+            onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.FLEETS)).performClick()
+            onNodeWithText(FLEETS_MARKER).assertIsDisplayed()
+            onNodeWithText(SHIPYARD_MARKER).assertDoesNotExist()
+
+            onNodeWithTag(ShellTestTags.shipsMode(ShipsMode.SHIPYARD)).performClick()
+            onNodeWithText(SHIPYARD_MARKER).assertIsDisplayed()
+            onNodeWithText(FLEETS_MARKER).assertDoesNotExist()
+        }
+    }
+
+    // **The Alliance tab's real screen, not a marker** — the one test in this file that drives the
+    // actual composable rather than a stand-in, because the whole point of `AllianceScreen` is the
+    // words it says, and a marker cannot be wrong about them.
+    @Test
+    fun `the Alliance tab shows the coming-soon screen`() {
+        scaffold(alliance = { scroll -> AllianceScreen(scrollState = scroll) }) {
+            onNodeWithTag(ShellTestTags.tab(OltreTab.ALLIANCE)).performClick()
+            onNodeWithText(English.resolve(Strings.allianceComingSoonTitle())).assertIsDisplayed()
+            onNodeWithText(English.resolve(Strings.allianceComingSoonBody())).assertIsDisplayed()
+        }
+    }
+
     // A phone-sized window: the bar has to fit five destinations at the narrowest width the game
     // actually ships at.
     private fun scaffold(
         pauseTheClock: Boolean = false,
         onOpenSettings: () -> Unit = {},
         onOpenProfile: () -> Unit = {},
+        ships: @Composable (ScrollState) -> Unit = { Text(SHIPS_MARKER) },
+        alliance: @Composable (ScrollState) -> Unit = { Text(ALLIANCE_MARKER) },
         assertions: ComposeUiTest.() -> Unit,
     ) {
         runDesktopComposeUiTest(width = 393, height = 852) {
@@ -214,8 +260,8 @@ class MainScaffoldBehaviourTest {
                         colony = { Text(COLONY_MARKER) },
                         research = { Text(RESEARCH_MARKER) },
                         galaxy = { _, _ -> Text(GALAXY_MARKER) },
-                        shipyard = { Text(SHIPYARD_MARKER) },
-                        fleets = { Text(FLEETS_MARKER) },
+                        ships = ships,
+                        alliance = alliance,
                         // Null: a colony with signal, which is what every test here that is not about
                         // the chrome line wants. The line has its own tests.
                         offline = null,
@@ -241,6 +287,8 @@ class MainScaffoldBehaviourTest {
         const val COLONY_MARKER = "colony-under-test"
         const val RESEARCH_MARKER = "research-under-test"
         const val GALAXY_MARKER = "galaxy-under-test"
+        const val SHIPS_MARKER = "ships-under-test"
+        const val ALLIANCE_MARKER = "alliance-under-test"
         const val SHIPYARD_MARKER = "shipyard-under-test"
         const val FLEETS_MARKER = "fleets-under-test"
     }

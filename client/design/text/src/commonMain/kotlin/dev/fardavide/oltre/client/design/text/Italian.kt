@@ -589,6 +589,11 @@ object Italian : Translations {
         StringId.TabShipyard -> "Cantiere"
         StringId.TabGalaxy -> "Galassia"
         StringId.TabFleets -> "Flotte"
+        StringId.TabShips -> "Navi"
+        StringId.TabAlliance -> "Alleanza"
+        StringId.AllianceComingSoonTitle -> "In arrivo"
+        StringId.AllianceComingSoonBody ->
+            "L'alleanza è in costruzione. Questa scheda la mostrerà quando sarà pronta."
         StringId.StepperFewer -> "−"
         StringId.StepperMore -> "+"
         StringId.DepositGap -> " "

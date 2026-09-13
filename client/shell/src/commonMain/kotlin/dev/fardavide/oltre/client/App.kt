@@ -13,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.intl.Locale
+import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
 import dev.fardavide.oltre.client.auth.data.ProviderSignIn
 import dev.fardavide.oltre.client.auth.data.SignInAttempt
 import dev.fardavide.oltre.client.auth.data.defaultProviderSignIn
@@ -1785,63 +1786,78 @@ fun App(
                         // second hull is on sale; what a card can express today is "another one of
                         // these", and a stepper for a purchase you can simply repeat is a control
                         // bought for nothing.
-                        shipyard = { scroll ->
-                            ShipyardScreen(
+                        // **0.23.0: Shipyard and Fleets merge into one destination, Ships**
+                        // (`alliance-sheet.md` §7) — one subject, a hull built then flown, and the
+                        // tab it frees is where the alliance now lives. Neither screen below changed;
+                        // `ShipsScreen` (`:client:shell`) only decides which of the two is showing.
+                        ships = { scroll ->
+                            ShipsScreen(
                                 scrollState = scroll,
-                                uiState = current.state.toShipyardUiState(
-                                    now = current.lastUpdatedAt,
-                                    timeZone = TimeZone.currentSystemDefault(),
-                                    held = held,
-                                ),
-                                onBuild = { type ->
-                                    send(ClientVerb.BuildShips(Ships.of(type, 1))) { state, at ->
-                                        when (val result = buildShips(state, Ships.of(type, 1), at = at)) {
-                                            is BuildShipsResult.Started -> result.state
-                                            // Exhaustive and every branch returns the state
-                                            // untouched: the card is built so that none of the three
-                                            // is reachable from a finger — the button is a ghost
-                                            // while the price is short, the manifest is never empty,
-                                            // and a hull with no price is drawn as a dimmed card
-                                            // with nothing to press. This `when` is what says so out
-                                            // loud rather than trusting it.
-                                            BuildShipsResult.NothingToBuild,
-                                            BuildShipsResult.NotForSale,
-                                            BuildShipsResult.InsufficientResources,
-                                            -> state
-                                        }
-                                    }
+                                shipyard = { s ->
+                                    ShipyardScreen(
+                                        scrollState = s,
+                                        uiState = current.state.toShipyardUiState(
+                                            now = current.lastUpdatedAt,
+                                            timeZone = TimeZone.currentSystemDefault(),
+                                            held = held,
+                                        ),
+                                        onBuild = { type ->
+                                            send(ClientVerb.BuildShips(Ships.of(type, 1))) { state, at ->
+                                                when (val result = buildShips(state, Ships.of(type, 1), at = at)) {
+                                                    is BuildShipsResult.Started -> result.state
+                                                    // Exhaustive and every branch returns the state
+                                                    // untouched: the card is built so that none of the three
+                                                    // is reachable from a finger — the button is a ghost
+                                                    // while the price is short, the manifest is never empty,
+                                                    // and a hull with no price is drawn as a dimmed card
+                                                    // with nothing to press. This `when` is what says so out
+                                                    // loud rather than trusting it.
+                                                    BuildShipsResult.NothingToBuild,
+                                                    BuildShipsResult.NotForSale,
+                                                    BuildShipsResult.InsufficientResources,
+                                                    -> state
+                                                }
+                                            }
+                                        },
+                                        onToggleAlert = { type -> alertHull(type) },
+                                    )
                                 },
-                                onToggleAlert = { type -> alertHull(type) },
+                                // **It stopped being read-only at 0.13**, which is issue #62. A run in
+                                // flight is still something to watch rather than something to change —
+                                // there is no cancel and no recall anywhere in this game, and the cargo
+                                // is fixed at dispatch — but the list of worlds you have worked is a
+                                // door back to one, and it raises the same sheet the Galaxy tab raises.
+                                fleets = { s ->
+                                    FleetsScreen(
+                                        scrollState = s,
+                                        state = current.state,
+                                        now = current.lastUpdatedAt,
+                                        // What the landing clock is measured from, exactly as it is on
+                                        // the Galaxy tab: a world that came home while the app was
+                                        // closed says so, and one that came home before that has
+                                        // nothing new to report.
+                                        since = current.resumedFrom,
+                                        timeZone = TimeZone.currentSystemDefault(),
+                                        // The same four lines the Galaxy tab spends, and deliberately
+                                        // not hoisted into one: `startRun`'s refusals are the sheet's
+                                        // own subject, and a shared lambda would put the two tabs'
+                                        // error handling in a place neither of them owns.
+                                        onDispatchRun = dispatchRun,
+                                        onToggleAnnounce = { alertFlights() },
+                                        held = held,
+                                        // No probe on this tab — a world a fleet has been sent to was
+                                        // surveyed in order to be dispatched to — so the only refusal
+                                        // the sheet it raises can carry is a run's.
+                                        refusal = runRefusal,
+                                    )
+                                },
                             )
                         },
-                        // **It stopped being read-only at 0.13**, which is issue #62. A run in flight
-                        // is still something to watch rather than something to change — there is no
-                        // cancel and no recall anywhere in this game, and the cargo is fixed at
-                        // dispatch — but the list of worlds you have worked is a door back to one,
-                        // and it raises the same sheet the Galaxy tab raises.
-                        fleets = { scroll ->
-                            FleetsScreen(
-                                scrollState = scroll,
-                                state = current.state,
-                                now = current.lastUpdatedAt,
-                                // What the landing clock is measured from, exactly as it is on the
-                                // Galaxy tab: a world that came home while the app was closed says
-                                // so, and one that came home before that has nothing new to report.
-                                since = current.resumedFrom,
-                                timeZone = TimeZone.currentSystemDefault(),
-                                // The same four lines the Galaxy tab spends, and deliberately not
-                                // hoisted into one: `startRun`'s refusals are the sheet's own
-                                // subject, and a shared lambda would put the two tabs' error
-                                // handling in a place neither of them owns.
-                                onDispatchRun = dispatchRun,
-                                onToggleAnnounce = { alertFlights() },
-                                held = held,
-                                // No probe on this tab — a world a fleet has been sent to was
-                                // surveyed in order to be dispatched to — so the only refusal the
-                                // sheet it raises can carry is a run's.
-                                refusal = runRefusal,
-                            )
-                        },
+                        // The alliance's own tab, ahead of its real screen (`#143`). `AllianceScreen`
+                        // is a real screen in its own module (`:client:alliance:ui`) per `OltreTab.kt`'s
+                        // own doc comment — not a shell-owned placeholder — and decides nothing, so it
+                        // takes no parameters beyond the scroll every destination gets.
+                        alliance = { scroll -> AllianceScreen(scrollState = scroll) },
                         // **Tapping the gear again closes what it opened**, which is one of the four
                         // ways out the design names and the only one that is a control rather than a
                         // gesture. The strip is still on screen behind the scrim, so it is reachable

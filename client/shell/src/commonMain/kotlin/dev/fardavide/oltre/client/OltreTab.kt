@@ -16,10 +16,18 @@ import dev.fardavide.oltre.client.design.text.TextRes
 // If a sixth destination ever arrives ahead of its screen, the honest empty state comes back with it
 // — and it should come back as that tab's own, in that tab's own module, rather than as a column
 // here. What made the old one shell-shaped was that two tabs shared it.
+//
+// **0.23.0: the alliance takes a tab bought by merging two.** `alliance-sheet.md` §7, from the
+// design round trip: Shipyard and Fleets are one subject — a hull built, then flown — so they
+// become one destination, `SHIPS`, with a two-chip head choosing which half is showing
+// (`ShipsScreen`/`ShipsHead` in this package). The alliance takes the tab that frees. The bar
+// stays five; nothing narrows and no other label moves. `ALLIANCE`'s own screen is exactly the
+// case the paragraph above anticipated — a real screen, in its own module (`:client:alliance:ui`),
+// stating plainly that the feature is not built yet, rather than a shell-owned placeholder.
 enum class OltreTab(val label: TextRes) {
     COLONY(label = Strings.tabColony()),
     RESEARCH(label = Strings.tabResearch()),
-    SHIPYARD(label = Strings.tabShipyard()),
+    SHIPS(label = Strings.tabShips()),
     GALAXY(label = Strings.tabGalaxy()),
-    FLEETS(label = Strings.tabFleets()),
+    ALLIANCE(label = Strings.tabAlliance()),
 }

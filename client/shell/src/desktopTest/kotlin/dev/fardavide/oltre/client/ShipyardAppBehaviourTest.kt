@@ -30,7 +30,7 @@ class ShipyardAppBehaviourTest {
     @Test
     fun `buying a hull on the Shipyard tab reaches core and comes back to the screen`() {
         app(saved = snapshot(rich())) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             // The hull this colony already bought, and the price of the next.
             assertReads("1 owned · 1 idle")
 
@@ -51,10 +51,10 @@ class ShipyardAppBehaviourTest {
         // slipway is the case that could make them: the Shipyard has just charged for it and the
         // Fleets tab must not count it, because it cannot be sent.
         app(saved = snapshot(rich())) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             buyAHull()
 
-            open(OltreTab.FLEETS)
+            openFleets()
             assertReads("0 of 1 away")
             assertReads("Nothing is out.")
         }
@@ -74,11 +74,11 @@ class ShipyardAppBehaviourTest {
         ).state
 
         app(saved = GameSnapshot(lastUpdatedAt = now, state = dispatched)) {
-            open(OltreTab.FLEETS)
+            openFleets()
             assertReads("1 of 1 away")
             assertReads("1 skiff")
             // The hull is out, so the Shipyard says so in the same breath from the other tab.
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             assertReads("1 owned · 0 idle · 1 away")
         }
     }
@@ -96,13 +96,13 @@ class ShipyardAppBehaviourTest {
         val closed = GameSnapshot(lastUpdatedAt = TEST_NOW - 12.hours, state = ordered)
 
         app(saved = closed) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             assertReads("2 hulls")
             assertReads("2 owned · 2 idle")
 
             // And the Fleets tab agrees, which is the pair that could disagree: the hull did not
             // exist when the save was written and does now.
-            open(OltreTab.FLEETS)
+            openFleets()
             assertReads("0 of 2 away")
         }
     }
@@ -118,7 +118,7 @@ class ShipyardAppBehaviourTest {
         val closed = GameSnapshot(lastUpdatedAt = TEST_NOW - 3.hours, state = ordered)
 
         app(saved = closed) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             assertReads("2 hulls")
             assertReads("2 owned · 2 idle · 2 building")
             assertReads("1 queued")
@@ -147,7 +147,7 @@ class ShipyardAppBehaviourTest {
             assertDoesNotRead("Dispatch")
 
             // The Shipyard is where that is answered, and the scout is the card it opens on.
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             assertReads("Scout")
             buyAHull(ShipType.SCOUT)
 
@@ -175,7 +175,7 @@ class ShipyardAppBehaviourTest {
         ).state
 
         app(saved = GameSnapshot(lastUpdatedAt = TEST_NOW - 1.hours, state = ordered)) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             // Nothing asked for, so nothing booked — the change this version is.
             assertAlertsBooked(0)
 
@@ -199,7 +199,7 @@ class ShipyardAppBehaviourTest {
         // because that is where the state and the screen actually meet: this colony can afford a
         // hull and has none on order.
         app(saved = snapshot(rich())) {
-            open(OltreTab.SHIPYARD)
+            openShipyard()
             assertNoAlertOn(ShipType.SKIFF)
 
             // And it appears the moment there is something to wait for.

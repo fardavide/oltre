@@ -44,6 +44,9 @@ include(":sim")
 // Alliance rules are pure data; its gateway combines authenticated transport answers.
 include(":client:alliance:data")
 include(":client:alliance:domain")
+// The tab, ahead of the feature it names (#143, narrowed): a screen with nothing to decide, so
+// `ui` alone — see its build file for the `module-rules` reasoning.
+include(":client:alliance:ui")
 // What changed since the build you last opened. `domain` is the only layer that could exist before
 // the design came back: a version is three integers and "is there anything new" is a rule about two
 // of them, while everything else in this feature is either copy or a drawing.

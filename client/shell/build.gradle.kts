@@ -55,6 +55,9 @@ kotlin {
             // The gate, the deletion face, the three platform sign-ins, and the queue read as a set
             // of controls. The composition root is the only module that may see all four, which is
             // the whole of its job.
+            // The alliance's tab, ahead of its real screen (#143, narrowed). `ui` alone: the
+            // placeholder decides nothing, so there is no `presentation` to name.
+            implementation(projects.client.alliance.ui)
             implementation(projects.client.auth.data)
             implementation(projects.client.auth.presentation)
             implementation(projects.client.auth.ui)
