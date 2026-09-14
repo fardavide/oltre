@@ -7,6 +7,7 @@ import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.SystemAddress
@@ -21,18 +22,19 @@ import kotlin.time.Duration
 // function takes, minus the state it is applied to and minus the instant — the state is the
 // server's and the instant rides on the envelope.
 //
-// **Twelve, not the nine `#106` names.** The epic was written against 0.17.1 and its sentence
-// *"there is nothing else in `core` that mutates a `GameState`"* was true then. 0.18 shipped the
-// settings sheet, which added `setAlertMode`, `toggleAlertCategory` and `setAlertDelivery` — three
-// more, all of them colony-local, all of them a control a player taps. Left out, the sheet would go
-// on working on the device and change nothing on the server, which is a control that silently does
+// **Thirteen, and a ticket has been wrong about the count twice.** `#106` was written against 0.17.1
+// and its sentence *"there is nothing else in `core` that mutates a `GameState`"* was true then.
+// 0.18 shipped the settings sheet, which added `setAlertMode`, `toggleAlertCategory` and
+// `setAlertDelivery` — three more, all of them colony-local, all of them a control a player taps —
+// and the count went to twelve. `contribute` is the thirteenth. Left out, each of those would go on
+// working on the device and change nothing on the server, which is a control that silently does
 // nothing to the thing that now owns the answer.
 //
 // **That is the failure this file's shape exists to prevent, and it happened once already before a
 // line of it was written.** A verb `core` can apply and the wire cannot carry is invisible to the
 // compiler, invisible to a screenshot and invisible to a behaviour test — the tap works, the screen
 // updates, and the next sync hands the colony back without it. `ClientVerbTest` is the registry
-// that makes a thirteenth impossible to forget; `offlineRule` below is the second half of it, since
+// that makes a fourteenth impossible to forget; `offlineRule` below is the second half of it, since
 // a new member cannot compile without answering what it does on a train.
 @Serializable
 sealed interface ClientVerb {
@@ -100,6 +102,26 @@ sealed interface ClientVerb {
     @Serializable
     @SerialName("SetAlertDelivery")
     data class SetAlertDelivery(val delivery: AlertDelivery) : ClientVerb
+
+    // **The thirteenth, and the only member of this file that is about somebody else.** Everything
+    // above changes one colony and nothing but; this one takes resources out of a colony and puts
+    // them in an alliance pool, which is a second row in a second table the verb does not name.
+    //
+    // It is a `ClientVerb` all the same, and for this file's stated rule rather than in spite of it:
+    // `contribute` is a mutating function in `core`, so a member here is what stops it being a tap
+    // that works on the device and changes nothing on the server. The alliance's own eight acts are
+    // **not** verbs — they mutate no `GameState` and have nothing to replay — which is why this is
+    // the one place the alliance touches the sync pair at all.
+    //
+    // It carries the basket and not a share. The chips on the screen are 10 / 25 / 50 / All of the
+    // colony's own stock, and a *share* sent over the wire would be resolved against whatever the
+    // server's advanced state happens to hold, so the figure the player read on the chip and the
+    // figure that left would be two different numbers. An absolute `Resources` replays to the same
+    // answer or refuses, which is what `QUEUE_AND_VALIDATE` would have needed and is worth having
+    // anyway.
+    @Serializable
+    @SerialName("Contribute")
+    data class Contribute(val amount: Resources) : ClientVerb
 }
 
 // **What a verb tapped with no signal is allowed to do** — `#106` §3, and it is on the type rather
@@ -141,5 +163,19 @@ val ClientVerb.offlineRule: OfflineRule
 
         is ClientVerb.StartRun,
         is ClientVerb.StartSurvey,
+        // **The third, and the first that is not about a coordinate.** `core` can replay the debit
+        // perfectly well — it is affordability and nothing else — but every reason a contribution
+        // might be refused *other* than affordability is a fact about other people: whether the
+        // player is still in an alliance, whether they were removed from it while the train was in
+        // the tunnel, whether the seats and the vault the pool feeds still stand. None of those is
+        // in a `GameState` and none of them can be, so a queued contribution is a promise the engine
+        // cannot keep — and a player who queued one and came back to find the resources gone and the
+        // alliance not theirs has been told a lie by an amber label.
+        //
+        // The corollary is on the screen rather than here: with no signal the chips refuse in red
+        // with a sentence, beside `refusedRun` and `refusedProbe`, and **the resources do not leave
+        // the colony until the server has taken them** — which is what makes the stock and the pool
+        // add up at every instant.
+        is ClientVerb.Contribute,
         -> OfflineRule.LOOK_DONT_ACT
     }

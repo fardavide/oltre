@@ -8,9 +8,11 @@ import dev.fardavide.oltre.protocol.JoinRequest
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
+import dev.fardavide.oltre.core.Resources
 import java.util.UUID
 import kotlin.time.Instant
 
@@ -30,6 +32,11 @@ internal data class StoredAlliance(
     val version: AllianceVersion,
     val createdAt: Instant,
     val experience: Long,
+    // The treasury, in whole units — see `schema.sql`. Carried on the stored row rather than fetched
+    // by the treasury route on its own, because the level and the seat cap are already derived from
+    // the same row and a second read could disagree with the first.
+    val pool: Resources = Resources.of(),
+    val seatsBought: Int = 0,
 )
 
 internal data class Seat(
@@ -100,6 +107,37 @@ internal interface AllianceRepository {
     suspend fun rename(caller: PlayerId, alliance: AllianceId, name: AllianceName, tag: AllianceTag, expected: AllianceVersion): AllianceChange
 
     suspend fun disband(caller: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange
+
+    // What the pool holds and what it could buy. Read-only, and it answers a seat too — the caller's
+    // own paid-in total, which is a standing rather than a stock and is the column the succession
+    // rule reads.
+    suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead
+
+    // Spends the pool on a project. Founder or admin — `alliance-sheet.md` §5.3 gives admins the
+    // treasury — and a compare-and-set on the alliance row, because two admins buying the same
+    // project in the same second must not both succeed at the price one of them read.
+    suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead
+}
+
+internal sealed interface TreasuryRead {
+
+    data class Refused(val error: ApiError) : TreasuryRead
+
+    // **Stale is its own answer rather than an `ApiError.StaleAlliance`**, on `AllianceChange`'s own
+    // shape one interface up: losing a compare-and-set is the caller being told to read and try
+    // again, and only the route decides whether it has tries left.
+    data object Stale : TreasuryRead
+
+    data class Present(
+        val alliance: StoredAlliance,
+        val contributed: Long,
+        val role: AllianceRole,
+    ) : TreasuryRead
 }
 
 internal sealed interface RosterRead {

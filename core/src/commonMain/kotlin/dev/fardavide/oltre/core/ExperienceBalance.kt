@@ -93,10 +93,10 @@ object ExperienceBalance {
     const val LEVEL_BASE: Long = 1_100
     const val LEVEL_STEP: Long = 360
 
-    // Six of the twelve members of `Event` are worth nothing and every one of them is named. There
-    // is no `else` here on purpose: a thirteenth event has to be priced by whoever adds it, and a
-    // default would let it be worth zero by omission — which is the one failure this table can have
-    // that nobody would ever see, because a level that is slightly too low looks exactly like a
+    // Seven of the thirteen members of `Event` are worth nothing and every one of them is named.
+    // There is no `else` here on purpose: a fourteenth event has to be priced by whoever adds it,
+    // and a default would let it be worth zero by omission — which is the one failure this table can
+    // have that nobody would ever see, because a level that is slightly too low looks exactly like a
     // level that is correct.
     fun awardFor(event: Event): Experience = when (event) {
         is Event.BuildCompleted -> Experience(BUILD_BASE + BUILD_PER_LEVEL * event.newLevel.value)
@@ -106,12 +106,22 @@ object ExperienceBalance {
         is Event.FleetReturned -> Experience(RUN_HOME)
         is Event.ShipsBuilt -> Experience(HULL * event.ships.total)
         // The commitments. Each one's partner above is what pays for it.
+        //
+        // **And the one member of this group that has no partner and is still worth nothing** —
+        // `ResourcesContributed`, Davide's call on 2026-09-14 over flat-and-small. The reasoning is
+        // the note at the top of this file said twice: an award scaled with the basket is *what you
+        // own* rather than what you did, and a flat award is per event, so ten contributions of one
+        // metal would pay ten times what one contribution of ten metal pays — which would need a
+        // minimum contribution to be safe, and that is a balance lever nobody asked for. The
+        // alliance's own ladder is priced on the basket and is indifferent to splitting; this gauge
+        // stays about the colony.
         is Event.BuildStarted,
         is Event.ResearchStarted,
         is Event.AdaptationStarted,
         is Event.SurveyStarted,
         is Event.FleetDispatched,
         is Event.ShipsOrdered,
+        is Event.ResourcesContributed,
         -> Experience.NONE
     }
 

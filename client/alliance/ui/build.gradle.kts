@@ -1,14 +1,20 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
-// The alliance's tab, ahead of the feature it names: one screen, saying plainly that the alliance
-// is not built yet (`alliance-sheet.md` §7, `#143` narrowed). A `ui` module and nothing else, on
-// the same footing `module-rules` states for `:client:debug:ui` — the screen decides nothing, so a
-// `presentation` here would forward its one string and no more. `:client:alliance:data` and
-// `:client:alliance:domain` already exist from `#141`; this module does not depend on either, since
-// a screen with no logic reads nothing from them yet.
+// **The alliance's screens and the models they render, and nothing that decides.** Four faces —
+// searching, waiting, enlisted, held — chosen by account state rather than by a toggle
+// (`alliance-sheet.md` §7). `:client:alliance:presentation` is what chooses; this draws what it is
+// handed.
 //
-// Roborazzi, unlike the debug menu: this screen is player-facing, even if its content is a
-// stopgap, so it is held to the same baseline discipline every other destination is.
+// It held the whole feature while the feature was one sentence, on the footing `module-rules` states
+// for `:client:debug:ui`. That stopped being true the moment there was a roster to order, a pool to
+// price and a role to check, so the `presentation` this file's first version said it did not need
+// now exists beside it.
+//
+// **`:protocol` and not `core`.** The ids on these models — an alliance, a seat, a petition, a
+// project — are the server's surrogate keys, which is what a tap has to hand back; nothing here
+// reads a `GameState`.
+//
+// Roborazzi, as every player-facing module is.
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
@@ -36,9 +42,12 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // `api`, because the ids on `AllianceUiState` are `:protocol`'s and a caller handing
+            // back what it tapped names them.
+            api(projects.protocol)
             implementation(projects.client.design.component)
             implementation(projects.client.design.core)
-            implementation(projects.client.design.text)
+            api(projects.client.design.text)
 
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)

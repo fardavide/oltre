@@ -13,7 +13,10 @@ import kotlin.time.Instant
 
 internal object AllianceRules {
 
-    const val SEAT_CAP = 20
+    // **`SEAT_CAP` left this file at the treasury.** It was a flat 20 here because nothing could
+    // move it; a cap is now `AllianceBalance.seatCap(level, seatsBought)` — what the level granted
+    // plus what the pool bought — and a *balance* number has no business in the file that decides
+    // who may do what. What is left here is authority and succession, which is what this object is.
 
     private val INACTIVITY = 30.days
 

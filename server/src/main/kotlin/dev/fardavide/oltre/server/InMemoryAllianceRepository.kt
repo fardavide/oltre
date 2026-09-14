@@ -1,7 +1,9 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.Alliance
 import dev.fardavide.oltre.protocol.AllianceId
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceMember
 import dev.fardavide.oltre.protocol.AllianceMemberId
@@ -110,7 +112,13 @@ internal class InMemoryAllianceRepository(
             }
             val id = ids.mint()
             val stored = StoredAlliance(
-                Alliance(id, name, tag, AllianceLevel(0), AllianceSeats(1, AllianceRules.SEAT_CAP)),
+                Alliance(
+                    id,
+                    name,
+                    tag,
+                    AllianceLevel(0),
+                    AllianceSeats(1, AllianceBalance.seatCap(AllianceLevel(0), seatsBought = 0)),
+                ),
                 AllianceVersion.FIRST,
                 now,
                 0,
@@ -155,10 +163,7 @@ internal class InMemoryAllianceRepository(
     suspend fun forget(player: PlayerId): Unit = lock.withLock {
         petitions.remove(player)
         val seat = seats.remove(player) ?: return@withLock
-        val stored = alliances.getValue(seat.alliance)
-        alliances[seat.alliance] = stored.copy(alliance = stored.alliance.copy(
-            seats = AllianceSeats(seats.values.count { it.alliance == seat.alliance }, AllianceRules.SEAT_CAP),
-        ))
+        alliances[seat.alliance] = alliances.getValue(seat.alliance).reseated()
     }
 
     override suspend fun detach(player: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange = lock.withLock {
@@ -169,9 +174,7 @@ internal class InMemoryAllianceRepository(
             is DetachVerdict.Withdraw -> petitions.remove(player)
             is DetachVerdict.Leave -> seats.remove(player)
         }
-        alliances[alliance] = stored.copy(version = stored.version.next(), alliance = stored.alliance.copy(
-            seats = AllianceSeats(seats.values.count { it.alliance == alliance }, AllianceRules.SEAT_CAP),
-        ))
+        alliances[alliance] = stored.copy(version = stored.version.next()).reseated()
         AllianceChange.Applied(Affiliation.Unaffiliated)
     }
 
@@ -188,7 +191,7 @@ internal class InMemoryAllianceRepository(
             }
         }
         petitions.remove(petition.player)
-        alliances[alliance] = stored.copy(version = stored.version.next(), alliance = stored.alliance.copy(seats = AllianceSeats(seats.values.count { it.alliance == alliance }, AllianceRules.SEAT_CAP)))
+        alliances[alliance] = stored.copy(version = stored.version.next()).reseated()
         AllianceChange.Applied(affiliationOf(caller))
     }
 
@@ -210,9 +213,7 @@ internal class InMemoryAllianceRepository(
             is RemovalVerdict.Refused -> return@withLock AllianceChange.Refused(verdict.error)
             is RemovalVerdict.Remove -> seats.remove(verdict.seat.player)
         }
-        alliances[alliance] = stored.copy(version = stored.version.next(), alliance = stored.alliance.copy(
-            seats = AllianceSeats(seats.values.count { it.alliance == alliance }, AllianceRules.SEAT_CAP),
-        ))
+        alliances[alliance] = stored.copy(version = stored.version.next()).reseated()
         AllianceChange.Applied(affiliationOf(caller))
     }
 
@@ -238,6 +239,91 @@ internal class InMemoryAllianceRepository(
         seats.entries.removeAll { it.value.alliance == alliance }
         petitions.entries.removeAll { it.value.alliance == alliance }
         AllianceChange.Applied(Affiliation.Unaffiliated)
+    }
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead = lock.withLock {
+        val enlisted = when (val affiliation = affiliationOf(player)) {
+            Affiliation.Unaffiliated,
+            is Affiliation.Petitioning,
+            -> return@withLock TreasuryRead.Refused(ApiError.NotInAnAlliance)
+            is Affiliation.Enlisted -> affiliation
+        }
+        succeed(enlisted.alliance.alliance.id, now)
+        val seat = seats.getValue(player)
+        TreasuryRead.Present(alliances.getValue(seat.alliance), seat.contributed, seat.role)
+    }
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = lock.withLock {
+        val seat = seats[caller] ?: return@withLock TreasuryRead.Refused(ApiError.NotInAnAlliance)
+        val stored = alliances.getValue(seat.alliance)
+        if (stored.version != expected) return@withLock TreasuryRead.Stale
+        // **Founder or admin, and the check is `canSpend` rather than `founderAuthority`.**
+        // `alliance-sheet.md` §5.3 gives admins the treasury and keeps only rename and disband with
+        // the founder, which is the conservative split the ticket proposed and nobody overruled.
+        when (seat.role) {
+            AllianceRole.FOUNDER, AllianceRole.ADMIN -> Unit
+            AllianceRole.MEMBER -> return@withLock TreasuryRead.Refused(ApiError.AllianceRoleTooLow)
+        }
+        val level = stored.alliance.level
+        if (AllianceBalance.isExhausted(project, level, stored.seatsBought)) {
+            return@withLock TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
+        }
+        val cost = AllianceBalance.costOf(project, stored.seatsBought)
+        if (!stored.pool.covers(cost)) return@withLock TreasuryRead.Refused(ApiError.AllianceTreasuryShort)
+
+        val bought = stored.copy(
+            version = stored.version.next(),
+            pool = stored.pool.minus(cost),
+            // **Monotonic, always.** Spending the pool adds to the level and never subtracts, or the
+            // level would fall for doing the thing the level exists to encourage — `alliance-sheet
+            // .md` §3, and the one property of this ladder that is not a placeholder.
+            experience = stored.experience + AllianceBalance.projectAward(cost),
+            seatsBought = when (project) {
+                AllianceProject.CHARTER_EXPANSION -> stored.seatsBought + 1
+            },
+        )
+        alliances[seat.alliance] = bought.reseated()
+        TreasuryRead.Present(alliances.getValue(seat.alliance), seat.contributed, seat.role)
+    }
+
+    // **What the colony's writer calls when a contribution landed.** In the deployed store this is
+    // one statement inside the colony's own transaction; here it is the same map under the same
+    // lock, which is what makes the in-memory server a real dev loop rather than an approximation.
+    suspend fun credit(credit: PoolCredit): Unit = lock.withLock {
+        val stored = alliances[credit.alliance] ?: return@withLock
+        alliances[credit.alliance] = stored.copy(
+            version = stored.version.next(),
+            pool = Resources.of(
+                metal = stored.pool.metal + credit.amount.metal,
+                crystal = stored.pool.crystal + credit.amount.crystal,
+                deuterium = stored.pool.deuterium + credit.amount.deuterium,
+            ),
+            experience = stored.experience + credit.experience,
+        ).reseated()
+        val seat = seats.values.firstOrNull { it.id == credit.member } ?: return@withLock
+        seats[seat.player] = seat.copy(contributed = seat.contributed + credit.experience)
+    }
+
+    // One statement of what a roster's seat line reads, so the six places that recount it cannot
+    // disagree about the cap. Taken is counted from the map; the cap comes off the level the stored
+    // experience buys and whatever the pool bought on top of it.
+    private fun StoredAlliance.reseated(): StoredAlliance {
+        val progress = AllianceBalance.progressOf(experience)
+        val taken = seats.values.count { it.alliance == alliance.id }
+        return copy(
+            alliance = alliance.copy(
+                level = progress.level,
+                seats = AllianceSeats(
+                    taken = taken,
+                    cap = maxOf(AllianceBalance.seatCap(progress.level, seatsBought), taken),
+                ),
+            ),
+        )
     }
 
     private fun affiliationOf(player: PlayerId): Affiliation =

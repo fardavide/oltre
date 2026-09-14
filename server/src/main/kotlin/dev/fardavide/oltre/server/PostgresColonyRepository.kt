@@ -78,6 +78,7 @@ internal class PostgresColonyRepository(
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult = dataSource.transaction { connection ->
         val now = clock.now()
         val updated = connection.update(UPDATE_COLONY) {
@@ -95,6 +96,32 @@ internal class PostgresColonyRepository(
                 setString(1, key.value)
                 setString(2, player.value)
                 setObject(3, now.atUtc())
+            }
+        }
+
+        // **The cross-row write, and the whole reason it is here rather than on the alliance store.**
+        // It is inside this transaction, after the compare-and-set and after the keys, so all three
+        // land or none of them do. A lost CAS returned above without reaching this line, which is
+        // exactly right: `STALE` means nothing was contributed and the caller replays.
+        //
+        // Two `UPDATE … SET x = x + ?` statements and no version on either. The colony keeps its
+        // optimistic token because it is one document with one writer; the alliance rows take an
+        // in-database increment because every member writes them, and an increment is atomic under
+        // the row lock. `#144` §6 is the argument; the property that makes it safe is that
+        // `applied_verbs` is written in the same transaction, so a retried envelope cannot credit
+        // twice — provided the credit is computed from what was applied *now*, which is `Replayed
+        // .contributed`'s job and is stated there.
+        credit?.let { paid ->
+            connection.update(CREDIT_POOL) {
+                setLong(1, paid.amount.metal)
+                setLong(2, paid.amount.crystal)
+                setLong(3, paid.amount.deuterium)
+                setLong(4, paid.experience)
+                setString(5, paid.alliance.value)
+            }
+            connection.update(CREDIT_MEMBER) {
+                setLong(1, paid.experience)
+                setString(2, paid.member.value)
             }
         }
         WriteResult.WRITTEN
@@ -187,3 +214,23 @@ private const val SELECT_APPLIED =
     "SELECT idempotency_key FROM applied_verbs WHERE player_id = ? AND idempotency_key = ANY (?)"
 
 private const val PRUNE_APPLIED = "DELETE FROM applied_verbs WHERE applied_at < ?"
+
+// **The credit, and `version = version + 1` is doing real work in it.** The alliance row needs no
+// compare-and-set of its own — the increments are atomic — but every other alliance act *does* take
+// one, so a pool that moved without moving the version would let a rename or a project purchase
+// assert a version it read before the contribution and win.
+private const val CREDIT_POOL = """
+    UPDATE alliances
+    SET pool_metal = pool_metal + ?,
+        pool_crystal = pool_crystal + ?,
+        pool_deuterium = pool_deuterium + ?,
+        experience = experience + ?,
+        version = version + 1
+    WHERE id = ?
+"""
+
+// The member's own standing, priced on the same 1 : 2 : 3 as the alliance's experience. This is the
+// column `AllianceRules.successor` reads when it looks for the best active contributor — and until
+// this statement existed it was zero for everybody, so that step of the succession rule had no
+// signal to run on at all.
+private const val CREDIT_MEMBER = "UPDATE alliance_members SET contributed = contributed + ? WHERE id = ?"

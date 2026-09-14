@@ -4,10 +4,12 @@ import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.protocol.AllianceName
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMemberId
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.JoinRequestId
 import dev.fardavide.oltre.protocol.JoinDecision
 import dev.fardavide.oltre.protocol.AllianceTag
+import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.PlayerProfile
 import java.util.concurrent.atomic.AtomicInteger
@@ -60,6 +62,7 @@ internal class UnreachableColonyRepository : ColonyRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult = error("no route to host")
 }
 
@@ -106,6 +109,56 @@ internal class UnreachableAllianceRepository : AllianceRepository {
     override suspend fun rename(caller: PlayerId, alliance: AllianceId, name: AllianceName, tag: AllianceTag, expected: AllianceVersion): AllianceChange = error("no route to host")
 
     override suspend fun disband(caller: PlayerId, alliance: AllianceId, expected: AllianceVersion): AllianceChange = error("no route to host")
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead = error("no route to host")
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = error("no route to host")
+}
+
+// **Another admin, buying the same project in the same second, every time.** The route reads the
+// version and then asserts it, so a purchase that loses is retried against the row that won; this
+// double never lets one land, which is the only way to reach the answer the caller gets after
+// `WRITE_ATTEMPTS`.
+//
+// It delegates everything else, because what is under test is the loop rather than the store.
+internal class ContendedAllianceRepository(
+    private val store: AllianceRepository,
+) : AllianceRepository by store {
+
+    override suspend fun buy(
+        caller: PlayerId,
+        project: AllianceProject,
+        now: Instant,
+        expected: AllianceVersion,
+    ): TreasuryRead = TreasuryRead.Stale
+}
+
+// **An alliance disbanded between the read and the tap**, which is the one refusal the treasury
+// routes can meet that no in-memory sequence produces: the store answers `NoSuchAlliance` for a
+// caller who was enlisted a moment ago.
+internal class VanishedAllianceRepository : AllianceRepository by UnreachableAllianceRepository() {
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead =
+        TreasuryRead.Refused(ApiError.NoSuchAlliance)
+}
+
+// **A row somebody else is writing every time this one reads it.** The purchase route reads the
+// version before it asserts it, so a read that is already stale sends the loop round again — and
+// only a store that never settles reaches that path.
+internal class UnsettledAllianceRepository : AllianceRepository by UnreachableAllianceRepository() {
+
+    var reads: Int = 0
+        private set
+
+    override suspend fun treasuryOf(player: PlayerId, now: Instant): TreasuryRead {
+        reads++
+        return TreasuryRead.Stale
+    }
 }
 
 // **A store that fails and does not say why**, which is neither a hypothetical nor a nicety. The
@@ -128,6 +181,7 @@ internal class SpeechlessRepository : ColonyRepository, PlayerRepository {
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult = throw NullPointerException()
 
     override suspend fun resolve(identity: ProviderIdentity): PlayerId = throw NullPointerException()
@@ -198,15 +252,20 @@ internal class ContendedColonyRepository(
         snapshot: GameSnapshot,
         applied: Set<IdempotencyKey>,
         expected: ColonyVersion,
+        credit: PoolCredit?,
     ): WriteResult {
         attempts++
-        if (contentions <= 0) return store.write(player, snapshot, applied, expected)
+        if (contentions <= 0) return store.write(player, snapshot, applied, expected, credit)
         contentions--
         // The other device gets there first. It writes the colony as it stands — what matters is
         // that the version moves and the keys it spent are recorded — and this caller's assertion is
         // then out of date, which the store says for itself.
+        //
+        // **It carries no credit of its own**, which is what makes this double able to prove the
+        // property that matters: a losing write must contribute nothing, so the pool after a
+        // contended sync has to hold exactly one contribution rather than two.
         val current = checkNotNull(store.colonyOf(player)) { "the other device has no colony to write" }
         store.write(player, current.snapshot, otherDeviceApplied, expected = current.version)
-        return store.write(player, snapshot, applied, expected)
+        return store.write(player, snapshot, applied, expected, credit)
     }
 }

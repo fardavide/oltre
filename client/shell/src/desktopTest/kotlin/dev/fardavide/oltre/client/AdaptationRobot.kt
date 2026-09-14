@@ -17,7 +17,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.runDesktopComposeUiTest
+import dev.fardavide.oltre.client.alliance.ui.AllianceActions
 import dev.fardavide.oltre.client.alliance.ui.AllianceScreen
+import dev.fardavide.oltre.client.alliance.ui.AllianceUiState
 import dev.fardavide.oltre.client.design.core.OltreTheme
 import dev.fardavide.oltre.client.fleets.presentation.toFleetsUiState
 import dev.fardavide.oltre.client.fleets.presentation.FleetsScreen
@@ -161,7 +163,15 @@ internal fun game(game: TestGame, block: AdaptationRobot.() -> Unit) {
                                 },
                             )
                         },
-                        alliance = { scroll -> AllianceScreen(scrollState = scroll) },
+                        // Asking, which is what this destination reads on a harness with no gateway
+                        // behind it. Present to exist rather than to be driven, exactly as Fleets is.
+                        alliance = { scroll ->
+                            AllianceScreen(
+                                state = AllianceUiState.Asking,
+                                actions = AllianceActions(),
+                                scrollState = scroll,
+                            )
+                        },
                         // Null: this harness is a colony with signal, which is the ordinary case and
                         // the one every frame that is not about the network wants.
                         offline = null,

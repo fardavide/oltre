@@ -66,7 +66,7 @@ class GameSaveTest {
         // then — changing this string changes what every already-installed app reads, so it
         // must come with a SCHEMA_VERSION bump and a migration, never as a silent edit.
         assertEquals(
-            """{"schemaVersion":18,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
+            """{"schemaVersion":19,"lastUpdatedAt":"1970-01-01T00:00:00Z","debugUsed":false,"state":{""" +
                 """"resources":{"metalFine":1800000000,"crystalFine":1080000000,"deuteriumFine":0},""" +
                 """"buildings":{"metalMine":1,"crystalMine":1,"deuteriumSynthesizer":1,""" +
                 """"solarPlant":1,"roboticsFactory":0,"naniteFactory":0},""" +
@@ -143,6 +143,11 @@ class GameSaveTest {
                 //
                 // Directly above `eventLog` because it is a summary of exactly that key, and nothing
                 // may append to one without paying into the other — see `GameState.logging`.
+                //
+                // **Schema 19 moved the version above and not one byte of this string**, which is
+                // the hop being honest rather than a slip: the treasury adds nothing to a colony. It
+                // widens what `eventLog` may contain, and a genesis colony has contributed nothing,
+                // so the shape a fresh save has is the shape it had at 18.
                 """"experience":0,"eventLog":[]}}""",
             encoded,
         )
@@ -161,6 +166,10 @@ class GameSaveTest {
                 // the day it ships — every hull bought writes one, where no production build has
                 // ever appended a `FleetReturned` with the old `CARGO` name in it.
                 Event.ShipsBuilt(ships = Ships.of(ShipType.SKIFF, 1), at = EPOCH),
+                // The newest of all, and the one whose name is load-bearing twice: it is an on-disk
+                // identifier like the four above, *and* it is the discriminator whose absence from
+                // an older build's decoder is what schema 19 turns into a designed refusal.
+                Event.ResourcesContributed(amount = Resources.of(metal = 600), at = EPOCH),
             ),
         )
 
@@ -174,6 +183,7 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""type":"ResearchCompleted""""), encoded)
         assertTrue(encoded.contains(""""type":"ShipsBuilt""""), encoded)
         assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
+        assertTrue(encoded.contains(""""type":"ResourcesContributed""""), encoded)
     }
 
     // **Every event kind, decoded rather than merely written.** The test above encodes five of the
@@ -218,6 +228,13 @@ class GameSaveTest {
             Event.ShipsBuilt(ships = Ships.of(ShipType.SCOUT, 1), at = EPOCH + 9.hours),
             Event.SurveyStarted(target = SystemAddress(galaxy = 2, system = 118), at = EPOCH + 10.hours),
             Event.SurveyCompleted(target = SystemAddress(galaxy = 2, system = 118), worldsFound = 5, at = EPOCH + 11.hours),
+            // The thirteenth, and the reason schema 19 exists: this discriminator is the thing an
+            // older build cannot decode, so a round trip through the current one is the floor under
+            // the version bump rather than a formality.
+            Event.ResourcesContributed(
+                amount = Resources.of(metal = 4_210, crystal = 960, deuterium = 120),
+                at = EPOCH + 12.hours,
+            ),
         )
         val state = GameState.initial().copy(eventLog = log)
 
@@ -386,7 +403,19 @@ class GameSaveTest {
     }
 
     @Test
-    fun `a save from a newer schema is refused rather than guessed at`() {
+    fun `a save from a newer schema is refused as obsolete rather than guessed at`() {
+        // **This used to assert `Failure` and it asserts `Obsolete` since schema 19**, which is a
+        // behaviour change recorded here rather than absorbed. Nothing a player can see moves —
+        // `GameStore.load` answers null for both, and has a comment saying it treats *written by a
+        // newer build* that way on purpose — so the whole of what changed is what the server logs.
+        //
+        // The reason it changed is what the version bump is for. `Obsolete`'s own doc says it is *a
+        // save this build deliberately refuses to carry forward*, distinct from `Failure` because a
+        // corrupt save is an accident and a refused one is a decision; a save from the future is as
+        // deliberate a refusal as a retired schema, and it was the one direction the type could not
+        // say so about. `ColonyRow.colonyFrom` prints the two differently so an operator can tell
+        // *restore a backup* from *deploy a newer build*, and until now a colony written by a newer
+        // build got the first message.
         // given
         val encoded = GameSave.encode(
             GameSnapshot(
@@ -399,8 +428,10 @@ class GameSaveTest {
         // when
         val decoded = GameSave.decode(encoded)
 
-        // then
-        assertIs<DecodeResult.Failure>(decoded)
+        // then the version it met travels with the refusal, which is the half a reason string
+        // cannot give a caller
+        val refused = assertIs<DecodeResult.Obsolete>(decoded)
+        assertEquals(GameSave.SCHEMA_VERSION + 1, refused.schemaVersion)
     }
 
     @Test
@@ -1183,9 +1214,26 @@ class GameSaveTest {
     // list means *a colony that has charted nothing anywhere*, and no save ever held that: every
     // colony has at least been standing on its own doorstep.
     private fun schema17(state: GameState): String =
-        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+        schema18(state)
             .replace(""""schemaVersion":18""", """"schemaVersion":17""")
             .replace(chartedKey(state), "")
+
+    // ── 18 -> 19: the treasury ──────────────────────────────────────────────────────────────
+
+    // A save written by 0.23, which is **byte-for-byte a current save with a different number on
+    // it** — and that is the whole content of the hop rather than a shortcut taken here. Schema 19
+    // adds no key and removes none; it moves the version because `eventLog` can now hold a
+    // discriminator an older build has never heard of, and a colony saved at 18 holds no such entry
+    // by construction.
+    //
+    // So the one thing this fixture must be given is a state with no contribution in its log. Every
+    // caller passes `GameState.initial()` or `played()`, neither of which contributes, and a future
+    // caller that did would be building a save that never existed — which is the same rule the
+    // frozen `VERSION_*` constants below are under, said for a fixture that is derived rather than
+    // frozen.
+    private fun schema18(state: GameState): String =
+        GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = state))
+            .replace(""""schemaVersion":19""", """"schemaVersion":18""")
 
     // Derived from the state rather than pasted, for the reason the whole fixture chain is.
     private fun chartedKey(state: GameState): String =
@@ -1571,6 +1619,54 @@ class GameSaveTest {
 
         val galaxies = legacy.state.galaxy.charted.map { it.galaxy }
         assertEquals(listOf(legacy.state.galaxy.home.galaxy), galaxies)
+    }
+
+    // ── 18 -> 19: the treasury ──────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a colony carried forward across the treasury hop has nothing about it moved`() {
+        // **The assertion an identity hop is owed, and the only one it can make.** Every other hop
+        // in this file is tested on what it *writes*; this one has to be tested on what it leaves
+        // alone, and the honest way to say that is a whole played colony compared against itself
+        // rather than a field at a time — a `copy` that dropped a key would pass any narrower check.
+        val played = played()
+
+        val decoded = assertIs<DecodeResult.Success>(GameSave.decode(schema18(played))).snapshot
+
+        assertEquals(GameSave.SCHEMA_VERSION, decoded.schemaVersion)
+        assertEquals(played, decoded.state)
+    }
+
+    @Test
+    fun `a save at the version before the treasury is carried rather than refused`() {
+        // `migratedToCurrent` reads a missing step as *this build cannot get there* and answers
+        // `Obsolete`. A hop with nothing to do still has to be in the table, which is the 6 -> 7
+        // entry's lesson arriving a second time — so this is the test that the entry exists at all.
+        val decoded = GameSave.decode(schema18(GameState.initial()))
+
+        assertIs<DecodeResult.Success>(decoded)
+    }
+
+    @Test
+    fun `a contributed colony survives a round trip with the debit and the entry intact`() {
+        // The colony half of the cross-row write, on its own. What lands in the pool is the server's
+        // and is a column; what a save has to carry is that the resources left and that the log says
+        // when.
+        val funded = GameState.initial().copy(resources = Resources.of(metal = 50_000, crystal = 20_000))
+        val paid = assertIs<ContributeResult.Started>(
+            contribute(funded, Resources.of(metal = 4_210, crystal = 960), at = EPOCH),
+        ).state
+
+        val decoded = assertIs<DecodeResult.Success>(
+            GameSave.decode(GameSave.encode(GameSnapshot(lastUpdatedAt = EPOCH, state = paid))),
+        ).snapshot
+
+        assertEquals(paid, decoded.state)
+        assertEquals(45_790L, decoded.state.resources.metal)
+        assertEquals(
+            listOf(Event.ResourcesContributed(amount = Resources.of(metal = 4_210, crystal = 960), at = EPOCH)),
+            decoded.state.eventLog,
+        )
     }
 
     @Test

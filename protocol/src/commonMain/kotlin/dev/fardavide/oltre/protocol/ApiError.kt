@@ -140,6 +140,19 @@ sealed interface ApiError {
     @SerialName("StaleAlliance")
     data object StaleAlliance : ApiError
 
+    // The pool does not cover that project. A ninth alliance member, and **the paragraph above says
+    // adding one after those routes ship is a wire break** — which it is, and it is being paid for
+    // rather than slipped past. 0.23 shipped the alliance tab, so an installed build's sealed
+    // hierarchy has no arm for this constant; what makes it safe is that the treasury moves
+    // `ApiVersion.OLDEST_SERVED` to 2 in the same release, so the build that could be confused by it
+    // is answered with a 426 telling it to update and never reaches a body at all.
+    //
+    // That is the bump paying for something beyond the snapshot, and it is the only member added on
+    // its back: anything wanting a tenth after this release is a wire break again, at full price.
+    @Serializable
+    @SerialName("AllianceTreasuryShort")
+    data object AllianceTreasuryShort : ApiError
+
     // Everything the server could not name. `detail` is a diagnostic, exactly as above.
     @Serializable
     @SerialName("Internal")

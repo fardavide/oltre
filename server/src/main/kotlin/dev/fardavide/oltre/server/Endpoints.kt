@@ -1,10 +1,12 @@
 package dev.fardavide.oltre.server
 
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.ApiError
 import dev.fardavide.oltre.protocol.ApiVersion
 import dev.fardavide.oltre.protocol.AllianceResponse
 import dev.fardavide.oltre.protocol.AllianceSearchResponse
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
+import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.PlayerProfile
 import dev.fardavide.oltre.protocol.ProfileResponse
 import dev.fardavide.oltre.protocol.Protocol
@@ -12,6 +14,7 @@ import dev.fardavide.oltre.protocol.SessionResponse
 import dev.fardavide.oltre.protocol.SetProfileRequest
 import dev.fardavide.oltre.protocol.SyncRequest
 import dev.fardavide.oltre.protocol.SyncResponse
+import dev.fardavide.oltre.protocol.TreasuryResponse
 import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.DeserializationStrategy
@@ -71,6 +74,8 @@ internal sealed interface Answer {
 
     data class Roster(override val status: HttpStatusCode, val response: AllianceRosterResponse) : Answer
 
+    data class Treasury(override val status: HttpStatusCode, val response: TreasuryResponse) : Answer
+
     data class Failed(override val status: HttpStatusCode, val error: ApiError) : Answer
 }
 
@@ -78,11 +83,12 @@ internal sealed interface Answer {
 // gets the colony that is already there rather than a second one. See `Founding`.
 internal suspend fun foundColony(
     repository: ColonyRepository,
+    alliances: AllianceRepository,
     authenticator: Authenticator,
     clock: Clock,
     credentials: Credentials,
     body: String,
-): Answer = served(repository, authenticator, clock, credentials, body) { founder, now ->
+): Answer = served(repository, alliances, authenticator, clock, credentials, body) { founder, now ->
     when (val founding = repository.found(founder, newColony(founder, now))) {
         is Founding.Founded -> FoundColony(HttpStatusCode.Created, founding.colony)
         is Founding.AlreadyThere -> FoundColony(HttpStatusCode.OK, founding.colony)
@@ -93,11 +99,12 @@ internal suspend fun foundColony(
 // back, and what became of each verb comes back with it.
 internal suspend fun syncColony(
     repository: ColonyRepository,
+    alliances: AllianceRepository,
     authenticator: Authenticator,
     clock: Clock,
     credentials: Credentials,
     body: String,
-): Answer = served(repository, authenticator, clock, credentials, body) { owner, _ ->
+): Answer = served(repository, alliances, authenticator, clock, credentials, body) { owner, _ ->
     repository.colonyOf(owner)?.let { FoundColony(HttpStatusCode.OK, it) }
 }
 
@@ -201,6 +208,7 @@ internal const val WRITE_ATTEMPTS = 3
 // the colony, replay what was queued against it, persist, answer.
 private suspend fun served(
     repository: ColonyRepository,
+    alliances: AllianceRepository,
     authenticator: Authenticator,
     clock: Clock,
     credentials: Credentials,
@@ -235,6 +243,15 @@ private suspend fun served(
                 ?: return Answer.Failed(HttpStatusCode.NotFound, ApiError.NoColony)
 
             val queued = admitted.request.envelopes
+            // **Read only when something in the request is actually going to pay into a pool**, and
+            // the guard is not a micro-optimisation: almost every sync carries no contribution at
+            // all, and an unconditional membership lookup would put a second query on the hot path
+            // of the one route every check-in calls.
+            val seat = if (queued.any { it.verb is ClientVerb.Contribute }) {
+                alliances.allianceOf(admitted.player, now) as? Affiliation.Enlisted
+            } else {
+                null
+            }
             val replayed = replay(
                 colony = found.colony.snapshot,
                 envelopes = queued,
@@ -242,15 +259,29 @@ private suspend fun served(
                 // so reading back everything a player ever applied would grow with the account.
                 alreadyApplied = repository.appliedAmong(admitted.player, queued.map { it.idempotencyKey }.toSet()),
                 serverNow = now,
+                alliance = seat?.seat?.alliance,
             )
-            // The colony and the keys land together or not at all — see `ColonyRepository`. Keys
-            // that were already there are written again and the store treats that as the no-op it
-            // is. `expected` is what makes the pair a compare-and-set rather than a last-write-wins.
+            // The colony, the keys **and the pool** land together or not at all — see
+            // `ColonyRepository`. Keys that were already there are written again and the store
+            // treats that as the no-op it is. `expected` is what makes the set a compare-and-set
+            // rather than a last-write-wins.
             val written = repository.write(
                 player = admitted.player,
                 snapshot = replayed.snapshot,
                 applied = replayed.applied,
                 expected = found.colony.version,
+                // Null when nothing was contributed, which is the case a `Resources.of()` credit
+                // would make the store write three `+ 0` updates for. `seat` is non-null whenever
+                // the replay accepted a contribution, because `replay` refuses one outright when it
+                // is null.
+                credit = seat?.takeIf { replayed.contributed != Resources.of() }?.let { enlisted ->
+                    PoolCredit(
+                        alliance = enlisted.seat.alliance,
+                        member = enlisted.seat.id,
+                        amount = replayed.contributed,
+                        experience = AllianceBalance.award(replayed.contributed),
+                    )
+                },
             )
 
             when (written) {

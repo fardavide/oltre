@@ -227,6 +227,21 @@ Edit `art/icon/*.svg`, rerun, commit the result — never hand-edit generated PN
 
 ## Changelog
 
+### 0.24.0 — 2026-09-14
+
+- **The alliance is real.** Search for one by name, ask to join it, or found your own with a name and
+  a tag. Once you are in, the tab shows who else is, what rank they hold, and — if it is yours — who
+  is waiting to be let in.
+- **A shared treasury, and what goes in stays in.** Pay a share of your colony's stock into the
+  alliance pool: a tenth, a quarter, a half, or all of it. Nothing ever comes back out, which is what
+  makes the pool safe to share. Paying in raises the alliance's own level, and the level buys seats.
+- **The pool buys something.** A Charter Expansion puts two more seats on the roster and can be
+  bought again at a rising price, so an alliance that saves together grows.
+- **Everything you have asks first.** The three smaller shares send on the tap and each prints the
+  exact figure it will send; emptying the colony in one go gets a question, because nothing undoes it.
+- **This release moves the save format and the server contract together**, so every device has to be
+  on this build to keep playing.
+
 ### 0.23.1 — 2026-09-13
 
 - **The Ships switch remembers which half you were on.** Leave it on Fleets, check the colony, come

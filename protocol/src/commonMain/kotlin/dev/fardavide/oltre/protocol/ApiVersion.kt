@@ -38,15 +38,32 @@ value class ApiVersion(val value: Int) : Comparable<ApiVersion> {
         // What this build speaks. Bumped when the shape of a request or a response changes in a way
         // the other end cannot ignore — a field removed, a field made required, a verb's payload
         // reshaped. Adding a verb is not one of those: an older client simply never sends it.
-        val CURRENT: ApiVersion = ApiVersion(1)
+        //
+        // **2 since the treasury, and `ClientVerb.Contribute` is not what moved it.** The snapshot
+        // is. `SyncResponse` carries a `GameSnapshot` whole, save schema 19 lets its event log hold
+        // a `ResourcesContributed`, and a build that has never heard that discriminator cannot
+        // decode the 200 it is handed. That is a response the other end cannot ignore, which is
+        // exactly the trigger written above.
+        val CURRENT: ApiVersion = ApiVersion(2)
 
         // The oldest build still worth answering. It moves **only** when the last install speaking
         // it is gone, and there is no way to know that from inside the repository — so raising this
         // is a decision with a date on it rather than a tidy-up, and it strands every phone that has
         // not opened the App Store since.
         //
-        // Equal to `CURRENT` today because there is exactly one contract and nothing has shipped
-        // against it yet.
-        val OLDEST_SERVED: ApiVersion = ApiVersion(1)
+        // **It moves to 2 with `CURRENT`, and the pair is what makes the bump do anything.** Left at
+        // 1, an installed 0.23 client states version 1, `isServed()` is true, the sync succeeds, and
+        // the 200 carries a snapshot it cannot read — `KtorOltreApi.decode` catches the
+        // `SerializationException` and answers `ApiError.Malformed`, so the player is told the
+        // contract is broken rather than that their app is old. Moved, the same request gets a 426
+        // with `ApiError.UnsupportedApiVersion`, which is the answer that exists precisely so the
+        // client can say *update the app*.
+        //
+        // **Today it strands one phone**, which is the whole reason this slice is being done now
+        // rather than after launch — see `#144` §1. The operational half rides with it: **the server
+        // deploys before the release merges**, because merging archives to TestFlight and the two
+        // are never atomic. Deploy first and an installed build gets a clean 426 until it updates;
+        // merge first and a fresh install gets a 400 that reads like a bug.
+        val OLDEST_SERVED: ApiVersion = ApiVersion(2)
     }
 }

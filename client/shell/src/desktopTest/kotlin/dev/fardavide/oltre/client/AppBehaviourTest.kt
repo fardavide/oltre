@@ -229,10 +229,16 @@ class AppBehaviourTest {
             """{"galaxy":${span.galaxy},"lo":${span.lo},"hi":${span.hi}}"""
         }
         val chartedKey = ""","charted":[$spans]"""
+        // **The version this build writes, not a literal.** It read `18` until schema 19, and the
+        // failure mode when the literal goes stale is the one this line is most worth a comment for:
+        // the `replace` silently stops matching, the fixture becomes a *current* save wearing a
+        // current number, the migration never runs, and the test goes on passing while testing
+        // nothing. Written as the constant, it cannot.
         val legacy = GameSave.encode(snapshot(state = played, agedBy = 3.hours))
-            .replace(""""schemaVersion":18""", """"schemaVersion":17""")
+            .replace(""""schemaVersion":${GameSave.SCHEMA_VERSION}""", """"schemaVersion":17""")
             .replace(chartedKey, "")
         assertTrue("charted" !in legacy, "the fixture has to be a save from before the key existed")
+        assertTrue(""""schemaVersion":17""" in legacy, "the fixture has to claim the version it is")
 
         // **With no server in reach**, which is what makes this still a test about the *save*: since
         // 0.21 a colony that answers is the server's, so a reachable one would hand back its own and

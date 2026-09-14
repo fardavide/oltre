@@ -115,6 +115,7 @@ dependencies {
     kover(projects.client.shell)
     kover(projects.client.alliance.data)
     kover(projects.client.alliance.domain)
+    kover(projects.client.alliance.presentation)
     kover(projects.client.alliance.ui)
     kover(projects.client.auth.data)
     kover(projects.client.auth.presentation)

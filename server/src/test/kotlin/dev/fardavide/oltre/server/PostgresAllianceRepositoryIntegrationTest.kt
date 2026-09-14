@@ -82,7 +82,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val response = dev.fardavide.oltre.protocol.AllianceSearchResponse(dev.fardavide.oltre.protocol.ApiVersion.CURRENT, "fleet", results.map { it.alliance }, null)
         val json = dev.fardavide.oltre.protocol.Protocol.json.encodeToString(response)
 
-        assertEquals(AllianceSeats(3, 20), response.results.single().seats)
+        assertEquals(AllianceSeats(3, OPENING_SEATS), response.results.single().seats)
         for (player in people) {
             assertEquals(false, json.contains(player.value))
             assertEquals(false, json.contains("Secret ${player.value}"))
@@ -228,7 +228,7 @@ class PostgresAllianceRepositoryIntegrationTest {
 
         assertEquals(made.alliance, enlisted.alliance)
         assertEquals(AllianceRole.FOUNDER, enlisted.seat.role)
-        assertEquals(AllianceSeats(1, 20), enlisted.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), enlisted.alliance.alliance.seats)
         assertEquals(1, database.rowsIn("alliances"))
         assertEquals(1, database.rowsIn("alliance_members"))
     }
@@ -294,7 +294,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(applicant, admitted.seat.player)
         assertEquals(AllianceRole.MEMBER, admitted.seat.role)
         assertEquals(made.alliance.alliance.id, admitted.seat.alliance)
-        assertEquals(AllianceSeats(2, 20), admitted.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), admitted.alliance.alliance.seats)
         assertEquals(pending.alliance.version.next(), admitted.alliance.version)
         assertEquals(caller, reopened.allianceOf(founder, TEST_NOW))
         assertEquals(2, database.rowsIn("alliance_members"))
@@ -361,7 +361,11 @@ class PostgresAllianceRepositoryIntegrationTest {
     @Test
     fun `competing admissions fill the final seat once and preserve the losing petition`() = runTest {
         val made = assertIs<Founded.Made>(repository.found(founder, AllianceName("Vanguard"), AllianceTag("VNG"), TEST_NOW))
-        for (number in 1..18) {
+        // Filled to one short of the cap, counted off the balance rather than written down: the
+        // founder takes one seat, so the roster needs `OPENING_SEATS - 2` more before the last one is
+        // the one the two petitions race for. A literal here was a literal that moved when the
+        // treasury made the cap a function of the level.
+        for (number in 1..(OPENING_SEATS - 2)) {
             val player = PlayerId("member-$number")
             database.givenPlayer(player)
             val current = assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW))
@@ -377,7 +381,7 @@ class PostgresAllianceRepositoryIntegrationTest {
             requests += assertIs<Affiliation.Petitioning>(changed.affiliation).petition
         }
         val before = assertIs<Affiliation.Enlisted>(repository.allianceOf(founder, TEST_NOW))
-        assertEquals(AllianceSeats(19, 20), before.alliance.alliance.seats)
+        assertEquals(AllianceSeats(OPENING_SEATS - 1, OPENING_SEATS), before.alliance.alliance.seats)
         val atCall = CyclicBarrier(2)
 
         val results = withContext(Dispatchers.IO) {
@@ -395,7 +399,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val loser = results.single { it.second == AllianceChange.Stale }.first
         val reopened = PostgresAllianceRepository(database)
         val full = assertIs<Affiliation.Enlisted>(reopened.allianceOf(founder, TEST_NOW))
-        assertEquals(AllianceSeats(20, 20), full.alliance.alliance.seats)
+        assertEquals(AllianceSeats(OPENING_SEATS, OPENING_SEATS), full.alliance.alliance.seats)
         assertEquals(before.alliance.version.next(), full.alliance.version)
         assertEquals(AllianceRole.MEMBER, assertIs<Affiliation.Enlisted>(reopened.allianceOf(winner.player, TEST_NOW)).seat.role)
         val pending = assertIs<Affiliation.Petitioning>(reopened.allianceOf(loser.player, TEST_NOW))
@@ -406,7 +410,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(AllianceChange.Refused(ApiError.AllianceFull), retried)
         assertEquals(pending, reopened.allianceOf(loser.player, TEST_NOW))
         assertEquals(full, reopened.allianceOf(founder, TEST_NOW))
-        assertEquals(20, database.rowsIn("alliance_members"))
+        assertEquals(OPENING_SEATS, database.rowsIn("alliance_members"))
         assertEquals(1, database.rowsIn("alliance_requests"))
     }
 
@@ -444,7 +448,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(admitted.seat.alliance, promoted.seat.alliance)
         assertEquals(admitted.seat.joinedAt, promoted.seat.joinedAt)
         assertEquals(admitted.seat.contributed, promoted.seat.contributed)
-        assertEquals(AllianceSeats(2, 20), promoted.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), promoted.alliance.alliance.seats)
         assertEquals(admitted.alliance.version.next(), promoted.alliance.version)
         assertEquals(promoted.alliance.version, caller.alliance.version)
         assertEquals(caller, reopened.allianceOf(founder, TEST_NOW))
@@ -482,7 +486,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         assertEquals(founder, remaining.seat.player)
         assertEquals(AllianceRole.FOUNDER, remaining.seat.role)
         assertEquals(made.alliance.alliance.id, remaining.alliance.alliance.id)
-        assertEquals(AllianceSeats(1, 20), remaining.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), remaining.alliance.alliance.seats)
         assertEquals(admitted.alliance.version.next(), remaining.alliance.version)
         assertEquals(caller, remaining)
         assertEquals(1, database.rowsIn("alliance_members"))
@@ -774,7 +778,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val standing = assertIs<Affiliation.Enlisted>(repository.allianceOf(admin, TEST_NOW))
 
         assertEquals(AllianceRole.FOUNDER, standing.seat.role)
-        assertEquals(AllianceSeats(2, 20), standing.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), standing.alliance.alliance.seats)
         assertEquals(made.alliance.version.next(), standing.alliance.version)
         assertEquals(2, database.rowsIn("colonies"))
         assertEquals(2, database.rowsIn("alliance_members"))
@@ -813,7 +817,7 @@ class PostgresAllianceRepositoryIntegrationTest {
         val lookedUp = assertIs<AllianceLookup.Present>(repository.alliance(made.alliance.alliance.id, TEST_NOW))
 
         assertEquals(made.alliance.version.next(), lookedUp.alliance.version)
-        assertEquals(AllianceSeats(2, 20), lookedUp.alliance.alliance.seats)
+        assertEquals(AllianceSeats(2, OPENING_SEATS), lookedUp.alliance.alliance.seats)
         val reopened = PostgresAllianceRepository(database)
         assertEquals(lookedUp, reopened.alliance(made.alliance.alliance.id, TEST_NOW))
         val promoted = assertIs<Affiliation.Enlisted>(reopened.allianceOf(admin, TEST_NOW))
@@ -855,7 +859,7 @@ class PostgresAllianceRepositoryIntegrationTest {
 
         assertEquals(pending.alliance.version.next(), refreshed.alliance.version)
         assertEquals(pending.petition, refreshed.petition)
-        assertEquals(AllianceSeats(1, 20), refreshed.alliance.alliance.seats)
+        assertEquals(AllianceSeats(1, OPENING_SEATS), refreshed.alliance.alliance.seats)
         val reopened = PostgresAllianceRepository(database)
         assertEquals(refreshed, reopened.allianceOf(applicant, TEST_NOW))
         val promoted = assertIs<Affiliation.Enlisted>(reopened.allianceOf(admin, TEST_NOW))

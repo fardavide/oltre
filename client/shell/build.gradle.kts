@@ -55,8 +55,13 @@ kotlin {
             // The gate, the deletion face, the three platform sign-ins, and the queue read as a set
             // of controls. The composition root is the only module that may see all four, which is
             // the whole of its job.
-            // The alliance's tab, ahead of its real screen (#143, narrowed). `ui` alone: the
-            // placeholder decides nothing, so there is no `presentation` to name.
+            // The alliance's four layers, and the composition root is the only module that may see
+            // all of them. `data` is the gateway and holds the token; `domain` is what a standing
+            // *is*; `presentation` chooses the face; `ui` draws it — and `presentation` re-exports
+            // `ui`, so naming both is the same convention the settings feature already follows.
+            implementation(projects.client.alliance.data)
+            implementation(projects.client.alliance.domain)
+            implementation(projects.client.alliance.presentation)
             implementation(projects.client.alliance.ui)
             implementation(projects.client.auth.data)
             implementation(projects.client.auth.presentation)

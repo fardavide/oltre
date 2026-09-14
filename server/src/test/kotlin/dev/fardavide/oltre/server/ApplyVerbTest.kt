@@ -6,8 +6,10 @@ import dev.fardavide.oltre.core.AlertDelivery
 import dev.fardavide.oltre.core.AlertMode
 import dev.fardavide.oltre.core.BuildShipsResult
 import dev.fardavide.oltre.core.BuildingType
+import dev.fardavide.oltre.core.ContributeResult
 import dev.fardavide.oltre.core.GalaxyCoordinate
 import dev.fardavide.oltre.core.ResourceKind
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.ShipType
 import dev.fardavide.oltre.core.Ships
 import dev.fardavide.oltre.core.StartAdaptationResult
@@ -32,6 +34,7 @@ import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.VerbRefusal
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.time.Duration.Companion.hours
 
@@ -288,10 +291,37 @@ class ApplyVerbTest {
         )
     }
 
+    // ── The thirteenth verb ──────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `a contribution reaches core and comes back as the colony it produced`() {
+        val funded = state.copy(resources = Resources.of(metal = 1_000, crystal = 400))
+
+        val outcome = applyVerb(ClientVerb.Contribute(Resources.of(metal = 600)), funded, TEST_NOW)
+
+        val accepted = assertIs<VerbOutcome.Accepted>(outcome)
+        assertEquals(400L, accepted.state.resources.metal)
+    }
+
+    @Test
+    fun `a contribution the stores cannot cover is refused`() {
+        assertEquals(
+            VerbOutcome.Refused(VerbRefusal.INSUFFICIENT_RESOURCES),
+            ContributeResult.InsufficientResources.outcome(),
+        )
+    }
+
+    // **The refusal that exists so a chip cannot press and change nothing.** A success here would
+    // debit nothing and append an entry saying a colony did something it did not do.
+    @Test
+    fun `a contribution of nothing is refused`() {
+        assertEquals(VerbOutcome.Refused(VerbRefusal.NOTHING_OFFERED), ContributeResult.NothingOffered.outcome())
+    }
+
     @Test
     fun `every accepted result carries the colony core produced and not the one it was given`() {
-        // The `Started` arm of all six, which the twelve routing tests above cannot all reach: a
-        // fresh colony has no Robotics Factory and no hull, so five of the six refuse before they
+        // The `Started` arm of all seven, which the routing tests above cannot all reach: a
+        // fresh colony has no Robotics Factory and no hull, so five of them refuse before they
         // can succeed. Constructed rather than earned, exactly as the refusals are — what is being
         // guarded is that the arm hands back the state it was carrying and not `state`.
         val produced = toggleFlightAlerts(state)
@@ -302,6 +332,7 @@ class ApplyVerbTest {
         assertEquals(VerbOutcome.Accepted(produced), BuildShipsResult.Started(produced).outcome())
         assertEquals(VerbOutcome.Accepted(produced), StartRunResult.Started(produced).outcome())
         assertEquals(VerbOutcome.Accepted(produced), StartSurveyResult.Started(produced).outcome())
+        assertEquals(VerbOutcome.Accepted(produced), ContributeResult.Started(produced).outcome())
         assertNotEquals(state, produced)
     }
 }

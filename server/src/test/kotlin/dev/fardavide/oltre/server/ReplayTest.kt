@@ -2,13 +2,16 @@ package dev.fardavide.oltre.server
 
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Event
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.core.SystemAddress
 import dev.fardavide.oltre.core.Technology
 import dev.fardavide.oltre.core.advance
+import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.RejectionReason
 import dev.fardavide.oltre.protocol.VerbRefusal
+import dev.fardavide.oltre.protocol.VerbRejection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -20,6 +23,10 @@ import kotlin.time.Instant
 class ReplayTest {
 
     private val wealthy = establishedColony()
+
+    // The caller's seat, as `replay` is told it: an id and nothing else. It reads no store, so this
+    // is the whole of what it knows about an alliance.
+    private val FERRO = AllianceId("ferro-alto")
 
     @Test
     fun `an empty request brings the colony up to date and nothing else`() {
@@ -267,6 +274,88 @@ class ReplayTest {
         val replayed = replay(wealthy, listOf(refused, accepted), emptySet(), serverNow = TEST_NOW + 1.hours)
 
         assertEquals(TEST_NOW + 10.minutes, startedAt(replayed))
+    }
+
+    // ── The pool ─────────────────────────────────────────────────────────────────────────────
+    //
+    // **What the accepted verbs owe the alliance, computed here and nowhere else.** The credit
+    // cannot be derived from `applied`, which holds keys that were already spent, so it is summed
+    // inside the branch where a verb was actually applied — see `Replayed`.
+
+    @Test
+    fun `an accepted contribution is what the pool is owed`() {
+        val paid = envelope(ClientVerb.Contribute(Resources.of(metal = 4_210, crystal = 960)), at = TEST_NOW)
+
+        val replayed = replay(wealthy, listOf(paid), emptySet(), TEST_NOW + 1.minutes, alliance = FERRO)
+
+        assertEquals(Resources.of(metal = 4_210, crystal = 960), replayed.contributed)
+    }
+
+    @Test
+    fun `two contributions in one sync are owed together`() {
+        val first = envelope(ClientVerb.Contribute(Resources.of(metal = 100)), at = TEST_NOW, key = "one")
+        val second = envelope(ClientVerb.Contribute(Resources.of(metal = 250, deuterium = 5)), at = TEST_NOW, key = "two")
+
+        val replayed = replay(wealthy, listOf(first, second), emptySet(), TEST_NOW + 1.minutes, alliance = FERRO)
+
+        assertEquals(Resources.of(metal = 350, deuterium = 5), replayed.contributed)
+    }
+
+    // **The trap the field exists for.** A verb whose response was lost is resent; `replay` reports
+    // the key as applied because the colony coming back already contains it — and summing over
+    // `applied` would credit the pool a second time for resources that left once.
+    @Test
+    fun `a retried contribution is owed nothing the second time`() {
+        val paid = envelope(ClientVerb.Contribute(Resources.of(metal = 4_210)), at = TEST_NOW, key = "same")
+
+        val replayed = replay(wealthy, listOf(paid), setOf(paid.idempotencyKey), TEST_NOW + 1.minutes, FERRO)
+
+        assertEquals(setOf(paid.idempotencyKey), replayed.applied)
+        assertEquals(Resources.of(), replayed.contributed)
+    }
+
+    // **The one refusal `core` cannot produce**, minted here because this is the only part of the
+    // engine that knows who the caller is — and it is checked *before* the verb is applied, so a
+    // colony is never debited for a pool that is not there.
+    @Test
+    fun `a contribution from somebody in no alliance is refused and debits nothing`() {
+        val paid = envelope(ClientVerb.Contribute(Resources.of(metal = 4_210)), at = TEST_NOW)
+
+        // Inside the freshness window, so the refusal it earns is the membership one rather than
+        // `NotQueueable` — the two are checked in that order and a test that straddled both would
+        // be asserting the wrong one.
+        val replayed = replay(wealthy, listOf(paid), emptySet(), TEST_NOW + 1.minutes, alliance = null)
+
+        assertEquals(
+            listOf(VerbRejection(paid, RejectionReason.Refused(VerbRefusal.NOT_IN_AN_ALLIANCE))),
+            replayed.rejected,
+        )
+        assertEquals(Resources.of(), replayed.contributed)
+        // Nothing in the log, which is the half that says the colony was never debited: a refusal
+        // keeps nothing, including the advance it was judged against.
+        assertTrue(replayed.snapshot.state.eventLog.none { it is Event.ResourcesContributed })
+    }
+
+    @Test
+    fun `a sync that contributed nothing owes the pool nothing`() {
+        val queued = envelope(ClientVerb.StartUpgrade(BuildingType.METAL_MINE), at = TEST_NOW)
+
+        val replayed = replay(wealthy, listOf(queued), emptySet(), TEST_NOW + 1.minutes, alliance = FERRO)
+
+        assertEquals(Resources.of(), replayed.contributed)
+    }
+
+    // **Look-don't-act applies to a contribution too**, and the window is measured against the
+    // clamped instant exactly as it is for a run: a basket queued on a train is refused rather than
+    // applied against a membership that may have changed.
+    @Test
+    fun `a contribution older than the window is refused as unqueueable`() {
+        val stale = envelope(ClientVerb.Contribute(Resources.of(metal = 10)), at = TEST_NOW)
+
+        val replayed = replay(wealthy, listOf(stale), emptySet(), TEST_NOW + 1.hours, alliance = FERRO)
+
+        assertEquals(listOf(VerbRejection(stale, RejectionReason.NotQueueable)), replayed.rejected)
+        assertEquals(Resources.of(), replayed.contributed)
     }
 
     // The instant the one queued upgrade was actually applied at, read off the log rather than

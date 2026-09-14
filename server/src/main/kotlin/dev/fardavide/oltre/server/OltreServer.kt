@@ -120,7 +120,7 @@ internal fun Application.oltre(
             }
 
             post("/colony") {
-                call.send(foundColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
+                call.send(foundColony(colonies, alliances, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
             post("/alliance") {
@@ -169,8 +169,16 @@ internal fun Application.oltre(
                 call.send(setAllianceMemberRole(alliances, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
+            get("/alliance/treasury") {
+                call.send(readTreasury(alliances, authenticator, clock, call.credentials()))
+            }
+
+            post("/alliance/projects") {
+                call.send(buyAllianceProject(alliances, authenticator, clock, call.credentials(), call.receiveText()))
+            }
+
             post("/sync") {
-                call.send(syncColony(colonies, authenticator, clock, call.credentials(), call.receiveText()))
+                call.send(syncColony(colonies, alliances, authenticator, clock, call.credentials(), call.receiveText()))
             }
 
             // **The two the profile needs, and neither of them touches a colony.** A name and a mark
@@ -236,6 +244,7 @@ private suspend fun ApplicationCall.send(answer: Answer) {
         is Answer.Alliance -> respond(answer.status, answer.response)
         is Answer.Alliances -> respond(answer.status, answer.response)
         is Answer.Roster -> respond(answer.status, answer.response)
+        is Answer.Treasury -> respond(answer.status, answer.response)
         // `204` carries no body by definition, so there is nothing to serialize and nothing to pick
         // a serializer for. Two members share the arm and keep their own names, because what the
         // route files are read through is the name rather than the number — see `Answer.Noted`.

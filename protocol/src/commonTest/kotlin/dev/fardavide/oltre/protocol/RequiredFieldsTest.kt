@@ -4,6 +4,7 @@ import dev.fardavide.oltre.core.Experience
 import dev.fardavide.oltre.core.GalaxySeed
 import dev.fardavide.oltre.core.GameSnapshot
 import dev.fardavide.oltre.core.GameState
+import dev.fardavide.oltre.core.Resources
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.JsonObject
@@ -353,5 +354,84 @@ class RequiredFieldsTest {
         )
         assertEveryFieldRequired(AllianceRosterResponse.serializer(), sample)
         assertEveryFieldRequired(AllianceRosterResponse.serializer(), sample.copy(pending = null))
+    }
+
+    // ── The treasury ──────────────────────────────────────────────────────────────────────────
+
+    private val SAMPLE_OFFER = AllianceProjectOffer(
+        project = AllianceProject.CHARTER_EXPANSION,
+        cost = Resources.of(metal = 120_000, crystal = 60_000, deuterium = 30_000),
+        affordable = true,
+        timesBought = 2,
+    )
+
+    private val SAMPLE_PROGRESS = AllianceProgress(
+        level = AllianceLevel(7),
+        earned = 486_300,
+        intoLevel = 62_000,
+        span = 100_000,
+    )
+
+    @Test
+    fun `a project offer missing any of its four fields is refused`() {
+        assertEveryFieldRequired(AllianceProjectOffer.serializer(), SAMPLE_OFFER)
+        assertEveryFieldRequired(AllianceProjectOffer.serializer(), SAMPLE_OFFER.copy(affordable = false, timesBought = 0))
+    }
+
+    @Test
+    fun `alliance progress missing any of its four fields is refused`() {
+        assertEveryFieldRequired(AllianceProgress.serializer(), SAMPLE_PROGRESS)
+    }
+
+    @Test
+    fun `a treasury response missing any of its five fields is refused`() {
+        val sample = TreasuryResponse(
+            apiVersion = ApiVersion.CURRENT,
+            pool = Resources.of(metal = 486_300, crystal = 232_900, deuterium = 71_400),
+            contributed = 42_000,
+            progress = SAMPLE_PROGRESS,
+            projects = listOf(SAMPLE_OFFER),
+        )
+        assertEveryFieldRequired(TreasuryResponse.serializer(), sample)
+        // An empty catalogue is a shape the wire has to carry too — it is what a treasury reads as
+        // the day a project is retired, and `[]` must not be mistakable for a missing key.
+        assertEveryFieldRequired(TreasuryResponse.serializer(), sample.copy(projects = emptyList()))
+    }
+
+    @Test
+    fun `a buy project request missing either field is refused`() {
+        assertEveryFieldRequired(
+            BuyProjectRequest.serializer(),
+            BuyProjectRequest(apiVersion = ApiVersion.CURRENT, project = AllianceProject.CHARTER_EXPANSION),
+        )
+    }
+
+    // The gauge's three numbers have to agree with each other or the bar draws past its own end.
+    // Guarded on construction for `AllianceSeats`' reason: a response that cannot be read coherently
+    // is better refused than half-rendered.
+    @Test
+    fun `progress past the end of its own level is refused`() {
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = 10, intoLevel = 100, span = 100)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = 10, intoLevel = 0, span = 0)
+        }
+        // A total that counts down, which is what an overflowed ladder produced before the balance
+        // learned to saturate — and the guard that caught it.
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = -1, intoLevel = 0, span = 100)
+        }
+        assertFailsWith<IllegalArgumentException> {
+            AllianceProgress(level = AllianceLevel(1), earned = 10, intoLevel = -1, span = 100)
+        }
+    }
+
+    // The shape every one of those guards lets through, so the failures above are not the only thing
+    // this type is asserted on.
+    @Test
+    fun `a gauge at the start and one a point from the end are both legal`() {
+        AllianceProgress(level = AllianceLevel(0), earned = 0, intoLevel = 0, span = 1)
+        AllianceProgress(level = AllianceLevel(9), earned = 900, intoLevel = 99, span = 100)
     }
 }

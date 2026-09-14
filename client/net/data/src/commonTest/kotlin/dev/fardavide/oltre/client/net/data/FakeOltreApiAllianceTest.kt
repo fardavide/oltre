@@ -5,6 +5,7 @@ import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceMemberId
 import dev.fardavide.oltre.protocol.AllianceName
+import dev.fardavide.oltre.protocol.AllianceProject
 import dev.fardavide.oltre.protocol.AllianceRole
 import dev.fardavide.oltre.protocol.AllianceRosterResponse
 import dev.fardavide.oltre.protocol.AllianceSearchCursor
@@ -137,6 +138,8 @@ internal fun fakeRequests(): List<AllianceRequest> = listOf(
     AllianceRequest.RemoveMember(SessionToken("adas.access"), AllianceMemberId("adas-seat")),
     AllianceRequest.Leave(SessionToken("adas.access")),
     AllianceRequest.Disband(SessionToken("adas.access")),
+    AllianceRequest.Treasury(SessionToken("adas.access")),
+    AllianceRequest.BuyProject(SessionToken("adas.access"), AllianceProject.CHARTER_EXPANSION),
 )
 
 internal suspend fun invokeAlliance(api: OltreApi, request: AllianceRequest): ApiResult<Unit> =
@@ -152,6 +155,8 @@ internal suspend fun invokeAlliance(api: OltreApi, request: AllianceRequest): Ap
         is AllianceRequest.RemoveMember -> api.removeMember(request.access, request.member).withoutValue()
         is AllianceRequest.Leave -> api.leaveAlliance(request.access).withoutValue()
         is AllianceRequest.Disband -> api.disbandAlliance(request.access).withoutValue()
+        is AllianceRequest.Treasury -> api.treasury(request.access).withoutValue()
+        is AllianceRequest.BuyProject -> api.buyProject(request.access, request.project).withoutValue()
     }
 
 private fun <T> ApiResult<T>.withoutValue(): ApiResult<Unit> = when (this) {
@@ -173,5 +178,7 @@ private fun refuseAlliance(api: FakeOltreApi, route: AllianceRoute, error: ApiEr
         AllianceRoute.REMOVE_MEMBER -> api.removeMemberError = error
         AllianceRoute.LEAVE -> api.leaveAllianceError = error
         AllianceRoute.DISBAND -> api.disbandAllianceError = error
+        AllianceRoute.TREASURY -> api.treasuryError = error
+        AllianceRoute.BUY_PROJECT -> api.buyProjectError = error
     }
 }

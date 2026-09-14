@@ -1,6 +1,6 @@
 package dev.fardavide.oltre.server
 
-import dev.fardavide.oltre.protocol.Alliance
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceLevel
 import dev.fardavide.oltre.protocol.AllianceName
@@ -13,12 +13,93 @@ class AllianceRowTest {
 
     @Test
     fun `a stored alliance row carries its version and authoritative seat count`() {
-        val id = AllianceId("vanguard")
-        val name = AllianceName("Vanguard")
-        val tag = AllianceTag("VNG")
+        val stored = allianceFrom(ID, NAME, TAG, AllianceVersion(3), TEST_NOW, experience = 0, taken = 3)
 
-        val stored = allianceFrom(id, name, tag, AllianceVersion(3), TEST_NOW, experience = 95_000, taken = 7)
+        assertEquals(AllianceVersion(3), stored.version)
+        assertEquals(TEST_NOW, stored.createdAt)
+        assertEquals(AllianceSeats(3, OPENING_SEATS), stored.alliance.seats)
+    }
 
-        assertEquals(StoredAlliance(Alliance(id, name, tag, AllianceLevel(0), AllianceSeats(7, 20)), AllianceVersion(3), TEST_NOW, 95_000), stored)
+    // **The level is derived from the stored total rather than written as zero**, which is the
+    // treasury arriving in this function: it wrote `AllianceLevel(0)` unconditionally until now, with
+    // a comment saying the balance slice would replace it.
+    @Test
+    fun `the level is the one the stored experience buys`() {
+        val opening = allianceFrom(ID, NAME, TAG, AllianceVersion.FIRST, TEST_NOW, experience = 0, taken = 1)
+        val climbed = allianceFrom(
+            ID,
+            NAME,
+            TAG,
+            AllianceVersion.FIRST,
+            TEST_NOW,
+            experience = AllianceBalance.spanOf(AllianceLevel(0)),
+            taken = 1,
+        )
+
+        assertEquals(AllianceLevel(0), opening.alliance.level)
+        assertEquals(AllianceLevel(1), climbed.alliance.level)
+    }
+
+    @Test
+    fun `a level and a bought charter each widen the roster`() {
+        val earned = allianceFrom(
+            ID,
+            NAME,
+            TAG,
+            AllianceVersion.FIRST,
+            TEST_NOW,
+            experience = AllianceBalance.spanOf(AllianceLevel(0)),
+            taken = 1,
+        )
+        val bought = allianceFrom(
+            ID,
+            NAME,
+            TAG,
+            AllianceVersion.FIRST,
+            TEST_NOW,
+            experience = 0,
+            taken = 1,
+            seatsBought = 1,
+        )
+
+        assertEquals(OPENING_SEATS + AllianceBalance.SEATS_PER_LEVEL, earned.alliance.seats.cap)
+        assertEquals(OPENING_SEATS + AllianceBalance.SEATS_PER_CHARTER, bought.alliance.seats.cap)
+    }
+
+    // **The residual `Alliance.kt` names beside `AllianceSeats`' own guard, paid here.** That type
+    // refuses to be built with more seats taken than its cap, so a roster that grew under a wider cap
+    // — or one a balance round narrows — would make the whole response *undecodable* rather than
+    // merely odd. The clamp is what turns "this alliance is over its cap" into a readable fact.
+    @Test
+    fun `a roster wider than its own cap reads as full rather than refusing to decode`() {
+        val crowded = allianceFrom(ID, NAME, TAG, AllianceVersion.FIRST, TEST_NOW, experience = 0, taken = 12)
+
+        assertEquals(AllianceSeats(12, 12), crowded.alliance.seats)
+    }
+
+    @Test
+    fun `the pool and what it has bought ride on the row`() {
+        val pool = Resources.of(metal = 486_300, crystal = 232_900, deuterium = 71_400)
+
+        val stored = allianceFrom(
+            ID,
+            NAME,
+            TAG,
+            AllianceVersion.FIRST,
+            TEST_NOW,
+            experience = 0,
+            taken = 1,
+            pool = pool,
+            seatsBought = 2,
+        )
+
+        assertEquals(pool, stored.pool)
+        assertEquals(2, stored.seatsBought)
+    }
+
+    private companion object {
+        val ID = AllianceId("vanguard")
+        val NAME = AllianceName("Vanguard")
+        val TAG = AllianceTag("VNG")
     }
 }

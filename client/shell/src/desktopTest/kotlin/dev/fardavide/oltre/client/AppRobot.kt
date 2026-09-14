@@ -125,7 +125,10 @@ private const val DEBUG_CLOSE = "debug-close"
 
 @OptIn(ExperimentalTestApi::class)
 internal class AppRobot(
-    private val test: ComposeUiTest,
+    // `internal` rather than private since the alliance: `AllianceRobot` is a second robot over the
+    // same composition, and a robot that could not reach the test host would have to be this class
+    // instead — which is how one robot becomes the file every feature edits.
+    internal val test: ComposeUiTest,
     private val booked: RecordingNotifications,
     // **The server, so a test can assert what actually left the phone.** A screen that looks right
     // and sent nothing is exactly the failure the offline era makes possible, and the only thing
