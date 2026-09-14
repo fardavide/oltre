@@ -144,6 +144,25 @@ internal class AllianceRobot(private val app: AppRobot) {
         .map { it.verb }
         .filterIsInstance<ClientVerb.Contribute>()
 
+    // **What the server holds once the founding is answered.** The charge is the server's — `core`
+    // takes the price out inside the route's transaction — so the colony on the fake is the honest
+    // place to read it, exactly as the contribution assertions above read the sync envelopes.
+    fun assertColonyCharged(metal: Long, crystal: Long, deuterium: Long) = apply {
+        val held = checkNotNull(app.server.colony) { "the server holds no colony" }.state.resources
+        assertEquals(metal, held.metal, "metal")
+        assertEquals(crystal, held.crystal, "crystal")
+        assertEquals(deuterium, held.deuterium, "deuterium")
+    }
+
+    // And that the phone went back for it. Without the sync the tap fires, the rail keeps drawing
+    // stock the server has already spent, and nothing on screen says otherwise until the next
+    // minute tick.
+    fun assertReadTheColonyBack() = apply {
+        val founded = app.server.allianceRequests().indexOfFirst { it is AllianceRequest.Create }
+        assertTrue(founded >= 0, "nothing was founded")
+        assertTrue(app.server.syncs().isNotEmpty(), "the colony was never read back after founding")
+    }
+
     fun assertBoughtAProject() = apply {
         val bought = app.server.allianceRequests().filterIsInstance<AllianceRequest.BuyProject>()
         assertEquals(1, bought.size, "projects bought: $bought")

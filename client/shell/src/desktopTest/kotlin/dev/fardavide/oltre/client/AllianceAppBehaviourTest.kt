@@ -216,6 +216,27 @@ class AllianceAppBehaviourTest {
         }
     }
 
+    // **The price leaves the colony, and the phone reads it back.** Founding is the one alliance act
+    // that spends a colony and the charge happens on the server, so the tap is followed by a sync —
+    // without it the rail would go on showing stock the server had already taken until the next
+    // minute tick, on the screen the tap was made from.
+    @Test
+    fun `founding one charges the colony and reads the charged one back`() {
+        val (saved, server) = founding()
+        app(saved = saved, api = server) {
+            open(OltreTab.ALLIANCE)
+            val alliance = AllianceRobot(this)
+            server.allianceStanding = AllianceStanding.Enlisted(ALLIANCE, AllianceRole.FOUNDER)
+            server.allianceRoster = ROSTER.copy(pending = emptyList())
+
+            alliance.typeAName("Ferro Alto").typeATag("FRA").found()
+
+            // 500,000 of each, less the 200,000 / 100,000 / 50,000 the block said it would cost.
+            alliance.assertColonyCharged(metal = 300_000, crystal = 400_000, deuterium = 450_000)
+            alliance.assertReadTheColonyBack()
+        }
+    }
+
     // **A colony that cannot pay is offered no control at all**, which is the same absence a tag the
     // contract refuses earns — and the line beside it is what makes the absence answerable.
     @Test

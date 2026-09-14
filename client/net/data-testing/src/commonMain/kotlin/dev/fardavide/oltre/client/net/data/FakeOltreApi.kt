@@ -390,13 +390,30 @@ class FakeOltreApi(
         return refuseOrElse { answerRequestError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
     }
 
+    // **It charges the colony for real when it answers**, which is `buyProject`'s choice below and
+    // the reason it matters more here: founding is the only alliance act that spends a *colony*, so
+    // a fake that handed the standing back untouched would let a screen pass that took the price and
+    // never redrew the rail. What it does not model is the transaction — that is the store's.
     override suspend fun createAlliance(
         access: SessionToken,
         name: AllianceName,
         tag: AllianceTag,
     ): ApiResult<AllianceStanding> {
         takeAlliance(AllianceRequest.Create(access, name, tag))
-        return refuseOrElse { createAllianceError?.let { ApiResult.Refused(it) } ?: ApiResult.Answered(allianceStanding) }
+        return refuseOrElse {
+            createAllianceError?.let { return@refuseOrElse ApiResult.Refused(it) }
+            // **A fake holding no colony is not modelling one**, which is why this charges rather
+            // than refusing `NoColony`: the plumbing tests in `:client:alliance:data` never give it
+            // one because they are about renewal and caching, and the real route's `NoColony` is
+            // unreachable from this client anyway — the founding block is drawn from the synced
+            // colony's own stock, so a player without one never sees the control.
+            val held = colony ?: return@refuseOrElse ApiResult.Answered(allianceStanding)
+            if (!held.state.resources.covers(foundingPrice)) {
+                return@refuseOrElse ApiResult.Refused(ApiError.AllianceFoundingUnaffordable)
+            }
+            colony = held.copy(state = held.state.copy(resources = held.state.resources.minus(foundingPrice)))
+            ApiResult.Answered(allianceStanding)
+        }
     }
 
     override suspend fun disbandAlliance(access: SessionToken): ApiResult<AllianceStanding> {

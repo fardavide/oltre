@@ -2,6 +2,7 @@ package dev.fardavide.oltre.client.net.data
 
 import dev.fardavide.oltre.core.BuildingType
 import dev.fardavide.oltre.core.Experience
+import dev.fardavide.oltre.core.Resources
 import dev.fardavide.oltre.protocol.AllianceId
 import dev.fardavide.oltre.protocol.AllianceMember
 import dev.fardavide.oltre.protocol.AllianceMemberId
@@ -20,6 +21,7 @@ import dev.fardavide.oltre.protocol.ClientVerb
 import dev.fardavide.oltre.protocol.CommanderName
 import dev.fardavide.oltre.protocol.CreateAllianceRequest
 import dev.fardavide.oltre.protocol.ExperienceReading
+import dev.fardavide.oltre.protocol.FoundingPriceResponse
 import dev.fardavide.oltre.protocol.IdToken
 import dev.fardavide.oltre.protocol.IdempotencyKey
 import dev.fardavide.oltre.protocol.JoinAllianceRequest
@@ -382,6 +384,42 @@ class KtorOltreApiTest {
             request.headers[Protocol.AUTHORIZATION_HEADER],
         )
         assertEquals(ApiResult.Answered(AllianceStanding.Unaffiliated), result)
+    }
+
+    // **The price is read, never held**, so this is the one route that decides what founding costs
+    // as far as the client is concerned — and the only one whose answer is unwrapped down to a
+    // single field rather than handed up whole.
+    @Test
+    fun `the founding price gets its own route and comes back as the basket alone`() = runTest {
+        // given
+        val records = mutableListOf<HttpRequestData>()
+        val price = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000)
+        val response = FoundingPriceResponse(ApiVersion.CURRENT, price)
+
+        // when
+        val result = api(records) { respond(Protocol.json.encodeToString(response), HttpStatusCode.OK, JSON) }
+            .foundingPrice(PLAYER)
+
+        // then
+        val request = records.single()
+        assertEquals(HttpMethod.Get, request.method)
+        assertEquals("/v1/alliance/founding", request.url.encodedPath)
+        assertEquals(0L, request.body.contentLength)
+        assertEquals(
+            Protocol.BEARER_PREFIX + PLAYER.value,
+            request.headers[Protocol.AUTHORIZATION_HEADER],
+        )
+        assertEquals(ApiResult.Answered(price), result)
+    }
+
+    // A refusal survives the unwrapping — there is no price to hand up, and inventing one would be
+    // the client drawing a figure nothing charges.
+    @Test
+    fun `a refused founding price stays a refusal rather than becoming a free alliance`() = runTest {
+        val result = api { respond(Protocol.json.encodeToString<ApiError>(ApiError.Unauthenticated), HttpStatusCode.Unauthorized, JSON) }
+            .foundingPrice(PLAYER)
+
+        assertEquals(ApiResult.Refused(ApiError.Unauthenticated), result)
     }
 
     @Test

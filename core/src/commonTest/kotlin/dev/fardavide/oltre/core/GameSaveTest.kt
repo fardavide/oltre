@@ -170,6 +170,8 @@ class GameSaveTest {
                 // identifier like the four above, *and* it is the discriminator whose absence from
                 // an older build's decoder is what schema 19 turns into a designed refusal.
                 Event.ResourcesContributed(amount = Resources.of(metal = 600), at = EPOCH),
+                // And schema 20's, on the same sentence one version later.
+                Event.AllianceFounded(price = Resources.of(metal = 200_000), at = EPOCH),
             ),
         )
 
@@ -184,6 +186,7 @@ class GameSaveTest {
         assertTrue(encoded.contains(""""type":"ShipsBuilt""""), encoded)
         assertTrue(encoded.contains(""""ships":{"counts":{"SKIFF":1}}"""), encoded)
         assertTrue(encoded.contains(""""type":"ResourcesContributed""""), encoded)
+        assertTrue(encoded.contains(""""type":"AllianceFounded""""), encoded)
     }
 
     // **Every event kind, decoded rather than merely written.** The test above encodes five of the
@@ -234,6 +237,13 @@ class GameSaveTest {
             Event.ResourcesContributed(
                 amount = Resources.of(metal = 4_210, crystal = 960, deuterium = 120),
                 at = EPOCH + 12.hours,
+            ),
+            // The fourteenth, and schema 20's floor for the same reason the thirteenth is 19's: an
+            // older build has never heard this discriminator, so the version bump only means
+            // anything if the current build can read one back.
+            Event.AllianceFounded(
+                price = Resources.of(metal = 200_000, crystal = 100_000, deuterium = 50_000),
+                at = EPOCH + 13.hours,
             ),
         )
         val state = GameState.initial().copy(eventLog = log)
